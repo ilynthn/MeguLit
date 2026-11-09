@@ -203,8 +203,8 @@ async function dispatch(request,runtime=null) {
         }
         const library=require('./library.cjs'),match=library.matchGame(db,{title,exe:executable},{manual:true});
         const id=match?.id||'game-'+crypto.randomUUID(),original=match?JSON.parse(match.original):{};
-        original.library={...original.library,dir:path.dirname(executable),exe:executable,executableSignature:library.signature(executable)};
-        if(match)db.prepare('UPDATE games SET title=?,executable=?,removed_at=NULL,original=? WHERE id=?').run(title,executable,JSON.stringify(original),id);
+        original.library={...original.library,source:'manual',steamRejected:false,dir:path.dirname(executable),exe:executable,executableSignature:library.signature(executable)};
+        if(match)db.prepare("UPDATE games SET title=?,executable=?,source='manual',removed_at=NULL,original=? WHERE id=?").run(title,executable,JSON.stringify(original),id);
         else db.prepare('INSERT INTO games(id,title,executable,source,original) VALUES (?,?,?,?,?)').run(id,title,executable,'manual',JSON.stringify(original));
         require('./series.cjs').autoGroup(db,root);runtime?.metadata().enqueue([id]);return {id};
       }

@@ -133,6 +133,15 @@ function steamGames(steam){
  return out;
 }
 
+// Steam manifests also identify installations reached through ordinary folder settings.
+const manifestCache=new Map();
+function steamAppidFor(executable){
+ const m=/^(.*[\\/]steamapps)[\\/]common[\\/]([^\\/]+)[\\/]/i.exec(String(executable||''));if(!m)return '';
+ const dir=m[1],install=m[2].toLowerCase();let map=manifestCache.get(dir.toLowerCase());
+ if(!map||!map.has(install)){map=new Map();try{for(const f of fs.readdirSync(dir))if(/^appmanifest_\d+\.acf$/i.test(f)){try{const t=fs.readFileSync(path.join(dir,f),'utf8'),id=/"appid"\s+"(\d+)"/.exec(t)?.[1],inst=/"installdir"\s+"([^"]+)"/.exec(t)?.[1];if(id&&inst)map.set(inst.toLowerCase(),id);}catch{}}}catch{}manifestCache.set(dir.toLowerCase(),map);}
+ return map.get(install)||'';
+}
+
 // ── Third-party folders: every sub-folder is one game (or the folder itself, if it is a game) ──────────────────
 function folderGames(folder){
  const out=[];let names=[];try{names=fs.readdirSync(folder);}catch{return out;}
@@ -162,7 +171,7 @@ async function download(url,file){try{const r=await fetch(url,{signal:AbortSigna
 
 class Library{
  constructor(layout){this.locale=new LocaleEmulator(layout.root||path.dirname(layout.config));this.file=path.join(layout.config,'library.json');this.coverDir=path.join(layout.root||path.dirname(layout.config),'data','assets','covers');this.state=this.read();this.verifiedPids=new Set();}
- read(){try{const v=JSON.parse(fs.readFileSync(this.file,'utf8'));return {autoSeries:v.autoSeries!==false,localeAutoJapanese:v.localeAutoJapanese!==false,localePath:String(v.localePath||''),setupDone:!!v.setupDone,steamPath:steamRoot(String(v.steamPath||'').trim()),folders:Array.isArray(v.folders)?v.folders.map(String):[],games:Array.isArray(v.games)?v.games:[],scanVersion:4,notGal:v.scanVersion===4&&v.notGal&&typeof v.notGal==='object'?v.notGal:{}};}catch{return {setupDone:false,steamPath:'',folders:[],games:[],notGal:{}};}}
+ read(){try{const v=JSON.parse(fs.readFileSync(this.file,'utf8'));return {autoSeries:v.autoSeries!==false,localeAutoJapanese:v.localeAutoJapanese!==false,localePath:String(v.localePath||''),setupDone:!!v.setupDone,steamPath:steamRoot(String(v.steamPath||'').trim()),folders:Array.isArray(v.folders)?v.folders.map(String):[],games:Array.isArray(v.games)?v.games:[],scanVersion:5,notGal:v.scanVersion===5&&v.notGal&&typeof v.notGal==='object'?v.notGal:{}};}catch{return {setupDone:false,steamPath:'',folders:[],games:[],notGal:{}};}}
  write(){try{fs.mkdirSync(path.dirname(this.file),{recursive:true});fs.writeFileSync(this.file+'.tmp',JSON.stringify(this.state,null,2));fs.renameSync(this.file+'.tmp',this.file);return true;}catch{return false;}}
  load(){return {...this.state,games:this.state.games.map(playableGame)};}
  async findSteam(){return {path:await findSteam()};}
@@ -176,10 +185,13 @@ class Library{
  // Scans Steam and the folders; returns games with engine, hook state, program and a cover file inside Tomoyo's
  // covers folder (Tomoyo only reads images there). Known games keep their media id and confirmed hook state.
  async scan(progress=()=>{},{incremental=false}={}){
+  manifestCache.clear();
   const found=[],skipped=[];this.restorable=new Map();if(this.state.steamPath)found.push(...steamGames(this.state.steamPath));for(const f of this.state.folders)found.push(...folderGames(f));
-  const known=new Map(this.state.games.map(g=>[String(g.dir||'').toLowerCase(),g]));if(!this.state.notGal)this.state.notGal={};const games=[];let i=0;
+  const known=new Map(this.state.games.map(g=>[String(g.dir||'').toLowerCase(),g]));if(!this.state.notGal)this.state.notGal={};const games=[],scanned=new Set();let i=0;
   try{fs.mkdirSync(this.coverDir,{recursive:true});}catch{}
   for(const c of found){progress({done:i++,total:found.length,title:c.title});
+   if(scanned.has(c.root.toLowerCase()))continue;
+   scanned.add(c.root.toLowerCase());
    // Folders already found not to be a visual novel are skipped until their contents change (start-up checks stay fast).
    const stamp=(()=>{try{return Math.round(fs.statSync(c.root).mtimeMs);}catch{return 0;}})(),rootKey=c.root.toLowerCase();
    if(this.state.notGal[rootKey]===stamp&&!known.has(rootKey))continue;
@@ -188,31 +200,43 @@ class Library{
    // moved aside by the patch) is kept as a library game in that language; the game language dialog offers the original.
    if(g&&g.engine&&!g.exe){const patched=listing(g.dir).names.filter(n=>/\.exe$/i.test(n)&&isTranslated(n)&&!SKIP_EXE.test(n)&&!SKIP_EXE_ANY.test(n)).sort((a,b)=>{try{return fs.statSync(path.join(g.dir,b)).size-fs.statSync(path.join(g.dir,a)).size;}catch{return 0;}})[0];if(patched){this.restorable.set(g.dir.toLowerCase(),restoreTool(g.dir,patched));g.exe=path.join(g.dir,patched);g.translated=translationOf(patched.replace(/\.exe$/i,''))||'zh';}}
     if(!g||!g.exe)continue;
+    const appid=c.appid||steamAppidFor(g.exe);
+    if(appid){c.source='steam';c.appid=appid;}
     const previous=known.get(g.dir.toLowerCase());
-    if(incremental&&previous&&String(previous.exe).toLowerCase()===g.exe.toLowerCase()){
+    const steamTrusted=c.source!=='steam'||String(previous?.appid||'')===c.appid&&previous?.vndbSteamAppid===c.appid&&(previous.vndbId||g.engine&&!g.engine.generic);
+    if(incremental&&previous&&!previous.steamRejected&&steamTrusted&&String(previous.exe).toLowerCase()===g.exe.toLowerCase()){
      games.push({...previous,missing:false,engine:g.engine?.name||previous.engine||'',hook:previous.hook==='verified'?'verified':hookState(g.engine),variants:c.source==='folder'?findVariants(c.root):previous.variants||[]});continue;
     }
    // A folder game is named after its game folder when that is deeper (E:GAL素晴日素晴らしき日々HD版 -> 素晴らしき日々).
    const names=[...new Set([c.source==='folder'&&g.dir!==c.root?label(g.dir):'',c.title].filter(Boolean))];
-   let vn=null,lookupFailed=false;const queries=[...new Set(names.flatMap(n=>[n,n.replace(/\s*[（(][^）)]*[）)]/g,'').trim(),...[...n.matchAll(/[（(]([^）)]+)[）)]/g)].map(m=>m[1])]).filter(Boolean))];if(c.source==='steam'&&(!g.engine||g.engine.generic)){const hit=await vndbSteam(c.appid);if(hit===undefined)lookupFailed=true;else if(hit)vn=hit;}
-   if(!vn&&(!g.engine||g.engine.hook===null||c.source==='folder'))for(const n of queries){const result=await vndb(n,c.source==='steam');if(result===undefined)lookupFailed=true;else if(result){vn=result;break;}}
-   if(!vn&&lookupFailed&&c.source==='steam'&&previous?.appid===c.appid&&previous.vndbId)vn={id:previous.vndbId,title:previous.names?.[1]||previous.title};
-   // Without a visual-novel engine (none, or a general one like Unity), only titles VNDB knows are kept: Steam
-   // libraries also hold ordinary games. Steam names must match exactly; folder names may be a shortened title.
-   if((!g.engine||g.engine.generic)&&!vn){if(!lookupFailed)this.state.notGal[rootKey]=stamp;continue;}delete this.state.notGal[rootKey];
+   let vn=null,lookupFailed=false;const queries=[...new Set(names.flatMap(n=>[n,n.replace(/\s*[（(][^）)]*[）)]/g,'').trim(),...[...n.matchAll(/[（(]([^）)]+)[）)]/g)].map(m=>m[1])]).filter(Boolean))];if(c.source==='steam'){const hit=await vndbSteam(c.appid);if(hit===undefined)lookupFailed=true;else if(hit)vn=hit;}
+   if(c.source!=='steam'&&!vn&&(!g.engine||g.engine.hook===null||c.source==='folder'))for(const n of queries){const result=await vndb(n,false);if(result===undefined)lookupFailed=true;else if(result){vn=result;break;}}
+   if(!vn&&lookupFailed&&c.source==='steam'&&previous?.appid===c.appid&&previous.vndbSteamAppid===c.appid&&previous.vndbId)vn={id:previous.vndbId,title:previous.names?.[1]||previous.title};
+   // Steam also installs software. An AppID link or a specific visual-novel engine confirms an automatic entry.
+   if((!g.engine||g.engine.generic)&&!vn){
+    if(!lookupFailed){
+     this.state.notGal[rootKey]=stamp;
+     if(c.source==='steam'&&previous){
+      games.push(previous.source==='manual'?{...previous,missing:false}:{...previous,steamRejected:true,vndbId:null,vndbSteamAppid:null,missing:false});
+     }
+    }
+    continue;
+   }delete this.state.notGal[rootKey];
    const old=known.get(g.dir.toLowerCase())||{};const key=crypto.createHash('sha1').update(g.dir.toLowerCase()).digest('hex').slice(0,16);
-   let cover=old.cover&&fs.existsSync(old.cover)?old.cover:'';
+   const identityChanged=c.source==='steam'&&String(old.vndbId||'')!==String(vn?.id||'');
+   let cover=!identityChanged&&old.cover&&fs.existsSync(old.cover)?old.cover:'';
    if(!cover){const target=path.join(this.coverDir,'tome-'+key+'.jpg');
     if(c.cover){try{fs.copyFileSync(c.cover,target);cover=target;}catch{}}
     else if(vn?.cover&&await download(vn.cover,target))cover=target;}
-   games.push({key,source:c.source,appid:c.appid||null,title:c.source==='steam'?c.title:(vn?.title||names[0]),names:[...new Set([...names,vn?.title].filter(Boolean))],dir:g.dir,exe:g.exe,engine:g.engine?.name||'',
-    hook:old.hook==='verified'?'verified':hookState(g.engine),vndbId:vn?.id||old.vndbId||null,cover,mediaId:old.mediaId||null,
+   games.push({key,source:old.source==='manual'?'manual':c.source,appid:c.appid||null,title:c.source==='steam'?c.title:(vn?.title||names[0]),names:[...new Set([...names,vn?.title].filter(Boolean))],dir:g.dir,exe:g.exe,engine:g.engine?.name||'',
+    hook:old.hook==='verified'?'verified':hookState(g.engine),vndbId:vn?.id||(c.source==='steam'?null:old.vndbId)||null,cover,mediaId:old.mediaId||null,
+    ...(c.source==='steam'?{vndbSteamAppid:!lookupFailed||vn?c.appid:null,steamRejected:false}:{}),
     variants:c.source==='folder'?findVariants(c.root):[],...(g.translated?{contentLanguage:g.translated}:{})});}
   progress({done:found.length,total:found.length,title:''});
   // Games found earlier that are now gone are kept (their media entries stay), only marked missing.
   for(const old of this.state.games)if(!games.some(g=>g.dir.toLowerCase()===String(old.dir||'').toLowerCase()))games.push({...old,missing:old.source==='manual'?!fs.existsSync(old.exe):true});
   const latest=this.read();for(const key of ['steamPath','folders','localeAutoJapanese','localePath','autoSeries'])if(latest[key]!==undefined)this.state[key]=latest[key];
-  this.state.scanVersion=4;this.state.games=games;this.write();return games.concat(skipped);
+  this.state.scanVersion=5;this.state.games=games;this.write();return games.concat(skipped);
  }
  manualAdd(value){
   const exe=path.resolve(String(value?.exe||'').trim());if(!/\.exe$/i.test(exe)||!fs.existsSync(exe)||!fs.statSync(exe).isFile())throw Error('请选择现有游戏 exe 文件');
@@ -292,6 +316,7 @@ class Synopses{
  // {mediaId,titles[],vndbId,appid,lang,refresh} -> {text,lang,source,fresh}
  async get(a){
   const id=String(a.mediaId),lang=['zh','en','ja'].includes(a.lang)?a.lang:'zh';let entry=this.cache[id];
+   if(a.appid&&entry?.steamIdentity!==String(a.appid)+':'+(a.vndbId||''))entry=null;
   // A language that could not be translated last time (offline, rate limited) is retried after ten minutes, not a day.
   const missing=entry&&!entry[lang]&&Date.now()-(entry.at||0)>600000;
   if(a.refresh||!entry||missing||entry.policy!==2||Date.now()-(entry.at||0)>86400000){if(!this.running.has(id))this.running.set(id,this.fetch(a).finally(()=>this.running.delete(id)));entry=await this.running.get(id)||entry;}
@@ -299,14 +324,16 @@ class Synopses{
   const order={zh:['zh','ja','en'],en:['en','zh','ja'],ja:['ja','zh','en']}[lang];for(const l of order)if(entry[l]&&require('./synopsis-policy.cjs').approved(entry.src?.[l]))return {text:entry[l],lang:l,source:entry.src?.[l]||''};return {text:'',lang,source:''};
  }
  async fetch(a){
-  const titles=[...new Set((a.titles||[]).map(String).filter(Boolean))],out={at:Date.now(),policy:2,src:{}},old=this.cache[String(a.mediaId)]||{};
+   const titles=[...new Set((a.titles||[]).map(String).filter(Boolean))],out={at:Date.now(),policy:2,src:{}};
+   if(a.appid)out.steamIdentity=String(a.appid)+':'+(a.vndbId||'');
+   const cached=this.cache[String(a.mediaId)]||{},old=a.appid&&cached.steamIdentity!==out.steamIdentity?{}:cached;
   const put=(l,text,src)=>{if(text&&!out[l]){out[l]=text;out.src[l]=src;}};
-  const v=await this.lookup(a.vndbId,titles);if(v?.text){put('en',v.text.slice(0,20000),'VNDB');if(v.alttitle)titles.push(v.alttitle);}
+   const v=a.appid&&!a.vndbId?null:await this.lookup(a.vndbId,a.appid?[]:titles);if(v?.text){put('en',v.text.slice(0,20000),'VNDB');if(v.alttitle)titles.push(v.alttitle);}
   // A language still missing is machine-translated from the best text found (the original Japanese first).
   await Promise.all([['zh',['ja','en']],['en',['ja','zh']],['ja',['zh','en']]].map(async([l,from])=>{if(out[l]||(old[l]&&require('./synopsis-policy.cjs').approved(old.src?.[l])&&!/机翻|MT/.test(old.src[l])))return;const f=from.find(x=>out[x]&&!/机翻/.test(out.src[x]||''));if(!f)return;const text=await this.translate(out[f],l,f);if(text&&text.trim()!==out[f].trim())put(l,text,out.src[f]+' · 机翻');}));
   // Keep what an earlier fetch found for a language this one could not reach (offline, rate limits).
   for(const l of ['zh','en','ja'])if(!out[l]&&old[l]&&require('./synopsis-policy.cjs').approved(old.src?.[l])){out[l]=old[l];out.src[l]=old.src?.[l]||'';}
-  if(!out.zh&&!out.en&&!out.ja)return Object.keys(old.src||{}).some(l=>require('./synopsis-policy.cjs').approved(old.src[l]))?old:null;if(!fs.existsSync(this.file+'.pre-vndb.json')&&fs.existsSync(this.file))fs.copyFileSync(this.file,this.file+'.pre-vndb.json');this.cache[String(a.mediaId)]=out;this.write();return out;
+   if(!out.zh&&!out.en&&!out.ja&&!a.appid)return Object.keys(old.src||{}).some(l=>require('./synopsis-policy.cjs').approved(old.src[l]))?old:null;if(!fs.existsSync(this.file+'.pre-vndb.json')&&fs.existsSync(this.file))fs.copyFileSync(this.file,this.file+'.pre-vndb.json');this.cache[String(a.mediaId)]=out;this.write();return out;
  }
 }
-module.exports={machine,restoreTool,Library,Synopses,engineOf,findGame,steamGames,folderGames,findSteam,findVariants,isTranslated,playableGame};
+module.exports={machine,restoreTool,Library,Synopses,engineOf,findGame,steamGames,steamAppidFor,folderGames,findSteam,findVariants,isTranslated,playableGame};

@@ -50,6 +50,17 @@ function reconcile(root,items,{restoreRemoved=false}={}){const db=openStore(root
  if(restoreRemoved){const revive=db.prepare('UPDATE games SET removed_at=NULL WHERE id=?');for(const row of db.prepare('SELECT id,executable FROM games WHERE removed_at IS NOT NULL').all())if(row.executable&&fs.statSync(row.executable,{throwIfNoEntry:false})?.isFile())revive.run(row.id);}
  for(const item of items){
  const existing=matchGame(db,item);
+ if(item.steamRejected){
+  if(existing&&existing.source!=='manual'){
+   const original=JSON.parse(existing.original||'{}');
+   if(!original.vndbManual){
+    original.library={...original.library,...item};
+    db.prepare('UPDATE games SET removed_at=COALESCE(removed_at,?),original=? WHERE id=?').run(Math.floor(Date.now()/1000),JSON.stringify(original),existing.id);
+    updated++;
+   }
+  }
+  continue;
+ }
  // Passive scans leave a removed installation hidden until its executable changes.
  if(existing?.removed_at!=null){if(item.missing||!item.exe||String(existing.executable||'').toLowerCase()===String(item.exe).toLowerCase()||!fs.existsSync(item.exe))continue;db.prepare('UPDATE games SET removed_at=NULL WHERE id=?').run(existing.id);existing.removed_at=null;}
  if(item.missing&&existing?.executable&&existing.executable.toLowerCase()!==String(item.exe||'').toLowerCase()&&fs.existsSync(existing.executable))continue;
@@ -64,7 +75,8 @@ function reconcile(root,items,{restoreRemoved=false}={}){const db=openStore(root
   if(check.issue&&check.issue!==saved.patchIssue)patch.diagnostic(root,existing?.id||item.key||'','patch-scan',check.issue);
   original.library.patchIssue=check.issue||'';
  }
- if(existing){db.prepare('UPDATE games SET title=?,executable=?,cover=CASE WHEN cover=\'\' AND ?!=\'\' THEN ? ELSE cover END,source=?,original=? WHERE id=?').run(existing.title||item.title,executable,cover,cover,item.source||existing.source,JSON.stringify(original),existing.id);updated++;}
+ const coverChanged=item.source==='steam'&&saved.vndbId!==item.vndbId&&!original.coverCustom&&!original.vndbManual;
+ if(existing){db.prepare("UPDATE games SET title=?,executable=?,cover=CASE WHEN ? THEN ? WHEN cover='' AND ?!='' THEN ? ELSE cover END,source=?,original=? WHERE id=?").run(existing.title||item.title,executable,Number(coverChanged),cover,cover,cover,existing.source==='manual'?'manual':item.source||existing.source,JSON.stringify(original),existing.id);updated++;}
  else if(!item.missing){
   const legacy=Number.isSafeInteger(item.mediaId)?item.mediaId:null,preferred=legacy==null?'':'game-'+legacy;
   const id=preferred&&!db.prepare('SELECT 1 FROM games WHERE id=?').get(preferred)?preferred:'game-'+crypto.randomUUID();
