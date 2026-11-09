@@ -73,10 +73,22 @@ function Draw-Book($g, $x, $y, $color) {
 
 # The setup runs inside powershell.exe, so the taskbar grouped it with PowerShell and showed PowerShell's icon.
 # An own AppUserModelID gives the window its own taskbar entry with the MeguLit icon set below.
-try { Add-Type -Namespace MeguLit -Name Shell -MemberDefinition '[DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id);'; [void][MeguLit.Shell]::SetCurrentProcessExplicitAppUserModelID('app.megulit.setup') } catch {}
+try { Add-Type -Namespace MeguLit -Name Shell -MemberDefinition @'
+[DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id);
+[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+'@; [void][MeguLit.Shell]::SetCurrentProcessExplicitAppUserModelID('app.megulit.setup') } catch {}
 $form = New-Object Windows.Forms.Form
 $form.Text = 'MeguLit'; $form.ClientSize = New-Object Drawing.Size(720,650); $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'; $form.MaximizeBox = $false; $form.BackColor = $C.bg; $form.ForeColor = $C.cream
+$form.add_HandleCreated({
+  $dark = 1
+  $frameBackground = [Drawing.ColorTranslator]::ToWin32($form.BackColor)
+  $frameText = [Drawing.ColorTranslator]::ToWin32($form.ForeColor)
+  [void][MeguLit.Shell]::DwmSetWindowAttribute($form.Handle,20,[ref]$dark,4)
+  [void][MeguLit.Shell]::DwmSetWindowAttribute($form.Handle,34,[ref]$frameBackground,4)
+  [void][MeguLit.Shell]::DwmSetWindowAttribute($form.Handle,35,[ref]$frameBackground,4)
+  [void][MeguLit.Shell]::DwmSetWindowAttribute($form.Handle,36,[ref]$frameText,4)
+})
 $exe = Join-Path $Root 'MeguLit.exe'; if (Test-Path $exe) { $form.Icon = [Drawing.Icon]::ExtractAssociatedIcon($exe) }
 
 function Label($text, $x, $y, $w, $h, $size, $bold, $color, $parent) {
