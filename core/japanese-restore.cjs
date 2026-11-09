@@ -100,8 +100,14 @@ function detect(gameDir){
 
 function gameRunning(gameDir){
  // PowerShell prints in the console code page unless told otherwise; Japanese and Chinese paths must come back as UTF-8.
- try{const out=require('node:child_process').execFileSync('powershell.exe',['-NoProfile','-Command',"[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }"],{encoding:'utf8',windowsHide:true,timeout:15000});
-  const dir=path.resolve(gameDir).toLowerCase()+path.sep;return out.replace(/^﻿/,'').split(/\r?\n/).some(p=>p.toLowerCase().startsWith(dir));}catch{return false;}
+ // A cold PowerShell start can take well over 15 s on a busy machine; a timeout used to read as "not running",
+ // so the check now waits longer and asks a second time before giving up.
+ const dir=path.resolve(gameDir).toLowerCase()+path.sep;
+ for(let attempt=0;attempt<2;attempt++){
+  try{const out=require('node:child_process').execFileSync('powershell.exe',['-NoProfile','-Command',"[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }"],{encoding:'utf8',windowsHide:true,timeout:40000});
+   return out.replace(/^﻿/,'').split(/\r?\n/).some(p=>p.toLowerCase().startsWith(dir));}catch{}
+ }
+ return false;
 }
 function writeAtomic(file,data){const tmp=file+'.megulit-tmp';fs.writeFileSync(tmp,data);fs.renameSync(tmp,file);}
 
