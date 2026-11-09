@@ -51,7 +51,7 @@ if (-not $env:RC) { $taskProblems.Add('rc.exe (Windows SDK resource compiler) no
 # MSVC import libraries: local tools folder first, then a Visual Studio / Build Tools install
 $taskMsvcRoots = @((Join-Path $taskTools 'vs2022\VC\Tools\MSVC'))
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-if (Test-Path -LiteralPath $vswhere) { foreach ($vs in @(& $vswhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)) { $taskMsvcRoots += Join-Path $vs 'VC\Tools\MSVC' } }
+if (Test-Path -LiteralPath $vswhere) { foreach ($vs in @(& $vswhere -products * -property installationPath)) { $taskMsvcRoots += Join-Path $vs 'VC\Tools\MSVC' } }
 $taskMsvc = $taskMsvcRoots | Where-Object { Test-Path -LiteralPath $_ } | ForEach-Object { Get-ChildItem -LiteralPath $_ -Directory } | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'lib\x64\msvcrt.lib') } | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
 if (-not $taskMsvc) { $taskProblems.Add('MSVC libraries not found (install Visual Studio 2022 or Build Tools with "Desktop development with C++")') }
 
