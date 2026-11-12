@@ -56,3 +56,4 @@ test('script identifiers are not story lines',()=>{
  assert.equal(scriptIdentifier('「ねぇねぇ。なにブツブツ言ってるのー？」'),false);
  assert.equal(scriptIdentifier('第1話'),false);
 });
+test('underscore-led identifiers',()=>{const {scriptIdentifier}=require('../core/language-tracks.cjs');assert.equal(scriptIdentifier('_幻想パート80'),true);});

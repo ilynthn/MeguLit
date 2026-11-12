@@ -1912,3 +1912,8 @@ html:not(#u) body .main{scrollbar-gutter:stable}
 html body :is(.dict-hit-flash,.dict-hit-line){mix-blend-mode:normal!important}
 html body .dict-shards i,html body .dict-shards i.d0,html body .dict-shards i.d2{filter:none!important}
 html body .dict-shards i.d0{opacity:.6!important}
+/* 2026-11-13 judge round (beta.12 screenshots): background too bright, decoration competing with content */
+html:not(#u):not(#v) body .app-backdrop:after{background:color-mix(in srgb,var(--bg) calc(max(var(--background-dim,.78),.86)*100%),transparent)}
+html:not(#u):not(#v) body .dict-field{opacity:.38!important}
+html:not(#u):not(#v) body .gm-sentence.mini{flex-wrap:nowrap;overflow:hidden}
+html:not(#u):not(#v) body .gm-n0note{font-size:13px;line-height:1.6}

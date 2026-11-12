@@ -21,9 +21,11 @@ const DUR=12000,BEAT=476,LOGO=new URL('./assets/megulit-logo.svg',import.meta.ur
 const details=new Map(),palettes=new Map();
 const LINES_EDIT={zh:'选择台词',ja:'セリフを選ぶ',en:'Choose lines'};
 /* (user 2026-11-12) the lines chosen for this game in the picker, else the automatic ones (saved sentences, else the latest read) */
+/* 2026-11-13: lines recorded before script identifiers were filtered (10_プロローグ0725___for_summerpockets) stay out of the showcase */
+const storyLine=t=>!(t&&!/\s/.test(t)&&t.includes('_')&&!/[。、！？!?…―]/.test(t));
 export function homeLinesFor(d){const own=(d?.homeLines||[]).map(t=>String(t||'').trim()).filter(Boolean);if(own.length)return {lines:own.slice(0,5),custom:true};
- if(Array.isArray(d?.homeAuto))return {lines:d.homeAuto.map(t=>String(t||'').trim()).filter(Boolean).slice(0,8),custom:false};const saved=(d?.sentences||[]).map(s=>String(s.text||'').trim()).filter(Boolean);
- return {lines:(saved.length?saved:(d?.recentLines||[]).map(s=>String(s.text||'').trim()).filter(Boolean).slice(-6)).slice(0,8),custom:false};}
+ if(Array.isArray(d?.homeAuto))return {lines:d.homeAuto.map(t=>String(t||'').trim()).filter(Boolean).filter(storyLine).slice(0,8),custom:false};const saved=(d?.sentences||[]).map(s=>String(s.text||'').trim()).filter(Boolean).filter(storyLine);
+ return {lines:(saved.length?saved:(d?.recentLines||[]).map(s=>String(s.text||'').trim()).filter(Boolean).filter(storyLine).slice(-6)).slice(0,8),custom:false};}
 let live=null;
 
 export function cleanShowcase(value){const v=value&&typeof value==='object'?value:{},ids=list=>Array.isArray(list)?[...new Set(list.filter(x=>typeof x==='string'&&x.length<200))].slice(0,

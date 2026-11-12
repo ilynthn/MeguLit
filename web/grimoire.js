@@ -279,7 +279,7 @@ export function fieldify(grid,filtered=false){
  host.querySelector(':scope > .field-shield')?.remove();
  if(filtered&&items.length>=2){orbit(host,main,plane,items,pod);return;}
 
- const cw=200,ch=300,cardWidth=168,cardHeight=250;
+ const cw=200,ch=318,cardWidth=168,cardHeight=250;
  const count=filtered?items.length*(items.length===2?3:items.length<=5?2:1):items.length;
  const cols=Math.min(count,Math.max(2,Math.round(Math.sqrt(count*(filtered?1:1.5*host.clientWidth/Math.max(1,host.clientHeight))))));
  const rows=Math.ceil(count/cols);
@@ -330,6 +330,9 @@ export function fieldify(grid,filtered=false){
  function warm(){
   warmIdle=0;
   if(filtered||!host.isConnected||!width)return;
+  /* 2026-11-13 (CDP trace: a 147 ms frame 0.3 s into the first drag): the batch is one long style pass; while the wall
+     moves it waits for the next quiet moment instead of landing mid-drag */
+  if(host.classList.contains('field-moving')||host.classList.contains('dragging')){warmLater();return;}
   const most=(Math.ceil(width/(cw*.55))+4)*(Math.ceil(height/(ch*.55))+4),per=Math.ceil(most/items.length)+2;
   const have=new Map();for(const cell of cells.values())have.set(cell.index,(have.get(cell.index)||0)+1);
   const spare=document.createDocumentFragment();
@@ -406,6 +409,7 @@ export function fieldify(grid,filtered=false){
    if(Math.abs(zoomTarget-state.z)<.0008)state.z=zoomTarget;else zooming=true;
   }
   zoomAt=zooming?now:0;zoomBusy=zooming;
+  /* 2026-11-13 (judge: the search capsule sat on the cover titles of the row above): once the wall rests it eases to the row gap, so the capsule never covers a cover or its title */if(!filtered&&!coastEnd&&!drag?.active&&!zooming){const goal=Math.round((state.y-ch/2)/ch)*ch+ch/2,gap=goal-state.y;if(Math.abs(gap)>.4){state.y+=reduceMotion.matches?gap:gap*.2;zooming=true;}else state.y=goal;}
   frameCost(now);paint();{const fast=drag?.active||coastEnd;motionBlur(fast?vx:0,fast?vy:0);}
   if(!coastEnd&&!drag?.active&&!zooming)moving(false);
   if(coastEnd||zooming||(drag?.active&&Math.hypot(vx,vy)>.75)||blurKey!=='0 0')queue();

@@ -85,5 +85,5 @@ function japaneseTrack(text){
 /* E312 (live test 2026-11-13, Summer Pockets: 10_プロローグ0725___for_summerpockets_language___for_summerpockets and a half-scrolled
    ト80_幻想パー were read and drawn as story lines): script/scene identifiers that pass through the text call. A line with no
    whitespace and no sentence punctuation that carries a number_ prefix or a double underscore is a name, not dialogue. */
-function scriptIdentifier(text){const t=String(text||'').trim();if(!t||/\s/.test(t)||/[。、！？!?「」『』（）…―]/.test(t))return false;return /\d_|__/.test(t);}
+function scriptIdentifier(text){const t=String(text||'').trim();if(!t||/\s/.test(t)||/[。、！？!?「」『』（）…―]/.test(t))return false;return t.includes('_');}
 module.exports={scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
