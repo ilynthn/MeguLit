@@ -293,7 +293,7 @@ export function fieldify(grid,filtered=false){
  host.querySelector(':scope > .field-shield')?.remove();
  if(filtered&&items.length>=2){orbit(host,main,plane,items,pod);return;}
 
- const cw=200,ch=318,cardWidth=168,cardHeight=250;
+ const cw=200,ch=342,cardWidth=168,cardHeight=250; /* 2026-11-13 judges round 2: taller row pitch so the search capsule sits in a clear gap between two rows */
  const count=filtered?items.length*(items.length===2?3:items.length<=5?2:1):items.length;
  const cols=Math.min(count,Math.max(2,Math.round(Math.sqrt(count*(filtered?1:1.5*host.clientWidth/Math.max(1,host.clientHeight))))));
  const rows=Math.ceil(count/cols);
@@ -400,8 +400,8 @@ export function fieldify(grid,filtered=false){
    const dx=(col*cw-x)*z,dy=(row*ch-y)*z;
    const d=Math.min(1,Math.hypot(dx,dy)/radius);
    // E222/E223 (user): covers stay on the grid; the wall is a plain background behind the search capsule.
-   const t='translate('+(cx+dx-cardWidth/2).toFixed(1)+'px,'+(cy+dy-cardHeight/2).toFixed(1)+'px) scale('+(z*(1-.22*d*d)).toFixed(3)+')';
-   const o=(1-.35*d*d).toFixed(2);
+   const t='translate('+(cx+dx-cardWidth/2).toFixed(1)+'px,'+(cy+dy-cardHeight/2).toFixed(1)+'px) scale('+(z*(1-.26*d*d)).toFixed(3)+')';
+   const o=(1-.48*d*d).toFixed(2);
    if(cell.t!==t){cell.node.style.transform=t;cell.t=t;}
    if(cell.o!==o){cell.node.style.opacity=o;cell.o=o;}
   }

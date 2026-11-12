@@ -17,7 +17,7 @@ export function mountDictHome(target,results,{api,esc,number,locale,look}){
    const map=new Map((days||[]).map(d=>[d.day,d.lookups||0])),list=[];
    for(let i=13;i>=0;i--){const d=new Date(Date.now()-i*864e5),key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;list.push({key,n:map.get(key)||0,label:`${d.getMonth()+1}/${d.getDate()}`});}
    const max=Math.max(1,...list.map(d=>d.n)),sum=list.reduce((a,d)=>a+d.n,0);
-   const bars=list.map((d,i)=>`<li title="${d.label} · ${number(d.n)} ${DH.dayUnit}"${i===list.length-1?' data-today':''}><span style="--h:${Math.round(d.n/max*100)}%"><b>${d.n?number(d.n):''}</b></span><small>${d.label}</small></li>`).join('');
+   const bars=list.map((d,i)=>`<li title="${d.label} · ${number(d.n)} ${DH.dayUnit}"${i===list.length-1?' data-today':''}><span style="--h:${Math.round(Math.sqrt(d.n/max)*100)}%"${d.n?'':' data-zero'}><b>${d.n?number(d.n):''}</b></span><small>${d.label}</small></li>`).join('');
    const empty=`<p class="dh-none">${DH.none}</p>`;
    home.innerHTML=`<section class="dh-col dh-often"><header><h3>${DH.often}</h3><p>${DH.oftenSub}</p></header>${oftenRows?`<ol>${oftenRows}</ol>`:empty}</section>`+
     `<section class="dh-col dh-recent"><header><h3>${DH.recent}</h3><p>${DH.recentSub}</p>${vocabRows?`<button type="button" class="text-button" data-dh-words>${DH.more} →</button>`:''}</header>${vocabRows?`<ol>${vocabRows}</ol>`:empty}</section>`+
