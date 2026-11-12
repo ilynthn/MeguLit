@@ -2,7 +2,7 @@
 // About page: what MeguLit is, version, links, credits, and the support (sponsor) codes.
 import {checkForUpdates} from './update-notice.js';
 import {openFeedback} from './feedback-ui.js';
-export const VERSION='1.4.9-beta.12';
+export const VERSION='1.4.9-beta.13';
 const REPO='https://github.com/ilynthn/MeguLit';
 const SPONSOR='https://github.com/sponsors/ilynthn';
 export const aboutLabel={zh:'关于',en:'About',ja:'について'};
