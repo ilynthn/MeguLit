@@ -178,7 +178,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .review-page .review-controls button.p
    and long help text folds to two lines, opening in full when the row is hovered or focused. */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-row[hidden]{display:none!important}
 /* a readable measure: the settings column stops at ~1100px instead of pushing controls to the far edge */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-content{max-width:1180px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content>*,html:not(#u):not(#v):not(#w):not(#x) body #advanced-settings-form>*{max-width:1120px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-section-title{font-size:38px!important;margin-bottom:8px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-search{margin-top:14px}
@@ -246,8 +245,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-stg.has-next .gm-stg-bar i.cur{bac
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel{padding-bottom:9vh!important;background:radial-gradient(60% 55% at 50% 48%,rgba(10,7,9,.62),rgba(10,7,9,.18) 75%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>[data-card]{width:min(1180px,100%)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-toolbar button.text-button{border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 26%,transparent)!important;padding:5px 14px!important}
-/* settings: nav and content centred as one group in wide windows; card controls on the same right edge as the rest */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-layout{max-width:1520px!important;margin-inline:auto!important;width:100%!important;justify-self:center!important;box-sizing:border-box}
+/* settings: card controls on the same right edge as the rest (the scroller keeps its scrollbar at the window edge) */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{margin-inline:-20px!important;padding-inline:18px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel{grid-template-columns:minmax(0,1fr) 300px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group{display:flex;gap:8px}
