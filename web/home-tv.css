@@ -144,7 +144,7 @@
 .tv-pop i::after{content:"";position:absolute;left:50%;top:2px;width:1.2px;height:4px;margin-left:-.6px;background:var(--g-gold);border-radius:1px}
 .tv-pop i.m2::before{content:"";position:absolute;left:50%;top:-6px;width:5px;height:3px;margin-left:-2.5px;border-top:1.2px solid var(--g-gold);border-radius:50%}
 /* real shell: the home fills the workspace, ignores the global 1400px column, and keeps the wallpaper far down */
-.main:has(>.tv-home){padding:0!important;overflow:hidden!important;display:block!important}
+.main[data-kids~="tv-home"]{padding:0!important;overflow:hidden!important;display:block!important}
 .main>.tv-home{max-width:none;margin:0;height:100%;min-height:0}
 .tv-fig b,.tv-heatsum b{font-weight:400!important}
 .tv-play{padding:10px 22px!important;letter-spacing:.2em}

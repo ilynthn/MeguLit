@@ -327,7 +327,7 @@ export function fieldify(grid,filtered=false){
   list.push(node);
  }
  /* spare covers per game: enough for the window at the smallest zoom, plus two */
- function warm(){
+ function warm(deadline){
   warmIdle=0;
   if(filtered||!host.isConnected||!width)return;
   /* 2026-11-13 (CDP trace: a 147 ms frame 0.3 s into the first drag): the batch is one long style pass; while the wall
@@ -335,9 +335,14 @@ export function fieldify(grid,filtered=false){
   if(drag||host.classList.contains('field-moving')||host.classList.contains('dragging')||performance.now()-lastMove<1200){warmLater();return;}
   const most=(Math.ceil(width/(cw*.55))+4)*(Math.ceil(height/(ch*.55))+4),per=Math.ceil(most/items.length)+2;
   const have=new Map();for(const cell of cells.values())have.set(cell.index,(have.get(cell.index)||0)+1);
-  const spare=document.createDocumentFragment();
-  for(let index=0;index<items.length;index++)for(let n=(have.get(index)||0)+(pool.get(index)?.length||0);n<per;n++){const node=make(index);parkNode(node,index);spare.append(node);}
+  /* 2026-11-13: small batches, one per idle slot. Batching was worse before (16 x 50 ms) only because ancestor :has()
+     rules restyled the whole page per batch; those are attributes now (main-kids.js), so a batch costs its own nodes */
+  const spare=document.createDocumentFragment();let more=false;
+  outer:for(let index=0;index<items.length;index++)for(let n=(have.get(index)||0)+(pool.get(index)?.length||0);n<per;n++){
+   if(spare.childNodes.length>=12||(spare.childNodes.length>=4&&deadline&&deadline.timeRemaining&&deadline.timeRemaining()<3)){more=true;break outer;}
+   const node=make(index);parkNode(node,index);spare.append(node);}
   if(spare.childNodes.length)plane.append(spare);
+  if(more)warmIdle=idle(warm,{timeout:1500});
  }
  /* after the entrance has played, in an idle slot */
  let warmId=0,warmIdle=0;

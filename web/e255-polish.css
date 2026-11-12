@@ -42,10 +42,10 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 
 /* ---------- 2. 设置页：分区切换时位置不动 ---------- */
 /* 保存状态会塞进页头，原规则让页头从隐藏变显示把整页下推；改为浮在右上，不占位 */
-.main:has(>.settings-layout){position:relative}
-.main:has(>.settings-layout) .page-header{display:flex!important;position:absolute!important;top:0;right:clamp(16px,3vw,40px);height:0;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:visible;pointer-events:none;z-index:4}
-.main:has(>.settings-layout) .page-header>:not(.page-tools){display:none!important}
-.main:has(>.settings-layout) .page-header .page-tools{position:absolute;right:0;top:6px}
+.main[data-kids~="settings-layout"]{position:relative}
+.main[data-kids~="settings-layout"] .page-header{display:flex!important;position:absolute!important;top:0;right:clamp(16px,3vw,40px);height:0;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:visible;pointer-events:none;z-index:4}
+.main[data-kids~="settings-layout"] .page-header>:not(.page-tools){display:none!important}
+.main[data-kids~="settings-layout"] .page-header .page-tools{position:absolute;right:0;top:6px}
 .settings-autosave-status[hidden]{display:none!important}
 .main .settings-content .settings-search{margin-top:0!important}
 

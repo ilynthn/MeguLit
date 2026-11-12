@@ -30,7 +30,11 @@
     };
     return match(0, 0, 0) || fallback();
   }
+  /* 2026-11-13 (Summer Pockets with its script set to Chinese: Japanese furigana sat on the Chinese line): a line with no kana,
+     several Han characters and Chinese punctuation or simplified-only characters is not Japanese, so it gets no ruby at all */
+  const chineseLine = text => { const t = String(text || ''); if (/[぀-ヿ]/.test(t)) return false; const han = (t.match(/\p{Script=Han}/gu) || []).length; return han >= 4 && (/[，；]/.test(t) || /[们这说时么还对没过进见现发关开问从实经样让给为个吗呢吧]/.test(t)); };
   function annotations(text, tokens) {
+    if (chineseLine(text)) return [];
     const result = [];
     let cursor = 0;
     for (const token of tokens || []) {
@@ -61,6 +65,7 @@
   // Readings the game prints itself (its ruby), learned per work, replace guessed ones wherever that word appears:
   // a kanji has too many readings to guess (user, 2026-11-03). Longer words win over shorter ones they contain.
   function withGameRuby(text, list, dict) {
+    if (chineseLine(text)) return [];
     if (!dict || typeof dict !== 'object') return list;
     const chars = [...String(text || '')], taken = new Array(chars.length).fill(false), extra = [];
     for (const base of Object.keys(dict).sort((a, b) => [...b].length - [...a].length)) {
@@ -75,7 +80,7 @@
     if (!extra.length) return list;
     return list.filter(a => !taken.slice(a.start, a.end).some(Boolean)).concat(extra).sort((a, b) => a.start - b.start);
   }
-  const api = { kana, splitReading, annotations, contextual, withGameRuby };
+  const api = { kana, splitReading, annotations, contextual, withGameRuby, chineseLine };
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root) root.TomoyoFurigana = api;
 })(typeof window === 'object' ? window : null);

@@ -430,7 +430,7 @@ button.lb-mychip:active{transform:scale(.98)}
 
 /* E457 the home / game detail language: blurred cover stage, mono letter-spaced labels, light serif numerals, glass
    panels with a gold corner tick, numbered tabs, thin outline switches. Fluid from 1024 px to 4K. */
-.main:has(>.lb-backdrop){position:relative;isolation:isolate}
+.main[data-kids~="lb-backdrop"]{position:relative;isolation:isolate}
 .lb-backdrop .dtv-glyph{right:4%;top:6%;font-size:46vmin}
 .leaderboard-page{--lb-mono:"IBM Plex Mono",Consolas,monospace;--lb-glass:linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54));--lb-glass-line:rgba(255,255,255,.09);
  max-width:min(1360px,100%);width:100%;padding:clamp(14px,2.4vw,40px) clamp(16px,3.2vw,56px) 48px;gap:clamp(14px,1.6vw,24px);box-sizing:border-box;position:relative;z-index:1}

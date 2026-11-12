@@ -36,8 +36,8 @@ html:not(#u):not(#v) body .main :is(.gm-hero,.gm-group,.stg-glass,.review-card,.
  -webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3)}
 html:not(#u):not(#v) body .main :is(.gm-overview,.gm-stg,.ri-level,.about-qcard,.tool-key-note,.steps){border-radius:2px!important}
 
-html:not(#u):not(#v) body .main:has(>.tabs)>.page-header{top:18px!important;right:clamp(48px,4vw,64px)!important}
-html:not(#u):not(#v) body .main:has(>.tabs)>.page-header{z-index:7!important}
+html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header{top:18px!important;right:clamp(48px,4vw,64px)!important}
+html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header{z-index:7!important}
 
 /* ---- dialogs and panels: one glass sheet below the top bar, hairline frame, gold corner tick, the app's own buttons
    (E446 / E450 sizes kept: the 54px request row, the tall notice with room for the update list) ---- */
@@ -140,7 +140,7 @@ html:not(#u):not(#v) body #learning-content :is(small,.mg-legend,.gm-legend,.ri-
 
 /* ---- grammar lessons: hairlines instead of dashes, a glass highlight for the current step, ghost "previous",
    one way to mark the target particle, room under the sticky band ---- */
-html:not(#u):not(#v) body .workspace>.main:has(>.tabs){scroll-padding-top:96px}
+html:not(#u):not(#v) body .workspace>.main[data-kids~="tabs"]{scroll-padding-top:96px}
 html:not(#u):not(#v) body #learning-content :is(.gm-lesson,.gm-lesson-head,.gm-page){scroll-margin-top:96px}
 html:not(#u):not(#v) body .gm-page :is(.gm-lead-line,.gm-pill,.gm-block,.gm-lesson-head .gm-chip,.gm-lesson .gm-lead-line,.gm-lesson .gm-widget,.gm-find){border-style:solid!important;border-color:var(--u-line)!important;border-radius:2px!important}
 html:not(#u):not(#v) body .gm-page :is(.gm-lesson .gm-step-dot,.gm-lesson .gm-stepnav,.gm-lesson .gm-formulas li,.gm-more){border-style:solid!important;border-color:var(--u-line)!important}
@@ -250,23 +250,23 @@ html:not(#u):not(#v) body .main .cover-frame img.cover{border-radius:2px!importa
 
 /* ---- history: fixed metric columns (they no longer drift with the digits), readable labels, the 史 watermark stays
    behind the rows, the font link keeps clear of the frame ---- */
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics{grid-template-columns:repeat(3,clamp(96px,8.6vw,140px))!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics>div{padding:0 0 0 clamp(14px,1.4vw,22px)!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics>div:first-child{border-left:1px solid rgba(255,255,255,.08)!important;padding-left:clamp(14px,1.4vw,22px)!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics dt{font-size:11px!important;letter-spacing:.16em!important;color:var(--g-t2,#c3ab9c)!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics{grid-template-columns:repeat(3,clamp(96px,8.6vw,140px))!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics>div{padding:0 0 0 clamp(14px,1.4vw,22px)!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics>div:first-child{border-left:1px solid rgba(255,255,255,.08)!important;padding-left:clamp(14px,1.4vw,22px)!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics dt{font-size:11px!important;letter-spacing:.16em!important;color:var(--g-t2,#c3ab9c)!important}
 html:not(#u):not(#v) body .workspace>.stage-cover[data-kind~=history-backdrop] .dtv-glyph{-webkit-text-stroke-color:color-mix(in srgb,var(--g-t1) 7%,transparent)}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) :is(.history-session,.history-dialogue){background:linear-gradient(160deg,rgba(24,22,28,.84),rgba(14,13,17,.78))!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) :is(.dialogue-translation.is-missing,.history-dialogue .retry,.history-dialogue [data-retry]){font-size:12px!important;letter-spacing:.08em!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.history-session,.history-dialogue){background:linear-gradient(160deg,rgba(24,22,28,.84),rgba(14,13,17,.78))!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.dialogue-translation.is-missing,.history-dialogue .retry,.history-dialogue [data-retry]){font-size:12px!important;letter-spacing:.08em!important}
 
 /* ---- detail: every panel has the same inner padding (titles no longer touch the frame or the gold tick), the two
    columns start on one line, an unavailable rating reads as a quiet empty state ---- */
-html:not(#u):not(#v) body .main:has(>.dtv-bg) .game-detail-content .panel{padding:clamp(20px,1.8vw,28px)!important;box-sizing:border-box}
-html:not(#u):not(#v) body .main:has(>.dtv-bg) .game-detail-content details.panel.detail-technical>summary{padding:0 0 12px!important}
-html:not(#u):not(#v) body .main:has(>.dtv-bg) .detail-aside{padding-top:0!important}
-html:not(#u):not(#v) body .main:has(>.dtv-bg) .review-platform.is-unavailable{opacity:.62}
-html:not(#u):not(#v) body .main:has(>.dtv-bg) .review-platform :is(small,.review-region,.review-state){font-size:11.5px!important}
-html:not(#u):not(#v) body .main:has(>.dtv-bg) .detail-info-row :is(dt,span:first-child,small){font-size:11.5px!important;letter-spacing:.14em!important;color:var(--g-t2,#c3ab9c)!important}
-html:not(#u):not(#v) body .main:has(>.tabs)>.page-header{top:0!important;height:44px;display:flex!important;align-items:center}
+html:not(#u):not(#v) body .main[data-kids~="dtv-bg"] .game-detail-content .panel{padding:clamp(20px,1.8vw,28px)!important;box-sizing:border-box}
+html:not(#u):not(#v) body .main[data-kids~="dtv-bg"] .game-detail-content details.panel.detail-technical>summary{padding:0 0 12px!important}
+html:not(#u):not(#v) body .main[data-kids~="dtv-bg"] .detail-aside{padding-top:0!important}
+html:not(#u):not(#v) body .main[data-kids~="dtv-bg"] .review-platform.is-unavailable{opacity:.62}
+html:not(#u):not(#v) body .main[data-kids~="dtv-bg"] .review-platform :is(small,.review-region,.review-state){font-size:11.5px!important}
+html:not(#u):not(#v) body .main[data-kids~="dtv-bg"] .detail-info-row :is(dt,span:first-child,small){font-size:11.5px!important;letter-spacing:.14em!important;color:var(--g-t2,#c3ab9c)!important}
+html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header{top:0!important;height:44px;display:flex!important;align-items:center}
 html:not(#u):not(#v) body .workspace>.stage-cover:not([data-stage=leaderboard]) .dtv-glyph{-webkit-text-stroke-color:color-mix(in srgb,var(--g-t1,#f1e0d2) 9%,transparent)}
 
 /* ---- avatars: one round medallion with a hairline ring everywhere (the podium keeps its diamond frame around it);
@@ -440,17 +440,17 @@ html:not(#u):not(#v) body dialog.game-dialog :is(button,input,textarea):focus-vi
 html:not(#u):not(#v) body dialog.game-dialog :is(.dev-notice-form>input,.feedback-text,.feedback-contact):focus{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 55%,transparent)!important}
 html:not(#u):not(#v) body dialog.game-dialog .dev-notice-updates li{line-height:1.7;padding-block:2px}
 /* scrolled content fades out under the top bar instead of being cut */
-html:not(#u):not(#v) body .workspace>.main:not(.home-page):not(.field-page):not(:has(>.tabs)):not(:has(>.dtv-bg)){-webkit-mask:linear-gradient(transparent 0,#000 14px);mask:linear-gradient(transparent 0,#000 14px)}
+html:not(#u):not(#v) body .workspace>.main:not(.home-page):not(.field-page):not([data-kids~="tabs"]):not([data-kids~="dtv-bg"]){-webkit-mask:linear-gradient(transparent 0,#000 14px);mask:linear-gradient(transparent 0,#000 14px)}
 /* library: titles end in an ellipsis while still; the list fades under its head band */
 html:not(#u):not(#v) body .main .mq-box:not(:hover) .mq{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transform:none!important;animation:none!important}
 html:not(#u):not(#v) body .lib-list .library-grid{-webkit-mask:linear-gradient(transparent 0,#000 18px);mask:linear-gradient(transparent 0,#000 18px)}
 /* home: today's cell exactly one cell */
 html:not(#u):not(#v) body .tv-heat i.today{width:12px!important;height:12px!important;transform:none!important;justify-self:auto!important}
 /* history: the tab band stays on top while the list scrolls; the font link reads as a button; glass rows */
-html:not(#u):not(#v) body .main:has(>.tabs)>.page-header .text-button{height:30px;padding:0 12px!important;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(232,220,200,.22);letter-spacing:.12em!important}
-html:not(#u):not(#v) body .main:has(>.tabs)>.page-header .text-button:hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 60%,transparent)}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) :is(.history-session,.history-dialogue){background:linear-gradient(160deg,rgba(24,22,28,.7),rgba(14,13,17,.6))!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics dd{white-space:nowrap}
+html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header .text-button{height:30px;padding:0 12px!important;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(232,220,200,.22);letter-spacing:.12em!important}
+html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header .text-button:hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 60%,transparent)}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.history-session,.history-dialogue){background:linear-gradient(160deg,rgba(24,22,28,.7),rgba(14,13,17,.6))!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics dd{white-space:nowrap}
 /* detail: the glyph steps back on narrow windows */
 @media (max-width:1500px){html:not(#u):not(#v) body .workspace>.stage-cover[data-kind=""] .dtv-glyph,html:not(#u):not(#v) body .workspace>.stage-cover:not([data-kind]) .dtv-glyph{-webkit-text-stroke-color:color-mix(in srgb,var(--g-t1,#f1e0d2) 5%,transparent)!important}}
 /* level picker: equal buttons, a visible but disabled primary, no dashed focus */
@@ -490,7 +490,7 @@ html:is(:lang(zh-CN),:lang(ja-JP)) body :is(.lb-card-head small,.lb-h2 span,.tv-
 html:not(#u):not(#v) body .dl .dl-term{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:17px!important}
 html:not(#u):not(#v) body .dl .dl-word:nth-child(1) .dl-term{font-size:19px!important}
 html:not(#u):not(#v) body .dl .dl-term ruby{white-space:nowrap}
-html:not(#u):not(#v) body .workspace:has(>.main>.dl)>.stage-cover .stage-marks,html:not(#u):not(#v) body .workspace:has(>.main>.about-page)>.stage-cover .stage-marks{display:block}
+html:not(#u):not(#v) body .workspace[data-main-kids~="dl"]>.stage-cover .stage-marks,html:not(#u):not(#v) body .workspace[data-main-kids~="about-page"]>.stage-cover .stage-marks{display:block}
 /* tools: the line of purpose reads as the headline, the cards use the height */
 html:not(#u):not(#v) body .grimoire-page .tools-intro{font-family:var(--g-serif,serif);font-size:clamp(18px,1.5vw,22px);color:var(--g-t1,#f1e0d2);line-height:1.6}
 html:not(#u):not(#v) body .grimoire-page .tools-intro .tools-kicker{font-family:var(--u-mono)}
@@ -611,7 +611,7 @@ html:not(#u):not(#v) body dialog.game-dialog.dev-notice .dev-notice-actions butt
 html:not(#u):not(#v) body dialog.game-dialog .dev-notice-updates li{font-weight:400!important}
 /* library: the search is a hairline field with left-aligned text; the wall fades at its sides */
 /* history: the font button sits fully inside the band */
-html:not(#u):not(#v) body .main:has(>.tabs)>.page-header{top:7px!important;height:30px!important}
+html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header{top:7px!important;height:30px!important}
 
 /* ==== editorial pass (user's own scores: the bold, content-led pages win; boxed lists lose) ==== */
 
@@ -635,22 +635,22 @@ html:not(#u):not(#v) body .main .revisit-words{margin-bottom:22px!important}
 
 /* ---- reading sessions: a ledger — the day as a big numeral in its own column, each session one ruled line with
    the title, the time and three right-aligned figures ---- */
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-journal{display:grid;grid-template-columns:clamp(120px,11vw,180px) minmax(0,1fr);column-gap:clamp(24px,3vw,56px);max-width:1280px!important;margin:0 auto;padding-top:8px}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-day{grid-column:1;display:grid!important;grid-template-rows:auto auto auto;align-content:start;gap:4px;margin:0!important;padding:22px 0 0!important;border-top:1px solid var(--u-line-2);font-family:inherit!important;letter-spacing:0!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-day::after{display:none!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-day b{font-family:var(--g-serif,serif);font-size:clamp(52px,4.6vw,76px);font-weight:400;line-height:.9;color:var(--g-t1,#f1e0d2)}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-day span{font-family:var(--u-mono);font-size:11.5px;letter-spacing:.18em;color:var(--g-gold)}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-day small{font-size:12px;color:var(--g-t3,#a08a80)}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) :is(.history-session,.history-dialogue){grid-column:2;margin:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-top:1px solid var(--u-line)!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-day+:is(.history-session,.history-dialogue){border-top-color:var(--u-line-2)!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) :is(.history-session,.history-dialogue)::before{display:none!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) :is(.history-session,.history-dialogue):hover{background:linear-gradient(90deg,color-mix(in srgb,var(--u-red) 7%,transparent),transparent 70%)!important;transform:none!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-session{padding:16px 4px!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-session strong{font-family:var(--g-serif,serif);font-size:17px;font-weight:600}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-cover{width:38px!important;height:50px!important;border-radius:1px!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics>div,html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics>div:first-child{border-left:0!important;text-align:right;align-items:flex-end}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-metrics dd{font-size:clamp(22px,1.7vw,28px)!important}
-html:not(#u):not(#v) body .main:has(>.history-backdrop) .history-dialogue{padding:18px 4px!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-journal{display:grid;grid-template-columns:clamp(120px,11vw,180px) minmax(0,1fr);column-gap:clamp(24px,3vw,56px);max-width:1280px!important;margin:0 auto;padding-top:8px}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day{grid-column:1;display:grid!important;grid-template-rows:auto auto auto;align-content:start;gap:4px;margin:0!important;padding:22px 0 0!important;border-top:1px solid var(--u-line-2);font-family:inherit!important;letter-spacing:0!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day::after{display:none!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day b{font-family:var(--g-serif,serif);font-size:clamp(52px,4.6vw,76px);font-weight:400;line-height:.9;color:var(--g-t1,#f1e0d2)}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day span{font-family:var(--u-mono);font-size:11.5px;letter-spacing:.18em;color:var(--g-gold)}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day small{font-size:12px;color:var(--g-t3,#a08a80)}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.history-session,.history-dialogue){grid-column:2;margin:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-top:1px solid var(--u-line)!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day+:is(.history-session,.history-dialogue){border-top-color:var(--u-line-2)!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.history-session,.history-dialogue)::before{display:none!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.history-session,.history-dialogue):hover{background:linear-gradient(90deg,color-mix(in srgb,var(--u-red) 7%,transparent),transparent 70%)!important;transform:none!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-session{padding:16px 4px!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-session strong{font-family:var(--g-serif,serif);font-size:17px;font-weight:600}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-cover{width:38px!important;height:50px!important;border-radius:1px!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics>div,html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics>div:first-child{border-left:0!important;text-align:right;align-items:flex-end}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-metrics dd{font-size:clamp(22px,1.7vw,28px)!important}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-dialogue{padding:18px 4px!important}
 html:not(#u):not(#v) body .main .record.word-row :is(.word-source,.word-source .link-button,.word-def){text-align:left!important;justify-content:flex-start}
 /* words, aligned: headword and reading pinned to the top of every entry, the example follows the meaning directly,
    one width for the status control, entries in a row start on one line */
@@ -784,7 +784,7 @@ html:not(#u):not(#v) body .main .settings-content>div>.panel:first-child>h2:firs
 /* ---- r5 AI-feel: the remaining ornament goes (corner ticks, outline watermarks, the star on primaries), the
    leaderboard grids become ruled lists ---- */
 html:not(#u):not(#v) body .workspace>.stage-cover .dtv-glyph{display:none!important}
-html:not(#u):not(#v) body :is(.leaderboard-page .lb-card,.main:has(>.dtv-bg) .game-detail-content .panel,.about-qcard)::before{display:none!important}
+html:not(#u):not(#v) body :is(.leaderboard-page .lb-card,.main[data-kids~="dtv-bg"] .game-detail-content .panel,.about-qcard)::before{display:none!important}
 html:not(#u):not(#v) body :is(dialog.game-dialog,.lv-dialog,dialog.profile-panel){background:var(--u-glass-solid)!important}
 html:not(#u):not(#v) body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{display:none!important}
 html:not(#u):not(#v) body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){padding:0 26px!important;gap:0!important}
@@ -866,20 +866,20 @@ html:not(#u):not(#v):not(#w) body .lv-dialog .lv-opt>*{position:relative;z-index
 /* settings the user retired: follow-the-original-position (always on now) and history retention days */
 html:not(#u):not(#v):not(#w) body .main .settings-content .settings-row:has([name=livePosition],[name=history_span]){display:none!important}
 /* grouped reading sessions: the span and count under the title, the single sessions folded underneath */
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-session.is-group{grid-template-rows:auto auto}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts{grid-column:1/-1;margin:10px 0 0 52px}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts summary{cursor:pointer;width:max-content;font-family:var(--u-mono);font-size:11.5px;letter-spacing:.14em;color:var(--g-gold);list-style:none}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts summary::-webkit-details-marker{display:none}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts summary::before{content:"▸ ";display:inline-block;transition:transform .2s}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts[open] summary::before{transform:rotate(90deg)}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts ol{list-style:none;margin:10px 0 0;padding:0}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts li{display:grid;grid-template-columns:90px 1fr;align-items:center;padding:8px 0;border-top:1px solid var(--u-line)}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts li time{font-family:var(--u-mono);font-size:12px;color:var(--g-t2,#c3ab9c)}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts li .history-metrics dd{font-size:16px!important}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts li .history-metrics dt{display:none}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts{margin-left:52px!important}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts li{grid-template-columns:minmax(0,1fr) auto!important}
-html:not(#u):not(#v):not(#w) body .main:has(>.history-backdrop) .history-parts li .history-metrics{justify-self:end}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-session.is-group{grid-template-rows:auto auto}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts{grid-column:1/-1;margin:10px 0 0 52px}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary{cursor:pointer;width:max-content;font-family:var(--u-mono);font-size:11.5px;letter-spacing:.14em;color:var(--g-gold);list-style:none}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary::-webkit-details-marker{display:none}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary::before{content:"▸ ";display:inline-block;transition:transform .2s}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts[open] summary::before{transform:rotate(90deg)}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts ol{list-style:none;margin:10px 0 0;padding:0}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts li{display:grid;grid-template-columns:90px 1fr;align-items:center;padding:8px 0;border-top:1px solid var(--u-line)}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts li time{font-family:var(--u-mono);font-size:12px;color:var(--g-t2,#c3ab9c)}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts li .history-metrics dd{font-size:16px!important}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts li .history-metrics dt{display:none}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts{margin-left:52px!important}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts li{grid-template-columns:minmax(0,1fr) auto!important}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts li .history-metrics{justify-self:end}
 
 /* infinite wall: the search back in the middle (user); covers tilt toward the pointer like a trading card, with a
    moving sheen (card-tilt.js sets --rx / --ry / --mx / --my) */
@@ -1507,7 +1507,7 @@ html body .dict-hit-line{height:1px!important;top:0!important}
    history dropdown) */
 html body input:is(:-webkit-autofill,:-webkit-autofill:hover,:-webkit-autofill:focus,:autofill){-webkit-box-shadow:0 0 0 1000px #150f13 inset!important;box-shadow:0 0 0 1000px #150f13 inset!important;-webkit-text-fill-color:var(--g-t1,#f1e0d2)!important;caret-color:var(--g-t1,#f1e0d2);transition:background-color 9999s ease-out 0s}
 /* the launch never pushes out a scrollbar */
-html body:has(>#app>.app-frame>.workspace>.main>.dict-launch),html:not(#u):not(#v):not(#w):not(#x) body .main:has(>.dict-launch){overflow:hidden!important}
+html body[data-main-kids~="dict-launch"],html:not(#u):not(#v):not(#w):not(#x) body .main[data-kids~="dict-launch"]{overflow:hidden!important}
 /* (user: the box disappeared behind the field mid-flight) the dictionary column is its own stacking context, always
    above the field; 3D only happens inside it */
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content:has(#lookup-results){position:relative;z-index:2;isolation:isolate}

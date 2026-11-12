@@ -30,7 +30,7 @@ test('actual immutable Tauri core and IPC protocol complete a legacy request thr
  const {installHostTransport}=await import('../web/reader/host-transport.js');
  // The real tauri core.js from the locked crate in the Cargo registry (needs `cargo fetch` once).
  const lock=fs.readFileSync(path.join(__dirname,'..','desktop','Cargo.lock'),'utf8'),version=lock.match(/name = "tauri"\s+version = "([^"]+)"/)[1];
- const homes=[process.env.CARGO_HOME,process.env.MEGULIT_BUILD_TOOLS&&path.join(process.env.MEGULIT_BUILD_TOOLS,'cargo'),path.join(__dirname,'..','..','build-tools','cargo'),process.env.USERPROFILE&&path.join(process.env.USERPROFILE,'.cargo')].filter(Boolean);
+ const homes=[process.env.CARGO_HOME,process.env.MEGULIT_BUILD_TOOLS&&path.join(process.env.MEGULIT_BUILD_TOOLS,'cargo'),/* any ancestor's build-tools (a worktree sits several folders below the repo) */...(()=>{const out=[];for(let d=path.join(__dirname,'..');;){const up=path.dirname(d);out.push(path.join(up,'build-tools','cargo'));if(up===d)break;d=up;}return out;})(),process.env.USERPROFILE&&path.join(process.env.USERPROFILE,'.cargo')].filter(Boolean);
  const sourceRoot=homes.flatMap(h=>{const r=path.join(h,'registry','src');try{return fs.readdirSync(r).map(d=>path.join(r,d,'tauri-'+version,'scripts'));}catch{return [];}}).find(d=>fs.existsSync(path.join(d,'core.js')));
  assert.ok(sourceRoot,'tauri-'+version+' sources not found in any Cargo registry; run cargo fetch --manifest-path desktop/Cargo.toml');
  const nativeCalls=[],env={__TAURI_INTERNALS__:{},crypto:require('node:crypto').webcrypto,ipc:{postMessage(){throw Error('Unexpected fallback');}}};

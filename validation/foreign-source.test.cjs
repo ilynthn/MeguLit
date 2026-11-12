@@ -35,3 +35,15 @@ test('a Steam game with a companion launcher is started with the launcher own co
  assert.match(s,/SteamAppId:String\(profile\.appid\)/);assert.match(s,/const steam=steamApp&&!companion/);
  assert.match(s,/vc_\?redist\|dxsetup\|launcher\)\/i/,'Launcher.exe is never taken for the game');
 });
+
+test('no stream selected and the game in English: the stream whose sample maps back to Japanese is picked',()=>{
+ const {foreignKey}=require('../services/original-text.cjs');
+ const long='I wonder what Monika wants to talk about today, since the club meeting was cancelled again and nobody told me';
+ const map=new Map([[foreignKey(long+' anything at all.'),'「モニカは何を話したいんだろう」']]);
+ const h=probe({kind:'patch',foreign:(t,o)=>{const k=foreignKey(t);if(map.has(k))return map.get(k);if(o?.prefix)for(const [key,v] of map)if(key.startsWith(k))return v;return '';}});
+ const picked=[];h.select=id=>picked.push(id);
+ h.state.hookThreads=[{id:'ui',sample:'Options',selected:false},{id:'tmp',sample:long.slice(0,110),selected:false}];
+ assert.equal(h.foreignPick(),true);assert.deepEqual(picked,['tmp']);
+ assert.equal(h.foreignPick(),false,'each stream is tried once');
+ h.state.hookThreads=[{id:'x',sample:long,selected:true}];assert.equal(h.foreignPick(),false,'a selected stream is kept');
+});

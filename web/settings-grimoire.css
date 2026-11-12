@@ -135,8 +135,8 @@
 .sp-p-def{color:#e8d8ca}.sp-p-def.dim{color:#a8998f;font-size:12px}
 
 /* v1.1.5 light theme: word list, dictionary results and About used fixed dark cards with dark text */
-:root[data-theme=light] .main:not(:has(>.game-detail-content)) .record{background:linear-gradient(180deg,rgba(255,251,247,.9),rgba(250,242,235,.84))!important;border-color:rgba(158,27,50,.14)!important;box-shadow:0 10px 26px -20px rgba(80,30,30,.45)}
-:root[data-theme=light] .main:not(:has(>.game-detail-content)) .record:hover{background:linear-gradient(180deg,#fffaf6,#f7ede5)!important;border-color:rgba(158,27,50,.28)!important}
+:root[data-theme=light] .main:not([data-kids~="game-detail-content"]) .record{background:linear-gradient(180deg,rgba(255,251,247,.9),rgba(250,242,235,.84))!important;border-color:rgba(158,27,50,.14)!important;box-shadow:0 10px 26px -20px rgba(80,30,30,.45)}
+:root[data-theme=light] .main:not([data-kids~="game-detail-content"]) .record:hover{background:linear-gradient(180deg,#fffaf6,#f7ede5)!important;border-color:rgba(158,27,50,.28)!important}
 :root[data-theme=light] .main .record :is(.word-spelling,h3,strong){color:#2b1716!important}
 :root[data-theme=light] .main .record :is(.word-def,.moji-meaning,.moji-note-body,p,li){color:#4f3630!important}
 :root[data-theme=light] .main .record :is(.word-reading){color:#a8323f!important}
@@ -162,8 +162,8 @@
 :root[data-theme=light] .main .settings-layout>.settings-content{background:linear-gradient(170deg,#fbf3ee,#f3e7df)!important;border-color:rgba(158,27,50,.14)!important}
 :root[data-theme=light].home-glass .main .settings-layout>.settings-content{background:linear-gradient(170deg,color-mix(in srgb,var(--glass-tint,#fff7f2) var(--home-glass-alpha,65%),transparent),color-mix(in srgb,var(--glass-tint-deep,#f3e5dc) var(--home-glass-alpha,65%),transparent))!important}
 /* word and dictionary cards: solid when the switch is off */
-:root:not(.home-glass):not([data-theme=light]) .main:not(:has(>.game-detail-content)) .record{background:linear-gradient(180deg,#1c1415,#151012)!important;backdrop-filter:none!important}
-.home-glass .main:not(:has(>.game-detail-content)) .record{backdrop-filter:blur(var(--home-glass-blur,14px))!important;-webkit-backdrop-filter:blur(var(--home-glass-blur,14px))!important}
+:root:not(.home-glass):not([data-theme=light]) .main:not([data-kids~="game-detail-content"]) .record{background:linear-gradient(180deg,#1c1415,#151012)!important;backdrop-filter:none!important}
+.home-glass .main:not([data-kids~="game-detail-content"]) .record{backdrop-filter:blur(var(--home-glass-blur,14px))!important;-webkit-backdrop-filter:blur(var(--home-glass-blur,14px))!important}
 
 /* v1.1.5 switches: no clipped focus outline (it left two stray dots on top after a click); a stitched centre line */
 input.switch:focus,input.switch:focus-visible{outline:none!important}
@@ -217,7 +217,7 @@ input.switch:checked{background:repeating-linear-gradient(90deg,rgba(255,224,206
 
 /* v1.1.6 (user: the left menu floats with margins but the right sheet ran into the top and bottom edges): both columns
    are full-height cards with the same insets; the right one scrolls inside, with the search field pinned at its top */
-.main:has(>.settings-layout){overflow:hidden!important}
+.main[data-kids~="settings-layout"]{overflow:hidden!important}
 .main .settings-layout{height:100%;box-sizing:border-box;padding:6px 0 14px;align-items:stretch!important}
 .main .settings-layout>.settings-nav{position:relative!important;top:auto!important;max-height:none!important;height:auto;overflow:auto}
 .main .settings-layout>.settings-content{min-height:0;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin}

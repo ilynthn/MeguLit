@@ -56,7 +56,7 @@ input[type=checkbox]:not(.switch):checked::after{transform:scale(1)!important}
 @media (prefers-reduced-motion:reduce){input.switch,input.switch::before,input[type=range]::-webkit-slider-thumb,.grimoire-modal .opt::before{transition:none!important}}
 
 /* E220 作品详情：书页排版，沿用首页魔导书（无玻璃卡片、金色细线、衬线标题） */
-.main:has(>.game-detail-content) .panel,.game-detail-content .panel{background:none!important;backdrop-filter:none!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+.main[data-kids~="game-detail-content"] .panel,.game-detail-content .panel{background:none!important;backdrop-filter:none!important;border:0!important;border-radius:0!important;box-shadow:none!important}
 .game-detail-hero{position:relative;padding:34px 8px 30px!important;gap:36px!important;border-bottom:1px solid var(--g-rule-strong)!important}
 .game-detail-hero::after{content:"";position:absolute;left:50%;bottom:-5px;width:9px;height:9px;transform:translateX(-50%) rotate(45deg);background:var(--bg,#140d0c);border:1px solid var(--g-gold)}
 .detail-cover{width:172px!important;position:relative}
@@ -294,9 +294,9 @@ input[type=range]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb{backgr
 .review-card:has(>.anki-tools)>.review-controls:not(.anki-tools)>:only-of-type:is(button){grid-column:1 / -1;justify-self:center}
 /* E242 单词 / 词典 / 释义：改用卡片框，不再用横线分隔 */
 .main .record-list{gap:10px!important}
-.main:not(:has(>.game-detail-content)) .record{border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 14%,transparent)!important;border-radius:12px!important;padding:18px 22px!important;
+.main:not([data-kids~="game-detail-content"]) .record{border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 14%,transparent)!important;border-radius:12px!important;padding:18px 22px!important;
  background:linear-gradient(180deg,rgba(24,18,20,.62),rgba(16,13,16,.55))!important;backdrop-filter:blur(10px);transition:border-color .2s,background .2s}
-.main:not(:has(>.game-detail-content)) .record:hover{border-color:color-mix(in srgb,var(--gold-accent,#edb56e) 30%,transparent)!important;background:linear-gradient(180deg,rgba(32,22,24,.7),rgba(20,15,18,.6))!important}
+.main:not([data-kids~="game-detail-content"]) .record:hover{border-color:color-mix(in srgb,var(--gold-accent,#edb56e) 30%,transparent)!important;background:linear-gradient(180deg,rgba(32,22,24,.7),rgba(20,15,18,.6))!important}
 .moji-meanings{display:flex!important;flex-direction:column;gap:10px;padding-left:0!important;list-style-position:inside}
 .moji-meanings>li{padding:14px 18px;border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent);border-radius:10px;background:rgba(255,255,255,.025)}
 .moji-meanings>li::marker{color:var(--gold-accent,#edb56e)}
