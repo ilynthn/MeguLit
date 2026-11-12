@@ -293,7 +293,7 @@ export function fieldify(grid,filtered=false){
  host.querySelector(':scope > .field-shield')?.remove();
  if(filtered&&items.length>=2){orbit(host,main,plane,items,pod);return;}
 
- const cw=200,ch=342,cardWidth=168,cardHeight=250; /* 2026-11-13 judges round 2: taller row pitch so the search capsule sits in a clear gap between two rows */
+ const cw=200,ch=352,cardWidth=168,cardHeight=250; /* 2026-11-13 judges round 2: taller row pitch so the search capsule sits in a clear gap between two rows */
  const count=filtered?items.length*(items.length===2?3:items.length<=5?2:1):items.length;
  const cols=Math.min(count,Math.max(2,Math.round(Math.sqrt(count*(filtered?1:1.5*host.clientWidth/Math.max(1,host.clientHeight))))));
  const rows=Math.ceil(count/cols);
@@ -364,7 +364,7 @@ export function fieldify(grid,filtered=false){
  const warmLater=()=>{if(filtered||warmId||warmIdle)return;warmId=setTimeout(()=>{warmId=0;warmIdle=idle(warm,{timeout:1500});},1400);};
  function paint(){
   constrain();
-  const {x,y,z}=state,cx=width/2,cy=podY;
+  const {x,y,z}=state,cx=width/2,cy=podY-(filtered?0:14*z); /* a card is cover + caption, taller than its cell box: lift the rows so the capsule sits in the middle of a gap */
   /* 2026-11-13 (user: zooming the wall is very laggy): the zoom tier restyles every cover (captions, shadows, hover); while the wheel zoom is still gliding it waits, and changes once when the zoom settles */{const zoom=z>1.05?'large':z<.85?'tiny':'small';if(!zoomBusy&&host.dataset.zoom!==zoom)host.dataset.zoom=zoom;}
   /* 2026-11-12 (user: dragging the wall still lagged): every cover is placed on every frame, from transform and opacity
      only (each cover is its own compositor layer, so no paint). The old 90 ms plane-shift frames made the lens snap in

@@ -254,3 +254,20 @@ html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group{displ
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group input{min-width:0;flex:1;height:40px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group button{height:40px!important;flex:none}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content :is(.tr-conn-head,.tr-shared-head){font-size:14px!important;font-weight:700!important;margin-top:10px}
+/* ---- round 4 ---- */
+/* study: no frosted rectangles behind the card (the frame and panel blurred the backdrop in a hard-edged box) */
+html:not(#u):not(#v):not(#w):not(#x) body .review-page :is(.anki-card-frame,.anki-review-panel,[data-card]){backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body .review-page .review-controls button.primary{min-width:200px}
+/* grammar: the overview sentence wraps between pieces (never cut off at the card edge) */
+html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-sentence{flex-wrap:wrap!important;overflow:visible!important;row-gap:8px}
+/* home in short windows: a smaller activity card and a lower title so both stay on screen */
+@media (max-height:820px){
+ html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-title{bottom:15vh!important}
+ html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-left .tv-heat-card{zoom:.8}
+ html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-clock b{font-size:clamp(30px,3.4vw,46px)!important}
+}
+/* dictionary: panels opaque enough that the floating words never show through; counts quieter than readings */
+html body .dict-home .dh-col{background:color-mix(in srgb,#120d11 94%,transparent)!important}
+html body .dict-home .dh-often small{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 62%,transparent)!important}
+/* settings: more air above each group heading */
+html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-shared-head{margin-top:30px!important;padding-top:0!important}
