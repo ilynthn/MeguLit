@@ -257,7 +257,8 @@ function nearbyPatchSources(executable){
  return out;
 }
 // Bumped when the way patches are read changes; older stored patches are rebuilt before use.
-const PATCH_VERSION=2;
+/* 3: KiriKiri cx Chinese slot found by its text, ASCII-quoted slots take the Japanese brackets (2026-11-13) */
+const PATCH_VERSION=3;
 const autoRuns=new Map();
 // Fire and forget, with its own database handle (callers' handles close when their request ends).
 function autoPatchLater(root,id,done,options={}){
@@ -271,10 +272,13 @@ function autoPatch(root,db,id,options={}){
   const row=gameRow(db,id);let state=scanRunning(root,id,row.executable);if(!state.runtime||state.status!=='native-japanese')return {skipped:'not-japanese'};
   // A stored patch whose running script changed (game update, new line order) is rebuilt from where it was found.
   // A stored patch built by an older reader (E286: a name column taken for the translation) is rebuilt the same way.
-  const stale=state.patch&&state.patch.version!==PATCH_VERSION;
-  if(state.patch?.source&&(stale||state.patchStatus!=='ready'||state.patch.runtimeSha!==state.runtime.sha256)&&fs.existsSync(state.patch.source)){
+  /* A pairing made for another running script (the game's files restored or updated: Summer Pockets after its Japanese
+     restore was undone, 2026-11-13) pairs nothing; when its source folder is gone too it is searched for again. */
+  const stale=state.patch&&state.patch.version!==PATCH_VERSION,outdated=!!state.patch&&state.patch.runtimeSha!==state.runtime.sha256;
+  if(state.patch?.source&&(stale||state.patchStatus!=='ready'||outdated)&&fs.existsSync(state.patch.source)){
    try{const r=importPatch(root,db,id,state.patch.source,{auto:!!state.patch.auto});if(r.patchStatus==='ready')return {found:state.patch.source,rebuilt:true};}catch{}
    if(stale||state.patchStatus==='ready'){state=writeState(root,id,{patch:null,patchAlignment:null,patchStatus:'none',patchSearch:{...state.patchSearch,at:0}});options={...options,force:true};}}
+  else if(state.patch&&(stale||outdated)&&state.patchStatus==='ready'){state=writeState(root,id,{patch:null,patchAlignment:null,patchStatus:'none',patchSearch:{...state.patchSearch,at:0}});options={...options,force:true};}
   if(state.patchStatus==='ready')return {kept:true};
   if(state.patchSearch?.declined&&!options.force)return {declined:true};
   const recent=state.patchSearch?.at&&Date.now()-state.patchSearch.at<(options.maxAge??864e5)&&state.patchSearch.runtimeSha===state.runtime.sha256;

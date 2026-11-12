@@ -18,6 +18,7 @@
  document.head.append(style);
  const layer=document.createElement('div');layer.className='megulit-art';layer.setAttribute('aria-live','off');document.body.append(layer);
  const items=new Map();
+ const HIDE=[['color','transparent'],['-webkit-text-fill-color','transparent'],['-webkit-text-stroke-width','0'],['text-shadow','none'],['filter','none'],['background','none']];
  const scale=m=>{const sw=+m.sw||1,sh=+m.sh||1;return {x:innerWidth/sw,y:innerHeight/sh};};
  function remove(id){const it=items.get(id);if(!it)return;items.delete(id);it.classList.remove('is-shown');setTimeout(()=>it.remove(),500);}
  /* an item read again (OCR art scan: a poem growing line by line, a better read) is replaced in place, without a new fade */
@@ -30,7 +31,11 @@
   for(const r of rows){
    const row=document.createElement('div');row.className='sentence-text megulit-art-row';row.dataset.noI18n='';
    const size=Math.max(8,r.h*k.y);row.style.left=(r.x*k.x)+'px';row.style.top=(r.y*k.y)+'px';row.style.fontSize=size+'px';
-   for(const ch of [...r.text]){const s=document.createElement('span');s.className='char-token';s.textContent=ch;row.append(s);}
+   /* E311 (live test 2026-11-13, STEINS;GATE: sign art showed as white outlined 来原駅 / 買戸 over the picture): the game-style
+      sync paints .sentence-text .char-token with its own !important colour, fill and stroke, which beat the stylesheet above.
+      Inline !important on each glyph keeps the copy invisible whatever the synced style says. */
+   for(const ch of [...r.text]){const s=document.createElement('span');s.className='char-token';s.textContent=ch;for(const [p,v] of HIDE)s.style.setProperty(p,v,'important');row.append(s);}
+   for(const [p,v] of HIDE)row.style.setProperty(p,v,'important');
    item.append(row);
    /* the invisible copy spans the width the game drew the row at */
    requestAnimationFrame(()=>{const want=r.w*k.x,have=row.getBoundingClientRect().width;if(want>0&&have>0)row.style.letterSpacing=((want-have)/Math.max(1,[...r.text].length))+'px';});

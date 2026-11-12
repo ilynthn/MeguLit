@@ -65,3 +65,61 @@ test('D: game voices found for the scripts',{skip:!(have('ATRI -My Dear Moments-
   const s=gv.scan(root,steam+'Summer Pockets');assert.equal(s.found,s.voiced);assert.ok(s.voiced>27000);}
  finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+test('E: a translation slot quoted with ASCII quotes takes the Japanese brackets',()=>{
+ const {unquoteSlot}=require('../services/original-engines/scenes.cjs');
+ assert.equal(unquoteSlot('"救救我——"','「誰か助けて――」'),'「救救我——」');
+ assert.equal(unquoteSlot('"（虽然是下定决心了）"','（色々決意したはいいが）'),'（虽然是下定决心了）');
+ assert.equal(unquoteSlot('"这颗星球正在沉没——"','この星は沈みゆこうとしている――'),'这颗星球正在沉没——');
+ assert.equal(unquoteSlot('他说""好""','「x」'),'他说""好""');
+ assert.equal(unquoteSlot('"a""b"','「x」'),'「a"b」');
+});
+/* F (live test 2026-11-13, Summer Pockets + CLANNAD): Siglus draws and wraps Chinese itself, so the embed hooks no longer
+   put a space after each character Shift-JIS lacks ("连 成一片", "几间 民房"). */
+test('F: Siglus embed hooks insert no spaces into translations',()=>{
+ for(const f of ['megulithook','siglus']){const src=fs.readFileSync(path.join(__dirname,'..','native',f,'Siglus.cpp'),'utf8');
+  assert.ok(!/EMBED_INSERT_SPACE_AFTER_UNENCODABLE/.test(src),f);assert.ok((src.match(/EMBED_ABLE \| CODEC_UTF16/g)||[]).length>=4,f);}
+});
+/* G: a pairing made for another running script whose source folder is gone (Summer Pockets: paired from
+   .megulit-japanese\dat, then the Japanese restore was undone) is searched for again instead of pairing nothing. */
+test('G: Summer Pockets re-pairs after its old pairing source vanished',{skip:!have('Summer Pockets')&&'no local copy'},async()=>{
+ const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(':memory:');db.exec('CREATE TABLE games(id TEXT,executable TEXT,removed_at TEXT)');
+ const exe=path.join(steam+'Summer Pockets','SiglusEngine_Steam.exe');db.prepare('INSERT INTO games VALUES(?,?,NULL)').run('1',exe);
+ const ot=require('../services/original-text.cjs'),data=fs.mkdtempSync(path.join(os.tmpdir(),'ot-sp-'));
+ try{
+  const first=await ot.autoPatch(data,db,'1',{drives:false,force:true});assert.ok(first.found,JSON.stringify(first));
+  const file=path.join(data,'data','config','original-text.json'),s=JSON.parse(fs.readFileSync(file,'utf8'));
+  s['1'].patch={...s['1'].patch,source:path.join(data,'gone','dat'),dir:path.join(data,'gone','dat'),runtimeSha:'0'.repeat(64)};s['1'].patchSearch={...s['1'].patchSearch,at:Date.now(),runtimeSha:s['1'].runtime.sha256};fs.writeFileSync(file,JSON.stringify(s));
+  assert.equal((ot.scriptPairs(data,exe)?.tr||[]).filter(Boolean).length,0,'stale pairing pairs nothing');
+  const again=await ot.autoPatch(data,db,'1',{drives:false});assert.ok(again.found,JSON.stringify(again));
+  const p=ot.scriptPairs(data,exe);assert.ok(p.tr.filter(Boolean).length>60000,String(p.tr.filter(Boolean).length));
+ }finally{fs.rmSync(data,{recursive:true,force:true});}
+});
+/* H (live test 2026-11-13, ATRI): the embed call also carries each line's Simplified and Traditional Chinese slot; the
+   reader leaves those as the game has them instead of machine-translating Chinese. */
+test('H: Chinese language slots in the embed call are not translated',async()=>{
+ const {notJapanese,Reader}=require('../services/reader.cjs');
+ for(const t of ['"我吗？\n这个嘛……算他的情妇吧？"','"我嗎？\n這個嘛……算他的情婦吧？"','只是个非法入室的陌生人'])assert.ok(notJapanese(t),t);
+ for(const t of ['「あ・い・じ・ん！！？」','東京大学','完了','目的地','会議室','「……」','人間'])assert.ok(!notJapanese(t),t);
+ const replies=[];const r=Object.create(Reader.prototype);r.gal={hooks:{embedReply:(id,trans)=>replies.push([id,trans])}};r.embedCached=()=>{throw new Error('no lookup for a Chinese slot');};
+ await r.embedTranslate(7,'"我吗？这个嘛……算他的情妇吧？"');assert.deepEqual(replies,[[7,'']]);
+});
+/* I (live test 2026-11-13, PureStation): the slot after the Japanese is the release's own order (ja/zh-Hans/zh-Hant
+   there, ja/en/zh-Hans/zh-Hant in ATRI); the game showed Traditional Chinese where its own UI is Simplified. */
+test('I: KiriKiri cx takes the Simplified slot wherever it sits',()=>{
+ const e=require('../services/original-engines/scenes.cjs').ENGINES['kirikiri-cx'];
+ const rows=n=>Array.from({length:n},(_,k)=>['「これは'+k+'です」','「这是第'+k+'个，我们说过」','「這是第'+k+'個，我們說過」']);
+ const r=e.parse(Buffer.from(JSON.stringify({scenes:[{rows:rows(10)}]})));assert.equal(r.zh[3],'「这是第3个，我们说过」');
+ const en=Array.from({length:10},(_,k)=>['「これは'+k+'です」','"This is '+k+'"','「這是第'+k+'個，我們說過」']);
+ assert.equal(e.parse(Buffer.from(JSON.stringify({scenes:[{rows:en}]}))).zh[2],'「這是第2個，我們說過」');
+});
+/* J (live test 2026-11-13, サノバウィッチ): a folder run through SmartSteamEmu starts the launcher's Target; the original
+   exe beside it quits without Steam. */
+test('J: SmartSteamEmu launcher target is the game program',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-sse-')),dir=path.join(root,'Witch');fs.mkdirSync(path.join(dir,'SmartSteamEmu'),{recursive:true});
+ try{pe(path.join(dir,'Witch.exe'),0x14c,400000);pe(path.join(dir,'Witch_crack.exe'),0x14c,300000);fs.writeFileSync(path.join(dir,'data.xp3'),'XP3');
+  const bs=String.fromCharCode(92),nl='\r\n',ini='# generated'+nl+'[Launcher]'+nl+'Target = '+['C:','Games','Witch','Witch_crack.exe'].join(bs)+nl+'StartIn = C:'+bs+'Games'+bs+nl;
+  fs.writeFileSync(path.join(dir,'SmartSteamEmu','launcher.ini'),Buffer.concat([Buffer.from([0xff,0xfe]),Buffer.from(ini,'utf16le')]));
+  const lib=require('../core/library.cjs');assert.equal(path.basename(lib.findGame(dir).exe),'Witch_crack.exe');
+  fs.rmSync(path.join(dir,'SmartSteamEmu'),{recursive:true});assert.equal(path.basename(lib.findGame(dir).exe),'Witch.exe');}
+ finally{fs.rmSync(root,{recursive:true,force:true});}
+});

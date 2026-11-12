@@ -1750,7 +1750,7 @@ namespace
       // return Private::oldHookFun = (Private::hook_fun_t)winhook::replace_fun(addr, (ULONG)Private::newHookFun);
       HookParam hp;
       hp.address = addr;
-      hp.type = EMBED_ABLE | CODEC_UTF16 | EMBED_INSERT_SPACE_AFTER_UNENCODABLE | NO_CONTEXT; // 0x41
+      hp.type = EMBED_ABLE | CODEC_UTF16 | NO_CONTEXT; // 0x41
       hp.text_fun = Private::text_fun;
       hp.embed_fun = Private::hookafter;
       hp.embed_hook_font = F_GetGlyphOutlineW;
@@ -1834,7 +1834,7 @@ namespace OtherHook
       return {};
     HookParam hp;
     hp.address = addr;
-    hp.type = EMBED_ABLE | CODEC_UTF16 | EMBED_INSERT_SPACE_AFTER_UNENCODABLE | NO_CONTEXT; // 0x41
+    hp.type = EMBED_ABLE | CODEC_UTF16 | NO_CONTEXT; // 0x41
     hp.text_fun = Private::hookBefore;
     hp.embed_fun = Private::hookafter2;
     hp.embed_hook_font = F_GetGlyphOutlineW;
@@ -1865,7 +1865,7 @@ static bool h3_n()
   static int ebpoff = 0x100 - *(BYTE *)(offset);
   HookParam hp;
   hp.address = addr;
-  hp.type = EMBED_ABLE | CODEC_UTF16 | EMBED_INSERT_SPACE_AFTER_UNENCODABLE;
+  hp.type = EMBED_ABLE | CODEC_UTF16;
   hp.text_fun = [](hook_context *s, HookParam *hp, TextBuffer *buffer, uintptr_t *role)
   {
     auto arg = (TextUnionW *)(s->ebp - ebpoff);
@@ -1899,7 +1899,7 @@ static bool h3_t()
     return false;
   HookParam hp;
   hp.address = addr;
-  hp.type = EMBED_ABLE | CODEC_UTF16 | EMBED_INSERT_SPACE_AFTER_UNENCODABLE;
+  hp.type = EMBED_ABLE | CODEC_UTF16;
   hp.text_fun = [](hook_context *s, HookParam *hp, TextBuffer *buffer, uintptr_t *role)
   {
     auto arg = (TextUnionW *)s->ecx;

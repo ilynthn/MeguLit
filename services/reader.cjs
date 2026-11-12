@@ -4,6 +4,8 @@ const fs=require('node:fs'),path=require('node:path');
 const {readJSON,openStore}=require('./store.cjs');
 const {cleanPreferences}=require('../core/preferences.cjs');
 const {Settings}=require('./settings.cjs');
+/* A line with no kana that uses Chinese-only words or simplified forms is another language slot, not the Japanese. */
+const notJapanese=t=>!/[぀-ヿ]/.test(t)&&/[吗吧呢嘛们这哪说还给让从对时过为个么吃]/.test(t);
 const {normalizeTranslation}=require('../core/translation-format.cjs');
 const atomic=(file,value)=>{const tmp=file+'.'+process.pid+'.tmp';fs.writeFileSync(tmp,JSON.stringify(value,null,2));fs.renameSync(tmp,file);};
 class Reader{
@@ -161,6 +163,9 @@ class Reader{
   let trans='';
   /* E352: the engine's string still carries its ruby markup (HuneX <rふ>触</r>, ISLAND \x1d pairs): translate the text the player reads. */
   try{const plain=require('../core/source-ruby.cjs').extractSourceRuby(text).text;if(plain.trim())text=plain;}catch{}
+  /* Multi-language releases pass every language slot of a line through the same call (ATRI: the Simplified and
+     Traditional Chinese of each line after the Japanese, live test 2026-11-13); those stay as the game has them. */
+  if(notJapanese(text)){this.gal?.hooks?.embedReply(id,'',{source:text,text:''});return;}
   try{
    trans=this.embedCached(text)||'';
    if(!trans&&this.displayLanguage()!=='en'){trans=this.gal?.hooks?.scriptTranslation?.(text)||'';if(trans)this.embedCached(text,trans);}
@@ -370,4 +375,4 @@ class Reader{
  async mine({entry,args,noteId}){if(!entry?.id)return;const db=openStore(this.root);try{db.exec('BEGIN IMMEDIATE');db.prepare('INSERT OR IGNORE INTO vocabulary(id,spelling,reading,definitions,status,created_at,original) VALUES(?,?,?,?,0,?,?)').run(entry.id,entry.spellings?.[0]||'',entry.readings?.[0]||'',JSON.stringify(entry.definitions||[]),Math.floor(Date.now()/1000),JSON.stringify({entry,noteId}));if(args?.text&&!db.prepare('SELECT 1 FROM examples WHERE word_id=? AND text=?').get(entry.id,args.text))db.prepare('INSERT INTO examples(word_id,game_id,text,translation,highlight_start,highlight_end,created_at,original) VALUES(?,?,?,?,?,?,?,?)').run(entry.id,this.gameId,args.text,args.translation||'',args.start||0,args.end||0,Math.floor(Date.now()/1000),JSON.stringify({translationSource:args.translationSource||(args.translation?'machine':''),readAt:Math.floor(Date.now()/1000)}));require('./anki-sync.cjs').link(db,Number(entry.id),Number(noteId));/* every Anki card leaves its line in 学习 → 句子 (source auto; a manual save stays manual) */let kept=null;if(args?.text)try{kept=require('./saved-sentences.cjs').save(db,{gameId:this.gameId,text:args.text,translation:args.translation||'',source:'auto'});}catch{}db.exec('COMMIT');if(kept?.created)this.runtime.emit?.('reader-event',{type:'sentence-saved'});return {sentenceSaved:!!kept?.created};}catch(e){db.exec('ROLLBACK');throw e;}finally{db.close();}}
  stop(){if(this.stopping)return this.stopping;clearInterval(this.tick);clearTimeout(this.hideTimer);const gal=this.gal,child=gal?.process;gal?.stop();this.gal=null;this.stats.reset();this.stopping=(!child||child.exitCode!==null)?Promise.resolve():new Promise(resolve=>{let timer;const finish=()=>{clearTimeout(timer);resolve();};child.once('exit',finish);timer=setTimeout(()=>{try{child.kill();}catch{}finish();},2000);});return this.stopping.finally(()=>{this.stopping=null;});}
 }
-module.exports={Reader};
+module.exports={Reader,notJapanese};

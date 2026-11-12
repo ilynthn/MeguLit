@@ -234,6 +234,12 @@ function cxNext(){
  cxBuilds.set(out,w);let finished=false;const done=()=>{if(finished)return;finished=true;cxBuilds.delete(out);cxRunning=false;cxNext();};
  w.once('message',done);w.once('error',done);w.once('exit',done);w.unref?.();
 }
+/* A translation slot that marks speech with ASCII quotes ("救救我——" for 「誰か助けて――」; ATRI: 6766 of 11205 Chinese
+   lines) takes the Japanese line's own brackets instead; "" inside is one quote. A slot already holding the bracket
+   ("（虽然…）") only loses the quotes. */
+const PAIRS={'「':'」','『':'』','（':'）','(':')'};
+function unquoteSlot(t,ja){if(t.length<2||!/^"[\s\S]*"$/.test(t)||/^"/.test(ja))return t;const inner=t.slice(1,-1).replace(/""/g,'"'),open=ja.charAt(0),close=PAIRS[open];
+ if(!close||!ja.trimEnd().endsWith(close)||inner.startsWith(open))return inner;return open+inner+close;}
 const kirikiriCx={
  id:'kirikiri-cx',hint:'scn.xp3 / data.xp3',
  // One copy per scene file: patch archives override the rest, as the engine loads them (patch < patch2 < ...).
@@ -245,7 +251,9 @@ const kirikiriCx={
  sources:dir=>cxArchives(dir).flatMap(f=>{let c='';try{c=cxCache(f);}catch{}return c?[f,c]:[f];}),
  // ruby: the game's own readings for each Japanese line ([base, reading] pairs), used before any dictionary reading.
  parse(buf){const doc=JSON.parse(buf.toString('utf8')),lines=[],zh=[],ruby=[],voices=[];
-  for(const scene of doc.scenes)scene.rows.forEach((row,k)=>{lines.push(row[0]||'');zh.push(row[2]||row[3]||'');ruby.push(scene.ruby?.[k]?.length?scene.ruby[k]:null);voices.push(scene.voices?.[k]||null);});
+  /* the Chinese slot is found by its text (ATRI: ja/en/zh-Hans/zh-Hant; PureStation: ja/zh-Hans/zh-Hant; 9-nine-: ja/en/zh-Hant) */
+  const slot=chineseSlot(doc.scenes.flatMap(s=>s.rows)),order=slot>0?[slot]:[2,3];
+  for(const scene of doc.scenes)scene.rows.forEach((row,k)=>{lines.push(row[0]||'');zh.push(unquoteSlot(order.map(i=>row[i]).find(Boolean)||'',row[0]||''));ruby.push(scene.ruby?.[k]?.length?scene.ruby[k]:null);voices.push(scene.voices?.[k]||null);});
   const v=voiceRef.keep(voices);return v?{lines,anchors:[],zh,ruby,voices:v}:{lines,anchors:[],zh,ruby};},
  test:()=>false,
  // The release's own Simplified (else Traditional) Chinese slot is the translation of each Japanese line.
@@ -442,4 +450,4 @@ function preparing(dir){
 }
 /* E375 why a recognised game cannot be read (an engine's own check, e.g. encrypted WOLF archives), or null. */
 function unsupportedReason(dir){for(const e of Object.values(ENGINES)){if(typeof e.unsupported!=='function')continue;let code='';try{code=e.unsupported(dir);}catch{}if(code)return {engine:e.id,code,detail:e.REASONS?.[code]||''};}return null;}
-module.exports={unsupportedReason,preparing,cxBuilds,chineseColumn,ENGINES,detect,readable,read,fingerprint,parseKs,parseAst,parseRpy,pfsList,pfsRead,tlPairs,decode};
+module.exports={unquoteSlot,unsupportedReason,preparing,cxBuilds,chineseColumn,ENGINES,detect,readable,read,fingerprint,parseKs,parseAst,parseRpy,pfsList,pfsRead,tlPairs,decode};

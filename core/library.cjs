@@ -93,8 +93,16 @@ function listing(dir){let names=[];try{names=fs.readdirSync(dir);}catch{}const c
  const managed=re=>{const data=names.find(n=>/_Data$/i.test(n));if(!data)return false;if(!('\0managed' in cache))try{cache['\0managed']=fs.readdirSync(path.join(dir,data,'Managed'));}catch{cache['\0managed']=[];}return cache['\0managed'].some(n=>re.test(n));};
  return {names,magic,managed,has:re=>names.some(n=>re.test(n)),sub:(name,re)=>{const real=names.find(n=>n.toLowerCase()===name.toLowerCase());if(!real)return false;if(!(real in cache))try{cache[real]=fs.readdirSync(path.join(dir,real));}catch{cache[real]=[];}return cache[real].some(n=>re.test(n));}};}
 function engineOf(dir){const f=listing(dir);for(const e of ENGINES)if(e.test(f))return e;return null;}
+/* A Steam emulator's launcher names the program it starts (SmartSteamEmu: SmartSteamEmu\launcher.ini Target, UTF-16);
+   the original exe beside it quits without Steam (サノバウィッチ: SabbatOfTheWitch.exe vs SabbatOfTheWitch_crack.exe). */
+function emulatorTarget(dir){
+ for(const f of [path.join(dir,'SmartSteamEmu','launcher.ini'),path.join(dir,'launcher.ini')]){let b;try{b=fs.readFileSync(f);}catch{continue;}
+  const text=b[0]===0xff&&b[1]===0xfe?b.toString('utf16le'):b.toString('utf8'),m=/^\s*Target\s*=\s*(.+?)\s*$/mi.exec(text);if(!m)continue;
+  const name=path.basename(m[1].replace(/\\/g,'/'));const file=path.join(dir,name);try{if(/\.exe$/i.test(name)&&fs.statSync(file).isFile())return file;}catch{}}
+ return '';}
 function mainExe(dir,translatedDir=false){
  if(!translatedDir&&isTranslated(dir))return ''; 
+ { const t=emulatorTarget(dir);if(t)return t; }
  // The game's own program: the engine's usual name or the folder's name first, translation-patch and variant
  // launchers (BGI-CHS.exe, euphoria_sc.exe, BGI_patch.exe) last, the larger file among equals.
  const variant=/([-_ .](chs|cht|cn|sc|tc|zh|chinese|patch|\d{6,8})|中文|汉化|漢化|简体|繁體|补丁|パッチ)/i,folder=path.basename(dir).toLowerCase();

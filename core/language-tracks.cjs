@@ -59,7 +59,15 @@ function foreignLine(text){const t=String(text||'');if(KANA.test(t))return false
 // bypassed) they look like 根劃痩，扇晃顧顕亜錘廠笠… : long, kana-free, kanji-only, with Chinese full-width commas.
 // Japanese dialogue of that length always carries kana and uses 、 (user report 2026-11-09, WHITE ALBUM2).
 function borrowedCode(text){const t=String(text||'').replace(/\s+/g,'');if(KANA.test(t)||!t.includes('，'))return false;const han=(t.match(/[㐀-鿿]/gu)||[]).length;return han>=12&&han/[...t].length>=.7&&zhScore(t)<=1;}
-function foreignRows(text){const rows=String(text).split(/\r?\n/);if(rows.length<2||!rows.some(r=>KANA.test(r)))return text;const kept=rows.filter(r=>!foreignLine(r));return kept.length&&kept.length<rows.length?kept.join('\n'):text;}
+/* E310 (live test 2026-11-13, 9-nine first line showed 「ハァイ…かしら」「嗨，午安啊。): the Chinese track can start on the same row
+   the Japanese track ends on (「…かしら」「嗨，午安啊。 / 　还是说…」). When the next row is dropped as Chinese, a kana-free tail that
+   opens with a bracket right after the Japanese closing bracket and reads as Chinese belongs to that track too. */
+const TAIL=/^([\s\S]*[」』）”])([「『（“][^ぁ-ゟァ-ヺー]*)$/u;
+function cutForeignTail(row){const m=TAIL.exec(row);if(!m||!KANA.test(m[1])||!HAN.test(m[2]))return row;return zhScore(m[2])>=1||m[2].includes('，')?m[1]:row;}
+function foreignRows(text){const rows=String(text).split(/\r?\n/);if(rows.length<2||!rows.some(r=>KANA.test(r)))return text;
+ const drop=rows.map(r=>foreignLine(r));if(!drop.some(Boolean))return text;
+ const kept=[];for(let i=0;i<rows.length;i++){if(drop[i])continue;kept.push(drop[i+1]&&KANA.test(rows[i])?cutForeignTail(rows[i]):rows[i]);}
+ return kept.length?kept.join('\n'):text;}
 /* E296 (user, 2026-11-10, ライムライト・レモネードジャム: "%n;あの瞬間の…ない。あの瞬間の…ない。V" on screen): KiriKiri inline commands
    (%n; %p; %f0; …, colour #rrggbb; / #;) leak as text, and the engine hands a line over twice. Commands go; a line that is
    then two equal halves (a stray end marker letter allowed) keeps one. %l groups are left to inlineAlternatives. */
@@ -74,4 +82,8 @@ function japaneseTrack(text){
  out=foreignRows(out);
  return out;
 }
-module.exports={inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
+/* E312 (live test 2026-11-13, Summer Pockets: 10_プロローグ0725___for_summerpockets_language___for_summerpockets and a half-scrolled
+   ト80_幻想パー were read and drawn as story lines): script/scene identifiers that pass through the text call. A line with no
+   whitespace and no sentence punctuation that carries a number_ prefix or a double underscore is a name, not dialogue. */
+function scriptIdentifier(text){const t=String(text||'').trim();if(!t||/\s/.test(t)||/[。、！？!?「」『』（）…―]/.test(t))return false;return /\d_|__/.test(t);}
+module.exports={scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
