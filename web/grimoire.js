@@ -336,11 +336,8 @@ export function fieldify(grid,filtered=false){
   const most=(Math.ceil(width/(cw*.55))+4)*(Math.ceil(height/(ch*.55))+4),per=Math.ceil(most/items.length)+2;
   const have=new Map();for(const cell of cells.values())have.set(cell.index,(have.get(cell.index)||0)+1);
   const spare=document.createDocumentFragment();
-  /* LoAF trace: the whole batch in one frame still cost 70 ms of raster; 12 covers per idle slot keeps every frame short */
-  let made=0;
-  for(let index=0;index<items.length&&made<12;index++)for(let n=(have.get(index)||0)+(pool.get(index)?.length||0);n<per&&made<12;n++){const node=make(index);parkNode(node,index);spare.append(node);made++;}
+  for(let index=0;index<items.length;index++)for(let n=(have.get(index)||0)+(pool.get(index)?.length||0);n<per;n++){const node=make(index);parkNode(node,index);spare.append(node);}
   if(spare.childNodes.length)plane.append(spare);
-  if(made>=12)warmIdle=idle(warm,{timeout:1500});
  }
  /* after the entrance has played, in an idle slot */
  let warmId=0,warmIdle=0;
