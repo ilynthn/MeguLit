@@ -109,10 +109,14 @@ async function launch(db,id,runtime=null,windowsLaunch=false,{retried=false,redi
       (game + Launcher.exe config tool) makes steam://rungameid show a chooser, and Steam then ran Launcher.exe. When the
       install folder holds such a companion launcher, the recorded program is started directly with SteamAppId set, so
       steam_api accepts it without a restart through Steam (Steam itself still has to be running). Generic, any engine. */
-   const companion=steamApp&&!/^(launcher|config)/i.test(path.basename(game.executable))&&(()=>{try{return fs.readdirSync(path.dirname(game.executable)).some(f=>/^(launcher|config(uration)?|settings?|gameconfig)[^\\/]*\.exe$/i.test(f));}catch{return false;}})();
+   /* Live test 2026-11-13: STEINS;GATE's Game.exe refuses a bare start (「ランチャーから起動してください」); its launcher runs
+      "Game.exe mages_sgate". So the companion launcher is read for the command line it gives the game; only when one is
+      found is the game started directly with those arguments, otherwise the Steam path is kept as before. */
+   const companionArgs=steamApp&&!/^(launcher|config)/i.test(path.basename(game.executable))?require('./steam-companion.cjs').launchArgs(game.executable):null;
+   const companion=!!companionArgs;
    const steam=steamApp&&!companion;
    const {startProcess,waitForVisibleGame}=require('./game-readiness.cjs');
-   const child=await startProcess(steam?'explorer.exe':game.executable,steam?['steam://rungameid/'+profile.appid]:[],path.dirname(game.executable),'GAME_LAUNCH_FAILED',undefined,companion?{...process.env,SteamAppId:String(profile.appid),SteamGameId:String(profile.appid),SteamOverlayGameId:String(profile.appid)}:null);
+   const child=await startProcess(steam?'explorer.exe':game.executable,steam?['steam://rungameid/'+profile.appid]:companion?companionArgs:[],path.dirname(game.executable),'GAME_LAUNCH_FAILED',undefined,companion?{...process.env,SteamAppId:String(profile.appid),SteamGameId:String(profile.appid),SteamOverlayGameId:String(profile.appid)}:null);
    trace('launch-process-started',{pid:child.pid,steam,steamDirect:companion||undefined});
    stage='window-wait';
    /* Steam may start another program in the install folder than the one on record (Summer Pockets: the library has

@@ -1,0 +1,29 @@
+/* 2026-11-13 (user: external judges score each main page; fix what they find). Round 1, page-wide fixes the seven
+   judges shared: no running text under 12px, labels bright enough to read on the blurred art, Chinese without wide
+   letter-spacing, primary actions as solid buttons, the dictionary field quieter behind the search, and long word
+   definitions folded. The title bar is never touched. */
+html body .main :is(.tv-scene,.tv-scene>b,.tv-heatlink,.tv-heatsum>span,.tv-hot-meta>small,.tv-fig>small,.tv-more,.tv-close,
+ .game-hover>span,.game-hover>small,.gm-hud-stats>span,.lg-bar-k,.rw-mana,.gm-kicker,.gm-stg-sub,.gm-card-node,.gm-card-meta>b,
+ .gm-card-meta>span,.settings-help,.panel-title,.guide-main>h3,.word-source){font-size:12px!important;letter-spacing:.02em!important}
+html body .main :is(.gm-tag,.rw-rank,.gm-stg-no,.gm-stg-flag,.word-jlpt,.guide-badge){font-size:11px!important}
+html body .main :is(.tv-heatlink,.tv-heatsum>span,.tv-fig>small,.tv-more,.gm-kicker,.gm-stg-sub,.gm-card-node,.gm-card-meta>span,.settings-help,.word-source,.gm-hud-stats>span){color:color-mix(in srgb,var(--g-t1,#f1e0d2) 78%,transparent)!important}
+
+/* primary actions: solid, so the one thing to do stands out from the outlined secondary buttons */
+html body .main :is(button.primary,.tv-btn.primary):not(.text-button){background:linear-gradient(180deg,#b3313c,#8f2430)!important;border-color:#c9424d!important;color:#fff6ee!important;box-shadow:0 6px 18px -8px rgba(179,49,60,.7)!important}
+html body .main :is(button.primary,.tv-btn.primary):not(.text-button):hover{background:linear-gradient(180deg,#c23a45,#9c2834)!important}
+
+/* dictionary: a visible field with its own border and a readable hint; the drifting glyphs dim behind the search */
+html:not(#u):not(#v):not(#w) body #learning-content .lookup-form input{border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 32%,transparent)!important;font-size:16px!important}
+html body #learning-content .lookup-form input::placeholder{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 62%,transparent)!important}
+html body .dict-field{opacity:.72}
+html body #learning-content .g-dict-chips{align-items:center}
+
+/* saved words: a long definition list folds to four lines; the reading reads */
+html body .main .word-row .word-def{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:normal!important}
+html body .main .word-row .word-def{white-space:pre-line!important}
+html body .main .word-row:hover .word-def,html body .main .word-row:focus-within .word-def{-webkit-line-clamp:unset;display:block}
+html body .main .word-row .word-reading{font-size:14px!important;display:flex;align-items:center;gap:8px}
+html body .main .word-row{background:color-mix(in srgb,#0d0a0d 72%,transparent)}
+html:not(#u):not(#v):not(#w):not(#x) body .main .word-row .word-reading{font-size:14px!important;letter-spacing:.04em!important;color:color-mix(in srgb,var(--g-gold,#edb56e) 92%,#fff)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .main .word-row .word-actions .select-trigger{opacity:1!important;color:var(--g-t1,#f1e0d2)!important;border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 28%,transparent)!important;background:color-mix(in srgb,#140f13 85%,transparent)!important;padding-inline:10px!important}
+html:not(#u):not(#v):not(#w):not(#x) body .main .word-row .word-actions :is(button:not(.select-trigger)){opacity:.85!important}

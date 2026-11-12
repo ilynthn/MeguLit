@@ -27,8 +27,11 @@ test('the reader shows the foreign notice; DDLC Plus offers its other language b
  assert.equal(typeof require('../services/original-engines/vgprompter.cjs').foreign,'function');
 });
 
-test('a Steam game with a companion launcher is started directly with SteamAppId (no Steam chooser)',()=>{
- const s=fs.readFileSync(path.join(__dirname,'../services/bridge.cjs'),'utf8');
+test('a Steam game with a companion launcher is started with the launcher own command line and SteamAppId (no Steam chooser)',()=>{
+ const {argsIn}=require('../services/steam-companion.cjs');
+ assert.deepEqual(argsIn(Buffer.from('\0WinExec\0Game.exe mages_sgate\0E:\\windev\0','latin1'),'C:/g/Game.exe'),['mages_sgate']);
+ assert.equal(argsIn(Buffer.from('\0Game.exe\0nothing here','latin1'),'C:/g/Game.exe'),null,'no command line: keep the Steam path');
+ const s=fs.readFileSync(path.join(__dirname,'../services/bridge.cjs'),'utf8');assert.match(s,/companion\?companionArgs:\[\]/);
  assert.match(s,/SteamAppId:String\(profile\.appid\)/);assert.match(s,/const steam=steamApp&&!companion/);
  assert.match(s,/vc_\?redist\|dxsetup\|launcher\)\/i/,'Launcher.exe is never taken for the game');
 });
