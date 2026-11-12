@@ -1,6 +1,6 @@
-html{color-scheme:dark;background:#24272e}html,body{margin:0!important;width:100%!important;height:100%!important;overflow:hidden!important}
-#card-viewport{position:fixed!important;inset:0!important;overflow:auto!important;padding:12px!important;box-sizing:border-box!important}
-#card-stage{position:relative!important;margin:0 auto!important;overflow:hidden!important;box-sizing:border-box!important}
+html{color-scheme:dark;background:transparent}html,body{margin:0!important;width:100%!important;height:100%!important;overflow:hidden!important}
+#card-viewport{position:fixed!important;inset:0!important;overflow:auto!important;display:flex!important;flex-direction:column!important;padding:12px!important;box-sizing:border-box!important}
+#card-stage{position:relative!important;margin:auto!important;flex:none!important;overflow:hidden!important;box-sizing:border-box!important}
 #card-content{position:absolute!important;top:0!important;left:0!important;transform-origin:top left!important;box-sizing:border-box!important;margin:0!important;padding:12px!important;min-height:0!important;color:#eee;background:transparent;font:20px/1.6 "Yu Gothic UI","Microsoft YaHei UI",sans-serif;overflow-wrap:anywhere}
 #card-content img,#card-content video{max-width:100%!important;max-height:min(32vh,240px)!important;width:auto!important;height:auto!important;object-fit:contain}
 #card-content audio{max-width:100%}#card-content a{color:#ef9cb1}
@@ -23,3 +23,6 @@ html{color-scheme:dark;background:#24272e}html,body{margin:0!important;width:100
  #card-content .tm-card{max-width:960px!important;margin:8px auto!important}
  #card-content .tm-shot img{max-height:min(52vh,520px)!important}
 }
+
+/* 2026-11-13 judges round 2: the frame is see-through so the card sits on MeguLit's own panel (no grey-blue slab), and a short card is centred in the space instead of hanging at the top. */
+#card-content .tm-card{border-color:#ffffff1f!important;background:#0b080b8c!important}

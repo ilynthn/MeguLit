@@ -1,0 +1,75 @@
+/* 2026-11-13 judges round 2 (user: every main page scored by independent judges until each reaches 9). Layout fixes
+   for the home, library, detail, dictionary, grammar, study and settings pages. The title bar is never touched, no
+   ancestor :has() (validation/main-kids-no-ancestor-has.test.cjs), motion respects prefers-reduced-motion. */
+
+/* Dictionary at rest: the search sits near the top and two panels fill the page (often looked-up words with their
+   meaning, the newest saved words with the line they came from). They fold away once results arrive. */
+html body #learning-content .dict-home{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px;margin-top:22px}
+html body #learning-content #lookup-results:not(:empty)~.dict-home{display:none}
+html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready .g-dict-chips{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready #lookup-results:empty{min-height:0!important}
+html body .dict-home .dh-col{background:color-mix(in srgb,#120d11 86%,transparent);border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 16%,transparent);padding:22px 24px 14px;min-width:0}
+html body .dict-home header{display:flex;align-items:baseline;gap:14px;padding-bottom:14px;border-bottom:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 10%,transparent)}
+html body .dict-home h3{margin:0;font:600 18px/1.3 var(--g-serif,serif);color:var(--g-t1,#f1e0d2);letter-spacing:.02em}
+html body .dict-home header p{margin:0;font-size:13px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 62%,transparent);flex:1;min-width:0}
+html body .dict-home header .text-button{font-size:13px;white-space:nowrap}
+html body .dict-home ol{list-style:none;margin:0;padding:0}
+html body .dict-home li+li{border-top:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 7%,transparent)}
+html body .dict-home li>button{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:baseline;column-gap:12px;row-gap:4px;padding:12px 8px;transition:background-color .18s}
+html body .dict-home li>button:hover{background:color-mix(in srgb,var(--g-gold,#edb56e) 7%,transparent)}
+html body .dict-home li>button:focus-visible{outline:2px solid var(--g-gold,#edb56e);outline-offset:-2px}
+html body .dict-home b{font:500 21px/1.2 var(--g-serif-ja,serif);color:var(--g-t1,#f1e0d2);white-space:nowrap}
+html body .dict-home i{font-style:normal;font-size:13px;color:var(--g-gold,#edb56e);white-space:nowrap}
+html body .dict-home em{font-style:normal;font-size:11px;padding:1px 6px;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 40%,transparent);color:var(--g-gold,#edb56e)}
+html body .dict-home span{grid-column:3;font-size:14px;line-height:1.5;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 84%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+html body .dict-home small{grid-column:4;font-size:12px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 58%,transparent);white-space:nowrap;justify-self:end}
+html body .dict-home .dh-often small{font-variant-numeric:tabular-nums;color:var(--g-gold,#edb56e)}
+html body .dict-home .dh-often i:empty{display:none}
+html body .dict-home .dh-recent li>button{grid-template-columns:minmax(0,auto) minmax(0,1fr) auto}
+html body .dict-home .dh-w{display:flex;align-items:baseline;gap:10px;min-width:0}
+html body .dict-home .dh-recent span{grid-column:2/4}
+html body .dict-home .dh-recent small{grid-column:3}
+html body .dict-home q{grid-column:1/3;font:14px/1.6 var(--g-serif-ja,serif);color:color-mix(in srgb,var(--g-t1,#f1e0d2) 70%,transparent);quotes:"「" "」";overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+html body .dict-home .dh-none{margin:18px 4px;font-size:14px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 62%,transparent)}
+html body .dict-home .dh-days{grid-column:1/-1;padding-bottom:16px}
+html body .dict-home .dh-days ol{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:8px;align-items:stretch;height:118px;padding-top:22px}
+html body .dict-home .dh-days li{border:0!important;display:flex;flex-direction:column;align-items:stretch;gap:6px;height:100%}
+html body .dict-home .dh-days li>span{all:unset;flex:1;display:flex;align-items:flex-end;min-height:0}
+html body .dict-home .dh-days li>span::before{content:"";display:block;width:100%;height:max(2px,var(--h));background:color-mix(in srgb,var(--g-gold,#edb56e) 42%,transparent);transition:height .4s}
+html body .dict-home .dh-days li[data-today]>span::before{background:#c9424d}
+html body .dict-home .dh-days li>span{position:relative}
+html body .dict-home .dh-days li>span b{position:absolute;left:0;right:0;bottom:calc(var(--h) + 4px);font:12px/1 var(--g-sans,sans-serif);text-align:center;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 74%,transparent);font-variant-numeric:tabular-nums}
+html body .dict-home .dh-days small{grid-column:auto;justify-self:center;font-size:11px;text-align:center}
+@media (max-width:1100px){html body #learning-content .dict-home{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){html body .dict-home *{transition:none!important}}
+
+/* Grammar: the goal line and the rank meter share one row instead of stacking as two full-width bars; the N0 note
+   becomes a quiet footnote after the stages; the next-lesson card loses the giant repeated watermark glyph; the
+   overview sentence keeps every word on one line (pieces never break inside a word). */
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page{row-gap:12px!important;column-gap:12px!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.lg-bar{grid-column:1!important;margin:0!important;min-height:52px;align-self:stretch}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.rw-bar{grid-column:2!important;margin:0!important;min-height:52px;align-self:stretch;min-width:0}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.rw-bar .rw-meter{min-width:60px}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.gm-n0note{order:30;background:transparent!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 64%,transparent)!important;border-left:2px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 18%,transparent)!important;padding:6px 14px!important;font-size:12.5px!important;box-shadow:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.gm-n0note i{display:none}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>:is(.gm-stgs,.gm-tracks){order:20}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-hero-ghost{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.gm-overview{transform:none!important;min-width:0;align-content:center!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-sentence{flex-wrap:wrap!important;row-gap:6px;column-gap:4px}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-piece{flex-shrink:0!important;white-space:nowrap!important;font-size:20px!important;width:auto!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-overview-kicker{letter-spacing:.06em!important;font-size:13px!important}
+
+/* Home: the game title is visible again (home-tv.css lost its reveal rule) and kept inside the left column, so it
+   fills the space under the activity card instead of leaving the middle of the page empty. */
+html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-title{max-width:min(34vw,620px)!important}
+
+/* Study (Anki): the card frame is see-through (anki-card.css) and sits on a quiet warm surface instead of a grey-blue slab. */
+html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-card-frame{background:color-mix(in srgb,#0d0a0d 55%,transparent)!important;border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 8%,transparent)!important;border-radius:2px!important}
+
+/* Settings: a row the chosen engine does not use is really hidden (the grimoire row style used to override [hidden]),
+   and long help text folds to two lines, opening in full when the row is hovered or focused. */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-row[hidden]{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-row .setting-description>small.settings-help{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:60ch}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-row:is(:hover,:focus-within) .setting-description>small.settings-help{-webkit-line-clamp:unset}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-row .setting-description>small.settings-help+small.settings-help{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-row:is(:hover,:focus-within) .setting-description>small.settings-help+small.settings-help{display:block!important}

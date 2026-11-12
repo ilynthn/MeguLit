@@ -907,7 +907,7 @@ html:not(#u):not(#v):not(#w) body .main .record.word-row .word-def{font-size:16.
    when results arrive the box rises to the top and the cloud scatters */
 html:not(#u):not(#v):not(#w) body #learning-content:has(#lookup-results){position:relative}
 html:not(#u):not(#v):not(#w) body #learning-content .lookup-form{position:relative;z-index:2;transition:margin-top .7s cubic-bezier(.2,.9,.2,1)}
-html:not(#u):not(#v):not(#w) body #learning-content:has(#lookup-results:empty) .lookup-form{margin-top:26vh!important}
+html:not(#u):not(#v):not(#w) body #learning-content:has(#lookup-results:empty) .lookup-form{margin-top:3vh!important}
 html:not(#u):not(#v):not(#w) body #learning-content:has(#lookup-results:empty) :is(.g-dict-chips,.moji-account){position:relative;z-index:2}
 html:not(#u):not(#v):not(#w) body #lookup-results:empty::before{content:none!important}
 html:not(#u):not(#v):not(#w) body #lookup-results:empty{min-height:20vh!important}

@@ -942,6 +942,8 @@ function dictionary(target){
    chips.onclick=e=>{const c=e.target.closest('[data-chip]');if(!c)return;const input=target.querySelector('#lookup-input'),form=target.querySelector('#lookup-form');
    input.value=c.dataset.chip;(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();};target.querySelector('#lookup-form').after(chips);
    }).catch(()=>{});
+  /* 2026-11-13 评委第二轮：词典还没查时，下面列出常查词释义、最近收的生词、近两周查词，点一下就查；有结果时整块收起（dict-home.js） */
+  import('./dict-home.js').then(({mountDictHome})=>{if(!results.isConnected)return;return mountDictHome(target,results,{api,esc,number,locale,look:word=>{const input=target.querySelector('#lookup-input'),form=target.querySelector('#lookup-form');if(!input||!form)return;input.value=word;(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();}});}).catch(()=>{});
   const stopPoll=()=>{clearTimeout(poll);poll=0;};
   const showStatus=state=>{stopPoll();account.innerHTML=state?.signedIn?`<span class="moji-state signed">${L.signed}${state.name?' · '+esc(state.name):''}</span><button type="button" class="text-button" data-moji-logout>${L.logout}</button>`:`<span class="moji-state">${L.anon}</span><button type="button" class="text-button" data-moji-login>${L.login}</button>`;
     account.querySelector('[data-moji-login]')?.addEventListener('click',startLogin);

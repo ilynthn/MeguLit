@@ -49,7 +49,7 @@
 .tv-h1{margin:.1em 0 0;font-family:var(--g-serif-ja);font-weight:400;font-size:120px;line-height:1.12;letter-spacing:-.01em;text-shadow:0 4px 30px #0008;max-height:3.5em}
 .tv-h1 .w{font-style:normal;white-space:nowrap;display:inline-block;overflow:hidden;padding:.14em .02em .08em;margin:-.14em 0 -.08em;vertical-align:top}
 .tv-h1 span{display:inline-block;transform:translateY(110%);opacity:0;transition:transform .9s cubic-bezier(.2,.9,.1,1),opacity .4s}
-.tv-title.in .tv-h1 span,.tv-home.empty .tv-h1{margin:.1em 0 0;font-family:var(--g-serif-ja);font-weight:400;font-size:120px;line-height:1.12;letter-spacing:-.01em;text-shadow:0 4px 30px #0008;max-height:3.5em}
+.tv-title.in .tv-h1 span,.tv-home.empty .tv-h1{transform:none;opacity:1}
 .tv-meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:18px;font-family:var(--tv-mono);font-size:12px;letter-spacing:.12em;color:var(--g-t2)}
 .tv-dialog{position:absolute;left:5vw;right:5vw;bottom:4vh;min-height:52px;height:7.5vh;z-index:6;display:flex;align-items:center;gap:14px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--g-t1) 20%,transparent)}
 .tv-who{font-family:var(--g-serif-ja);font-size:14px;letter-spacing:.2em;color:var(--g-gold);max-width:22vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
