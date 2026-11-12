@@ -332,7 +332,7 @@ export function fieldify(grid,filtered=false){
   if(filtered||!host.isConnected||!width)return;
   /* 2026-11-13 (CDP trace: a 147 ms frame 0.3 s into the first drag): the batch is one long style pass; while the wall
      moves it waits for the next quiet moment instead of landing mid-drag */
-  if(host.classList.contains('field-moving')||host.classList.contains('dragging')){warmLater();return;}
+  if(drag||host.classList.contains('field-moving')||host.classList.contains('dragging')||performance.now()-lastMove<1200){warmLater();return;}
   const most=(Math.ceil(width/(cw*.55))+4)*(Math.ceil(height/(ch*.55))+4),per=Math.ceil(most/items.length)+2;
   const have=new Map();for(const cell of cells.values())have.set(cell.index,(have.get(cell.index)||0)+1);
   const spare=document.createDocumentFragment();

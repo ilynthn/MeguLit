@@ -1917,3 +1917,8 @@ html:not(#u):not(#v) body .app-backdrop:after{background:color-mix(in srgb,var(-
 html:not(#u):not(#v) body .dict-field{opacity:.38!important}
 html:not(#u):not(#v) body .gm-sentence.mini{flex-wrap:nowrap;overflow:hidden}
 html:not(#u):not(#v) body .gm-n0note{font-size:13px;line-height:1.6}
+/* 2026-11-13 judge round 2 */
+html:not(#u):not(#v) body .dict-field{opacity:.24!important}
+html:not(#u):not(#v) body .lg-bar.empty{background:color-mix(in srgb,var(--g-t1,#f1e0d2) 4%,transparent)}
+html:not(#u):not(#v) body .tv-script:not(:has(p)){border-color:transparent}
+html:not(#u):not(#v) body .lib-field{-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
