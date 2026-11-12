@@ -128,7 +128,7 @@ const api=(action,params={})=>{const request=invoke('service',{request:{action,.
  let timer;return Promise.race([request,new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(Error('SERVICE_TIMEOUT')),action==='launch'?48000:slowReads.has(action)?40000:12000);
  })]).finally(()=>clearTimeout(timer));};
 const number=value=>new Intl.NumberFormat(locales[locale]).format(value||0);
-const cover=(game,cls='cover')=>game.cover?`<img class="${cls}" src="${esc(game.cover)}" alt="" loading="lazy">`:`<div class="${cls} hero-placeholder">${icon('game')}</div>`;
+const cover=(game,cls='cover')=>game.cover?`<img class="${cls}" src="${esc(game.cover)}" alt="" loading="lazy">`:`<div class="${cls} hero-placeholder">${icon('game')}<span class="ph-title" lang="ja">${esc(String(game.title||'').replace(/^(\s*\[[^\]]*\])+\s*/,''))}</span></div>`;
 function relativeTime(timestamp){
   if(!timestamp)return text.neverPlayed;
   const date=new Date(timestamp*1000),today=new Date();today.setHours(0,0,0,0);

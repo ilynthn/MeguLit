@@ -207,7 +207,9 @@ function deal(cover,background,animate,mode='draw'){const flip=cover.querySelect
 
 export const DRAW_NAMES=Object.keys(DRAWS);
 
-function fitTitle(h){const max=Math.min(128,Math.max(44,innerWidth*.074));let size=max;h.style.fontSize=size+'px';const limit=()=>h.scrollHeight>size*1.12*(h.textContent.length>18?3:2)+size*.3||h.scrollWidth>h.clientWidth+2;
+/* 2026-11-13 judges round 2: a title like "English (日本語)" shows the first part big and the bracketed name as a line under it; the big title stays at two lines at most and no larger than ~5vw */
+function splitTitle(t){const m=String(t||'').match(/^(.+?)\s*[（(]([^（）()]+)[）)]\s*$/u);return m&&m[1].trim().length>1?[m[1].trim(),m[2].trim()]:[String(t||''),''];}
+function fitTitle(h){const max=Math.min(96,Math.max(40,innerWidth*.05));let size=max;h.style.fontSize=size+'px';const limit=()=>h.scrollHeight>size*1.12*2+size*.3||h.scrollWidth>h.clientWidth+2;
  while(limit()&&size>26){size-=4;h.style.fontSize=size+'px';}}
 
 function tweenFig(el,to,fmt){if(!el)return;const from=+el.dataset.v||0;el.dataset.v=to;cancelAnimationFrame(+el.dataset.raf||0);if(matchMedia('(prefers-reduced-motion:reduce)').matches||from===to){
@@ -307,8 +309,8 @@ export function renderHomeTV(main,ctx){
   $('.tv-slices').innerHTML=Array.from({length:5},(_,j)=>`<i style="background:${art(g,p)};background-size:500% 100%;background-position:${j*25}% 0;transform:translateZ(${j%2?40:-20}px) translateY(${(j-2)*12}px)"></i>`).join('');
 
   const no=String(Math.max(1,pool.indexOf(g)+1)).padStart(2,'0');$('.tv-index').textContent=no;$('.tv-scene').innerHTML=`SCENE <b>${no}</b> / ${String(pool.length).padStart(2,'0')}`;
-  const t=$('.tv-title');t.classList.remove('in');setTimeout(()=>{if(mine!==token)return;let n=0;$('.tv-h1').innerHTML=(String(g.title).match(/[A-Za-z0-9À-ɏ'’:;!?.,&\-]+|\s+|./gu)||[]).map(word=>/^\s+$/.test(word)?' ':`<i class="w">${[...word].map(c=>`<span style="transition-delay:${(n++)*28}ms">${esc(c)}</span>`).join('')}</i>`).join('');
-   $('.tv-h1').title=g.title;$('.tv-meta').innerHTML=g.lastPlayedAt?`<span>${w.last} · ${esc(relativeTime(g.lastPlayedAt))}</span>`:'';void t.offsetWidth;fitTitle($('.tv-h1'));
+  const t=$('.tv-title');t.classList.remove('in');setTimeout(()=>{if(mine!==token)return;let n=0;const [mainTitle,subTitle]=splitTitle(g.title);$('.tv-h1').innerHTML=(String(mainTitle).match(/[A-Za-z0-9À-ɏ'’:;!?.,&\-]+|\s+|./gu)||[]).map(word=>/^\s+$/.test(word)?' ':`<i class="w">${[...word].map(c=>`<span style="transition-delay:${(n++)*28}ms">${esc(c)}</span>`).join('')}</i>`).join('');
+   $('.tv-h1').title=g.title;$('.tv-meta').innerHTML=(subTitle?`<span class="tv-sub" lang="ja">${esc(subTitle)}</span>`:'')+(g.lastPlayedAt?`<span>${w.last} · ${esc(relativeTime(g.lastPlayedAt))}</span>`:'');void t.offsetWidth;fitTitle($('.tv-h1'));
    fitLeft(root);setTimeout(()=>t.classList.add('in'),30);/* measure again once the new title has settled, so a block hidden mid-change comes back */setTimeout(()=>{
    if(live&&live.root===root)fitLeft(root);},900);},flash?Math.max(0,reveal-(performance.now()-started)):0);
   tweenFig($('[data-fig="time"]'),g.readingSeconds||0,v=>mins(v));tweenFig($('[data-fig="chars"]'),g.characters||0,v=>number(Math.round(v)));tweenFig($('[data-fig="words"]'),

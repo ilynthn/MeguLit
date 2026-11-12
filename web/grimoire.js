@@ -264,13 +264,27 @@ function orbit(host,main,plane,items,pod){
  measure();place();if(!still)raf=requestAnimationFrame(tick);
  fieldStop=()=>{events.abort();ro.disconnect();cancelAnimationFrame(raf);host.classList.remove('field-orbit');fieldStop=()=>{};};
 }
+/* 2026-11-13 judges round 2 (two versions of one game sat side by side with the same cover): games whose cover is the
+   same picture are moved apart in the wall sequence, so they never land next to each other */
+export function spreadTwins(items){
+ const key=el=>{const s=el.querySelector?.('img')?.getAttribute('src')||'';return s?s.length+':'+s.slice(-64):'';};
+ const out=[],wait=[];
+ for(const el of items){
+  const k=key(el),prev=out.length?key(out[out.length-1]):'';
+  if(k&&k===prev){wait.push(el);continue;}
+  out.push(el);
+  const i=wait.findIndex(w=>key(w)!==key(el));if(i>=0)out.push(...wait.splice(i,1));
+ }
+ for(const el of wait){const at=out.findIndex((e,i)=>key(e)!==key(el)&&(i===0||key(out[i-1])!==key(el)));out.splice(at<0?out.length:at,0,el);}
+ return out;
+}
 export function fieldify(grid,filtered=false){
  fieldStop();
  if(!grid)return;
  const host=grid.closest('#library-results'),main=grid.closest('.main');
  if(!host||!main)return;
  const pod=main.querySelector(':scope > .field-search');
- const items=[...grid.children];
+ const items=spreadTwins([...grid.children]);
  if(!items.length)return;
  grid.classList.add('field-grid');
  const plane=document.createElement('div');

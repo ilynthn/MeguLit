@@ -118,7 +118,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const play=card.when&&typeof auto==='object'?auto[card.when]||'off':'off';iframe.onload=()=>{if(isCurrent()&&currentFrame===iframe)iframe.contentWindow.postMessage({
    type:'tome-anki-card',nonce,html:card.html,fit,copy,mix,auto:play},'*');};return iframe;
  }
- const messages=event=>{if(!isCurrent()){window.removeEventListener('message',messages);return;}if(currentFrame&&event.source===currentFrame.contentWindow&&event.data?.nonce===currentFrame.dataset.nonce&&event.data.type==='tome-anki-replay')replay(currentCard,
+ const messages=event=>{if(!isCurrent()){window.removeEventListener('message',messages);return;}if(currentFrame&&event.source===currentFrame.contentWindow&&event.data?.nonce===currentFrame.dataset.nonce&&event.data.type==='tome-anki-size'){const h=Math.max(200,Math.min(4000,Number(event.data.height)||0));if(Math.abs((parseFloat(currentFrame.style.height)||0)-h)>2){currentFrame.style.height=h+'px';currentFrame.classList.add('hugs');}return;}if(currentFrame&&event.source===currentFrame.contentWindow&&event.data?.nonce===currentFrame.dataset.nonce&&event.data.type==='tome-anki-replay')replay(currentCard,
   target.querySelector('[data-replay]'));};
  window.addEventListener('message',messages);
  stopMessages=()=>{window.removeEventListener('message',messages);clearInterval(poll);};

@@ -14,6 +14,8 @@
   root.style.setProperty('width',width+'px','important');root.style.setProperty('transform','none','important');
   const contentWidth=Math.max(width,root.scrollWidth),contentHeight=Math.max(1,root.offsetHeight,root.scrollHeight),scale=TomeAnkiFit.fitScale(width,height,contentWidth,contentHeight,fit);
   root.style.setProperty('transform','scale('+scale+')','important');stage.style.setProperty('width',Math.ceil(contentWidth*scale)+'px','important');stage.style.setProperty('height',Math.ceil(contentHeight*scale)+'px','important');
+  /* 2026-11-13 judges round 2: tell the host how tall the card naturally is, so the frame hugs the card instead of filling the page */
+  try{parent.postMessage({type:'tome-anki-size',nonce,height:Math.ceil(contentHeight)+24},'*');}catch{}
  }
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(layout);}}
  function content(html){
