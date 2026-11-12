@@ -96,13 +96,13 @@ class HookControl{
   if(h.state.hookExact474===true){if(!explicit&&!(h.state.bound&&h.state.coverEnabled!==false))return;if(this.plan!=='euphoria474')this.start('euphoria474',p.hookFast!==false);return;}
   const identity=String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');if(this.discoveryIdentity!==identity){this.discoveryIdentity=identity;this.readOnlySince=null;}
   const threads=h.hooks.state.hookThreads||[],naninovel=h.state.hookFramework==='naninovel'||/^manosaba$/i.test(h.state.processName||'');
-  const t=threads.filter(x=>x.embeddable&&(!/DrawHide/.test(x.name)||h.state.hookExact474===true)&&(!naninovel||naninovelStream(x))).sort((a,b)=>streamRank(b)-streamRank(a))[0];
+  /* 2026-11-13 (DDLC Plus in English): many TMP streams rank the same; the one the foreign-language picker mapped to dialogue wins */const foreignPicked=h.hooks.foreignPicked&&threads.find(x=>x.id===h.hooks.foreignPicked&&x.embeddable);const t=foreignPicked||threads.filter(x=>x.embeddable&&(!/DrawHide/.test(x.name)||h.state.hookExact474===true)&&(!naninovel||naninovelStream(x))).sort((a,b)=>streamRank(b)-streamRank(a))[0];
   // Naninovel's shared TMP setters also carry menus, names and backlog entries. Its printer is the dialogue source.
   if(naninovel&&!t){this.ocr(false);this.status({hookCheckState:'waiting',hookCheckMessage:'已识别 Naninovel，等待剧情台词流；推进一句后自动内嵌'});return;}
   // A hiding plan carried over from another game (the plan is saved) stays only while this game offers a stream
   // that can be embedded; once its streams carry text and none can, fall back below instead of leaving the
   // original visible.
-  if(hiding&&(t||!threads.some(x=>x.selected&&x.sample))){const selected=threads.find(x=>x.selected);if(t&&selected&&t.id!==selected.id&&streamRank(t)>streamRank(selected)){h.hooks.preferredThread=t.id;h.hooks.select?.(t.id);}return;}
+  if(hiding&&(t||!threads.some(x=>x.selected&&x.sample))){const selected=threads.find(x=>x.selected);if(t&&selected&&t.id!==selected.id&&(streamRank(t)>streamRank(selected)||t===foreignPicked)){h.hooks.preferredThread=t.id;h.hooks.select?.(t.id);}return;}
   if(hiding)this.start('read');
   if(!t){if(this.plan==='off')this.start('read');
    // Streams carry text but none can be embedded: this game is covered by OCR instead.

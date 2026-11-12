@@ -133,8 +133,11 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     return Math.max(.05,scale);
   }
   const fonts = {
-    classic: { ja:'"MS Mincho","ＭＳ 明朝","Yu Mincho","Noto Serif JP",serif', zh:'"TomoyoSubahibiCN","SubahibiFont","素晴字体","SimHei","Microsoft YaHei",sans-serif' },
-    clean: { ja:'"MS Gothic","ＭＳ ゴシック","Yu Gothic","Meiryo",sans-serif', zh:'"TomoyoSubahibiCN","SubahibiFont","素晴字体","SimHei","Microsoft YaHei",sans-serif' }
+    /* 2026-11-13 (9-nine zh-TW line drew 問 as 履, 千恋 lines had single smaller glyphs): a system font named "SubahibiFont" is a
+       borrowed-code patch font (PostScript SimHei) that covers only some characters with other glyphs; Chinese never falls back
+       to it, and Microsoft YaHei (full GBK, simplified and traditional) comes before SimHei (GB2312 only), so a line keeps one font. */
+    classic: { ja:'"MS Mincho","ＭＳ 明朝","Yu Mincho","Noto Serif JP",serif', zh:'"TomoyoSubahibiCN","Microsoft YaHei","SimHei",sans-serif' },
+    clean: { ja:'"MS Gothic","ＭＳ ゴシック","Yu Gothic","Meiryo",sans-serif', zh:'"TomoyoSubahibiCN","Microsoft YaHei","SimHei",sans-serif' }
   };
   const shadows = {
     outline:'-1px 0 0 #171721b3,1px 0 0 #171721b3,0 -1px 0 #171721b3,0 1px 0 #171721b3,0 2px 3px #0009',

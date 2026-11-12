@@ -153,7 +153,7 @@ class Reader{
  embedKey(text){return (this.displayLanguage()==='en'?'en|':'')+String(text||'').replace(/\s+/g,'');}
  embedCached(text,value){this.embedCache??=new Map();const key=this.embedKey(text);if(!key)return undefined;if(value===undefined)return this.embedCache.get(key);this.embedCache.delete(key);this.embedCache.set(key,value);if(this.embedCache.size>800)this.embedCache.delete(this.embedCache.keys().next().value);return value;}
  /* 2026-11-12 art text (PageLocator art mode): the page gets the place and the translation; the game keeps drawing the line */
- async artText(message){let translation='';const text=String(message.text||'').slice(0,600);/* a hide (or newer read) that arrives while a translation is awaited wins: the stale show is dropped */const turns=this.artTurns||(this.artTurns=new Map()),turn=(turns.get(message.id)||0)+1;turns.set(message.id,turn);if(turns.size>300)turns.delete(turns.keys().next().value);
+ async artText(message){let translation='';let text=String(message.text||'').slice(0,600);/* 2026-11-13 OCR rows (source ocr) carry recognition slips (「のた」 for 「のだ」): the script line they stand for replaces them */if(message.source==='ocr'&&message.visible===true&&text.trim()){const snapped=this.gal?.hooks?.ocrSnap?.(text);if(snapped)text=snapped.slice(0,600);}/* a hide (or newer read) that arrives while a translation is awaited wins: the stale show is dropped */const turns=this.artTurns||(this.artTurns=new Map()),turn=(turns.get(message.id)||0)+1;turns.set(message.id,turn);if(turns.size>300)turns.delete(turns.keys().next().value);
   if(message.visible===true&&text.trim()){try{translation=this.embedCached(text)||'';
    if(!translation&&this.displayLanguage()!=='en'){translation=this.gal?.hooks?.scriptTranslation?.(text)||'';if(translation)this.embedCached(text,translation);}
    if(!translation){const options=this.langOptions(require('../core/providers.cjs').resolveOptions({...this.prefs(),translationPrompt:this.workPrompt||''}));if(options.provider!=='google'&&!require('../core/engines.cjs').ENGINES[options.provider]?.keyless)this.loadKeys();
@@ -217,7 +217,7 @@ class Reader{
    case 'hookPrefs':g?.setHookPrefs(r.settings);break;
    case 'hookStart':g?.userStart(r.profile,r.force===true,r.id);break;
    case 'hookReselect':g?.reselectStream?.(r.onlyIfBad===true);break;
-   case 'hookSelect':g?.hooks.select(r.id);break;
+   case 'hookSelect':g?.hooks.select(r.id,true);break;
    case 'hookCheck':g?.controller.check();break;
    case 'readerReading':this.immersion?.reading?.();break;
    case 'hookRescan':g?.hooks.rescan();break;

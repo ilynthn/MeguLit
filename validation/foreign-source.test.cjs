@@ -45,5 +45,28 @@ test('no stream selected and the game in English: the stream whose sample maps b
  h.state.hookThreads=[{id:'ui',sample:'Options',selected:false},{id:'tmp',sample:long.slice(0,110),selected:false}];
  assert.equal(h.foreignPick(),true);assert.deepEqual(picked,['tmp']);
  assert.equal(h.foreignPick(),false,'each stream is tried once');
- h.state.hookThreads=[{id:'x',sample:long,selected:true}];assert.equal(h.foreignPick(),false,'a selected stream is kept');
+ h.manualThread='x';h.state.hookThreads=[{id:'x',sample:long,selected:true}];assert.equal(h.foreignPick(),false,'a stream the player selected is kept');
+});
+
+test('a provisional foreign pick (boot screen text) gives way to the dialogue stream that maps to more Japanese',()=>{
+ const {foreignKey}=require('../services/original-text.cjs');
+ const line='I always tell myself it is about time I meet some girls or something like that.';
+ const line2='Mornings are usually the worst, being surrounded by couples.';const map=new Map([[foreignKey(line2),'「朝はいつも最悪だ、カップルに囲まれて」'],[foreignKey('Skip Intro'),'スキップ'],[foreignKey(line),'「そろそろ女の子と知り合うべきだって、いつも自分に言い聞かせてる」']]);
+ const h=probe({kind:'patch',foreign:t=>map.get(foreignKey(t))||''});
+ const picked=[];h.select=id=>picked.push(id);
+ h.state.hookThreads=[{id:'boot',sample:'Skip Intro',selected:false}];
+ assert.equal(h.foreignPick(),true);assert.deepEqual(picked,['boot']);
+ h.state.hookThreads=[{id:'boot',sample:'Skip Intro',selected:true},{id:'menu',sample:'Skip Intro',selected:false}];
+ assert.equal(h.foreignPick(),false,'a short sample never takes over');
+ const bios=['Commander Legacy BIOS v2d rev4','Type: Binary Thin Client','Chip RAM: 2MB','Fast RAM: 8MB'];bios.forEach(b=>map.set(foreignKey(b),b));
+ h.state.hookThreads.push({id:'bios',sample:bios.slice(0,3).join('\n'),selected:false});h.foreignPick();h.state.hookThreads[2]={id:'bios',sample:bios.join('\n'),selected:false};
+ assert.equal(h.foreignPick(),false,'a changing BIOS dump is not prose');
+ h.state.hookThreads.push({id:'say',sample:line,selected:false});
+ assert.equal(h.foreignPick(),false,'one mapped sample is not yet a dialogue stream');
+ h.state.hookThreads[3]={id:'say',sample:line2,selected:false};
+ assert.equal(h.foreignPick(),true);assert.deepEqual(picked,['boot','say']);
+ h.state.hookThreads=[{id:'boot',sample:'Skip Intro',selected:false},{id:'say',sample:line2,selected:true}];
+ assert.equal(h.foreignPick(),false,'never goes back');
+ h.manualThread='mine';h.state.hookThreads=[{id:'mine',sample:'Skip Intro',selected:true},{id:'say2',sample:line,selected:false}];
+ assert.equal(h.foreignPick(),false,'a stream the player chose is kept');
 });

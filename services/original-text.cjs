@@ -329,6 +329,15 @@ function setMode(root,id,mode){if(!['off','original'].includes(mode))throw Error
 // Captured text is one or more consecutive message lines. Exact cover of the text by consecutive runtime lines is
 // required; repeated lines ("はい", "……") are resolved by the reading position, never by content alone.
 class Matcher{
+ /* 2026-11-13 (STEINS;GATE prologue read by OCR: 「調べるのた」 for 「調べるのだ」, so the line never met the script and the
+    translation was a machine one): the script line an OCR row stands for. Bigram overlap (Dice) of the row against the same
+    length of each line near the reading position (or anywhere before the first match); a row that is most of a line and
+    agrees at 0.8 or more gives the whole script line. '' when nothing is that close. */
+ near(text){const s=matchKey(text);if(s.length<6)return -1;const grams=t=>{const m=new Map();for(let i=0;i+1<t.length;i++){const g=t.slice(i,i+2);m.set(g,(m.get(g)||0)+1);}return m;};const a=grams(s);
+  const dice=t=>{const b=grams(t);let both=0;for(const [g,n] of a)both+=Math.min(n,b.get(g)||0);return 2*both/Math.max(1,s.length-1+t.length-1);};
+  const from=this.last>=0?Math.max(0,this.last-40):0,to=this.last>=0?Math.min(this.normalized.length,this.last+600):this.normalized.length;let best=-1,score=0;
+  for(let i=from;i<to;i++){const t=this.normalized[i];if(!t||t.length<s.length*.6||s.length<t.length*.6&&t.length-s.length>12)continue;const d=dice(t.slice(0,s.length+2));if(d>score){score=d;best=i;}}
+  if(best<0||score<.8||s.length<this.normalized[best].length*.6)return -1;this.last=best;return best;}
  constructor(runtimeLines,originalLines){this.rt=runtimeLines;this.og=originalLines;this.normalized=runtimeLines.map(matchKey);this.heads=new Map();this.normalized.forEach((t,i)=>{if(!t)return;const k=t.slice(0,4);if(!this.heads.has(k))this.heads.set(k,[]);this.heads.get(k).push(i);});this.last=-1;}
  cover(start,s){let at=0,i=start;const used=[];while(at<s.length&&i<this.normalized.length){const t=this.normalized[i];if(!t){i++;continue;}if(!s.startsWith(t,at))return null;used.push(i);at+=t.length;i++;}return at===s.length?used:null;}
  match(text){
@@ -380,6 +389,7 @@ function liveProvider(root,id,executable){
   resolve(text){if(Date.now()-checked>300&&changed())later();let r=inner?inner.resolve(text):{status:'none',method:'no-scenes'};
    if(r.status==='none'&&r.method!=='empty'&&changed()&&rebuild()&&inner)r=inner.resolve(text);return r;},
   foreign(text,opt){return inner?.foreign?inner.foreign(text,opt):'';},
+  near(text){return inner?.near?inner.near(text):'';},
   upcoming(count){return inner?.upcoming?inner.upcoming(count):[];}};
 }
 // Each rebuild writes indexes under new names; only the ones in use are kept.
@@ -453,7 +463,7 @@ function staticProvider(root,executable){
   /* 2026-11-13 the same script in the game's other languages (scene engines with parallel tables): a captured line in one
      of them gives back its Japanese line; built on first use, never when the engine has none */
   let foreignMap;const foreign=(text,opt)=>{if(foreignMap===undefined){foreignMap=null;try{const f=scenes.ENGINES[state.runtime.engine]?.foreign;if(f){const map=f(path.dirname(String(executable)));if(map&&map.size)foreignMap=map;}}catch{}}if(!foreignMap)return '';const k=foreignKey(text),hit=foreignMap.get(k);if(hit||!opt?.prefix||k.length<40)return hit||'';/* a truncated stream sample (thread list keeps 110 chars): the one line it starts */let one='';for(const [key,ja] of foreignMap)if(key.startsWith(k)){if(one&&one!==ja)return '';one=ja;}return one;};
-  const api={kind:'patch',patch:!!patched,fill,drawable,tableDrawable,flowLayout,flowGame,foreign,
+  const api={kind:'patch',patch:!!patched,fill,drawable,tableDrawable,flowLayout,flowGame,foreign,near:text=>{const i=m.near(text);return i>=0?inlineTags(rt[i]):'';},
    resolve:text=>withRuby(resolveLine(text))};
   function resolveLine(text){const r=m.match(text);if(r.japanese===undefined)return r;
     // E449 lines the release leaves in Japanese take the filled translation written for them (fill.cjs), marked filled.

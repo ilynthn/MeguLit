@@ -14,6 +14,7 @@ internal static class EmbedTextPolicy {
     static readonly Regex Script = new Regex(@"[【《\[][\$＄@＠]|[%％*＊][A-ZＡ-Ｚ](?![A-Za-zＡ-Ｚａ-ｚ])|[\$＄][\p{L}\p{N}_＿]|</?[A-Za-z][^>\r\n]*>|\\[nrt](?![A-Za-z])|[\x00-\x08\x0b\x0c\x0e-\x1f-]");
     static readonly Regex Resource = new Regex(@"[\\/]|\.[A-Za-z0-9]{2,5}(\b|$)|^[\x20-\x7e]*,|^[\p{L}\p{N}_.:-]*[_:]\w*$");
     static readonly Regex Dialogue = new Regex(@"[ぁ-ゖァ-ヺ「-』、。…！？]|(?:\p{L}{2,}[ \t]+){1,}\p{L}{2,}|\p{L}{2,}[.!?]$");
+    static readonly Regex Prose = new Regex(@"^[^\\/\r\n]*\p{L}{2,}[,;]?[ \t]+\p{L}{2,}[,;]?[ \t]+\p{L}{2,}[^\\/\r\n]*$");
     static readonly Regex Glyph = new Regex(@"[\p{L}\p{N}\p{P}\p{S}]");
 
     // Role an embed-capable stream declares; 0 when unknown or when the split value is not a role (read-only hooks).
@@ -74,7 +75,10 @@ internal static class EmbedTextPolicy {
         // An empty reply tells LunaHook to skip writeback entirely, including its own re-encoding.
         if (String.IsNullOrWhiteSpace(value) || value.Length > 600 || Label(value)) return "";
         if (Ruby.IsMatch(value)) return HideRuby(value);
-        if (Resource.IsMatch(value) || Container(value)) return "";
+        // 2026-11-13 (DDLC Plus in English: every line with a comma, "Meanwhile, I've always walked...", stayed visible): the
+        // "ASCII up to a comma" and "dot + extension" resource rules are for tables and file names; a line of prose (three
+        // spaced words, no slash) is dialogue even when it has a comma or a dot.
+        if ((Resource.IsMatch(value) && !Prose.IsMatch(value)) || Container(value)) return "";
         // A dialogue line that carries a few script constructs used to be skipped whole, so its original stayed under
         // MeguLit's text (CLANNAD HD overlap, user 2026-11-06). Now only the visible text is blanked and every construct
         // stays intact for the engine. Strings dense with constructs (name/variable tables) are still left alone.
@@ -132,6 +136,7 @@ internal static class EmbedTextPolicy {
             Hide("名前%Q") == "" && Hide("「またね」\u0001") == "　　　　　\u0001" &&
             Hide("「やっと来たね」\r\nそうですね……") == "　　　　　　　　\r\n　　　　　　　" &&
             Hide("Good evening!") == "             " &&
+            Hide("Meanwhile, I've always walked to school alone.").Trim() == "" && Hide("Meanwhile, I've always walked to school alone.").Length == 46 && Hide("ui,menu,select") == "" && Hide("bgm01.ogg") == "" &&
             Hide("「ついてないわね」「ついてないわね」？？？？？？「真够不走运的」") == "" &&
             Hide("「確認開始%l砂撒き;放沙%l;。」") == "" &&
             Hide("「えっ？？？」").Length == "「えっ？？？」".Length &&

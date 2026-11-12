@@ -126,6 +126,8 @@ class HookNative{
  markScriptSource(){try{if(this.state&&!this.state.scriptSource)this.notify({scriptSource:true});}catch{}}
  resolveSource(text){const provider=this.originalText;if(!provider||!text)return null;const key=String(text).replace(/\s+/g,'');this.sourceCache??=new Map();if(this.sourceCache.has(key)&&this.sourceCache.get(key).provider===provider)return this.sourceCache.get(key).r;const r=provider.resolve(text);this.sourceCache.set(key,{provider,r});if(this.sourceCache.size>200)this.sourceCache.delete(this.sourceCache.keys().next().value);return r;}
  // The script's own translation for a captured line, or '' when the line is not matched with confidence.
+ /* 2026-11-13 an OCR row (art text) snapped to the script line it reads, when the game's script is known */
+ ocrSnap(text){try{const p=this.originalText;if(!p||typeof p.near!=='function'||this.scriptAllowed?.()===false)return '';const t=p.near(text);return t&&t!==text?t:'';}catch{return '';}}
  scriptTranslation(text){try{const provider=this.originalText;if(!provider||this.scriptAllowed?.()===false)return '';const r=this.resolveSource(text);if(!r||r.status!=='exact'&&r.status!=='high')return '';const t=provider.kind==='patch'?r.translation:r.captured;return typeof t==='string'&&t.trim()&&!require('../services/original-text.cjs').japaneseLine(t)?t.trim():'';}catch{return '';}}
  originalTextFor(text){const provider=this.originalText;if(!provider||!text)return text;try{const r=this.resolveSource(text);
   if(provider.kind==='patch'){if((r.status==='exact'||r.status==='high')&&typeof r.translation==='string'&&r.translation.trim()&&!require('../services/original-text.cjs').japaneseLine(r.translation)&&typeof this.emit==='function'&&this.scriptAllowed?.()!==false){this.trace('patch-text '+r.status+' #'+r.indices[0]);if(r.machine!==true)this.markScriptSource();this.emit({type:'hookPatchTranslation',japanese:text,chinese:r.translation,machine:r.machine===true});}return text;}if((r.status==='exact'||r.status==='high')&&r.japanese&&!r.alreadyJapanese){this.trace('original-text '+r.status+' '+r.method+' #'+r.indices[0]);
@@ -143,10 +145,18 @@ class HookNative{
     the native picker scores samples by Japanese characters, so a game set to another language never gets a pick. When
     nothing is selected and the scene reader can map a stream's sample back to Japanese (foreign()), that stream is the
     dialogue stream; the most mapped samples win, each stream is tried once per run. */
- foreignPick(){try{const threads=this.state?.hookThreads||[];if(!threads.length||threads.some(t=>t.selected))return false;
+ foreignPick(){try{const threads=this.state?.hookThreads||[];if(!threads.length)return false;
   const p=this.originalText;if(!p||typeof p.foreign!=='function')return false;const tried=this.foreignTried||(this.foreignTried=new Set());
-  let best=null;for(const t of threads){if(tried.has(t.id)||!t.sample)continue;const parts=String(t.sample).split(/\n+/).filter(Boolean);const hits=parts.filter(x=>this.foreignJapanese(x,{prefix:true})).length;if(hits&&(!best||hits>best.hits))best={id:t.id,hits};}
-  if(!best)return false;tried.add(best.id);this.trace('foreign stream pick id='+best.id+' mapped='+best.hits);this.select(best.id);return true;}catch{return false;}}
+  /* 2026-11-13 (DDLC Plus live: the pick landed on the boot screen's "Press HELP key" and "Skip Intro" streams and stayed
+     there; the BIOS screen even maps to more Japanese than one dialogue line): a stream picked this way is only
+     provisional. Dialogue is the stream that keeps changing: each stream counts how many different samples mapped back
+     to Japanese (cached per sample), and a prose stream (at most 3 rows, one of 5+ words; BIOS dumps and menus are not)
+     with at least two such samples, more than the picked one, takes over; it must be writable when the picked one was. A stream the player chose is never touched. */
+  const current=threads.find(t=>t.selected)?.id||'';if(current&&current===this.manualThread)return false;const mine=current||this.foreignPicked||'';
+  const cache=this.foreignScores||(this.foreignScores=new Map());const score=t=>{const sample=String(t.sample||'');const c=cache.get(t.id);if(c&&c.sample===sample)return c;let n=0;for(const x of sample.split(/\n+/))if(x.trim()){const ja=this.foreignJapanese(x,{prefix:true});if(ja)n+=ja.length;}const e={sample,n,changes:(c?.changes||0)+(n?1:0)};cache.set(t.id,e);return e;};
+  let best=null;for(const t of threads){if(t.id===mine||tried.has(t.id)||!t.sample)continue;const s=score(t);if(!s.n)continue;const rows=String(t.sample).split(/\n+/).filter(x=>x.trim());const long=rows.length<=3&&rows.some(x=>/[a-zÀ-ɏ]{2,}[,;]?\s+[a-zÀ-ɏ]{2,}[,;]?\s+[a-zÀ-ɏ]{2,}/i.test(x)&&x.trim().split(/\s+/).length>=5)&&(t.embeddable===true||!threads.find(x=>x.id===mine)?.embeddable);if(mine&&!long)continue;const better=!best||(mine?(s.changes>best.changes||(s.changes===best.changes&&s.n>best.n)):s.n>best.n);if(better)best={id:t.id,n:s.n,changes:s.changes,long};}
+  if(!best)return false;if(mine){const own=threads.find(t=>t.id===mine);const o=own?score(own):{changes:0};if(!best.long||best.changes<2||best.changes<=o.changes)return false;}
+  tried.add(best.id);if(mine)tried.add(mine);this.foreignPicked=best.id;this.trace('foreign stream pick id='+best.id+' mapped='+best.n+(mine?' (was '+mine+')':''));this.select(best.id);return true;}catch{return false;}}
  languageCheck(text){try{const t=String(text||'').replace(/%l[^;%]*;[^%]*%l;/g,'');if(!t.trim())return;
   /* 2026-11-13 (user: DDLC Plus in English showed nothing and said nothing): three story-length lines in a row with no
      Japanese and no Chinese, that the script could not map back to Japanese, raise a notice to switch the game to Japanese */
@@ -434,7 +444,7 @@ class HookNative{
  // it only patches system d3d9.dll functions whose address and bytes match a probe made in a separate process.
  syncMarker(){const v={...(this.waitTarget||{}),type:'waitMarker',active:!!this.waitTarget?.active&&this.enabled&&this.state.hookActive&&this.preferences?.hideWaitMarker===true},key=JSON.stringify(v);if(this.process&&key!==this.markerKey){this.markerKey=key;this.send(v);}}
  confirmReplacement(){if(this.enabled&&this.state.receivedText){this.verified=true;this.notify({replacementState:'user-verified'});}}
- select(id){this.verified=false;if(this.process&&typeof id==='string'&&this.state.hookThreads.some(t=>t.id===id)){this.trace('select id='+id+' replace='+this.enabled);this.send({type:'select',id,replace:this.enabled});}else{this.trace('select rejected id='+String(id));this.notify({hookMessage:'文本流尚未就绪，请重新扫描后选择'});}}
+ select(id,manual){this.verified=false;if(manual)this.manualThread=id;if(this.process&&typeof id==='string'&&this.state.hookThreads.some(t=>t.id===id)){this.trace('select id='+id+' replace='+this.enabled);this.send({type:'select',id,replace:this.enabled});}else{this.trace('select rejected id='+String(id));this.notify({hookMessage:'文本流尚未就绪，请重新扫描后选择'});}}
  rescan(){this.send({type:'rescan'});}
  // E246: style sampling pauses the embed replacement so the game draws one original line, then resumes it.
  suspendReplacement(on){if(!this.process||!this.enabled)return;if(on&&!this.suspended){this.suspended=true;this.trace('replacement paused for style sampling');this.send({type:'disable',reason:'style-sampling'});}else if(!on&&this.suspended){this.suspended=false;this.trace('replacement resumed after style sampling');this.send({type:'enable'});}}

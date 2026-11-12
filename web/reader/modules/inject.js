@@ -120,6 +120,9 @@
     const chars = sentence?.querySelectorAll('.char-token');
     const text = sentence ? (chars?.length ? Array.from(chars,c=>c.textContent).join('') : sentence.textContent).trim() : '';
     if(text !== bridge.sourceText){bridge.sourceText=text;bridge.onSourceText?.(text);}
+    /* 2026-11-13 (STEINS;GATE: each new line showed the previous line's translation for ~250 ms): the translation is
+       requested after a 220 ms debounce, so the old one goes the moment the source line changes */
+    if(output&&text&&text!==bridge.current&&enabled&&translationVisible&&output.dataset.state!=='pending'){window.TomeTypewriter?.stop(output);output.replaceChildren();output.dataset.state='pending';}
     clearTimeout(bridge.timer);
     bridge.timer = setTimeout(read, 220);
   }
