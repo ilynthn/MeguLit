@@ -178,6 +178,7 @@ class HookNative{
     invisible copy and the translation over it): a Japanese line from another stream that is not the current dialogue line
     is looked for on the picture (PageLocator art mode); once per text within 20 s. */
  artCandidate(text){try{const t=String(text||'').trim(),flat=HookNative.flat(t);if(typeof this.artLocate!=='function'||[...flat].length<2||[...flat].length>60)return;
+  {const lt=require('./language-tracks.cjs');if(lt.stuttered(t)||lt.soundCaption(t))return;}
   if(!/[぀-ヿ㐀-鿿]/.test(flat)||/[\/:]/.test(t)||/[<>{}\[\]=@]/.test(t))return;
   if(this.lastSource&&(HookNative.flat(this.lastSource).includes(flat)||flat.includes(HookNative.flat(this.lastSource))))return;
   const now=this.now(),seen=this.artSeen||(this.artSeen=new Map());const last=seen.get(flat);if(last!=null&&now-last<20000)return;seen.set(flat,now);if(seen.size>200)seen.delete(seen.keys().next().value);
@@ -230,7 +231,7 @@ class HookNative{
      the hook delivered; only for a line the script matched, and never twice for one base. */
   if(this.originalText?.kind==='patch'){const r=this.resolveSource(text);if(r&&Array.isArray(r.ruby)&&(r.status==='exact'||r.status==='high'||r.method==='untranslated'))for(const pair of r.ruby)if(!ruby.some(q=>q[0]===pair[0]))ruby.push(pair);}
   // v1.1.5: a line of another language track (Traditional/Simplified Chinese) inside a Japanese stream is not dialogue to read.
-  {const lt=require('./language-tracks.cjs');if(lt.scriptIdentifier(text)){this.trace('drop script identifier '+JSON.stringify(text.slice(0,40)));return;}if(lt.borrowedCode(text)){this.trace('drop borrowed-code (Chinese patch) line '+JSON.stringify(text.slice(0,40)));if(!this.japaneseStream)this.notify({hookNotice:'这句是汉化补丁的「借码」文字，不是日文原文（常见于汉化版存下的存档）。MeguLit 不会读取它；请从日文原版存的档或新游戏开始',hookNoticeAt:this.now()});return;}if(lt.foreignLine(text)&&this.japaneseStream){this.trace('drop foreign-language line '+JSON.stringify(text.slice(0,40)));return;}if(/[ぁ-ゟァ-ヺ]/u.test(text))this.japaneseStream=true;}
+  {const lt=require('./language-tracks.cjs');if(lt.soundCaption(text)||lt.stuttered(text)){this.trace('drop caption/typewriter frame '+JSON.stringify(text.slice(0,40)));return;}if(lt.scriptIdentifier(text)){this.trace('drop script identifier '+JSON.stringify(text.slice(0,40)));return;}if(lt.borrowedCode(text)){this.trace('drop borrowed-code (Chinese patch) line '+JSON.stringify(text.slice(0,40)));if(!this.japaneseStream)this.notify({hookNotice:'这句是汉化补丁的「借码」文字，不是日文原文（常见于汉化版存下的存档）。MeguLit 不会读取它；请从日文原版存的档或新游戏开始',hookNoticeAt:this.now()});return;}if(lt.foreignLine(text)&&this.japaneseStream){this.trace('drop foreign-language line '+JSON.stringify(text.slice(0,40)));return;}if(/[ぁ-ゟァ-ヺ]/u.test(text))this.japaneseStream=true;}
   // The game's own LOG/backlog (E215.2, user: hide MeguLit there and do not read it): opening it replays lines read
   // earlier, several within a second. Two or more earlier lines (other than the current one) inside one second mark the
   // LOG: those lines are neither read nor recorded and the reader hides; it returns after 1.5 s without replays or at

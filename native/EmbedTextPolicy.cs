@@ -13,7 +13,7 @@ internal static class EmbedTextPolicy {
     // and control/private-use characters.
     static readonly Regex Script = new Regex(@"[【《\[][\$＄@＠]|[%％*＊][A-ZＡ-Ｚ](?![A-Za-zＡ-Ｚａ-ｚ])|[\$＄][\p{L}\p{N}_＿]|</?[A-Za-z][^>\r\n]*>|\\[nrt](?![A-Za-z])|[\x00-\x08\x0b\x0c\x0e-\x1f-]");
     static readonly Regex Resource = new Regex(@"[\\/]|\.[A-Za-z0-9]{2,5}(\b|$)|^[\x20-\x7e]*,|^[\p{L}\p{N}_.:-]*[_:]\w*$");
-    static readonly Regex Dialogue = new Regex(@"[ぁ-ゖァ-ヺ「-』、。…！？]|(?:\p{L}{2,}[ \t]+){1,}\p{L}{2,}|\p{L}{2,}[.!?]$");
+    static readonly Regex Dialogue = new Regex(@"[ぁ-ゖァ-ヺ「-』、。…！？]|(?:\p{L}{2,}[ \t]+){1,}\p{L}{2,}|\p{L}{2,}(?:[.!?]+|…)[""”’')]*$");
     static readonly Regex Prose = new Regex(@"^[^\\/\r\n]*\p{L}{2,}[,;]?[ \t]+\p{L}{2,}[,;]?[ \t]+\p{L}{2,}[^\\/\r\n]*$");
     static readonly Regex Glyph = new Regex(@"[\p{L}\p{N}\p{P}\p{S}]");
 
@@ -66,10 +66,29 @@ internal static class EmbedTextPolicy {
         if (string.IsNullOrEmpty(value) || value.IndexOf(':') < 0 && value.IndexOf(@"\\", StringComparison.Ordinal) < 0) return value ?? "";
         return FilePath.IsMatch(value) ? FilePath.Replace(value, "").Trim() : value;
     }
-    static readonly Regex Sentence = new Regex(@"[、。，．！？!?…‥「」『』（）()―—\s]");
+    /* E500 (live test 2026-11-13, DDLC Plus: "\"Clubs...\"" was a label, so it was neither shown nor hidden): an ASCII ellipsis,
+       quotes, or a word that ends with a full stop are sentence punctuation too. A short line that opens with a block or
+       marker symbol and has no sentence punctuation (千恋＊万花 「■自動車（車内／走行）」, a sound-effect caption) is a label. */
+    static readonly Regex Sentence = new Regex(@"[、。，．！？!?…‥「」『』（）()―—\s""“”]|\.\.|\p{L}\.$");
+    static readonly Regex Caption = new Regex(@"^[■□◆◇▼▽★☆※◎●○][^、。「」『』！？!?\r\n]{1,29}$");
     public static bool Label(string value) {
         string plain = Ruby.Replace(Construct.Replace(value ?? "", ""), m => m.Groups[2].Value).Trim();
-        return plain.Length > 0 && plain.Length <= 12 && !Sentence.IsMatch(plain);
+        return plain.Length > 0 && (Caption.IsMatch(plain) || plain.Length <= 12 && !Sentence.IsMatch(plain));
+    }
+    /* E500 auxiliary text (choices) that is never shown: a typewriter frame where several characters repeat in place
+       (千恋＊万花 「『『『『おお客客…」), script constructs (CLANNAD 「＊Ａ＊Ｂタイトルメニュー」), a caption, or the game window's own
+       title (CLANNAD 「タイトルメニュー」). */
+    public static bool Stuttered(string value) {
+        string t = Regex.Replace(value ?? "", @"\s+", "");
+        if (t.Length < 8) return false;
+        int n = 0; var kinds = new System.Collections.Generic.HashSet<char>();
+        for (int i = 1; i < t.Length; i++) if (t[i] == t[i - 1] && "ー…‥―・～—-.。！？!?".IndexOf(t[i]) < 0) { n++; kinds.Add(t[i]); }
+        return kinds.Count >= 3 && n * 4 >= t.Length;
+    }
+    public static bool AuxNoise(string value, string caption) {
+        string t = (value ?? "").Trim();
+        if (t.Length == 0 || Script.IsMatch(t) || Stuttered(t) || Caption.IsMatch(t)) return true;
+        return !String.IsNullOrEmpty(caption) && caption.IndexOf(t, StringComparison.Ordinal) >= 0;
     }
     public static string Hide(string value) {
         // An empty reply tells LunaHook to skip writeback entirely, including its own re-encoding.
@@ -148,6 +167,9 @@ internal static class EmbedTextPolicy {
             Hide("<rふ>触</r>【＄名前】") == "" && Hide(@"<rx>data\a</r>") == "" &&
             UnsafeKey("SiglusEngine", @"D:\Games\A\SiglusEngine.exe", "EmbedSiglus", 1) != UnsafeKey("SiglusEngine", @"D:\Games\B\SiglusEngine.exe", "EmbedSiglus", 1) &&
             UnsafeKey("SiglusEngine", @"D:\Games\A\SiglusEngine.exe", "EmbedSiglus", 1) == UnsafeKey("siglusengine", @"d:\games\a\SiglusEngine.exe", "EmbedSiglus", 1) &&
-            UnsafeKey("game", "", "Embed", 1) == "game|Embed|1";
+            UnsafeKey("game", "", "Embed", 1) == "game|Embed|1" &&
+            Label("■自動車（車内／走行）") && !Label("\"Clubs...\"") && Hide("\"Clubs...\"").Trim() == "" && Hide("\"Clubs...\"").Length == 10 &&
+            Label("注意書き") && AuxNoise("『『『『『『『『おお『お『『おお客客『お客『『おお客客ささ", "") && !AuxNoise("『お客さん』", "") &&
+            AuxNoise("＊Ａ＊Ｂタイトルメニュー", "") && AuxNoise("タイトルメニュー", "CLANNAD タイトルメニュー") && !AuxNoise("学校へ行く", "CLANNAD");
     }
 }

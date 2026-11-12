@@ -215,15 +215,18 @@ const STAGE_NICK={particle:'属性标签',form:'变身Bank',adj:'立绘描写',w
  link:'共通线',stance:'傲娇翻译',time:'轮回时间轴',formal:'中二咏唱',speech:'口癖',ending:'语尾属性',slang:'圈内黑话',net:'弹幕',trend:'本季新番',d_kansai:'浪速之魂',d_kago:'萨摩隼人',d_shikoku:'四国遍路',d_okinawa:'海风岛语',d_hakata:'屋台之夜',d_nagoya:'金鯱之城',d_tohoku:'雪国乡音',d_hokkaido:'北国之春',d_chugoku:'濑户内',e80:'昭和泡沫',e90:'辣妹时代',e00:'2ch 黄金期',e10:'SNS 元年',
  e20:'Z 世代',misc:'隐藏要素'};
 export function listHTML(data,opts){const {locale,esc,level='N5',userLevel=null}=opts;
- const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=pointsOf(level),comp=level==='N5'&&data?.completion||completion(prog,pts),nextId=nextPoint(prog,
-  pts)?.id;
+ const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=pointsOf(level),comp=level==='N5'&&data?.completion||completion(prog,pts);
  const levels=`<div class="gm-levels" role="tablist">${LEVELS.map(l=>`<button type="button" role="tab" class="gm-level${l===level?' active':''}" data-level="${l}" aria-selected="${l===level}">${l}</button>`).join('')}</div>`;
- const hud=`<header class="gm-hud"><span class="gm-tag"><i></i>megulit · grammar lab</span>${levels}<span class="gm-hud-stats"><span><b>${String(comp.learned).padStart(2,'0')}</b>/${pts.length} ${esc(w.done)}</span><span><b>${comp.accuracy==null?'—':pct(comp.accuracy)}</b>${esc(w.accuracy)}</span><span><b>${data?.real||0}</b>${esc(w.real)}</span></span></header>`;
+ const hud=`<header class="gm-hud"><span class="gm-tag"><i></i>megulit · grammar lab</span>${levels}<span class="gm-hud-stats${data?.progress?'':' wait'}"><span><b>${String(comp.learned).padStart(2,'0')}</b>/${pts.length} ${esc(w.done)}</span><span><b>${comp.accuracy==null?'—':pct(comp.accuracy)}</b>${esc(w.accuracy)}</span><span><b>${data?.real||0}</b>${esc(w.real)}</span></span></header>`;
  if(!pts.length)return `${hud}<section class="gm-soon"><p>${esc(w.soon)}</p></section>`;
  const overview=`<button type="button" class="gm-overview" data-map><span class="gm-overview-kicker">${esc(w.map)}</span>${sentenceHTML(scenesOf(data)[0],esc,{mini:true})}<span class="gm-cap">${esc(locale==='zh'?'一句你读过的台词，拆成九种零件——点开，一块一块戳着玩 →':w.mapLead)}</span></button>`;
  let no=0;
  const G={...GROUPS,...LEVEL_GROUPS,...ANKI_GROUPS};const goalFirst=new Set(opts.goal?.plan?.groups||[]),keys=orderByGoal(Object.keys(G).filter(g=>pts.some(p=>p.group===g)),
-  opts.goal?.plan),nextGroup=pts.find(p=>p.id===nextId)?.group,cur=keys.includes(opts.group)?opts.group:keys.includes(nextGroup)?nextGroup:keys[0];
+  opts.goal?.plan);
+ /* E500 (live check 2026-11-13: the hero said 「下一课 01 / 186」 while NEXT sat on stage 02): stages follow the goal order, so the
+    next lesson and its number are taken from that same order, never from the raw level list */
+ const order=keys.flatMap(g=>pts.filter(p=>p.group===g)),nextId=nextPoint(prog,order)?.id,nextGroup=order.find(p=>p.id===nextId)?.group,
+  cur=keys.includes(opts.group)?opts.group:keys.includes(nextGroup)?nextGroup:keys[0];
  const starts={};{let k=0;for(const g of keys){starts[g]=k;k+=pts.filter(p=>p.group===g).length;}}
  /* 2026-11-11 (user: the category list read like a syllabus, nobody wants to click it): categories are stages — a
     nickname, the grammar of its first lesson huge, a segment per lesson filling as you learn; the strip scrolls sideways */
@@ -232,7 +235,7 @@ export function listHTML(data,opts){const {locale,esc,level='N5',userLevel=null}
   }).join('');
  const n0note=level==='N0'?`<p class="gm-n0note"><i></i>N0 词库还在收集中：JLPT 官方只有 N5–N1，N0 是 MeguLit 自己整理的「考级不考、生活和 gal 里天天用」的说法，会持续补充（最新收录：JC・JK 流行语大赏 2025 / 2026 上半期、渋谷トレンドリサーチ 2026 秋）。遇到想加的词，欢迎在反馈里告诉我们。</p>`:'';
  const tracks=`${n0note}${gtabs}<div class="gm-tracks one">${groups}</div>`;
- return `${hud}${goalBarHTML(opts.goal,{locale,esc})}${manaHTML(opts.rewards,esc)}${opts.anki?ankiBannerHTML(opts.anki,{esc}):''}${data?.pending&&data?.counting?`<p class="gm-cap gm-status">${esc(w.counting)}</p>`:''}${heroHTML(data,{locale,esc,userLevel,level})}${overview}${tracks}`;
+ return `${hud}${goalBarHTML(opts.goal,{locale,esc})}${manaHTML(opts.rewards,esc)}${opts.anki?ankiBannerHTML(opts.anki,{esc}):''}${data?.pending&&data?.counting?`<p class="gm-cap gm-status">${esc(w.counting)}</p>`:''}${heroHTML(data,{locale,esc,userLevel,level,order})}${overview}${tracks}`;
 }
 /* ---- widgets ---- */
 export function conjHTML(pointId,{locale,esc,wordIndex=null,form=null}){
@@ -321,8 +324,8 @@ export function quizHTML(point,q,{locale,esc,answered=null,index=0,total=1,retry
 export function completion(prog,points=N5){let learned=0,attempts=0,correct=0;for(const p of points){const r=prog?.[p.id];if(r?.learned)learned++;attempts+=r?.attempts||0;
  correct+=r?.correct||0;}return {learned,total:points.length,share:points.length?learned/points.length:0,accuracy:attempts?correct/attempts:null};}
 /* The hero on top of the list: the lesson to take next, and your level (changeable here). */
-export function heroHTML(data,{locale,esc,userLevel=null,level='N5'}){
- const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=pointsOf(level),p=nextPoint(prog,pts),i=p?pts.indexOf(p):pts.length;
+export function heroHTML(data,{locale,esc,userLevel=null,level='N5',order=null}){
+ const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=order?.length?order:pointsOf(level),p=nextPoint(prog,pts),i=p?pts.indexOf(p):pts.length;
  const [head,tail]=p?loc(p.title,locale).split(/\s*——\s*/):[w.allDone,''];
  const bars=`<div class="gm-barcode" aria-hidden="true">${pts.map(x=>`<i class="${prog[x.id]?.learned?'on':x===p?'cur':''}"></i>`).join('')}</div>`;
  const main=p?`<span class="gm-kicker">${esc(w.nextLesson)} · ${level} · ${String(i+1).padStart(2,'0')} / ${pts.length}</span><h2><span class="gm-hero-ja" lang="ja" data-type data-len="${[...head].length>16?'xl':[...head].length>8?'l':'s'}" title="${esc(head)}">${esc(head)}</span>${tail?`<small>${esc(tail)}</small>`:''}</h2><p class="gm-hero-gist">${esc(loc(p.gist,locale))}</p><div class="gm-hero-row"><button type="button" class="primary gm-hero-go" data-point="${p.id}">${esc(w.continueLesson)} <span aria-hidden="true">→</span></button>${bars}</div>`:`<h2>${esc(w.allDone)}</h2>${bars}`;

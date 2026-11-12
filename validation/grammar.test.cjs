@@ -106,7 +106,7 @@ test('N5 lessons: every point is complete, exercises are answerable, levels N4�
  const real=[{text:'一段と厳しかった。',start:3,end:7,title:'G',readAt:1},{text:'外は寒い。',start:2,end:4,title:'G',readAt:1794300000}];
  assert.equal(g.exercisesFor(N5.find(p=>p.id==='iadj'),real)[0].text,'外は寒い。');
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
- assert.match(g.listHTML({progress:{},completion:G.completion({}),examples:{}},{locale:'zh',esc,level:'N0'}),/data-point="n0-jan"/,'N0 has its own lessons now');
+ assert.match(g.listHTML({progress:{},completion:G.completion({}),examples:{}},{locale:'zh',esc,level:'N0'}),/data-point="n0-nnai"/,'N0 has its own lessons now (E500: the next lesson is the first of stage 01)');
  const list=g.listHTML({progress:{wa:{learned:true,attempts:2,correct:1}},completion:G.completion({wa:{learned:true,attempts:2,correct:1}}),examples:{wa:[{}]},real:1},{locale:'zh',esc});
  assert.match(list,/data-point="wa"/);assert.match(list,/已学完/);assert.match(list,/50%/);
  for(const l of ['zh','ja','en'])assert.deepEqual(Object.keys(g.grammarMessages[l]).sort(),Object.keys(g.grammarMessages.zh).sort(),l);

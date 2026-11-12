@@ -311,7 +311,7 @@
 .gm-hud .gm-levels{gap:2px}
 .gm-hud .gm-level{min-height:28px;padding:0 12px;border-radius:0;border:1px solid var(--mg-line);font:500 11px/1 var(--mg-mono);letter-spacing:.15em;color:var(--mg-dim)}
 .gm-hud .gm-level.active{background:#fff;border-color:#fff;color:#0b0b0b}
-.gm-hud-stats{display:flex;gap:24px;margin-left:auto;font:10px/1 var(--mg-mono);letter-spacing:.15em;color:var(--mg-dim)}
+.gm-hud-stats{display:flex;gap:24px;margin-left:auto;font:10px/1 var(--mg-mono);letter-spacing:.15em;color:var(--mg-dim)}.gm-hud-stats.wait{visibility:hidden}
 .gm-hud-stats b{font:600 15px/1 var(--mg-mono);color:#fff;margin-right:6px}
 /* stage */
 .gm-hero{position:relative;overflow:hidden;grid-template-columns:minmax(0,1fr) 230px;gap:0;padding:0;border:0;border-radius:0;background:#000;background-image:linear-gradient(transparent calc(100% - 1px),rgba(255,255,255,.05) 0),linear-gradient(90deg,transparent calc(100% - 1px),rgba(255,255,255,.05) 0);background-size:100% 32px,32px 100%}

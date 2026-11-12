@@ -86,4 +86,10 @@ function japaneseTrack(text){
    ト80_幻想パー were read and drawn as story lines): script/scene identifiers that pass through the text call. A line with no
    whitespace and no sentence punctuation that carries a number_ prefix or a double underscore is a name, not dialogue. */
 function scriptIdentifier(text){const t=String(text||'').trim();if(!t||/\s/.test(t)||/[。、！？!?「」『』（）…―]/.test(t))return false;return t.includes('_');}
-module.exports={scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
+/* E500 (live test 2026-11-13, 千恋＊万花: a per-glyph draw stream sent 「『『『『『『『『おお『お『『おお客客…」 and the art path read it as a
+   line; the sound-effect caption 「■自動車（車内／走行）」 came through the scenario stream as the first line). A typewriter frame where many
+   characters repeat in place is never text to read, and a short line that opens with a block/marker symbol and has no
+   sentence punctuation is a caption (sound effect, BGM, location), not dialogue. */
+function stuttered(text){const c=[...String(text||'').replace(/\s+/g,'')];if(c.length<8)return false;let n=0;const kinds=new Set();for(let i=1;i<c.length;i++)if(c[i]===c[i-1]&&!/[ー…‥―・～—\-.。！？!?]/u.test(c[i])){n++;kinds.add(c[i]);}return kinds.size>=3&&n*4>=c.length;}
+function soundCaption(text){const t=String(text||'').trim();return /^[■□◆◇▼▽★☆※◎●○]/u.test(t)&&[...t].length<=30&&!/[、。「」『』！？!?\r\n]/u.test(t);}
+module.exports={stuttered,soundCaption,scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
