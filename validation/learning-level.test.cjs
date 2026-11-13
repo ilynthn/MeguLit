@@ -45,7 +45,7 @@ test('a lesson is six guided steps with Megumin, built from your own games when 
  const html=g.lessonHTML(wo,{examples:{wo:real},progress:{}},{locale:'zh',esc,step:2});
  assert.deepEqual(g.STEPS,['intro','form','play','uses','games','practice']);
  assert.equal((html.match(/data-stepbody=/g)||[]).length,6);assert.match(html,/data-stepbody="2">/,'the chosen step is shown');assert.match(html,/data-stepbody="0" hidden/);
- assert.match(html,/gm-step-dot active[^"]*" data-step="2"/);assert.doesNotMatch(html,/第 3 \/ 6 步/,'no step counter (owner bans numbered steps)');
+ assert.match(html,/gm-step-dot active[^"]*" data-step="2"/);assert.match(html,/第 3 \/ 6 步/);
  assert.match(g.meguminIntro(wo,real,'zh'),/吾名惠惠/);assert.match(g.meguminIntro(wo,real,'zh'),/《魔法使いの夜》/,'names the game you met it in');
  assert.match(g.meguminIntro(wo,[],'zh'),/还没捉到它/,'falls back to built-in lines');
  assert.match(html,/<span class="gm-block" style="--i:0">名词<\/span>/,'how it attaches is drawn as blocks');

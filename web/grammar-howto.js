@@ -5,10 +5,10 @@
    - the connection in plain words: 蓝宝书 shorthand (動辞書形, ナ形語幹, 名詞修飾形 …) spelled out in Chinese, and when
      a card has no connection field, the 接在…之后 sentence of its explanation turned into a formula;
    - for verb patterns, which form the verb takes, shown on 行く and 食べる (行く → 行き + がてら → 行きがてら);
-   - two or three example lines with their Chinese and furigana (the deck's own furigana, or JMdict readings generated
-     by tools/build-grammar-ruby.cjs for MeguLit's own lines); one line from the learner's own reading when there is one;
+   - two or three example lines with their Chinese; furigana come from the shared renderer (example-ruby.js: game ruby,
+     then dictionary readings, off when 假名注音 is off); one line from the learner's own reading when there is one;
    - one 注意 line from the lesson's pitfalls or the card's notes. */
-import {RUBY} from './grammar-ruby.js';
+import {exAttr} from './example-ruby.js';
 
 const VERBS=[
  {word:'行く',zh:'去',dict:'行く',masu:'行き',te:'行って',ta:'行った',nai:'行か',vol:'行こう',ba:'行けば',mai:'行くまい'},
@@ -57,20 +57,9 @@ export function formulaFromExplain(lines,word){
   const cat=(m[1].match(/名词|动词[^，。、]{0,6}?形|动词|い形容词|な形容词|形容词|数量词|疑问词|句子|句末|普通形/g)||[]).pop();if(!cat)continue;
   const pat=(/「([^」]+)」/.exec(line)||[])[1]||word;return {formula:`${cat} + ${pat.replace(/^[～~〜]/,'')}`,rule:line};}
  return null;}
-/* Anki furigana 「 漢字[かんじ]」: a base runs back to the previous space or the start */
-export function rubyParts(rb){const out=[];const re=/ ?([^ \[\]]+)\[([^\]]*)\]/g;let at=0,m;
- while((m=re.exec(rb))){if(m.index>at)out.push({t:rb.slice(at,m.index)});out.push({t:m[1],rt:m[2]});at=re.lastIndex;}
- if(at<rb.length)out.push({t:rb.slice(at)});return out;}
-/* the line with its furigana and the grammar marked; plain text when the markup does not match the line */
-export function rubyHTML(text,{rb='',start=-1,end=-1,esc}){
- const src=rb||RUBY[text]||'',parts=src?rubyParts(src):[],ok=parts.length&&parts.map(p=>p.t).join('')===text;
- /* plain runs become single characters so the mark can start and stop anywhere; a ruby word is marked whole */
- const units=(ok?parts:[{t:String(text||'')}]).flatMap(p=>p.rt!=null?[p]:[...p.t].map(t=>({t})));
- let pos=0,html='',open=false;
- for(const u of units){const a=pos,b=pos+[...u.t].length;pos=b;const on=start>=0&&a<end&&b>start;
-  if(on!==open){html+=on?'<mark class="gm-hl">':'</mark>';open=on;}
-  html+=u.rt!=null?`<ruby>${esc(u.t)}<rt>${esc(u.rt)}</rt></ruby>`:esc(u.t);}
- return html+(open?'</mark>':'');}
+/* the line with the grammar marked; the furigana are added later by example-ruby.js around this markup */
+export function markHTML(text,{start=-1,end=-1,esc}){const c=[...String(text||'')];if(start<0||end<=start)return esc(c.join(''));
+ return esc(c.slice(0,start).join(''))+'<mark class="gm-hl">'+esc(c.slice(start,end).join(''))+'</mark>'+esc(c.slice(end).join(''));}
 const span=(text,hl)=>{if(!hl)return [-1,-1];const at=text.indexOf(hl);if(at<0)return [-1,-1];const s=[...text.slice(0,at)].length;return [s,s+[...hl].length];};
 const LABEL={zh:{speak:'朗读',place:'在句子里的位置',start:'句首',end:'句末',rule:'接法',demo:'动词这样变',examples:'例句',mine:'你读过的台词',note:'注意',from:'来自'},ja:{speak:'読み上げ',place:'文の中の位置',start:'文頭',end:'文末',rule:'接続',demo:'動詞の形',examples:'例文',mine:'あなたが読んだセリフ',note:'注意',from:''},
  en:{speak:'Read aloud',place:'Where it sits',start:'start',end:'end',rule:'How it attaches',demo:'The verb becomes',examples:'Examples',mine:'From your reading',note:'Watch out',from:'from'}};
@@ -78,11 +67,11 @@ const LABEL={zh:{speak:'朗读',place:'在句子里的位置',start:'句首',end
 export function howTo(point,real=[]){
  const cards=point.source==='anki'?[]:point.anki||[];
  /* examples: lines with a translation, the grammar marked */
- const ex=[];const add=(ja,zh,hl,rb)=>{if(!ja||ex.some(e=>e.ja===ja)||ex.length>=3)return;const [s,e]=span(ja,hl);ex.push({ja,zh:zh||'',rb:rb||'',start:s,end:e});};
- for(const b of point.builtin||[])add(b.ja,b.zh,b.hl,b.rb);
+ const ex=[];const add=(ja,zh,hl)=>{if(!ja||ex.some(e=>e.ja===ja)||ex.length>=3)return;const [s,e]=span(ja,hl);ex.push({ja,zh:zh||'',start:s,end:e});};
+ for(const b of point.builtin||[])add(b.ja,b.zh,b.hl);
  const hits=[...(point.hits||[]),...(point.choices||[])].filter(Boolean);
- for(const u of point.uses||[])add(u.ja,u.zh,hits.find(h=>u.ja?.includes(h))||'',u.rb);
- for(const c of cards)for(const e of c.examples||[])add(e.ja,e.zh,e.hl,e.rb);
+ for(const u of point.uses||[])add(u.ja,u.zh,hits.find(h=>u.ja?.includes(h))||'');
+ for(const c of cards)for(const e of c.examples||[])add(e.ja,e.zh,e.hl);
  const rows=[];
  for(const [a,b] of point.form||[]){const raw=String(a||'').trim();if(!raw)continue;const isWord=!/[＋+]|形|词|詞|名|動|作为|念作/.test(raw);
   if(isWord&&point.source==='anki')continue;rows.push({formula:plainFormula(raw),raw,example:b||'',demo:demoOf(raw)});}
@@ -100,21 +89,8 @@ export function howTo(point,real=[]){
 }
 export function howToHTML(point,real,{esc,locale='zh',source=e=>e.title||''}){
  const L=LABEL[locale]||LABEL.zh,h=howTo(point,real);
- const rows=h.rows.map((r,i)=>`<li class="gm-how-row" style="--row:${i}">${r.place?`<p class="gm-how-demo"><small>${esc(L.place)}</small></p>`:''}<div class="gm-formula">${r.formula.split(/\s+\+\s+/).map((part,k)=>`${k?'<i class="gm-plus" aria-hidden="true">+</i>':''}<span class="gm-block" style="--i:${k}"${r.place?' lang="ja"':''}>${esc(part==='{start}'?L.start:part==='{end}'?L.end:part)}</span>`).join('')}</div>${r.example?`<span class="gm-arrow" aria-hidden="true">→</span><button type="button" class="gm-formula-ex" data-speak="${esc(r.example)}" lang="ja">${rubyHTML(r.example,{esc})}</button>`:''}${r.demo.length?`<p class="gm-how-demo"><small>${esc(L.demo)}</small>${r.demo.map(d=>`<span lang="ja">${esc(d.from)}${d.mid&&d.mid+''!==d.from?` → ${esc(d.mid)}`:''} → <b>${esc(d.to)}</b></span>`).join('')}</p>`:''}${r.rule?`<p class="gm-how-rule">${esc(r.rule)}</p>`:''}</li>`).join('');
- const exs=h.examples.map(e=>`<li>${jaLine(e.ja,{rb:e.rb,start:e.start,end:e.end,esc})}${e.zh?`<p class="gm-tr">${esc(e.zh)}</p>`:''}<button type="button" class="gm-link" data-speak="${esc(e.ja)}">${esc(L.speak)}</button></li>`).join('');
- const m=h.mine,mine=m?`<section class="gm-how-mine"><h4>${esc(L.mine)}</h4>${jaLine(m.text,{start:m.start,end:m.end,esc})}${m.translation?`<p class="gm-tr">${esc(m.translation)}</p>`:''}<p class="gm-cap">${esc(source(m))}</p></section>`:'';
+ const rows=h.rows.map((r,i)=>`<li class="gm-how-row" style="--row:${i}">${r.place?`<p class="gm-how-demo"><small>${esc(L.place)}</small></p>`:''}<div class="gm-formula">${r.formula.split(/\s+\+\s+/).map((part,k)=>`${k?'<i class="gm-plus" aria-hidden="true">+</i>':''}<span class="gm-block" style="--i:${k}"${r.place?' lang="ja"':''}>${esc(part==='{start}'?L.start:part==='{end}'?L.end:part)}</span>`).join('')}</div>${r.example?`<span class="gm-arrow" aria-hidden="true">→</span><button type="button" class="gm-formula-ex" data-speak="${esc(r.example)}" lang="ja"${exAttr(r.example,null,esc)}>${esc(r.example)}</button>`:''}${r.demo.length?`<p class="gm-how-demo"><small>${esc(L.demo)}</small>${r.demo.map(d=>`<span lang="ja">${esc(d.from)}${d.mid&&d.mid+''!==d.from?` → ${esc(d.mid)}`:''} → <b>${esc(d.to)}</b></span>`).join('')}</p>`:''}${r.rule?`<p class="gm-how-rule">${esc(r.rule)}</p>`:''}</li>`).join('');
+ const exs=h.examples.map(e=>`<li><p class="gm-ja" lang="ja"${exAttr(e.ja,null,esc)}>${markHTML(e.ja,{start:e.start,end:e.end,esc})}</p>${e.zh?`<p class="gm-tr">${esc(e.zh)}</p>`:''}<button type="button" class="gm-link" data-speak="${esc(e.ja)}">${esc(L.speak)}</button></li>`).join('');
+ const m=h.mine,mine=m?`<section class="gm-how-mine"><h4>${esc(L.mine)}</h4><p class="gm-ja" lang="ja"${exAttr(m.text,m.ruby,esc)}>${markHTML(m.text,{start:m.start,end:m.end,esc})}</p>${m.translation?`<p class="gm-tr">${esc(m.translation)}</p>`:''}<p class="gm-cap">${esc(source(m))}</p></section>`:'';
  return `<section class="gm-how"><h4>${esc(L.rule)}</h4><ol class="gm-formulas gm-how-rows">${rows}</ol>${exs?`<h4>${esc(L.examples)}</h4><ol class="gm-how-ex">${exs}</ol>`:''}${mine}${h.note?`<p class="gm-how-note"><b>${esc(L.note)}</b>${esc(h.note)}</p>`:''}</section>`;
-}
-/* one example line; when it has kanji but no furigana yet it carries data-ruby so fillRuby can add it later */
-function jaLine(text,{rb='',start=-1,end=-1,esc}){const html=rubyHTML(text,{rb,start,end,esc}),need=!html.includes('<ruby>')&&/[\p{Script=Han}々]/u.test(text||'');
- return `<p class="gm-ja" lang="ja"${need?` data-ruby="${esc(text)}" data-s="${start}" data-e="${end}"`:''}>${html}</p>`;}
-/* after the lesson is on screen: furigana for the lines MeguLit has none for (蓝宝书 lines, your own lines), from the
-   grammar_ruby service (JMdict readings that agree with the tokenizer); silently nothing when the reading pack is missing */
-const asked=new Map();
-export async function fillRuby(root,{api,esc,isCurrent=()=>true}){
- const els=[...root.querySelectorAll('[data-ruby]')];if(!els.length)return;
- const want=[...new Set(els.map(el=>el.dataset.ruby))].filter(t=>!asked.has(t)).slice(0,40);
- if(want.length){try{const r=await api('grammar_ruby',{texts:want});for(const t of want)asked.set(t,r?.rubies?.[t]||'');}catch{for(const t of want)asked.set(t,'');}}
- if(!isCurrent())return;
- for(const el of els){const rb=asked.get(el.dataset.ruby);if(!rb||!el.isConnected)continue;el.innerHTML=rubyHTML(el.dataset.ruby,{rb,start:Number(el.dataset.s),end:Number(el.dataset.e),esc});el.removeAttribute('data-ruby');}
 }

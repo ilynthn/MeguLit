@@ -22,7 +22,7 @@ import {stamp,floatGain,quote,manaHTML,albumHTML} from './rewards.js';
 import {pointerDrag} from './drag.js';
 import {goalBarHTML,orderByGoal} from './learning-goal.js';
 import {exAttr} from './example-ruby.js';
-import {howToHTML,fillRuby} from './grammar-howto.js';
+import {howToHTML} from './grammar-howto.js';
 import {pageNav} from './page-nav.js';
 export const grammarMessages={
  zh:{level:'等级',soon:'这一级的课程还在写，先把 N5 学扎实',done:'已学完',progress:'完成度',accuracy:'练习正确率',noAnswers:'还没做练习',back:'← 课程列表',form:'接法',uses:'常见用法',pitfalls:'容易错的地方',fromGames:'你玩过的游戏里',
@@ -153,14 +153,14 @@ export function useAnkiCards(cards){
   const base=basePoints(c.level),word=c.word.replace(/^[～~〜]/,'');
   const twin=base.find(p=>(p.hits||[]).some(h=>c.hits.includes(h))||loc(p.title,'zh').split(/\s*——\s*/)[0].split(/\s*[／/]\s*/).some(h=>h&&h===word));
   if(twin){(twin.anki||(twin.anki=[])).push(c);continue;}
-  const builtin=c.examples.filter(e=>e.ja).slice(0,4).map(e=>({ja:e.ja,hl:e.hl||c.hits.find(h=>e.ja.includes(h))||'',zh:e.zh,rb:e.rb||''}));
+  const builtin=c.examples.filter(e=>e.ja).slice(0,4).map(e=>({ja:e.ja,hl:e.hl||c.hits.find(h=>e.ja.includes(h))||'',zh:e.zh}));
   const others=list.filter(o=>o.level===c.level&&o!==c).map(o=>o.hits[0]).filter(h=>h&&!c.hits.includes(h));
   const wrong=[0,7,19].map(k=>others[(c.order+k)%Math.max(1,others.length)]).filter((v,i,a)=>v&&a.indexOf(v)===i);
   const title=`${word} —— ${short(c.explain[0])}`,gist=c.explain[0]||'';
   const kind=kindOf(c);ANKI.push({id:c.id,level:c.level,group:kind,node:{cond:'clauses',link:'clauses',time:'clauses',perm:'auxiliary',guess:'auxiliary',voice:'auxiliary',
    give:'viewpoint',aspect:'aspect',formal:'order',stance:'order',misc:'order'}[kind]||'order',source:'anki',title:{zh:title,ja:word,en:word},gist:{zh:gist,ja:gist,
    en:gist},
-   form:(c.form.length?c.form:[word]).map(f=>[f.replace(/[＋+]/g,' + '),'']),uses:builtin.slice(0,3).map((e,i)=>({t:c.explain[Math.min(c.explain.length-1,Math.floor(i*c.explain.length/Math.max(1,c.examples.length)))]||'',ja:e.ja,zh:e.zh,rb:e.rb})),pitfalls:c.notes.length?c.notes:c.explain.slice(1),explain:c.explain,
+   form:(c.form.length?c.form:[word]).map(f=>[f.replace(/[＋+]/g,' + '),'']),uses:builtin.slice(0,3).map((e,i)=>({t:c.explain[Math.min(c.explain.length-1,Math.floor(i*c.explain.length/Math.max(1,c.examples.length)))]||'',ja:e.ja,zh:e.zh})),pitfalls:c.notes.length?c.notes:c.explain.slice(1),explain:c.explain,
    builtin,hits:c.hits,wrong:wrong.length?wrong:['のに','ので','ために'],choices:[...c.hits,...wrong]});
  }
  return {merged:list.length-ANKI.length,own:ANKI.length};
@@ -321,7 +321,7 @@ function judgeHTML(point,real,{esc,locale}){
    return `<li class="gm-jd" data-jd><p class="gm-jd-q">「<b lang="ja">${esc(name)}</b>」是什么意思？</p><div class="gm-jd-opts">${opts.map(o=>`<button type="button" class="gm-jd-opt gm-jd-who" data-ok="${o===mine?1:0}">${esc(o)}</button>`).join('')}</div><p class="gm-jd-why" hidden>${esc(loc(point.gist,locale))}</p></li>`;
     })():'';
  if(!rounds.length&&!who)return `<p class="gm-cap">${esc(loc(point.gist,locale))}</p>`;
- return `<p class="gm-play-lead">哪一句是日本人会说的？选对了，惠惠告诉你为什么</p><ol class="gm-jds">${rounds.map((rd,i)=>`<li class="gm-jd" data-jd><p class="gm-jd-q">${rd.title?`来自《${esc(rd.title)}》的一句`:'哪句自然？'}</p><div class="gm-jd-opts">${rd.options.map(o=>`<button type="button" class="gm-jd-opt" data-ok="${o.ok?1:0}"${o.form?` data-form="${esc(o.form)}"`:''} lang="ja"><span class="gm-jd-plain">${esc(o.text)}</span><span class="gm-jd-marked" hidden>${mark(o)}</span></button>`).join('')}</div><p class="gm-jd-why" hidden>${rd.translation?`<span class="gm-tr">${esc(rd.translation)}</span>`:''}<span>${esc(loc(point.gist,locale))}</span></p></li>`).join('')}${meanRound}${who}</ol>`;
+ return `<p class="gm-play-lead">哪一句是日本人会说的？选对了，惠惠告诉你为什么</p><ol class="gm-jds">${rounds.map((rd,i)=>`<li class="gm-jd" data-jd><p class="gm-jd-q">${rd.title?`来自《${esc(rd.title)}》的一句`:'哪句自然？'}</p><div class="gm-jd-opts">${rd.options.map(o=>`<button type="button" class="gm-jd-opt" data-ok="${o.ok?1:0}"${o.form?` data-form="${esc(o.form)}"`:''} lang="ja"><span class="gm-jd-plain"${exAttr(o.text,'none',esc)}>${esc(o.text)}</span><span class="gm-jd-marked" hidden>${mark(o)}</span></button>`).join('')}</div><p class="gm-jd-why" hidden>${rd.translation?`<span class="gm-tr">${esc(rd.translation)}</span>`:''}<span>${esc(loc(point.gist,locale))}</span></p></li>`).join('')}${meanRound}${who}</ol>`;
 }
 /* A lesson: six short steps, one shown at a time; every step is in the page so returning to it is instant. */
 export function lessonHTML(point,data,{locale,esc,step=0,reached=0}){
@@ -342,7 +342,7 @@ export function lessonHTML(point,data,{locale,esc,step=0,reached=0}){
  const nav=`<ol class="gm-steps" role="tablist">${STEPS.map((k,i)=>`<li><button type="button" role="tab" class="gm-step-dot${i===s?' active':''}${i!==s&&i<Math.max(s,reached)?' passed':''}" data-step="${i}" aria-selected="${i===s}"><span>${esc(w.steps[k])}</span></button></li>`).join('')}</ol>`;
  return `<button type="button" class="gm-link gm-back" data-back>${esc(w.back)}</button><article class="gm-lesson"><header class="gm-lesson-head"><span class="gm-tag"><i></i>megulit · ${levelOf(point).toLowerCase()} · lesson ${String(pointsOf(levelOf(point)).indexOf(point)+1).padStart(2,'0')}</span><div class="gm-onmap"><span class="gm-cap">${esc(w.onMap)}</span>${nodes.map(n=>`<button type="button" class="gm-chip" data-map="${n.id}">${esc(n.no)} · ${esc(loc(n.title,locale))}</button>`).join('')}</div>${point.era?`<span class="gm-era"><b>${esc(point.era)}</b> · ${esc(point.who)}</span>`:''}<h2><span lang="ja">${esc(loc(point.title,locale).split(/\s*——\s*/)[0])}</span><small>${esc(loc(point.title,locale).split(/\s*——\s*/)[1]||'')}</small></h2></header>
 ${nav}<div class="gm-lesson-main">${STEPS.map((k,i)=>`<section class="gm-stepbody gm-step-${k}" data-stepbody="${i}"${i===s?'':' hidden'}>${bodies[k]}</section>`).join('')}
-<footer class="gm-stepnav"><button type="button" class="secondary" data-prev${s===0?' disabled':''}>${esc(w.prev)}</button><button type="button" class="primary" data-nextstep${s===STEPS.length-1?' hidden':''}>${esc(w.nextStep)}</button></footer></div></article>`;
+<footer class="gm-stepnav"><button type="button" class="secondary" data-prev${s===0?' disabled':''}>${esc(w.prev)}</button><span class="gm-cap" data-stepof>${esc(w.stepOf.replace('{n}',s+1).replace('{t}',STEPS.length))}</span><button type="button" class="primary" data-nextstep${s===STEPS.length-1?' hidden':''}>${esc(w.nextStep)}</button></footer></div></article>`;
 }
 export function quizHTML(point,q,{locale,esc,answered=null,index=0,total=1,retry=false}){
  const w=grammarMessages[locale]||grammarMessages.zh,c=[...q.text],ok=answered===q.answer,blank=`<span class="gm-blank${answered==null?' gm-drop':ok?' ok':' bad'}" data-exr-skip${answered==null?' data-drop':''}>${answered==null?esc(w.dropHere||'＿＿'):esc(q.answer)}</span>`;
@@ -517,14 +517,14 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   root.querySelectorAll('[data-stepbody]').forEach(s=>s.hidden=Number(s.dataset.stepbody)!==step);
   root.querySelectorAll('[data-step]').forEach(b=>{const i=Number(b.dataset.step);b.classList.toggle('active',i===step);b.classList.toggle('passed',i!==step&&i<Math.max(step,reached));b.setAttribute('aria-selected',
    String(i===step));});
-  root.querySelector('[data-prev]').disabled=step===0;root.querySelector('[data-nextstep]').hidden=step===STEPS.length-1;/* no step counter: the owner bans numbered steps and page counters */
+  root.querySelector('[data-prev]').disabled=step===0;root.querySelector('[data-nextstep]').hidden=step===STEPS.length-1;root.querySelector('[data-stepof]').textContent=w.stepOf.replace('{n}',step+1).replace('{t}',STEPS.length);
   const body=root.querySelector(`[data-stepbody="${step}"]`);if(animate&&body){fx.focus(body);fx.push(root.querySelector('.gm-step-dot.active b'));}
   if(animate&&motion()&&STEPS[step]==='form')body.querySelectorAll('.gm-formulas li').forEach((li,i)=>li.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,
    transform:'none'}],{duration:300,delay:60+i*90,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'}));
   root.querySelector('.gm-lesson')?.scrollIntoView?.({block:'nearest'});
  }
  function renderLesson(){
-  root.innerHTML=lessonHTML(point,data||{},{locale,esc,step,reached:stepOf(point.id).max});fillRuby(root,{api,esc,isCurrent:()=>isCurrent()&&view==='lesson'});const real=data?.examples?.[point.id]||[];
+  root.innerHTML=lessonHTML(point,data||{},{locale,esc,step,reached:stepOf(point.id).max});const real=data?.examples?.[point.id]||[];
   root.querySelector('[data-back]').onclick=()=>go('list');
   root.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{openNode=b.dataset.map;scene=null;piece=-1;memo.mapFrom='lesson';go('map');});
   root.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>showStep(Number(b.dataset.step)));

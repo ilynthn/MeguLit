@@ -1,7 +1,8 @@
 'use strict';
 /* 2026-11-14 (user: 「怎么做部分太空了 完全不知道啥意思」): 怎么接 on a 蓝宝书 lesson showed one box saying する. Every lesson
    now teaches the connection: plain-words formula, the verb form shown on 行く／食べる, examples with Chinese and
-   furigana, a line from your own reading, one 注意 line. The step list has no numbers. */
+   furigana (the shared example-ruby.js renderer), a line from your own reading, one 注意 line. The step list has no
+   numbers. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const web=f=>pathToFileURL(path.join(__dirname,'..','web',f)).href;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -39,46 +40,34 @@ test('a 蓝宝书 card without a connection field gets one from its explanation,
  assert.equal(x.examples[0].zh,'我可以做运动吗？');assert.equal(x.note,'意思随宾语变化');
  const html=h.howToHTML(suru,[],{esc});
  assert.match(html,/<span class="gm-block"[^>]*>名词<\/span>/);assert.doesNotMatch(html,/<span class="gm-block"[^>]*>する<\/span><\/div><\/li><\/ol>$/);
- assert.match(html,/data-ruby="運動をしてもいいですか。"/,'a line without furigana asks the service for it');
+ assert.match(html,/<p class="gm-ja" lang="ja" data-exr="運動をしてもいいですか。">運動を<mark class="gm-hl">して<\/mark>もいいですか。<\/p>/,'the shared renderer adds the furigana');
  const but=h.howTo(g.pointsOf('N5').find(p=>p.id==='bb-しかし'),[]);
  assert.equal(but.rows[0].place,true);assert.equal(but.rows[0].formula,'…高いです。 + しかし + おいしいで…');
  g.useAnkiCards([]);
 });
 
-test('furigana: Anki markup becomes ruby, the grammar stays marked, a line from your own reading is shown',async()=>{
- const h=await import(web('grammar-howto.js')),{RUBY}=await import(web('grammar-ruby.js'));
- assert.equal(h.rubyHTML('先輩は',{rb:' 先輩[せんぱい]は',start:2,end:3,esc}),'<ruby>先輩<rt>せんぱい</rt></ruby><mark class="gm-hl">は</mark>');
- assert.equal(h.rubyHTML('別の行',{rb:' 違[ちが]う',esc}),'別の行','markup that does not match the line is ignored');
- assert.ok(Object.keys(RUBY).length>1000,'MeguLit\'s own lines ship with generated furigana');
- for(const [text,rb] of Object.entries(RUBY))assert.equal(h.rubyParts(rb).map(p=>p.t).join(''),text,text);
+test('examples go through the shared furigana renderer, the grammar stays marked, a line from your own reading is shown',async()=>{
+ const h=await import(web('grammar-howto.js'));
+ assert.equal(h.markHTML('先輩は',{start:2,end:3,esc}),'先輩<mark class="gm-hl">は</mark>');
  const g=await import(web('grammar.js')),p=g.pointsOf('N4')[0];
- const html=h.howToHTML(p,[{text:'もし雨が降ったら、帰ろう。',start:5,end:7,translation:'下雨就回去',title:'ATRI',origin:'game'}],{esc,source:e=>e.title});
- assert.match(html,/gm-how-mine[\s\S]*下雨就回去[\s\S]*ATRI/);
+ const html=h.howToHTML(p,[{text:'もし雨が降ったら、帰ろう。',start:5,end:7,translation:'下雨就回去',title:'ATRI',origin:'game',ruby:[['雨','あめ']]}],{esc,source:e=>e.title});
+ assert.match(html,/gm-how-mine[\s\S]*data-exr="もし雨が降ったら、帰ろう。" data-exr-ruby="\[\[&quot;雨&quot;,&quot;あめ&quot;\]\]"[\s\S]*下雨就回去[\s\S]*ATRI/,'your own line keeps the game ruby');
+ assert.doesNotMatch(html,/<ruby>/,'no second furigana path');
+ for(const level of ['N5','N1'])for(const pt of g.pointsOf(level)){const x=h.howToHTML(pt,[],{esc});assert.ok((x.match(/class="gm-ja" lang="ja" data-exr=/g)||[]).length>=1,pt.id);}
+ assert.ok(!fs.existsSync(path.join(__dirname,'..','web','grammar-ruby.js')),'no generated furigana table beside the shared renderer');
 });
 
-test('step list: names and ✓, no numbers and no step counter',()=>{
+test('step list: names and ✓, no numbers; 第 n / 6 步 under the lesson',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8');
  assert.doesNotMatch(src,/data-step="\$\{i\}"[^`]*<b>\$\{i\+1\}<\/b>/);
- assert.doesNotMatch(src,/data-stepof/);
+ assert.match(src,/data-stepof>/);
  assert.doesNotMatch(src,/<em>\$\{String\(i\+1\)\.padStart\(2,'0'\)\}<\/em>/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','web','grammar.css'),'utf8'),/\.gm-step-dot\.passed span::after\{content:' ✓'/);
- const bridge=fs.readFileSync(path.join(__dirname,'..','services','bridge.cjs'),'utf8');
- assert.match(bridge,/case 'grammar_ruby':return \{rubies:await require\('\.\.\/core\/grammar-ruby\.cjs'\)\.rubies\(/);
-});
-
-test('the ruby rule keeps only dictionary readings the tokenizer agrees with',async()=>{
- const {rubyLine,bracket}=require('../core/grammar-ruby.cjs');
- assert.equal(bracket('食べる','たべる'),' 食[た]べる');assert.equal(bracket('陽キャ','ようきゃ'),' 陽[よう]キャ');
- const fake={tokenize:async()=>[{surface:'私',start:0,end:1,reading:'ワタシ'},{surface:'が',start:1,end:2,reading:'ガ'},{surface:'来',start:2,end:3,reading:'キ'},{surface:'ます',start:3,end:5,reading:'マス'}],
-  readings:{resolve:t=>t.map(x=>x.surface==='私'?{...x,reading:'わたし',readingSource:'dictionary'}:x.surface==='来'?{...x,reading:'らい',readingSource:'dictionary'}:x)}};
- const r=await rubyLine(fake,'私が来ます');
- assert.equal(r.rb,'私[わたし]が来ます','来 read らい by the dictionary but き by the tokenizer stays bare');
- assert.equal(r.bare.length,1);
 });
 
 test('the map opened from a lesson returns to that lesson at the same step',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8');
  assert.match(src,/data-map\]'\)\.forEach\(b=>b\.onclick=\(\)=>\{openNode=b\.dataset\.map;scene=null;piece=-1;memo\.mapFrom='lesson';go\('map'\);\}\)/);
  assert.match(src,/back\.onclick=\(\)=>\{memo\.mapFrom='';go\(fromLesson\?'lesson':'list'\);\}/);
- assert.match(src,/function showStep\(n,animate=true\)\{\n  step=Math\.max\(0,Math\.min\(STEPS\.length-1,n\)\);save\(\);/,'the step is kept in memo');
+ assert.match(src,/function showStep\(n,animate=true\)\{\n  step=Math\.max\(0,Math\.min\(STEPS\.length-1,n\)\);save\(\);keepStep\(point\?\.id,step\);/,'the step is kept for the lesson');
 });

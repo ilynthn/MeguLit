@@ -13,8 +13,7 @@ function profiles(env=process.env){
   for(const base of bases){try{for(const d of fs.readdirSync(base,{withFileTypes:true}))if(d.isDirectory()&&fs.existsSync(path.join(base,d.name,'collection.anki2'))&&!out.some(x=>x.name===d.name))out.push({name:d.name,file:path.join(base,d.name,'collection.anki2')});}catch{}}
   return out;}
 /* One example line: the text without furigana, and the bold part (the grammar) as the highlight. */
-/* rb keeps the deck's own furigana (「 漢字[かんじ]」) for the lesson's ruby; ja is the bare line */
-function example(html,zh){const ja=noRuby(html);if(!ja)return null;const m=String(html).match(/<b>([\s\S]*?)<\/b>/i),hl=m?noRuby(m[1]):'',rb=plain(html).replace(/\s+/g,' ').trim();return {ja,hl:hl&&ja.includes(hl)?hl:'',zh:plain(zh).trim(),rb:/\[/.test(rb)?rb:''};}
+function example(html,zh){const ja=noRuby(html);if(!ja)return null;const m=String(html).match(/<b>([\s\S]*?)<\/b>/i),hl=m?noRuby(m[1]):'';return {ja,hl:hl&&ja.includes(hl)?hl:'',zh:plain(zh).trim()};}
 /* The forms that mark the point in a line: the headword split at ／ and 、 without ～, plus the bold parts of its examples. */
 function hitsOf(word,examples){const out=new Set();
   for(const w of noRuby(word).split(/[\/／、,，]|\s+or\s+/))for(const v of [w.replace(/[～~〜（）()]/g,'').trim()])if([...v].length>=2&&!/[A-Za-z＋+]/.test(v))out.add(v);
