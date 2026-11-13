@@ -21,7 +21,7 @@
    The relay stores only sha256(id); `me` is that hash so the page can mark the user's own row. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const relay=require('./relay-config.cjs');
-const PERIODS=['week','month','all'],METRICS=['characters','seconds','words','streak','reviews','kana'],TIMEOUT=8000,SUBMIT_EVERY=10*60*1000,MAX_GAMES=30;
+const PERIODS=['week','month','all'],METRICS=['characters','seconds','words','streak','reviews','kana'],TIMEOUT=8000,SUBMIT_EVERY=10*60*1000,RESEND_ANYWAY=24*60*60*1000,MAX_GAMES=30;
 const stateFile=root=>path.join(root,'data','config','leaderboard.json');
 function atomic(file,value){fs.mkdirSync(path.dirname(file),{recursive:true});const tmp=file+'.'+process.pid+'.tmp';fs.writeFileSync(tmp,JSON.stringify(value,null,1));fs.renameSync(tmp,file);}
 
@@ -117,7 +117,7 @@ function collectLookups(db,now=new Date()){
 /* ---- opt-in state --------------------------------------------------------------------------------------------- */
 function online(root){const v=relay.readJSON(relay.onlineFile(root));return {enabled:v.leaderboardEnabled===true,name:typeof v.leaderboardName==='string'?v.leaderboardName:'',shareGames:v.leaderboardShareGames===true};}
 function saveOnline(root,patch){const file=relay.onlineFile(root);atomic(file,{...relay.readJSON(file),...patch});}
-function state(root){const s=relay.readJSON(stateFile(root));return {installId:/^[0-9a-f-]{36}$/.test(String(s.installId||''))?s.installId:'',consentAt:typeof s.consentAt==='string'?s.consentAt:'',lastSubmitAt:Number(s.lastSubmitAt)||0};}
+function state(root){const s=relay.readJSON(stateFile(root));return {installId:/^[0-9a-f-]{36}$/.test(String(s.installId||''))?s.installId:'',consentAt:typeof s.consentAt==='string'?s.consentAt:'',lastSubmitAt:Number(s.lastSubmitAt)||0,lastSubmitHash:typeof s.lastSubmitHash==='string'?s.lastSubmitHash:''};}
 const publicHash=id=>id?crypto.createHash('sha256').update(String(id)).digest('hex'):'';
 /* E379 a logged-in MeguLit account (services/account.cjs) is the leaderboard identity, so two PCs are one row; the
    nickname stays the leaderboard nickname (accounts carry no display name). Without an account: the install id. */
@@ -133,7 +133,7 @@ function join(root,{name,shareGames=false,consent,requireAccount=false}={},optio
  if(requireAccount&&!identity(root,options))throw Error('LEADERBOARD_ACCOUNT_REQUIRED');
  if(consent!==true)throw Error('LEADERBOARD_CONSENT_REQUIRED');
  const checked=cleanName(name);if(!checked.ok)throw Error('LEADERBOARD_'+checked.error);
- const s=state(root);atomic(stateFile(root),{...relay.readJSON(stateFile(root)),installId:s.installId||crypto.randomUUID(),consentAt:new Date().toISOString(),lastSubmitAt:0});
+ const s=state(root);atomic(stateFile(root),{...relay.readJSON(stateFile(root)),installId:s.installId||crypto.randomUUID(),consentAt:new Date().toISOString(),lastSubmitAt:0,lastSubmitHash:''});
  saveOnline(root,{leaderboardEnabled:true,leaderboardName:checked.name,leaderboardShareGames:shareGames===true});
  return config(root);
 }
@@ -161,8 +161,14 @@ async function submit(stats,options={}){
  if(root){const rc=require('./reader-class.cjs'),cls=rc.read(root);if(cls.element)body.element=cls.element;body.level=rc.readerLevel(body.stats.all,cls.element).level;}
  if(c.shareGames&&Array.isArray(stats?.games))body.games=stats.games.slice(0,MAX_GAMES).map(g=>({title:String(g.title||'').slice(0,120),characters:int(g.characters),seconds:int(g.seconds),last:Math.min(int(g.last),Math.floor((options.now||new Date()).getTime()/1000))})).filter(g=>g.title);
  if(stats?.hot?.week)body.hot={week:stats.hot.week,terms:(stats.hot.terms||[]).slice(0,HOT_TERMS).map(t=>({term:t.term,count:Math.min(1000,int(t.count))})).filter(t=>t.count>0)};
- const res=await call(c.base+'/api/leaderboard',{method:'POST',body:JSON.stringify(body)},options.fetch||fetch,identity(root,options));
- if(res.state==='ok'&&root)atomic(stateFile(root),{...relay.readJSON(stateFile(root)),lastSubmitAt:(options.now||new Date()).getTime()});
+ /* 2026-11-13 the board page re-submits every 10 minutes whether or not anything moved, and each submit costs the
+    relay D1 rows (the row itself plus its rate-limit buckets). An identical body is simply not sent. */
+ const payload=JSON.stringify(body),fingerprint=crypto.createHash('sha256').update(payload).digest('hex');
+ const fresh=(options.now||new Date()).getTime()-c.lastSubmitAt<RESEND_ANYWAY;
+ /* ...but it is re-sent once a day even unchanged, so a row the relay lost (or a profile deleted there) comes back. */
+ if(!options.force&&fresh&&root&&c.lastSubmitHash===fingerprint)return {state:'ok',skipped:true};  /* lastSubmitAt stays at the last real submit, so the daily resend still comes due */
+ const res=await call(c.base+'/api/leaderboard',{method:'POST',body:payload},options.fetch||fetch,identity(root,options));
+ if(res.state==='ok'&&root)atomic(stateFile(root),{...relay.readJSON(stateFile(root)),lastSubmitAt:(options.now||new Date()).getTime(),lastSubmitHash:fingerprint});
  return res.state==='ok'?{state:'ok'}:res;
 }
 const AVATAR_ID=/^[0-9a-f]{32}$/;
@@ -202,7 +208,7 @@ async function leave(root,options={}){
  const c=config(root,options.env,options);let remote='skipped';
  if(c.installId&&c.configured){const res=await call(c.base+'/api/leaderboard?id='+encodeURIComponent(c.installId),{method:'DELETE'},options.fetch||fetch,identity(root,options));remote=res.state==='ok'?'deleted':res.error;}
  else if(!c.configured)remote='not-configured';
- const s=relay.readJSON(stateFile(root));delete s.installId;delete s.consentAt;delete s.lastSubmitAt;delete s.avatar;atomic(stateFile(root),s);
+ const s=relay.readJSON(stateFile(root));delete s.installId;delete s.consentAt;delete s.lastSubmitAt;delete s.lastSubmitHash;delete s.avatar;atomic(stateFile(root),s);
  saveOnline(root,{leaderboardEnabled:false});
  return {state:'left',remote};
 }
@@ -284,7 +290,7 @@ async function view(root,db,request={},options={}){
  const selfAvatar=AVATAR_ID.test(String(relay.readJSON(stateFile(root)).avatar?.id||''))?relay.readJSON(stateFile(root)).avatar.id:null;result.self={avatar:selfAvatar};
  if(selfAvatar&&c.configured)result.avatars=await avatarImages(root,[selfAvatar],options);
  if(!c.configured)return {...result,board:{state:'not-configured'}};
- if(c.joined&&(request.submit===true||now.getTime()-c.lastSubmitAt>SUBMIT_EVERY))result.submit=await submit(local,{...options,root,now});
+ if(c.joined&&(request.submit===true||now.getTime()-c.lastSubmitAt>SUBMIT_EVERY))result.submit=await submit(local,{...options,root,now,force:request.submit===true});
  /* E397 关注 tab: following and 同好 */
  if(request.tab==='follow'){result.tab='follow';result.social=await social(root,options);return result;}
  if(tab==='hot'){result.hot=await hotWords(root,{week:request.week||'',category:CATEGORIES.includes(request.category)?request.category:'word'},options);return result;}
