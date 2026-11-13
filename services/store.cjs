@@ -80,6 +80,7 @@ function openStore(root) {
   try{require('./wait-marker-migration.cjs').migrateWaitMarker(db,root);}catch(error){console.warn('wait marker migration',error.message);}
   try{require('./font-follow-migration.cjs').migrateFontFollow(db,root);}catch(error){console.warn('font follow migration',error.message);}
   reconcileRemovedGames(db);
+  try{require('./library-dedupe.cjs').dedupe(db,root);}catch(error){console.warn('library dedupe',error.message);}
   return db;
 }
 

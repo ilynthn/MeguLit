@@ -47,7 +47,7 @@ function activeGameForProgram(db,exe){
  return variants.length===1?variants[0]:null;
 }
 function reconcile(root,items,{restoreRemoved=false}={}){const db=openStore(root);let added=0,updated=0,committed=false;db.exec('BEGIN IMMEDIATE');try{
- if(restoreRemoved){const revive=db.prepare('UPDATE games SET removed_at=NULL WHERE id=?');for(const row of db.prepare('SELECT id,executable FROM games WHERE removed_at IS NOT NULL').all())if(row.executable&&fs.statSync(row.executable,{throwIfNoEntry:false})?.isFile())revive.run(row.id);}
+ if(restoreRemoved){const revive=db.prepare('UPDATE games SET removed_at=NULL WHERE id=?');for(const row of db.prepare('SELECT id,executable,original FROM games WHERE removed_at IS NOT NULL').all())if(!JSON.parse(row.original||'{}').mergedInto&&row.executable&&fs.statSync(row.executable,{throwIfNoEntry:false})?.isFile())revive.run(row.id);}
  for(const item of items){
  const existing=matchGame(db,item);
  if(item.steamRejected){
@@ -64,7 +64,7 @@ function reconcile(root,items,{restoreRemoved=false}={}){const db=openStore(root
  // Passive scans leave a removed installation hidden until its executable changes.
  if(existing?.removed_at!=null){if(item.missing||!item.exe||String(existing.executable||'').toLowerCase()===String(item.exe).toLowerCase()||!fs.existsSync(item.exe))continue;db.prepare('UPDATE games SET removed_at=NULL WHERE id=?').run(existing.id);existing.removed_at=null;}
  if(item.missing&&existing?.executable&&existing.executable.toLowerCase()!==String(item.exe||'').toLowerCase()&&fs.existsSync(existing.executable))continue;
- const cover=path.win32.basename(item.cover||''),original=existing?JSON.parse(existing.original):{},saved=original.library||{};original.library={...saved,...item,executableSignature:signature(item.exe,saved.executableSignature)};if(saved.localeMode)original.library.localeMode=saved.localeMode;
+ const cover=path.win32.basename(item.cover||''),original=existing?JSON.parse(existing.original):{},saved=original.library||{};original.library=require('./library-dedupe.cjs').keepMergedEditions(saved,{...saved,...item,executableSignature:signature(item.exe,saved.executableSignature)});if(saved.localeMode)original.library.localeMode=saved.localeMode;
  const selected=existing&&saved.contentLanguage&&saved.languageExecutables?.[saved.contentLanguage];
  const preserve=existing&&((saved.originalExecutableVerified&&fs.existsSync(existing.executable))||selected&&canonical(saved.dir)===canonical(item.dir));
  const executable=preserve?existing.executable:item.exe||existing?.executable||'';
@@ -84,5 +84,5 @@ function reconcile(root,items,{restoreRemoved=false}={}){const db=openStore(root
   const id=preferred&&!db.prepare('SELECT 1 FROM games WHERE id=?').get(preferred)?preferred:'game-'+crypto.randomUUID();
   db.prepare('INSERT INTO games(id,legacy_id,title,executable,cover,source,original) VALUES(?,?,?,?,?,?,?)').run(id,legacy,item.title||path.win32.basename(item.exe||''),executable,cover,item.source||'scan',JSON.stringify(original));added++;
  }
- }db.exec('COMMIT');committed=true;require('./series.cjs').autoGroup(db,root);return {added,updated};}catch(e){if(!committed)db.exec('ROLLBACK');throw e;}finally{db.close();}}
+ }db.exec('COMMIT');committed=true;if(added)try{require('./library-dedupe.cjs').dedupe(db,root);}catch(error){console.warn('library dedupe',error.message);}require('./series.cjs').autoGroup(db,root);return {added,updated};}catch(e){if(!committed)db.exec('ROLLBACK');throw e;}finally{db.close();}}
 module.exports={reconcile,matchGame,activeGameForProgram,signature};
