@@ -133,9 +133,14 @@ const fetcher=async(url,init={})=>{const h=await relay();return h(new Request(ur
 const admin=(route,body,method='POST')=>fetcher('https://relay.test'+route,{method,headers:{authorization:'Bearer admin-token','content-type':'application/json'},body:body?JSON.stringify(body):undefined});
 const GAMES=[{id:'g-rhpk',title:'実行時ロックのゲーム',executable:G.exe}];const DB=fx.db(GAMES);
 
-test('opt-in: off by default, per game off, explained; triggers do nothing while off',()=>{
- assert.equal(rh.settings(R).enabled,false);assert.equal(rh.needed(R,'g-rhpk',G.exe,{force:true}),process.platform==='win32'?'OFF':'PLATFORM');
+test('default on (2026-11-14): on with no stored value, the Settings switch and per game off still work; explained; triggers do nothing while off',()=>{
+ assert.equal(rh.settings(R).enabled,true,'no library.runtimeHarvest value = on');
+ rh.setEnabled(R,false);assert.equal(rh.settings(R).enabled,false);assert.equal(JSON.parse(fs.readFileSync(path.join(R,'data','config','library.json'),'utf8')).runtimeHarvest,false,'an explicit off is kept');
+ assert.equal(rh.needed(R,'g-rhpk',G.exe,{force:true}),process.platform==='win32'?'OFF':'PLATFORM');
  assert.equal(rh.onGameBound(R,{gameId:'g-rhpk',executable:G.exe,pid:process.pid}),null);
+ {const S=require('../services/settings.cjs');const f=path.join(R,'data','config','library.json'),keep=fs.readFileSync(f,'utf8');fs.writeFileSync(f,JSON.stringify({folders:[]}));
+  try{const v=new S.Settings(R).read('library');assert.equal(v.runtimeHarvest,true,'Settings shows it on');assert.equal(v.probeUpload,true,'automatic upload on');
+   assert.ok(S.fields.some(x=>x.scope==='library'&&x.key==='probeUpload'),'the switch is in Settings');}finally{fs.writeFileSync(f,keep);}}
  rh.setEnabled(R,true);assert.equal(rh.settings(R).enabled,true);assert.equal(JSON.parse(fs.readFileSync(path.join(R,'data','config','library.json'),'utf8')).runtimeHarvest,true,'the Settings switch');
  rh.setGame(R,'g-rhpk',false);assert.equal(rh.allowed(R,'g-rhpk'),false);rh.setGame(R,'g-rhpk',true);assert.equal(rh.allowed(R,'g-rhpk'),true);
  for(const loc of ['zh','en']){const t=rh.explain(loc);assert.ok(t.reads.length&&t.uploads.length&&t.never.length&&t.consent);}

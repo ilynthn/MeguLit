@@ -8,8 +8,10 @@
      prepare(root,db,{ids})               (service) bundles the problem games' probe results and samples, checks the
                                           whole bundle once more for text, stores it under its sha256 and returns the
                                           manifest the user sees: every item, its size, the total and the hash
-     upload(root,{hash,followUp})         sends exactly that stored bundle, in chunks under the relay's size limit,
-                                          only after the user confirmed it in the dialog (the hash must match)
+     upload(root,{hash,followUp,identity}) sends exactly that stored bundle, in chunks under the relay's size limit (the
+                                          hash must match). 2026-11-14: probe-auto.cjs sends one game per bundle in the
+                                          background with its identity (probe-identity.cjs); the relay keeps one probe
+                                          per identity and answers duplicate when it already has a better one
    Bundle (schema megulit.probe-bundle v1): {app, createdAt, features, games:[{key,title,step,detail,detected,reader,lines,
    japaneseLines,sizes,pairing,inventory,engines,unsupported,preparing,samples:[{name,role,size,head,sample}],keys,runtime?}]}.
    runtime (E596, optional, versioned on its own: {schema:'megulit.runtime-findings',version}) is what the opt-in runtime
@@ -92,7 +94,8 @@ async function prepare(root,db,{ids=null,sampler,titles=true}={}){
   let extra={samples:[],keys:[]};if(sampler&&r.step!=='low-pairing'&&r.step!=='not-japanese')try{extra=await sampler(g,r)||extra;}catch{}
   /* runtime findings of this game, through the privacy gate once more */
   let runtime=null;try{const rh=require('./runtime-harvest.cjs');runtime=rh.gate(rh.load(root,g.id));}catch{}
-  list.push({key:fp?.key||sha('title:'+g.title).slice(0,64),title:titles?String(g.title).slice(0,120):'',...publicResult(r),samples:extra.samples||[],keys:extra.keys||[],...(runtime?{runtime}:{})});}
+  let ident={id:'',vndb:''};try{const pi=require('./probe-identity.cjs');ident=pi.identity({executable:g.executable,result:r,vndb:pi.vndbOf(db,g.id)});}catch{}
+  list.push({key:fp?.key||sha('title:'+g.title).slice(0,64),...(ident.id?{identity:ident.id}:{}),...(ident.vndb?{vndb:ident.vndb}:{}),title:titles?String(g.title).slice(0,120):'',...publicResult(r),samples:extra.samples||[],keys:extra.keys||[],...(runtime?{runtime}:{})});}
  if(!list.length)return {empty:true};
  let bundle={schema:'megulit.probe-bundle',version:1,features:list.some(g=>g.runtime)?['runtime-1']:[],app:appVersion(root),createdAt:new Date().toISOString(),games:list};
  /* over the relay limit: drop tails, then samples from the biggest games, until it fits */
@@ -104,7 +107,15 @@ async function prepare(root,db,{ids=null,sampler,titles=true}={}){
  if(!clean(bundle))return {error:'TEXT_FOUND'};
  const hash=sha(body);fs.mkdirSync(outbox(root),{recursive:true});fs.writeFileSync(path.join(outbox(root),hash+'.json'),body);
  return {hash,bytes:body.length,limit:MAX_BUNDLE,chunks:Math.ceil(body.length/CHUNK),games:list.length,manifest:manifestOf(bundle)};}
-function manifestOf(bundle){return bundle.games.map(g=>({key:g.key.slice(0,12),title:g.title,step:g.step,detail:g.detail,
+/* how much a game's probe carries: items = result + every kept sample + key candidates + runtime findings; complete =
+   nothing trimmed or dropped and, where a runtime read could add keys (archive / decrypt / parse problems), it is in.
+   failed = only the result row (nothing to build from). The relay keeps the better of two probes of one game by this. */
+const RUNTIME_STEPS=['unknown-pack','decrypt-failed','parse-failed','timeout'];
+function completeness(g){const rt=g.runtime||null,rtItems=rt?['keys','indexes','dispatch','scripts','constants'].reduce((n,k)=>n+(Array.isArray(rt[k])?rt[k].length:0),0):0;
+ const items=1+(g.samples||[]).filter(x=>x.sample).length+((g.keys||[]).length?1:0)+rtItems;
+ const complete=!g.trimmed&&!(g.samples||[]).some(x=>x.dropped)&&(!RUNTIME_STEPS.includes(g.step)||rtItems>0);
+ return {items,state:complete?'complete':items<=1?'failed':'partial'};}
+function manifestOf(bundle){return bundle.games.map(g=>({key:g.key.slice(0,12),title:g.title,step:g.step,detail:g.detail,...(c=>({probeItems:c.items,probeState:c.state}))(completeness(g)),
  items:[{kind:'result',bytes:Buffer.byteLength(JSON.stringify({...g,samples:undefined,keys:undefined,runtime:undefined}))},...g.samples.map(s=>({kind:s.dropped?'dropped':'sample',name:s.name,role:s.role,size:s.size,bytes:s.sample?Buffer.byteLength(JSON.stringify(s.sample)):0,...(s.sample?d.sampleSizes(s.sample):{raw:0,packed:0}),opaque:s.sample?.opaque?.length||0})),...(g.keys.length?[{kind:'keys',count:g.keys.length,algos:[...new Set(g.keys.map(k=>k.algo))]}]:[]),...runtimeItems(g.runtime)]}));}
 /* every runtime finding as its own manifest row: what it is, how it was checked, its size (name is shown as is) */
 function runtimeItems(rt){if(!rt)return [];const size=x=>Buffer.byteLength(JSON.stringify(x)),out=[];
@@ -121,17 +132,20 @@ function consent(root){try{const v=JSON.parse(fs.readFileSync(consentFile(root),
 function grant(root,keys,days=180){const all=consent(root),until=Date.now()+days*86400000;for(const k of keys)if(/^[a-f0-9]{64}$/.test(k))all[k]={at:Date.now(),until};fs.mkdirSync(path.dirname(consentFile(root)),{recursive:true});fs.writeFileSync(consentFile(root),JSON.stringify({version:1,keys:all}));}
 function revoke(root){try{fs.rmSync(consentFile(root),{force:true});}catch{}return {ok:true};}
 /* upload(root,{hash,followUp}) → {state:'uploaded',id,issueUrl} | {state:'failed',error} | {state:'not-configured'} */
-async function upload(root,{hash,followUp=false,fetcher=globalThis.fetch,endpoint}={}){
+async function upload(root,{hash,followUp=false,fetcher=globalThis.fetch,endpoint,identity=null}={}){
  if(!/^[a-f0-9]{64}$/.test(String(hash)))return {state:'failed',error:'HASH'};
  let body;try{body=fs.readFileSync(path.join(outbox(root),hash+'.json'));}catch{return {state:'failed',error:'NOT_PREPARED'};}
  if(sha(body)!==hash)return {state:'failed',error:'HASH_MISMATCH'};
  const url=endpoint||(()=>{try{return require('./relay-config.cjs').endpoint(root,'/api/probe');}catch{return '';}})();if(!url)return {state:'not-configured'};
  const parts=Math.ceil(body.length/CHUNK),upload=crypto.randomUUID();let last={};
+ /* one-game bundle with an identity: the relay may answer duplicate on the first chunk, then nothing more is sent */
+ const dedupe=identity&&/^[a-f0-9]{64}$/.test(String(identity.id||''))?{identity:identity.id,items:Math.max(0,Math.min(10000,identity.items|0)),state:['complete','partial','failed'].includes(identity.state)?identity.state:'partial',...(/^v[1-9]\d{0,7}$/.test(String(identity.vndb||''))?{vndb:identity.vndb}:{})}:null;
  for(let i=0;i<parts;i++){const data=body.subarray(i*CHUNK,(i+1)*CHUNK).toString('base64');let r;
-  for(let attempt=0;attempt<3;attempt++){try{r=await fetcher(url,{method:'POST',headers:{'content-type':'application/json','user-agent':'MeguLit','x-megulit-version':appVersion(root)},body:JSON.stringify({version:1,upload,part:i,parts,size:body.length,sha256:hash,data}),signal:AbortSignal.timeout(60000)});if(r.ok||r.status<500)break;}catch(e){r=null;if(attempt===2)return {state:'failed',error:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK'};}await new Promise(res=>setTimeout(res,800*(attempt+1)));}
+  for(let attempt=0;attempt<3;attempt++){try{r=await fetcher(url,{method:'POST',headers:{'content-type':'application/json','user-agent':'MeguLit','x-megulit-version':appVersion(root)},body:JSON.stringify({version:1,upload,part:i,parts,size:body.length,sha256:hash,data,...(dedupe?dedupe:{})}),signal:AbortSignal.timeout(60000)});if(r.ok||r.status<500)break;}catch(e){r=null;if(attempt===2)return {state:'failed',error:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK'};}await new Promise(res=>setTimeout(res,800*(attempt+1)));}
   if(!r)return {state:'failed',error:'NETWORK'};let j={};try{j=await r.json();}catch{}
-  if(!r.ok||j.ok===false)return {state:'failed',error:String(j.error||'HTTP_'+r.status).slice(0,60)};last=j;}
+  if(!r.ok||j.ok===false)return {state:'failed',error:String(j.error||'HTTP_'+r.status).slice(0,60)};last=j;
+  if(j.duplicate){try{fs.writeFileSync(path.join(outbox(root),hash+'.sent'),JSON.stringify({at:Date.now(),duplicate:true}));}catch{}return {state:'duplicate',reporters:j.reporters|0};}}
  if(followUp){try{grant(root,JSON.parse(body).games.map(g=>g.key));}catch{}}
  try{fs.writeFileSync(path.join(outbox(root),hash+'.sent'),JSON.stringify({at:Date.now(),id:last.id||''}));}catch{}
  return {state:'uploaded',id:String(last.id||''),issueUrl:/^https:\/\//.test(String(last.issueUrl||''))?String(last.issueUrl):''};}
-module.exports={sampleGame,prepare,manifest,upload,consent,grant,revoke,publicResult,clean,runtimeItems,archiveSample,scriptSample,MAX_BUNDLE,CHUNK,SAMPLE_HEAD,SAMPLE_TAIL,SCRIPT_MAX,SAMPLE_PACKED_MAX};
+module.exports={sampleGame,prepare,manifest,upload,completeness,consent,grant,revoke,publicResult,clean,runtimeItems,archiveSample,scriptSample,MAX_BUNDLE,CHUNK,SAMPLE_HEAD,SAMPLE_TAIL,SCRIPT_MAX,SAMPLE_PACKED_MAX};

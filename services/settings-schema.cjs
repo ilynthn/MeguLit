@@ -115,9 +115,12 @@ bool('library','autoSeries','自动识别游戏系列','Automatically recognize 
 /* 2026-11-12 the game's good-looking scenes, captured quietly for the detail card's back (scene-shots.cjs) */
 bool('library','sceneShots','后台截下好看的场景','Keep good-looking scenes in the background','きれいな場面をバックグラウンドで保存');
 bool('library','sharedAdaptation','共享适配数据（匿名）','Share adaptation data (anonymous)','適応データの共有（匿名）');
-/* E596 opt-in, off by default: read a running game's memory (read-only) for keys / index / script structure; uploads only
-   what the user confirms item by item (services/runtime-harvest.cjs explain()) */
-bool('library','runtimeHarvest','运行时读取游戏结构（上传前逐项确认）','Runtime structure harvest (read-only, each upload confirmed)','実行時の構造収集（読み取りのみ・送信前に確認）');
+/* E596 runtime harvest: read a running game's memory (read-only) for keys / index / script structure
+   (services/runtime-harvest.cjs explain()). 2026-11-14 (owner: 默认打开就行了): on unless the user turned it off. */
+bool('library','runtimeHarvest','运行时读取游戏结构（只读）','Runtime structure harvest (read-only)','実行時の構造収集（読み取りのみ）');
+/* 2026-11-14 desensitized probe of games that do not read well, uploaded in the background (services/probe-auto.cjs);
+   one probe per game on the server (dedupe). On unless the user turned it off. */
+bool('library','probeUpload','自动上传读不出的游戏的脱敏结构（不含文本，可关）','Upload desensitized structure of games that do not read (no text)','読めないゲームの匿名化した構造を自動送信（文章なし）');
 for(const engine of ['ollama','lmstudio'])fields.find(f=>f.scope==='translation'&&f.key==='provider').options.push(engine==='ollama'?option(engine,'Ollama（本地模型）',
  'Ollama','Ollama'):option(engine,'LM Studio（本地模型）','LM Studio','LM Studio'));
 choice('lookup','lookup_mode','查词触发方式','Lookup gesture','辞書を開く操作',[option('click','单击','Click','クリック'),option('hover','悬停','Hover','ホバー')]);
