@@ -24,6 +24,7 @@ internal static class EmbedTextPolicy {
 
     // Whole script constructs, kept byte for byte when a dialogue line is blanked (E215.2): a variable reference with its
     // closing bracket, a command letter, a tag, an escape or a run of control/private-use characters.
+    static readonly Regex RichTag = new Regex(@"</?(?:size|color|b|i|u|s|font|align|line-height|cspace|mspace|voffset|alpha|mark|sup|sub|indent|margin|nobr|style|link|material|pos|space|width|lowercase|uppercase|smallcaps)(?:=[^<>\r\n]*)?>", RegexOptions.IgnoreCase);
     static readonly Regex Construct = new Regex(@"[【《\[][\$＄@＠][^】》\]\r\n]{0,64}[】》\]]|[%％*＊][A-ZＡ-Ｚ](?![A-Za-zＡ-Ｚａ-ｚ])|[\$＄][\p{L}\p{N}_＿]+|</?[A-Za-z][^>\r\n]*>|\\[nrt](?![A-Za-z])|[\x00-\x08\x0b\x0c\x0e-\x1f-]+");
 
     // Multilingual containers (E243, Maitetsu Pure Station): every language of a line in one string, split by the engine
@@ -90,19 +91,47 @@ internal static class EmbedTextPolicy {
         if (t.Length == 0 || Script.IsMatch(t) || Stuttered(t) || Caption.IsMatch(t)) return true;
         return !String.IsNullOrEmpty(caption) && caption.IndexOf(t, StringComparison.Ordinal) >= 0;
     }
+    /* E560 (月に寄りそう乙女の作法 closed with a Mono crash: its typewriter reads Text.text back and appends the next character,
+       so blanked glyphs were read back, piled up and broke the coroutine). A Unity rich-text setter keeps every character:
+       the whole text is wrapped in one fully transparent colour (our own marker, removed again when the game hands the
+       wrapped text back), so what the game reads back is its own text and only the drawing is hidden. */
+    static readonly Regex InnerColor = new Regex(@"<color=#([0-9A-Fa-f]{6})(?:[0-9A-Fa-f]{2})?>");
+    public static bool HasInnerColor(string value) { return InnerColor.IsMatch(Unveil(value)); }
+    public const string UnityVeilOpen = "<color=#01010100>", UnityVeilClose = "</color>";
+    public static string UnityVeil(string value) {
+        string v = Unveil(value);
+        if (Hide(v).Length == 0) return "";
+        /* inner colours win over the outer one: a game that fades each character in with its own <color=#FFFFFF89> cannot be
+           veiled, and rewriting its alphas froze it (its fade waits for the alpha it reads back), so such text is left alone */
+        if (HasInnerColor(v)) return "";
+        return UnityVeilOpen + v + UnityVeilClose;
+    }
+    public static string Unveil(string value) {
+        string v = value ?? "";
+        while (v.StartsWith(UnityVeilOpen, StringComparison.Ordinal)) {
+            v = v.Substring(UnityVeilOpen.Length);
+            int close = v.LastIndexOf(UnityVeilClose, StringComparison.Ordinal);
+            if (close >= 0) v = v.Remove(close, UnityVeilClose.Length);
+        }
+        return v.Replace(UnityVeilOpen, "");
+    }
     public static string Hide(string value) {
         // An empty reply tells LunaHook to skip writeback entirely, including its own re-encoding.
-        if (String.IsNullOrWhiteSpace(value) || value.Length > 600 || Label(value)) return "";
+        // E560 (月に寄りそう乙女の作法, Unity UI.Text): rich-text tags (<size=36>…</size>, small-size ruby) are layout, not script
+        // constructs or length: a whole NVL page with a tag per paragraph is still one dialogue text, blanked with its tags kept.
+        string visible = RichTag.Replace(value ?? "", "");
+        if (String.IsNullOrWhiteSpace(value) || visible.Length > 600 || Label(visible)) return "";
         if (Ruby.IsMatch(value)) return HideRuby(value);
         // 2026-11-13 (DDLC Plus in English: every line with a comma, "Meanwhile, I've always walked...", stayed visible): the
         // "ASCII up to a comma" and "dot + extension" resource rules are for tables and file names; a line of prose (three
         // spaced words, no slash) is dialogue even when it has a comma or a dot.
-        if ((Resource.IsMatch(value) && !Prose.IsMatch(value)) || Container(value)) return "";
+        if ((Resource.IsMatch(visible) && !Prose.IsMatch(visible)) || Container(visible)) return "";
         // A dialogue line that carries a few script constructs used to be skipped whole, so its original stayed under
         // MeguLit's text (CLANNAD HD overlap, user 2026-11-06). Now only the visible text is blanked and every construct
         // stays intact for the engine. Strings dense with constructs (name/variable tables) are still left alone.
         MatchCollection constructs = Construct.Matches(value);
-        if (constructs.Count > 2 || !Dialogue.IsMatch(Construct.Replace(value, ""))) return "";
+        int scriptConstructs = 0; foreach (Match c in constructs) if (!RichTag.IsMatch(c.Value) || RichTag.Match(c.Value).Length != c.Value.Length) scriptConstructs++;
+        if (scriptConstructs > 2 || !Dialogue.IsMatch(Construct.Replace(value, ""))) return "";
         var output = new System.Text.StringBuilder(value.Length);
         int at = 0;
         foreach (Match m in constructs) { output.Append(Blank(value.Substring(at, m.Index - at))).Append(m.Value); at = m.Index + m.Length; }

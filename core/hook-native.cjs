@@ -6,7 +6,7 @@ const {identifierNoise}=require('./text-noise.cjs');const {ChoiceCapture,placeCh
    digits) wrapped straight around Japanese text are unwrapped for every engine; <R漢字|かな> keeps its base. HTML-like tags
    (<br>, <b>) are never touched: the letter must be followed by non-ASCII text. */
 function unwrapTags(text){let s=String(text),prev;do{prev=s;s=s.replace(/<R([^<>|\x00-\x7f][^<>|]*)\|[^<>]*>/g,'$1').replace(/<[A-Za-z]\d{0,3}(?=[^\x00-\x7f])([^<>]*)>/g,'$1');}while(s!==prev);return s;}
-function cleanSource(text,name='',code=''){if(code.endsWith(':JIT:UNITY'))text=text.replace(/<br\s*\/?>/gi,'\n').replace(/<ruby[^>]*>(.*?)<\/ruby>/gis,'$1').replace(/<\/?(?:color|size|font|b|i|u|s|mark|align|line-height|cspace|mspace|indent|margin|voffset|alpha|link|style|noparse|sprite)(?:[=\s][^>]*)?>/gi,'');text=unwrapTags(text);return text.replace(/\r\n?/g,'\n').replace(/\x05/g,/^BGI(?:\.exe)?$/i.test(name)?'\n':'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');}
+function cleanSource(text,name='',code=''){const unity=code.endsWith(':JIT:UNITY');if(unity)text=require('./unity-source.cjs').rubySize(text).replace(/<br\s*\/?>/gi,'\n').replace(/<ruby[^>]*>(.*?)<\/ruby>/gis,'$1').replace(/<\/?(?:color|size|font|b|i|u|s|mark|align|line-height|cspace|mspace|indent|margin|voffset|alpha|link|style|noparse|sprite)(?:[=\s][^>]*)?>/gi,'');text=unwrapTags(text).replace(/\r\n?/g,'\n');if(unity)text=require('./unity-source.cjs').typewriter(text);return text.replace(/\x05/g,/^BGI(?:\.exe)?$/i.test(name)?'\n':'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');}
 /* A speaker name from a name stream: brackets and control marks stripped; anything that reads like a sentence is not a name. */
 function speakerName(raw){const n=String(raw||'').replace(/[\x00-\x1f]/g,'').replace(/^[\s【\[「『(（]+|[\s】\]」』)）:：]+$/gu,'').trim();if(n.length%2===0&&n.length>=4&&n.slice(0,n.length/2)===n.slice(n.length/2))return speakerName(n.slice(0,n.length/2)); /* a name stream that sends the name twice (時雨時雨) */
  return n&&n.length<=16&&(/^[?？]+$/.test(n)||!/[。、！？!?…]/.test(n))?n:'';}
@@ -244,6 +244,8 @@ class HookNative{
   this.trace('page part advance '+JSON.stringify(next.slice(0,20)));this.source({...q.base,text:next},q.name);return true;
  }
  source(m,name){
+  /* E560 Unity setter streams: typewriter steps and whole NVL pages become the one paragraph the game is on (core/unity-source.cjs) */
+  {const code=String(m.sourceCode||'');if(code.endsWith(':JIT:UNITY')&&!m.unityBoxed&&typeof m.text==='string'&&!this.skipKey){const {UnityBox}=require('./unity-source.cjs');(this.unityBox||(this.unityBox=new UnityBox(()=>this.now(),(line,p)=>this.source({...p.m,text:line,unityBoxed:true},p.name)))).feed(code,cleanSource(m.text,name,code),{m,name});return;}}
   /* 2026-11-12 (ファタモルガーナの館: "……けれど……", drawn large in the middle of the opening, was hidden and shown as a subtitle
      at the bottom): while the engine says its text window is hidden, a line is art text. HookBridge leaves it to the game;
      here it goes to the art layer (invisible readable copy + translation where the game drew it), not to the subtitles. */

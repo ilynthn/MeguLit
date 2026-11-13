@@ -49,7 +49,7 @@ test('other games keep OCR page lookups and English text',t=>{
 test('hiding rules: HuneX ruby lines are blanked with their tags, skip bursts go back unchanged, old unsafe marks expire',()=>{
  const policy=read('native/EmbedTextPolicy.cs'),bridge=read('native/HookBridge.cs');
  assert.match(policy,/public const int Version = 3;/);
- assert.match(policy,/if \(Ruby\.IsMatch\(value\)\) return HideRuby\(value\);\r?\n(?:\s+\/\/[^\n]*\n)*\s+if \(\(Resource\.IsMatch\(value\) && !Prose\.IsMatch\(value\)\) \|\| Container\(value\)\) return "";/,'ruby is handled before the path check that "</r>" tripped');
+ assert.match(policy,/if \(Ruby\.IsMatch\(value\)\) return HideRuby\(value\);\r?\n(?:\s+\/\/[^\n]*\n)*\s+if \(\(Resource\.IsMatch\(visible\) && !Prose\.IsMatch\(visible\)\) \|\| Container\(visible\)\) return "";/,'ruby is handled before the path check that "</r>" tripped');
  assert.match(policy,/Hide\("　彼女がはじめて命に<rふ>触<\/r>れた、<rしず>厳<\/r>かな朝の出来事だ。"\) == "　+<r　>　<\/r>　+<r　　>　<\/r>　+"/,'self-test covers a two-ruby line');
  assert.match(bridge,/if\(burst&&replacement\.Length>0\)\{replacement="";/,'every engine goes back unchanged while skipping (E463)');
  assert.match(bridge,/text!=LastEmbedText/,'a redraw of the same line is still hidden');
@@ -263,7 +263,7 @@ test('E411 WoH flow page: the translation is indented only when its sentence sta
 // E422 (user, WoH 1.3.8: the original still showed now and then, the layer still hid by itself, the drag frame flew away).
 test('E422: lines a page shows together are hidden; only a held skip key or a run past the longest group passes through',()=>{
  const bridge=read('native/HookBridge.cs');
- assert.match(bridge,/bool quick=\(embedNow-LastEmbedAt\)\.TotalMilliseconds<250&&text!=LastEmbedText;BurstRun=quick\?BurstRun\+1:0;bool burst=quick&&\(SkipHeld\|\|BurstRun>=BurstSkipLines\);/);
+ assert.match(bridge,/bool quick=\(embedNow-LastEmbedAt\)\.TotalMilliseconds<250&&text!=LastEmbedText&&!TypewriterStep\(LastEmbedText,text\);BurstRun=quick\?BurstRun\+1:0;bool burst=quick&&\(SkipHeld\|\|BurstRun>=BurstSkipLines\);/);
  assert.match(bridge,/const int BurstSkipLines=8;/);assert.match(bridge,/type=="skipHeld"\)\{object hv;SkipHeld=/);
  assert.match(read('services/reader.cjs'),/this\.gal\?\.hooks\?\.skipHeld\?\.\(message\.skipHeld\)/);
 });
