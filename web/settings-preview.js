@@ -40,9 +40,10 @@ const LINES=[{"ja": [["「", ""], ["黒", "くろ"], ["より", ""], ["黒", "�
 let lineIndex=0;const SAMPLE={name:'めぐみん',get ja(){return LINES[lineIndex].ja;},get zh(){return LINES[lineIndex].zh;}};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const hex=v=>/^#[0-9a-f]{6}$/i.test(String(v||''))?v:'';
-/* the picture behind the preview is the user's own home background, already painted by the app behind this page */
-const homeImage=()=>{const v=getComputedStyle(document.querySelector('.app-backdrop')||document.documentElement).getPropertyValue('--home-image').trim();return v&&v!=='none'?v:'none';
- };
+/* 2026-11-14 the value is url("…"): its double quotes ended the style="…" attribute it is written into, so the stage stayed
+   black and 背景/模糊/变暗/饱和度 showed nothing. Escape them; with the home background off, use the default art. */
+const homeImage=()=>{const v=getComputedStyle(document.querySelector('.app-backdrop')||document.documentElement).getPropertyValue('--home-image').trim();
+ const img=v&&v!=='none'?v:`url("assets/default-background-${document.documentElement.dataset.theme==='light'?'light':'dark'}.webp")`;return img.replace(/"/g,'&quot;');};
 const T={zh:{title:'实时预览',hint:'改动会立刻显示在这里，确认满意再保存',next:'换一句 ✦',unread:'未读',read:'已读',menu:'阅读层菜单',log:'对话记录',card:'点读'},
  ja:{title:'プレビュー',hint:'変更はすぐここに反映されます',next:'別の台詞 ✦',unread:'未読',read:'既読',menu:'メニュー',log:'会話ログ',card:'辞書'},
  en:{title:'Live preview',hint:'Changes show here at once',next:'Another line ✦',unread:'Unread',read:'Read',menu:'Reader menu',log:'Dialogue log',card:'Lookup'}};
@@ -111,8 +112,19 @@ export function mountSettingsPreview({content,section,values,locale}){
  box.querySelector('.sp-next')?.addEventListener('click',()=>{lineIndex=(lineIndex+1+Math.floor(Math.random()*(LINES.length-1)))%LINES.length;draw();});
  (form.querySelector('.settings-page-tabs')||form.querySelector('.settings-section-title'))?.after(box);
  const activeKind=()=>form.querySelector('.settings-page-tabs [aria-selected="true"]')?.dataset.page||'menu';
+ /* 2026-11-14 (user): the preview stays in view. It is sticky just under the sticky search bar while the options scroll
+    beneath it, and kept compact: the scene is scaled down as a whole, like a thumbnail (never clipped or re-wrapped) so the whole box fits in ~30% of the window.
+    One layout read per animation frame; the pin offset is measured only on mount and resize. */
+ const scroller=box.closest('.settings-content');
+ const pin=()=>{if(!scroller||!box.isConnected)return;const search=scroller.querySelector('.settings-search');const st=search?getComputedStyle(search):null;
+  const top=st&&st.position==='sticky'?(parseFloat(st.top)||0)+search.offsetHeight+8:8;box.style.setProperty('--sp-top',top+'px');
+  scroller.style.scrollPaddingTop=(top+parseFloat(getComputedStyle(scroller).paddingTop||0)+box.offsetHeight+8)+'px';};
+ const fit=()=>{const stage=box.querySelector('.sp-stage'),scene=stage?.querySelector('.sp-scene');if(!scene)return;scene.style.transform='';stage.style.height='';
+  const natural=scene.offsetHeight,chrome=box.offsetHeight-stage.offsetHeight,z=Math.max(.45,Math.min(1,(Math.round(innerHeight*.32)-chrome)/natural));
+  if(z<.995){scene.style.transformOrigin='50% 0';scene.style.transform='scale('+z.toFixed(3)+')';stage.style.height=Math.round(natural*z)+'px';}};
  let frame=0;const draw=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{if(!box.isConnected)return;const v=readValues(form,values);if(section==='text')textPreview(box,
-  v);else panelPreview(box,v,activeKind(),locale);});};
+  v);else panelPreview(box,v,activeKind(),locale);fit();});};
+ const onResize=()=>{if(!box.isConnected){removeEventListener('resize',onResize);return;}pin();draw();};addEventListener('resize',onResize,{passive:true});requestAnimationFrame(pin);
  form.addEventListener('input',e=>{if(e.target.type==='color')e.target.dataset.touched='1';draw();});form.addEventListener('change',draw);
  form.querySelector('.settings-page-tabs')?.addEventListener('click',()=>setTimeout(draw,0));
  if(typeof ResizeObserver==='function')new ResizeObserver(draw).observe(box);

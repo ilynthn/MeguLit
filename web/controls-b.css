@@ -67,16 +67,15 @@ html:not(#mgc1):not(#mgc2):not(#mgc3):not(#mgc4):not(#mgc5):not(#mgc6):not(#mgc7
 }
 
 /* the second-level dropdown under the top nav (.main>.tabs: 历史, 学习, 排行榜, 日报 …) is excluded below and left to grimoire.css: its gold diamond, type weight and spacing (2026-11-14, user) */
-/* ---------- tabs: YaHei 14px, red rule draws in, a diamond under the current one ---------- */
+/* ---------- tabs: YaHei 14px; the current one carries the small filled gold diamond the user approved for the
+   top-nav dropdowns (2026-11-14), no red rule and no hollow marker ---------- */
 & body :is(.detail-tabs,.settings-page-tabs,.dl-cats,.history-tabs)>button,& body .main button.tab:not(.main>.tabs>button){
  position:relative;padding:8px 2px 10px!important;border:0!important;border-radius:0!important;background:transparent!important;color:var(--mgc-ink-2)!important;
  font:500 14px/1.2 var(--mgc-ui)!important;letter-spacing:.04em!important;box-shadow:none!important;transition:color var(--mgc-t)!important;
- &::after{content:""!important;position:absolute!important;left:0!important;right:0!important;bottom:-1px!important;height:2px!important;background:var(--mgc-red)!important;transform:scaleX(0)!important;transform-origin:0 50%!important;transition:transform .45s var(--mgc-ease)!important;opacity:1!important;display:block!important;top:auto!important;width:auto!important;border:0!important}
+ &::after{content:none!important;display:none!important}
  &:hover{color:var(--mgc-ink)!important}
- &:hover::after{transform:scaleX(1)!important;height:1px!important;opacity:.7!important}
  &:is(.active,[aria-selected=true],[aria-pressed=true]){color:var(--mgc-ink)!important;font-weight:600!important}
- &:is(.active,[aria-selected=true],[aria-pressed=true])::after{transform:scaleX(1)!important;height:2px!important;opacity:1!important}
- &:is(.active,[aria-selected=true],[aria-pressed=true])::before{content:""!important;position:absolute!important;left:50%!important;bottom:-5px!important;width:7px!important;height:7px!important;margin-left:-3.5px!important;transform:rotate(45deg)!important;background:var(--mgc-ground)!important;border:1px solid var(--mgc-red)!important;display:block!important;opacity:1!important;top:auto!important}
+ &:is(.active,[aria-selected=true],[aria-pressed=true])::before{content:""!important;position:absolute!important;left:50%!important;bottom:-3px!important;top:auto!important;width:5px!important;height:5px!important;margin:0 0 0 -2.5px!important;transform:rotate(45deg)!important;background:var(--gold-accent,#edb56e)!important;border:0!important;border-radius:0!important;box-shadow:none!important;display:block!important;opacity:1!important}
  &:disabled{color:var(--mgc-ink-3)!important;opacity:.6}
 }
 & body :is(.detail-tabs,.settings-page-tabs,.dl-cats,.history-tabs){border-bottom:1px solid var(--mgc-line)!important}
@@ -120,6 +119,11 @@ html:not(#mgc1):not(#mgc2):not(#mgc3):not(#mgc4):not(#mgc5):not(#mgc6):not(#mgc7
  & >span{color:var(--mgc-ink-3)!important;font:500 12px/1 var(--mgc-ui)!important;letter-spacing:.06em}
  & :is(select,.select-control){flex:0 1 280px!important;width:280px;max-width:100%}
 }
+
+/* ---------- 实时预览: sticky under the search bar (top set by settings-preview.js), opaque so options pass beneath ---------- */
+& body .main .settings-content .sp-preview{position:sticky!important;top:var(--sp-top,28px)!important;z-index:7!important;
+ box-shadow:inset 0 0 0 1px var(--mgc-line),0 -10px 0 0 #16121a,0 16px 18px -16px rgba(0,0,0,.85)!important}
+&[data-theme=light] body .main .settings-content .sp-preview{box-shadow:inset 0 0 0 1px var(--mgc-line),0 -10px 0 0 var(--mgc-ground),0 16px 18px -16px rgba(60,30,20,.3)!important}
 
 /* ---------- switch: a rounded rail with a diamond knob ---------- */
 & body input.switch[type=checkbox]{
