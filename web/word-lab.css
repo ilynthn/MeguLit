@@ -1,0 +1,86 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 2026-11-14 学习 › 读过的词: 这周读到的生词 and 常见未收录词 side by side as two equal columns (stacked when narrow), compact
+   rows for half width, no rank numbers; JLPT level tiles and game level segments are buttons that open the level's
+   word window (jlpt-words.js). One high-specificity root so it wins over the older override chains. */
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main{
+ & .ri-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 36px;max-width:1080px;margin:0 auto 12px;align-items:start}
+ & .ri-pair>.ri-panel{max-width:none!important;min-width:0;margin:0!important;padding-left:0!important;padding-right:0!important}
+ & .ri-pair .ri-head{flex-wrap:wrap;gap:10px 14px}
+ & .ri-pair .ri-head h2{font-size:clamp(19px,1.5vw,23px)!important}
+ & .ri-pair .ri-head select,& .ri-pair .ri-head .select-trigger{margin-left:auto}
+ & .ri-same{margin:-4px 0 10px!important;padding-left:10px;box-shadow:inset 2px 0 0 var(--g-gold,#edb56e)}
+ & .ri-pair .ri-word{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"m c" "d a"!important;column-gap:14px!important;row-gap:4px!important;align-items:start!important;padding:12px 4px!important}
+ & .ri-pair .ri-word-main{grid-area:m;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;min-width:0}
+ & .ri-pair .ri-word .word-spelling{font-size:22px!important;line-height:1.2!important;max-width:100%}
+ & .ri-pair .ri-word .word-reading{font-size:12px!important;letter-spacing:.08em!important}
+ & .ri-pair .ri-word-def{grid-area:d;min-width:0}
+ & .ri-pair .ri-word .word-def{font-size:13.5px!important;-webkit-line-clamp:1!important;line-clamp:1}
+ & .ri-pair .ri-meta{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11.5px!important}
+ & .ri-pair .ri-meta span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+ & .ri-pair .ri-count{grid-area:c;justify-items:end;text-align:right;min-width:64px}
+ & .ri-pair .ri-count i{justify-self:stretch}
+ & .ri-pair .ri-actions{grid-area:a;align-self:end;justify-content:flex-end;flex-wrap:nowrap}
+ & .ri-pair .ri-more{margin-top:10px}
+ /* level tiles and game segments are buttons now */
+ & button.ri-level{appearance:none;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;transition:background-color .18s,box-shadow .18s}
+ & button.ri-level:hover{background:color-mix(in srgb,var(--g-gold,#edb56e) 7%,transparent)!important}
+ & button.ri-level:hover .ri-level-name::after{content:" →";color:var(--g-gold,#edb56e)}
+ & .ri-stack button.ri-seg{appearance:none;border:0;padding:0;margin:0;min-width:3px;height:100%;cursor:pointer;transition:filter .15s,transform .15s}
+ & .ri-stack button.ri-seg:hover{filter:brightness(1.35);transform:scaleY(1.6)}
+ & .ri-stack{overflow:visible!important}
+}
+@media (max-width:1100px){html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main :is(button.ri-level,.ri-stack button.ri-seg){transition:none}}
+
+/* the JLPT word window */
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body dialog.jw-dialog{
+ width:min(1000px,calc(100vw - 48px));height:min(800px,calc(100vh - 64px));max-width:none;max-height:none;padding:0;display:flex;flex-direction:column;overflow:hidden;
+ background:var(--g-raise,#17110f);color:var(--g-t1,#f1e0d2);border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 26%,transparent);border-radius:2px;box-shadow:0 30px 80px #000a;
+ &::backdrop{background:#0009;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+ & .jw-head{display:flex;align-items:center;gap:18px;padding:20px 24px 12px}
+ & .jw-title{display:flex;align-items:baseline;gap:12px;min-width:0}
+ & .jw-title h2{margin:0;font:600 24px/1.2 var(--g-serif,serif);white-space:nowrap}
+ & .jw-scope{font-size:13px;color:var(--g-t2,#c3ab9c);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ & .jw-share{margin:0 0 0 auto;font-size:13px;color:var(--g-t2,#c3ab9c);font-variant-numeric:tabular-nums;white-space:nowrap}
+ & .jw-share b{color:var(--g-gold,#edb56e);font-weight:600}
+ & .jw-close{flex:none}
+ & .jw-tools{display:flex;align-items:center;gap:12px;padding:0 24px 12px;flex-wrap:wrap}
+ & .jw-filters{display:inline-flex;flex:none}
+ & .jw-filters b{font-weight:500;opacity:.7;margin-left:4px;font-variant-numeric:tabular-nums}
+ & .jw-search{flex:1 1 220px;min-width:180px;height:34px;padding:0 12px;box-sizing:border-box;background:#0006;color:inherit;border:1px solid var(--t-line,#ffffff1f);border-radius:2px;font:inherit;font-size:13.5px}
+ & .jw-sort{height:34px}
+ & .jw-bulk{display:flex;align-items:center;gap:12px;padding:8px 24px;border-top:1px solid var(--t-line,#ffffff1a);border-bottom:1px solid var(--t-line,#ffffff1a);font-size:13px}
+ & .jw-check{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--g-t2,#c3ab9c)}
+ & .jw-count{margin-right:auto;color:var(--g-gold,#edb56e);font-variant-numeric:tabular-nums}
+ & .jw-scroll{flex:1;min-height:0;overflow:auto;position:relative;outline:none}
+ & .jw-space{position:relative;min-height:100%}
+ & .jw-empty{margin:40px 24px;color:var(--g-t2,#c3ab9c);font-size:14px}
+ & .jw-row{position:absolute;left:0;right:0;top:0;height:66px;box-sizing:border-box;display:grid;grid-template-columns:28px minmax(0,1fr) 150px auto;align-items:center;gap:14px;padding:0 24px;border-bottom:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 7%,transparent)}
+ & .jw-row:hover{background:color-mix(in srgb,var(--g-gold,#edb56e) 5%,transparent)}
+ & .jw-row.is-unmet .jw-word b{opacity:.78}
+ & .jw-row.is-known{box-shadow:inset 3px 0 0 color-mix(in srgb,var(--g-t1,#f1e0d2) 35%,transparent)}
+ & .jw-row.is-saved{box-shadow:inset 3px 0 0 var(--g-gold,#edb56e)}
+ & .jw-pick{display:flex;align-items:center;justify-content:center;cursor:pointer}
+ & .jw-word{display:grid;grid-template-columns:auto auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-items:baseline;min-width:0}
+ & .jw-word b{font:500 20px/1.2 var(--g-serif-ja,serif);white-space:nowrap}
+ & .jw-word i{font-style:normal;font-size:12.5px;color:var(--g-gold,#edb56e);white-space:nowrap}
+ & .jw-def{grid-column:1/-1;font-size:13px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 72%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+ & .jw-read{display:grid;gap:2px;font-size:12px;color:var(--g-t2,#c3ab9c);min-width:0;font-variant-numeric:tabular-nums}
+ & .jw-read b{font-size:16px;color:var(--g-t1,#f1e0d2);font-weight:600}
+ & .jw-read small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ & .jw-acts{display:flex;gap:6px}
+ & .jw-acts [aria-pressed=true]{color:var(--g-gold,#edb56e)!important;border-color:color-mix(in srgb,var(--g-gold,#edb56e) 55%,transparent)!important}
+}
+@media (max-width:760px){html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body dialog.jw-dialog .jw-row{grid-template-columns:24px minmax(0,1fr) auto;padding:0 14px}
+ html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body dialog.jw-dialog .jw-read{display:none}}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body dialog.jw-dialog .jw-act{min-height:28px!important;padding:0 10px!important;font-size:12.5px!important}
+/* compact half-width rows: the count sits inline beside the word (no tall bar), meta clips before the buttons */
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair .ri-count{display:flex!important;align-items:baseline;gap:3px;white-space:nowrap;align-self:baseline}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair .ri-count b{font-size:17px!important}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair .ri-count i{display:none!important}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair :is(.ri-word-def,.ri-meta){overflow:hidden}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair .ri-meta span{flex:0 1 auto}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair .ri-actions :is(button){min-height:28px!important;padding:0 10px!important;font-size:12.5px!important}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body .main .ri-pair .ri-count{justify-self:end}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body dialog.jw-dialog .jw-tools>:not(.jw-filters):not(.jw-search){flex:0 0 190px!important;width:190px!important;min-width:0!important}
+html:not(#wl1):not(#wl2):not(#wl3):not(#wl4):not(#wl5):not(#wl6) body dialog.jw-dialog .jw-n{white-space:nowrap}

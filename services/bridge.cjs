@@ -524,6 +524,10 @@ async function dispatch(request,runtime=null) {
         const config=runtime?.config?.()||store.readJSON(path.join(root,'data','config','v4-preferences.json'));
         return await new(require('../core/anki.cjs').Anki)().sync(grammar.ankiWord(String(request.point||''),String(request.title||''),String(request.gist||''),{text}),config,null,extra);
       }
+      /* 2026-11-14 读过的词 › JLPT 覆盖: one level's words (optionally one game's), and meanings for the rows on screen */
+      case 'jlpt_words':return require('./learning-insights.cjs').jlptWords(db,{level:String(request.level||''),gameId:typeof request.gameId==='string'&&request.gameId?request.gameId:null});
+      case 'jlpt_describe':{const learning=runtime&&typeof runtime.learning==='function'?runtime.learning():null;
+        return require('./learning-insights.cjs').jlptDescribe(db,request.items,learning?.installed?.()?(base,key)=>lookupEntry(learning,base,key):null);}
       case 'reading_save_word':{
         if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');const insights=require('./learning-insights.cjs'),key=String(request.key||'').slice(0,40),base=String(request.base||key).slice(0,40);if(!key)throw Error('WORD_NOT_FOUND');
         const entry=await lookupEntry(runtime.learning(),base,key);const saved=insights.saveWord(db,entry,insights.exampleLine(db,key,typeof request.gameId==='string'?request.gameId:null),{status:Number.isInteger(request.status)?request.status:null});

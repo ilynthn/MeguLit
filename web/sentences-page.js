@@ -158,8 +158,10 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
    setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.querySelector('span').textContent=s.remove;}},3200);return;}remove(b);}));
   heroIn.querySelectorAll('[data-lookup]').forEach(b=>b.addEventListener('click',()=>lookup(b.dataset.lookup)));
   heroIn.querySelectorAll('[data-sentence-game]').forEach(b=>b.addEventListener('click',()=>openGame(b.dataset.sentenceGame)));}
- async function play(b){const id=b.dataset.sentencePlay,item=byId.get(String(id));if(!item)return;b.disabled=true;
-  try{await (await import('./sentence-voice.js')).playSentence(api,item.text,b);}catch(error){toast(errorMessage(error));}finally{b.disabled=false;}}
+ /* 2026-11-14: while the voice is being fetched (the speech engine may need a cold start) the button shows it is working
+    instead of turning grey like a dead control; a second click is ignored until it finishes */
+ async function play(b){const id=b.dataset.sentencePlay,item=byId.get(String(id));if(!item||b.getAttribute('aria-busy')==='true')return;b.setAttribute('aria-busy','true');b.classList.add('is-busy');
+  try{await (await import('./sentence-voice.js')).playSentence(api,item.text,b);}catch(error){toast(errorMessage(error));}finally{b.removeAttribute('aria-busy');b.classList.remove('is-busy');}}
  async function remove(b){b.disabled=true;try{await api('sentence_delete',{id:Number(b.dataset.sentenceDelete)});rerender();}catch(error){b.disabled=false;toast(errorMessage(error));}}
 
  /* ---------- strip: drag with inertia, shift-wheel, arrows ---------- */
@@ -167,7 +169,9 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
  const measure=()=>{minX=Math.min(0,viewport.clientWidth-track.scrollWidth);};
  const clampX=v=>Math.max(minX,Math.min(0,v));
  const progress=()=>{const p=minX?x/minX:0,vis=track.scrollWidth?Math.min(1,viewport.clientWidth/track.scrollWidth):1;bar.style.transform=`translateX(${(p*(1-vis)*100/vis).toFixed(2)}%)`;bar.style.width=`${(vis*100).toFixed(2)}%`;
-  root.querySelector('[data-sp-step="-1"]').disabled=x>=-1;root.querySelector('[data-sp-step="1"]').disabled=x<=minX+1;};
+  root.querySelector('[data-sp-step="-1"]').disabled=x>=-1;root.querySelector('[data-sp-step="1"]').disabled=x<=minX+1;
+  /* 2026-11-14: nothing to scroll (a single card) → no arrows that do nothing */
+  root.querySelectorAll('[data-sp-step]').forEach(b=>{b.hidden=minX>-2;});};
  let tween=null;
  function moveTo(v,{instant=false,dur=.7}={}){v=clampX(v);const gsap=motion();tween?.kill();tween=null;
   if(!gsap||instant){x=v;track.style.transform=`translate3d(${x}px,0,0)`;progress();return;}

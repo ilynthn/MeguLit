@@ -191,6 +191,32 @@ function report(db,{now=new Date(),gameId=null,limit=40,jlpt=loadJlpt()}={}){
     games
   };
 }
+/* 2026-11-14 (user: JLPT 覆盖 → click a level to see its words and mark them): every word of one level, with how often
+   it was read (in one game when gameId is given), where, and whether it is saved or marked known (status ≥ 3).
+   The client filters (读到过 / 已收录 / 未读到), searches, sorts and virtualises; meanings come from word_info. */
+const KNOWN=3;
+function jlptWords(db,{level,gameId=null,jlpt=loadJlpt()}={}){
+  if(!LEVELS.includes(level))throw Error('INVALID_JLPT_LEVEL');
+  ensure(db);const rows=lineRows(db),titles=new Map(db.prepare('SELECT id,title FROM games').all().map(g=>[g.id,g.title]));
+  const met=new Map();
+  for(const row of rows){if(gameId&&row.gameId!==gameId)continue;const inLine=new Set();
+    for(const [key,base] of row.words||[]){const w=jlptWordOf(jlpt,key,base);if(!w||w.level!==level||inLine.has(w))continue;inLine.add(w);
+      let m=met.get(w);if(!m){m={key,count:0,games:new Map(),lastAt:0};met.set(w,m);}m.count++;m.games.set(row.gameId,(m.games.get(row.gameId)||0)+1);if(row.readAt>m.lastAt)m.lastAt=row.readAt;}}
+  const vocab=new Map();for(const v of db.prepare('SELECT id,spelling,reading,status FROM vocabulary').all()){const put=f=>{const o=vocab.get(f);if(!o||(v.status||0)>(o.status||0))vocab.set(f,{id:v.id,status:v.status||0});};
+    if(v.spelling)put(String(v.spelling));if(v.reading&&(!v.spelling||!/[㐀-鿿]/.test(v.spelling)))put(hira(v.reading));}
+  const info=db.prepare('SELECT reading,meaning FROM word_info WHERE key=?');
+  const words=jlpt.levels[level].map(w=>{const m=met.get(w),kanaOnly=!w.forms.some(f=>/[㐀-鿿]/.test(f)),v=w.forms.map(f=>vocab.get(f)).find(Boolean)||(kanaOnly?vocab.get(w.reading):null)||null;
+    const key=m?.key||w.forms[0],i=info.get(key)||(m?null:info.get(w.forms[0]));
+    return {key,base:w.forms[0],forms:w.forms,reading:i?.reading||w.reading,meaning:i?.meaning||'',count:m?.count||0,lastAt:m?.lastAt||0,
+     games:m?[...m.games.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,n])=>({id,count:n,title:titles.get(id)||''})):[],saved:!!v,known:!!v&&v.status>=KNOWN,vocabId:v?.id??null};});
+  const totals={all:words.length,met:0,saved:0,unmet:0};for(const w of words){if(w.count)totals.met++;else totals.unmet++;if(w.saved)totals.saved++;}
+  return {level,gameId,gameTitle:gameId?titles.get(gameId)||'':'',totals,words};
+}
+/* Meanings for words shown in the JLPT list that were never looked up yet (cached in word_info by describe). */
+async function jlptDescribe(db,items,lookup,{deadline=Date.now()+3000}={}){
+  const words=(Array.isArray(items)?items:[]).slice(0,60).map(x=>({key:String(x?.key||'').slice(0,40),base:String(x?.base||x?.key||'').slice(0,40)})).filter(x=>x.key);
+  await describe(db,words,lookup,{deadline});return words.map(w=>({key:w.key,reading:w.reading||'',meaning:w.meaning||''}));
+}
 /* The line a word was read in, newest first (the given game first), with the translation recorded for it. */
 function exampleLine(db,key,gameId=null){
   /* the given game first, then a line of sentence length (a long capture of several lines makes a poor card), newest */
@@ -217,4 +243,4 @@ function saveWord(db,entry,example,{status=null}={}){
   }catch(error){db.exec('ROLLBACK');throw error;}
   return {id:entry.id,status:Number.isInteger(status)&&status>=0&&status<=4?status:undefined,spelling:entry.spellings?.[0]||'',reading:entry.readings?.[0]||''};
 }
-module.exports={plainLine,entryMatches,readableLine,isHuman,usable,humanFromResolve,pickTranslation,SOURCE_LABEL,applyGameRuby,ANKI_EXTRA,ankiSentenceFields,lineWords,savedForms,countWords,weekStart,loadJlpt,jlptIndex,jlptCoverage,gameLevels,LEVELS,ensure,refresh,pending,lineRows,describe,report,exampleLine,saveWord};
+module.exports={plainLine,entryMatches,readableLine,isHuman,usable,humanFromResolve,pickTranslation,SOURCE_LABEL,applyGameRuby,ANKI_EXTRA,ankiSentenceFields,lineWords,savedForms,countWords,weekStart,loadJlpt,jlptIndex,jlptCoverage,gameLevels,LEVELS,ensure,refresh,pending,lineRows,describe,report,exampleLine,saveWord,jlptWords,jlptDescribe};
