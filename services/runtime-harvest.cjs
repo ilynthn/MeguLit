@@ -5,15 +5,16 @@
    When the user plays a game MeguLit has bound, the game has already decrypted its own archives: the key schedule, the
    unpacked index and the decoded script buffers sit in its memory. With the user's opt-in, MeguLit reads that memory
    once, read-only, and keeps only structure: keys and parameters, archive offsets / sizes / layouts, opcode tables and
-   script layouts with every character of text replaced. The result joins the probe bundle (adapter-sample.cjs), which the
-   user sees item by item and uploads only after confirming; a pack built from it comes back through the feed
+   script layouts with every character of text replaced. The result joins the probe bundle (adapter-sample.cjs), which
+   probe-auto.cjs uploads in the background (2026-11-14, owner: 默认打开…冷上传; one probe per game on the server, the
+   manifest stays viewable in the probe dialog); a pack built from it comes back through the feed
    (adapter-feed.cjs) and the game is read again offline.
 
    Pieces
      native/RuntimeHarvest.exe        read-only reader (no injection, no write right on the game; budgeted, cancellable)
      runtime-harvest-scan.cjs         analysis of the streamed memory (detectors, locators)
      runtime-harvest-worker.cjs       runs reader + analysis in a child process at low priority, never in the service
-     this module                      opt-in, triggers, the privacy gate, the store, service actions
+     this module                      the switch, triggers, the privacy gate, the store, service actions
    Sources it builds on: the pid of the game the hook already bound (reader.cjs) and the buffers the runtime-dump DLL
    already saves (runtime-dump.cjs) — those give known plaintext (the game's own decryption next to the archive bytes).
 
@@ -22,7 +23,8 @@
    (keys included) is checked by naturalLanguage() and the finding is dropped when it reads as language; the bundle is
    checked once more as a whole (adapter-sample.cjs clean()). Raw memory is never written to disk.
 
-   Opt-in: off until the user turns it on (data/config/runtime-harvest.json {enabled, off:{gameId:true}}); per game off;
+   Switch: on unless the user turned it off (2026-11-14, was opt-in) — Settings library.runtimeHarvest; per game off in
+   data/config/runtime-harvest.json {off:{gameId:true}};
    explain(locale) is what the switch shows. Store: data/adapter-probe/runtime/<gameId>.json (public findings only). */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{fork,spawn}=require('node:child_process'),os=require('node:os');
 const d=require('./desensitize.cjs');
@@ -35,9 +37,9 @@ const settingsFile=root=>path.join(root,'data','config','runtime-harvest.json');
 const storeDir=root=>path.join(root,'data','adapter-probe','runtime');
 function readJSON(file,fallback){try{const v=JSON.parse(fs.readFileSync(file,'utf8'));return v&&typeof v==='object'?v:fallback;}catch{return fallback;}}
 function atomic(file,v){fs.mkdirSync(path.dirname(file),{recursive:true});const tmp=file+'.'+process.pid+'.tmp';fs.writeFileSync(tmp,JSON.stringify(v));fs.renameSync(tmp,file);}
-/* the global switch is the Settings field library.runtimeHarvest (library.json, off unless true); per-game off lives here */
+/* the global switch is the Settings field library.runtimeHarvest (library.json, on unless false); per-game off lives here */
 const libraryFile=root=>path.join(root,'data','config','library.json');
-function settings(root){const v=readJSON(settingsFile(root),{});return {enabled:readJSON(libraryFile(root),{}).runtimeHarvest===true,off:v.off&&typeof v.off==='object'?v.off:{}};}
+function settings(root){const v=readJSON(settingsFile(root),{});return {enabled:readJSON(libraryFile(root),{}).runtimeHarvest!==false,off:v.off&&typeof v.off==='object'?v.off:{}};}
 function setEnabled(root,enabled){atomic(libraryFile(root),{...readJSON(libraryFile(root),{}),runtimeHarvest:enabled===true});if(enabled!==true)cancel(root);return settings(root);}
 function setGame(root,gameId,enabled){const v=readJSON(settingsFile(root),{}),off=v.off&&typeof v.off==='object'?v.off:{},id=String(gameId);if(enabled)delete off[id];else off[id]=true;atomic(settingsFile(root),{version:1,off});if(!enabled&&jobs.get(path.resolve(root))?.gameId===id)cancel(root);return settings(root);}
 const allowed=(root,gameId)=>{const s=settings(root);return s.enabled&&!s.off[String(gameId)];};
@@ -48,13 +50,13 @@ const TEXT={
   reads:['游戏内存（只读：不注入、不写入、不暂停游戏，限时限量，随时可停）','游戏目录里的封包文件头和索引位置','运行时读出（runtime-dump）已在本机保存的解密片段'],
   uploads:['解密密钥和参数（Blowfish / Camellia / TEA 密钥、XOR 参数）','封包索引的数字：偏移、大小、字段布局','脚本的结构：操作码、长度字段、记录布局（所有文字已在本机替换成占位符）','这些东西在游戏模块里的位置和特征码'],
   never:['任何台词、文本、人名或文件名中的文字（在本机替换并逐项校验）','游戏文件本身、截图、存档、你的路径和用户名'],
-  consent:'不会自动上传：上传前会列出每一项给你确认。可以全局关闭，也可以对单个游戏关闭。'},
+  consent:'读到的结构会在后台自动上传（只有上面列出的结构，不含文本）；同一个游戏服务器已有就不再上传。可在 设置 → 游戏库 关闭，也可以只对单个游戏关闭。'},
  en:{title:'Runtime structure harvest',why:'Some games encrypt their archives with keys only the game itself knows, so the offline probe cannot open them. While the game runs it has already decrypted them. With this on, MeguLit looks at the game\'s memory once, read-only, while you play such a game, and keeps the structure needed to read its scripts later without the game.',
   reads:['The game\'s memory (read-only: no injection, no writes, never pauses the game; time- and size-limited, stoppable)','Archive headers and index positions in the game folder','Decrypted pieces runtime-dump already saved on this PC'],
   uploads:['Decrypt keys and parameters (Blowfish / Camellia / TEA keys, XOR parameters)','Archive index numbers: offsets, sizes, field layout','Script structure: opcodes, length fields, record layout (all text replaced by placeholders on this PC)','Where those live in the game\'s modules, and byte patterns to find them again'],
   never:['Any line, text, name or file-name wording (replaced and checked item by item on this PC)','Game files, screenshots, saves, your paths or user name'],
-  consent:'Nothing uploads by itself: every item is listed for you to confirm first. Turn it off globally or per game.'}};
-TEXT.ja={...TEXT.en};
+  consent:'The structure is uploaded in the background (only what is listed above, never text); a game the server already has is not sent again. Turn it off in Settings → Library, or for one game.'}};
+TEXT.ja={...TEXT.en,consent:'読み取った構造はバックグラウンドで自動送信します（上の構造だけで、文章は含みません）。サーバーにすでにあるゲームは送りません。設定 → ライブラリでオフ、ゲームごとにもオフにできます。'};
 const explain=(locale='zh')=>TEXT[String(locale).slice(0,2)]||TEXT.en;
 
 /* ---- natural-language detector (the gate for byte fields) --------------------------------------------------------- */
@@ -185,7 +187,7 @@ function harvest(root,{gameId,executable,pid,budgetMs=DEFAULTS.budgetMs,budgetMb
   child.on('message',m=>{if(m?.type==='result')end(m.result);});child.once('exit',()=>end(job.cancelled?{error:'CANCELLED'}:{error:'WORKER_EXIT'}));child.on('error',()=>{});
   try{child.send({type:'harvest',pid,dir,budgetMs,budgetMb});}catch{end({error:'WORKER'});}});}
 /* save(root,gameId,executable,public findings) → what was stored: the gated findings, or the error */
-function save(root,gameId,executable,pub){if(pub&&!pub.error){const g=gate(pub);if(g){g.game={stamp:stamp(executable)};g.at=Date.now();atomic(path.join(storeDir(root),safeId(gameId)+'.json'),g);return g;}}
+function save(root,gameId,executable,pub){if(pub&&!pub.error){const g=gate(pub);if(g){g.game={stamp:stamp(executable)};g.at=Date.now();atomic(path.join(storeDir(root),safeId(gameId)+'.json'),g);try{require('./probe-auto.cjs').kick(root);}catch{}return g;}}
  const e={schema:SCHEMA,version:VERSION,error:pub?.error||'FAILED',at:Date.now(),game:{stamp:stamp(executable)}};try{atomic(path.join(storeDir(root),safeId(gameId)+'.json'),e);}catch{}return e;}
 function cancel(root){const job=jobs.get(path.resolve(root));if(!job)return {state:'idle'};job.cancelled=true;try{job.abort.abort();}catch{}try{job.child?.kill();}catch{}return {state:'cancelled'};}
 const safeId=id=>String(id).replace(/[^A-Za-z0-9_-]/g,'_').slice(0,80)||'game';

@@ -2,8 +2,8 @@
 /* Hook point between the adaptation overview and the local probe pipeline (owned by the probe/upload work, not by the
    overview). The overview never exports or sends anything itself: it hands the pipeline the games the user picked.
    Order: a global entry (window.megulitProbe.open, if something installs one), then the pipeline's own module
-   (web/adapter-probe-ui.js openProbeUpload: local check of those games, then the exact upload manifest, sent only after
-   the user confirms), then the per-game diagnostics dialog if that module cannot load.
+   (web/adapter-probe-ui.js openProbeUpload: local check of those games, then the quiet automatic upload with the
+   manifest of what was sent as a record; confirm-first only when Settings library.probeUpload is off), then the per-game diagnostics dialog if that module cannot load.
    onDone({state:'checked'|'cancelled'|'uploaded',problems?}) lets the overview reload its rows. */
 import {openDiagnostics} from './diagnostics-ui.js';
 

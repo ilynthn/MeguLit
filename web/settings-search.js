@@ -21,7 +21,7 @@ for(const [syllable,characters]of Object.entries({qing:'擎',zhi:'址',hu:'户�
 const normalize=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f\s_-]/g,'').toLowerCase();
 pinyinMap.set('引','yin');
 /* E377 联网服务 / 排行榜昵称 */
-pinyinMap.set('榜','bang');pinyinMap.set('昵','ni');pinyinMap.set('联','lian');pinyinMap.set('网','wang');
+pinyinMap.set('只','zhi');pinyinMap.set('脱','tuo');pinyinMap.set('敏','min');pinyinMap.set('含','han');pinyinMap.set('榜','bang');pinyinMap.set('昵','ni');pinyinMap.set('联','lian');pinyinMap.set('网','wang');
 /* E394 个人主页 头像 账号 邮箱 登录 退出 */
 /* E397 公开 签名 最喜欢 关注 同好 */
 for(const [c,p] of Object.entries({公:'gong',开:'kai',签:'qian',名:'ming',最:'zui',喜:'xi',欢:'huan',关:'guan',注:'zhu',同:'tong',好:'hao'}))if(!pinyinMap.has(c))pinyinMap.set(c,

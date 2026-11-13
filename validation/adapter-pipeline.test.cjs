@@ -102,12 +102,13 @@ test('withdrawn: the maintainer takes a version off the feed, apps roll back to 
  const f=await (await fetcher('https://relay.test/api/adapters/feed?app=1.4.9&format=1')).json();assert.ok(f.withdrawn.some(w=>w.id==='mgpk-reader'&&w.version===2));
  await feed.sync(R,{fetch:fetcher,db:DB});const s=packs.readState(R);assert.equal(s.active['mgpk-reader'],1);assert.ok(s.blocked['mgpk-reader@2']);
 });
-test('probe requests: a game without follow-up consent waits for the user; reports and requests carry no text',async()=>{
- fs.rmSync(path.join(R,'data','adapter-probe','consent.json'),{force:true});
+test('probe requests: with the automatic upload off, a game without follow-up consent waits for the user; reports and requests carry no text',async()=>{
+ fs.rmSync(path.join(R,'data','adapter-probe','consent.json'),{force:true});require('../services/probe-auto.cjs').setEnabled(R,false);
  const key=require('../services/shared-adaptation.cjs').fingerprint(mg.exe).key;
  assert.equal((await admin('/api/adapters/probe-request',{id:'req-1',keys:[key]})).status,201);
  await feed.sync(R,{fetch:fetcher,db:DB});const pending=feed.pendingProbes(R);assert.equal(pending.length,1);assert.equal(pending[0].gameId,'g-mgpk');
  assert.equal((await admin('/api/adapters/probe-request',{id:'req-1',close:true})).status,200);
+ require('../services/probe-auto.cjs').setEnabled(R,true);
 });
 test('compatibility for old apps: a feed entry this app cannot use never reaches the store',async()=>{
  const newer=packs.sign({...fx.fixturePack(),id:'needs-new-op',version:1,requires:[...fx.fixturePack().requires,'transform:aes-ctr']},K.privateKey,'test');

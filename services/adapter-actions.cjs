@@ -8,12 +8,14 @@
      adapter_probe_results                         → {games:{id:brief}}
      adapter_upload_prepare {ids?}                 desensitized bundle of the problem games → {hash,bytes,chunks,manifest}
      adapter_upload_manifest {hash}                the stored bundle's manifest again
-     adapter_upload        {hash,followUp?}        upload exactly that bundle (only after the user confirmed it)
+     adapter_upload        {hash,followUp?}        upload exactly that bundle (the manual path, Settings probeUpload off)
+     adapter_auto_status                           automatic upload (probe-auto.cjs): switch, per-game state, log of sent
+     adapter_auto_run      {ids?}                  probe-auto run now for those problem games (quiet, deduped) → results
      adapter_consent_revoke                        stop automatic follow-up probes
      adapter_packs_status                          installed packs, per-game results, waiting probe requests
      adapter_packs_sync                            fetch the feed now (worker thread)
      adapter_pack_rollback {id}                    block the active version of a pack and read its games again
-   E596 runtime harvest (services/runtime-harvest.cjs; opt-in, off by default):
+   E596 runtime harvest (services/runtime-harvest.cjs; on unless turned off since 2026-11-14):
      adapter_runtime_status                        switch, per-game off list, running job, per-game finding counts
      adapter_runtime_explain {locale}              what is read, why, what may leave the PC, what never does
      adapter_runtime_enable {enabled}              the global switch (Settings: library.runtimeHarvest)
@@ -34,6 +36,8 @@ async function handle(db,root,request,runtime=null){
   case 'adapter_upload_prepare':return require('./adapter-sample.cjs').prepare(root,db,{ids,sampler:probe.sampleInWorker,titles:request.titles!==false});
   case 'adapter_upload_manifest':return require('./adapter-sample.cjs').manifest(root,String(request.hash||''))||{error:'NOT_PREPARED'};
   case 'adapter_upload':return require('./adapter-sample.cjs').upload(root,{hash:String(request.hash||''),followUp:request.followUp===true});
+  case 'adapter_auto_status':return require('./probe-auto.cjs').status(root);
+  case 'adapter_auto_run':return require('./probe-auto.cjs').run(root,db,{ids,probeFirst:false});
   case 'adapter_consent_revoke':return require('./adapter-sample.cjs').revoke(root);
   case 'adapter_packs_status':return require('./adapter-feed.cjs').status(root);
   case 'adapter_packs_sync':return require('./adapter-feed.cjs').syncNow(root);

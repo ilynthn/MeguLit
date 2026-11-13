@@ -51,7 +51,7 @@ function start(root,db,{ids=null,reason='manual',budgetMs=DEFAULT_BUDGET,perGame
  if(!s.run.queue.length||s.run.done.length>=s.run.queue.length){s.run.state='done';save(root,s);return status(root);}
  save(root,s);
  const live={child:null,timer:null,cancelled:false,current:null,emit};runs.set(key,live);
- loop(root,live).catch(()=>{}).finally(()=>{try{live.child?.send({type:'exit'});live.child?.kill();}catch{}live.child=null;if(runs.get(key)===live)runs.delete(key);try{emit('adapter-probe',status(root));}catch{}});
+ loop(root,live).catch(()=>{}).finally(()=>{try{live.child?.send({type:'exit'});live.child?.kill();}catch{}live.child=null;if(runs.get(key)===live)runs.delete(key);try{emit('adapter-probe',status(root));}catch{}try{require('./probe-auto.cjs').kick(root);}catch{}});
  return status(root);}
 function resume(root,db,options={}){const s=load(root);if(!s.run||!['running','paused','cancelled'].includes(s.run.state)||!s.run.queue?.length)return status(root);return start(root,db,{...options,resume:true});}
 async function loop(root,live){

@@ -70,7 +70,8 @@ async function probeRequests(root,db,requests,{fetcher}){
  const games=probe.libraryGames(db).map(g=>({...g,key:gameKey(g.executable)}));const done=[];
  for(const q of (Array.isArray(requests)?requests:[]).slice(0,20)){if(!q||!/^[a-z0-9-]{3,64}$/.test(String(q.id||''))||!Array.isArray(q.keys))continue;
   for(const g of games.filter(x=>x.key&&q.keys.includes(x.key))){if(pending.requests[q.id+':'+g.id]?.state==='sent')continue;
-   if(!consent[g.key]){pending.requests[q.id+':'+g.id]={state:'waiting',gameId:g.id,title:g.title,at:Date.now()};continue;}
+   /* 2026-11-14 the automatic upload switch (on by default) counts as consent for follow-up probes */
+   if(!consent[g.key]&&!require('./probe-auto.cjs').enabled(root)){pending.requests[q.id+':'+g.id]={state:'waiting',gameId:g.id,title:g.title,at:Date.now()};continue;}
    await new Promise(res=>{probe.start(root,{prepare:()=>({all:()=>[{id:g.id,title:g.title,executable:g.executable}]})},{ids:[g.id],reason:'request',force:true,budgetMs:5*60000,emit:()=>{}});const t=setInterval(()=>{if(probe.status(root).state!=='running'){clearInterval(t);res();}},500);});
    const prepared=await sample.prepare(root,{prepare:()=>({all:()=>[{id:g.id,title:g.title,executable:g.executable}]})},{ids:[g.id],sampler:probe.sampleInWorker});
    if(prepared.hash){const u=await sample.upload(root,{hash:prepared.hash,fetcher});pending.requests[q.id+':'+g.id]={state:u.state==='uploaded'?'sent':'failed',gameId:g.id,title:g.title,at:Date.now()};done.push(g.id);}
