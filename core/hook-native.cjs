@@ -262,6 +262,10 @@ class HookNative{
  source(m,name){
   /* E560 Unity setter streams: typewriter steps and whole NVL pages become the one paragraph the game is on (core/unity-source.cjs) */
   {const code=String(m.sourceCode||'');if(code.endsWith(':JIT:UNITY')&&!m.unityBoxed&&typeof m.text==='string'&&!this.skipKey){const {UnityBox}=require('./unity-source.cjs');(this.unityBox||(this.unityBox=new UnityBox(()=>this.now(),(line,p)=>this.source({...p.m,text:line,unityBoxed:true},p.name)))).feed(code,cleanSource(m.text,name,code),{m,name});return;}}
+  /* 2026-11-14 (ダストマニア・グロテスク, Chinese patch): Shift-JIS read as GBK becomes the Japanese it was (core/text-sanity.cjs).
+     The hook gets this text already as UTF-16 (the game converted it with the system code page), so the hook's own code page
+     setting cannot help: each stream is judged by its text and locked once it is clearly one or the other. */
+  if(typeof m.text==='string'){const stream=name||m.sourceCode||m.sourceName||'';const fixed=(this.codepage||(this.codepage=new (require('./text-sanity.cjs').StreamCodepage)())).fix(stream,m.text);if(fixed.locked)this.trace('stream locked as Shift-JIS read as GBK '+JSON.stringify(String(stream).slice(0,60)));if(fixed.repaired){this.trace('source repaired Shift-JIS read as GBK '+JSON.stringify(fixed.text.slice(0,20)));m={...m,text:fixed.text};}}
   /* 2026-11-12 (ファタモルガーナの館: "……けれど……", drawn large in the middle of the opening, was hidden and shown as a subtitle
      at the bottom): while the engine says its text window is hidden, a line is art text. HookBridge leaves it to the game;
      here it goes to the art layer (invisible readable copy + translation where the game drew it), not to the subtitles. */
@@ -272,6 +276,8 @@ class HookNative{
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
   this.languageCheck(m.text);
+  /* a line still unreadable after that (mojibake, replacement characters) is never drawn; the game keeps its own text */
+  if(require('./text-sanity.cjs').garbledSource(m.text,{controls:false})){this.trace('source dropped unreadable '+JSON.stringify(String(m.text).slice(0,20)));return;}
   // Multilingual containers keep only the Japanese track (E243); streams that deliver every line several times (or every character doubled) are learned and undone per stream (E215).
   this.repeats=this.repeats||new (require('./repeat-normalizer.cjs').RepeatNormalizer)();
   this.attempt=0;/* 2026-11-13 (user: DDLC Plus set to English showed nothing): a line in another language is first looked up in the

@@ -210,6 +210,8 @@ class Reader{
   try{const plain=require('../core/source-ruby.cjs').extractSourceRuby(text).text;if(plain.trim())text=plain;}catch{}
   /* Multi-language releases pass every language slot of a line through the same call (ATRI: the Simplified and
      Traditional Chinese of each line after the Japanese, live test 2026-11-13); those stay as the game has them. */
+  /* 2026-11-14 (ダストマニア・グロテスク): Shift-JIS read as GBK is translated as the Japanese it was; unreadable text gets no translation, the game keeps its own line */
+  {const sanity=require('../core/text-sanity.cjs');const fixed=sanity.repairShiftJisAsGbk(text);if(fixed)text=fixed;else if(sanity.garbledSource(text,{controls:false})){this.gal?.hooks?.embedReply(id,'',{source:text,text:''});return;}}
   if(notJapanese(text)){this.gal?.hooks?.embedReply(id,'',{source:text,text:''});return;}
   try{
    trans=this.embedCached(text)||'';

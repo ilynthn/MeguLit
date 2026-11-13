@@ -17,7 +17,7 @@ function artJunk(text,rows,sh){
 const REFUSAL=/^(抱歉|很抱歉|对不起|不好意思|无法|我无法|i'?m sorry|sorry|i cannot|i can't|unable to)|无法翻译|不能翻译|cannot translate|can't translate|not (a )?(valid|recognizable) japanese/i;
 function artNoTranslation(source,translation){
  const tr=String(translation||'').trim();if(!tr)return true;
- if(REFUSAL.test(tr))return true;
+ if(REFUSAL.test(tr)||require('./text-sanity.cjs').metaReply(tr,source))return true;
  const a=plain(source),b=plain(tr);return !!a&&a===b;
 }
 module.exports={artJunk,artNoTranslation};

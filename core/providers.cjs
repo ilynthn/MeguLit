@@ -61,6 +61,9 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
   async function translate(text, options = {}, isCurrent = () => true) {
     if (typeof text !== 'string' || !text.trim() || text.length > 4000) throw new Error('台词为空或过长');
     options = resolveOptions(options);
+    /* garbage (mojibake, control codes) is never sent: the translator would answer about it, not translate it (core/text-sanity.cjs) */
+    const sanity = require('./text-sanity.cjs');
+    if (sanity.garbledSource(text)) return '';
     observeSource(text);
     const entry = history.at(-1);
     const context = options.contextEnabled === false || !(isLLM(options.provider) || options.provider === 'deepl') || options.provider === 'sakura' ? [] : history.slice(0,-1).slice(-Math.max(1,Math.min(8,Number(options.contextLines) || 4))).map(h=>({source:h.source,...(h.translation?{translation:h.translation}:{})}));
@@ -137,6 +140,8 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     inFlight.set(cacheKey, pending);
     try {
       const result = require('./translation-format.cjs').normalizeTranslation(await pending);
+      /* a reply about the line (asks for the original, calls it garbled, cannot translate) is no translation: nothing is shown or cached */
+      if (sanity.metaReply(result, text)) return '';
       entry.translation=result;
       cache.set(cacheKey, result);
       if (cache.size > 400) cache.delete(cache.keys().next().value);

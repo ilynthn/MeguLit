@@ -315,12 +315,18 @@ public class GalWindowBridge {
     static DateTime NormalShowUntil=DateTime.MinValue;
     // The reading layer must stay above the game. Activating the game (binding, clicking it) could leave the layer
     // underneath while the layer was only re-placed on size changes, so a menu opened afterwards was never seen.
-    static DateTime LastZCheck=DateTime.MinValue;static IntPtr LastHomeForeground;
+    static DateTime LastZCheck=DateTime.MinValue;
     // Tells the page once a region that includes the menu is in place and the window shown; the page holds the menu's
     // opening animation until then, so a half-opened menu never shows through the old, text-only region.
     static bool RegionAckPending;
     static void AckRegion(){if(!RegionAckPending||!MenuOpen)return;Rect r;if(!GetClientRect(Overlay,out r))return;if(TranslationMode&&Target!=IntPtr.Zero){var screen=System.Windows.Forms.SystemInformation.VirtualScreen;if(r.Right!=screen.Width||Math.Abs(r.Bottom-screen.Height)>1)return;}RegionAckPending=false;Emit(new{type="regionApplied",surfaceWidth=r.Right,surfaceHeight=r.Bottom});}
     static void KeepAboveGame(IntPtr gameRoot){KeepAboveGame(gameRoot,true);}
+    /* insert-after handle for "directly above the game" (a non-topmost insert-after also drops topmost) */
+    static IntPtr JustAboveGame(IntPtr gameRoot){IntPtr gameTop=Target!=IntPtr.Zero?GetAncestor(Target,2):IntPtr.Zero;if(gameTop==IntPtr.Zero)gameTop=gameRoot;if(gameTop==IntPtr.Zero)return new IntPtr(1);IntPtr above=GetWindow(gameTop,3);return above==Overlay?GetWindow(Overlay,3):above;}
+    static void StayAboveGameOnly(IntPtr gameRoot){
+        IntPtr gameTop=Target!=IntPtr.Zero?GetAncestor(Target,2):IntPtr.Zero;if(gameTop==IntPtr.Zero)gameTop=gameRoot;if(gameTop==IntPtr.Zero)return;
+        IntPtr above=GetWindow(gameTop,3);if(above==Overlay)return;
+        SetWindowPos(Overlay,above,0,0,0,0,0x0001|0x0002|0x0010);}
     static void KeepAboveGame(IntPtr gameRoot,bool front){
         bool menu=MenuOpen&&MenuRegionReady;
         if((DateTime.UtcNow-LastZCheck).TotalMilliseconds<(menu?100:250))return;LastZCheck=DateTime.UtcNow;
@@ -575,10 +581,13 @@ public class GalWindowBridge {
            the opening and first lines never showed, while the game hid its own text): the cached LastRect said the window
            was already placed. The real window rect is checked too, so a window moved by any other path is put back. */
         Rect placed;bool strayed=HasLastRect&&GetWindowRect(Overlay,out placed)&&(placed.Left!=box.Left||placed.Top!=box.Top||placed.Right!=box.Right||placed.Bottom!=box.Bottom);
-        if(strayed||!HasLastRect||!IsShown||box.Left!=LastRect.Left||box.Top!=LastRect.Top||box.Right!=LastRect.Right||box.Bottom!=LastRect.Bottom){SetWindowPos(Overlay,homeOwned?fg:gameOwned?new IntPtr(-1):IntPtr.Zero,box.Left,box.Top,box.Right-box.Left,box.Bottom-box.Top,(uint)(0x0010|0x0040|(!HasLastRect?0x0020:0)));LastRect=box;HasLastRect=true;}IsShown=true;AckRegion();
+        if(strayed||!HasLastRect||!IsShown||box.Left!=LastRect.Left||box.Top!=LastRect.Top||box.Right!=LastRect.Right||box.Bottom!=LastRect.Bottom){SetWindowPos(Overlay,homeOwned?JustAboveGame(gameRoot):gameOwned?new IntPtr(-1):IntPtr.Zero,box.Left,box.Top,box.Right-box.Left,box.Bottom-box.Top,(uint)(0x0010|0x0040|(!HasLastRect?0x0020:0)));LastRect=box;HasLastRect=true;}IsShown=true;AckRegion();
         FocusMenuOnce();
-        if(homeOwned&&LastHomeForeground!=fg)SetWindowPos(Overlay,fg,0,0,0,0,0x0001|0x0002|0x0010);
-        LastHomeForeground=homeOwned?fg:IntPtr.Zero;
+        /* 2026-11-14 (user, beta.36: a translation drawn big over MeguLit's own game page while a file picker was open):
+           with a MeguLit window in front the layer went directly under that window. An unowned window of MeguLit (the file
+           picker, a popup) is its own root, so the layer landed above the main window. The layer now sits directly above the
+           game, under every other window, so it only ever covers the game. */
+        if(homeOwned)StayAboveGameOnly(gameRoot);
         KeepAboveGame(gameRoot,contextActive&&!homeOwned);
         if(magpie&&contextActive&&!homeOwned&&(DateTime.UtcNow-MagpieRaisedAt).TotalMilliseconds>250){MagpieRaisedAt=DateTime.UtcNow;SetWindowPos(Overlay,new IntPtr(-1),0,0,0,0,0x0001|0x0002|0x0010);}
         /* Magpie pauses while its source window is not in front: outside the Alt+T menu (which needs the keyboard and hands focus back when it closes) the reading layer never keeps the foreground from the scaled game. */
