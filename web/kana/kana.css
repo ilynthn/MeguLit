@@ -901,7 +901,7 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 @media (prefers-reduced-motion:reduce){.mk-card{animation:none}.mastery button{transition:none}}
 /* 五十音 home, rebuilt 2026-11-11 in the megu-edit look: HUD, black stage, lesson rail, kana board, practice, tiles.
    Two poles (black / paper), one red, tracked mono labels, Roman numerals, blueprint grid and corner marks. */
-.v-index.mg{--mg-red:#c8323c;--mg-paper:#f4f4f2;--mg-ink:#0b0b0b;--mg-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;--mg-black:rgba(0,0,0,.84);--mg-line:rgba(255,255,255,.12);--mg-dim:rgba(255,255,255,.55);--ease-x:cubic-bezier(.16,1,.3,1);color:#fff}
+.v-index.mg{--mg-red:#c8323c;--mg-paper:#f4f4f2;--mg-ink:#0b0b0b;--mg-mono:"IBM Plex Mono",ui-monospace,Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;--mg-black:rgba(0,0,0,.84);--mg-line:rgba(255,255,255,.12);--mg-dim:rgba(255,255,255,.55);--ease-x:cubic-bezier(.16,1,.3,1);color:#fff}
 .mg-page{max-width:1240px;margin:0 auto;padding:28px 36px 72px;display:grid;gap:14px}
 .mg-tag{display:inline-flex;align-items:center;gap:10px;font:500 10px/1 var(--mg-mono);letter-spacing:.45em;text-transform:lowercase;color:var(--mg-dim)}
 .mg-tag i{width:6px;height:6px;background:var(--mg-red)}
@@ -1005,7 +1005,7 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
    tokens are switched to black stage / paper / one red, corners go square, labels become tracked mono, and the main
    sheet gets the blueprint grid, corner marks and a focus-pull entrance. Layout stays; it reads the same tokens. */
 .v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji{
-  --mg-red:#c8323c;--mg-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;--mg-line:rgba(255,255,255,.12);--ease-x:cubic-bezier(.16,1,.3,1);
+  --mg-red:#c8323c;--mg-mono:"IBM Plex Mono",ui-monospace,Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;--mg-line:rgba(255,255,255,.12);--ease-x:cubic-bezier(.16,1,.3,1);
   --paper:#000;--paper-ink:#fff;--paper-2:rgba(255,255,255,.72);--paper-3:rgba(255,255,255,.5);--paper-label:rgba(255,255,255,.55);
   --paper-rule:rgba(255,255,255,.12);--paper-line:rgba(255,255,255,.2);--paper-ghost:rgba(255,255,255,.08);--paper-tint:rgba(200,50,60,.1);
   --ink-accent:var(--mg-red);--ribbon:var(--mg-red);--accent:var(--mg-red);--accent-soft:rgba(200,50,60,.18);
@@ -1045,7 +1045,7 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 @media(prefers-reduced-motion:reduce){:is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .sheet,.v-lesson .kana-line .ja{animation:none}:is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .btn{transition:none}}
 
 /* 2026-11-11 the 「← 学习」 back link inside 五十音: same square mono button as the grammar page */
-:is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .back{display:inline-flex;align-items:center;gap:12px;height:34px;padding:0 16px 0 12px;margin-bottom:12px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.6);color:#fff;font:500 11px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.3em;text-decoration:none;transition:border-color .2s,gap .35s cubic-bezier(.16,1,.3,1),background .2s}
+:is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .back{display:inline-flex;align-items:center;gap:12px;height:34px;padding:0 16px 0 12px;margin-bottom:12px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.6);color:#fff;font:500 11px/1 "IBM Plex Mono",ui-monospace,Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;letter-spacing:.3em;text-decoration:none;transition:border-color .2s,gap .35s cubic-bezier(.16,1,.3,1),background .2s}
 :is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .back:hover{border-color:#c8323c;gap:18px;background:#000;color:#fff}
 :is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .back:active{transform:scale(.97)}
 :is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .back:focus-visible{outline:2px solid #c8323c;outline-offset:2px}
@@ -1095,7 +1095,7 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 .v-index.mg .mg-lesson small{line-height:1.35;text-wrap:balance}
 
 /* round 1: Consolas for the lab's mono labels (lining figures), the star-seal primary, selection in the brand red */
-.v-index.mg{--mg-mono:"IBM Plex Mono",Consolas,monospace}
+.v-index.mg{--mg-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace}
 .v-index.mg .mg-cta{height:46px;border-radius:10px;color:#fbeedd;text-shadow:0 0 10px rgba(255,170,120,.35);background:radial-gradient(1.2px 1.2px at 78% 28%,rgba(255,226,180,.9),transparent 70%),radial-gradient(120% 140% at 0% 50%,rgba(196,40,58,.55),transparent 62%),linear-gradient(135deg,#3a1720 0%,#2a1219 45%,#1d1016 100%);box-shadow:inset 0 0 0 1px rgba(237,181,110,.42),inset 0 0 0 3px rgba(20,10,12,.55),inset 0 0 0 4px rgba(237,181,110,.14),0 6px 18px -6px rgba(150,20,40,.55)}
 .v-index.mg .mg-cta:hover{background:radial-gradient(1.2px 1.2px at 78% 28%,rgba(255,226,180,.9),transparent 70%),radial-gradient(120% 140% at 0% 50%,rgba(196,40,58,.7),transparent 62%),linear-gradient(135deg,#46202a 0%,#2f141c 45%,#1f1117 100%);filter:none}
 .v-index.mg :is(.mg-diffs button.on,.mg-diffs button.active,.mg-diffs [aria-checked=true]){background:rgba(200,47,59,.14)!important;color:var(--g-t1,#f1e0d2)!important;border-color:rgba(200,47,59,.6)!important;box-shadow:inset 0 -2px 0 #c82f3b!important}
@@ -1105,7 +1105,7 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 /* 2026-11-13 unify with web/theme.css (user: 五十音也用同一套风格): square panels on the theme glass, red marks only the
    current item, gold carries progress, labels are plain sans text, primary is the 1.4.8 button (dark, hairline, red
    underline, red caret). Mono only for numbers. */
-.v-index.mg{--mg-mono:var(--t-mono,"IBM Plex Mono",Consolas,monospace)}
+.v-index.mg{--mg-mono:var(--t-mono,"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace)}
 .v-index.mg :is(.mg-hud,.mg-stage,.mg-lesson,.mg-board-grid,.mg-board-empty,.mg-voice,.mg-practice,.mg-game,.mg-tile){border-radius:var(--t-radius,2px)!important;background:var(--t-panel,linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54)))!important;box-shadow:var(--t-ring,inset 0 0 0 1px rgba(255,255,255,.09))!important}
 .v-index.mg .mg-hud{border-top:0!important}
 .v-index.mg :is(.mg-tag,.mg-kicker,.mg-legend,.mg-hud-stats,.mg-lesson small,.mg-diffs button,.mg-num em){font-family:var(--sans)!important;text-transform:none!important;letter-spacing:.02em!important}

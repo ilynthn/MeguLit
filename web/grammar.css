@@ -241,7 +241,7 @@
 @media(prefers-reduced-motion:reduce){.gm-piece,.gm-pill,.gm-scene{transition:none}}
 /* megu-edit layer (2026-11-11): two poles (black stage / paper card), one accent red, Roman numerals, tracked
    lowercase mono labels, blueprint dashed rules. Overrides the colour-per-part look above. */
-.gm-page{--mg-red:#c8323c;--mg-paper:#f4f4f2;--mg-ink:#0b0b0b;--mg-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.gm-page{--mg-red:#c8323c;--mg-paper:#f4f4f2;--mg-ink:#0b0b0b;--mg-mono:"IBM Plex Mono",ui-monospace,Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace}
 .gm-page .gm-piece,.gm-page .gm-pill,.gm-page .gm-node-no{--c:var(--mg-red)}
 .gm-map header h2,.gm-overview-kicker{font:500 12px/1 var(--mg-mono);letter-spacing:.5em;text-transform:lowercase;color:var(--gm-t2)}
 .gm-map header h2::before{content:'▮ ';color:var(--mg-red)}

@@ -10,7 +10,7 @@
  --t-ring:inset 0 0 0 1px var(--t-line);
  --t-blur:blur(16px) saturate(1.2);
  --t-serif:"Sitka Display","Noto Serif SC","Noto Serif JP","Yu Mincho",serif;
- --t-mono:"IBM Plex Mono",Consolas,monospace;
+ --t-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",monospace; /* 2026-11-13 user report: the mono fonts have no CJK glyphs, so Chinese fell to the system monospace (NSimSun bitmap on some PCs) and looked pixelated; a CJK sans comes before the generic monospace */
  --t-label-size:11px;--t-label-track:.2em;--t-label-color:color-mix(in srgb,var(--text,#f3f3f5) 55%,transparent);
  --t-title-size:18px;
  --t-bar-h:3px;--t-bar-track:rgba(255,255,255,.08);--t-bar-fill:var(--t-gold);
@@ -128,3 +128,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.guide-panel,.dev-notice) 
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .dict-home .dh-col>header h3::before{content:'';display:inline-block;width:6px;height:6px;background:var(--t-red);vertical-align:3px;margin-right:10px}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .moji-account .text-button{color:var(--t-red)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .tv-sno{color:var(--t-label-color)!important}
+
+/* 2026-11-13 user report (login panel): the account heading took the tiny uppercase mono kicker style meant for English section labels; it is a real heading */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .profile-panel-intro h3{font-family:var(--t-serif)!important;font-size:18px!important;font-weight:600!important;letter-spacing:.02em!important;text-transform:none!important;color:var(--g-t1,#f1e0d2)!important;margin:4px 0 6px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .profile-perks li{color:var(--g-t1,#f1e0d2)!important;background:rgba(255,255,255,.04)!important;border-radius:2px!important}

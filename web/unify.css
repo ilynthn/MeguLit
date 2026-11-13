@@ -4,7 +4,7 @@
    lining numerals, one switch, one set of buttons, readable small text. Loaded after every page sheet, before
    scrollbar.css. Only looks; no behaviour lives here. */
 
-:root{--u-mono:"IBM Plex Mono",Consolas,monospace;--u-glass:linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54));--u-glass-solid:linear-gradient(160deg,rgba(26,22,26,.94),rgba(15,13,16,.94));--u-line:rgba(255,255,255,.09);--u-line-2:rgba(255,255,255,.16);--u-red:#c8323c;--u-red-2:#e0404a;--u-small:12px;--u-tiny:11px;--u-pad:clamp(18px,1.6vw,26px)}
+:root{--u-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;--u-glass:linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54));--u-glass-solid:linear-gradient(160deg,rgba(26,22,26,.94),rgba(15,13,16,.94));--u-line:rgba(255,255,255,.09);--u-line-2:rgba(255,255,255,.16);--u-red:#c8323c;--u-red-2:#e0404a;--u-small:12px;--u-tiny:11px;--u-pad:clamp(18px,1.6vw,26px)}
 
 /* ---- top bar: the tabs give way before the logo ever does (en / ja are longer) ---- */
 html:not(#u):not(#v) body .titlebar{justify-content:flex-start!important}
@@ -418,7 +418,7 @@ html:not(#u):not(#v) body .main .settings-content .sp-preview .sp-stage{min-heig
 
 /* ---- round 1 fixes ---- */
 /* mono labels: Consolas before ui-monospace (Windows resolves ui-monospace to a face with old-style figures) */
-:root,html:not(#u):not(#v) body .ri-page,html:not(#u):not(#v) body #learning-content,html:not(#u):not(#v) body .gm-page,html:not(#u):not(#v) body .stg,html:not(#u):not(#v) body .leaderboard-page,html:not(#u):not(#v) body .dl{--ri-mono:"IBM Plex Mono",Consolas,monospace;--mg-mono:"IBM Plex Mono",Consolas,monospace;--stg-mono:"IBM Plex Mono",Consolas,monospace}
+:root,html:not(#u):not(#v) body .ri-page,html:not(#u):not(#v) body #learning-content,html:not(#u):not(#v) body .gm-page,html:not(#u):not(#v) body .stg,html:not(#u):not(#v) body .leaderboard-page,html:not(#u):not(#v) body .dl{--ri-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;--mg-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;--stg-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace}
 /* learning sub tabs fit the window in every language */
 /* one content width for every learning tab, centred: the left edge no longer jumps */
 html:not(#u):not(#v) body #learning-content{max-width:1400px;margin-inline:auto}

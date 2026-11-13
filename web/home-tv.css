@@ -1,4 +1,4 @@
-.tv-home{--tv-a:#d05b34;--tv-b:#edb56e;--tv-c:#3b4a8c;--tv-mono:"IBM Plex Mono",Consolas,monospace;position:relative;height:calc(100vh - var(--titlebar-height,44px));min-height:520px;overflow:hidden;perspective:1400px;outline:none;color:var(--g-t1);font-family:var(--g-serif)}
+.tv-home{--tv-a:#d05b34;--tv-b:#edb56e;--tv-c:#3b4a8c;--tv-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;position:relative;height:calc(100vh - var(--titlebar-height,44px));min-height:520px;overflow:hidden;perspective:1400px;outline:none;color:var(--g-t1);font-family:var(--g-serif)}
 .tv-home button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .tv-canvas{position:absolute;inset:-6%;z-index:0;transform-style:preserve-3d;transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
 .tv-plane{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}

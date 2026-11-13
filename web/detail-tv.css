@@ -1,5 +1,5 @@
 /* Game detail in the home's visual language: blurred cover stage, outline glyph, crop marks, glass panels, serif numerals */
-.main[data-kids~="dtv-bg"]{--dtv-mono:"IBM Plex Mono",Consolas,monospace;position:relative;isolation:isolate}
+.main[data-kids~="dtv-bg"]{--dtv-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;position:relative;isolation:isolate}
 .dtv-bg{position:fixed;inset:var(--titlebar-height,64px) 0 0 0;z-index:0;pointer-events:none;overflow:hidden;max-width:none!important;margin:0!important}
 .dtv-bg::before{content:"";position:absolute;inset:-12%;background:var(--dtv-cover) center/cover no-repeat;filter:blur(40px) saturate(1.35) brightness(.8);opacity:.9;transform:scale(1.1)}
 .dtv-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 100% at 25% 10%,transparent 0,color-mix(in srgb,var(--bg) 35%,transparent) 60%,color-mix(in srgb,var(--bg) 70%,transparent) 100%),repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.14) 3px 4px)}
