@@ -122,6 +122,9 @@ class HookNative{
    if(m.type==='hookTextPos'||m.type==='hookPage'||m.type==='hookDialog'||m.type==='hookGameUi'||m.type==='hookFont'){this.emit(m);if(m.type==='hookPage')this.islandPage(m);return;}
    /* Translation written back into the game: the bridge holds a dialogue line and asks for its translation. */
    if(m.type==='embedRequest'&&Number.isSafeInteger(m.id)&&typeof m.text==='string'&&m.text.length<=4000){this.emit({type:'hookEmbedRequest',id:m.id,text:m.text});return;}
+   /* 2026-11-14 glyph hide (native/fontprobe/GlyphMatch.h): the engine-agnostic fallback hid the game's own drawing of the line (hit),
+      learned the dialogue font (key), or found the engine reuses rasterised glyphs and stopped (cached; the bridge turns the stream back to read-only). */
+   if(m.type==='hookGlyphHide'){this.glyphHide(m);return;}
    if(m.type==='hookRender'){this.notify({hookDrawCount:Number(m.count)||0,hookDrawAt:Number(m.at)||0});return;}
    if(m.type==='waitMarkerDrawn'){this.emit({type:'waitMarkerDrawn'});return;}
    if(m.type==='waitMarkerStatus'){this.notify({waitMarkerMessage:String(m.message||'').slice(0,300),waitMarkerHookActive:m.active===true});return;}
@@ -139,6 +142,7 @@ class HookNative{
  // replaces the captured line; anything else, or any error, keeps the captured text so the dialogue never goes missing.
  /* E285 (user: a Chinese script was imported, yet the game was given DeepSeek's wording): one lookup per line, shared by the
     reader and the text written back into the game, so the matcher's reading position moves once per line. */
+ glyphHide(m){if(!m||!['hit','key','cached'].includes(m.state))return;const v={hookGlyphHide:m.state==='key'?(this.state.hookGlyphHide||'learning'):m.state};if(m.state==='hit'&&typeof m.path==='string')v.hookGlyphPath=m.path.slice(0,16);if(m.state==='key'&&typeof m.face==='string'&&Number.isFinite(m.size))v.hookGlyphFont={face:m.face.slice(0,64),size:Number(m.size)};this.trace('glyph hide '+m.state+(m.path?' '+String(m.path).slice(0,16):'')+(m.size?' '+Number(m.size)+'px':''));this.notify(v);}
  markScriptSource(){try{if(this.state&&!this.state.scriptSource)this.notify({scriptSource:true});}catch{}}
  resolveSource(text){const provider=this.originalText;if(!provider||!text)return null;const key=String(text).replace(/\s+/g,'');this.sourceCache??=new Map();if(this.sourceCache.has(key)&&this.sourceCache.get(key).provider===provider)return this.sourceCache.get(key).r;const r=provider.resolve(text);this.sourceCache.set(key,{provider,r});if(this.sourceCache.size>200)this.sourceCache.delete(this.sourceCache.keys().next().value);return r;}
  // The script's own translation for a captured line, or '' when the line is not matched with confidence.
