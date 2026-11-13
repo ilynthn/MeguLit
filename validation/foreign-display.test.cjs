@@ -15,7 +15,7 @@ test('the foreign line the game draws on another writable stream is hidden next 
  assert.match(s,/static bool ForeignTwin\(string text\)/);
  assert.match(s,/TwinEmbed\.Add\(tp\.Key\(\)\)/,'embedding is switched on for the twin stream');
  assert.match(s,/Math\.Abs\(\(twinNow-LastSourceAt\)\.TotalMilliseconds\)<1500/);
- assert.match(read('native/EmbedTextPolicy.cs'),/\(Resource\.IsMatch\(value\) && !Prose\.IsMatch\(value\)\)/,'English prose with a comma is dialogue, not a resource');
+ assert.match(read('native/EmbedTextPolicy.cs'),/\(Resource\.IsMatch\(visible\) && !Prose\.IsMatch\(visible\)\)/,'English prose with a comma is dialogue, not a resource');
 });
 
 test('hook-control keeps the stream the foreign picker mapped to dialogue; a manual pick is marked',()=>{
