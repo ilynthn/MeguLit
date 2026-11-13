@@ -58,7 +58,7 @@ test('examples go through the shared furigana renderer, the grammar stays marked
 });
 
 test('step list: names and ✓, no numbers; 第 n / 6 步 under the lesson',()=>{
- const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8');
+ const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8').replace(/\r\n/g,'\n');
  assert.doesNotMatch(src,/data-step="\$\{i\}"[^`]*<b>\$\{i\+1\}<\/b>/);
  assert.match(src,/data-stepof>/);
  assert.doesNotMatch(src,/<em>\$\{String\(i\+1\)\.padStart\(2,'0'\)\}<\/em>/);
@@ -66,7 +66,7 @@ test('step list: names and ✓, no numbers; 第 n / 6 步 under the lesson',()=>
 });
 
 test('the map opened from a lesson returns to that lesson at the same step',()=>{
- const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8');
+ const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8').replace(/\r\n/g,'\n');
  assert.match(src,/data-map\]'\)\.forEach\(b=>b\.onclick=\(\)=>\{openNode=b\.dataset\.map;scene=null;piece=-1;memo\.mapFrom='lesson';go\('map'\);\}\)/);
  assert.match(src,/back\.onclick=\(\)=>\{memo\.mapFrom='';go\(fromLesson\?'lesson':'list'\);\}/);
  assert.match(src,/function showStep\(n,animate=true\)\{\n  step=Math\.max\(0,Math\.min\(STEPS\.length-1,n\)\);save\(\);keepStep\(point\?\.id,step\);/,'the step is kept for the lesson');
