@@ -139,11 +139,9 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 .main .settings-content .settings-row :is(input,select,textarea,button,a,.select-control,.select-trigger,.color-swatches,.accent-custom,.review-controls,.font-control){pointer-events:auto}
 .main .settings-content .settings-row .setting-slider{pointer-events:none}
 .main .settings-content .settings-row .setting-slider>input{pointer-events:auto}
-/* 侧栏选中星：与文字垂直对齐、不被裁 */
 .main .settings-nav .settings-category button{overflow:visible!important}
 .main .settings-nav .settings-category-items{overflow:visible}
 
-.main .settings-nav .settings-category button.active::before{margin-top:0!important;}
 /* 顶部栏取色：恢复胶囊宝石款，留出右侧光圈空间 */
 .main .settings-content input[type=color]{width:52px!important;height:30px!important;padding:3px!important;margin-right:6px!important;border-radius:999px!important;background:linear-gradient(135deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 50%,transparent),rgba(120,70,40,.4))!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 35%,transparent),0 4px 10px -4px rgba(0,0,0,.6)!important}
 .main .settings-content input[type=color]::-webkit-color-swatch{border-radius:999px;box-shadow:inset 0 1px 2px rgba(255,255,255,.25),inset 0 -2px 4px rgba(0,0,0,.35)}
@@ -160,10 +158,8 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 .library-wall-toggle{view-transition-name:lib-wall-toggle}
 ::view-transition-group(lib-search),::view-transition-group(lib-wall-toggle){animation-duration:.42s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.32s}
-/* E263 星与文字同一水平中线：改为行内 flex 项，不再绝对定位 */
 
 
-.main .settings-nav .settings-category button.active::before{position:static!important;flex:none;display:block!important;width:5px!important;height:5px!important;margin:0 9px 0 3px!important;transform:rotate(45deg) translateY(-1px)!important;left:auto!important;top:auto!important}
 body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{translate:0 -1px}
 body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label{display:inline-flex!important;align-items:center;line-height:1!important;padding-top:1px}
 /* 设置页底部留白收紧 */
