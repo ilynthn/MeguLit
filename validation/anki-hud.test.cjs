@@ -145,11 +145,26 @@ test('the layout dock has its own remembered opacity and lives in a top-level la
  assert.match(src,/opacity:'透明度',place:'摆放'/);assert.match(src,/opacity:'Opacity',place:'Placement'/);assert.match(src,/opacity:'透明度',place:'配置'/);
  assert.match(src,/type="range" min="30" max="100" step="5" data-dock-op/);assert.match(src,/op:Number\.isFinite\(d\.op\)\?Math\.min\(100,Math\.max\(30,d\.op\)\):100/);
  assert.match(css,/\.anki-hud-edit \.hud-dock-panel\{opacity:var\(--dk-op,1\)\}/);
- assert.match(css,/\.anki-hud-edit:is\(:hover,:focus-within,\.dragging\) \.hud-dock-panel\{opacity:1\}/);
+ assert.match(css,/\.anki-hud-edit:not\(\.op-live\) \.hud-dock-panel:is\(:hover,:focus-within\),\.anki-hud-edit\.dragging \.hud-dock-panel\{opacity:1\}/);assert.match(src,/box\.classList\.toggle\('op-live'/);
  /* out of the HUD: fixed, appended to <body> (or the full-screen element), clamped to innerWidth/innerHeight, not the canvas */
  assert.match(css,/\.anki-hud-edit\{[^}]*position:fixed;/);assert.match(src,/home=fs&&fs!==document\.documentElement\?fs:document\.body/);
  assert.match(src,/const dockClamp=\(box,x,y\)=>\{[^}]*innerWidth-W-m[^}]*innerHeight-Hh-m/);
  const paint=src.slice(src.indexOf('const paint=()=>'),src.indexOf('const move=e=>'));assert.ok(paint.includes('dockClamp('));assert.ok(!/c\.width-W/.test(paint),'drag must not clamp to the HUD canvas');
  /* the old canvas-relative fx/fy are not read any more, so an old saved spot cannot place it oddly */
  assert.ok(!/dock\.fx/.test(src));
+});
+test('the layout space is the whole content area of the window, the same in edit and play mode (user 2026-11-14)',()=>{
+ const src=read('anki-review.js'),css=read('anki-layout.css');
+ /* canvas and background break out of the centred column to the page area under the sub-nav, edge to edge */
+ assert.match(src,/function spanCanvas\(\)\{/);assert.match(src,/main\.querySelector\(':scope>\.tabs'\)/);
+ assert.match(src,/'--span-l':-at\[0\],'--span-t':top-at\[1\],'--span-w':main\.clientWidth,'--span-h':Math\.max\(200,main\.clientHeight-top\)/);
+ /* offsets from offsetLeft/Top, not getBoundingClientRect: the column's enter transform must not skew them */
+ const fn=src.slice(src.indexOf('function spanCanvas'),src.indexOf('const moving='));assert.ok(fn.includes('offsetLeft')&&!fn.includes('getBoundingClientRect'));
+ assert.match(src,/new ResizeObserver\(\(\)=>spanCanvas\(\)\)\.observe\(s\.closest\('\.main'\)\)/);assert.match(src,/toggle\('anki-immersive',on\);spanCanvas\(\);/);
+ assert.match(css,/\.anki-hud\.span:not\(\.immersive\) :is\(\.anki-hud-canvas,\.anki-hud-bg\)\{position:absolute;inset:auto;left:var\(--span-l\);top:var\(--span-t\);width:var\(--span-w\);height:var\(--span-h\)/);
+ /* grid, card frame and blocks all live in that one canvas, so what is placed in edit mode is where it shows */
+ const shell=src.slice(src.indexOf("s.innerHTML='<div class=\"anki-hud-bg\""));const cv=shell.slice(shell.indexOf('anki-hud-canvas'));
+ for(const k of ['anki-hud-grid','anki-hud-frame-slot','anki-hud-layer'])assert.ok(cv.indexOf(k)>0&&cv.indexOf(k)<cv.indexOf('anki-hud-keys'),k);
+ /* and the reveal / next-card rule still holds in the bigger space: a saved box comes back unchanged */
+ const r={x:58,y:42,w:39,h:24,s:1.5};for(const nh of [60,260])assert.deepEqual((({x,y,w,h})=>[x,y,w,h])(H.hugRect(r,300,nh,1904,956).rect),[58,42,39,24]);
 });

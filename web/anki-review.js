@@ -218,6 +218,10 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   box.querySelector('[data-hud-grid]').oninput=event=>{hud.snap={...hud.snap,grid:Number(event.target.value)};event.target.nextElementSibling.value=event.target.value;saveHud();applyHud();};
   const setOp=v=>{dock.op=Math.min(100,Math.max(30,Number(v)||100));box.style.setProperty('--dk-op',String(dock.op/100));};setOp(dock.op);
   box.querySelector('[data-dock-op]').oninput=event=>{setOp(event.target.value);event.target.nextElementSibling.value=dock.op+'%';saveDock();};
+  /* on the opacity row the panel previews the chosen opacity instead of turning opaque (kept while the slider is held) */
+  {const row=box.querySelector('.hud-dock-op');let held=false;const live=()=>box.classList.toggle('op-live',held||row.matches(':hover')||row.contains(document.activeElement));
+   row.addEventListener('pointerenter',live);row.addEventListener('pointerleave',live);row.addEventListener('focusin',live);row.addEventListener('focusout',()=>setTimeout(live,0));
+   row.addEventListener('pointerdown',()=>{held=true;live();addEventListener('pointerup',()=>{held=false;live();},{once:true});});}
   box.querySelector('.hud-dock-menu').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();e.currentTarget.open=false;e.currentTarget.querySelector('summary').focus();}});
   /* drag by the head (or the folded pill); a click on the pill that did not move opens it */
   for(const grip of box.querySelectorAll('[data-dock-grip],[data-dock-expand]'))grip.addEventListener('pointerdown',down=>{
@@ -232,6 +236,19 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
     if(frame){cancelAnimationFrame(frame);paint();}if(moved){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform);dockOver(box,t.m41-c.left,t.m42-c.top,c);saveDock();box.dataset.dragged='1';setTimeout(()=>delete box.dataset.dragged,0);}};
    /* window listeners: the drag keeps going even where pointer capture is refused */addEventListener('pointermove',move);addEventListener('pointerup',up);addEventListener('pointercancel',up);});
   try{enhanceSelects(box);}catch{}
+ }
+ /* (user 2026-11-14: 「anki的hud调节范围也要是全屏」) The layout space is the whole content area of the window: the page
+    under the top bar and the learning sub-nav, edge to edge, down to the bottom, not the centred 1400 px column.
+    The canvas (blocks, grid, card frame) and the background are offset out of the column to that area; offsets
+    come from offsetLeft/Top so the column's enter transform cannot skew them. Block rects stay percentages of the
+    canvas, i.e. fractions of that area, so they survive window resizes, and play mode uses the same canvas. */
+ function spanCanvas(){
+  const s=stage();if(!s)return;const main=s.closest('.main');
+  const off=el=>{let x=0,y=0;while(el&&el!==main){x+=el.offsetLeft;y+=el.offsetTop;el=el.offsetParent;}return el===main?[x,y]:null;};
+  const at=main&&!immersive?off(s):null;if(!at){s.classList.remove('span');return;}
+  const tabs=main.querySelector(':scope>.tabs'),tb=tabs?off(tabs):null,top=tb?tb[1]+tabs.offsetHeight+6:0;
+  const v={'--span-l':-at[0],'--span-t':top-at[1],'--span-w':main.clientWidth,'--span-h':Math.max(200,main.clientHeight-top)};
+  for(const [k,n] of Object.entries(v))s.style.setProperty(k,Math.round(n)+'px');s.classList.add('span');
  }
  const moving=on=>{stage()?.classList.toggle('hud-moving',!!on);dockEl?.classList.toggle('hud-moving',!!on);};
  /* (user 2026-11-14: the panel covered the blocks and could not leave the HUD) the dock lives in a top-level layer:
@@ -255,6 +272,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
     snap:(r,kind,alt)=>{if(alt)return null;const c=canvas().getBoundingClientRect();return H.snapRect(r,Object.entries({...cardFrames,...hostShown}).filter(([k])=>k!==id).map(([,v])=>v),kind,{...hud.snap,SW:c.width,SH:c.height});},
     guides:g=>H.drawGuides(s.querySelector('.anki-hud-guides'),g),onActive:moving,onCommit:r=>{hud.layout[id]=r;saveHud();placeBlocks();}});}
   mountEdit(s);new ResizeObserver(()=>placeBlocks()).observe(s.querySelector('.anki-hud-canvas'));
+  spanCanvas();requestAnimationFrame(spanCanvas);new ResizeObserver(()=>spanCanvas()).observe(s);s.closest('.main')&&new ResizeObserver(()=>spanCanvas()).observe(s.closest('.main'));
   applyHud();return s;
  }
  /* the page's own blocks (progress, buttons) hug their content the same way the card's blocks do */
@@ -286,7 +304,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  /* Full screen: the stage covers the window (fixed, above the top bar) and the window itself goes full screen through
     the desktop shell, or the browser Fullscreen API outside it. Esc leaves. */
  async function setImmersive(on){
-  on=!!on;if(on===immersive)return;immersive=on;const s=stage();s?.classList.toggle('immersive',on);document.documentElement.classList.toggle('anki-immersive',on);
+  on=!!on;if(on===immersive)return;immersive=on;const s=stage();s?.classList.toggle('immersive',on);document.documentElement.classList.toggle('anki-immersive',on);spanCanvas();
   s?.querySelector('[data-hud-full]')?.setAttribute('aria-pressed',String(on));const b=s?.querySelector('[data-hud-full]');if(b)b.textContent=on?hc.exitFull:hc.full;
   /* (user 2026-11-13: the top bar stayed above the HUD, a white strip at the bottom, the window vanished) the desktop
      window covers the monitor; the stage itself goes to the top layer, above the top bar and every stacking context,

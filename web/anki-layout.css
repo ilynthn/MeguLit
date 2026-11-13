@@ -59,6 +59,11 @@
 .anki-hud-bg::after{content:"";position:absolute;inset:0;background:#000;opacity:var(--hud-bg-dim,0)}
 .anki-hud-bar{flex:none;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:4px 12px;padding:4px 6px 8px;position:relative;z-index:6}
 .anki-hud-canvas{position:relative;flex:1;min-height:0}
+/* (user 2026-11-14) layout space = the whole content area of the window (offsets set by spanCanvas) */
+.anki-hud.span:not(.immersive){overflow:visible;border-radius:0}
+.anki-hud.span:not(.immersive) :is(.anki-hud-canvas,.anki-hud-bg){position:absolute;inset:auto;left:var(--span-l);top:var(--span-t);width:var(--span-w);height:var(--span-h);z-index:auto}
+.anki-hud.span:not(.immersive) .anki-hud-bg{z-index:-1}
+.anki-hud.span:not(.immersive) .anki-hud-bar{z-index:8;pointer-events:none}.anki-hud.span:not(.immersive) .anki-hud-bar>*{pointer-events:auto}
 .anki-hud-frame-slot{position:absolute;inset:0}
 .anki-hud-frame{display:block;width:100%;height:100%;border:0;background:transparent;color-scheme:dark}
 .anki-hud-layer{position:absolute;inset:0;z-index:3;pointer-events:none}
@@ -132,8 +137,8 @@ html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-
 .anki-hud.dock-dragging .anki-hud-frame{pointer-events:none}
 /* the chosen opacity (--dk-op, set from the dock's own slider) applies until the pointer is on the dock or it is being dragged */
 .anki-hud-edit .hud-dock-panel{opacity:var(--dk-op,1)}
-/* 2026-11-14 (user: 透明度调整无效) .anki-hud-edit is the whole edit layer, so its :hover was always on and the panel never faded: only the panel's own hover counts, and not while the pointer is on the opacity row, so the slider previews live */
-.anki-hud-edit .hud-dock-panel:is(:hover,:focus-within):not(:has(.hud-dock-op:is(:hover,:active,:focus-within))),.anki-hud-edit.dragging .hud-dock-panel{opacity:1}
+/* 2026-11-14 (user: 透明度调整无效) .op-live is set from JS while the pointer or focus is on the opacity row (no :has, see the review-page test). .anki-hud-edit is the whole edit layer, so its :hover was always on and the panel never faded: only the panel's own hover counts, and not while the pointer is on the opacity row, so the slider previews live */
+.anki-hud-edit:not(.op-live) .hud-dock-panel:is(:hover,:focus-within),.anki-hud-edit.dragging .hud-dock-panel{opacity:1}
 .anki-hud-edit.over-content:not(:hover,:focus-within,.dragging) .hud-dock-panel{backdrop-filter:blur(14px)}
 .anki-hud.hud-moving .anki-hud-edit,.anki-hud-edit.hud-moving{opacity:.08;pointer-events:none}
 .hud-dock-panel{position:relative;box-sizing:border-box;border:1px solid var(--dk-line-2);border-radius:3px;background:var(--dk-bg);box-shadow:0 24px 56px rgba(0,0,0,.55),0 4px 12px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.35),inset 0 0 0 1px color-mix(in srgb,var(--t-text,#ece4dc) 7%,transparent),inset 0 1px 0 color-mix(in srgb,var(--t-text,#ece4dc) 14%,transparent);
