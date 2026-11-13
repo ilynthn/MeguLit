@@ -76,14 +76,20 @@ export function createHand(opts){const {root,box,layer,cover,art,back='',onPlay,
     when a draw keeps the page busy for a moment the cards appeared already at their new places; an animation starts when it is first drawn and is
     always seen whole. Current poses are all read before any is written (one style pass), and a move picks up from wherever the card is now. */
  const EASE='cubic-bezier(.22,1.22,.36,1)';
- function place(list,m){const items=list.filter(([el,p])=>el&&p).map(([el,p])=>[el,p,`translate3d(${(p.x-m.cw/2).toFixed(1)}px,${(p.y-m.ch/2).toFixed(1)}px,0) rotate(${p.a.toFixed(2)}deg) scale(${p.s})`]);
+ const slotTransform=(p,m)=>`translate3d(${(p.x-m.cw/2).toFixed(1)}px,${(p.y-m.ch/2).toFixed(1)}px,0) rotate(${p.a.toFixed(2)}deg) scale(${p.s})`;
+ function place(list,m){const items=list.filter(([el,p])=>el&&p).map(([el,p])=>[el,p,slotTransform(p,m)]);
   const from=items.map(([el,,to])=>el.style.transform&&el.style.transform!==to&&!reduced&&el.isConnected?getComputedStyle(el).transform:null);
   items.forEach(([el,p,to],i)=>{el.style.zIndex=String(p.z);el.dataset.a=p.a;if(el.style.transform===to)return;el._mv?.cancel();el.style.transform=to;const a=from[i];
    if(a&&a!=='none')el._mv=el.animate([{transform:a},{transform:to}],{duration:420,easing:EASE});});}
  /* pose of a game's slot in root pixels, from the layout numbers (not from a card that may be mid-transition) */
- function slotPose(id,W){const {pos,m}=st.lastLayout||layout(),j=inHand().findIndex(g=>g.id===id);const p=pos[j];if(!p)return null;const br=box.getBoundingClientRect(),
-  rr=root.getBoundingClientRect();
-  return {x:br.left-rr.left+p.x,y:br.top-rr.top+p.y,r:p.a,s:m.cw/W,rx:0,ry:0,o:1};}
+ /* 2026-11-14 (user: "又是那个bug 明明修了咋又来了") the slot is measured, not computed: a bare hidden copy of the card (same classes, the slot's final
+    transform, no animations) is laid out in the fan and its box taken. Hand cards turn around their CSS transform-origin (50% 62%), not their centre,
+    so the old arithmetic (box origin + layout point) put a tilted slot 5-6px off and the real card jumped when the flying one handed over */
+ function slotPose(id,W){const {pos,m}=st.lastLayout||layout(),j=inHand().findIndex(g=>g.id===id);const p=pos[j];if(!p)return null;const el=st.cards.get(id),rr=root.getBoundingClientRect();
+  if(!el){const br=box.getBoundingClientRect();return {x:br.left-rr.left+p.x,y:br.top-rr.top+p.y,r:p.a,s:m.cw*p.s/W,rx:0,ry:0,o:1};}
+  const c=el.cloneNode(false);c.className=el.className.replace(/is-(out|wait)/g,'');c.style.cssText=el.style.cssText;c.style.transform=slotTransform(p,m);c.style.visibility='hidden';
+  c.style.pointerEvents='none';c.style.animation='none';c.style.transition='none';c.setAttribute('aria-hidden','true');c.tabIndex=-1;box.appendChild(c);
+  try{const r=c.getBoundingClientRect();return {x:r.left-rr.left+r.width/2,y:r.top-rr.top+r.height/2,r:p.a,s:m.cw*p.s/W,rx:0,ry:0,o:1};}finally{c.remove();}}
  /* 2026-11-13 (user: "位置有大问题") the field card's resting box: a bare copy of it (same classes and inline place, no animations, hidden) is measured,
     so a draw or deal animation still running on the real card never moves the measured spot */
  /* slots and the field card are measured on the untilted scene, where the flights end */

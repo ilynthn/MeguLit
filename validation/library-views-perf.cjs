@@ -112,3 +112,4 @@ async function main(){fs.mkdirSync(OUT,{recursive:true});const temp=fs.mkdtempSy
   fs.writeFileSync(path.join(OUT,'perf.json'),JSON.stringify({summary:report.summary,summaryWarm:report.summaryWarm,perSwitch:report.perSwitch,strips:report.strips,rounds:report.rounds},null,1));cdp.stop();web.close();await service.stop();await sleep(500);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
  console.log('screenshots and report.json in '+OUT);}
 if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=2;});
+module.exports={startService,startWeb,startEdge,png};
