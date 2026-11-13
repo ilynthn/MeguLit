@@ -112,6 +112,7 @@
 .anki-seg.anki-seg-5 button{font-size:10.5px;white-space:normal;line-height:1.25}
 /* Full screen: the stage covers the window, top bar included (the bar itself is untouched), tools fade until needed */
 .anki-hud.immersive{position:fixed;inset:0;z-index:2100;min-height:0;border-radius:0;background:#0d0a0c}
+.anki-hud.immersive>.app-backdrop.anki-hud-backdrop{z-index:-2;overflow:hidden}
 .anki-hud.immersive .anki-hud-bar{position:absolute;top:0;right:0;left:0;padding:10px 16px;opacity:.18;transition:opacity .2s ease}
 .anki-hud.immersive .anki-hud-bar:is(:hover,:focus-within){opacity:1}
 .anki-hud.immersive .anki-hud-canvas{flex:1}

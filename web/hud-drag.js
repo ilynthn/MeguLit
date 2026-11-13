@@ -32,14 +32,32 @@
     frame is always exactly that box, on every card and in both the question and answer state. The content keeps its
     scale (r.s) and is shrunk to fit when it is taller or wider than the box (furigana + translation after the reveal);
     it sits at the top of the box, centred across (ox/oy: px offsets inside the frame). A fresh box (just resized, or a
-    preset) takes the scale that fills it. */
- function hugRect(r,nw,nh,SW,SH,max=6){
+    preset) starts at scale 1, the size set in 外观, so a size never depends on which card was on screen. */
+ function hugRect(r,nw,nh,SW,SH,max=6,room){
   const box=normRect(r,r,{w:.3,h:.3});
   if(!(nw>0&&nh>0&&SW>0&&SH>0))return {rect:box,scale:1,fresh:false,ox:0,oy:0};
-  const bw=box.w*SW/100,bh=box.h*SH/100,fit=Math.min(bw/nw,bh/nh),fresh=!Number.isFinite(r.s);
-  let s=fresh?fit:r.s;s=Math.min(max,Math.max(.12,s));box.s=Math.round(s*1000)/1000;
-  const shown=Math.max(.05,Math.min(s,fit));
+  const bw=box.w*SW/100,fresh=!Number.isFinite(r.s);
+  let s=fresh?1:r.s;s=Math.min(max,Math.max(.12,s));box.s=Math.round(s*1000)/1000;
+  /* room: how far (percent of the stage) the content may run below the box top before it has to shrink: the free
+     space down to the next block or the buttons, so a long definition wraps at the same size instead of shrinking */
+  const roomH=Math.max(box.h,Math.min(100-box.y,Number.isFinite(room)?room:box.h))*SH/100;
+  const shown=Math.max(.05,Math.min(s,bw/nw,roomH/nh));
   return {rect:box,scale:shown,fresh,ox:Math.round(Math.max(0,(bw-nw*shown)/2)),oy:0};
+ }
+ /* Free space under a box: the top of the nearest rect below it that shares some of its width, else the stage
+    bottom (percent). Used as hugRect's room. */
+ function roomBelow(r,others,gap=1){let bottom=100;for(const o of others||[]){if(!o||o===r)continue;
+  if(o.x<r.x+r.w-.01&&r.x<o.x+o.w-.01&&o.y>=r.y+r.h-.5)bottom=Math.min(bottom,o.y-gap);}return Math.max(r.h,bottom-r.y);}
+ /* (user 2026-11-14: the reading was missing on some cards) The reading of a word from the furigana of its own
+    example sentence (the game's ruby): kanji runs are read from ruby bases, kana are kept. '' when any kanji is
+    not covered, so nothing is guessed. Katakana readings become hiragana. */
+ function rubyReading(word,html){
+  const pairs=[],kanji=/[\u3400-\u9fff\u3005\u3006\u30f6]/,w=String(word||'').replace(/\s+/g,'');if(!kanji.test(w))return '';
+  String(html||'').replace(/<ruby\b[^>]*>([\s\S]*?)<\/ruby>/gi,(m,inner)=>{const rt=(inner.match(/<rt\b[^>]*>[\s\S]*?<\/rt>/gi)||[]).map(x=>x.replace(/<[^>]*>/g,'')).join('').trim();
+   const base=inner.replace(/<rt\b[^>]*>[\s\S]*?<\/rt>|<rp\b[^>]*>[\s\S]*?<\/rp>/gi,'').replace(/<[^>]*>/g,'').trim();if(base&&rt)pairs.push([base,rt]);return m;});
+  let out='',i=0;while(i<w.length){let best=null;for(const p of pairs)if(w.startsWith(p[0],i)&&(!best||p[0].length>best[0].length))best=p;
+   if(best){out+=best[1];i+=best[0].length;continue;}if(kanji.test(w[i]))return '';out+=w[i];i++;}
+  return out.replace(/[\u30a1-\u30f6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
  }
  /* Snapping. r: the rect being placed (percent), others: rects of the other blocks, kind: 'move' or a resize edge.
     opts: {mode:'free'|'grid', grid:px, SW, SH, thr:px}. Returns the adjusted rect and the guides to draw. */
@@ -110,13 +128,15 @@
     if(frame){cancelAnimationFrame(frame);paint();}guides?.([]);el.style.transform='';applyRect(el,next);el.classList.remove('hud-dragging','hud-resizing');onActive?.(false);
     el.classList.add('hud-settle');setTimeout(()=>el.classList.remove('hud-settle'),220);
     if(next.x!==start.x||next.y!==start.y||next.w!==start.w||next.h!==start.h){const r={x:next.x,y:next.y,w:next.w,h:next.h};for(const k of ['fx','fy','z'])if(start[k]!==undefined)r[k]=start[k];
-     /* a move keeps the scale; a resize asks for a new one */if(!edge&&Number.isFinite(start.s))r.s=start.s;onCommit(r);}};
+     /* (user 2026-11-14) the scale is the block's text size, set by the user and never derived from a card's content:
+        a move or a side edge keeps it (a side only re-wraps), a corner scales it with the box */
+     const s0=Number.isFinite(start.s)?start.s:1;r.s=edge.length===2?Math.round(Math.min(6,Math.max(.12,s0*next.h/start.h))*1000)/1000:s0;onCommit(r);}};
    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   });
   /* Keyboard: arrows move by 1% (Shift: resize, Alt: by .25%) while the block has focus in edit mode */
   el.addEventListener('keydown',e=>{if(!editing()||!/^Arrow/.test(e.key))return;e.preventDefault();const r={...rect()},d=e.altKey?.25:1;
    const dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
-   if(e.shiftKey){r.w+=dx;r.h+=dy;delete r.s;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n);});
+   if(e.shiftKey){r.w+=dx;r.h+=dy;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n);});
  }
  /* Cover framing: how far (px) the picture overflows its frame on each axis, so a drag of d px moves the focus by d/over */
  function coverOverflow(nw,nh,bw,bh,z){const k=Math.max(bw/nw,bh/nh)*(z||1);return {x:Math.max(0,nw*k-bw),y:Math.max(0,nh*k-bh)};}
@@ -142,6 +162,6 @@
   for(const k of Object.keys(out))out[k]=normRect(out[k],out[k],{w:.3,h:.3});
   return {rects:out,nudged:[...nudged]};
  }
- const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,snapRect,drawGuides,attach,EDGES};
+ const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,roomBelow,rubyReading,snapRect,drawGuides,attach,EDGES};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.MeguHud=api;
 })(globalThis);

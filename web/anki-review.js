@@ -254,16 +254,18 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  /* (user 2026-11-14: the panel covered the blocks and could not leave the HUD) the dock lives in a top-level layer:
     a child of <body> (or of the full-screen element), so no HUD overflow, transform or stacking context confines it.
     A watchdog hides and drops it once its review page is gone. */
- let dockEl=null,dockWatch=0;
- function dockOf(s){if(!s.__dock)s.__dock=s.querySelector('.anki-hud-edit');dockEl=s.__dock;return dockEl;}
+ let dockEl=null,dockWatch=0;const owner={};
+ function dockOf(s){if(!s.__dock){s.__dock=s.querySelector('.anki-hud-edit');if(s.__dock)s.__dock.__stage=s;}dockEl=s.__dock;return dockEl;}
  function dockHome(){if(!dockEl)return;const fs=document.fullscreenElement,home=fs&&fs!==document.documentElement?fs:document.body;if(dockEl.parentNode!==home)home.append(dockEl);}
- function dockGone(){const s=stage();return !s||!s.isConnected||!s.getClientRects().length;}
- function watchDock(){clearInterval(dockWatch);dockWatch=setInterval(()=>{if(!dockEl){clearInterval(dockWatch);return;}if(dockGone()){dockEl.hidden=true;if(!stage()?.isConnected){dockEl.remove();clearInterval(dockWatch);}}else if(editing&&dockEl.hidden){dockEl.hidden=false;placeDock(stage());}},400);}
+ /* gone: this render is no longer current, or its own stage left the page (a newer render reuses the same target) */
+ function dockGone(){const s=dockEl?.__stage;return !isCurrent()||!s||!s.isConnected||s!==stage()||!s.getClientRects().length;}
+ function watchDock(){clearInterval(dockWatch);dockWatch=setInterval(()=>{if(!dockEl){clearInterval(dockWatch);return;}if(dockGone()){dockEl.hidden=true;const own=dockEl.__stage;if(!isCurrent()||!own?.isConnected||own!==stage()){dockEl.remove();clearInterval(dockWatch);}}else if(editing&&dockEl.hidden){dockEl.hidden=false;placeDock(stage());}},400);}
  document.addEventListener('fullscreenchange',dockHome);
  /* a smaller window pulls a saved spot back inside it */addEventListener('resize',()=>{const s=stage();if(editing&&s&&dockEl&&!dockEl.hidden)placeDock(s);});
  function shell(){
-  let s=stage();if(s)return s;
-  s=document.createElement('section');s.className='anki-hud';s.setAttribute('aria-label',text.ankiReview);
+  /* only a stage this render built is reused: one left by an earlier render on the same target carries that render's handlers */
+  let s=stage();if(s&&s.__owner===owner)return s;
+  s=document.createElement('section');s.__owner=owner;s.className='anki-hud';s.setAttribute('aria-label',text.ankiReview);
   s.innerHTML='<div class="anki-hud-bg" aria-hidden="true"></div><div class="anki-hud-bar anki-toolbar"></div><div class="anki-hud-canvas"><div class="anki-hud-grid" aria-hidden="true"></div><div class="anki-hud-frame-slot"></div><div class="anki-hud-layer"><div class="anki-hud-block" data-hud="progress"><div class="anki-hud-progress hud-content" aria-live="polite"></div></div><div class="anki-hud-block" data-hud="controls"><div class="review-controls hud-content" data-controls></div></div><div class="anki-hud-guides" aria-hidden="true"></div></div><div class="anki-hud-edit" hidden></div><div class="anki-hud-keys" aria-hidden="true">'+esc(hc.keys)+'</div></div>';
   target.replaceChildren(s);
   dockEl?.remove();dockOf(s);dockHome();
@@ -288,7 +290,14 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const src=b.mode==='game'?String(cover()||''):b.mode==='shot'?shotSrc:b.mode==='image'?b.image:'';
   bg.style.backgroundColor=b.mode==='color'?b.color:'';bg.style.backgroundImage=src&&!/[\n\r]/.test(src)?'url('+JSON.stringify(src)+')':'';
   bg.style.setProperty('--hud-bg-blur',b.blur+'px');bg.style.setProperty('--hud-bg-dim',String(b.mode==='none'?0:b.dim/100));
-  s.dataset.bg=src||b.mode==='color'?b.mode:'none';
+  s.dataset.bg=src||b.mode==='color'?b.mode:'none';syncBackdrop();
+ }
+ /* (user 2026-11-14: in 全屏 the custom background was gone) With no HUD background of its own the HUD shows the
+    window's wallpaper (.app-backdrop, a sibling of the app frame). Full screen covers / is the HUD, so it carries a
+    copy of that layer: same class, same inline image vars, same blur and dim rules. */
+ function syncBackdrop(){
+  const s=stage();if(!s)return;s.querySelector(':scope>.anki-hud-backdrop')?.remove();if(!immersive||s.dataset.bg!=='none')return;
+  const src=document.querySelector('.app-backdrop:not(.anki-hud-backdrop)');if(!src)return;const copy=src.cloneNode(true);copy.classList.add('anki-hud-backdrop');copy.removeAttribute('id');s.prepend(copy);
  }
  function applyHud(){
   const s=stage();if(!s)return;for(const [k,v] of Object.entries(M.cssVars(hud.style)))s.style.setProperty(k,v);
@@ -304,7 +313,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  /* Full screen: the stage covers the window (fixed, above the top bar) and the window itself goes full screen through
     the desktop shell, or the browser Fullscreen API outside it. Esc leaves. */
  async function setImmersive(on){
-  on=!!on;if(on===immersive)return;immersive=on;const s=stage();s?.classList.toggle('immersive',on);document.documentElement.classList.toggle('anki-immersive',on);spanCanvas();
+  on=!!on;if(on===immersive)return;immersive=on;const s=stage();s?.classList.toggle('immersive',on);document.documentElement.classList.toggle('anki-immersive',on);spanCanvas();syncBackdrop();
   s?.querySelector('[data-hud-full]')?.setAttribute('aria-pressed',String(on));const b=s?.querySelector('[data-hud-full]');if(b)b.textContent=on?hc.exitFull:hc.full;
   /* (user 2026-11-13: the top bar stayed above the HUD, a white strip at the bottom, the window vanished) the desktop
      window covers the monitor; the stage itself goes to the top layer, above the top bar and every stacking context,
@@ -390,7 +399,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   else if(d.type==='tome-anki-key')key(String(d.key||''));
   else if(d.type==='tome-anki-lookup')lookup(String(d.word||'').slice(0,60));};
  window.addEventListener('message',messages);
- const stop=()=>{window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);clearInterval(poll);leaveHud();};stopMessages=stop;
+ const stop=()=>{window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);clearInterval(poll);leaveHud();dockEl?.remove();clearInterval(dockWatch);};stopMessages=stop;
  function progress(s,html){s.querySelector('.anki-hud-progress').innerHTML=html;requestAnimationFrame(placeBlocks);}
  function mountFrame(s,card){currentFrame=frame(card);s.querySelector('.anki-hud-frame-slot').replaceChildren(currentFrame);}
  function drawCard(card){

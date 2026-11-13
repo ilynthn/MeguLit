@@ -28,6 +28,9 @@
  function applyVars(vars){for(const [k,v] of Object.entries(vars||{}))if(/^--hud-[a-z-]+$/.test(k))document.documentElement.style.setProperty(k,String(v));}
  function split(){
   const card=root.querySelector('.tm-card');if(!card||!card.querySelector||!card.querySelector('.tm-word'))return null;
+  /* the answer always shows the reading: a note without WordReading gets it from its example's furigana */
+  const m0=card.querySelector('.tm-mean');if(m0&&!card.querySelector('.tm-reading')&&globalThis.MeguHud?.rubyReading){const w=card.querySelector('.tm-word')?.textContent||'',ex=card.querySelector('.tm-ex');
+   const rd=MeguHud.rubyReading(w,ex?.querySelector('.tm-hl')?.innerHTML)||MeguHud.rubyReading(w,ex?.innerHTML);if(rd){const d=document.createElement('div');d.className='tm-reading';d.dataset.from='sentence';d.textContent=rd;m0.before(d);}}
   const sec=n=>n&&n.closest?n.closest('.tm-sec')||n:n,word=card.querySelector('.tm-head'),mean=card.querySelector('.tm-mean'),info=mean?sec(mean):null;
   const ex=card.querySelector('.tm-ex'),example=ex?sec(ex):null,shot=card.querySelector('.tm-shot'),used=[word,info,example,shot].filter(Boolean);
   const rest=[...card.children].filter(n=>!used.includes(n)&&!used.some(u=>u.contains(n)));
@@ -56,7 +59,7 @@
   schedule();
  }
  function fitBlocks(){
-  if(!globalThis.MeguHud)return;const SW=innerWidth,SH=innerHeight,fresh={};
+  if(!globalThis.MeguHud)return;const SW=innerWidth,SH=innerHeight,fresh={},meta={};
   for(const k of Object.keys(shown))if(!(k in blocks))delete shown[k];
   for(const [id,el] of Object.entries(blocks)){
    if(id==='card'){shown.card=hud.layout.card;continue;}
@@ -66,7 +69,13 @@
    if(id==='shot'){const r=hud.layout.shot;if(!r)continue;const rect=MeguHud.normRect(r,r,{w:.3,h:.3});shown.shot=rect;MeguHud.applyRect(el,rect);
     box.style.cssText='';el.classList.add('hud-crop');frameShot(el,rect);continue;}
    else{box.style.width='max-content';box.style.height='auto';box.style.maxWidth=Math.round(SW*.94)+'px';nw=box.offsetWidth;nh=box.offsetHeight;}
-   const r=hud.layout[id];if(!r||!nw||!nh)continue;const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5);shown[id]=h.rect;MeguHud.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';
+   const r=hud.layout[id];if(!r||!nw||!nh)continue;
+   /* (user 2026-11-14: sizes changed from card to card) the saved scale is the block's text size on every card and in
+      both modes: text wider than the box wraps inside its width at that size, and may run down into the free space
+      under the box; only what still does not fit is shrunk */
+   const s0=Number.isFinite(r.s)?r.s:1;if(nw*s0>r.w*SW/100+1){box.style.width=Math.max(40,Math.floor(r.w*SW/100/s0))+'px';box.style.maxWidth='none';nw=box.offsetWidth;nh=box.offsetHeight;}
+   const room=MeguHud.roomBelow(r,[...Object.entries(hud.layout).filter(([k])=>k!==id&&k!=='card'&&(blocks[k]||hostFrames[k])).map(([,v])=>v),...Object.values(hostFrames)]);
+   const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5,room);shown[id]=h.rect;MeguHud.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';meta[id]={scale:Math.round(h.scale*1000)/1000,text:el.querySelector('.hud-inner')?.textContent.replace(/\s+/g,' ').trim().slice(0,120)||''};
    if(h.fresh){hud.layout[id]=h.rect;fresh[id]=h.rect;}
   }
   /* (user 2026-11-13) nothing overlaps: a longer example pushes what is under it down, the screenshot gives up space */
@@ -76,7 +85,7 @@
   for(const [id,el] of Object.entries(blocks)){if(id==='card')continue;const r=st.rects[id];if(!r)continue;shown[id]=r;MeguHud.applyRect(el,r);if(id==='shot')frameShot(el,r);
    const lab=el.querySelector('.hud-label');if(lab){const o=own[id],moved=o&&(Math.abs(r.y-o.y)>2.5||Math.abs(r.h-o.h)>2.5);if(st.nudged.includes(id)&&moved)lab.dataset.nudge=' · '+(hud.labels?.nudged||'auto');else delete lab.dataset.nudge;}}
   for(const [id,r] of Object.entries(fresh))parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');
-  parent.postMessage({type:'tome-anki-hud-frames',nonce,frames:{...shown}},'*');
+  parent.postMessage({type:'tome-anki-hud-frames',nonce,frames:{...shown},meta},'*');
  }
  function frameShot(el,r){const img=el.querySelector('img');if(!img)return;const v=hud.layout.shot||{};
   img.style.objectPosition=(v.fx??50)+'% '+(v.fy??50)+'%';img.style.transformOrigin=(v.fx??50)+'% '+(v.fy??50)+'%';img.style.transform=v.z>1?'scale('+v.z+')':'';}

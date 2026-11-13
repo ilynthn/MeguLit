@@ -52,20 +52,37 @@ test('the card magnifier looks words up in MOJi first and falls back to the loca
  /* 2026-11-13 English interface asks Jisho instead of MOJi */assert.ok(i>0);assert.match(body,/q\(locale==='en'\?'jisho':'moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("'jisho':'moji')")<body.indexOf("q('local')"));
  assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
 });
-test('a block frame is always its saved box; the content keeps its scale and shrinks to fit (user 2026-11-14)',()=>{
- const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* 800x200 px box for 4:1 content: fills it */
- assert.equal(a.fresh,true);assert.equal(a.scale,2);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h,a.rect.s],[10,10,80,20,2]);assert.equal(a.ox,0);
- const b=H.hugRect({x:10,y:10,w:80,h:40},400,100,1000,1000);/* too tall: the frame stays the box, content at its top */
- assert.deepEqual([b.rect.x,b.rect.y,b.rect.w,b.rect.h,b.rect.s],[10,10,80,40,2]);assert.equal(b.oy,0);
- /* the answer side is taller (furigana + translation): same box, same place, smaller content, never pushed anywhere */
+test('a block frame is always its saved box; the text size is the saved scale, wrapped and shrunk only when out of room (user 2026-11-14)',()=>{
+ const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* no scale yet: 1, the 外观 size, whatever the card */
+ assert.equal(a.fresh,true);assert.equal(a.scale,1);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h,a.rect.s],[10,10,80,20,1]);assert.equal(a.ox,200);
+ const b=H.hugRect({x:10,y:10,w:80,h:40,s:2},400,100,1000,1000);/* the frame stays the box, content at its top */
+ assert.deepEqual([b.rect.x,b.rect.y,b.rect.w,b.rect.h,b.rect.s],[10,10,80,40,2]);assert.equal(b.oy,0);assert.equal(b.scale,2);
+ /* answer side taller: same box, same place; it may use the free space below before it shrinks */
  const q=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,60,1360,800),ans=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,260,1360,800);
  for(const r of [q.rect,ans.rect])assert.deepEqual([r.x,r.y,r.w,r.h],[58,42,39,24]);
- assert.equal(q.scale,1.5);assert.ok(ans.scale<1.5&&260*ans.scale<=24*8+.01,'taller content shrinks into the box');
- /* a narrower word sits centred across its box */
- const c=H.hugRect({x:10,y:10,w:80,h:20,s:1},400,100,1000,1000);assert.equal(c.scale,1);assert.equal(c.ox,200);assert.deepEqual([c.rect.w,c.rect.h],[80,20]);
- const d=H.hugRect({x:0,y:0,w:10,h:10,s:5},400,100,1000,1000);assert.ok(d.scale<=.25,'never larger than its box');
- /* both sides place content by the offsets, so a reveal or the next card cannot move a block */
+ assert.equal(q.scale,1.5);assert.ok(ans.scale<1.5&&260*ans.scale<=24*8+.01,'no room: taller content shrinks into the box');
+ const roomy=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,260,1360,800,6,50);assert.equal(roomy.scale,1.5,'with room below it keeps its size');
+ const d=H.hugRect({x:0,y:0,w:10,h:10,s:5},400,100,1000,1000);assert.ok(d.scale<=.25,'never wider than its box');
+ /* free space under a box: down to the next block that shares its width, else the stage bottom */
+ assert.equal(H.roomBelow({x:58,y:27,w:39,h:12},[{x:58,y:42,w:39,h:24},{x:2,y:9,w:52,h:74}]),14);assert.equal(H.roomBelow({x:58,y:42,w:39,h:24},[{x:2,y:9,w:52,h:74}]),58);
+ /* both sides place content by the offsets; the card wraps text at the saved scale and passes the room */
  for(const f of ['anki-card.js','anki-review.js'])assert.match(read(f),/box\.style\.left=h\.ox\+'px';box\.style\.top=h\.oy\+'px';/,f);
+ const card=read('anki-card.js');assert.match(card,/const s0=Number\.isFinite\(r\.s\)\?r\.s:1;if\(nw\*s0>r\.w\*SW\/100\+1\)/);assert.match(card,/MeguHud\.roomBelow\(/);
+ /* the size is the user's: a move or a side keeps it, a corner scales it with the box */
+ const drag=read('hud-drag.js');assert.match(drag,/r\.s=edge\.length===2\?/);assert.ok(!/delete r\.s/.test(drag));
+});
+test('the answer always has the reading: from WordReading, else from the example furigana (user 2026-11-14)',()=>{
+ assert.equal(H.rubyReading('遠ざかる','<b class="tm-hl"><ruby>遠<rt>とお</rt></ruby>ざかって</b>いく'),'とおざかる');
+ assert.equal(H.rubyReading('呼び鈴','<ruby>呼<rt>よ</rt></ruby>び<ruby>鈴<rt>りん</rt></ruby>'),'よびりん');
+ assert.equal(H.rubyReading('理不尽','<ruby>理不尽<rp>(</rp><rt>リフジン</rt><rp>)</rp></ruby>'),'りふじん');
+ assert.equal(H.rubyReading('理不尽','理不尽だ'),'','no ruby: nothing is guessed');assert.equal(H.rubyReading('かわいい','<ruby>可<rt>か</rt></ruby>'),'','kana words have no reading line');
+ const card=read('anki-card.js');assert.match(card,/if\(m0&&!card\.querySelector\('\.tm-reading'\)/);assert.match(card,/d\.className='tm-reading';d\.dataset\.from='sentence'/);
+});
+test('a new render never reuses an older render\'s stage or dock; full screen keeps the window wallpaper (user 2026-11-14)',()=>{
+ const src=read('anki-review.js'),css=read('anki-layout.css');
+ assert.match(src,/let s=stage\(\);if\(s&&s\.__owner===owner\)return s;/);assert.match(src,/clearInterval\(poll\);leaveHud\(\);dockEl\?\.remove\(\);clearInterval\(dockWatch\);/);
+ assert.match(src,/function syncBackdrop\(\)\{/);assert.match(src,/document\.querySelector\('\.app-backdrop:not\(\.anki-hud-backdrop\)'\)/);assert.match(src,/toggle\('anki-immersive',on\);spanCanvas\(\);syncBackdrop\(\);/);
+ assert.match(css,/\.anki-hud\.immersive>\.app-backdrop\.anki-hud-backdrop\{z-index:-2;overflow:hidden\}/);
 });
 test('free placement snaps to other blocks, the stage centre and equal gaps; grid mode rounds to the grid',()=>{
  const o={mode:'free',SW:1000,SH:1000,thr:7};
