@@ -7,6 +7,7 @@
    Motion: GSAP (loaded by gsap-loader.js) on transform / opacity only, one gsap.context per mount, reverted on tab change or page swap;
    reduced motion or no GSAP = the same page without movement. */
 import {loadGsap} from './gsap-loader.js';
+import {exAttr,setExample} from './example-ruby.js';
 
 const L={
  zh:{words:'关联单词',sentences:'收录句子',total:'本作单词',all:'全部',groups:['新词','学习中','已掌握'],levels:['新收录','学习中','熟悉','掌握','熟练'],
@@ -133,7 +134,7 @@ export function mountWords(target,{words=[],counts,locale='zh',esc,state,animate
   const range=keys.length>1?`${md(days.get(keys[0]).ms)}–${md(days.get(keys[keys.length-1]).ms)}`:md(days.get(keys[0]).ms);
   return `<div class="esr-st-day"><dt class="esr-ch-h"><span>${esc(t.byDay)}</span><span>${range}</span></dt><dd><ol class="esr-ch" aria-label="${esc(t.byDayAria)}" style="--cols:${Math.max(shown.length,3)}">${shown.map(k=>{const d=days.get(k);
    return `<li class="${k===firstKey?'first':''}" style="--esr-bh:${(d.n/max).toFixed(3)}"><b>${d.n}</b><i></i><span>${md(d.ms)}</span></li>`;}).join('')}</ol></dd></div>`;}
- function exampleLine(line,label){if(!line?.text)return '';return `<p class="esr-ex" lang="ja">「${marked(line.text,[line],esc)}」</p><p class="esr-src">${esc(label)} ${esc(dateOnly(line.at,locale))}</p>`;}
+ function exampleLine(line,label){if(!line?.text)return '';return `<p class="esr-ex" lang="ja"${exAttr(line.text,line.ruby,esc)}>「${marked(line.text,[line],esc)}」</p><p class="esr-src">${esc(label)} ${esc(dateOnly(line.at,locale))}</p>`;}
  const meanList=w=>(state.open?w.means:w.means.slice(0,4)).map((m,i)=>`<li${i===0?' class="lead"':''}>${esc(m)}</li>`).join('')||'<li class="lead">—</li>';
  function detail(w){if(!w)return '';const extra=w.means.length-4;
   const more=extra>0?`<button type="button" class="esr-more" aria-expanded="${state.open}">${esc(state.open?t.less:t.otherMeans(extra))}${IC.chev}</button>`:'';
@@ -352,7 +353,7 @@ export function mountSentences(target,{sentences=[],locale='zh',esc,state,animat
   if(ratio<1)big.style.setProperty('--gl-fit',ratio.toFixed(4));big.classList.toggle('is-wrap',ratio<.42);}
  function fillHero(){const s=cur(),g=groupOf.get(s.id);
   const head=s.id===newest[0].id?t.lede:state.why==='random'?t.ledeRandom:t.ledeOther;
-  lede.innerHTML=`${esc(head)} <span>${esc(t.ledeSub)}</span>`;big.innerHTML=heroHTML(s);fit();
+  lede.innerHTML=`${esc(head)} <span>${esc(t.ledeSub)}</span>`;big.innerHTML=heroHTML(s);setExample(big,s?.text);fit();
   zh.textContent=s.translation||t.noTr;zh.classList.toggle('is-none',!s.translation);
   const link=g&&g.items.length>1||g?.file?`<button type="button" class="text-button gl-goscene" data-scene="${esc(g.key)}">${g.file?IC_S.scene:''}${esc(g.file?t.inScene(g.items.length):t.dayK(g.items.length))}</button>`:'';
   who.innerHTML=`<time>${esc(when(s.created_at,locale,t))}</time><span class="gl-src${isAuto(s)?' on':''}">${esc(srcTag(s))}</span>${link}`;
@@ -382,7 +383,7 @@ export function mountSentences(target,{sentences=[],locale='zh',esc,state,animat
  /* ---------- layer 2: scene wall ---------- */
  const sceneCard=g=>{const lead=g.items[0],has=g.items.some(s=>String(s.id)===String(state.cur)),open=state.open===g.key;
   const pic=g.file?`<span class="gs-pic" data-file="${esc(g.file)}"><img alt="" decoding="async" draggable="false"></span>`
-   :`<span class="gs-pic is-text"><span class="gs-q" lang="ja">${esc(lead.text)}</span></span>`;
+   :`<span class="gs-pic is-text"><span class="gs-q" lang="ja"${exAttr(lead.text,null,esc)}>${esc(lead.text)}</span></span>`;
   return `<button type="button" class="gs${has?' has-cur':''}${open?' is-open':''}${g.file?'':' is-day'}" data-k="${esc(g.key)}" aria-expanded="${open}">`+
    `<span class="gs-frame">${pic}<b class="gs-n">${esc(t.nLines(g.items.length))}</b></span>`+
    `<span class="gs-cap"${g.file?' lang="ja"':''}>${esc(g.file?lead.text:t.noScene)}</span><span class="gs-date">${esc(dateOnly(g.last,locale))}</span></button>`;};
@@ -393,7 +394,7 @@ export function mountSentences(target,{sentences=[],locale='zh',esc,state,animat
   loadScene(file).then(url=>{if(!life.live||!pic.isConnected)return;const img=pic.querySelector('img');img.src=url;pic.dataset.state='ok';
    const gsap=motion();if(gsap)life.add(()=>gsap.fromTo(img,{autoAlpha:0,scale:1.06},{autoAlpha:1,scale:1,duration:.6,ease:'power2.out',clearProps:'transform'}));},
   ()=>{if(!life.live||!pic.isConnected)return;const g=groupBy.get(pic.closest('[data-k]')?.dataset.k||'');pic.dataset.state='fail';pic.classList.add('is-text');
-   pic.innerHTML=`<span class="gs-q" lang="ja">${esc(g?.items[0]?.text||'')}</span>`;});}
+   pic.innerHTML=`<span class="gs-q" lang="ja"${exAttr(g?.items[0]?.text,null,esc)}>${esc(g?.items[0]?.text||'')}</span>`;});}
  const watchScenes=scope=>scope.querySelectorAll('.gs-pic[data-file]:not([data-state])').forEach(p=>io?io.observe(p):paintScene(p));
  function renderWall(){const list=groups.slice(0,state.scenesShown);wall.innerHTML=list.map(sceneCard).join('');watchScenes(wall);
   const left=groups.length-list.length;
@@ -401,13 +402,13 @@ export function mountSentences(target,{sentences=[],locale='zh',esc,state,animat
   placeStrip();}
  const cols=()=>Math.max(1,getComputedStyle(wall).gridTemplateColumns.split(' ').filter(Boolean).length);
  function stripHTML(g){const pic=g.file?`<span class="gs-pic gl-strip-pic" data-file="${esc(g.file)}"><img alt="" decoding="async" draggable="false"></span>`
-   :`<span class="gs-pic gl-strip-pic is-text"><span class="gs-q" lang="ja">${esc(g.items[0].text)}</span></span>`;
+   :`<span class="gs-pic gl-strip-pic is-text"><span class="gs-q" lang="ja"${exAttr(g.items[0].text,null,esc)}>${esc(g.items[0].text)}</span></span>`;
   const range=dayKey(g.first)===dayKey(g.last)?dateOnly(g.last,locale):`${dateOnly(g.first,locale)} – ${dateOnly(g.last,locale)}`;
   return `<div class="gl-strip" role="region" aria-label="${esc(g.file?t.stripK(g.items.length):t.dayK(g.items.length))}">${pic}<div class="gl-strip-body">
    <div class="gl-strip-h"><span class="gl-k">${esc(g.file?t.stripK(g.items.length):t.dayK(g.items.length))}</span><span class="gl-strip-d">${esc(range)}</span>
     <button type="button" class="text-button gl-strip-x" data-close>${IC.x}${esc(t.close)}</button></div>
    <ol class="gl-strip-list">${g.items.map(s=>`<li><button type="button" class="gl-sl${String(s.id)===String(state.cur)?' is-cur':''}" data-id="${esc(String(s.id))}">`+
-    `<span class="gl-sl-ja" lang="ja">${marked(s.text,s.words,esc,'b')}</span>${s.translation?`<span class="gl-sl-zh">${esc(s.translation)}</span>`:''}<time>${esc(stamp(s.created_at))}</time></button></li>`).join('')}</ol></div></div>`;}
+    `<span class="gl-sl-ja" lang="ja"${exAttr(s.text,null,esc)}>${marked(s.text,s.words,esc,'b')}</span>${s.translation?`<span class="gl-sl-zh">${esc(s.translation)}</span>`:''}<time>${esc(stamp(s.created_at))}</time></button></li>`).join('')}</ol></div></div>`;}
  /* the open scene unfolds as a full-width strip under the row its card sits in, like a CG gallery opening one picture */
  let stripKey=null;
  function placeStrip(animateIn=false){const old=wall.querySelector('.gl-strip');const g=state.open&&groupBy.get(state.open);
@@ -436,7 +437,7 @@ export function mountSentences(target,{sentences=[],locale='zh',esc,state,animat
   return `<div class="gl-r${on?' is-cur':''}${i===kbd?' is-kbd':''}${sep?' sep':''}" role="option" id="gl-r-${i}" aria-selected="${on}" data-id="${esc(String(s.id))}" style="top:${i*ROW_H}px">`+
    `<time>${esc(stamp(s.created_at))}</time><span class="gl-r-src${isAuto(s)?' on':''}">${esc(isAuto(s)?t.autoShort:t.manualShort)}</span>`+
    `<i class="gl-r-cg${s.scene?.file?' on':''}"${s.scene?.file?` title="${esc(t.cgTitle)}"`:''}></i>`+
-   `<span class="gl-r-ja" lang="ja">${q?hit(s.text,q,esc):marked(s.text,s.words,esc,'b')}</span><span class="gl-r-zh">${hit(s.translation||'',q,esc)}</span></div>`;}
+   `<span class="gl-r-ja" lang="ja"${exAttr(s.text,null,esc)}>${q?hit(s.text,q,esc):marked(s.text,s.words,esc,'b')}</span><span class="gl-r-zh">${hit(s.translation||'',q,esc)}</span></div>`;}
  function paintRows(force=false){const n=rows.length,top=lv.scrollTop,h=lv.clientHeight||ROW_H*12;
   const a=Math.max(0,Math.floor(top/ROW_H)-ROW_BUF),b=Math.min(n,Math.ceil((top+h)/ROW_H)+ROW_BUF);if(!force&&a===range[0]&&b===range[1])return;range=[a,b];
   let html='';for(let i=a;i<b;i++)html+=rowHTML(rows[i],i);lvIn.innerHTML=html;}
