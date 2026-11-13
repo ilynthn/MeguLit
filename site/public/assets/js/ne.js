@@ -2,10 +2,10 @@
 // NetEase Cloud Music audio, for visitors in mainland China, where SoundCloud does not load. Each song streams from
 // NetEase's own public song link (music.163.com/song/media/outer/url), the free standard-quality version; the site
 // hosts no audio. It is a plain <audio> element, so seeking, the lyrics and the beats work as with any file.
-// Every song plays 27 dB down, like the SoundCloud player: the volume the page sets is multiplied by 10^(-27/20), and by
+// Every song plays 32 dB down, like the SoundCloud player: the volume the page sets is multiplied by 10^(-32/20), and by
 // the song's own trim (playlist.json, from its measured loudness) so that no song is louder than the others.
 
-const GAIN = Math.pow(10, -27 / 20);
+const GAIN = Math.pow(10, -32 / 20);
 const VOLUME = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');
 
 export const neUrl = id => `https://music.163.com/song/media/outer/url?id=${id}.mp3`;

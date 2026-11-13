@@ -4,10 +4,10 @@
 // part of the HTMLAudioElement interface the player uses (src, play/pause, currentTime, duration, volume, events), so
 // the lyrics, the beats and the controls work unchanged. The widget stays visible inside the player label (SoundCloud's
 // own mini player, with its link), as SoundCloud asks.
-// Every song plays 27 dB down: the slider's volume is multiplied by 10^(-27/20) and by the song's trim (playlist.json).
+// Every song plays 32 dB down: the slider's volume is multiplied by 10^(-32/20) and by the song's trim (playlist.json).
 
 const API = 'https://w.soundcloud.com/player/api.js';
-const GAIN = Math.pow(10, -27 / 20);
+const GAIN = Math.pow(10, -32 / 20);
 let apiPromise = null;
 const loadApi = () => apiPromise || (apiPromise = new Promise((res, rej) => {
   if (window.SC?.Widget) { res(window.SC); return; }
@@ -62,7 +62,7 @@ export class ScAudio extends EventTarget {
   set currentTime(t) { this._time = t; if (this._asleep) { this._resume = t; return; } this._ready?.then(w => { w.seekTo(Math.max(0, t) * 1000); this.dispatchEvent(new Event('seeked')); }); }
   get duration() { return this._duration; }
   get seekable() { const d = this._duration; return Number.isFinite(d) ? { length: 1, start: () => 0, end: () => d } : { length: 0, start: () => 0, end: () => 0 }; }
-  // SoundCloud's volume is 0-100; at -27 dB the levels are around 1, so whole numbers would be far too coarse
+  // SoundCloud's volume is 0-100; at -32 dB the levels are around 1, so whole numbers would be far too coarse
   _level() { return Math.round(this._volume * GAIN * Math.pow(10, this._trim / 20) * 10000) / 100; }
   get trim() { return this._trim; }
   set trim(x) { this._trim = Number(x) || 0; this._ready?.then(w => w.setVolume(this._level())); }
