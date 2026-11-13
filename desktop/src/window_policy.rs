@@ -39,6 +39,16 @@ pub fn animate_home_surface(window:&tauri::WebviewWindow,amount:f64){
   if let Ok(handle)=window.hwnd(){let hwnd=handle.0 as *mut c_void;let style=GetWindowLongW(hwnd,-20);if style&0x80000==0{SetWindowLongW(hwnd,-20,style|0x80000);}let a=(amount.clamp(0.0,1.0)*255.0).round() as u8;SetLayeredWindowAttributes(hwnd,0,a,2);}
  }
 }
+// User 2026-11-14 (「很久都没见过的蓝框又出来了 顶部」): when MeguLit's UI thread stops pumping messages for 5 s, Windows
+// swaps every visible window of the process for a "Ghost" window: same title and size, a basic blue caption with an x.
+// The reader overlay ("MeguLit tools") spans the whole monitor, so its ghost is a blue strip over the game. Opt the
+// process out before any window exists; a busy moment then just waits instead of drawing a frame.
+pub fn no_ghost_windows(){
+ #[cfg(windows)]unsafe{
+  #[link(name="user32")]extern "system"{fn DisableProcessWindowsGhosting();}
+  DisableProcessWindowsGhosting();
+ }
+}
 pub fn close_to_tray(root:&Path)->bool{
  std::fs::read(root.join("data/preferences.json")).ok().and_then(|bytes|serde_json::from_slice::<serde_json::Value>(&bytes).ok()).and_then(|value|value["closeToTray"].as_bool()).unwrap_or(true)
 }

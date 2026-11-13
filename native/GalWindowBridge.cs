@@ -595,8 +595,12 @@ public class GalWindowBridge {
         if(TextMask!=null)TextMask.Tick(Target,origin.X,origin.Y,client.Right,client.Bottom,CoverEnabled,box.Left-origin.X,box.Top-origin.Y);
         if(WaitMarker!=null){WaitMarker.ProbeOnly=false;WaitMarker.ScreenX=origin.X;WaitMarker.ScreenY=origin.Y;WaitMarker.Tick(Target,client.Right,client.Bottom,CoverEnabled,box.Left-origin.X,box.Top-origin.Y);}
     }
+    [DllImport("user32.dll")]static extern void DisableProcessWindowsGhosting();
+    public static void NoGhostWindows(){try{DisableProcessWindowsGhosting();}catch{}}
     public static int Main(string[] args){
         Console.InputEncoding=new UTF8Encoding(false);Console.OutputEncoding=new UTF8Encoding(false);
+        /* Its glass and mask layers sit over the game: a stalled moment must never turn them into blue-captioned ghosts. */
+        NoGhostWindows();
         if(args.Length>0&&args[0]=="--host-frame-self-test"){
             int original=0x16cf0000,hosted=HostedStyle(original);
             if((hosted&0x00c40000)!=0||(hosted&unchecked((int)0x80000000))==0||HostedStyle(hosted)!=hosted)return 8;
