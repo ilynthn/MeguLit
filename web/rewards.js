@@ -24,7 +24,7 @@ export function stamp({kind='praise',title='',sub='',r=null,esc=s=>String(s)}={}
  fx.onclick=close;addEventListener('keydown',key);setTimeout(()=>{if(fx.isConnected&&!big)close();},4200);
  if(calm()){qt.textContent=q[0];return;}
  $('.rw-bg').animate([{opacity:0},{opacity:1}],{duration:180,fill:'forwards'});
- fx.animate([{filter:'invert(1)'},{filter:'invert(1)'},{filter:'none'}],{duration:80,delay:150,easing:'steps(1,end)'});
+ /* 2026-11-13 user: no full-screen white flash (photosensitive, sudden) — the page settles in with a soft zoom instead */$('.rw-core').animate([{opacity:0,transform:'scale(1.06)'},{opacity:1,transform:'none'}],{duration:420,delay:120,easing:EASE,fill:'backwards'});
  if(big){$('.rw-lines').animate([{opacity:0,transform:'translate(-50%,-50%) scale(.3)'},{opacity:1,transform:'translate(-50%,-50%) scale(1) rotate(12deg)',offset:.4},{opacity:.25,transform:'translate(-50%,-50%) scale(1.1) rotate(20deg)'}],{duration:1500,delay:150,easing:EASE,fill:'forwards'});
   $('.rw-big').animate([{opacity:0,transform:'scale(2.4)',filter:'blur(18px)'},{opacity:1,transform:'scale(.96)',filter:'none',offset:.7},{transform:'none'}],{duration:600,delay:200,easing:EASE,fill:'backwards'});}
  $('.rw-stamp').animate([{opacity:0,transform:'rotate(-14deg) scale(3)'},{opacity:1,transform:'rotate(-14deg) scale(.9)',offset:.75},{transform:'rotate(-14deg) scale(1)'}],{duration:360,delay:big?900:200,easing:'cubic-bezier(.5,0,.75,0)',fill:'backwards'});

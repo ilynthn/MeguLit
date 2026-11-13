@@ -53,6 +53,7 @@ class Reader{
      MessageLayer.font.face). Our Japanese text takes it: the game's own font file when the folder scan found that family,
      else the installed face by name. A font the user picked by hand is kept. */
   if(message.type==='hookFont')this.engineFont(message);
+  if(message.type==='hookFontFile')this.engineFontFile(message);
   if(message.type==='markerPresence')this.immersion.marker(message.present===true);
   if(message.type==='waitMarkerDrawn'){this.immersion.markerDrawn();this.gal?.send({type:'markerHookDrawn'});}
   /* Issue 127: Alt+H and its hotkey registration reach the log, so a report shows whether the cover was really switched */if(message.type==='ready')this.logVisibility({type:'readerHotkeys',menu:message.hotkey,cover:message.coverHotkey,mode:message.modeHotkey});if(message.type==='cover'&&typeof message.coverEnabled==='boolean')this.logVisibility({type:'cover',enabled:message.coverEnabled});
@@ -67,10 +68,21 @@ class Reader{
   }if(!message.hookRecovering&&message.hookSourceOrigin!=='history'&&message.hookSource)this.lastLine=message.hookSource;const line={gameId:this.gameId,text:message.hookSource,sequence:message.hookSequence,active:message.hookActive,recovering:message.hookRecovering,origin:message.hookSourceOrigin};if(this.pendingLines){if(this.pendingLines.length<40)this.pendingLines.push(line);}else this.stats.line(line);}
   this.runtime.emit('reader-event',message);if(typeof message.hotkey==='boolean')this.runtime.emit('reader-health',this.runtime.readerStatus?.()||{});
  }
- engineFont(message){try{const g=this.gal;if(!g||g.preferences?.autoGameStyle===false)return;
-  const cur=String(g.preferences?.japaneseFont||'');if(cur&&!/^(engine:|game:)/.test(cur)&&!['originalGothic','originalMincho'].includes(cur))return;
-  const choice=require('../core/engine-font.cjs').pick({face:message.face,prerendered:message.prerendered,fonts:this.fonts?.current?.fonts});if(!choice)return;const key=choice.key;
-  if(cur!==key)g.save({...g.preferences,japaneseFont:key});this.runtime.emit('reader-event',{type:'enginePreferences',values:{japaneseFont:key}});this.gal.hooks?.trace?.('engine font '+JSON.stringify(choice.face)+(message.prerendered?' pfont='+message.prerendered:'')+' -> '+key+' ('+choice.reason+')');}catch{}}
+ /* E475 + font probe (user 2026-11-13: 自动读内存来导入游戏字体): the font the game draws with is the reader's Japanese font
+    unless the user picked another one after the font-follow migration (japaneseFontSource 'user'); 恢复为游戏原字体 sets it
+    back to 'game'. An engine's own report (KiriKiri) outranks the probe's draw counts for the same game. */
+ engineFont(message){try{const g=this.gal;if(!g||!message)return;const rank=require('../core/engine-font.cjs').rank(message);
+  if(this.engineFontSeen&&this.engineFontSeen.pid===this.gamePid&&this.engineFontSeen.rank>rank)return;
+  this.engineFontSeen={pid:this.gamePid,rank,message};
+  if(g.preferences?.japaneseFontSource==='user')return;this.applyEngineFont(message);}catch{}}
+ applyEngineFont(message){const g=this.gal;const choice=require('../core/engine-font.cjs').pick({face:message.face,prerendered:message.prerendered,fonts:this.fonts?.current?.fonts});if(!choice)return null;
+  const values={japaneseFont:choice.key,japaneseFontSource:'game'};if(message.probe&&typeof message.bold==='boolean')values.japaneseBold=message.bold;
+  if(Object.keys(values).some(k=>g.preferences?.[k]!==values[k]))g.save({...g.preferences,...values});this.runtime.emit('reader-event',{type:'enginePreferences',values});
+  this.gal.hooks?.trace?.('engine font '+JSON.stringify(choice.face)+(message.size?' '+message.size+'px':'')+(message.engine?' via '+message.engine:'')+(message.prerendered?' pfont='+message.prerendered:'')+' -> '+choice.key+' ('+choice.reason+')');return values;}
+ engineFontFile(message){try{if(!this.fonts||!message?.path)return;const go=()=>{const added=this.fonts.addFile(String(message.path),message.kind==='mem'?'mem':'file');if(added?.length){this.gal?.hooks?.trace?.('game font loaded from '+(message.kind==='mem'?'memory':'file')+': '+added.map(f=>f.family).join(', '));const seen=this.engineFontSeen;if(seen&&seen.pid===this.gamePid&&this.gal?.preferences?.japaneseFontSource!=='user')this.applyEngineFont(seen.message);}};
+  if(this.fonts.current?.status==='ready')go();else if(this.gamePid)this.fonts.detect(this.gamePid).then(go,()=>{});}catch{}}
+ followGameFont(){const g=this.gal;if(!g)return null;g.save({...g.preferences,japaneseFontSource:'game'});const seen=this.engineFontSeen;let values=null;if(seen&&seen.pid===this.gamePid)values=this.applyEngineFont(seen.message);
+  else{const f=this.fonts?.current?.fonts?.find(f=>f.lang==='ja');values={japaneseFont:f?'game:'+f.id:'originalGothic',japaneseFontSource:'game'};g.save({...g.preferences,...values});}return values;}
 
  logVisibility(entry){try{fs.appendFileSync(path.join(this.root,'logs','reader-host.log'),JSON.stringify({at:new Date().toISOString(),...entry})+'\n');}catch{}}
  selectGame(processName,enter=true,executable=''){
@@ -153,12 +165,12 @@ class Reader{
  embedKey(text){return (this.displayLanguage()==='en'?'en|':'')+String(text||'').replace(/\s+/g,'');}
  embedCached(text,value){this.embedCache??=new Map();const key=this.embedKey(text);if(!key)return undefined;if(value===undefined)return this.embedCache.get(key);this.embedCache.delete(key);this.embedCache.set(key,value);if(this.embedCache.size>800)this.embedCache.delete(this.embedCache.keys().next().value);return value;}
  /* 2026-11-12 art text (PageLocator art mode): the page gets the place and the translation; the game keeps drawing the line */
- async artText(message){let translation='';let text=String(message.text||'').slice(0,600);/* 2026-11-13 OCR rows (source ocr) carry recognition slips (「のた」 for 「のだ」): the script line they stand for replaces them */if(message.source==='ocr'&&message.visible===true&&text.trim()){const snapped=this.gal?.hooks?.ocrSnap?.(text);if(snapped)text=snapped.slice(0,600);}/* a hide (or newer read) that arrives while a translation is awaited wins: the stale show is dropped */const turns=this.artTurns||(this.artTurns=new Map()),turn=(turns.get(message.id)||0)+1;turns.set(message.id,turn);if(turns.size>300)turns.delete(turns.keys().next().value);
-  if(message.visible===true&&text.trim()){try{translation=this.embedCached(text)||'';
+ async artText(message){let translation='';let text=String(message.text||'').slice(0,600);/* 2026-11-13 OCR rows (source ocr) carry recognition slips (「のた」 for 「のだ」): the script line they stand for replaces them */let shown='';/* 2026-11-13 a foreign group (the game draws the line in another language): its Japanese table line becomes the text, the drawn line is kept as shown; no table line, no item */if(message.foreign===true&&message.visible===true){const ja=this.gal?.hooks?.foreignArt?.(text,message.id)||'';if(ja){shown=text;text=ja.slice(0,600);}else{/* not in the table: the Japanese OCR's own reading, when it is Japanese (a kanji card) */const alt=String(message.alt||'');if(!/[\u3040-\u30ff]/.test(alt)&&!/^[\u4e00-\u9fff]{2,8}$/.test(alt))return;text=alt.slice(0,600);}}else if(message.source==='ocr'&&message.visible===true&&text.trim()){const snapped=this.gal?.hooks?.ocrSnap?.(text);if(snapped)text=snapped.slice(0,600);}/* a hide (or newer read) that arrives while a translation is awaited wins: the stale show is dropped */const turns=this.artTurns||(this.artTurns=new Map()),turn=(turns.get(message.id)||0)+1;turns.set(message.id,turn);if(turns.size>300)turns.delete(turns.keys().next().value);
+  if(message.visible===true&&text.trim()){try{/* the game's own drawn Chinese line is the translation of a foreign group */translation=(shown&&this.displayLanguage()!=='en'&&/[\u4e00-\u9fff]/.test(shown)&&!/[\u3040-\u30ff]/.test(shown)?shown:'')||this.embedCached(text)||'';
    if(!translation&&this.displayLanguage()!=='en'){translation=this.gal?.hooks?.scriptTranslation?.(text)||'';if(translation)this.embedCached(text,translation);}
    if(!translation){const options=this.langOptions(require('../core/providers.cjs').resolveOptions({...this.prefs(),translationPrompt:this.workPrompt||''}));if(options.provider!=='google'&&!require('../core/engines.cjs').ENGINES[options.provider]?.keyless)this.loadKeys();
     const until=Date.now()+4000,inTime=()=>Date.now()<until;await this.localReady(options,null,inTime);translation=normalizeTranslation(await this.translator().translate(text,options,()=>true));if(translation)this.embedCached(text,translation);}}catch{}}
-  if(turns.get(message.id)!==turn)return;if(message.visible!==true)turns.delete(message.id);this.runtime.emit('reader-event',{...message,text,translation});}
+  if(turns.get(message.id)!==turn)return;if(message.visible!==true)turns.delete(message.id);this.runtime.emit('reader-event',{...message,text,translation,...(shown&&{shown})});}
  async embedTranslate(id,text){
   let trans='';
   /* E352: the engine's string still carries its ruby markup (HuneX <rふ>触</r>, ISLAND \x1d pairs): translate the text the player reads. */
@@ -202,7 +214,7 @@ class Reader{
    case 'layoutDiagnostic':/* E407: where the line was drawn against the game's text (ruby rows, offsets, hide state) */{const v={};for(const [k,x]of Object.entries(r))if(k!=='type'&&Object.keys(v).length<40&&(typeof x==='number'&&Number.isFinite(x)||typeof x==='boolean'||typeof x==='string'&&x.length<=200))v[k]=x;this.logVisibility({type:'layoutDiagnostic',...v});}break;
    case 'perfDiagnostic':try{const file=path.join(this.root,'logs','reader-perf.log');if(fs.existsSync(file)&&fs.statSync(file).size>1<<20)fs.renameSync(file,file+'.1');fs.appendFileSync(file,JSON.stringify({at:new Date().toISOString(),...r})+'\n');}catch{}break;
    case 'pointerDiagnostic':try{const file=path.join(this.root,'logs','reader-pointer.log');if(fs.existsSync(file)&&fs.statSync(file).size>1<<20)fs.renameSync(file,file+'.1');fs.appendFileSync(file,JSON.stringify({at:new Date().toISOString(),...r})+'\n');}catch{}break;
-   case 'galConfigure':case 'galPreview':if(!g||r.gameStyleKey&&r.gameStyleKey!==g.styleSync.profileKey)break;{const settings={...r.settings,gameProcess:g.preferences.gameProcess,bindEnabled:g.preferences.bindEnabled};settings.maskModeSource=settings.maskMode==='local'?(g.preferences.maskMode==='local'?g.preferences.maskModeSource:'user'):'';r.type==='galConfigure'?g.save(settings):g.preview(settings);}break;
+   case 'galConfigure':case 'galPreview':if(!g||r.gameStyleKey&&r.gameStyleKey!==g.styleSync.profileKey)break;{const settings={...r.settings,gameProcess:g.preferences.gameProcess,bindEnabled:g.preferences.bindEnabled};settings.maskModeSource=settings.maskMode==='local'?(g.preferences.maskMode==='local'?g.preferences.maskModeSource:'user'):'';/* a Japanese font changed in the settings = the user's own choice from now on */if(settings.japaneseFont==='@game'){settings.japaneseFont=g.preferences.japaneseFont;settings.japaneseFontSource='game';}else settings.japaneseFontSource=settings.japaneseFont!==undefined&&settings.japaneseFont!==g.preferences.japaneseFont?'user':(settings.japaneseFontSource||g.preferences.japaneseFontSource);r.type==='galConfigure'?g.save(settings):g.preview(settings);if(r.type==='galConfigure'&&r.settings?.japaneseFont==='@game'){const values=this.followGameFont();if(values)this.runtime.emit('reader-event',{type:'enginePreferences',values});}}break;
    case 'galWindows':g?.send({type:'windows'});break;
    case 'galBind':if(!/^\d{1,19}$/.test(r.hwnd||''))throw Error('INVALID_GAME_WINDOW');this.translator().clearContext();g?.bind(r.hwnd,r.settings);break;
    case 'galUnbind':this.translator().clearContext();g?.save({...g.preferences,bindEnabled:false});this.stats.reset();break;
@@ -249,6 +261,7 @@ class Reader{
     const current=this.gameUiPreview;if(current&&current.pid===g?.state.gameProcessId&&current.hwnd===g?.state.gameHwnd)g.send({type:'gameUi',items:current.items,preview:true});
     break;
    }
+   case 'gameFontFollow':{const values=this.followGameFont();if(values)this.runtime.emit('reader-event',{type:'enginePreferences',values});reply('restoreGalSettings',{...g?.preferences});break;}
    case 'gameFontsLoad':reply('gameFonts',this.fonts?.payload(true));break;
    case 'gameFontsRescan':if(this.gamePid)await this.fonts.detect(this.gamePid,true);break;
    case 'gameFontsApply':if(this.fonts?.current?.status==='ready'){const fonts=this.fonts.current.fonts,prefs={...g.preferences};for(const[lang,key]of [['ja','japaneseFont'],['zh','chineseFont']]){const f=fonts.find(f=>f.lang===lang);if(f)prefs[key]='game:'+f.id;}g.save(prefs);this.fonts.markApplied();reply('restoreGalSettings',prefs);}break;

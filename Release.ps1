@@ -166,7 +166,7 @@ foreach($f in (git ls-files --cached --others --exclude-standard core services w
 # Prebuilt native helpers added after the previous package (not tracked: *.dll is ignored); E293 scene capture.
 # E301 Ren'Py positions: the DLLs run native/MeguLitRenpy.py, which must ship next to them.
 # E297 cold run helpers (built by Build.ps1, *.exe is not tracked).
-foreach($f in 'native/ColdCapture32.exe','native/ColdCapture64.exe','native/MeguLitScn32.dll','native/MeguLitScn64.dll','native/MeguLitDpDecline32.dll','native/MeguLitDpDecline64.dll','native/MeguLitKrkr32.dll','native/MeguLitKrkr64.dll','native/MeguLitRenpy32.dll','native/MeguLitRenpy64.dll','native/MeguLitRenpy.py','native/megulithook/MeguLitHook32.dll'){if(Test-Path -LiteralPath (Join-Path $Root $f)){[void]$names.Add($f)}}
+foreach($f in 'native/ColdCapture32.exe','native/ColdCapture64.exe','native/MeguLitScn32.dll','native/MeguLitScn64.dll','native/MeguLitDpDecline32.dll','native/MeguLitDpDecline64.dll','native/MeguLitKrkr32.dll','native/MeguLitKrkr64.dll','native/MeguLitRenpy32.dll','native/MeguLitRenpy64.dll','native/MeguLitRenpy.py','native/MeguLitFont32.dll','native/MeguLitFont64.dll','native/megulithook/MeguLitHook32.dll'){if(Test-Path -LiteralPath (Join-Path $Root $f)){[void]$names.Add($f)}}
 # Hot updates (services/hot-update.cjs, user 2026-11-13: 不重启装更新): build-shell.txt fingerprints what MeguLit.exe is made of
 # apart from the page scripts it serves from the web folder after a hot update: its Rust code and config (version lines
 # left out), the HTML (CSP hashes) and the fonts (not shipped as files). Equal fingerprints = the old exe can run the new files.

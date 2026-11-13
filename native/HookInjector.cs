@@ -24,7 +24,7 @@ public static class HookInjector {
    if(args.Length!=5)throw new Exception("Expected PID, bound window, process name, start time and absolute LunaHook DLL path");
    int pid=Int32.Parse(args[0]);HookTarget.Validate((uint)pid,args[1],args[2],args[3]);
    if(pid==Process.GetCurrentProcess().Id)throw new Exception("Refusing self injection");
-   string dll=Path.GetFullPath(args[4]);if(!File.Exists(dll)||Array.IndexOf(IntPtr.Size==8?new[]{"LunaHook64.dll","MeguLitHook64.dll","MeguLitScn64.dll","MeguLitRenpy64.dll","MeguLitKrkr64.dll"}:new[]{"LunaHook32.dll","MeguLitHook32.dll","MeguLitScn32.dll","MeguLitKrkr32.dll","MeguLitRenpy32.dll"},Path.GetFileName(dll))<0)throw new Exception("Missing or wrong-architecture LunaHook DLL");
+   string dll=Path.GetFullPath(args[4]);if(!File.Exists(dll)||Array.IndexOf(IntPtr.Size==8?new[]{"LunaHook64.dll","MeguLitHook64.dll","MeguLitScn64.dll","MeguLitRenpy64.dll","MeguLitKrkr64.dll","MeguLitFont64.dll"}:new[]{"LunaHook32.dll","MeguLitHook32.dll","MeguLitScn32.dll","MeguLitKrkr32.dll","MeguLitRenpy32.dll","MeguLitFont32.dll"},Path.GetFileName(dll))<0)throw new Exception("Missing or wrong-architecture LunaHook DLL");
    process=OpenProcess(0x43a,false,pid);if(process==IntPtr.Zero)throw new Exception("Unable to open bound game");
    bool wow;if(!IsWow64Process(process,out wow))throw new Exception("Unable to check game architecture");if(Environment.Is64BitOperatingSystem&&((!wow)!=(IntPtr.Size==8)))throw new Exception("Injector architecture differs from game");
    byte[] data=Encoding.Unicode.GetBytes(dll+"\0");remote=VirtualAllocEx(process,IntPtr.Zero,(UIntPtr)data.Length,0x3000,4);if(remote==IntPtr.Zero)throw new Exception("Unable to allocate DLL path");

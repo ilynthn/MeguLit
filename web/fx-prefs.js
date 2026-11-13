@@ -9,6 +9,7 @@ export const FX=[
  {id:'explosion',name:{zh:'答错 · 爆裂魔法',ja:'不正解 · 爆裂魔法',en:'Wrong answer · Explosion'},desc:{zh:'练习答错时的爆炸、坑和烟',ja:'練習で間違えたときの爆発・穴・煙',en:'The blast, pit and smoke on a wrong answer'}},
  {id:'heal',name:{zh:'答对 · 花鸟风月',ja:'正解 · 花鳥風月',en:'Right answer · flower fountain'},desc:{zh:'答对时的水花和花瓣，修复最早的坑',ja:'正解したときの水と花びら、いちばん古い穴を直す',en:'Water and petals on a right answer, mending the oldest pit'}},
  {id:'rite',name:{zh:'转职动画',ja:'転職アニメーション',en:'Class-change animation'},desc:{zh:'转职时每个元素的粒子和爆发',ja:'転職時の各元素の粒子と爆発',en:'Each element’s particles and burst when changing class'}},
+ {id:'wallBlur',name:{zh:'游戏库 · 拖动模糊',ja:'ライブラリ · ドラッグのブラー',en:'Library · drag motion blur'},desc:{zh:'快速拖动封面墙时整面墙轻微模糊',ja:'表紙の壁を素早く動かすと壁全体が少しぼける',en:'The cover wall blurs slightly while it moves fast'}},
  {id:'cardTilt',name:{zh:'游戏库 · 卡片倾斜',ja:'ライブラリ · カードの傾き',en:'Library · card tilt'},desc:{zh:'鼠标移到封面上时卡片跟着倾斜',ja:'表紙にマウスを乗せるとカードが傾く',en:'Covers tilt toward the pointer'}}
 ];
 const KEY='megulit.fx.v1';

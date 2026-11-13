@@ -14,7 +14,8 @@
 .megulit-art .megulit-art-row{position:absolute;white-space:pre;line-height:1;pointer-events:auto;margin:0;padding:0;font-family:var(--tomoyo-gal-jp-font,"MS Mincho",serif)}
 .megulit-art .megulit-art-row,.megulit-art .megulit-art-row *{color:transparent!important;text-shadow:none!important;-webkit-text-stroke:0!important;filter:none!important;background:none!important}
 .megulit-art .megulit-art-row ::selection,.megulit-art .megulit-art-row::selection{color:transparent;background:rgba(255,214,120,.35)}
-.megulit-art-cn{position:absolute;white-space:pre-wrap;text-align:center;pointer-events:none;font-family:var(--tomoyo-gal-cn-font,"Microsoft YaHei",sans-serif);color:#fff;text-shadow:0 0 3px rgba(0,0,0,.9),0 0 8px rgba(0,0,0,.6);line-height:1.35}`;
+.megulit-art-cn{position:absolute;white-space:pre-wrap;text-align:center;pointer-events:none;font-family:var(--tomoyo-gal-cn-font,"Microsoft YaHei",sans-serif);color:#fff;text-shadow:0 0 3px rgba(0,0,0,.9),0 0 8px rgba(0,0,0,.6);line-height:1.35}
+.megulit-art-ja{position:absolute;white-space:pre-wrap;pointer-events:auto;line-height:1.3;font-family:var(--tomoyo-gal-jp-font,"Yu Mincho","MS Mincho",serif)}`;
  document.head.append(style);
  const layer=document.createElement('div');layer.className='megulit-art';layer.setAttribute('aria-live','off');document.body.append(layer);
  const items=new Map();
@@ -41,11 +42,29 @@
    requestAnimationFrame(()=>{const want=r.w*k.x,have=row.getBoundingClientRect().width;if(want>0&&have>0)row.style.letterSpacing=((want-have)/Math.max(1,[...r.text].length))+'px';});
    top=Math.min(top,r.y*k.y);bottom=Math.max(bottom,(r.y+r.h)*k.y);left=Math.min(left,r.x*k.x);right=Math.max(right,(r.x+r.w)*k.x);
   }
+  /* 2026-11-13 (user: openings bilingual for every game, "译文设计和特效要尽量和原文一样"): the second line takes the drawn
+     line's look as PageLocator read it (ink colour, halo, size, centred or flush left) and sits right under it (above it
+     when the line is low on the screen); the item fades in and out with the line. A foreign group (the game drew the line
+     in another language) shows its Japanese line that way instead, readable like the reader's own text. */
+  const ink=(rows.find(r=>/^#[0-9a-f]{6}$/i.test(r.color||''))||{}).color||'#ffffff',halo=(rows.find(r=>/^#[0-9a-f]{6}$/i.test(r.glow||''))||{}).glow||'';
+  const lum=c=>{const n=parseInt(c.slice(1),16);return ((n>>16&255)*.3+(n>>8&255)*.59+(n&255)*.11)/255;};
+  const shadow=halo&&Math.abs(lum(halo)-lum(ink))>.08?'0 0 4px '+halo+',0 0 10px '+halo+',0 0 18px '+halo:(lum(ink)>.55?'0 0 3px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.5)':'0 0 3px rgba(255,255,255,.85),0 0 8px rgba(255,255,255,.5)');
+  const rowH=(bottom-top)/Math.max(1,rows.length),centred=Math.abs((left+right)/2-innerWidth/2)<innerWidth*.05,low=bottom+rowH*1.6>innerHeight*.97;
+  const place=(el,size,lines)=>{el.style.fontSize=size+'px';el.style.color=ink;el.style.textShadow=shadow;
+   if(centred){el.style.left='5%';el.style.width='90%';el.style.textAlign='center';}else{el.style.left=Math.max(4,left)+'px';el.style.width=Math.max(160,innerWidth-left-16)+'px';el.style.textAlign='left';}
+   el.style.top=(low?top-size*1.4*lines-size*.25:bottom+size*.3)+'px';};
+  const shown=String(m.shown||'').trim();
+  if(shown){
+   for(const row of [...item.querySelectorAll('.megulit-art-row')])row.remove();
+   const ja=document.createElement('div');ja.className='sentence-text megulit-art-ja';ja.dataset.noI18n='';
+   for(const ch of [...String(m.text||'')]){const s=document.createElement('span');s.className='char-token';s.textContent=ch;s.style.setProperty('color',ink,'important');s.style.setProperty('-webkit-text-fill-color',ink,'important');s.style.setProperty('text-shadow',shadow,'important');ja.append(s);}
+   place(ja,Math.max(12,rowH*.92),1);item.append(ja);
+  }
   const translation=String(m.translation||'').trim();
-  if(translation&&document.body.classList.contains('tomoyo-ui-translation')!==false){
+  if(translation&&translation!==shown&&document.body.classList.contains('tomoyo-ui-translation')!==false){
    const cn=document.createElement('div');cn.className='megulit-art-cn';cn.textContent=translation;
-   const size=Math.max(12,Math.min(34,(bottom-top)/Math.max(1,rows.length)*0.62));cn.style.fontSize=size+'px';
-   cn.style.left=Math.max(4,left-40)+'px';cn.style.width=Math.max(120,right-left+80)+'px';cn.style.top=(bottom+size*0.35)+'px';
+   const size=Math.max(12,rowH*(shown?.7:.8));place(cn,size,Math.max(1,Math.ceil([...translation].length*size/(innerWidth*.9))));
+   if(shown){const jaEl=item.querySelector('.megulit-art-ja');if(jaEl)cn.style.top=(parseFloat(jaEl.style.top)+(low?-size*1.45:rowH*1.2))+'px';}
    item.append(cn);
   }
   if(old)item.classList.add('is-shown');layer.append(item);items.set(m.id,item);if(!old)requestAnimationFrame(()=>item.classList.add('is-shown'));

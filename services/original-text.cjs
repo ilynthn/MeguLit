@@ -370,7 +370,24 @@ function openFill(file){let map=new Map(),timer=null;
 // running script and its counterpart when the capture folder changes, so a new scene reads from its first line. A miss
 // re-checks at once; otherwise the rebuild runs between lines. Until something is saved every line goes the usual way.
 const liveEngines=()=>Object.values(scenes.ENGINES).filter(e=>e.live);
-const foreignKey=t=>String(t||'').replace(/<[^>]*>/g,'').replace(/[\s\u3000"'“”‘’.,!?…—–-]+/g,'').toLowerCase();
+const foreignKey=t=>String(t||'').replace(/<[^>]*>/g,'').replace(/[\s\u3000"'“”‘’.,!?…—–\-\u3001\u3002\u300c-\u300f\u3010\u3011\uff01\uff08\uff09\uff0c\uff1a\uff1b\uff1f\uff5e\u301c\u30fb]+/g,'').toLowerCase();
+/* 2026-11-13 openings: a line the game draws as a picture in another language (Summer Pockets' Steam Chinese poem) is read
+   by OCR with slips and without its punctuation; the closest table line of about the same length stands for it (bigram Dice) */
+const bigrams=s=>{const a=[...s],m=new Map();for(let i=0;i+1<a.length;i++){const g=a[i]+a[i+1];m.set(g,(m.get(g)||0)+1);}return m;};
+const dice=(A,n,key)=>{const L=[...key].length,B=bigrams(key);let hit=0;for(const [g,c] of A)hit+=Math.min(c,B.get(g)||0);return 2*hit/Math.max(1,n-1+L-1);};
+function foreignNear(map,text){const k=foreignKey(text),n=[...k].length;if(n<4||!map||!map.size)return '';const A=bigrams(k);let best='',score=0;
+ for(const [key,ja] of map){const L=[...key].length;if(Math.abs(L-n)>Math.max(2,n*.25))continue;const s=dice(A,n,key);if(s>score){score=s;best=ja;}}
+ return score>=.6?best:'';}
+/* A sequence of art lines (an opening poem) follows its table: after a line is found, the next one is looked for in the few
+   rows after it first, where a picture's own wording of the translation (different from the table's) still finds its row;
+   with nothing alike there, the very next row stands for it while the last find is recent (15 s). */
+function foreignSeq(map,now=()=>Date.now()){const seq=Array.isArray(map.seq)&&map.seq.length?map.seq:[...map.entries()],pos=new Map();seq.forEach(([k],i)=>{if(!pos.has(k))pos.set(k,[]);pos.get(k).push(i);});let cands=[],lastAt=0;
+ const take=(list,i)=>{cands=list;lastAt=now();return seq[i][1];};
+ return text=>{const k=foreignKey(text),n=[...k].length;if(n<2)return '';const recent=cands.length&&now()-lastAt<15000,P=pos.get(k)||[];
+  if(P.length){/* the same words in several tables: the row written exactly as drawn (punctuation too) first */const raw=String(text).replace(/\s+/g,''),same=i=>seq[i][2]!=null&&String(seq[i][2]).replace(/\s+/g,'')===raw,order=l=>{const s=l.filter(same);return s.length?s:l;};const near=order(recent?P.filter(i=>cands.some(c=>i>c&&i<=c+5)):[]);if(near.length)return take(near,near[0]);const all=order(P);return take(all,all[0]);}
+  if(recent){const A=bigrams(k);let bi=-1,bs=0;for(const c of cands)for(let i=c+1;i<=c+4&&i<seq.length;i++){const s=dice(A,n,seq[i][0]);if(s>bs){bs=s;bi=i;}}
+   if(bi>=0&&bs>=.2)return take([bi],bi);let ni=-1,nd=Infinity;for(const c of cands){if(c+1>=seq.length)continue;const L=[...seq[c+1][0]].length,d=Math.abs(Math.log(Math.max(1,n)/Math.max(1,L)));if(L&&d<Math.log(2)&&d<nd){nd=d;ni=c+1;}}if(ni>=0)return take([ni],ni);}
+  const ja=foreignNear(map,text);if(ja){const list=[];seq.forEach(([x,v],i)=>{if(v===ja&&Math.abs([...x].length-n)<=Math.max(2,n*.25))list.push(i);});if(list.length)return take(list,list[0]);}return ja;};}
 function liveProvider(root,id,executable){
  const engine=liveEngines()[0],dir=path.dirname(String(executable));let inner=null,stamp=null,checked=0,timer=null;
  const rebuild=()=>{const now=engine.stamp(dir);if(now===stamp)return false;stamp=now;
@@ -462,7 +479,7 @@ function staticProvider(root,executable){
   let flowOk;const flowGame=()=>{if(flowOk===undefined){const P=pageInfo();if(!P||!P.starts.size)flowOk=false;else{let multi=0;for(const i of P.starts)if(P.known.has(i+1)&&!P.starts.has(i+1))multi++;flowOk=multi/P.starts.size>=.15;}}return flowOk;};
   /* 2026-11-13 the same script in the game's other languages (scene engines with parallel tables): a captured line in one
      of them gives back its Japanese line; built on first use, never when the engine has none */
-  let foreignMap;const foreign=(text,opt)=>{if(foreignMap===undefined){foreignMap=null;try{const f=scenes.ENGINES[state.runtime.engine]?.foreign;if(f){const map=f(path.dirname(String(executable)));if(map&&map.size)foreignMap=map;}}catch{}}if(!foreignMap)return '';const k=foreignKey(text),hit=foreignMap.get(k);if(hit||!opt?.prefix||k.length<40)return hit||'';/* a truncated stream sample (thread list keeps 110 chars): the one line it starts */let one='';for(const [key,ja] of foreignMap)if(key.startsWith(k)){if(one&&one!==ja)return '';one=ja;}return one;};
+  let foreignMap,foreignSeqFn;const foreign=(text,opt)=>{if(foreignMap===undefined){foreignMap=null;try{const f=scenes.ENGINES[state.runtime.engine]?.foreign;if(f){const map=f(path.dirname(String(executable)));if(map&&map.size)foreignMap=map;}}catch{}}if(!foreignMap)return '';const k=foreignKey(text),hit=foreignMap.get(k);if(opt?.fuzzy)return (foreignSeqFn||(foreignSeqFn=foreignSeq(foreignMap)))(text);if(hit||!opt?.prefix||k.length<40)return hit||'';/* a truncated stream sample (thread list keeps 110 chars): the one line it starts */let one='';for(const [key,ja] of foreignMap)if(key.startsWith(k)){if(one&&one!==ja)return '';one=ja;}return one;};
   const api={kind:'patch',patch:!!patched,fill,drawable,tableDrawable,flowLayout,flowGame,foreign,near:text=>{const i=m.near(text);return i>=0?inlineTags(rt[i]):'';},
    resolve:text=>withRuby(resolveLine(text))};
   function resolveLine(text){const r=m.match(text);if(r.japanese===undefined)return r;
@@ -501,4 +518,4 @@ async function discover(root,db,id,options={}){
  writeState(root,id,{status:state.original?.index?(state.alignment?.reliable?'ready':'unreliable'):status,lastSearch:{at:Date.now(),found:search.found.length,complete:search.complete,searched:search.searched,checked}});
  return {notFound:true,search:{found:search.found.length,complete:search.complete,searched:search.searched,checked}};
 }
-module.exports={foreignKey,scriptPairs,brief,autoPatchLater,autoPatch,buildPatch,collect,nearbyPatchSources,patchHint,importPatch,clearPatch,locate,readScript,ADAPTERS,readAin,_ain:{mtXor,inflateAin},align,Matcher,importOriginal,status,setMode,provider,scanRunning,japaneseLine,chineseOnly,norm,discover,findCandidates};
+module.exports={foreignKey,foreignNear,foreignSeq,scriptPairs,brief,autoPatchLater,autoPatch,buildPatch,collect,nearbyPatchSources,patchHint,importPatch,clearPatch,locate,readScript,ADAPTERS,readAin,_ain:{mtXor,inflateAin},align,Matcher,importOriginal,status,setMode,provider,scanRunning,japaneseLine,chineseOnly,norm,discover,findCandidates};

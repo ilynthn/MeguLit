@@ -78,6 +78,7 @@ function openStore(root) {
   require('./saved-sentences.cjs').migrate(db);
   require('./series-migration.cjs').migrateSeries(db,root);
   try{require('./wait-marker-migration.cjs').migrateWaitMarker(db,root);}catch(error){console.warn('wait marker migration',error.message);}
+  try{require('./font-follow-migration.cjs').migrateFontFollow(db,root);}catch(error){console.warn('font follow migration',error.message);}
   reconcileRemovedGames(db);
   return db;
 }

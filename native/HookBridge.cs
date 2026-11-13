@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Adapter to LunaHook's C ABI. See third_party/LunaHook/UPSTREAM.json.
 using System;
 using System.Collections.Generic;
@@ -305,6 +305,18 @@ static volatile bool SkipHeld;static int BurstRun;const int BurstSkipLines=8;sta
  static bool IsRenpyFolder(string exe){try{var dir=new DirectoryInfo(Path.GetDirectoryName(exe));for(int i=0;i<3&&dir!=null;i++,dir=dir.Parent)if(Directory.Exists(Path.Combine(dir.FullName,"renpy"))&&Directory.Exists(Path.Combine(dir.FullName,"game")))return true;}catch{}return false;}
  static void RenpyText(string bit,string loader,string[] args){try{string folder=AppDomain.CurrentDomain.BaseDirectory,dll=Path.Combine(folder,"MeguLitRenpy"+bit+".dll");if(!File.Exists(dll)||!File.Exists(Path.Combine(folder,"MeguLitRenpy.py")))return;string exe=BoundExe();
   if(exe==""||!IsRenpyFolder(exe))return;PageDll(dll,"MeguLitRenpy-","RENPY",loader,args);}catch(Exception e){Diagnostic("renpy positions skipped: "+e.Message);}}
+ /* MeguLitFont<bit>.dll (native/fontprobe, user 2026-11-13: 自动读内存来导入游戏字体): loaded into every bound game; reports the
+    font that draws the most Japanese characters (GDI, GDI+, DirectWrite) and the private fonts the game loads from memory or files. */
+ static void FontProbe(string bit,string loader,string[] args){try{string dll=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"MeguLitFont"+bit+".dll");if(!File.Exists(dll)){Diagnostic("font probe unavailable: "+Path.GetFileName(dll)+" missing");return;}
+  new Thread(()=>{while(!Quit){try{using(var pipe=new System.IO.Pipes.NamedPipeServerStream("MeguLitFont-"+Pid,System.IO.Pipes.PipeDirection.In,1)){pipe.WaitForConnection();using(var reader=new StreamReader(pipe,new System.Text.UTF8Encoding(false))){string line;while((line=reader.ReadLine())!=null){var info=FontInfo(line);if(info!=null)Emit(info);else if(line.StartsWith("ToMe_FONT status ",StringComparison.Ordinal))Diagnostic("font probe "+line.Substring(17));}}}}catch(Exception e){Diagnostic("font pipe "+e.Message);Thread.Sleep(1000);}}}){IsBackground=true}.Start();
+  var start=new ProcessStartInfo(loader,Pid+" "+args[1]+" \""+args[2]+"\" "+args[3]+" \""+dll+"\""){UseShellExecute=false,CreateNoWindow=true,RedirectStandardError=true};using(var child=Process.Start(start)){if(!child.WaitForExit(12000)){Diagnostic("font probe load timed out");return;}Diagnostic(child.ExitCode==0?"font probe loaded":"font probe failed: "+child.StandardError.ReadToEnd().Trim());}}catch(Exception e){Diagnostic("font probe skipped: "+e.Message);}}
+ static object FontInfo(string line){
+  var m=System.Text.RegularExpressions.Regex.Match(line??"",@"^ToMe_FONT src=(gdi|gdip|dwrite) size=(\d{1,4}) weight=(\d{1,4}) chars=(\d+) face=(.{1,64})$");
+  if(m.Success){string face=m.Groups[5].Value,back=Unmojibake(face);if(back.Length>0&&back!=face&&System.Text.RegularExpressions.Regex.IsMatch(back,"[ぁ-ヿＡ-Ｚ]|ゴシック|明朝"))face=back;int weight=Int32.Parse(m.Groups[3].Value);Diagnostic("font probe draws with "+face+" "+m.Groups[2].Value+"px w"+weight+" ("+m.Groups[1].Value+", "+m.Groups[4].Value+" chars)");
+   return new{type="hookFont",engine=m.Groups[1].Value,probe=true,face=face,size=Int32.Parse(m.Groups[2].Value),weight=weight,bold=weight>=600,chars=Int64.Parse(m.Groups[4].Value),prerendered=""};}
+  var file=System.Text.RegularExpressions.Regex.Match(line??"",@"^ToMe_FONTFILE kind=(mem|file) path=(.{4,900})$");
+  if(file.Success){Diagnostic("font probe "+file.Groups[1].Value+" font "+file.Groups[2].Value);return new{type="hookFontFile",kind=file.Groups[1].Value,path=file.Groups[2].Value};}
+  return null;}
  static object EngineInfo(string s){
     var layout=System.Text.RegularExpressions.Regex.Match(s??"",@"^ToMe_CS2_LAYOUT line=(\d+) token=(\d+) x0=(-?\d+) y0=(-?\d+) x1=(-?\d+) y1=(-?\d+) size=(\d+) n=(\d+) hidden=([01])(?: color=([0-9a-f]{8}))?");
     if(layout.Success)return new{type="hookTextPos",engine="cs2_screen_v2",line=Int64.Parse(layout.Groups[1].Value),token=Int64.Parse(layout.Groups[2].Value),x0=Int64.Parse(layout.Groups[3].Value),y0=Int64.Parse(layout.Groups[4].Value),x1=Int64.Parse(layout.Groups[5].Value),y1=Int64.Parse(layout.Groups[6].Value),size=Int64.Parse(layout.Groups[7].Value),count=Int64.Parse(layout.Groups[8].Value),replacementRequested=layout.Groups[9].Value=="1",color=layout.Groups[10].Success?"#"+layout.Groups[10].Value.Substring(6,2)+layout.Groups[10].Value.Substring(4,2)+layout.Groups[10].Value.Substring(2,2):null,at=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()};
@@ -354,6 +366,7 @@ static volatile bool SkipHeld;static int BurstRun;const int BurstSkipLines=8;sta
    if(Luna_CheckIfNeedInject(Pid)){var start=new ProcessStartInfo(loader,Pid+" "+args[1]+" \""+args[2]+"\" "+args[3]+" \""+hook+"\""){UseShellExecute=false,CreateNoWindow=true,RedirectStandardError=true};using(var child=Process.Start(start)){if(!child.WaitForExit(12000))throw new Exception("LunaHook 加载超时");if(child.ExitCode!=0)throw new Exception("LunaHook 加载失败："+child.StandardError.ReadToEnd().Trim());}}
    KrkrText(bit,loader,args);
    RenpyText(bit,loader,args);
+   FontProbe(bit,loader,args);
    ScnCapture(bit,loader,args);
    new Thread(Input){IsBackground=true}.Start();DateTime until=DateTime.UtcNow.AddSeconds(15);while(!Quit){if(!Connected&&DateTime.UtcNow>until)throw new Exception("LunaHook 未连接当前游戏");if(WaitHook!=null)WaitHook.Tick();Heartbeat();Thread.Sleep(40);}return 0;
   }catch(Exception e){Emit(new{type="hookError",hookActive=false,hookMessage=e.Message});return 1;}

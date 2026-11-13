@@ -67,3 +67,11 @@ test('starting or stopping the wall restyles no cover', () => {
     assert.doesNotMatch(css, /\.field-moving[^{,]*\s[^{,]*\{/, name + ': a .field-moving rule reaches the covers');
     assert.doesNotMatch(css, /\.lib-field\.dragging\s*\{/, name + ': the wall itself changes cursor (inherited by every cover)');  }
 });
+
+test('drag motion blur is a stretch of the cover positions, switchable, off with reduced motion', () => {
+  assert.match(grimoire, /fxPref\('wallBlur'\)/);
+  assert.match(grimoire, /reduceMotion\.matches\?Math\.min/);
+  assert.match(grimoire, /dx\*ex/);
+  assert.doesNotMatch(grimoire, /style\.filter\s*=/);
+  assert.match(web('fx-prefs.js'), /id:'wallBlur'/);
+});

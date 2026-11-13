@@ -4,10 +4,10 @@
 // part of the HTMLAudioElement interface the player uses (src, play/pause, currentTime, duration, volume, events), so
 // the lyrics, the beats and the controls work unchanged. The widget stays visible inside the player label (SoundCloud's
 // own mini player, with its link), as SoundCloud asks.
-// Every song plays 24 dB down: the slider's volume is multiplied by 10^(-24/20).
+// Every song plays 32 dB down: the slider's volume is multiplied by 10^(-32/20).
 
 const API = 'https://w.soundcloud.com/player/api.js';
-const GAIN = Math.pow(10, -24 / 20);
+const GAIN = Math.pow(10, -32 / 20);
 let apiPromise = null;
 const loadApi = () => apiPromise || (apiPromise = new Promise((res, rej) => {
   if (window.SC?.Widget) { res(window.SC); return; }

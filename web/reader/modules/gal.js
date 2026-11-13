@@ -543,7 +543,7 @@
   let syncingForm=false;
   const syncOpenForm = values => { const dialog = document.querySelector('.tomoyo-cn-dialog[open]'); if (!dialog) return;
     syncingForm=true;try{for (const [key, value] of Object.entries(values)) { const name = key === 'translationSize' ? 'ChineseSize' : key[0].toUpperCase()+key.slice(1),
-     field = dialog.querySelector('[name="gal'+name+'"]'); if (!field) continue; if (field.type === 'checkbox') field.checked = !!value; else field.value = key==='readTextColor'&&!value?preferences.textColor:value;
+     field = dialog.querySelector('[name="gal'+name+'"]'); if (!field) continue; if (field.type === 'checkbox') field.checked = !!value; else field.value = key==='readTextColor'&&!value?preferences.textColor:key==='japaneseFont'&&preferences.japaneseFontSource!=='user'&&field.querySelector?.('option[value="@game"]')?'@game':value;
      field.dispatchEvent(new Event('input', { bubbles:true })); }}finally{syncingForm=false;} };
   // Interface mode and window binding are runtime state owned by the launcher: a saved profile, import or form snapshot
   // carrying stale values (interfaceMode normal, bindEnabled false) dropped game style, so colours and embedding stopped.
@@ -768,7 +768,7 @@
      f('galHideWaitMarker').closest('label').after(waitState);
     for (const [key,name] of Object.entries(additional)) {
       if (typeof defaults[key] === 'boolean') f(name).checked = preferences[key];
-      else f(name).value = preferences[key];
+      else f(name).value = key==='japaneseFont'&&preferences.japaneseFontSource!=='user'&&f(name).querySelector?.('option[value="@game"]')?'@game':preferences[key];
     }
     f('galReadTextColor').value = preferences.readTextColor || preferences.textColor;
     {const box=group.querySelector('[data-ruby-rows]');if(box){const chips=box.querySelector('.megulit-ruby-rows-chips'),slider=box.querySelector('.megulit-ruby-rows-slider'),

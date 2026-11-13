@@ -140,6 +140,10 @@ class HookNative{
     running a Chinese script; the status says so once, so the user restores Japanese instead of reading Chinese. */
  /* 2026-11-13 a line without any Japanese (the game set to English, French, ...): its Japanese line from the script's own
     parallel language tables when the engine has them (any engine whose scene reader offers foreign(), e.g. DDLC Plus). */
+ /* 2026-11-13 openings in a localized build (Summer Pockets Steam Chinese: the poem is a picture of the Chinese table text): an
+    OCR group in another language gives back its Japanese table line, matched loosely (OCR slips, no punctuation) */
+ foreignArt(text,id){try{const p=this.originalText;if(!p||typeof p.foreign!=='function'||this.scriptAllowed?.()===false)return '';/* one item read again (a better OCR read) keeps its line: the sequence must not move on */const memo=this.foreignArtMemo||(this.foreignArtMemo=new Map());if(id!=null&&memo.has(id))return memo.get(id);const r=p.foreign(String(text||''),{fuzzy:true}),ja=r&&r!==text?r:'';if(id!=null){memo.set(id,ja);if(memo.size>100)memo.delete(memo.keys().next().value);}return ja;}catch{return '';}}
+ foreignArtReady(){const p=this.originalText;return !!p&&typeof p.foreign==='function'&&this.scriptAllowed?.()!==false;}
  foreignJapanese(text,opt){try{const t=String(text||'').trim();if(!t||/[\u3040-\u30ff\u4e00-\u9fff]/.test(t)||!/[A-Za-z\u00c0-\u024f\uac00-\ud7af]{2}/.test(t))return '';const p=this.originalText;if(!p||typeof p.foreign!=='function')return '';const ja=p.foreign(t,opt);if(ja){this.trace('foreign line -> japanese');if(this.state?.sourceForeign)this.notify({sourceForeign:false});return ja;}return '';}catch{return '';}}
  /* 2026-11-13 (DDLC Plus in English: the hook was attached but no dialogue stream was selected, the reader stayed empty):
     the native picker scores samples by Japanese characters, so a game set to another language never gets a pick. When
@@ -190,7 +194,7 @@ class HookNative{
     current) as artText. OCR only reads; the game keeps drawing the text. */
  artScanState(now=this.now()){const hidden=this.engineDialog===false,line=String(this.lastSource||'').trim(),current=!!line&&!hidden;
   const on=hidden||!line||now-(this.lastSourceAt||0)>2000;
-  return {on,dialog:current?line.slice(0,600):'',speaker:current?String(this.state?.hookSpeaker||'').slice(0,40):'',band:current};}
+  return {on,dialog:current?line.slice(0,600):'',speaker:current?String(this.state?.hookSpeaker||'').slice(0,40):'',band:current,foreign:this.foreignArtReady()};}
  auxText(m){this.artCandidate(m.text);const C=this.choice||(this.choice=new ChoiceCapture(()=>this.now()));const added=C.add(m.text,this.lastSource,this.speaker?.text);
   this.trace('choice aux '+String(m.sourceName||'').slice(0,40)+' role='+(m.role??'')+' added='+JSON.stringify(added)+' text='+JSON.stringify(String(m.text).slice(0,80)));
   if(!added.length)return;clearTimeout(this.choiceTimer);this.choiceTimer=setTimeout(()=>this.requestChoices(0),450);this.choiceTimer.unref?.();}

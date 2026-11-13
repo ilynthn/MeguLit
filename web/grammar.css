@@ -507,7 +507,7 @@
 .rw-src{display:block;margin-top:4px;font:10px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.15em;color:rgba(255,255,255,.55);font-weight:400}
 .rw-fx{position:fixed;inset:0;z-index:40;display:grid;place-items:center;cursor:pointer}
 .rw-bg{position:absolute;inset:0;background:rgba(0,0,0,.88)}
-.rw-lines{position:absolute;left:50%;top:50%;width:160vmax;height:160vmax;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(255,255,255,.9) 0 .6deg,transparent .6deg 7deg);-webkit-mask:radial-gradient(circle,transparent 18%,#000 19%,transparent 60%);mask:radial-gradient(circle,transparent 18%,#000 19%,transparent 60%)}
+.rw-lines{position:absolute;left:50%;top:50%;width:160vmax;height:160vmax;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(232,190,120,.22) 0 .6deg,transparent .6deg 7deg);-webkit-mask:radial-gradient(circle,transparent 18%,#000 19%,transparent 60%);mask:radial-gradient(circle,transparent 18%,#000 19%,transparent 60%)}
 .rw-core{position:relative;display:grid;justify-items:center;gap:14px;text-align:center;padding:0 24px}
 .rw-no{font:500 12px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.4em;color:rgba(255,255,255,.7)}
 .rw-big{font:800 clamp(52px,10vw,130px)/.9 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;color:#fff}.rw-big em{font-style:normal;color:#c8323c}

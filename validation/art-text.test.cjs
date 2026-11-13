@@ -28,11 +28,11 @@ test('the art request reaches PageLocator and its answer the page, with a transl
 /* 2026-11-12 OCR read path: art text no hook stream carries (ファタモルガーナの館's opening pictures) is read from the picture */
 test('the art scan is wanted while no hook line is current and skips the current dialogue',()=>{
  let now=10000;const h=Object.create(HookNative.prototype);h.now=()=>now;h.state={hookSpeaker:'メル'};
- assert.deepEqual(h.artScanState(),{on:true,dialog:'',speaker:'',band:false},'no line yet (an opening): the whole picture');
+ assert.deepEqual(h.artScanState(),{on:true,dialog:'',speaker:'',band:false,foreign:false},'no line yet (an opening): the whole picture');
  h.lastSource='「おはよう」と彼女は言った。';h.lastSourceAt=now;
  assert.equal(h.artScanState().on,false,'a line just arrived');
- now+=2500;assert.deepEqual(h.artScanState(),{on:true,dialog:'「おはよう」と彼女は言った。',speaker:'メル',band:true},'after 2 s: on, the dialogue and its box band skipped');
- h.engineDialog=false;now=h.lastSourceAt+100;assert.deepEqual(h.artScanState(),{on:true,dialog:'',speaker:'',band:false},'text window hidden: on at once, whole picture');
+ now+=2500;assert.deepEqual(h.artScanState(),{on:true,dialog:'「おはよう」と彼女は言った。',speaker:'メル',band:true,foreign:false},'after 2 s: on, the dialogue and its box band skipped');
+ h.engineDialog=false;now=h.lastSourceAt+100;assert.deepEqual(h.artScanState(),{on:true,dialog:'',speaker:'',band:false,foreign:false},'text window hidden: on at once, whole picture');
 });
 test('GalNative sends the art scan state to the bridge only when it changes, off when not bound',()=>{
  const {GalNative}=require('../core/gal-native.cjs');const sent=[];const g=Object.create(GalNative.prototype);
@@ -45,7 +45,7 @@ test('GalNative sends the art scan state to the bridge only when it changes, off
 });
 test('the OCR read path reads only, diffs the frame first and never writes to the game',()=>{
  const src=read('native/PageLocator.cs'),scan=src.slice(src.indexOf('// ---- art scan'),src.indexOf(' void Report(Found f,'));
- assert.match(scan,/Differ\(last, thumb\) < 1\.2/);assert.match(scan,/Thread\.Sleep\(700\)/);assert.match(scan,/source = "ocr"/);
+ assert.match(scan,/Differ\(last, thumb\) < 1\.2/);assert.match(scan,/Thread\.Sleep\(busy \? 400 : 700\)/);assert.match(scan,/source = "ocr"/);
  assert.doesNotMatch(scan,/WriteProcessMemory|SendMessage|PostMessage|SetWindowPos|FillRect/);
 });
 test('a stale art show waiting for its translation is dropped once the line was hidden',async()=>{

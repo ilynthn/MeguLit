@@ -28,6 +28,9 @@ function exePath(pid){
  });
 }
 
+function allNames(buffer){const out=new Set();try{const n=tables(buffer).get('name');if(!n)return [];const count=n.readUInt16BE(2),strings=n.readUInt16BE(4);
+ for(let i=0;i<count;i++){const r=6+i*12,platform=n.readUInt16BE(r),encoding=n.readUInt16BE(r+2),id=n.readUInt16BE(r+6),len=n.readUInt16BE(r+8),off=n.readUInt16BE(r+10);if(id!==1&&id!==4)continue;const raw=n.subarray(strings+off,strings+off+len);let text='';
+  if(platform===3&&(encoding===1||encoding===10)){const sw=Buffer.from(raw);sw.swap16();text=sw.toString('utf16le');}else if(platform===1&&encoding===0)text=raw.toString('latin1');else continue;text=text.replace(/\0/g,'').trim();if(text&&text.length<=64)out.add(text);}}catch{}return [...out].slice(0,16);}
 function familyName(buffer){
  try{
   const t=tables(buffer),n=t.get('name');if(!n)return '';
@@ -115,9 +118,19 @@ class GameFonts{
   })();
   try{return await this.running;}finally{this.running=null;}
  }
+ /* A font the game loaded itself (font probe: AddFontMemResourceEx data saved by the hook, or a private font file outside the
+    Windows font folder). Added to the current game's fonts so the reader can use it with FontFace like a bundled font. */
+ addFile(file,kind='file'){const c=this.current;if(!c||c.status!=='ready'||!file)return null;let buffer;try{const s=fs.statSync(file);if(!s.isFile()||s.size<MIN_FONT/4||s.size>MAX_FONT)return null;buffer=fs.readFileSync(file);}catch{return null;}
+  const key=c.root.toLowerCase(),dir=path.join(this.cacheDir,sha(key).slice(0,12)),added=[];fs.mkdirSync(dir,{recursive:true});
+  const faces=collectionFaces(buffer);for(let face=0;face<faces.length;face++){const data=faces[face],id=sha(data).slice(0,10);if(c.fonts.some(f=>f.id===id))continue;
+   const names=allNames(data),kind2=classify(data,path.basename(file)+' '+names.join(' '));if(!kind2)continue;
+   const target=path.join(dir,id+(data.readUInt32BE(0)===0x4f54544f?'.otf':'.ttf'));try{fs.writeFileSync(target,kind2.data);}catch{continue;}
+   const entry={id,lang:kind2.lang,legacy:kind2.legacy,family:familyName(data)||names[0]||path.basename(file,path.extname(file)),names,source:(kind==='mem'?'内存 ':'')+path.basename(file)+(faces.length>1?'#'+face:''),file:target,loaded:kind};
+   c.fonts.push(entry);added.push(entry);}
+  if(added.length){if(this.manifest[key]){this.manifest[key].fonts=c.fonts;this.save();}this.onChange(this.current);}return added;}
  markApplied(){if(!this.current?.root)return;const key=this.current.root.toLowerCase();if(this.manifest[key]){this.manifest[key].autoApplied=true;this.current.autoApplied=true;this.save();}}
  // What the UI needs: metadata plus font data to register with FontFace.
  payload(withData=true){const c=this.current;if(!c||c.status!=='ready')return c||null;
-  return {...c,fonts:c.fonts.map(f=>{let data='';if(withData)try{data=fs.readFileSync(this.fontFile(f)).toString('base64');}catch{}return {id:f.id,lang:f.lang,legacy:f.legacy,family:f.family,source:f.source,format:String(this.fontFile(f)||f.file).toLowerCase().endsWith('.otf')?'opentype':'truetype',data};})};}
+  return {...c,fonts:c.fonts.map(f=>{let data='';if(withData)try{data=fs.readFileSync(this.fontFile(f)).toString('base64');}catch{}return {id:f.id,lang:f.lang,legacy:f.legacy,family:f.family,names:f.names||[],source:f.source,format:String(this.fontFile(f)||f.file).toLowerCase().endsWith('.otf')?'opentype':'truetype',data};})};}
 }
-module.exports={GameFonts,classify,familyName,gameLabel,engineOf,scan,exePath,collectionFaces};
+module.exports={GameFonts,classify,familyName,allNames,gameLabel,engineOf,scan,exePath,collectionFaces};

@@ -1,3 +1,4 @@
+import {fxPref} from './fx-prefs.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 // 魔导书 (grimoire) home: words, explosion glow, title marquee, shelf fit, greeting placement, close dialog, tools page.
 // Everything here is presentation only; actions still go through app.js (launch, detail, navigate, preferences).
@@ -310,7 +311,7 @@ export function fieldify(grid,filtered=false){
     same game scrolls back in, and once the wall is idle enough spare covers for the widest zoom are made in one batch.
     Dragging and zooming then never insert DOM: with this page's :has() rules one inserted cover re-ran style for the
     whole document (about 30 ms each time). */
- let tier='small';
+ let tier='small',smear=0,smearX=1,smearY=0;
  const pool=new Map(),shield=document.createElement('i');
  shield.className='field-shield';shield.setAttribute('aria-hidden','true');host.append(shield);
  /* the capsule drops its backdrop blur while the wall moves; toggled on the capsule itself, since a :has() on .main
@@ -378,7 +379,7 @@ export function fieldify(grid,filtered=false){
   /* 2026-11-12 (user: dragging the wall still lagged): every cover is placed on every frame, from transform and opacity
      only (each cover is its own compositor layer, so no paint). The old 90 ms plane-shift frames made the lens snap in
      steps, and the speed classes it toggled restyled every cover mid-drag; both are gone. */
-  const stamp=x.toFixed(2)+' '+y.toFixed(2)+' '+z.toFixed(4)+' '+width+' '+height+' '+cy+' '+tier;
+  const stamp=x.toFixed(2)+' '+y.toFixed(2)+' '+z.toFixed(4)+' '+width+' '+height+' '+cy+' '+tier+' '+smear.toFixed(4);
   if(stamp===painted)return;
   painted=stamp;
   const firstCol=Math.max(filtered?0:-Infinity,Math.floor((x-cx/z)/cw)-1);
@@ -416,7 +417,8 @@ export function fieldify(grid,filtered=false){
    const dx=(col*cw-x)*z,dy=(row*ch-y)*z;
    const d=Math.min(1,Math.hypot(dx,dy)/radius);
    // E222/E223 (user): covers stay on the grid; the wall is a plain background behind the search capsule.
-   const t='translate('+(cx+dx-cardWidth/2).toFixed(1)+'px,'+(cy+dy-cardHeight/2).toFixed(1)+'px) scale('+(z*(1-.26*d*d)).toFixed(3)+')';
+   const ex=1+smear*Math.abs(smearX),ey=1+smear*Math.abs(smearY),k=z*(1-.26*d*d);
+   const t='translate('+(cx+dx*ex-cardWidth/2).toFixed(1)+'px,'+(cy+dy*ey-cardHeight/2).toFixed(1)+'px) '+'scale('+k.toFixed(3)+')';
    const o=(1-.48*d*d).toFixed(2);
    if(cell.t!==t){cell.node.style.transform=t;cell.t=t;}
    if(cell.o!==o){cell.node.style.opacity=o;cell.o=o;}
@@ -424,7 +426,7 @@ export function fieldify(grid,filtered=false){
   if(added)plane.append(added);
   if(deferred){painted='';queue();}
  }
- /* 2026-11-13 (CDP trace, user: drag and zoom still hitch): the motion blur is gone. Every change of its step repainted the covers (80-110 ms frames with the blur on the plane, 20-40 ms frames with it on each cover's layer); the wall moves without it */let zoomBusy=false;
+ /* 2026-11-13 (user: keep the motion blur, cheapest possible). CDP A/B while dragging: a CSS blur on the plane repainted every cover whenever its radius changed (paint 586 ms over one drag, frames to 134 ms), and still 522 ms with the plane as its own will-change:filter layer; per-cover blurs were no better. The blur is now a speed stretch: the wall spreads up to 4.5% along the movement (folded into the translate each cover gets every frame anyway; cover sizes never change) and eases back as it slows. Tried too: stretching the plane as one layer (layerize 3x, paint 2x) and stretching each cover's scale (layerize 2.3x, p95 8.5-11 ms against 5.6 off); moving only the positions kept paint and p95 equal to the blur switched off. No filter, no extra layer, no repaint. Off with reduced motion or when switched off in settings (特效 · 游戏库 · 拖动模糊). */const wallBlur=(sx,sy)=>{const fx=fxPref('wallBlur'),speed=Math.hypot(sx,sy),goal=fx.on&&!reduceMotion.matches?Math.min(.045,Math.max(0,speed-.35)*.018)*fx.k:0;if(speed>.05){smearX=sx/speed;smearY=sy/speed;}smear+=(goal-smear)*.35;if(smear<.0008&&goal===0)smear=0;};let zoomBusy=false;
  function frame(now){
   raf=0;
   if(coastEnd){
@@ -446,9 +448,9 @@ export function fieldify(grid,filtered=false){
   }
   zoomAt=zooming?now:0;zoomBusy=zooming;
   /* 2026-11-13 (user: no forced capsule position, free drag): the wall rests exactly where the drag or its coast leaves it; no easing to a row gap afterwards */
-  paint();
+  {const fast=drag?.active||coastEnd;wallBlur(fast?vx:0,fast?vy:0);}paint();
   if(!coastEnd&&!drag?.active&&!zooming)moving(false);
-  if(coastEnd||zooming||(drag?.active&&Math.hypot(vx,vy)>.75))queue();
+  if(coastEnd||zooming||(drag?.active&&Math.hypot(vx,vy)>.75)||smear)queue();
  }
  const queue=()=>{if(!raf)raf=requestAnimationFrame(frame);};
  const measure=()=>{

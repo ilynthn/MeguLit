@@ -45,8 +45,9 @@
   const select=document.querySelector('.tomoyo-cn-dialog select[name=galJapaneseFont]');if(!select)return null;
   // The game-font scan has its own fold (游戏字体) under the text groups, not inside 日文设置 (user, 2026-11-02).
   const panel=select.closest('[data-menu-category=text]'),host=panel?.querySelector('[data-text-game-font]')||panel||select.closest('.tomoyo-gal-fields'),anchor=null;let box=document.querySelector('.tomoyo-cn-dialog .tome-gamefont');
-  if(!box){box=document.createElement('div');box.className='tome-gamefont';box.dataset.noI18n='';box.innerHTML='<div class="tome-gamefont-head"><i></i><span data-gf-title></span></div><small data-gf-detail></small><div class="tome-gamefont-actions"><button type="button" data-gf-apply>使用游戏字体</button><button type="button" data-gf-rescan>重新查找游戏字体</button></div>';
+  if(!box){box=document.createElement('div');box.className='tome-gamefont';box.dataset.noI18n='';box.innerHTML='<div class="tome-gamefont-head"><i></i><span data-gf-title></span></div><small data-gf-detail></small><div class="tome-gamefont-actions"><button type="button" data-gf-apply>使用游戏字体</button><button type="button" data-gf-follow>恢复为游戏原字体</button><button type="button" data-gf-rescan>重新查找游戏字体</button></div>';
    box.querySelector('[data-gf-apply]').onclick=()=>send({type:'gameFontsApply'});
+   box.querySelector('[data-gf-follow]').onclick=()=>{for(const s of document.querySelectorAll('select[name=galJapaneseFont]'))if(s.querySelector('option[value="@game"]'))s.value='@game';send({type:'gameFontFollow'});};
    box.querySelector('[data-gf-rescan]').onclick=()=>{busy=true;paint();send({type:'gameFontsRescan'});};
   }
   if(host&&(anchor?anchor.nextElementSibling!==box:host.lastElementChild!==box))anchor?anchor.after(box):host.append(box);
@@ -66,14 +67,16 @@
    const option=(id,family,note)=>{const o=new Option(family,id);o.dataset.fontName=family;o.dataset.fontNote=note;o.dataset.noI18n='';return o;};
    const built=gs.fontOptions[key].map(([id,family,kind,optional])=>option(id,family||notes.inherit,kind==='inherit'?'':optional?notes.optional:notes[kind]));
    const game=fontsOf(lang).map(f=>{register(f);const o=option('game:'+f.id,f.family,label()+' · '+notes.original);o.title=f.source||'';return o;});
-   select.replaceChildren(...game,...built);
-   const want=pending||p[key];if(want&&select.value!==want&&select.querySelector(`option[value="${want}"]`))select.value=want;
+   /* user 2026-11-13: 恢复为游戏原字体 — the game's own font (reported by the engine / font probe, or loaded from its memory) */
+   const follow=key==='japaneseFont'?[option('@game',({zh:'游戏原字体（自动）',en:'Game font (automatic)',ja:'ゲームのフォント（自動）'})[ui]||'游戏原字体（自动）',({zh:'恢复为游戏原字体',en:'Restore the game font',ja:'ゲームのフォントに戻す'})[ui]||'恢复为游戏原字体')]:[];
+   select.replaceChildren(...follow,...game,...built);
+   const want=key==='japaneseFont'&&!select.dataset.gfPopulatedOnce&&p.japaneseFontSource!=='user'?'@game':pending||p[key];if(key==='japaneseFont')select.dataset.gfPopulatedOnce='1';if(want&&select.value!==want&&select.querySelector(`option[value="${want}"]`))select.value=want;
   }
  }
  function paint(){
   options();const box=ensureBox();if(!box)return;const s=state();box.dataset.state=s.state;
   box.querySelector('[data-gf-title]').textContent=busy?t('busy'):s.title;box.querySelector('[data-gf-detail]').textContent=busy?'':s.detail;
-  box.querySelector('[data-gf-apply]').textContent=t('apply');box.querySelector('[data-gf-rescan]').textContent=t('rescan');
+  box.querySelector('[data-gf-apply]').textContent=t('apply');box.querySelector('[data-gf-rescan]').textContent=t('rescan');box.querySelector('[data-gf-follow]').textContent=({zh:'恢复为游戏原字体',en:'Restore the game font',ja:'ゲームのフォントに戻す'})[window.__tomeI18n?.get?.()||'zh']||'恢复为游戏原字体';
   box.querySelector('[data-gf-apply]').hidden=!s.apply;box.querySelector('[data-gf-rescan]').disabled=busy;
  }
  b.gameFontsRefresh=paint;addEventListener('tome-language-change',paint);

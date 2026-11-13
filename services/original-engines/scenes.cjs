@@ -197,6 +197,14 @@ const siglus={
  parse:parseDbs,test:DBS,
  // E450 voices: the release's Scene.pck keeps its original sources, where a KOE call comes before each spoken line
  voiceLines:dir=>require('./siglus-source.cjs').voiceLines(dir),
+ /* 2026-11-13 (Summer Pockets Steam, Chinese install: the opening poem is a picture of the Chinese column's text): every other
+    language column of a table gives back the row's Japanese line. Read from the tables as shipped (MeguLit's Japanese
+    restore keeps them in .megulit-japanese), so restored tables still know their other languages. */
+ foreign(dir){const key=require('../original-text.cjs').foreignKey,out=new Map(),seq=[],d=siglusDat(dir);out.seq=seq;if(!d)return out;
+  for(const f of fs.readdirSync(d).filter(DBS)){let buf;for(const p of [path.join(dir,'.megulit-japanese','dat',f),path.join(d,f)]){try{buf=fs.readFileSync(p);break;}catch{}}if(!buf)continue;
+   let table;try{table=dbsTable(buf);}catch{continue;}const cols=columnShares(table).filter(c=>c.filled);const jp=cols.slice().sort((a,b)=>b.kana-a.kana)[0];if(!jp||jp.kana<.3)continue;
+   for(const c of cols){if(c.index===jp.index||c.kana>=.1)continue;for(const r of table.cells){const ja=String(r[jp.index]||''),v=String(r[c.index]||'');if(!ja||!v||!KANA1.test(ja)&&!HAN.test(ja))continue;const k=key(v);if(k.length<2)continue;seq.push([k,ja,v]);const had=out.get(k);/* one translation for several lines: narration before a quoted line (art text is narration) */if(!had||/^[「『（(]/.test(had)&&!/^[「『（(]/.test(ja))out.set(k,ja);}}}
+  return out;},
  patchLines(base,found){
   const dirs=[...new Set(found.dirs.flatMap(d=>[d,path.join(d,'.megulit-japanese','dat'),path.join(d,'dat')]))];let any=false;
   const list=base.map(scene=>{const stem=scene.name.replace(/\.dbs$/i,'');

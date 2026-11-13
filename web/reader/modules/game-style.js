@@ -14,7 +14,7 @@
     scanAuto: true, scanX: 2, scanY: 60, scanWidth: 96, scanHeight: 38, blurRadius: 13, maskPadding: 6, fastMask:true,
     maskVersion:26, maskStyle:'blend', japaneseBold:false, chineseBold:false, translationBlur:false,
     hideWaitMarker:false,relocateWaitMarker:false,waitCoverStyle:'frame',
-    japaneseFont:'originalGothic', chineseFont:'notoSansSC', rubyFont:'notoSansJP', englishFont:'inherit',
+    japaneseFont:'originalGothic', japaneseFontSource:'game', chineseFont:'notoSansSC', rubyFont:'notoSansJP', englishFont:'inherit',
     englishEnabled:false, englishSize:34, englishSpacingPx:0, englishBold:false,
     englishOutline:true, englishOutlineColor:'#ffffff', englishOutlineWidth:1,
     japaneseOutline:true, chineseOutline:true, japaneseOutlineColor:'#ffffff', chineseOutlineColor:'#ffffff', rubyOutline:true, rubyOutlineColor:'#ffffff', rubyOutlineWidth:.45,
@@ -53,6 +53,8 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     result.interfaceMode=value.interfaceMode==='translation'?'translation':'normal';
     result.japaneseBold = value.japaneseBold === true;
     result.chineseBold = value.chineseBold === true;
+    /* user 2026-11-13: the game's own font wins unless the user picked another one after the font-follow migration */
+    result.japaneseFontSource = value.japaneseFontSource === 'user' ? 'user' : 'game';
     result.translationBlur = value.translationBlur === true;
     result.englishEnabled = value.englishEnabled === true;
     result.englishBold = value.englishBold === true;

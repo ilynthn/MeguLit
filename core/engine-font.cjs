@@ -14,6 +14,9 @@ function pick({face,prerendered,fonts}={}){
  face=String(face||'').trim().slice(0,64);if(!face||/["\<>;{}]/.test(face))return null;
  const want=familyClass(String(prerendered||'').replace(/\.[a-z0-9]+$/i,'')),have=familyClass(face);
  if(want&&have&&want!==have)return {key:want==='mincho'?'originalMincho':'originalGothic',face,reason:'prerendered '+prerendered};
- const hit=(fonts||[]).find(f=>f&&f.lang!=='zh'&&flat(f.family)===flat(face));
+ const hit=(fonts||[]).find(f=>f&&f.lang!=='zh'&&[f.family,...(Array.isArray(f.names)?f.names:[])].some(n=>flat(n)===flat(face)));
  return {key:hit?'game:'+hit.id:'engine:'+face,face,reason:hit?'bundled':'face'};}
-module.exports={pick,familyClass};
+/* Which report wins for a game: an engine's own report (KiriKiri lineLayer) over the font probe (GDI/GDI+/DirectWrite draw
+   counts); among probe reports the newest leader. */
+function rank(message){return message&&message.probe?1:2;}
+module.exports={pick,familyClass,rank};
