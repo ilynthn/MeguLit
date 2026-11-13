@@ -6,6 +6,7 @@ setlocal
 cd /d "%~dp0"
 if "%MEGULIT_VS_X86%"=="" set "MEGULIT_VS_X86=E:\Apps\work\euphoria-test-build\toolchain\msvc\setup_x86.bat"
 if "%MEGULIT_VS%"=="" set "MEGULIT_VS=E:\Apps\build-tools\vs2022\Common7\Tools\VsDevCmd.bat"
+if not exist "%MEGULIT_VS_X86%" set "MEGULIT_VS_X86=%~dp0..\vsx86.cmd"
 set FLAGS=/nologo /O2 /MT /EHsc /LD /W3 /wd4828 /utf-8 /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /FIwindows.h /FIobjidl.h
 if not exist obj32 mkdir obj32
 if not exist obj64 mkdir obj64

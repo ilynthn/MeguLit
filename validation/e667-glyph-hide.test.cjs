@@ -68,3 +68,32 @@ test('front end: glyph hide status reaches the reader state; a hide-only stream 
  assert.ok(traces.some(t=>t==='glyph hide hit ggo 28px'));
  Object.assign(h,{process:{},enabled:true,state:{hookThreads:[{id:'s',name:'AnyEngine',selected:true,embeddable:true,hideOnly:true}]},preferences:{embedTranslation:true},flowPage:false,send:m=>sent.push(m.mode)});
  h.syncEmbedMode();assert.deepEqual(sent,['hide'],'hide-only: MeguLit draws Japanese/translation in place');});
+
+/* The DLLs are not tracked (*.dll ignored) and Release.ps1 packages whatever sits in native/: beta37/38 shipped a DLL from before
+   the glyph hide, so the stream stayed read-only. Build.ps1 -Check (run by Release.ps1) fails here unless both packaged DLLs
+   export MeguLitFontVersion and carry the version tag >= 2. */
+function peExports(buf){const pe=buf.readUInt32LE(0x3c);if(buf.toString('latin1',pe,pe+4)!=='PE\0\0')throw new Error('not a PE file');const opt=pe+24,magic=buf.readUInt16LE(opt),dir=opt+(magic===0x20b?112:96);const rva=buf.readUInt32LE(dir);if(!rva)return [];
+ const nsec=buf.readUInt16LE(pe+6),sec=opt+buf.readUInt16LE(pe+20);const off=r=>{for(let i=0;i<nsec;i++){const s=sec+i*40,va=buf.readUInt32LE(s+12),size=Math.max(buf.readUInt32LE(s+8),buf.readUInt32LE(s+16));if(r>=va&&r<va+size)return r-va+buf.readUInt32LE(s+20);}throw new Error('rva outside sections');};
+ const e=off(rva),n=buf.readUInt32LE(e+24),names=off(buf.readUInt32LE(e+32)),out=[];for(let i=0;i<n;i++){const p=off(buf.readUInt32LE(names+i*4));out.push(buf.toString('latin1',p,buf.indexOf(0,p)));}return out;}
+test('packaged MeguLitFont32/64.dll are the glyph-hide build (version export >= 2), never a stale one',()=>{
+ const want=Number(/#define MEGULIT_FONT_VERSION (\d+)/.exec(read('native/fontprobe/FontProbe.cpp'))[1]);assert.ok(want>=2);
+ for(const n of ['MeguLitFont32.dll','MeguLitFont64.dll']){const f=path.join(__dirname,'..','native',n);
+  assert.ok(fs.existsSync(f),n+' missing: run Build.ps1 (native/fontprobe/build.cmd)');const buf=fs.readFileSync(f);
+  const ex=peExports(buf);assert.ok(ex.includes('MeguLitFontVersion')&&ex.includes('MeguLitFontVersionTag'),n+' has no MeguLitFontVersion export: stale DLL from before the glyph hide');
+  const tag=/MeguLitFont version=(\d+)/.exec(buf.toString('latin1'));assert.ok(tag&&Number(tag[1])>=want,n+' version '+(tag?tag[1]:'none')+' < '+want);}
+ const b=read('Build.ps1');assert.ok(b.includes("foreach ($taskNb in (Get-Content -LiteralPath (Join-Path $taskRoot 'native/native-builds.json')"),'Build.ps1 builds every listed native binary');
+ assert.ok(b.includes('throw "Native self-test failed:'),'self-tests fail the build');assert.ok(b.includes("tools/native-stale.cjs'); if ($LASTEXITCODE -ne 0) { throw"),'staleness check fails the build');
+ const ci=read('.github/workflows/ci.yml');assert.ok(ci.includes('native\\native-builds.json'));assert.ok(ci.includes('node tools/native-stale.cjs --ci'));
+ assert.ok(read('Release.ps1').includes('& node tools/native-stale.cjs;if($LASTEXITCODE -ne 0){throw'),'Release stops on a stale native binary even when it reuses a build');
+ const h=read('native/HookBridge.cs');assert.ok(h.includes('hideTrying=item.Key==Selected&&c.gdiProbe&&!c.hideOnly&&(ReplacementEnabled||ProbeWanted)&&!GlyphCached'));
+ const g=read('web/reader/modules/gal.js');assert.ok(g.includes("item.hideOnly?' [隐藏原文]':item.embeddable?' [可清空]':item.hideTrying?' [仅读取 · 尝试隐藏原文]':' [仅读取]'"),'three-state stream label');});
+
+/* Every shipped native binary (native/native-builds.json) is at least as new as its sources and carries its marker; the
+   DLL the BRUNS GDI hide needs (MeguLitHook32.dll) must contain MeguLit_GDIHIDE. In CI, entries not built there may be absent. */
+test('no shipped native binary is older than its sources (tools/native-stale.cjs)',()=>{
+ const {check}=require('../tools/native-stale.cjs');const r=check({ci:!!process.env.CI});
+ assert.deepEqual(r.problems,[],r.problems.join('\n'));
+ const names=r.entries.flatMap(e=>e.outputs);
+ for(const n of ['native/MeguLitFont32.dll','native/MeguLitFont64.dll','native/megulithook/MeguLitHook32.dll','native/MeguLitScn32.dll','native/MeguLitKrkr64.dll','native/MeguLitRenpy64.dll','native/MeguLitDpDecline32.dll','native/GalWindowBridge.exe'])assert.ok(names.includes(n),n+' listed');
+ assert.equal(r.entries.find(e=>e.name==='megulithook').marker,'MeguLit_GDIHIDE');
+ const rel=read('Release.ps1');for(const n of names.filter(n=>/\.dll$/.test(n)))assert.ok(rel.includes("'"+n+"'"),n+' is packaged');});

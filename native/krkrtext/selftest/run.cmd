@@ -5,6 +5,7 @@ setlocal
 cd /d "%~dp0"
 if "%MEGULIT_VS_X86%"=="" set "MEGULIT_VS_X86=E:\Apps\work\euphoria-test-build\toolchain\msvc\setup_x86.bat"
 if "%MEGULIT_VS%"=="" set "MEGULIT_VS=E:\Apps\build-tools\vs2022\Common7\Tools\VsDevCmd.bat"
+if not exist "%MEGULIT_VS_X86%" set "MEGULIT_VS_X86=%~dp0..\..\vsx86.cmd"
 set "WORK=%TEMP%\megulit-krkr-selftest"
 if not exist "%WORK%\32" mkdir "%WORK%\32"
 if not exist "%WORK%\64" mkdir "%WORK%\64"

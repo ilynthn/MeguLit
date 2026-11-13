@@ -23,6 +23,9 @@
 //   ToMe_GLYPHHIDE key size=<px> face=<face> | line seq=.. chars=.. placed=.. hidden=.. requested=.. repeat=.. missing=..
 //   ToMe_GLYPHHIDE cache seq=<n> missing=<a> of <b>                    the engine reuses rasterised glyphs: hiding stopped
 // Commands from HookBridge, one per line (UTF-8): LINE <text> | FONT <px> <face> | OFF
+// Version (exported, checked by Build.ps1 / validation so a stale DLL never ships): MeguLitFontVersion() and the tag string
+// MeguLitFontVersionTag "MeguLitFont version=<n>"; 2 = glyph hide. On each control connection the DLL answers
+// "ToMe_GLYPHHIDE ready version=<n>" so HookBridge knows the hide side is really there.
 #include <windows.h>
 #include <dwrite.h>
 #include <d2d1.h>
@@ -34,6 +37,9 @@
 #include "../scncapture/minhook/include/MinHook.h"
 #include "GlyphMatch.h"
 
+#define MEGULIT_FONT_VERSION 2
+extern "C" __declspec(dllexport) const char MeguLitFontVersionTag[] = "MeguLitFont version=2";
+extern "C" __declspec(dllexport) DWORD __cdecl MeguLitFontVersion() { return MEGULIT_FONT_VERSION; }
 namespace {
 HMODULE Self; CRITICAL_SECTION Gate; HANDLE Wake; std::deque<std::string> Out; wchar_t Dir[1024];
 
@@ -88,6 +94,7 @@ DWORD WINAPI Control(void *) {
  wchar_t name[64]; swprintf_s(name, L"\\\\.\\pipe\\MeguLitFontCtl-%lu", GetCurrentProcessId());
  for (;;) {
   HANDLE p = CreateFileW(name, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL); if (p == INVALID_HANDLE_VALUE) { Sleep(1000); continue; }
+  Send("ToMe_GLYPHHIDE ready version=" + std::to_string(MEGULIT_FONT_VERSION));
   std::string buf; char chunk[4096]; DWORD n = 0;
   while (ReadFile(p, chunk, sizeof chunk, &n, NULL) && n) { buf.append(chunk, n); size_t e; while ((e = buf.find('\n')) != std::string::npos) { Command(buf.substr(0, e)); buf.erase(0, e + 1); } if (buf.size() > 65536) buf.clear(); }
   CloseHandle(p); Command("OFF"); Sleep(500); // HookBridge gone: nothing stays hidden

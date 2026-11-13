@@ -142,6 +142,8 @@ else{
  @{version=$Version;exe=(Get-FileHash $exePath -Algorithm SHA256).Hash} | ConvertTo-Json | Set-Content $stampFile
 }
 if($Prepare){Step "prepared $Tag (built and tested; release later with -SkipBuild)";return}
+# E667: also when the build is reused, no native binary older than its sources (native/native-builds.json) is packaged.
+Push-Location $Root;try{& node tools/native-stale.cjs;if($LASTEXITCODE -ne 0){throw 'A native binary is older than its sources or lacks its marker; run Build.ps1 (see tools/native-stale.cjs output)'}}finally{Pop-Location}
 
 # ---------- package ----------
 Step 'package'

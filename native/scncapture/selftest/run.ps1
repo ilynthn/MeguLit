@@ -3,6 +3,7 @@
 $ErrorActionPreference='Stop'
 $vs=if($env:MEGULIT_VS){$env:MEGULIT_VS}else{'E:\Apps\build-tools\vs2022\Common7\Tools\VsDevCmd.bat'}
 $vs86=if($env:MEGULIT_VS_X86){$env:MEGULIT_VS_X86}else{'E:\Apps\work\euphoria-test-build\toolchain\msvc\setup_x86.bat'}
+if(-not(Test-Path -LiteralPath $vs86)){$env:MEGULIT_VS=$vs;$vs86=Join-Path $PSScriptRoot '..\..\vsx86.cmd'}
 $work=Join-Path $env:TEMP 'megulit-scn-selftest';if(Test-Path $work){Remove-Item $work -Recurse -Force}
 function Key($dir){$h=[uint64]2166136261;foreach($c in $dir.ToCharArray()){$v=[uint32][char]$c;if($v -ge 65 -and $v -le 90){$v+=32};$h=(($h -bxor $v)*16777619)%4294967296};'{0:x8}' -f $h}
 foreach($bit in '32','64'){

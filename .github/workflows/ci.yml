@@ -68,6 +68,33 @@ jobs:
             if (-not (Test-Path "native\$n")) { throw "build.cmd did not produce native\$n" }
           }
 
+      - name: Native DLLs from native/native-builds.json (MSVC) with self-tests and staleness check
+        shell: pwsh
+        run: |
+          # E667: the shipped native DLLs are untracked; beta37/38 packaged MeguLitFont/MeguLitHook32 builds older than their
+          # sources. Every entry marked "ci" is built and self-tested here (the font DLL test only checks its version export
+          # when the runner has no Japanese font); entries needing a tree that is not in the repository (the LunaHook source
+          # of MeguLitHook32, GalWindowBridge's WinRT metadata) are built by Build.ps1 and checked by tools/native-stale.cjs.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "vswhere not found at $vswhere" }
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'No Visual Studio with the C++ toolset on this runner' }
+          $env:MEGULIT_VS = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          $env:MEGULIT_VS_X86 = 'none'
+          foreach ($nb in (Get-Content native\native-builds.json -Raw | ConvertFrom-Json)) {
+            if (-not $nb.ci) { continue }
+            & cmd /c ($nb.build -replace '/', '\')
+            if ($LASTEXITCODE) { throw "native build failed: $($nb.name)" }
+            foreach ($o in $nb.outputs) { if (-not (Test-Path $o)) { throw "$($nb.build) did not produce $o" } }
+            foreach ($t in @($nb.selftests)) {
+              if (-not $t) { continue }
+              if ($t -like '*.ps1') { & pwsh -NoProfile -File $t } else { & cmd /c ($t -replace '/', '\') }
+              if ($LASTEXITCODE) { throw "native self-test failed: $($nb.name) ($t)" }
+            }
+          }
+          node tools/native-stale.cjs --ci
+          if ($LASTEXITCODE) { throw 'a native binary is older than its sources' }
+
       - name: Hook bridge (Roslyn) with self-test
         shell: pwsh
         run: ./native/Build-HookBridge.ps1 -OutputPath native/HookBridge.exe
