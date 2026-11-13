@@ -45,7 +45,7 @@ test('script work runs in a worker thread; the service thread stays free',async(
 });
 
 test('dialog: opens once, buttons go busy on the click and drop clicks while busy',()=>{
- const ui=fs.readFileSync(path.join(root,'web/game-language.js'),'utf8');
+ const ui=fs.readFileSync(path.join(root,'web/game-language.js'),'utf8').replace(/\r\n/g,'\n');
  assert.match(ui,/if\(openDialog\)return;/,'a second open while one is up is ignored');
  assert.ok(ui.indexOf('dialog.showModal()')<ui.indexOf("await api('game_original_executable',{id})"),'the dialog shows before the service answers');
  assert.match(ui,/const once=fn=>async\(\)=>\{if\(working\)return;busy\(true\)/);
