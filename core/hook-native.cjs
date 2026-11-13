@@ -254,15 +254,19 @@ class HookNative{
  source(m,name){
   /* E560 Unity setter streams: typewriter steps and whole NVL pages become the one paragraph the game is on (core/unity-source.cjs) */
   {const code=String(m.sourceCode||'');if(code.endsWith(':JIT:UNITY')&&!m.unityBoxed&&typeof m.text==='string'&&!this.skipKey){const {UnityBox}=require('./unity-source.cjs');(this.unityBox||(this.unityBox=new UnityBox(()=>this.now(),(line,p)=>this.source({...p.m,text:line,unityBoxed:true},p.name)))).feed(code,cleanSource(m.text,name,code),{m,name});return;}}
+  /* 2026-11-14 (ダストマニア・グロテスク, Chinese patch): Shift-JIS read as GBK becomes the Japanese it was (core/text-sanity.cjs).
+     The hook gets this text already as UTF-16 (the game converted it with the system code page), so the hook's own code page
+     setting cannot help: each stream is judged by its text and locked once it is clearly one or the other. */
+  if(typeof m.text==='string'){const stream=name||m.sourceCode||m.sourceName||'';const fixed=(this.codepage||(this.codepage=new (require('./text-sanity.cjs').StreamCodepage)())).fix(stream,m.text);if(fixed.locked)this.trace('stream locked as Shift-JIS read as GBK '+JSON.stringify(String(stream).slice(0,60)));if(fixed.repaired){this.trace('source repaired Shift-JIS read as GBK '+JSON.stringify(fixed.text.slice(0,20)));m={...m,text:fixed.text};}}
   /* 2026-11-12 (ファタモルガーナの館: "……けれど……", drawn large in the middle of the opening, was hidden and shown as a subtitle
      at the bottom): while the engine says its text window is hidden, a line is art text. HookBridge leaves it to the game;
      here it goes to the art layer (invisible readable copy + translation where the game drew it), not to the subtitles. */
   if(this.engineDialog===false&&typeof m.text==='string'&&m.text.trim()){this.trace('art text (text window hidden) '+JSON.stringify(m.text.slice(0,40)));this.artSeen?.delete(HookNative.flat(m.text.trim()));this.artCandidate(m.text);return;}
   // The game's own ruby readings ride after the line as \x1d base \x1c reading pairs (ISLAND hook): split them off
   // before anything else sees the text, and attach them when this line is delivered (user, 2026-11-03).
-  /* 2026-11-14 (ダストマニア・グロテスク, Chinese patch): Shift-JIS read as GBK becomes the Japanese it was (core/text-sanity.cjs) */
-  if(typeof m.text==='string'){const fixed=require('./text-sanity.cjs').repairShiftJisAsGbk(m.text);if(fixed){this.trace('source repaired Shift-JIS read as GBK '+JSON.stringify(fixed.slice(0,20)));m={...m,text:fixed};}}
   const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:extracted.text};this.languageCheck(m.text);
+  /* a line still unreadable after that (mojibake, replacement characters) is never drawn; the game keeps its own text */
+  if(require('./text-sanity.cjs').garbledSource(m.text,{controls:false})){this.trace('source dropped unreadable '+JSON.stringify(String(m.text).slice(0,20)));return;}
   // Multilingual containers keep only the Japanese track (E243); streams that deliver every line several times (or every character doubled) are learned and undone per stream (E215).
   this.repeats=this.repeats||new (require('./repeat-normalizer.cjs').RepeatNormalizer)();
   this.attempt=0;/* 2026-11-13 (user: DDLC Plus set to English showed nothing): a line in another language is first looked up in the

@@ -47,11 +47,41 @@ test('a normal translation passes through',async()=>{const {s}=service('早上�
 test('the art layer drops meta replies too',()=>{assert.equal(artNoTranslation('ミき=ミミミ',REFUSAL),true);assert.equal(artNoTranslation('おはよう',REFUSAL),true);assert.equal(artNoTranslation('おはよう','早上好'),false);});
 test('the hook repairs Shift-JIS read as GBK before anything else sees the line',()=>{
  const src=fs.readFileSync(path.join(__dirname,'../core/hook-native.cjs'),'utf8');
- const i=src.indexOf("repairShiftJisAsGbk(m.text)"),j=src.indexOf("this.languageCheck(m.text)");assert.ok(i>0&&j>i);
+ const i=src.indexOf("StreamCodepage)())).fix(stream,m.text)"),j=src.indexOf("this.languageCheck(m.text)");assert.ok(i>0&&j>i);
 });
 test('with a MeguLit window in front the reading layer stays directly above the game, never above MeguLit',()=>{
  const src=fs.readFileSync(path.join(__dirname,'../native/GalWindowBridge.cs'),'utf8');
  assert.doesNotMatch(src,/SetWindowPos\(Overlay,fg,/);assert.doesNotMatch(src,/homeOwned\?fg:/);
  assert.match(src,/if\(homeOwned\)StayAboveGameOnly\(gameRoot\);/);
  assert.match(src,/static void StayAboveGameOnly\(IntPtr gameRoot\)\{[\s\S]{0,300}IntPtr above=GetWindow\(gameTop,3\);if\(above==Overlay\)return;\s*SetWindowPos\(Overlay,above,/);
+});
+
+/* 2026-11-14 02:50 (same game, user screenshot): the game drew 「遠くで引きさく、モーター音が響いているのに気がついた。」 itself,
+   MeguLit drew 「墦偔偱堷偒偝偔丄儌乕僞乕壒偑…」 over it. Bytes: the Shift-JIS of the line, read with code page 936. */
+const {StreamCodepage}=require('../core/text-sanity.cjs');
+const {HookNative}=require('../core/hook-native.cjs');
+const LINE='遠くで引きさく、モーター音が響いているのに気がついた。',LINE_GBK='墦偔偱堷偒偝偔丄儌乕僞乕壒偑嬁偄偰偄傞偺偵婥偑偮偄偨丅';
+test('the screenshot line comes back from its GBK reading',()=>{assert.equal(repairShiftJisAsGbk(LINE_GBK),LINE);assert.equal(garbledSource(LINE_GBK),true);assert.equal(garbledSource(LINE),false);});
+test('a stream locks as Shift-JIS-as-GBK after two clear lines, then also kanji-only lines and 「……」 come back',()=>{
+ const c=new StreamCodepage();
+ assert.deepEqual(c.fix('s','搶嫗戝妛'),{text:'搶嫗戝妛',repaired:false,locked:false});
+ assert.equal(c.fix('s',LINE_GBK).text,LINE);const second=c.fix('s',MOJI);assert.equal(second.locked,true);assert.equal(c.mode('s'),'sjis-as-gbk');
+ assert.equal(c.fix('s','搶嫗戝妛').text,'東京大学');assert.equal(c.fix('s','乽乧乧乿').text,'「……」');assert.equal(c.fix('s','僟僗僩儅僯傾丒僌儘僥僗僋').text,'ダストマニア・グロテスク');
+});
+test('a stream with real kana is never read back loosely, and other streams are judged on their own',()=>{
+ const c=new StreamCodepage();c.fix('jp','おはよう。');c.fix('jp','こんにちは。');assert.equal(c.mode('jp'),'native');
+ assert.equal(c.fix('jp','東京大学').text,'東京大学');c.fix('jp',LINE_GBK);c.fix('jp',MOJI);assert.equal(c.mode('jp'),'native');
+ assert.equal(c.fix('cn','这是一个测试，我们走吧。').text,'这是一个测试，我们走吧。');assert.equal(c.fix('cn','东京大学').text,'东京大学');assert.equal(c.mode('cn'),'');
+});
+test('the hook delivers the repaired Japanese and never an unreadable line',t=>{
+ const ev=[],traces=[];let now=100000;const hook=new HookNative({native:__dirname,hook:__dirname,logs:'Z:/no-fixture-log'},e=>ev.push(e),()=>{},()=>now);hook.trace=m=>traces.push(m);hook.enabled=true;t.after(()=>hook.stop());
+ const line=text=>{hook.source({text,sourceName:'BRUNS',origin:'live'},'');now+=5000;};
+ line(LINE_GBK);line(MOJI);line('搶嫗戝妛');line('寳懐ｯｹ莠・ｯｹ莠・ｼ瑚ｿ呎ｬ｡諸槫−口謌ｦ');
+ const shown=ev.filter(e=>e.hookSource).map(e=>e.hookSource);
+ assert.deepEqual(shown,[LINE,'このメッセージは初回起動時のみ表示されます。','東京大学']);
+ assert.ok(traces.some(m=>/^stream locked as Shift-JIS read as GBK/.test(m)));assert.ok(traces.some(m=>/^source dropped unreadable/.test(m)));
+});
+test('the embed path translates the repaired line and leaves unreadable text to the game',()=>{
+ const src=fs.readFileSync(path.join(__dirname,'../services/reader.cjs'),'utf8');
+ assert.match(src,/const fixed=sanity\.repairShiftJisAsGbk\(text\);if\(fixed\)text=fixed;else if\(sanity\.garbledSource\(text,\{controls:false\}\)\)\{this\.gal\?\.hooks\?\.embedReply\(id,'',/);
 });
