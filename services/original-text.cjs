@@ -162,7 +162,9 @@ function collect(source,depth=3){
    if(FONT.test(e.name)){try{if(fs.statSync(full).size<64<<20)out.fonts.push(fs.readFileSync(full));}catch{}continue;}
    const key=e.name.toLowerCase();if(!out.files.has(key))out.files.set(key,{name:e.name,path:full,read:()=>fs.readFileSync(full)});}};
  const st=fs.statSync(source,{throwIfNoEntry:false});
- if(st?.isFile()){if(/\.exe$/i.test(source)&&isEvb(source))addEvb(source);walk(path.dirname(source),/\.exe$/i.test(source)?0:depth);}
+ /* 2026-11-14 a picked program stands for its whole folder, subfolders included: a patched copy keeps its scripts in
+    scene\ or data\ beside the launcher, which a top-level-only walk never saw (PATCH_SCRIPT_NOT_FOUND). */
+ if(st?.isFile()){if(/\.exe$/i.test(source)&&isEvb(source))addEvb(source);walk(path.dirname(source),depth);}
  else if(st?.isDirectory())walk(source,depth);
  return out;
 }
@@ -203,8 +205,12 @@ function buildPatch(runningState,source){
   if(!list&&eng.patchLines&&!eng.archives)throw Error('PATCH_SCRIPT_NOT_FOUND');
   if(!list){
    const names=new Set(base.map(x=>x.name.toLowerCase())),overlay=new Map();
-   for(const [key,f] of found.files){if(!names.has(key)||!eng.test(f.name)||f.path&&sameDir(path.dirname(f.path),runningDir))continue;try{overlay.set(key,f.read());}catch{}}
-   for(const dir of found.dirs){if(sameDir(dir,runningDir))continue;let items=[];try{items=eng.archives(dir);}catch{}for(const item of items){const key=item.name.toLowerCase();if(names.has(key)&&!overlay.has(key))try{overlay.set(key,item.read());}catch{}}}
+   /* 2026-11-14 the running game's own script files are never the patch, wherever they sit under its folder (BRUNS keeps
+      them in scene\, below the folder a picked launcher stands for) */
+   let own=[];try{own=(eng.sources?.(runningDir)||[]).map(f=>path.resolve(f).toLowerCase());}catch{}
+   const ownFiles=new Set(own),ownDirs=new Set(own.map(f=>path.dirname(f)));
+   for(const [key,f] of found.files){if(!names.has(key)||!eng.test(f.name)||f.path&&(sameDir(path.dirname(f.path),runningDir)||ownFiles.has(path.resolve(f.path).toLowerCase())))continue;try{overlay.set(key,f.read());}catch{}}
+   for(const dir of found.dirs){if(sameDir(dir,runningDir)||ownDirs.has(path.resolve(dir).toLowerCase()))continue;let items=[];try{items=eng.archives(dir);}catch{}for(const item of items){const key=item.name.toLowerCase();if(names.has(key)&&!overlay.has(key))try{overlay.set(key,item.read());}catch{}}}
    if(!overlay.size)throw Error('PATCH_SCRIPT_NOT_FOUND');
    // File by file: same number of text lines and the same anchors (commands, labels, file names), else the running text.
    list=scenes.read(engine,runningDir,overlay).map((scene,i)=>{const own=base[i];if(!scene.patched||!own||own.name!==scene.name)return own||scene;
@@ -228,14 +234,28 @@ function buildPatch(runningState,source){
  if(!nonEmpty||japanese>=nonEmpty*.5)throw Error('PATCH_NOT_TRANSLATED');
  return {script,patched,sources:found.sources};
 }
+// A program next to (or in a copy of) the game that is not the game itself and not an Enigma container.
+function packedLauncher(source,executable){
+ if(!/\.exe$/i.test(source)||isEvb(source))return false;
+ if(path.resolve(source).toLowerCase()===path.resolve(executable).toLowerCase())return false;
+ return sameDir(path.dirname(source),path.dirname(executable));
+}
 function importPatch(root,db,id,source,{auto=false,executable}={}){
  const row=executable?{executable}:gameRow(db,id);if(typeof source!=='string'||!path.isAbsolute(source)||!fs.statSync(source,{throwIfNoEntry:false}))throw Error('INVALID_PATCH_DIRECTORY');
  // A picked script file stands for its folder (the folder may hold more than that one file).
- if(fs.statSync(source).isFile()&&!/\.exe$/i.test(source))source=path.dirname(source);
+ const picked=source;if(fs.statSync(source).isFile()&&!/\.exe$/i.test(source))source=path.dirname(source);
  const state=scanRunning(root,id,row.executable);if(!state.runtime)throw Error(state.error||'NO_SUPPORTED_SCRIPT');
  let built;try{built=buildPatch(state,source);}catch(error){
   // Nothing besides the game itself in its own folder: say that the game's folder was picked.
-  if(error.message==='PATCH_SCRIPT_NOT_FOUND'&&fs.statSync(source).isDirectory()&&sameDir(source,path.dirname(row.executable)))throw Error('PATCH_IS_RUNNING_COPY');throw error;}
+  if(error.message==='PATCH_SCRIPT_NOT_FOUND'&&fs.statSync(source).isDirectory()&&sameDir(source,path.dirname(row.executable)))throw Error('PATCH_IS_RUNNING_COPY');
+  /* 2026-11-14 (ダストマニア・グロテスク: 解体插入新书中文版.exe beside gameplay.exe): a Chinese launcher whose folder holds only
+     the running Japanese scripts keeps its translation inside the program, packed or encrypted (that one: a packed exe
+     with an encrypted overlay, libchs.dll only switches the charset). It is the right file, so it is remembered and the
+     dialog says why its text cannot be read, instead of calling the pick wrong. */
+  // A script file of the running game itself (sceneruns0100.bso picked in the Japanese install).
+  if(error.message==='PATCH_SCRIPT_NOT_FOUND'&&picked!==source&&path.resolve(picked).toLowerCase().startsWith(path.resolve(path.dirname(row.executable)).toLowerCase()+path.sep))throw Error('PATCH_SAME_AS_RUNNING');
+  if(error.message==='PATCH_SCRIPT_NOT_FOUND'&&packedLauncher(source,row.executable)){writeState(root,id,{patchLauncher:{file:source,at:Date.now()}});throw Error('PATCH_PACKED_LAUNCHER');}
+  throw error;}
  let {script}=built;const {patched,sources}=built,runtime=readIndex(state.runtime.index);
  // Lines the patch left in Japanese must equal the running script at the same index (same measure as the original import).
  let alignment=align({...script,structure:script.structure},runtime);
@@ -271,10 +291,13 @@ const READER=(()=>{try{const h=require('node:crypto').createHash('sha256');const
  return h.digest('hex').slice(0,12);}catch{return '';}})();
 const autoRuns=new Map();
 // Fire and forget, with its own database handle (callers' handles close when their request ends).
+/* 2026-11-14 the search runs in a worker thread (services/text-source-worker.cjs): on the service thread it held every other
+   request while it walked the folders next to the game. One search per game at a time; later calls share it. */
+const laterRuns=new Map();
 function autoPatchLater(root,id,done,options={}){
- id=String(id);if(autoRuns.has(id))return autoRuns.get(id).then(done,()=>{});
- let db;try{db=require('./store.cjs').openStore(root);}catch{return Promise.resolve();}
- return autoPatch(root,db,id,options).then(done,()=>{}).finally(()=>{try{db.close();}catch{}});
+ id=String(id);if(laterRuns.has(id))return laterRuns.get(id).then(done,()=>{});
+ const {roots,...rest}=options,run=require('./text-source-worker.cjs').run(root,'autoPatch',[id,{...rest,...(Array.isArray(roots)?{roots}:{})}]).finally(()=>laterRuns.delete(id));
+ laterRuns.set(id,run);return run.then(done,()=>{});
 }
 function autoPatch(root,db,id,options={}){
  id=String(id);if(autoRuns.has(id))return autoRuns.get(id);
@@ -335,7 +358,7 @@ function status(root,db,id){
  /* E288 (user: the dialog stayed on 正在查找 for good after removing a patch): every status poll starts autoPatchLater, so
     an entry in autoRuns says nothing; only a search that really scans (it records running) counts, for two minutes at most. */
  const searching=!!state?.patchSearch?.running&&Date.now()-(state.patchSearch.at||0)<120000,patchSearch=state?.patchSearch||searching?{running:searching,found:!!state?.patchSearch?.found,at:state?.patchSearch?.at||0,declined:!!state?.patchSearch?.declined}:null;
- return {preparing:state?.status==='preparing'?state.preparing||null:null,patchSearch,patchHint:patchHint(state?.runtime),gameDir:path.dirname(row.executable),patch:patchInfo,patchStatus:state?.patchStatus||'none',patchAlignment:state?.patchAlignment||null,engine:state?.engine||'',status:state?.status||'unsupported',mode:state?.mode||'off',error:state?.error||'',lastSearch:state?.lastSearch?{at:state.lastSearch.at,found:state.lastSearch.found,searched:state.lastSearch.searched,complete:state.lastSearch.complete}:null,runtime:state?.runtime?runtime:null,original:state?.original?original:null,alignment:state?.alignment||null};
+ return {preparing:state?.status==='preparing'?state.preparing||null:null,patchSearch,patchHint:patchHint(state?.runtime),patchLauncher:state?.patchLauncher?.file&&fs.existsSync(state.patchLauncher.file)?{file:state.patchLauncher.file}:null,gameDir:path.dirname(row.executable),patch:patchInfo,patchStatus:state?.patchStatus||'none',patchAlignment:state?.patchAlignment||null,engine:state?.engine||'',status:state?.status||'unsupported',mode:state?.mode||'off',error:state?.error||'',lastSearch:state?.lastSearch?{at:state.lastSearch.at,found:state.lastSearch.found,searched:state.lastSearch.searched,complete:state.lastSearch.complete}:null,runtime:state?.runtime?runtime:null,original:state?.original?original:null,alignment:state?.alignment||null};
 }
 function setMode(root,id,mode){if(!['off','original'].includes(mode))throw Error('INVALID_TEXT_MODE');const s=readState(root)[id];if(mode==='original'&&s?.status!=='ready')throw Error('ORIGINAL_NOT_READY');return writeState(root,id,{mode});}
 
