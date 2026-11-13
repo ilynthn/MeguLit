@@ -55,6 +55,10 @@ const spikeWad={
     return Buffer.from(JSON.stringify({ja:own,zh:z.length===own.length?z:[]}));}});}
   return out.sort((a,b)=>a.name.localeCompare(b.name));},
  archives:()=>[],
+ /* E-wad: the Steam release swaps <name>_us.wad for <name>_jp.wad only when the Steam game language is Japanese,
+    so an English install has scripts but no Japanese: say so instead of the generic "not supported" */
+ unsupported(dir){const all=sets(dir);return all.length&&!all.some(s=>s.lang==='ja')?'WAD_NO_JAPANESE':'';},
+ REASONS:{WAD_NO_JAPANESE:'装的是英文/其他语言版（只有 *_us.wad）：在 Steam 游戏属性 → 语言 里改成日本語，等 Steam 下载 *_jp.wad 后即可读取'},
  sources:dir=>[...new Set(sets(dir).filter(s=>s.lang!=='other').map(s=>s.file))],
  /* strings are paired by index before empty ones are dropped, so a dropped string never shifts the pairing */
  parse(buf){const doc=JSON.parse(buf.toString('utf8'));const keep=doc.ja.map((t,i)=>t.trim()?i:-1).filter(i=>i>=0);
