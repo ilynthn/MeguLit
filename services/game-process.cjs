@@ -24,4 +24,8 @@ async function gameProcesses(root,exe){
  if(result.type!=='gameProcesses'||!Array.isArray(result.processes))throw Error('PROCESS_QUERY_FAILED');
  return result.processes;
 }
-module.exports={gameProcess,gameProcesses,shellOpen};
+/* Whether a program with this file name is running. tasklist prints in the console code page (GBK on Chinese Windows), so
+   looking for a Chinese or Japanese exe name in its output never matched and a running game counted as closed. The
+   IMAGENAME filter already did the matching: any CSV row means a match, whatever the encoding. */
+function imageRunning(exe){try{const out=require('node:child_process').execFileSync('tasklist',['/FI','IMAGENAME eq '+path.basename(exe),'/FO','CSV','/NH'],{windowsHide:true,encoding:'utf8',timeout:8000});return /^"/m.test(out);}catch{return false;}}
+module.exports={gameProcess,gameProcesses,shellOpen,imageRunning};

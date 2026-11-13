@@ -5,7 +5,7 @@
 // without focus, muted — through native/ColdCapture<bit>.exe, which loads MeguLitScn<bit>.dll; the DLL has the game's own
 // plug-in read every scene file into the capture folder (kirikiri-dump reads it) and the game is closed at once.
 // One game at a time, once per game (a failure is recorded, not retried by itself), only while the setting is on.
-const fs=require('node:fs'),path=require('node:path'),{execFile,execFileSync}=require('node:child_process');
+const fs=require('node:fs'),path=require('node:path'),{execFile}=require('node:child_process');
 const xp3=require('./original-engines/xp3.cjs');
 // Same rule as the DLL (ScnCapture.cpp MediaArchive / DumpHx): media archives are skipped, and when scn*.xp3 exist only
 // they are read (the scene files live there).
@@ -22,7 +22,7 @@ function hxArchives(dir){let names=[];try{names=fs.readdirSync(dir).filter(f=>/\
 function prepared(dir,archives=hxArchives(dir)){const d=dump().captureDir(dir);return archives.length>0&&archives.every(a=>fs.existsSync(path.join(d,'hx-done-'+a.toLowerCase()+'.txt')));}
 /* E580 kit.peInfo */
 function bitness(exe){const i=require('./original-engines/kit.cjs').peInfo(exe);return i?(i.machine===0x14c?'32':'64'):'';}
-function running(exe){try{const out=execFileSync('tasklist',['/FI','IMAGENAME eq '+path.basename(exe),'/FO','CSV','/NH'],{windowsHide:true,encoding:'utf8',timeout:8000});return out.toLowerCase().includes('"'+path.basename(exe).toLowerCase()+'"');}catch{return false;}}
+const running=exe=>require('./game-process.cjs').imageRunning(exe);
 const queue=[],active=new Set();let busy=false;const listeners=new Set();
 // What the game detail / text source dialog shows: 'preparing' while this game's cold run is queued or running.
 function status(root,exe){const dir=path.dirname(String(exe||'')),key=dump().captureKey(dir);if(active.has(key)||queue.some(j=>j.key===key))return {state:'preparing'};const s=readState(root)[key];return s?{state:s.result==='done'?'ready':'failed',result:s.result,at:s.at}:{state:'none'};}

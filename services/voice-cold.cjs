@@ -53,7 +53,7 @@ function next(){
  // The player has the game open: the capture DLL already in it reads want.txt, nothing to start.
  if(isRunning(job.game.executable))return finish('running');
  runner(job,secondsFor(job.missing.length),word=>finish(word||'failed'));}
-let isRunning=exe=>{try{const out=require('node:child_process').execFileSync('tasklist',['/FI','IMAGENAME eq '+path.basename(exe),'/FO','CSV','/NH'],{windowsHide:true,encoding:'utf8',timeout:8000});return out.toLowerCase().includes('"'+path.basename(exe).toLowerCase()+'"');}catch{return false;}};
+let isRunning=exe=>require('./game-process.cjs').imageRunning(exe);
 let runner=(job,seconds,done)=>execFile(job.helper,[job.game.executable,job.dll,job.hook.report(job.game.dir),String(seconds)],{windowsHide:true,timeout:(seconds+30)*1000},(error,stdout)=>done(String(stdout||'').trim().split(/\s+/).pop()||(error?'failed':'')));
 function onDone(f){listeners.add(f);return ()=>listeners.delete(f);}
 module.exports={HOOKS,hookFor,outDirs,consider,onDone,secondsFor,_setRunner:(f,r)=>{runner=f;if(r)isRunning=r;},_queue:queue,_state:readState};
