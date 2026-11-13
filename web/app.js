@@ -985,14 +985,13 @@ function dictionary(target){
   const account=target.querySelector('#moji-account'),results=target.querySelector('#lookup-results');
   if(pendingDictionaryQuery){const word=pendingDictionaryQuery,form=target.querySelector('#lookup-form');pendingDictionaryQuery='';target.querySelector('#lookup-input').value=word;
    setTimeout(()=>{if(form.isConnected)(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();},0);}
-  /* v1.0.5：还没输入时，列出常查的词，点一下直接查 */
-  api('unknown_words').then(list=>{if(!list?.length||!results.isConnected||results.children.length)return;const chips=document.createElement('div');chips.className='g-dict-chips';
-   chips.innerHTML=`<span>${{zh:'你常查的',ja:'よく調べる語',en:'Often looked up'}[locale]}</span>`+list.slice(0,10).map(w=>`<button type="button" data-chip="${esc(w.surface)}">${esc(w.surface)}<small>${number(w.lookups)}</small></button>`).join('');
-   chips.onclick=e=>{const c=e.target.closest('[data-chip]');if(!c)return;const input=target.querySelector('#lookup-input'),form=target.querySelector('#lookup-form');
-   input.value=c.dataset.chip;(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();};target.querySelector('#lookup-form').after(chips);
-   }).catch(()=>{});
-  /* 2026-11-13 评委第二轮：词典还没查时，下面列出常查词释义、最近收的生词、近两周查词，点一下就查；有结果时整块收起（dict-home.js） */
-  import('./dict-home.js').then(({mountDictHome})=>{if(!results.isConnected)return;return mountDictHome(target,results,{api,esc,number,locale,look:word=>{const input=target.querySelector('#lookup-input'),form=target.querySelector('#lookup-form');if(!input||!form)return;input.value=word;(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();}});}).catch(()=>{});
+  /* 2026-11-13 评委第二轮：词典还没查时，下面列出常查词释义、最近收的生词、近两周查词，点一下就查；有结果时整块收起（dict-home.js）。
+     2026-11-14：原来的「你常查的」胶囊行和常查词面板重复（dh-ready 后被隐藏，先闪一下再消失，搜索框跟着跳），去掉；
+     点面板里的词时，联网结果第一条就是这个词就直接打开详情（openWanted） */
+  let openWanted='';
+  import('./dict-home.js').then(({mountDictHome})=>{if(!results.isConnected)return;return mountDictHome(target,results,{api,esc,number,locale,look:word=>{const input=target.querySelector('#lookup-input'),form=target.querySelector('#lookup-form');if(!input||!form)return;input.value=word;openWanted=word;(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();}});}).catch(()=>{});
+  /* 2026-11-14：搜索框清空（× 或删光）时回到词典首页，旧结果不再留着 */
+  target.querySelector('#lookup-input').addEventListener('input',e=>{if(e.target.value.trim()||!results.innerHTML)return;ticket++;lastItems=[];openWanted='';results.innerHTML='';});
   const stopPoll=()=>{clearTimeout(poll);poll=0;};
   const showStatus=state=>{stopPoll();account.innerHTML=state?.signedIn?`<span class="moji-state signed">${L.signed}${state.name?' · '+esc(state.name):''}</span><button type="button" class="text-button" data-moji-logout>${L.logout}</button>`:`<span class="moji-state">${L.anon}</span><button type="button" class="text-button" data-moji-login>${L.login}</button>`;
     account.querySelector('[data-moji-login]')?.addEventListener('click',startLogin);
@@ -1044,17 +1043,20 @@ function dictionary(target){
   if(onlineSource==='jisho')account.hidden=true;else api('moji_status').then(state=>{if(account.isConnected&&!account.querySelector('.moji-qr-panel'))showStatus(state);}).catch(()=>showStatus({}));
   target.querySelector('#lookup-form').addEventListener('submit',async event=>{
     event.preventDefault();const query=target.querySelector('#lookup-input').value.trim();if(!query)return;
-    const request=++ticket,online=event.submitter?.value!=='local';
+    const request=++ticket,online=event.submitter?.value!=='local',wanted=openWanted===query;openWanted='';
+    /* one search = one look-up: the local fallback reuses the same operationId, so it can never be counted twice */
+    const operationId=crypto.randomUUID();
     results.innerHTML=loading();
     try{
       let items,used=online;
-      try{items=await api('dictionary',{query,source:online?onlineSource:'local',operationId:crypto.randomUUID()});}
-      catch(error){if(!online)throw error;if(request===ticket)toast(L.fail);used=false;items=await api('dictionary',{query,source:'local',operationId:crypto.randomUUID()});
+      try{items=await api('dictionary',{query,source:online?onlineSource:'local',operationId});}
+      catch(error){if(!online)throw error;if(request===ticket)toast(L.fail);used=false;items=await api('dictionary',{query,source:'local',operationId});
        }
-      if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',operationId:crypto.randomUUID()}).catch(()=>[]);if(local.length){
+      if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',operationId}).catch(()=>[]);if(local.length){
        items=local;used=false;}}
       if(request!==ticket||!results.isConnected)return;
       lastItems=items;lastOnline=used;renderList();
+      const exact=wanted&&used&&items.find(w=>w.id&&w.source!=='jisho'&&(w.spelling===query||w.reading===query));if(exact)openDetail(exact);
       api('home').then(next=>{if(request===ticket&&results.isConnected)model=next;}).catch(()=>{});
     }catch(error){if(request===ticket&&results.isConnected)results.innerHTML=empty(online?L.fail:text.serviceFailed,'word');}
   });

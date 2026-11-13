@@ -256,3 +256,5 @@ html body .dict-home .dh-col{background:color-mix(in srgb,#120d11 94%,transparen
 html body .dict-home .dh-often small{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 62%,transparent)!important}
 /* settings: more air above each group heading */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-shared-head{margin-top:30px!important;padding-top:0!important}
+/* 2026-11-14: while dict-home loads, its two lists keep their room so nothing below jumps when the rows arrive */
+html body .dict-home[data-loading] :is(.dh-often,.dh-recent)>ol{min-height:min(330px,36vh)}
