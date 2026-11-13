@@ -932,7 +932,9 @@ async function learning(token){
    }
   if(subtab==='kana'){commit();try{const {mountKana}=await import('./kana/kana.js');if(token===pageToken)await mountKana(target,{api,invoke,toast,start:'index',
    focus:kanaFocus,openTab:tab=>navigate('learning',tab)});}catch(error){target.textContent=String(error?.message||error);}return;}
-  if(subtab==='review'){await review(token,target);if(token===pageToken){enhanceSelects(target);commit();}return;}
+  /* 2026-11-14 a failing review (Anki HUD) shows its own retry inside the tab; it never takes the whole learning page down */
+  if(subtab==='review'){try{await review(token,target);}catch(error){console.error('learning review',error);learningFailed(target,error,token);}
+   if(token===pageToken){try{enhanceSelects(target);}catch(error){console.error('learning review selects',error);}commit();}return;}
   if(subtab==='sentences'){try{const {mountSentences}=await import('./sentences-page.js');if(token!==pageToken)return;await mountSentences(target,{api,locale,esc,
    toast,errorMessage,empty,emptyLabel:text.emptySentences,readTime,datetime,icon,isCurrent:()=>token===pageToken,rerender:()=>renderRoute(),lookup:word=>{pendingDictionaryQuery=word;
    navigate('learning','dictionary');},openGame:(id,opts)=>{gameOrigin='library';selectedGameId=id;gameTab=opts?.tab||'';navigate('game');},games:model.games,cover});}catch(error){learningFailed(target,error,token);
@@ -1230,7 +1232,9 @@ async function renderRoute(){watchStage();
      if(!main.querySelector(':scope>.tabs'))tabsGroup=null;if(main.dataset.lastRoute!==group){main.dataset.lastRoute=group;if(!document.documentElement.classList.contains('app-boot-pre'))pageEnter(main);
      }else if(main.dataset.lastView!==view&&(group==='learning'||group==='history')){subpageEnter(main.querySelector(group==='learning'?'#learning-content':'#history-content'));
      }main.dataset.lastView=view;}requestAnimationFrame(()=>setupMarquees(main));}
-  }catch(error){if(token!==pageToken)return;main.innerHTML=empty(text.loadingFailed,'refresh')+`<button class="primary" id="retry">${text.retry}</button>`;main.querySelector('#retry').addEventListener('click',
+  }catch(error){if(token!==pageToken)return;console.error('renderRoute',route,error);main.innerHTML=empty(text.loadingFailed,'refresh');
+   /* 2026-11-14 the retry button sits inside the empty state, centred under the message (it used to land alone at the far left of #main) */
+   (main.querySelector('.empty-state')||main).insertAdjacentHTML('beforeend',`<button class="primary" id="retry">${text.retry}</button>`);main.querySelector('#retry').addEventListener('click',
    renderRoute);}
 }
 const navStack=[];let navIndex=-1;
