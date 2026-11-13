@@ -10,7 +10,7 @@ const hudCopy={
   sizes:'字号',size:{word:'单词',info:'读音释义',example:'例句',card:'整卡模式',controls:'按钮'},colors:'颜色',color:{word:'单词',text:'正文',dim:'次要',accent:'高亮'},
   bg:'背景',bgModes:['无','纯色','游戏背景','卡片截图','自选图片'],pick:'选择图片…',blur:'模糊',dim:'暗度',shadow:'文字阴影',
   labels:{progress:'进度',word:'单词',info:'读音 · 释义',example:'例句 · 译文',shot:'截图',card:'整张卡片',controls:'按钮'},
-  presetLabel:'预设',presets:{classic:'经典居中',split:'左图右文',subtitle:'字幕式',minimal:'极简大字'},mine:'我的布局',pick:'选择…',none:'还没有',saveAs:'另存当前',savedOk:'已另存为我的布局',place:'摆放',free:'无极摆放',gridMode:'网格对齐',gridSize:'网格',altHint:'按住 Alt 临时关闭吸附',
+  presetLabel:'预设',presets:{classic:'经典居中',split:'左图右文',subtitle:'字幕式',minimal:'极简大字'},mine:'我的布局',pick:'选择…',none:'还没有',saveAs:'另存当前',savedOk:'已另存为我的布局',opacity:'透明度',place:'摆放',free:'无极摆放',gridMode:'网格对齐',gridSize:'网格',altHint:'按住 Alt 临时关闭吸附',
   hint:'拖动方块移动，拖边角缩放 · 方向键微调，Shift+方向键改大小',shotHint:'截图：拉边改比例，拉角缩放（Shift 保持比例）· 双击或按住 Alt 拖动取景，滚轮缩放',dockTitle:'布局',collapse:'折叠',expand:'展开布局工具',help:'操作说明',
   nudged:'已自动让位',space:'空格',reviewed:'已复习 {n}',noResult:'词典里没有找到',close:'关闭',
   keys:'空格 翻面/良好 · 1–4 评分 · F 全屏 · L 布局 · Esc 退出',fontsFailed:'没能读取系统字体，可直接输入字体名'},
@@ -18,7 +18,7 @@ const hudCopy={
   sizes:'Text size',size:{word:'Word',info:'Reading & meaning',example:'Example',card:'Whole card',controls:'Buttons'},colors:'Colours',color:{word:'Word',text:'Text',dim:'Secondary',accent:'Highlight'},
   bg:'Background',bgModes:['None','Colour','Game art','Card screenshot','Own picture'],pick:'Choose picture…',blur:'Blur',dim:'Darken',shadow:'Text shadow',
   labels:{progress:'Progress',word:'Word',info:'Reading · meaning',example:'Example · translation',shot:'Screenshot',card:'Whole card',controls:'Buttons'},
-  presetLabel:'Presets',presets:{classic:'Classic',split:'Picture left',subtitle:'Subtitles',minimal:'Minimal'},mine:'My layouts',pick:'Choose…',none:'None yet',saveAs:'Save current',savedOk:'Saved to my layouts',place:'Placement',free:'Free',gridMode:'Grid',gridSize:'Grid',altHint:'Hold Alt to turn snapping off',
+  presetLabel:'Presets',presets:{classic:'Classic',split:'Picture left',subtitle:'Subtitles',minimal:'Minimal'},mine:'My layouts',pick:'Choose…',none:'None yet',saveAs:'Save current',savedOk:'Saved to my layouts',opacity:'Opacity',place:'Placement',free:'Free',gridMode:'Grid',gridSize:'Grid',altHint:'Hold Alt to turn snapping off',
   hint:'Drag a block to move it, drag its edges to resize · arrows nudge, Shift+arrows resize',shotHint:'Screenshot: edges change the shape, corners scale (Shift keeps it) · double-click or Alt-drag to frame, wheel to zoom',dockTitle:'Layout',collapse:'Collapse',expand:'Open layout tools',help:'How it works',
   nudged:'moved to avoid overlap',space:'Space',reviewed:'{n} reviewed',noResult:'Not in the dictionary',close:'Close',
   keys:'Space flip/Good · 1–4 rate · F full screen · L layout · Esc leave',fontsFailed:'Could not read installed fonts; type a font name instead'},
@@ -26,7 +26,7 @@ const hudCopy={
   sizes:'文字サイズ',size:{word:'単語',info:'読み・意味',example:'例文',card:'カード全体',controls:'ボタン'},colors:'色',color:{word:'単語',text:'本文',dim:'補助',accent:'強調'},
   bg:'背景',bgModes:['なし','単色','ゲーム画像','カードのスクショ','画像を選ぶ'],pick:'画像を選ぶ…',blur:'ぼかし',dim:'暗さ',shadow:'文字の影',
   labels:{progress:'進捗',word:'単語',info:'読み · 意味',example:'例文 · 訳',shot:'スクリーンショット',card:'カード全体',controls:'ボタン'},
-  presetLabel:'プリセット',presets:{classic:'中央揃え',split:'左に画像',subtitle:'字幕風',minimal:'大きな文字'},mine:'マイレイアウト',pick:'選択…',none:'まだありません',saveAs:'現在のを保存',savedOk:'マイレイアウトに保存しました',place:'配置',free:'自由配置',gridMode:'グリッド',gridSize:'グリッド',altHint:'Alt を押している間は吸着しません',
+  presetLabel:'プリセット',presets:{classic:'中央揃え',split:'左に画像',subtitle:'字幕風',minimal:'大きな文字'},mine:'マイレイアウト',pick:'選択…',none:'まだありません',saveAs:'現在のを保存',savedOk:'マイレイアウトに保存しました',opacity:'透明度',place:'配置',free:'自由配置',gridMode:'グリッド',gridSize:'グリッド',altHint:'Alt を押している間は吸着しません',
   hint:'ブロックをドラッグで移動、端をドラッグで拡大縮小 · 矢印キーで微調整、Shift+矢印でサイズ',shotHint:'スクショ：辺で比率、角で拡大縮小（Shift で比率固定）· ダブルクリックか Alt ドラッグで位置、ホイールでズーム',dockTitle:'レイアウト',collapse:'たたむ',expand:'レイアウトツールを開く',help:'使い方',
   nudged:'重ならないよう移動',space:'Space',reviewed:'{n} 枚復習',noResult:'辞書に見つかりません',close:'閉じる',
   keys:'Space 裏返す/普通 · 1–4 評価 · F 全画面 · L レイアウト · Esc 終了',fontsFailed:'フォント一覧を読めませんでした。名前を直接入力できます'}
@@ -163,7 +163,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
     presets are thumbnails, placement a segmented switch, the grid slider shows only in grid mode, saved layouts sit in
     one small menu, the help is a tooltip. It fades while a block is dragged. */
  const dockKey='megulit-anki-hud-dock';
- let dock=(()=>{try{const d=JSON.parse(localStorage.getItem(dockKey))||{};return {fx:Number.isFinite(d.fx)?d.fx:null,fy:Number.isFinite(d.fy)?d.fy:null,collapsed:!!d.collapsed};}catch{return {fx:null,fy:null,collapsed:false};}})();
+ let dock=(()=>{try{const d=JSON.parse(localStorage.getItem(dockKey))||{};return {px:Number.isFinite(d.px)?d.px:null,py:Number.isFinite(d.py)?d.py:null,op:Number.isFinite(d.op)?Math.min(100,Math.max(30,d.op)):100,collapsed:!!d.collapsed};}catch{return {px:null,py:null,op:100,collapsed:false};}})();
  const saveDock=()=>{try{localStorage.setItem(dockKey,JSON.stringify(dock));}catch{}};
  const thumb=name=>{const L=M.preset(name);return '<svg viewBox="0 0 100 62" aria-hidden="true" focusable="false">'+['shot','word','info','example','controls'].map(k=>{const r=L[k];if(!r)return '';
   return '<rect class="t-'+k+'" x="'+r.x+'" y="'+(r.y*.62)+'" width="'+r.w+'" height="'+Math.max(4,r.h*.62)+'"/>';}).join('')+'</svg>';};
@@ -181,28 +181,32 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    '<div class="hud-dock-row"><span class="hud-dock-k">'+esc(hc.place)+'</span><div class="hud-dock-seg" role="radiogroup" aria-label="'+esc(hc.place)+'"><button type="button" role="radio" data-hud-mode="free" aria-checked="'+(!grid)+'">'+esc(hc.free)+'</button><button type="button" role="radio" data-hud-mode="grid" aria-checked="'+grid+'">'+esc(hc.gridMode)+'</button></div></div>'+
    '<label class="hud-dock-row hud-dock-grid"'+(grid?'':' hidden')+'><span class="hud-dock-k">'+esc(hc.gridSize)+'</span><input type="range" min="8" max="96" step="4" data-hud-grid value="'+hud.snap.grid+'" aria-label="'+esc(hc.gridSize)+'"><output>'+hud.snap.grid+'</output></label>'+
    '<div class="hud-dock-row"><span class="hud-dock-k">'+esc(hc.mine)+'</span><details class="hud-dock-menu"><summary>'+esc(hud.saved.length?hc.pick:hc.none)+'<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></summary><div class="hud-dock-list" role="menu">'+saved+'<hr><button type="button" role="menuitem" data-hud-save>+ '+esc(hc.saveAs)+'</button></div></details></div>'+
+   '<label class="hud-dock-row hud-dock-op"><span class="hud-dock-k">'+esc(hc.opacity)+'</span><input type="range" min="30" max="100" step="5" data-dock-op value="'+dock.op+'" aria-label="'+esc(hc.opacity)+'"><output>'+dock.op+'%</output></label>'+
    '</div><footer class="hud-dock-foot"><button type="button" class="hud-dock-ghost" data-hud-reset>'+esc(hc.reset)+'</button><button type="button" class="hud-dock-done" data-hud-done>'+esc(hc.done)+'</button></footer></div>';
  }
  /* where the dock goes: the saved spot, or the corner that covers the least of the blocks on screen */
- function dockOver(box,x,y,c){const W=box.offsetWidth,Hh=box.offsetHeight;box.classList.toggle('over-content',Object.values({...cardFrames,...hostShown}).some(r=>{const fx=r.x*c.width/100,fy=r.y*c.height/100;return fx<x+W&&x<fx+r.w*c.width/100&&fy<y+Hh&&y<fy+r.h*c.height/100;}));}
+ function dockOver(box,x,y,c){/* x,y are canvas-relative here */const W=box.offsetWidth,Hh=box.offsetHeight;box.classList.toggle('over-content',Object.values({...cardFrames,...hostShown}).some(r=>{const fx=r.x*c.width/100,fy=r.y*c.height/100;return fx<x+W&&x<fx+r.w*c.width/100&&fy<y+Hh&&y<fy+r.h*c.height/100;}));}
+ /* the dock is position:fixed: it lives in viewport coordinates and is clamped to the window only, never to the HUD */
+ const dockClamp=(box,x,y)=>{const W=box.offsetWidth,Hh=box.offsetHeight,m=6;return [Math.min(Math.max(m,innerWidth-W-m),Math.max(m,x)),Math.min(Math.max(m,innerHeight-Hh-m),Math.max(m,y))];};
+ const dockSide=(box,x)=>x+box.offsetWidth/2>innerWidth/2?'right':'left';
  function placeDock(s,auto){
-  const box=s.querySelector('.anki-hud-edit'),c=s.querySelector('.anki-hud-canvas')?.getBoundingClientRect();if(!box||box.hidden||!c?.width)return;
+  const box=dockOf(s),c=s.querySelector('.anki-hud-canvas')?.getBoundingClientRect();if(!box||box.hidden||!c?.width)return;
   const W=box.offsetWidth,Hh=box.offsetHeight,m=14,maxX=Math.max(m,c.width-W-m),maxY=Math.max(m,c.height-Hh-m);let x,y;
-  if(dock.fx!==null&&!auto){x=m+(maxX-m)*dock.fx;y=m+(maxY-m)*dock.fy;}
-  else{/* every block with a 10 px safety margin */const frames=Object.values({...cardFrames,...hostShown}).map(r=>({x:r.x*c.width/100-10,y:r.y*c.height/100-10,w:r.w*c.width/100+20,h:r.h*c.height/100+20}));
-   /* 'keep': an auto-placed dock stays where it is while it still covers nothing (no jumping on every change) */
-   if(auto==='keep'&&box.dataset.placed){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform),px=t.m41,py=t.m42;let hit=0;
-    for(const f of frames){hit+=Math.max(0,Math.min(px+W,f.x+f.w)-Math.max(px,f.x))*Math.max(0,Math.min(py+Hh,f.y+f.h)-Math.max(py,f.y));}if(hit<=0&&px<=maxX+1&&py<=maxY+1)return;}
-   box.dataset.placed='1';
-   /* corners first, then every spot on a 16 px grid; least covered wins, nearer an edge breaks ties */const cands=[[maxX,m],[m,m],[maxX,maxY],[m,maxY]];for(let gy=m;gy<=maxY;gy+=16)for(let gx=m;gx<=maxX;gx+=16)cands.push([gx,gy]);
-   let best=null;for(const [cx,cy] of cands){let hit=0;for(const f of frames){const ox=Math.max(0,Math.min(cx+W,f.x+f.w)-Math.max(cx,f.x)),oy=Math.max(0,Math.min(cy+Hh,f.y+f.h)-Math.max(cy,f.y));hit+=ox*oy;}
-    hit+=Math.min(cx-m,maxX-cx,cy-m,maxY-cy)*12;if(!best||hit<best.hit-1)best={hit,x:cx,y:cy};}
-   x=best.x;y=best.y;
-   const covered=best.hit-Math.min(best.x-m,maxX-best.x,best.y-m,maxY-best.y)*12;if(covered>0&&!dock.opened&&!box.classList.contains('collapsed')){box.classList.add('collapsed');box.dataset.autofold='1';x=maxX;y=m;}}
-  x=Math.min(maxX,Math.max(m,x));y=Math.min(maxY,Math.max(m,y));dockOver(box,x,y,c);box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=x+W/2>c.width/2?'right':'left';
+  if(dock.px!==null&&!auto){[x,y]=dockClamp(box,Math.max(0,innerWidth-W)*dock.px,Math.max(0,innerHeight-Hh)*dock.py);dockOver(box,x-c.left,y-c.top,c);box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=dockSide(box,x);return;}
+  /* every block with a 10 px safety margin */const frames=Object.values({...cardFrames,...hostShown}).map(r=>({x:r.x*c.width/100-10,y:r.y*c.height/100-10,w:r.w*c.width/100+20,h:r.h*c.height/100+20}));
+  /* 'keep': an auto-placed dock stays where it is while it still covers nothing (no jumping on every change) */
+  if(auto==='keep'&&box.dataset.placed){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform),px=t.m41-c.left,py=t.m42-c.top;let hit=0;
+   for(const f of frames){hit+=Math.max(0,Math.min(px+W,f.x+f.w)-Math.max(px,f.x))*Math.max(0,Math.min(py+Hh,f.y+f.h)-Math.max(py,f.y));}if(hit<=0&&px<=maxX+1&&py<=maxY+1)return;}
+  box.dataset.placed='1';
+  /* corners first, then every spot on a 16 px grid; least covered wins, nearer an edge breaks ties */const cands=[[maxX,m],[m,m],[maxX,maxY],[m,maxY]];for(let gy=m;gy<=maxY;gy+=16)for(let gx=m;gx<=maxX;gx+=16)cands.push([gx,gy]);
+  let best=null;for(const [cx,cy] of cands){let hit=0;for(const f of frames){const ox=Math.max(0,Math.min(cx+W,f.x+f.w)-Math.max(cx,f.x)),oy=Math.max(0,Math.min(cy+Hh,f.y+f.h)-Math.max(cy,f.y));hit+=ox*oy;}
+   hit+=Math.min(cx-m,maxX-cx,cy-m,maxY-cy)*12;if(!best||hit<best.hit-1)best={hit,x:cx,y:cy};}
+  x=best.x;y=best.y;
+  const covered=best.hit-Math.min(best.x-m,maxX-best.x,best.y-m,maxY-best.y)*12;if(covered>0&&!dock.opened&&!box.classList.contains('collapsed')){box.classList.add('collapsed');box.dataset.autofold='1';x=maxX;y=m;}
+  x=Math.min(maxX,Math.max(m,x));y=Math.min(maxY,Math.max(m,y));dockOver(box,x,y,c);[x,y]=dockClamp(box,x+c.left,y+c.top);box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=dockSide(box,x);
  }
  function mountEdit(s){
-  const box=s.querySelector('.anki-hud-edit');box.innerHTML=editPanel();box.classList.toggle('collapsed',dock.collapsed);
+  const box=dockOf(s);box.innerHTML=editPanel();box.classList.toggle('collapsed',dock.collapsed);
   box.querySelector('[data-hud-done]').onclick=()=>setEditing(false);box.querySelector('[data-hud-reset]').onclick=resetHud;
   const fold=on=>{dock.collapsed=on;saveDock();box.classList.toggle('collapsed',on);(on?box.querySelector('[data-dock-expand]'):box.querySelector('[data-hud-done]'))?.focus({preventScroll:true});};
   box.onclick=event=>{const b=event.target.closest('button');if(!b)return;
@@ -212,27 +216,40 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    else if(b.dataset.hudSaved!==undefined){const x=hud.saved[Number(b.dataset.hudSaved)];if(x){hud.layout=M.cleanLayout(x.layout);saveHud();applyHud();}b.closest('details').open=false;}
    else if(b.hasAttribute('data-hud-save')){hud.saved=[...hud.saved,{name:hc.mine+' '+(hud.saved.length+1),layout:JSON.parse(JSON.stringify(hud.layout))}].slice(-6);saveHud();hud=M.load(localStorage);mountEdit(s);placeDock(s);toast(hc.savedOk);}};
   box.querySelector('[data-hud-grid]').oninput=event=>{hud.snap={...hud.snap,grid:Number(event.target.value)};event.target.nextElementSibling.value=event.target.value;saveHud();applyHud();};
+  const setOp=v=>{dock.op=Math.min(100,Math.max(30,Number(v)||100));box.style.setProperty('--dk-op',String(dock.op/100));};setOp(dock.op);
+  box.querySelector('[data-dock-op]').oninput=event=>{setOp(event.target.value);event.target.nextElementSibling.value=dock.op+'%';saveDock();};
   box.querySelector('.hud-dock-menu').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();e.currentTarget.open=false;e.currentTarget.querySelector('summary').focus();}});
   /* drag by the head (or the folded pill); a click on the pill that did not move opens it */
   for(const grip of box.querySelectorAll('[data-dock-grip],[data-dock-expand]'))grip.addEventListener('pointerdown',down=>{
    if(down.button!==0||(grip.hasAttribute('data-dock-grip')&&down.target.closest('button,[role=button]')))return;
    const c=s.querySelector('.anki-hud-canvas').getBoundingClientRect(),m0=new DOMMatrixReadOnly(getComputedStyle(box).transform),sx=m0.m41,sy=m0.m42;let moved=false,frame=0,last=down;
    try{grip.setPointerCapture(down.pointerId);}catch{}box.classList.add('dragging');s.classList.add('dock-dragging');delete box.dataset.dragged;
-   const paint=()=>{frame=0;const W=box.offsetWidth,Hh=box.offsetHeight,x=Math.min(c.width-W-6,Math.max(6,sx+last.clientX-down.clientX)),y=Math.min(c.height-Hh-6,Math.max(6,sy+last.clientY-down.clientY));
-    box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=x+W/2>c.width/2?'right':'left';
-    const m=14,maxX=Math.max(m+1,c.width-W-m),maxY=Math.max(m+1,c.height-Hh-m);dock.fx=Math.min(1,Math.max(0,(x-m)/(maxX-m)));dock.fy=Math.min(1,Math.max(0,(y-m)/(maxY-m)));};
+   const paint=()=>{frame=0;const W=box.offsetWidth,Hh=box.offsetHeight,[x,y]=dockClamp(box,sx+last.clientX-down.clientX,sy+last.clientY-down.clientY);
+    box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=dockSide(box,x);
+    dock.px=Math.min(1,Math.max(0,x/Math.max(1,innerWidth-W)));dock.py=Math.min(1,Math.max(0,y/Math.max(1,innerHeight-Hh)));};
    const move=e=>{last=e;if(Math.abs(e.clientX-down.clientX)+Math.abs(e.clientY-down.clientY)>3)moved=true;if(moved&&!frame)frame=requestAnimationFrame(paint);};
    const up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);removeEventListener('pointercancel',up);box.classList.remove('dragging');s.classList.remove('dock-dragging');
-    if(frame){cancelAnimationFrame(frame);paint();}if(moved){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform);dockOver(box,t.m41,t.m42,c);saveDock();box.dataset.dragged='1';setTimeout(()=>delete box.dataset.dragged,0);}};
+    if(frame){cancelAnimationFrame(frame);paint();}if(moved){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform);dockOver(box,t.m41-c.left,t.m42-c.top,c);saveDock();box.dataset.dragged='1';setTimeout(()=>delete box.dataset.dragged,0);}};
    /* window listeners: the drag keeps going even where pointer capture is refused */addEventListener('pointermove',move);addEventListener('pointerup',up);addEventListener('pointercancel',up);});
   try{enhanceSelects(box);}catch{}
  }
- const moving=on=>stage()?.classList.toggle('hud-moving',!!on);
+ const moving=on=>{stage()?.classList.toggle('hud-moving',!!on);dockEl?.classList.toggle('hud-moving',!!on);};
+ /* (user 2026-11-14: the panel covered the blocks and could not leave the HUD) the dock lives in a top-level layer:
+    a child of <body> (or of the full-screen element), so no HUD overflow, transform or stacking context confines it.
+    A watchdog hides and drops it once its review page is gone. */
+ let dockEl=null,dockWatch=0;
+ function dockOf(s){if(!s.__dock)s.__dock=s.querySelector('.anki-hud-edit');dockEl=s.__dock;return dockEl;}
+ function dockHome(){if(!dockEl)return;const fs=document.fullscreenElement,home=fs&&fs!==document.documentElement?fs:document.body;if(dockEl.parentNode!==home)home.append(dockEl);}
+ function dockGone(){const s=stage();return !s||!s.isConnected||!s.getClientRects().length;}
+ function watchDock(){clearInterval(dockWatch);dockWatch=setInterval(()=>{if(!dockEl){clearInterval(dockWatch);return;}if(dockGone()){dockEl.hidden=true;if(!stage()?.isConnected){dockEl.remove();clearInterval(dockWatch);}}else if(editing&&dockEl.hidden){dockEl.hidden=false;placeDock(stage());}},400);}
+ document.addEventListener('fullscreenchange',dockHome);
+ /* a smaller window pulls a saved spot back inside it */addEventListener('resize',()=>{const s=stage();if(editing&&s&&dockEl&&!dockEl.hidden)placeDock(s);});
  function shell(){
   let s=stage();if(s)return s;
   s=document.createElement('section');s.className='anki-hud';s.setAttribute('aria-label',text.ankiReview);
   s.innerHTML='<div class="anki-hud-bg" aria-hidden="true"></div><div class="anki-hud-bar anki-toolbar"></div><div class="anki-hud-canvas"><div class="anki-hud-grid" aria-hidden="true"></div><div class="anki-hud-frame-slot"></div><div class="anki-hud-layer"><div class="anki-hud-block" data-hud="progress"><div class="anki-hud-progress hud-content" aria-live="polite"></div></div><div class="anki-hud-block" data-hud="controls"><div class="review-controls hud-content" data-controls></div></div><div class="anki-hud-guides" aria-hidden="true"></div></div><div class="anki-hud-edit" hidden></div><div class="anki-hud-keys" aria-hidden="true">'+esc(hc.keys)+'</div></div>';
   target.replaceChildren(s);
+  dockEl?.remove();dockOf(s);dockHome();
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud;el.insertAdjacentHTML('beforeend','<span class="hud-label">'+esc(hc.labels[id]||id)+'</span>');
    H.attach(el,{stage:canvas,rect:()=>hostShown[id]||hud.layout[id],editing:()=>editing,
     snap:(r,kind,alt)=>{if(alt)return null;const c=canvas().getBoundingClientRect();return H.snapRect(r,Object.entries({...cardFrames,...hostShown}).filter(([k])=>k!==id).map(([,v])=>v),kind,{...hud.snap,SW:c.width,SH:c.height});},
@@ -245,8 +262,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const s=stage();if(!s)return;const c=canvas().getBoundingClientRect();if(!c.width)return;let changed=false;
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud,box=el.querySelector('.hud-content'),r=hud.layout[id];if(!box||!r)continue;
    box.style.transform='none';const nw=box.offsetWidth,nh=box.offsetHeight;if(!nw||!nh||!box.textContent.trim()){H.applyRect(el,hostShown[id]||r);continue;}
-   const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.rect;H.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
-  if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});if(editing&&dock.fx===null)placeDock(s,'keep');
+   const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.rect;H.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
+  if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});if(editing&&dock.px===null)placeDock(s,'keep');
  }
  function paintBg(){
   const s=stage();if(!s)return;const bg=s.querySelector('.anki-hud-bg'),b=hud.style.bg;
@@ -261,11 +278,11 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   placeBlocks();paintBg();post({type:'tome-anki-hud',...hudMessage()});
  }
  function setEditing(on){
-  editing=!!on;const s=stage();if(!s)return;s.classList.toggle('editing',editing);s.querySelector('.anki-hud-edit').hidden=!editing;
+  editing=!!on;const s=stage();if(!s)return;s.classList.toggle('editing',editing);const box=dockOf(s);dockHome();box.hidden=!editing;if(editing)watchDock();
   s.querySelectorAll('.anki-hud-bar details[open]').forEach(d=>d.open=false);s.querySelector('[data-hud-layout]')?.setAttribute('aria-pressed',String(editing));
-  post({type:'tome-anki-hud',edit:editing});if(editing){delete s.querySelector('.anki-hud-edit').dataset.placed;placeDock(s);(dock.collapsed?s.querySelector('[data-dock-expand]'):s.querySelector('[data-hud-done]'))?.focus({preventScroll:true});}else moving(false);
+  post({type:'tome-anki-hud',edit:editing});if(editing){delete box.dataset.placed;placeDock(s);(dock.collapsed?box.querySelector('[data-dock-expand]'):box.querySelector('[data-hud-done]'))?.focus({preventScroll:true});}else moving(false);
  }
- function resetHud(){hud={...hud,layout:M.cleanLayout({}),style:M.cleanStyle({}),snap:M.cleanSnap({})};dock={...dock,fx:null,fy:null};saveDock();saveHud();const s=stage();if(s){mountEdit(s);placeDock(s,true);}applyHud();const bar=s?.querySelector('.anki-hud-bar');if(bar){bar.querySelector('.anki-look')?.remove();mountLook(bar);}}
+ function resetHud(){hud={...hud,layout:M.cleanLayout({}),style:M.cleanStyle({}),snap:M.cleanSnap({})};dock={...dock,px:null,py:null};saveDock();saveHud();const s=stage();if(s){mountEdit(s);placeDock(s,true);}applyHud();const bar=s?.querySelector('.anki-hud-bar');if(bar){bar.querySelector('.anki-look')?.remove();mountLook(bar);}}
  /* Full screen: the stage covers the window (fixed, above the top bar) and the window itself goes full screen through
     the desktop shell, or the browser Fullscreen API outside it. Esc leaves. */
  async function setImmersive(on){

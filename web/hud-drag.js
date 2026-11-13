@@ -27,14 +27,19 @@
   const out={};for(const key of Object.keys(defaults))out[key]=normRect(saved&&saved[key],defaults[key]);return out;
  }
  function applyRect(el,r){el.style.left=r.x+'%';el.style.top=r.y+'%';el.style.width=r.w+'%';el.style.height=r.h+'%';}
- /* The frame a block shows for content of natural size nw x nh px on a SW x SH px stage. The scale is kept once known
-    (r.s), so a longer sentence grows its box instead of shrinking its text; a fresh rect (just resized, or from a
-    preset) is filled as far as the content's proportions allow. Never larger than the stage. */
+ /* The frame a block shows for content of natural size nw x nh px on a SW x SH px stage.
+    (user 2026-11-14: the example dropped under 下一张 after 显示答案) The saved box is the single source of truth: the
+    frame is always exactly that box, on every card and in both the question and answer state. The content keeps its
+    scale (r.s) and is shrunk to fit when it is taller or wider than the box (furigana + translation after the reveal);
+    it sits at the top of the box, centred across (ox/oy: px offsets inside the frame). A fresh box (just resized, or a
+    preset) takes the scale that fills it. */
  function hugRect(r,nw,nh,SW,SH,max=6){
-  if(!(nw>0&&nh>0&&SW>0&&SH>0))return {rect:normRect(r,r),scale:1,fresh:false};
-  const fresh=!Number.isFinite(r.s);let s=fresh?Math.min(r.w*SW/100/nw,r.h*SH/100/nh):r.s;s=Math.min(max,Math.max(.12,s));
-  const shown=Math.min(s,SW*.99/nw,SH*.99/nh),w=nw*shown/SW*100,h=nh*shown/SH*100,cx=r.x+r.w/2,cy=r.y+r.h/2;
-  const rect=normRect({x:cx-w/2,y:cy-h/2,w,h,s},r,{w:.3,h:.3});return {rect,scale:shown,fresh};
+  const box=normRect(r,r,{w:.3,h:.3});
+  if(!(nw>0&&nh>0&&SW>0&&SH>0))return {rect:box,scale:1,fresh:false,ox:0,oy:0};
+  const bw=box.w*SW/100,bh=box.h*SH/100,fit=Math.min(bw/nw,bh/nh),fresh=!Number.isFinite(r.s);
+  let s=fresh?fit:r.s;s=Math.min(max,Math.max(.12,s));box.s=Math.round(s*1000)/1000;
+  const shown=Math.max(.05,Math.min(s,fit));
+  return {rect:box,scale:shown,fresh,ox:Math.round(Math.max(0,(bw-nw*shown)/2)),oy:0};
  }
  /* Snapping. r: the rect being placed (percent), others: rects of the other blocks, kind: 'move' or a resize edge.
     opts: {mode:'free'|'grid', grid:px, SW, SH, thr:px}. Returns the adjusted rect and the guides to draw. */
