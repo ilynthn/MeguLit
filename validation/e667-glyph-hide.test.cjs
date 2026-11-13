@@ -81,7 +81,19 @@ test('packaged MeguLitFont32/64.dll are the glyph-hide build (version export >= 
   assert.ok(fs.existsSync(f),n+' missing: run Build.ps1 (native/fontprobe/build.cmd)');const buf=fs.readFileSync(f);
   const ex=peExports(buf);assert.ok(ex.includes('MeguLitFontVersion')&&ex.includes('MeguLitFontVersionTag'),n+' has no MeguLitFontVersion export: stale DLL from before the glyph hide');
   const tag=/MeguLitFont version=(\d+)/.exec(buf.toString('latin1'));assert.ok(tag&&Number(tag[1])>=want,n+' version '+(tag?tag[1]:'none')+' < '+want);}
- const b=read('Build.ps1');for(const f of ['build.cmd','selftest\\run-match.cmd','selftest\\run-hide.cmd'])assert.ok(b.includes("if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\\fontprobe\\"+f+"')) -ne 0) { throw"),'Build.ps1 builds and self-tests '+f);
- const ci=read('.github/workflows/ci.yml');assert.ok(ci.includes('native\\fontprobe\\build.cmd'));assert.match(ci,/run-hide\.cmd/);
+ const b=read('Build.ps1');assert.ok(b.includes("foreach ($taskNb in (Get-Content -LiteralPath (Join-Path $taskRoot 'native/native-builds.json')"),'Build.ps1 builds every listed native binary');
+ assert.ok(b.includes('throw "Native self-test failed:'),'self-tests fail the build');assert.ok(b.includes("tools/native-stale.cjs'); if ($LASTEXITCODE -ne 0) { throw"),'staleness check fails the build');
+ const ci=read('.github/workflows/ci.yml');assert.ok(ci.includes('native\\native-builds.json'));assert.ok(ci.includes('node tools/native-stale.cjs --ci'));
+ assert.ok(read('Release.ps1').includes('& node tools/native-stale.cjs;if($LASTEXITCODE -ne 0){throw'),'Release stops on a stale native binary even when it reuses a build');
  const h=read('native/HookBridge.cs');assert.ok(h.includes('hideTrying=item.Key==Selected&&c.gdiProbe&&!c.hideOnly&&(ReplacementEnabled||ProbeWanted)&&!GlyphCached'));
  const g=read('web/reader/modules/gal.js');assert.ok(g.includes("item.hideOnly?' [隐藏原文]':item.embeddable?' [可清空]':item.hideTrying?' [仅读取 · 尝试隐藏原文]':' [仅读取]'"),'three-state stream label');});
+
+/* Every shipped native binary (native/native-builds.json) is at least as new as its sources and carries its marker; the
+   DLL the BRUNS GDI hide needs (MeguLitHook32.dll) must contain MeguLit_GDIHIDE. In CI, entries not built there may be absent. */
+test('no shipped native binary is older than its sources (tools/native-stale.cjs)',()=>{
+ const {check}=require('../tools/native-stale.cjs');const r=check({ci:!!process.env.CI});
+ assert.deepEqual(r.problems,[],r.problems.join('\n'));
+ const names=r.entries.flatMap(e=>e.outputs);
+ for(const n of ['native/MeguLitFont32.dll','native/MeguLitFont64.dll','native/megulithook/MeguLitHook32.dll','native/MeguLitScn32.dll','native/MeguLitKrkr64.dll','native/MeguLitRenpy64.dll','native/MeguLitDpDecline32.dll','native/GalWindowBridge.exe'])assert.ok(names.includes(n),n+' listed');
+ assert.equal(r.entries.find(e=>e.name==='megulithook').marker,'MeguLit_GDIHIDE');
+ const rel=read('Release.ps1');for(const n of names.filter(n=>/\.dll$/.test(n)))assert.ok(rel.includes("'"+n+"'"),n+' is packaged');});

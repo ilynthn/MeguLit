@@ -15,17 +15,26 @@ $taskHookFinal = Join-Path $taskRoot 'native/HookBridge.exe'
 & (Join-Path $taskRoot 'native/Build-HookBridge.ps1') -OutputPath $taskHookPending
 try { Copy-Item -LiteralPath $taskHookPending -Destination $taskHookFinal -Force; Remove-Item -LiteralPath $taskHookPending -Force }
 catch [System.IO.IOException] { Write-Output 'Hook bridge update staged for the next attach' }
-# E667 glyph hide: MeguLitFont32/64.dll (native/fontprobe) are not tracked (*.dll is ignored) and Release.ps1 packages whatever
-# sits in native/, so a stale DLL once shipped without the hide side. They are rebuilt here every time, and their self-tests
-# (decisions; DLL exports MeguLitFontVersion >= 2 and hides off screen, both bitnesses) fail the build.
+# E667: the native DLLs/exes in native/native-builds.json are not tracked (*.dll, *.exe ignored) and Release.ps1 packages
+# whatever sits in native/; beta37/38 shipped MeguLitFont and MeguLitHook32 builds older than their merged sources. Every
+# entry is rebuilt here with its own script and its self-tests fail the build; tools/native-stale.cjs (validation and
+# Release.ps1) then refuses any binary older than its sources or missing its marker. An entry whose external tree
+# ("requires", e.g. the LunaHook source) is not on this machine is left as it is: the staleness check decides.
 $taskVsDev = Resolve-First (@($env:MEGULIT_VS, (Join-Path $taskTools 'vs2022\Common7\Tools\VsDevCmd.bat')) + @(if (Test-Path -LiteralPath $vswhere) { & $vswhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | ForEach-Object { Join-Path $_ 'Common7\Tools\VsDevCmd.bat' } }))
-if (-not $taskVsDev) { throw 'VsDevCmd.bat not found: the MSVC C++ toolset is needed for native/fontprobe (set MEGULIT_VS)' }
+if (-not $taskVsDev) { throw 'VsDevCmd.bat not found: the MSVC C++ toolset is needed for the native DLLs (set MEGULIT_VS)' }
 $env:MEGULIT_VS = $taskVsDev; Remove-Item Env:MEGULIT_FONT_OUT -ErrorAction SilentlyContinue
-# stderr is merged inside cmd: VsDevCmd's harmless "vswhere.exe is not recognized" must not stop the build under ErrorAction Stop.
-function Invoke-TaskCmd([string]$Script) { & cmd /c ('""' + $Script + '" 2>&1"') | Out-Host; return $LASTEXITCODE }
-if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\fontprobe\build.cmd')) -ne 0) { throw 'MeguLitFont DLL build failed' }
-if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\fontprobe\selftest\run-match.cmd')) -ne 0) { throw 'Glyph hide decision self-test failed' }
-if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\fontprobe\selftest\run-hide.cmd')) -ne 0) { throw 'MeguLitFont DLL self-test failed (old DLL or glyph hide broken)' }
+# stderr is merged inside the child: VsDevCmd's harmless "vswhere.exe is not recognized" must not stop the build under ErrorAction Stop.
+function Invoke-TaskCmd([string]$Script) {
+ if ($Script -like '*.ps1') { & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$Script' 2>&1; exit `$LASTEXITCODE" | Out-Host; return $LASTEXITCODE }
+ & cmd /c ('""' + $Script + '" 2>&1"') | Out-Host; return $LASTEXITCODE }
+foreach ($taskNb in (Get-Content -LiteralPath (Join-Path $taskRoot 'native/native-builds.json') -Raw | ConvertFrom-Json)) {
+ if ($taskNb.requires -and -not (Test-Path -LiteralPath $taskNb.requires)) { Write-Warning "native $($taskNb.name): $($taskNb.requires) not on this machine, not rebuilt"; continue }
+ if ((Invoke-TaskCmd (Join-Path $taskRoot $taskNb.build)) -ne 0) { throw "Native build failed: $($taskNb.name) ($($taskNb.build))" }
+ foreach ($taskSt in @($taskNb.selftests)) { if (-not $taskSt) { continue }
+  if ($taskNb.selftestNeeds -eq 'python' -and -not (Get-Command python.exe -ErrorAction SilentlyContinue)) { Write-Warning "native $($taskNb.name): no python on PATH, $taskSt skipped"; continue }
+  if ((Invoke-TaskCmd (Join-Path $taskRoot $taskSt)) -ne 0) { throw "Native self-test failed: $($taskNb.name) ($taskSt)" } }
+}
+& $taskNode (Join-Path $taskRoot 'tools/native-stale.cjs'); if ($LASTEXITCODE -ne 0) { throw 'A shipped native binary is older than its sources (tools/native-stale.cjs)' }
 & (Join-Path $taskRoot 'native/Build-GameStyleProbe.ps1')
 & (Join-Path $taskRoot 'native/Build-StartupIsland.ps1') -OutputPath (Join-Path $taskRoot 'native/StartupIsland.exe')
 & $taskCsc /nologo /target:exe /optimize+ ("/out:" + (Join-Path $taskRoot 'native\GameProcess.exe')) (Join-Path $taskRoot 'native\GameProcess.cs')
