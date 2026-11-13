@@ -112,8 +112,10 @@ test('real data: STEINS;GATE (Steam, Japanese script) decodes through the SGHD c
  assert.deepStrictEqual(s.lines.slice(0,2),['【倫太郎】','「おい、そこの貴様。俺たちが見えているか？」']);
 });
 const cc=path.join(STEAM,'CHAOS;CHILD');
-test('real data: CHAOS;CHILD (Steam, English) is not taken for Japanese',{skip:!fs.existsSync(path.join(cc,'USRDIR','script.mpk'))&&'not installed'},()=>{
- assert.deepStrictEqual(scenes.ENGINES.mages.scenes(cc),[]);
+/* the Japanese install reads (validation/mages-charsets.test.cjs); an English one is left out */
+test('real data: CHAOS;CHILD (Steam) English text is not taken for Japanese',{skip:!fs.existsSync(path.join(cc,'USRDIR','script.mpk'))&&'not installed'},()=>{
+ const sc=scenes.ENGINES.mages.scenes(cc);if(!sc.length)return;
+ assert.ok(sc.some(x=>mages.parse(x.read()).lines.some(l=>/[ぁ-ゖ]/.test(l))));
 });
 const aai=path.join(STEAM,'Ace Attorney Investigations Collection');
 test('real data: 逆転検事 1&2 (Steam) pairs Japanese with Simplified Chinese',{skip:!fs.existsSync(path.join(aai,'GK12_Data','StreamingAssets','aa'))&&'not installed'},()=>{
