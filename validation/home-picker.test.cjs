@@ -29,8 +29,9 @@ test('home page: no 全部作品 / + cards in the hand; a docked tab slides out 
  assert.match(css,/\.tv-dock\{[^}]*right:0;[^}]*width:(\d+)px;min-height:(\d+)px;[^}]*border-radius:12px!important;[^}]*transform:translateX\(calc\(100% - \d+px\)\)/,'portrait card tab tucked into the right edge');
  assert.match(css,/\.tv-dock span\{[^}]*writing-mode:vertical-rl/,'label runs down the card');
  /* the plus is drawn, not a glyph, and plus + label centre as one group with even room above and below */
- assert.match(css,/\.tv-dock b\{[^}]*font-size:0;background:linear-gradient/,'drawn plus');
- assert.match(css,/\.tv-dock\{[^}]*justify-content:center;[^}]*padding:18px 0!important/,'even padding top and bottom');
+ assert.match(css,/\.tv-dock b\{[^}]*font-size:0\}/,'drawn plus');assert.match(css,/\.tv-dock b::before\{[^}]*border-left:2px solid/,'plus strokes are pixel-snapped borders');
+ assert.match(css,/\.tv-dock::after\{[^}]*inset:4px;[^}]*border-radius:7px/,'inner frame concentric with the 12px outer radius');
+ assert.match(css,/\.tv-dock\{[^}]*justify-content:center;[^}]*padding:21px 0 21px!important/,'even padding top and bottom');
  assert.match(css,/\.tv-dock\.out\{transform:translateX\(-\d+px\);/,'slides fully into view, never rotated (sharp text)');
  const [,dw,dh]=css.match(/\.tv-dock\{[^}]*width:(\d+)px;min-height:(\d+)px/);assert.ok(+dh/+dw>1.4,'portrait card');assert.ok(!/\.tv-dock\.out\{[^}]*rotate/.test(css));
  assert.ok(pick.includes("addEventListener('pointerenter'")&&pick.includes("addEventListener('pointerleave'"),'opens on hover, tucks back when the pointer leaves');

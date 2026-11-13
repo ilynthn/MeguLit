@@ -66,8 +66,9 @@ html:not(#mgc1):not(#mgc2):not(#mgc3):not(#mgc4):not(#mgc5):not(#mgc6):not(#mgc7
  &:active{color:var(--mgc-red-ink)!important}
 }
 
+/* the second-level dropdown under the top nav (.main>.tabs: 历史, 学习, 排行榜, 日报 …) is excluded below and left to grimoire.css: its gold diamond, type weight and spacing (2026-11-14, user) */
 /* ---------- tabs: YaHei 14px, red rule draws in, a diamond under the current one ---------- */
-& body :is(.detail-tabs,.settings-page-tabs,.dl-cats,.history-tabs)>button,& body .main button.tab{
+& body :is(.detail-tabs,.settings-page-tabs,.dl-cats,.history-tabs)>button,& body .main button.tab:not(.main>.tabs>button){
  position:relative;padding:8px 2px 10px!important;border:0!important;border-radius:0!important;background:transparent!important;color:var(--mgc-ink-2)!important;
  font:500 14px/1.2 var(--mgc-ui)!important;letter-spacing:.04em!important;box-shadow:none!important;transition:color var(--mgc-t)!important;
  &::after{content:""!important;position:absolute!important;left:0!important;right:0!important;bottom:-1px!important;height:2px!important;background:var(--mgc-red)!important;transform:scaleX(0)!important;transform-origin:0 50%!important;transition:transform .45s var(--mgc-ease)!important;opacity:1!important;display:block!important;top:auto!important;width:auto!important;border:0!important}
@@ -81,7 +82,7 @@ html:not(#mgc1):not(#mgc2):not(#mgc3):not(#mgc4):not(#mgc5):not(#mgc6):not(#mgc7
 & body :is(.detail-tabs,.settings-page-tabs,.dl-cats,.history-tabs){border-bottom:1px solid var(--mgc-line)!important}
 
 /* ---------- segmented: one group in a hairline frame, selected is solid crimson ---------- */
-& body :is(.lb-seg,.stg-rs,.tv-mode,.translation-types,.dl-filters,.gm-levels,.sp-read,.stg-tabs,.lb-tabs):not(.titlebar *){
+& body :is(.stg-rs,.tv-mode,.translation-types,.dl-filters,.gm-levels,.sp-read,.stg-tabs):not(.titlebar *){
  display:inline-flex!important;gap:0!important;padding:0!important;border:1px solid var(--mgc-line)!important;border-radius:var(--mgc-r)!important;background:transparent!important;box-shadow:none!important;
  &>button{min-height:30px;padding:0 14px!important;margin:0!important;border:0!important;border-left:1px solid var(--mgc-line)!important;border-radius:0!important;background:transparent!important;
   color:var(--mgc-ink-2)!important;font:500 13px/1 var(--mgc-ui)!important;letter-spacing:.02em!important;text-transform:none!important;box-shadow:none!important;transition:background-color var(--mgc-t),color var(--mgc-t)!important}
