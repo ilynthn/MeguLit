@@ -66,7 +66,7 @@
    if(id==='shot'){const r=hud.layout.shot;if(!r)continue;const rect=MeguHud.normRect(r,r,{w:.3,h:.3});shown.shot=rect;MeguHud.applyRect(el,rect);
     box.style.cssText='';el.classList.add('hud-crop');frameShot(el,rect);continue;}
    else{box.style.width='max-content';box.style.height='auto';box.style.maxWidth=Math.round(SW*.94)+'px';nw=box.offsetWidth;nh=box.offsetHeight;}
-   const r=hud.layout[id];if(!r||!nw||!nh)continue;const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5);shown[id]=h.rect;MeguHud.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';
+   const r=hud.layout[id];if(!r||!nw||!nh)continue;const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5);shown[id]=h.rect;MeguHud.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';
    if(h.fresh){hud.layout[id]=h.rect;fresh[id]=h.rect;}
   }
   /* (user 2026-11-13) nothing overlaps: a longer example pushes what is under it down, the screenshot gives up space */

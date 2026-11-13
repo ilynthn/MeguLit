@@ -52,14 +52,20 @@ test('the card magnifier looks words up in MOJi first and falls back to the loca
  /* 2026-11-13 English interface asks Jisho instead of MOJi */assert.ok(i>0);assert.match(body,/q\(locale==='en'\?'jisho':'moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("'jisho':'moji')")<body.indexOf("q('local')"));
  assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
 });
-test('a block frame hugs its content and keeps its scale once known',()=>{
- const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* 800x200 px area for a 4:1 content: fills it */
- assert.equal(a.fresh,true);assert.equal(a.scale,2);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h],[10,10,80,20]);
- const b=H.hugRect({x:10,y:10,w:80,h:40},400,100,1000,1000);/* too tall: frame shrinks to the content, centred */
- assert.deepEqual([b.rect.x,b.rect.y,b.rect.w,b.rect.h,b.rect.s],[10,20,80,20,2]);
- const c=H.hugRect(b.rect,450,100,1000,1000);/* a longer sentence at the same scale grows its box */
- assert.equal(c.fresh,false);assert.equal(c.scale,2);assert.equal(c.rect.w,90);
- const d=H.hugRect({x:0,y:0,w:10,h:10,s:5},400,100,1000,1000);assert.ok(d.scale<=2.475,'never wider than the stage');
+test('a block frame is always its saved box; the content keeps its scale and shrinks to fit (user 2026-11-14)',()=>{
+ const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* 800x200 px box for 4:1 content: fills it */
+ assert.equal(a.fresh,true);assert.equal(a.scale,2);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h,a.rect.s],[10,10,80,20,2]);assert.equal(a.ox,0);
+ const b=H.hugRect({x:10,y:10,w:80,h:40},400,100,1000,1000);/* too tall: the frame stays the box, content at its top */
+ assert.deepEqual([b.rect.x,b.rect.y,b.rect.w,b.rect.h,b.rect.s],[10,10,80,40,2]);assert.equal(b.oy,0);
+ /* the answer side is taller (furigana + translation): same box, same place, smaller content, never pushed anywhere */
+ const q=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,60,1360,800),ans=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,260,1360,800);
+ for(const r of [q.rect,ans.rect])assert.deepEqual([r.x,r.y,r.w,r.h],[58,42,39,24]);
+ assert.equal(q.scale,1.5);assert.ok(ans.scale<1.5&&260*ans.scale<=24*8+.01,'taller content shrinks into the box');
+ /* a narrower word sits centred across its box */
+ const c=H.hugRect({x:10,y:10,w:80,h:20,s:1},400,100,1000,1000);assert.equal(c.scale,1);assert.equal(c.ox,200);assert.deepEqual([c.rect.w,c.rect.h],[80,20]);
+ const d=H.hugRect({x:0,y:0,w:10,h:10,s:5},400,100,1000,1000);assert.ok(d.scale<=.25,'never larger than its box');
+ /* both sides place content by the offsets, so a reveal or the next card cannot move a block */
+ for(const f of ['anki-card.js','anki-review.js'])assert.match(read(f),/box\.style\.left=h\.ox\+'px';box\.style\.top=h\.oy\+'px';/,f);
 });
 test('free placement snaps to other blocks, the stage centre and equal gaps; grid mode rounds to the grid',()=>{
  const o={mode:'free',SW:1000,SH:1000,thr:7};
