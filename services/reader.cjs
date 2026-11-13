@@ -168,7 +168,9 @@ class Reader{
     an unchanged key keeps the provider and its reading position, a changed one rebuilds it. force rebuilds anyway. */
  refreshTextSource({force=true,exe=this.textExe||this.gameExe||'',pid=this.gamePid||0}={}){try{const hooks=this.gal?.hooks;if(!hooks)return;/* E330 the 零延迟翻译 switch in the translation settings */hooks.scriptAllowed=()=>this.prefs().scriptTranslation!==false;
   if(!exe){hooks.originalText=null;hooks.textSourceKey='';return;}const ot=require('./original-text.cjs'),key=String(exe).toLowerCase()+'|'+ot.providerKey(this.root,exe);
-  if(!force&&hooks.originalText&&hooks.textSourceKey===key)return;hooks.originalText=ot.provider(this.root,exe);hooks.textSourceKey=key;hooks.textSourcePid=pid;}catch{}}
+  if(!force&&hooks.originalText&&hooks.textSourceKey===key)return;hooks.originalText=ot.provider(this.root,exe);hooks.textSourceKey=key;hooks.textSourcePid=pid;
+  /* 2026-11-14 the launch notice asks the shared check first: an install known to have Japanese never gets "the script is Chinese" */
+  try{const db=require('./store.cjs').openStore(this.root);try{const game=require('./library.cjs').activeGameForProgram(db,exe);hooks.japaneseInstall=game?.id?require('./japanese-presence.cjs').verdict(this.root,db,game.id).japanese:null;}finally{db.close();}}catch{hooks.japaneseInstall=null;}}catch{}}
  /* E545 the game process binds: a provider built at launch for this same program is kept (no reading-position reset) */
  adoptTextSource(exe,pid){const hooks=this.gal?.hooks,same=!!(hooks?.originalText&&hooks.textSourcePid===0&&String(this.textExe||'').toLowerCase()===String(exe||'').toLowerCase());this.textExe=exe;
   if(same){hooks.textSourcePid=pid;this.refreshTextSource({force:false,exe,pid});}else this.refreshTextSource({exe,pid});this.watchTextSource(exe);}

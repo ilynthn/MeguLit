@@ -177,6 +177,10 @@ class HookNative{
   let best=null;for(const t of threads){if(t.id===mine||tried.has(t.id)||!t.sample)continue;const s=score(t);if(!s.n)continue;const rows=String(t.sample).split(/\n+/).filter(x=>x.trim());const long=rows.length<=3&&rows.some(x=>/[a-zÀ-ɏ]{2,}[,;]?\s+[a-zÀ-ɏ]{2,}[,;]?\s+[a-zÀ-ɏ]{2,}/i.test(x)&&x.trim().split(/\s+/).length>=5)&&(t.embeddable===true||!threads.find(x=>x.id===mine)?.embeddable);if(mine&&!long)continue;const better=!best||(mine?(s.changes>best.changes||(s.changes===best.changes&&s.n>best.n)):s.n>best.n);if(better)best={id:t.id,n:s.n,changes:s.changes,long};}
   if(!best)return false;if(mine){const own=threads.find(t=>t.id===mine);const o=own?score(own):{changes:0};/* E501 (live DDLC Plus beta.24: 「Skip Intro」 stayed in the reader and the first story line was lost): while the picked stream is a short label (no prose row), the first sample that is a full sentence (5+ words ending in . ! ? … or a quote) is enough to take over */const ownProse=!!own&&String(own.sample||'').split(/\n+/).some(x=>x.trim().split(/\s+/).length>=5);const sentence=String(threads.find(t=>t.id===best.id)?.sample||'').split(/\n+/).some(x=>x.trim().split(/\s+/).length>=5&&/[.!?…"”]\s*$/.test(x.trim()));if(!best.long||best.changes<(ownProse||!sentence?2:1)||(ownProse&&best.changes<=o.changes))return false;}
   tried.add(best.id);if(mine)tried.add(mine);this.foreignPicked=best.id;this.trace('foreign stream pick id='+best.id+' mapped='+best.n+(mine?' (was '+mine+')':''));this.select(best.id);return true;}catch{return false;}}
+ /* Japanese text that was decoded as GBK, decoded back: '' when it is not that (an unmapped character, no kana after). */
+ static sjisAsGbk(text){try{if(!HookNative.gbk){const dec=new TextDecoder('gbk'),map=new Map();for(let a=0x81;a<=0xfe;a++)for(let b=0x40;b<=0xfe;b++){if(b===0x7f)continue;const c=dec.decode(Buffer.from([a,b]));if(c.length===1&&c!=='�'&&!map.has(c))map.set(c,[a,b]);}HookNative.gbk=map;}
+  const bytes=[];for(const ch of String(text)){const code=ch.codePointAt(0);if(code<0x80){bytes.push(code);continue;}const pair=HookNative.gbk.get(ch);if(!pair)return '';bytes.push(...pair);}
+  const ja=new TextDecoder('shift_jis').decode(Buffer.from(bytes));if(ja.includes('�'))return '';const kana=(ja.match(/[ぁ-ゖァ-ヺ]/g)||[]).length;return kana>=2&&kana>=[...ja].length*.2?ja:'';}catch{return '';}}
  languageCheck(text){try{const t=String(text||'').replace(/%l[^;%]*;[^%]*%l;/g,'');if(!t.trim())return;
   /* 2026-11-13 (user: DDLC Plus in English showed nothing and said nothing): three story-length lines in a row with no
      Japanese and no Chinese, that the script could not map back to Japanese, raise a notice to switch the game to Japanese */
@@ -188,7 +192,11 @@ class HookNative{
   /* E347 (user 2026-11-10, Steam 沙耶の唄 with a Chinese patch): Chinese text read as Shift-JIS comes out as kanji mixed
      with half-width katakana (ｹｯｦ) and boxes, which also counts as a Chinese build. */
   const garbled=han.length>=4&&(t.match(/[\uff61-\uff9f\u25a1\ufffd]/g)||[]).length>=3;
-  const chinese=(!kana||garbled)&&han.length>=4;this.chineseRun=chinese?(this.chineseRun||0)+1:0;this.chineseForeign=chinese?(this.chineseForeign||0)+foreign:0;
+  /* 2026-11-14 (ダストマニア・グロテスク under Japanese locale: the first lines came in as 僙乕僽丄儘乕僪…): Shift-JIS read
+     with the Chinese code page looks like Chinese but is Japanese, and an install the shared check (japanese-presence.cjs)
+     knows to have Japanese is never called a Chinese build. */
+  const misread=!kana&&han.length>=4&&!!HookNative.sjisAsGbk(t);
+  const chinese=(!kana||garbled)&&han.length>=4&&!misread&&this.japaneseInstall!==true;this.chineseRun=chinese?(this.chineseRun||0)+1:0;this.chineseForeign=chinese?(this.chineseForeign||0)+foreign:0;
   if(this.chineseRun>=3&&(this.chineseForeign>=2||garbled)&&!this.state?.sourceChinese){this.trace('source looks like Simplified Chinese');this.notify({sourceChinese:true,hookMessage:'检测到游戏剧本目前是中文，MeguLit 需要日文原文。请先在游戏设置或 Steam（游戏属性 → 语言）里改成日文；游戏本身不支持日文的话，用「工具 → 日文原版恢复」；如果游戏目录里没有检测到日文剧本，需要先自行获取日文原版资源，再选「从日文原版导入」，支持直接导入生肉压缩包，自动恢复成日文'});}
   else if(kana&&this.state?.sourceChinese)this.notify({sourceChinese:false});}catch{}}
  /* E407 choices (every engine): text from the hook's non-dialogue streams is collected (never written back), OCR finds
@@ -260,7 +268,10 @@ class HookNative{
   if(this.engineDialog===false&&typeof m.text==='string'&&m.text.trim()){this.trace('art text (text window hidden) '+JSON.stringify(m.text.slice(0,40)));this.artSeen?.delete(HookNative.flat(m.text.trim()));this.artCandidate(m.text);return;}
   // The game's own ruby readings ride after the line as \x1d base \x1c reading pairs (ISLAND hook): split them off
   // before anything else sees the text, and attach them when this line is delivered (user, 2026-11-03).
-  const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:extracted.text};this.languageCheck(m.text);
+  const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:extracted.text};
+  /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
+  if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
+  this.languageCheck(m.text);
   // Multilingual containers keep only the Japanese track (E243); streams that deliver every line several times (or every character doubled) are learned and undone per stream (E215).
   this.repeats=this.repeats||new (require('./repeat-normalizer.cjs').RepeatNormalizer)();
   this.attempt=0;/* 2026-11-13 (user: DDLC Plus set to English showed nothing): a line in another language is first looked up in the

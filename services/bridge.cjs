@@ -244,10 +244,13 @@ async function dispatch(request,runtime=null) {
       case 'text_source_status':{const ot=require('./original-text.cjs'),id=String(request.id);ot.autoPatchLater(root,id,()=>runtime?.reader?.refreshTextSource?.(),{force:!!request.search});
         /* E297 Hxv4 KiriKiri games: the cold run reads the scripts through the game; 重新查找 retries a failed one */
         const cold=require('./kirikiri-cold.cjs'),row=db.prepare('SELECT id,executable FROM games WHERE id=? AND removed_at IS NULL').get(id),coldOn=require('../core/preferences.cjs').cleanPreferences(require('./store.cjs').readJSON?.(path.join(root,'data','config','preferences.json'))||{}).scriptColdRun!==false;
-        if(row)cold.consider(root,row,{enabled:coldOn,force:!!request.search});return {...ot.status(root,db,id),cold:row?cold.status(root,row.executable):null};}
+        if(row)cold.consider(root,row,{enabled:coldOn,force:!!request.search});
+        /* 2026-11-14 reading and lining up scripts runs in a worker thread so the service keeps answering (text-source-worker.cjs) */
+        return {...await require('./text-source-worker.cjs').run(root,'status',[id]),cold:row?cold.status(root,row.executable):null};}
       case 'text_source_import':{const ot=require('./original-text.cjs'),id=String(request.id),dir=String(request.dir||'');
-        if(request.kind==='patch'){const r=ot.importPatch(root,db,id,dir);if(r.patchStatus!=='ready'){runtime?.reader?.refreshTextSource?.();return ot.status(root,db,id);}}else if(request.kind==='original')ot.importOriginal(root,db,id,dir);else throw Error('INVALID_TEXT_SOURCE');
-        runtime?.reader?.refreshTextSource?.();return ot.status(root,db,id);}
+        const off=require('./text-source-worker.cjs');
+        if(request.kind==='patch'){const r=await off.run(root,'importPatch',[id,dir]);if(r.patchStatus!=='ready'){runtime?.reader?.refreshTextSource?.();return off.run(root,'status',[id]);}}else if(request.kind==='original')await off.run(root,'importOriginal',[id,dir]);else throw Error('INVALID_TEXT_SOURCE');
+        runtime?.reader?.refreshTextSource?.();return off.run(root,'status',[id]);}
       case 'text_source_clear':{const ot=require('./original-text.cjs'),id=String(request.id);if(request.kind==='patch')ot.clearPatch(root,id);else ot.setMode(root,id,'off');runtime?.reader?.refreshTextSource?.();return ot.status(root,db,id);}
       /* 2026-11-12 Chinese-build guide on the game page: checks, then the one-click fixes the existing code can do */
       case 'cn_version_guide':{const g=require('./cn-version-guide.cjs').guide(db,root,String(request.id));return g;}
@@ -274,7 +277,11 @@ async function dispatch(request,runtime=null) {
        if(request.action==='jp_import_reveal'){const file=require('node:path').resolve(String(request.path||''));if(!/\.iso$/i.test(file)||!fs.existsSync(file))throw Error('IMPORT_SOURCE_MISSING');const child=spawn('explorer.exe',['/select,'+file],{windowsHide:true,detached:true,stdio:'ignore'});child.on('error',()=>{});child.unref();return {ok:true};}
        if(request.action==='jp_import_apply'&&imported?.state!=='importable'){if(jr._internal.gameRunning(dir))throw Error('GAME_RUNNING');return jio.apply(dir,String(request.source||''),row.executable).then(r=>{try{r.sourceHidden=require('./import-source.cjs').link(db,id,String(request.source||'')).length;}catch{}if(r.separate){importedExecutable(db,id,r.exe,'ja');return r;}if(r.exe&&require('node:path').basename(r.exe).toLowerCase()!==require('node:path').basename(row.executable).toLowerCase())importedExecutable(db,id,r.exe,'ja');return withPatch(r);});}
        if(request.action==='jp_restore_undo'&&generic){if(jr._internal.gameRunning(dir))throw Error('GAME_RUNNING');const r=jio.restore(dir);if(!r.skipped.length&&r.exe&&r.exe.toLowerCase()!==row.executable.toLowerCase())importedExecutable(db,id,r.exe,'zh');return r;}
-       if(request.action==='jp_restore_detect'){const r=jr.detect(dir,lsOptions);return imported&&(imported.state==='imported'||['none','unsupported'].includes(r.state))?imported:r;}
+       if(request.action==='jp_restore_detect'){const r=jr.detect(dir,lsOptions);if(imported&&(imported.state==='imported'||['none','unsupported'].includes(r.state)))return imported;
+        /* 2026-11-14 one shared "does this install have Japanese" (japanese-presence.cjs): a script read as Japanese, or
+           Japanese captured while playing, means already Japanese (BRUNS gameplay.exe), not "no Japanese script found" */
+        if(['none','unsupported'].includes(r.state)){const v=require('./japanese-presence.cjs').verdict(root,db,id);if(v.japanese===true)return {state:'already',by:v.by,executable:row.executable};}
+        return r;}
        if(request.action==='jp_import_apply'){if(jr._internal.gameRunning(dir))throw Error('GAME_RUNNING');const r=ji.apply(dir,row.executable,request.source);importedExecutable(db,id,r.exe,'ja');try{r.sourceHidden=require('./import-source.cjs').link(db,id,String(request.source||'')).length;}catch{}return withPatch(r);}
        if(request.action==='jp_restore_undo'&&imported?.state==='imported'){if(jr._internal.gameRunning(dir))throw Error('GAME_RUNNING');const r=ji.restore(dir);if(!r.skipped.length)importedExecutable(db,id,r.exe,'zh');return r;}
        return request.action==='jp_restore_apply'?withPatch(jr.apply(dir,lsOptions)):jr.restore(dir,lsOptions);}
