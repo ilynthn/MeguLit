@@ -54,32 +54,40 @@ function languageColumns(table){ // per string column: share of non-empty cells 
 }
 // A target must read as a translation of the Japanese column: filled on most rows where Japanese is filled, not
 // identifiers or file names (letters/digits without spaces), and with no kana of its own (a reading column is not one).
-const IDENT=/^[A-Za-z0-9_.\\/:#@-]*$/;
+// E373 (Summer Pockets chara_name/namae_all, 2026-11-13): a one-word English name (Shiroha, Umi) is a translation,
+// not an identifier; only a token with a digit or a path/key character (BGM01, bg_01.png, a:b) counts as one.
+const IDENT=/^[A-Za-z0-9_.\\/:#@-]*$/,IDENT_MARK=/[0-9_.\\/:#@]/;
+const isIdent=v=>IDENT.test(v)&&IDENT_MARK.test(v);
 function translationColumns(table,langs,jp){
  const rowsJp=table.cells.filter(r=>r[jp]);if(!rowsJp.length)return [];
  return langs.filter(c=>{if(c.index===jp||!c.filled||c.kana>.1)return false;
-  let paired=0,ident=0,distinct=new Set();for(const r of rowsJp){const v=r[c.index];if(!v)continue;paired++;distinct.add(v);if(IDENT.test(v))ident++;}
+  let paired=0,ident=0,distinct=new Set();for(const r of rowsJp){const v=r[c.index];if(!v)continue;paired++;distinct.add(v);if(isIdent(v))ident++;}
   return paired/rowsJp.length>=.6&&ident/Math.max(1,paired)<.3&&distinct.size>=Math.min(5,rowsJp.length*.5);});
 }
+// E373: name tables key a speaker as 「うみ／うみ４歳」 (shown name／variant note) and the translations hold the shown
+// name only. When the translated cell has no slash of its own, only the part before 「／」 is what the game shows.
+function shownJapanese(jp,old){const i=jp.indexOf('／');return i>0&&!/[\/／]/.test(String(old||''))?jp.slice(0,i):jp;}
 function datDir(gameDir){const d=path.join(gameDir,'dat');return fs.existsSync(d)&&fs.readdirSync(d).some(f=>/\.dbs$/i.test(f))?d:'';}
 
 function siglusPlan(gameDir){
  const dir=datDir(gameDir);if(!dir)return null;
  const files=fs.readdirSync(dir).filter(f=>/\.dbs$/i.test(f)),changes=[];let japanese=null,targets=new Set(),cells=0,japaneseTables=0;
  for(const name of files){
-  const twin=name.match(/^(.*)_(en|zh|cn|tw|ko|ru)\.dbs$/i);
+  const twin=name.match(/^(.*)_(en|eng|zh|cn|ch|chs|cht|sc|tc|tw|ko|kr|ru)\.dbs$/i); /* E373: Summer Pockets ships sfight_*_ch.dbs */
   let file,decoded,table;try{file=fs.readFileSync(path.join(dir,name));decoded=decrypt(file);table=parse(decoded.raw,decoded.marker);}catch{continue;}
   if(twin){const base=files.find(f=>f.toLowerCase()===(twin[1]+'.dbs').toLowerCase());if(!base)continue;
    try{const b=decrypt(fs.readFileSync(path.join(dir,base))),bt=parse(b.raw,b.marker);if(bt.rows!==table.rows||bt.cols!==table.cols)continue;
     if(!languageColumns(bt).some(c=>c.kana>.3))continue;
     const next=table.cells.map((row,r)=>row.map((v,c)=>table.columns[c].type===0x53&&bt.cells[r][c]?bt.cells[r][c]:v));
     let n=0;next.forEach((row,r)=>row.forEach((v,c)=>{if(v!==table.cells[r][c])n++;}));if(n)changes.push({name,file,decoded,table,next,changed:n,kind:'twin',from:base});cells+=n;}catch{}continue;}
+  /* E373: a table with locale twins (X_en.dbs, X_ch.dbs) is the Japanese base itself, never a multi-language table */
+  {const stem=name.replace(/\.dbs$/i,'').toLowerCase();if(files.some(f=>f.toLowerCase().startsWith(stem+'_')&&/^(.*)_(en|eng|zh|cn|ch|chs|cht|sc|tc|tw|ko|kr|ru)\.dbs$/i.test(f)))continue;}
   const langs=languageColumns(table),jp=langs.filter(c=>c.filled).sort((a,b)=>b.kana-a.kana)[0];
   if(jp&&jp.kana>=.3)japaneseTables++;
   if(!jp||jp.kana<.3||langs.filter(c=>c.filled).length<2)continue;
   if(japanese==null)japanese=jp.index;
   const tgt=translationColumns(table,langs,jp.index);tgt.forEach(c=>targets.add(c.index));
-  const next=table.cells.map(row=>row.map((v,c)=>tgt.some(t=>t.index===c)&&row[jp.index]?row[jp.index]:v));
+  const next=table.cells.map(row=>row.map((v,c)=>tgt.some(t=>t.index===c)&&row[jp.index]?shownJapanese(row[jp.index],v):v));
   let n=0;next.forEach((row,r)=>row.forEach((v,c)=>{if(v!==table.cells[r][c])n++;}));
   if(n)changes.push({name,file,decoded,table,next,changed:n,kind:'column',from:jp.index,to:tgt.map(t=>t.index)});cells+=n;
  }
@@ -119,7 +127,10 @@ function detect(gameDir){
  if(manifest?.adapter==='yuris-update')return {state:'applied',adapter:'yuris-update',files:manifest.files.length,cells:0,pending:0,manifest:{at:manifest.at,files:manifest.files.length}};
  const yuris=yurisPlan(gameDir);if(yuris&&yuris.updates.length)return {state:'restorable',adapter:'yuris-update',files:yuris.updates.length,cells:0,pending:yuris.updates.length,manifest:null};
  const siglus=siglusPlan(gameDir);
- if(siglus&&(siglus.changes.length||manifest))return {state:manifest?'applied':'restorable',adapter:'siglus-dbs',files:siglus.changes.length,cells:siglus.cells,japaneseColumn:siglus.japaneseColumn,targetColumns:siglus.targetColumns,pending:siglus.changes.length,manifest:manifest&&{at:manifest.at,files:manifest.files.length}};
+ /* E373: a third-party Japanese patch (a JapanesePatch folder with its own backups) may already have rewritten some
+    tables; MeguLit then backs up those patched files, so undo returns to that patch, not to the Steam original. */
+ const externalPatch=['JapanesePatch'].find(n=>fs.existsSync(path.join(gameDir,n,'backup')))||'';
+ if(siglus&&(siglus.changes.length||manifest))return {state:manifest?'applied':'restorable',adapter:'siglus-dbs',externalPatch,files:siglus.changes.length,cells:siglus.cells,japaneseColumn:siglus.japaneseColumn,targetColumns:siglus.targetColumns,pending:siglus.changes.length,manifest:manifest&&{at:manifest.at,files:manifest.files.length}};
  /* E294 (user report 2026-11-10: a friend's Steam CLANNAD stayed Chinese after the restore): the Steam release's tables hold
     English and Chinese only; the Japanese text comes from a separate Japanese patch. No Japanese column anywhere means
     there is nothing to restore, not "already Japanese". */
@@ -191,4 +202,4 @@ function repairShared(gameDir){
  const undone=restore(gameDir);if(undone.skipped.length)return {repaired:false,skipped:undone.skipped};
  const done=apply(gameDir);return {repaired:true,applied:done.applied};
 }
-module.exports={repairShared,detect,apply,restore,_internal:{yurisPlan,gameRunning,decrypt,encrypt,parse,rebuild,lzss,literal,languageColumns}};
+module.exports={repairShared,detect,apply,restore,_internal:{siglusPlan,shownJapanese,isIdent,yurisPlan,gameRunning,decrypt,encrypt,parse,rebuild,lzss,literal,languageColumns}};

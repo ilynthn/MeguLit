@@ -112,3 +112,27 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side>p.gm-cap,html:no
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{grid-template-rows:auto auto 1fr!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{align-self:start}
+
+/* 2026-11-13: stage glyph shows the whole lesson head (no cut), so long heads shrink instead; cards label the meaning */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.long{font-size:22px!important;line-height:1.55!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-lbl{display:inline-block;margin-right:6px;padding:1px 5px;font-size:11px;line-height:1.4;vertical-align:1px;border:1px solid color-mix(in srgb,var(--gf-t1) 30%,transparent);color:color-mix(in srgb,var(--gf-t1) 70%,transparent)}
+/* 2026-11-13 stage card layout: Japanese forms (hero) -> nickname + what the grammar does -> progress. Cards in the strip
+   stretch to one height; the progress line sits on the bottom edge. Long forms shrink and may wrap, never cut */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg{display:flex!important;flex-direction:column;align-items:stretch;gap:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-no{margin-bottom:8px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{display:flex;align-items:flex-end;height:58px;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none;font-size:34px!important;line-height:1.1!important;word-break:keep-all;overflow-wrap:anywhere;padding-right:34px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.long{font-size:26px!important;line-height:1.15!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.xlong{font-size:22px!important;line-height:1.25!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{margin-top:12px;font-size:15px!important;font-weight:700;line-height:1.3}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{margin-top:4px;font-size:13px;line-height:1.5;color:color-mix(in srgb,var(--gf-t1) 90%,transparent);min-height:3em}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{margin-top:auto;padding-top:10px;font-size:12px!important;color:color-mix(in srgb,var(--gf-t1) 60%,transparent)!important;font-family:var(--mg-mono)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar{margin-top:6px}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{color:color-mix(in srgb,var(--gf-t1) 72%,transparent)!important;font-size:11px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{text-wrap:balance;word-break:keep-all;overflow-wrap:anywhere}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{font-size:17px!important;letter-spacing:.02em}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:12.5px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-lbl{font-size:12px;padding:2px 7px;margin-right:8px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:13px;color:color-mix(in srgb,var(--gf-t1) 92%,transparent)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.long{font-size:28px!important;line-height:1.15!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.xlong{font-size:22px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{font-size:12px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:13.5px;color:var(--gf-t1)}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{text-transform:none;letter-spacing:0;line-height:1.5;white-space:normal;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;font-size:12.5px!important}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{text-wrap:pretty}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:14px}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{display:grid;grid-template-columns:auto 1fr;align-items:start}
