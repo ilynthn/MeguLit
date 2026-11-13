@@ -22,6 +22,7 @@ import {stamp,floatGain,quote,manaHTML,albumHTML} from './rewards.js';
 import {pointerDrag} from './drag.js';
 import {goalBarHTML,orderByGoal} from './learning-goal.js';
 import {howToHTML,fillRuby} from './grammar-howto.js';
+import {pageNav} from './page-nav.js';
 export const grammarMessages={
  zh:{level:'等级',soon:'这一级的课程还在写，先把 N5 学扎实',done:'已学完',progress:'完成度',accuracy:'练习正确率',noAnswers:'还没做练习',back:'← 课程列表',form:'接法',uses:'常见用法',pitfalls:'容易错的地方',fromGames:'你玩过的游戏里',
   builtin:'通用例句',builtinHelp:'你读过的台词里还没找到这个语法，先看这几句',practice:'练习',check:'选一个填进空里',right:'答对了',wrong:'不对，正确答案是',next:'下一题',retry:'再练一句同类台词',markDone:'标记为已学完',unmark:'取消已学完',
@@ -322,7 +323,7 @@ function judgeHTML(point,real,{esc,locale}){
  return `<p class="gm-play-lead">哪一句是日本人会说的？选对了，惠惠告诉你为什么</p><ol class="gm-jds">${rounds.map((rd,i)=>`<li class="gm-jd" data-jd><p class="gm-jd-q">${rd.title?`来自《${esc(rd.title)}》的一句`:'哪句自然？'}</p><div class="gm-jd-opts">${rd.options.map(o=>`<button type="button" class="gm-jd-opt" data-ok="${o.ok?1:0}"${o.form?` data-form="${esc(o.form)}"`:''} lang="ja"><span class="gm-jd-plain">${esc(o.text)}</span><span class="gm-jd-marked" hidden>${mark(o)}</span></button>`).join('')}</div><p class="gm-jd-why" hidden>${rd.translation?`<span class="gm-tr">${esc(rd.translation)}</span>`:''}<span>${esc(loc(point.gist,locale))}</span></p></li>`).join('')}${meanRound}${who}</ol>`;
 }
 /* A lesson: six short steps, one shown at a time; every step is in the page so returning to it is instant. */
-export function lessonHTML(point,data,{locale,esc,step=0}){
+export function lessonHTML(point,data,{locale,esc,step=0,reached=0}){
  const w=grammarMessages[locale]||grammarMessages.zh,real=data?.examples?.[point.id]||[],r=data?.progress?.[point.id]||{};
  const nodes=nodesFor(point).map(id=>MAP.find(n=>n.id===id)).filter(Boolean);
  const lead=real[0]||builtinExamples(point)[0];
@@ -337,7 +338,7 @@ export function lessonHTML(point,data,{locale,esc,step=0}){
  const games=real.length?`<p class="gm-cap">${esc(w.fromGames)}</p><ul class="gm-examples">${real.map((e,i)=>exampleHTML(e,i,{w,esc,locale,pointId:point.id})).join('')}</ul>`:`<p class="gm-cap">${esc(w.builtin)} · ${esc(w.builtinHelp)}</p><ul class="gm-examples">${builtinExamples(point).map((e,i)=>exampleHTML(e,i,{w,esc,locale,pointId:point.id,anki:false})).join('')}</ul>`;
  const practice=`<div data-quiz aria-live="polite"></div><div class="gm-actions"><button type="button" class="${r.learned?'secondary':'primary'}" data-learned="${r.learned?'0':'1'}">${esc(r.learned?w.unmark:w.finishStep)}</button></div>`;
  const bodies={intro,form,play,uses,games,practice},s=Math.max(0,Math.min(STEPS.length-1,step));
- const nav=`<ol class="gm-steps" role="tablist">${STEPS.map((k,i)=>`<li><button type="button" role="tab" class="gm-step-dot${i===s?' active':''}${i<s?' passed':''}" data-step="${i}" aria-selected="${i===s}"><span>${esc(w.steps[k])}</span></button></li>`).join('')}</ol>`;
+ const nav=`<ol class="gm-steps" role="tablist">${STEPS.map((k,i)=>`<li><button type="button" role="tab" class="gm-step-dot${i===s?' active':''}${i!==s&&i<Math.max(s,reached)?' passed':''}" data-step="${i}" aria-selected="${i===s}"><span>${esc(w.steps[k])}</span></button></li>`).join('')}</ol>`;
  return `<button type="button" class="gm-link gm-back" data-back>${esc(w.back)}</button><article class="gm-lesson"><header class="gm-lesson-head"><span class="gm-tag"><i></i>megulit · ${levelOf(point).toLowerCase()} · lesson ${String(pointsOf(levelOf(point)).indexOf(point)+1).padStart(2,'0')}</span><div class="gm-onmap"><span class="gm-cap">${esc(w.onMap)}</span>${nodes.map(n=>`<button type="button" class="gm-chip" data-map="${n.id}">${esc(n.no)} · ${esc(loc(n.title,locale))}</button>`).join('')}</div>${point.era?`<span class="gm-era"><b>${esc(point.era)}</b> · ${esc(point.who)}</span>`:''}<h2><span lang="ja">${esc(loc(point.title,locale).split(/\s*——\s*/)[0])}</span><small>${esc(loc(point.title,locale).split(/\s*——\s*/)[1]||'')}</small></h2></header>
 ${nav}<div class="gm-lesson-main">${STEPS.map((k,i)=>`<section class="gm-stepbody gm-step-${k}" data-stepbody="${i}"${i===s?'':' hidden'}>${bodies[k]}</section>`).join('')}
 <footer class="gm-stepnav"><button type="button" class="secondary" data-prev${s===0?' disabled':''}>${esc(w.prev)}</button><button type="button" class="primary" data-nextstep${s===STEPS.length-1?' hidden':''}>${esc(w.nextStep)}</button></footer></div></article>`;
@@ -372,6 +373,13 @@ export function startLevel(user){if(!user||user==='none'||user==='kana')return '
 /* ---- page ---- */
 /* Kept between visits (user: going into a lesson and back reloaded everything): the report, the view, the step. */
 const memo={data:null,at:0,level:'N5',view:'list',point:'',openNode:'',scene:null,piece:-1,step:0,userLevel:undefined};
+/* 2026-11-14 (user: 「点开地图体系之后 回到课程列表又要从头开始」): every lesson keeps the step it was on and the furthest step
+   reached (the ✓ marks), across the map, the list, 下一课 and restarts; kept in this computer's browser storage */
+const STEP_KEY='megulit-grammar-steps';
+const lessonSteps=(()=>{try{const v=JSON.parse(localStorage.getItem(STEP_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch{return {};}})();
+export const stepOf=id=>lessonSteps[id]||{step:0,max:0};
+export function keepStep(id,n,max=n){if(!id)return;const prev=stepOf(id);lessonSteps[id]={step:n,max:Math.max(prev.max||0,max,n)};
+ try{localStorage.setItem(STEP_KEY,JSON.stringify(lessonSteps));}catch{}}
 const FRESH_MS=5*60*1000;
 export function grammarMemo(){return memo;}
 export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>true}){
@@ -393,12 +401,27 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   if(panel.previousElementSibling!==last)last.after(panel);};
  const watchPanel=()=>{panelWatch?.disconnect();panelWatch=null;const nav=root.querySelector('.gm-stgs');if(!nav||typeof ResizeObserver!=='function')return;
   let w=nav.clientWidth;panelWatch=new ResizeObserver(()=>{if(nav.clientWidth===w)return;w=nav.clientWidth;placePanel();});panelWatch.observe(nav);};
- const go=next=>{view=next;root.style.minHeight='';save();render();enter();root.scrollIntoView?.({block:'start'});};
- const openPoint=id=>{point=pointById(id);step=0;memo.mapFrom='';go('lesson');};
+ const scroller=()=>root.closest('.main')||document.scrollingElement;
+ /* the list comes back at the scroll it was left at (expanded stage included: memo.groupOf); async re-renders right after
+    (rewards, goal, Anki) keep it, until the reader scrolls themself */
+ let restoreY=null,restoreUntil=0;const stopRestore=()=>{restoreY=null;};
+ root.addEventListener('wheel',stopRestore,{passive:true});root.addEventListener('touchstart',stopRestore,{passive:true});root.addEventListener('pointerdown',stopRestore);
+ const restoreList=()=>{if(view!=='list'||restoreY==null)return;if(performance.now()>restoreUntil){restoreY=null;return;}const sc=scroller();if(sc)sc.scrollTop=restoreY;};
+ const stateOf=()=>view==='list'?null:{view,level,point:view==='lesson'?point?.id||'':'',openNode:view==='map'?openNode:'',from:view==='map'?memo.mapFrom||'':''};
+ const go=(next,replay=false)=>{if(view==='list'&&next!=='list')memo.listY=scroller()?.scrollTop||0;view=next;root.style.minHeight='';save();
+  if(next==='list'&&memo.listY!=null){restoreY=memo.listY;restoreUntil=performance.now()+2500;}render();enter();
+  if(next==='list'&&restoreY!=null)restoreList();else root.scrollIntoView?.({block:'start'});if(!replay)pageNav.push(stateOf());};
+ /* ‹ › in the title bar: put the page back in the view of that history entry */
+ const applyState=st=>{if(!st)return {view:'list'};const p=st.view==='lesson'?pointById(st.point):null;if(st.view==='lesson'&&!p)return {view:'list'};
+  return {view:st.view==='lesson'||st.view==='map'||st.view==='album'?st.view:'list',level:LEVELS.includes(st.level)?st.level:level,point:p,openNode:st.openNode||'',from:st.from||''};};
+ const takeState=st=>{const t=applyState(st);level=t.level||level;if(t.view==='lesson'){point=t.point;step=Math.min(STEPS.length-1,stepOf(point.id).step||0);}
+  if(t.view==='map'){openNode=t.openNode;scene=null;piece=-1;memo.mapFrom=t.from;}return t.view;};
+ const unlisten=pageNav.listen(st=>{if(!isCurrent()||!root.isConnected)return false;go(takeState(st),true);return true;});
+ const openPoint=id=>{point=pointById(id);step=Math.min(STEPS.length-1,stepOf(id).step||0);memo.mapFrom='';go('lesson');};
  async function changeLevel(){const {openLevelPicker}=await import('./learning-level.js');const r=await openLevelPicker({api,esc,toast,current:memo.userLevel||null});
   if(!r||!isCurrent())return;memo.userLevel=r.level;level=startLevel(r.level);await load(false);render();}
  function render(){save();if(view==='lesson'&&point)return renderLesson();if(view==='map')return renderMap();if(view==='album')return renderAlbum();
-  root.innerHTML=listHTML(data||{},{locale,esc,level,userLevel:memo.userLevel,anki:memo.anki,group:(memo.groupOf||{})[level],rewards:memo.rewards,goal:memo.goal});
+  queueMicrotask(restoreList);root.innerHTML=listHTML(data||{},{locale,esc,level,userLevel:memo.userLevel,anki:memo.anki,group:(memo.groupOf||{})[level],rewards:memo.rewards,goal:memo.goal});
   root.querySelector('[data-album]')?.addEventListener('click',()=>go('album'));
   placePanel();watchPanel();
   root.querySelectorAll('[data-gtab]').forEach(b=>b.onclick=()=>{
@@ -489,9 +512,9 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   tiles.forEach(t=>{t.onclick=()=>hold(held===t.dataset.tile?null:t.dataset.tile);pointerDrag(t,{over:'[data-slot]',onDrop:slot=>place(slot,t.dataset.tile)});});
   box.querySelectorAll('[data-slot]').forEach(s=>{s.onclick=()=>{if(held)place(s,held);};});}
  function showStep(n,animate=true){
-  step=Math.max(0,Math.min(STEPS.length-1,n));save();
+  step=Math.max(0,Math.min(STEPS.length-1,n));save();keepStep(point?.id,step);const reached=stepOf(point?.id).max;
   root.querySelectorAll('[data-stepbody]').forEach(s=>s.hidden=Number(s.dataset.stepbody)!==step);
-  root.querySelectorAll('[data-step]').forEach(b=>{const i=Number(b.dataset.step);b.classList.toggle('active',i===step);b.classList.toggle('passed',i<step);b.setAttribute('aria-selected',
+  root.querySelectorAll('[data-step]').forEach(b=>{const i=Number(b.dataset.step);b.classList.toggle('active',i===step);b.classList.toggle('passed',i!==step&&i<Math.max(step,reached));b.setAttribute('aria-selected',
    String(i===step));});
   root.querySelector('[data-prev]').disabled=step===0;root.querySelector('[data-nextstep]').hidden=step===STEPS.length-1;/* no step counter: the owner bans numbered steps and page counters */
   const body=root.querySelector(`[data-stepbody="${step}"]`);if(animate&&body){fx.focus(body);fx.push(root.querySelector('.gm-step-dot.active b'));}
@@ -500,7 +523,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   root.querySelector('.gm-lesson')?.scrollIntoView?.({block:'nearest'});
  }
  function renderLesson(){
-  root.innerHTML=lessonHTML(point,data||{},{locale,esc,step});fillRuby(root,{api,esc,isCurrent:()=>isCurrent()&&view==='lesson'});const real=data?.examples?.[point.id]||[];
+  root.innerHTML=lessonHTML(point,data||{},{locale,esc,step,reached:stepOf(point.id).max});fillRuby(root,{api,esc,isCurrent:()=>isCurrent()&&view==='lesson'});const real=data?.examples?.[point.id]||[];
   root.querySelector('[data-back]').onclick=()=>go('list');
   root.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{openNode=b.dataset.map;scene=null;piece=-1;memo.mapFrom='lesson';go('map');});
   root.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>showStep(Number(b.dataset.step)));
@@ -517,7 +540,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
    if(on){const same=pointsOf(lv).filter(p=>p.group===point.group),cleared=same.every(p=>data.progress?.[p.id]?.learned);const rr=await reward(cleared?'clear':'learned',
     {ref:point.id});const name=loc(point.title,locale).split(/\s*——\s*/)[0];stamp({kind:cleared?'clear':'praise',title:cleared?`${lv} · ${same.length} / ${same.length}`:`${name} · 掌握`,
     sub:n?`下一课：${loc(n.title,locale).split(/\s*——\s*/)[0]}`:'',r:rr,esc});}
-   if(n){memo.groupOf={...(memo.groupOf||{}),[lv]:n.group};openPoint(n.id);}else renderLesson();}catch(error){toast?.(String(error?.message||error));}};
+   if(on)keepStep(point.id,step,STEPS.length);if(n){memo.groupOf={...(memo.groupOf||{}),[lv]:n.group};openPoint(n.id);}else renderLesson();}catch(error){toast?.(String(error?.message||error));}};
   root.querySelectorAll('[data-anki]').forEach(b=>b.onclick=async()=>{const e=real[Number(b.dataset.anki)];b.disabled=true;try{await api('grammar_anki',{point:point.id,
    title:loc(point.title,'zh'),gist:loc(point.gist,'zh'),example:e});b.textContent=w.ankiDone;}catch{b.disabled=false;toast?.(w.ankiFail);}});
   root.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak,b));
@@ -563,8 +586,10 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
  if(memo.goal===undefined){memo.goal=null;api('learning_goal').then(g=>{memo.goal=g;if(isCurrent()&&view==='list')render();}).catch(()=>{});}
  if(memo.userLevel===undefined)api('learning_level').then(r=>{memo.userLevel=r?.level||null;if(!memo.levelPicked){level=startLevel(memo.userLevel);save();}if(isCurrent()&&view==='list')render();
   }).catch(()=>{memo.userLevel=null;});
- render();
+ {const p=pageNav.take();if(p){view=takeState(p.state);if(view==='list'&&memo.listY!=null){restoreY=memo.listY;restoreUntil=performance.now()+2500;}}
+  else{if(view==='list'&&memo.listY!=null){restoreY=memo.listY;restoreUntil=performance.now()+2500;}pageNav.replace(stateOf());}}
+ render();restoreList();
  if(!data)await load(false);
  if(isCurrent()&&(Date.now()-memo.at>FRESH_MS||data?.pending))load(true);
- return ()=>clearTimeout(timer);
+ return ()=>{clearTimeout(timer);unlisten();};
 }

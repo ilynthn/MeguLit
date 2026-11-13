@@ -125,6 +125,7 @@ const invoke=(command,args={})=>{
   return native(command,args);
 };
 import {launchCopy,launchReason} from './launch-feedback.js';
+import {pageNav} from './page-nav.js';
 import {stageFor,applyVeil,veilSettingsHTML,veilsFromForm} from './page-veils.js';
 const quickActions=new Set(['settings_get','vocabulary','unknown_words','home','preferences','ui_state','history','dialogue','sentences','word_trash','statistics',
  'game_detail','reader_status']);
@@ -1237,16 +1238,23 @@ async function renderRoute(){watchStage();
    (main.querySelector('.empty-state')||main).insertAdjacentHTML('beforeend',`<button class="primary" id="retry">${text.retry}</button>`);main.querySelector('#retry').addEventListener('click',
    renderRoute);}
 }
-const navStack=[];let navIndex=-1;
-const navEntry=()=>({route,subtab,game:selectedGameId,series:selectedSeriesId,origin:gameOrigin});
-const sameEntry=(a,b)=>a&&b&&a.route===b.route&&(a.subtab||'')===(b.subtab||'')&&(a.route!=='game'||a.game===b.game)&&(a.route!=='series'||a.series===b.series);
+const navStack=[];let navIndex=-1,pageState=null;
+/* page: a view inside the page (语法 list / lesson / map) that the page pushed through page-nav.js */
+const navEntry=()=>({route,subtab,game:selectedGameId,series:selectedSeriesId,origin:gameOrigin,page:pageState});
+const sameEntry=(a,b)=>a&&b&&a.route===b.route&&(a.subtab||'')===(b.subtab||'')&&(a.route!=='game'||a.game===b.game)&&(a.route!=='series'||a.series===b.series)&&
+ JSON.stringify(a.page??null)===JSON.stringify(b.page??null);
+pageNav.record=(state,replace=false)=>{pageState=state;const entry=navEntry();if(replace&&navIndex>=0){navStack[navIndex]=entry;return;}if(navIndex<0){navStack.push(entry);navIndex=0;}else if(!sameEntry(navStack[navIndex],entry)){navStack.splice(navIndex+1);
+ navStack.push(entry);if(navStack.length>60)navStack.shift();navIndex=navStack.length-1;}updateNavButtons();};
 function updateNavButtons(){document.querySelectorAll('[data-nav-step]').forEach(button=>{const target=navIndex+Number(button.dataset.navStep);button.disabled=target<0||target>=navStack.length;
  });}
-function stepNavigation(step){const target=navIndex+step,entry=navStack[target];if(!entry)return;navIndex=target;selectedGameId=entry.game;selectedSeriesId=entry.series;
- gameOrigin=entry.origin;navigate(entry.route,entry.subtab,true);}
+function stepNavigation(step){const target=navIndex+step,entry=navStack[target];if(!entry)return;navIndex=target;
+ /* the same page: hand it the view, no reload; another page: it picks the view up when it mounts */
+ const samePage=entry.route===route&&(entry.subtab||'')===(subtab||'')&&entry.game===selectedGameId&&entry.series===selectedSeriesId;pageState=entry.page??null;
+ if(samePage&&pageNav.apply(pageState)){updateNavButtons();return;}if(!samePage)pageNav.expect(pageState);
+ selectedGameId=entry.game;selectedSeriesId=entry.series;gameOrigin=entry.origin;navigate(entry.route,entry.subtab,true);}
 async function navigate(next,tab='',replay=false){if(next!=='learning'||tab!=='kana')invoke('kanji_go_hide').catch(()=>{});const ticket=++navigationTicket;if(!replay&&navIndex<0){
  navStack.push(navEntry());navIndex=0;}if(route==='settings'){rememberSettingsScroll();try{await leaveSettings();}catch{toast({zh:'设置保存失败，请稍后重试',en:'Could not save settings. Please retry',
- ja:'設定を保存できませんでした'}[locale]);return;}}await retractTabs(next==='statistics'?'learning':next);if(ticket!==navigationTicket)return;route=next;subtab=tab;if(!replay){
+ ja:'設定を保存できませんでした'}[locale]);return;}}await retractTabs(next==='statistics'?'learning':next);if(ticket!==navigationTicket)return;route=next;subtab=tab;if(!replay){pageState=null;pageNav.reset();
  const entry=navEntry();if(!sameEntry(navStack[navIndex],entry)){navStack.splice(navIndex+1);navStack.push(entry);if(navStack.length>60)navStack.shift();navIndex=navStack.length-1;
  }else navStack[navIndex]=entry;}updateNavButtons();document.querySelectorAll('[data-route]').forEach(button=>{if(button.dataset.route===route||(route==='game'||route==='series')&&button.dataset.route==='library'||route==='statistics'&&button.dataset.route==='learning')button.setAttribute('aria-current',
  'page');else button.removeAttribute('aria-current');});renderRoute();}
