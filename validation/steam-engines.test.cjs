@@ -176,6 +176,9 @@ test('real data: STEINS;GATE (Steam) spoken lines carry their voice.mpk clip',{s
 });
 for(const [title,exe] of [['Danganronpa Trigger Happy Havoc','dr1_data_us.wad'],['Danganronpa 2 Goodbye Despair','dr2_data_us.wad']]){const d=path.join(STEAM,title);
  test('real data: '+title+' (Steam, English text) reads its .lin scripts but is not taken for Japanese',{skip:!fs.existsSync(path.join(d,exe))&&'not installed'},()=>{
-  const sets=spike._internal.sets(d);assert.ok(sets.length>=1);let n=0;for(const s of sets){assert.strictEqual(s.lang,'other');for(const [,r] of s.scripts)n+=(spike._internal.linStrings(r())||[]).length;}
-  assert.ok(n>40000,String(n));assert.deepStrictEqual(spike.scenes(d),[]);
+  /* 2026-11-14 the owner's install now also has *_jp.wad (Steam language set to 日本語): only the _jp set is Japanese,
+     and the game reads only when such a set is there */
+  const sets=spike._internal.sets(d),ja=sets.filter(s=>/_jp\.wad$/i.test(s.file));assert.ok(sets.length>=1);let n=0;
+  for(const s of sets){assert.strictEqual(s.lang,ja.includes(s)?'ja':'other');for(const [,r] of s.scripts)n+=(spike._internal.linStrings(r())||[]).length;}
+  assert.ok(n>40000,String(n));if(ja.length)assert.ok(spike.scenes(d).length>0);else assert.deepStrictEqual(spike.scenes(d),[]);
  });}
