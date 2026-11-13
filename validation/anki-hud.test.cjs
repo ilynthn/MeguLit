@@ -52,33 +52,34 @@ test('the card magnifier looks words up in MOJi first and falls back to the loca
  /* 2026-11-13 English interface asks Jisho instead of MOJi */assert.ok(i>0);assert.match(body,/q\(locale==='en'\?'jisho':'moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("'jisho':'moji')")<body.indexOf("q('local')"));
  assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
 });
-test('the saved slot never moves; the frame is the content box inside it; the text size is the saved scale (user 2026-11-14)',()=>{
- const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* no scale yet: 1, the 外观 size, whatever the card */
- assert.equal(a.fresh,true);assert.equal(a.scale,1);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h,a.rect.s],[10,10,80,20,1]);assert.equal(a.ox,200);
- const b=H.hugRect({x:10,y:10,w:80,h:40,s:2},400,100,1000,1000);/* the frame stays the box, content at its top */
- assert.deepEqual([b.rect.x,b.rect.y,b.rect.w,b.rect.h,b.rect.s],[10,10,80,40,2]);assert.equal(b.oy,0);assert.equal(b.scale,2);
- /* answer side taller: same box, same place; it may use the free space below before it shrinks */
- const q=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,60,1360,800),ans=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,260,1360,800);
- for(const r of [q.rect,ans.rect])assert.deepEqual([r.x,r.y,r.w,r.h],[58,42,39,24]);
- assert.equal(q.scale,1.5);assert.ok(ans.scale<1.5&&260*ans.scale<=24*8+.01,'no room: taller content shrinks into the box');
- const roomy=H.hugRect({x:58,y:42,w:39,h:24,s:1.5},300,260,1360,800,6,50);assert.equal(roomy.scale,1.5,'with room below it keeps its size');
- const d=H.hugRect({x:0,y:0,w:10,h:10,s:5},400,100,1000,1000);assert.ok(d.scale<=.25,'never wider than its box');
- /* free space under a box: down to the next block that shares its width, else the stage bottom */
- assert.equal(H.roomBelow({x:58,y:27,w:39,h:12},[{x:58,y:42,w:39,h:24},{x:2,y:9,w:52,h:74}]),14);assert.equal(H.roomBelow({x:58,y:42,w:39,h:24},[{x:2,y:9,w:52,h:74}]),58);
- /* both sides place content by the offsets; the card wraps text at the saved scale and passes the room */
- /* the frame (edit outline, drag target, snapping) is the content's real box: top of the slot, centred across */
- assert.deepEqual(a.frame,{x:30,y:10,w:40,h:10,s:1});assert.deepEqual([b.frame.x,b.frame.y,b.frame.w,b.frame.h],[10,10,80,20]);
- assert.match(read('anki-card.js'),/shown\[id\]=h\.frame;MeguHud\.applyRect\(el,h\.frame\)/);assert.match(read('anki-review.js'),/hostShown\[id\]=h\.frame;H\.applyRect\(el,h\.frame\)/);
- /* dragging / resizing the frame carries the same change to the saved slot, never replaces it with one card's content */
- const slot={x:58,y:42,w:39,h:24,s:1};assert.deepEqual(H.carry(slot,{x:70,y:42,w:15,h:5,s:1},{x:60,y:50,w:15,h:5,s:1}),{x:48,y:50,w:39,h:24,s:1});
- assert.deepEqual(H.carry({...slot,x:40},{x:52,y:42,w:15,h:5,s:1},{x:52,y:42,w:30,h:10,s:2}),{x:40,y:42,w:54,h:29,s:2});assert.equal(H.carry(slot,{x:70,y:42,w:15,h:5,s:1},{x:70,y:42,w:30,h:10,s:2}).x,46,'kept inside the stage');
- assert.match(read('anki-card.js'),/onCommit:\(r,from\)=>\{r=MeguHud\.carry\(hud\.layout\[id\],from,r\);/);assert.match(read('anki-review.js'),/onCommit:\(r,from\)=>\{hud\.layout\[id\]=H\.carry\(hud\.layout\[id\],from,r\);/);
- /* wrapped text: the box shrinks to its longest line; edit frames are plain rectangles; [例] flows with the sentence */
- assert.match(read('anki-card.js'),/rg\.selectNodeContents\(box\)/);assert.match(read('anki-layout.css'),/\.anki-hud\.editing \.anki-hud-block\{border-radius:0\}/);assert.ok(!/anki-hud-block\[data-hud=controls\]\{border-radius:999px\}/.test(read('anki-layout.css')));
- assert.match(read('anki-card.css'),/body\.hud-edit \.hud-block\{border-radius:0\}/);assert.match(read('anki-card.css'),/\[data-hud=example\] \.tm-ex\{display:block;text-align:center\}/);
- const card=read('anki-card.js');assert.match(card,/const s0=Number\.isFinite\(r\.s\)\?r\.s:1;if\(nw\*s0>r\.w\*SW\/100\+1\)/);assert.match(card,/MeguHud\.roomBelow\(/);
- /* the size is the user's: a move or a side keeps it, a corner scales it with the box */
- const drag=read('hud-drag.js');assert.match(drag,/r\.s=edge\.length===2\?/);assert.ok(!/delete r\.s/.test(drag));
+test('every block is like the screenshot: the frame is the saved box and the content fills it, centred (user 2026-11-14)',()=>{
+ /* 4:1 content in an 800x400 px box: as large as fits (width-bound), centred top to bottom */
+ const a=H.hugRect({x:10,y:10,w:80,h:40},400,100,1000,1000);assert.equal(a.scale,2);assert.deepEqual(a.frame,{x:10,y:10,w:80,h:40});assert.deepEqual(a.rect,a.frame);
+ assert.equal(a.ox,0);assert.equal(a.oy,100);
+ /* a tall box with one short word: centred both ways, never pinned to the top */
+ const t=H.hugRect({x:0,y:0,w:20,h:60},100,40,1000,1000,6);assert.equal(t.scale,2);assert.equal(t.ox,0);assert.equal(t.oy,260);
+ /* a corner drag that shrinks the box shrinks the text with it, down to the minimum */
+ const s=H.hugRect({x:0,y:0,w:10,h:2},400,100,1000,1000,6,.3);assert.equal(s.scale,.2>.3?.2:.3);
+ /* nothing pushes or crops another block: no auto-yield anywhere */
+ const card=read('anki-card.js'),src=read('anki-review.js');assert.ok(!/MeguHud\.settle\(/.test(card));assert.match(card,/delete el\.querySelector\?\.\('\.hud-label'\)\?\.dataset\.nudge/);
+ /* card blocks and the page's own blocks (进度, 按钮) use the same fit, centred by ox/oy */
+ assert.match(card,/MeguHud\.fitContent\(box,rect\.w\*SW\/100,rect\.h\*SH\/100,\{wrap:id==='info'\|\|id==='example',max:8,minPx:10\}\)/);
+ assert.match(src,/H\.fitContent\(box,rect\.w\*c\.width\/100,rect\.h\*c\.height\/100,\{max:6,minPx:10\}\)/);
+ for(const f of [card,src])assert.match(f,/box\.style\.left=h\.ox\+'px';box\.style\.top=h\.oy\+'px';/);
+ /* dragging / resizing the frame carries the same change to the saved box */
+ const slot={x:58,y:42,w:39,h:24};assert.deepEqual(H.carry(slot,slot,{x:50,y:40,w:39,h:24}),{x:50,y:40,w:39,h:24});
+ /* edit frames are plain rectangles; [例] flows with the sentence */
+ assert.match(read('anki-layout.css'),/\.anki-hud\.editing \.anki-hud-block\{border-radius:0\}/);assert.match(read('anki-card.css'),/body\.hud-edit \.hud-block\{border-radius:0\}/);
+ assert.match(read('anki-card.css'),/\[data-hud=example\] \.tm-ex\{display:block;text-align:center\}/);
+});
+test('读音 and 释义 are two blocks; an old joint box is split in place; every preset has both (user 2026-11-14)',()=>{
+ const old=M.cleanLayout({info:{x:58,y:27,w:39,h:12}});assert.deepEqual(old.reading,{x:58,y:27,w:39,h:4.8});assert.deepEqual(old.info,{x:58,y:31.8,w:39,h:7.2});
+ const both=M.cleanLayout({reading:{x:1,y:2,w:30,h:5},info:{x:1,y:8,w:30,h:6}});assert.deepEqual(both.reading,{x:1,y:2,w:30,h:5});
+ for(const k of Object.keys(M.PRESETS)){const p=M.preset(k);assert.ok(p.reading&&p.info,k);assert.ok(p.reading.y+p.reading.h<=p.info.y+.01,k+': reading above meaning');assert.ok(p.info.y+p.info.h<=p.example.y+.01,k+': meaning above example');}
+ assert.equal(M.cleanStyle({}).size.reading,32);assert.equal(M.cssVars({})['--hud-size-reading'],'32px');
+ const src=read('anki-review.js');for(const s of ["reading:'读音',info:'释义'","reading:'Reading',info:'Meaning'","reading:'読み',info:'意味'"])assert.ok(src.includes(s),s);
+ const card=read('anki-card.js');assert.match(card,/return \{word:word\?\[word\]:\[\],reading:reading\?\[reading\]:\[\],info:/);
+ assert.match(read('anki-card.css'),/\[data-hud=reading\] \.tm-reading\{[^}]*font-size:var\(--hud-size-reading,32px\)/);
 });
 test('the answer always has the reading: from WordReading, else from the example furigana (user 2026-11-14)',()=>{
  assert.equal(H.rubyReading('遠ざかる','<b class="tm-hl"><ruby>遠<rt>とお</rt></ruby>ざかって</b>いく'),'とおざかる');
@@ -145,7 +146,7 @@ test('blocks never overlap: a long example pushes the screenshot, which gives up
  /* a hand-made layout that overlaps is also pulled apart, side by side blocks are left alone */
  const s3=H.settle({shot:{x:2,y:9,w:52,h:74},word:{x:58,y:10,w:39,h:15},example:{x:58,y:20,w:39,h:24}},[],'shot');
  assert.deepEqual(s3.rects.shot,{x:2,y:9,w:52,h:74});assert.ok(s3.rects.example.y>=25);
- assert.match(read('anki-card.js'),/MeguHud\.settle\(own,fixed,'shot'/);assert.match(read('anki-card.css'),/\.hud-label\[data-nudge\]::after/);
+ assert.match(read('anki-card.css'),/\.hud-label\[data-nudge\]::after/);
 });
 test('the layout tools are a compact floating dock that moves, folds and keeps out of the way',()=>{
  const src=read('anki-review.js'),css=read('anki-layout.css');
@@ -168,7 +169,7 @@ test('full screen covers the window and the top bar, never hides the window, and
 test('the layout dock has its own remembered opacity and lives in a top-level layer clamped only to the window',()=>{
  /* user 2026-11-14: the panel covered the blocks and could not leave the HUD */
  const src=read('anki-review.js'),css=read('anki-layout.css');
- assert.match(src,/opacity:'透明度',place:'摆放'/);assert.match(src,/opacity:'Opacity',place:'Placement'/);assert.match(src,/opacity:'透明度',place:'配置'/);
+ assert.match(src,/opacity:'透明度',scrim:'背景变暗',place:'摆放'/);assert.match(src,/opacity:'Opacity',scrim:'Backdrop dim',place:'Placement'/);assert.ok(src.includes('data-dock-scrim'));assert.ok(src.includes('scrim:Number.isFinite(d.scrim)?Math.min(90,Math.max(0,d.scrim)):80'));assert.ok(css.includes('.anki-hud-edit .hud-dock-panel{background:rgba(16,12,14,var(--dk-scrim,.8));'));assert.ok(css.includes('backdrop-filter:blur(calc(var(--dk-scrim,.8)*20px))'));assert.match(src,/opacity:'透明度',scrim:'背景を暗く',place:'配置'/);
  assert.match(src,/type="range" min="30" max="100" step="5" data-dock-op/);assert.match(src,/op:Number\.isFinite\(d\.op\)\?Math\.min\(100,Math\.max\(30,d\.op\)\):100/);
  assert.match(css,/\.anki-hud-edit \.hud-dock-panel\{opacity:var\(--dk-op,1\)\}/);
  assert.match(css,/\.anki-hud-edit:not\(\.op-live\) \.hud-dock-panel:is\(:hover,:focus-within\),\.anki-hud-edit\.dragging \.hud-dock-panel\{opacity:1\}/);assert.match(src,/box\.classList\.toggle\('op-live'/);

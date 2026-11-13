@@ -43,9 +43,9 @@ body.hud.hud-whole #card-content .tm-card{background:transparent!important;borde
 [data-hud=word] .tm-head{padding:0 64px!important;min-height:0}
 [data-hud=word] .tm-word{font-family:var(--hud-ja-font);font-size:var(--hud-size-word,64px);color:var(--hud-word,#f6e7d8);letter-spacing:.06em;line-height:1.25}
 [data-hud=word] .tm-head .tm-pitch{font-size:calc(var(--hud-size-word,64px)*.38)}
-[data-hud=info] .tm-sec{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;column-gap:.9em;row-gap:.2em;font-size:var(--hud-size-info,28px);text-align:center}
-[data-hud=info] .tm-reading{font-family:var(--hud-ja-font);font-size:1.12em;margin:0!important;color:var(--hud-word,#f6e7d8)}
-[data-hud=info] .tm-mean{font-family:var(--hud-zh-font);font-size:1em;line-height:1.5}
+/* (user 2026-11-14) 读音 and 释义 are separate blocks */
+[data-hud=reading] .tm-reading{font-family:var(--hud-ja-font);font-size:var(--hud-size-reading,32px);margin:0!important;color:var(--hud-word,#f6e7d8);text-align:center;line-height:1.3}
+[data-hud=info] .tm-mean{font-family:var(--hud-zh-font);font-size:var(--hud-size-info,28px);line-height:1.5;text-align:center}
 [data-hud=info] .tm-pos{color:var(--hud-dim,#a99e97)}
 [data-hud=example] .tm-sec{text-align:center}
 [data-hud=example] .hud-inner{padding:0 .5em .35em!important;box-sizing:border-box}

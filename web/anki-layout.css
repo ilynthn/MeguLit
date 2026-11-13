@@ -140,11 +140,14 @@ html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-
 .anki-hud-edit .hud-dock-panel{opacity:var(--dk-op,1)}
 /* 2026-11-14 (user: 透明度调整无效) .op-live is set from JS while the pointer or focus is on the opacity row (no :has, see the review-page test). .anki-hud-edit is the whole edit layer, so its :hover was always on and the panel never faded: only the panel's own hover counts, and not while the pointer is on the opacity row, so the slider previews live */
 .anki-hud-edit:not(.op-live) .hud-dock-panel:is(:hover,:focus-within),.anki-hud-edit.dragging .hud-dock-panel{opacity:1}
-.anki-hud-edit.over-content:not(:hover,:focus-within,.dragging) .hud-dock-panel{backdrop-filter:blur(14px)}
 .anki-hud.hud-moving .anki-hud-edit,.anki-hud-edit.hud-moving{opacity:.08;pointer-events:none}
 .hud-dock-panel{position:relative;box-sizing:border-box;border:1px solid var(--dk-line-2);border-radius:3px;background:var(--dk-bg);box-shadow:0 24px 56px rgba(0,0,0,.55),0 4px 12px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.35),inset 0 0 0 1px color-mix(in srgb,var(--t-text,#ece4dc) 7%,transparent),inset 0 1px 0 color-mix(in srgb,var(--t-text,#ece4dc) 14%,transparent);
  transform-origin:top right;transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .anki-hud-edit[data-side=left] .hud-dock-panel{transform-origin:top left}
+/* (user 2026-11-14) 背景变暗: the panel's own backdrop is a dark scrim (--dk-scrim, 0-.9, default .8) plus blur, in
+   both themes, with light text; at the default the dim labels keep 4.5:1 even over a white screenshot */
+.anki-hud-edit{--dk-text:#ece4dc;--dk-dim:#cfc6bf}
+.anki-hud-edit .hud-dock-panel{background:rgba(16,12,14,var(--dk-scrim,.8));-webkit-backdrop-filter:blur(calc(var(--dk-scrim,.8)*20px));backdrop-filter:blur(calc(var(--dk-scrim,.8)*20px))}
 .anki-hud-edit.collapsed .hud-dock-panel{opacity:0;transform:scale(.9);visibility:hidden;pointer-events:none;transition:opacity .16s ease,transform .2s ease,visibility 0s .2s}
 .hud-dock-pill{position:absolute;top:0;right:0;z-index:1;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px 0 10px;border:1px solid var(--dk-line-2);border-radius:3px;background:var(--dk-bg);color:var(--dk-text);font:inherit;font-size:12.5px;letter-spacing:.06em;cursor:grab;
  opacity:0;transform:scale(.85);pointer-events:none;transition:opacity .16s ease,transform .2s cubic-bezier(.2,.8,.2,1);box-shadow:0 6px 18px rgba(0,0,0,.28)}

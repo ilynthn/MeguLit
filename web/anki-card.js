@@ -31,10 +31,10 @@
   /* the answer always shows the reading: a note without WordReading gets it from its example's furigana */
   const m0=card.querySelector('.tm-mean');if(m0&&!card.querySelector('.tm-reading')&&globalThis.MeguHud?.rubyReading){const w=card.querySelector('.tm-word')?.textContent||'',ex=card.querySelector('.tm-ex');
    const rd=MeguHud.rubyReading(w,ex?.querySelector('.tm-hl')?.innerHTML)||MeguHud.rubyReading(w,ex?.innerHTML);if(rd){const d=document.createElement('div');d.className='tm-reading';d.dataset.from='sentence';d.textContent=rd;m0.before(d);}}
-  const sec=n=>n&&n.closest?n.closest('.tm-sec')||n:n,word=card.querySelector('.tm-head'),mean=card.querySelector('.tm-mean'),info=mean?sec(mean):null;
-  const ex=card.querySelector('.tm-ex'),example=ex?sec(ex):null,shot=card.querySelector('.tm-shot'),used=[word,info,example,shot].filter(Boolean);
-  const rest=[...card.children].filter(n=>!used.includes(n)&&!used.some(u=>u.contains(n)));
-  return {word:word?[word]:[],info:info?[info,...(example?[]:rest)]:[],example:example?[example,...rest]:info?[]:rest,shot:shot?[shot]:[]};
+  const sec=n=>n&&n.closest?n.closest('.tm-sec')||n:n,word=card.querySelector('.tm-head'),info=card.querySelector('.tm-mean'),reading=card.querySelector('.tm-reading');
+  const ex=card.querySelector('.tm-ex'),example=ex?sec(ex):null,shot=card.querySelector('.tm-shot'),used=[word,reading,info,example,shot].filter(Boolean);
+  const rest=[...card.children].filter(n=>!used.includes(n)&&!used.some(u=>u.contains(n)||n.contains(u)));
+  return {word:word?[word]:[],reading:reading?[reading]:[],info:info?[info,...(example?[]:rest)]:[],example:example?[example,...rest]:info?[]:rest,shot:shot?[shot]:[]};
  }
  function block(id){
   const b=document.createElement('div');b.className='hud-block';b.dataset.hud=id;b.tabIndex=-1;
@@ -68,26 +68,16 @@
       framed by a focus point and zoom the user drags / scrolls; edges change the proportions, corners scale */
    if(id==='shot'){const r=hud.layout.shot;if(!r)continue;const rect=MeguHud.normRect(r,r,{w:.3,h:.3});shown.shot=rect;MeguHud.applyRect(el,rect);
     box.style.cssText='';el.classList.add('hud-crop');frameShot(el,rect);continue;}
-   else{box.style.width='max-content';box.style.height='auto';box.style.maxWidth=Math.round(SW*.94)+'px';nw=box.offsetWidth;nh=box.offsetHeight;}
-   const r=hud.layout[id];if(!r||!nw||!nh)continue;
-   /* (user 2026-11-14: sizes changed from card to card) the saved scale is the block's text size on every card and in
-      both modes: text wider than the box wraps inside its width at that size, and may run down into the free space
-      under the box; only what still does not fit is shrunk */
-   const s0=Number.isFinite(r.s)?r.s:1;if(nw*s0>r.w*SW/100+1){box.style.width=Math.max(40,Math.floor(r.w*SW/100/s0))+'px';box.style.maxWidth='none';nw=box.offsetWidth;nh=box.offsetHeight;
-    /* wrapped lines rarely fill the width: shrink the box to the longest line, so the frame is the text's real box */
-    const rg=document.createRange();rg.selectNodeContents(box);let L=Infinity,R=-Infinity;for(const q of rg.getClientRects()){if(q.width<1)continue;L=Math.min(L,q.left);R=Math.max(R,q.right);}
-    const inner=box.firstElementChild,cs=inner?getComputedStyle(inner):null,pad=cs?(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0):0;
-    if(R>L){const tw=Math.ceil(R-L+pad)+1;if(tw<nw-2){box.style.width=tw+'px';nw=box.offsetWidth;nh=box.offsetHeight;}}}
-   const room=MeguHud.roomBelow(r,[...Object.entries(hud.layout).filter(([k])=>k!==id&&k!=='card'&&(blocks[k]||hostFrames[k])).map(([,v])=>v),...Object.values(hostFrames)]);
-   const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5,room);shown[id]=h.frame;MeguHud.applyRect(el,h.frame);box.style.transform='scale('+h.scale+')';box.style.left='0px';box.style.top='0px';meta[id]={scale:Math.round(h.scale*1000)/1000,text:el.querySelector('.hud-inner')?.textContent.replace(/\s+/g,' ').trim().slice(0,120)||''};
-   if(h.fresh){hud.layout[id]=h.rect;fresh[id]=h.rect;}
+   const r=hud.layout[id];if(!r)continue;const rect=MeguHud.normRect(r,r,{w:.3,h:.3});
+   /* (user 2026-11-14) like the screenshot: the content fills its frame and is centred; meanings and examples may wrap */
+   const f=MeguHud.fitContent(box,rect.w*SW/100,rect.h*SH/100,{wrap:id==='info'||id==='example',max:8,minPx:10});
+   if(!f){shown[id]=rect;MeguHud.applyRect(el,rect);continue;}
+   const h=MeguHud.hugRect(rect,f.nw,f.nh,SW,SH,f.max,f.min);shown[id]=h.frame;MeguHud.applyRect(el,h.frame);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';
+   meta[id]={scale:Math.round(h.scale*1000)/1000,text:el.querySelector('.hud-inner')?.textContent.replace(/\s+/g,' ').trim().slice(0,120)||''};
   }
-  /* (user 2026-11-13) nothing overlaps: a longer example pushes what is under it down, the screenshot gives up space */
-  const own=Object.fromEntries(Object.entries(shown).filter(([k])=>k!=='card'&&blocks[k]));
-  const fixed=Object.entries(hostFrames).filter(([k])=>!(k in shown)).map(([,r])=>r);
-  const st=MeguHud.settle(own,fixed,'shot',2.2);
-  for(const [id,el] of Object.entries(blocks)){if(id==='card')continue;const r=st.rects[id];if(!r)continue;shown[id]=r;MeguHud.applyRect(el,r);if(id==='shot')frameShot(el,r);
-   const lab=el.querySelector('.hud-label');if(lab){const o=own[id],moved=o&&(Math.abs(r.y-o.y)>2.5||Math.abs(r.h-o.h)>2.5);if(st.nudged.includes(id)&&moved)lab.dataset.nudge=' · '+(hud.labels?.nudged||'auto');else delete lab.dataset.nudge;}}
+  /* (user 2026-11-14: 已自动让位 cropped the screenshot) no auto-yield: a block never grows past its own frame, so
+     nothing is pushed or cropped, and an overlap is the user's own choice */
+  for(const el of Object.values(blocks))delete el.querySelector?.('.hud-label')?.dataset.nudge;
   for(const [id,m] of Object.entries(meta)){const el=blocks[id],b=el?.querySelector('.hud-fit');if(!b)continue;const px=q=>[q.left,q.top,q.width,q.height].map(v=>Math.round(v*10)/10);m.frame=px(el.getBoundingClientRect());m.content=px(b.getBoundingClientRect());}
   for(const [id,r] of Object.entries(fresh))parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');
   parent.postMessage({type:'tome-anki-hud-frames',nonce,frames:{...shown},meta},'*');

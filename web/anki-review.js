@@ -7,26 +7,26 @@ let stopMessages=()=>{};
 /* 2026-11-13 (user: anki界面要大改…放大 去掉背景 实现全屏 排版字体背景可自定义 像游戏 HUD 一样拖动) */
 const hudCopy={
  zh:{look:'外观',layout:'调整布局',done:'完成',reset:'恢复默认',full:'全屏',exitFull:'退出全屏',jaFont:'日文字体',zhFont:'中文字体',systemFonts:'读取系统字体',
-  sizes:'字号',size:{word:'单词',info:'读音释义',example:'例句',card:'整卡模式',controls:'按钮'},colors:'颜色',color:{word:'单词',text:'正文',dim:'次要',accent:'高亮'},
+  sizes:'字号',size:{word:'单词',reading:'读音',info:'释义',example:'例句',card:'整卡模式',controls:'按钮'},colors:'颜色',color:{word:'单词',text:'正文',dim:'次要',accent:'高亮'},
   bg:'背景',bgModes:['无','纯色','游戏背景','卡片截图','自选图片'],pick:'选择图片…',blur:'模糊',dim:'暗度',shadow:'文字阴影',
-  labels:{progress:'进度',word:'单词',info:'读音 · 释义',example:'例句 · 译文',shot:'截图',card:'整张卡片',controls:'按钮'},
-  presetLabel:'预设',presets:{classic:'经典居中',split:'左图右文',subtitle:'字幕式',minimal:'极简大字'},mine:'我的布局',pick:'选择…',none:'还没有',saveAs:'另存当前',savedOk:'已另存为我的布局',opacity:'透明度',place:'摆放',free:'无极摆放',gridMode:'网格对齐',gridSize:'网格',altHint:'按住 Alt 临时关闭吸附',
+  labels:{progress:'进度',word:'单词',reading:'读音',info:'释义',example:'例句 · 译文',shot:'截图',card:'整张卡片',controls:'按钮'},
+  presetLabel:'预设',presets:{classic:'经典居中',split:'左图右文',subtitle:'字幕式',minimal:'极简大字'},mine:'我的布局',pick:'选择…',none:'还没有',saveAs:'另存当前',savedOk:'已另存为我的布局',opacity:'透明度',scrim:'背景变暗',place:'摆放',free:'无极摆放',gridMode:'网格对齐',gridSize:'网格',altHint:'按住 Alt 临时关闭吸附',
   hint:'拖动方块移动，拖边角缩放 · 方向键微调，Shift+方向键改大小',shotHint:'截图：拉边改比例，拉角缩放（Shift 保持比例）· 双击或按住 Alt 拖动取景，滚轮缩放',dockTitle:'布局',collapse:'折叠',expand:'展开布局工具',help:'操作说明',
   nudged:'已自动让位',space:'空格',reviewed:'已复习 {n}',noResult:'词典里没有找到',close:'关闭',
   keys:'空格 翻面/良好 · 1–4 评分 · F 全屏 · L 布局 · Esc 退出',fontsFailed:'没能读取系统字体，可直接输入字体名'},
  en:{look:'Appearance',layout:'Edit layout',done:'Done',reset:'Restore defaults',full:'Full screen',exitFull:'Exit full screen',jaFont:'Japanese font',zhFont:'Chinese font',systemFonts:'Load installed fonts',
-  sizes:'Text size',size:{word:'Word',info:'Reading & meaning',example:'Example',card:'Whole card',controls:'Buttons'},colors:'Colours',color:{word:'Word',text:'Text',dim:'Secondary',accent:'Highlight'},
+  sizes:'Text size',size:{word:'Word',reading:'Reading',info:'Meaning',example:'Example',card:'Whole card',controls:'Buttons'},colors:'Colours',color:{word:'Word',text:'Text',dim:'Secondary',accent:'Highlight'},
   bg:'Background',bgModes:['None','Colour','Game art','Card screenshot','Own picture'],pick:'Choose picture…',blur:'Blur',dim:'Darken',shadow:'Text shadow',
-  labels:{progress:'Progress',word:'Word',info:'Reading · meaning',example:'Example · translation',shot:'Screenshot',card:'Whole card',controls:'Buttons'},
-  presetLabel:'Presets',presets:{classic:'Classic',split:'Picture left',subtitle:'Subtitles',minimal:'Minimal'},mine:'My layouts',pick:'Choose…',none:'None yet',saveAs:'Save current',savedOk:'Saved to my layouts',opacity:'Opacity',place:'Placement',free:'Free',gridMode:'Grid',gridSize:'Grid',altHint:'Hold Alt to turn snapping off',
+  labels:{progress:'Progress',word:'Word',reading:'Reading',info:'Meaning',example:'Example · translation',shot:'Screenshot',card:'Whole card',controls:'Buttons'},
+  presetLabel:'Presets',presets:{classic:'Classic',split:'Picture left',subtitle:'Subtitles',minimal:'Minimal'},mine:'My layouts',pick:'Choose…',none:'None yet',saveAs:'Save current',savedOk:'Saved to my layouts',opacity:'Opacity',scrim:'Backdrop dim',place:'Placement',free:'Free',gridMode:'Grid',gridSize:'Grid',altHint:'Hold Alt to turn snapping off',
   hint:'Drag a block to move it, drag its edges to resize · arrows nudge, Shift+arrows resize',shotHint:'Screenshot: edges change the shape, corners scale (Shift keeps it) · double-click or Alt-drag to frame, wheel to zoom',dockTitle:'Layout',collapse:'Collapse',expand:'Open layout tools',help:'How it works',
   nudged:'moved to avoid overlap',space:'Space',reviewed:'{n} reviewed',noResult:'Not in the dictionary',close:'Close',
   keys:'Space flip/Good · 1–4 rate · F full screen · L layout · Esc leave',fontsFailed:'Could not read installed fonts; type a font name instead'},
  ja:{look:'外観',layout:'レイアウト調整',done:'完了',reset:'既定に戻す',full:'全画面',exitFull:'全画面を終了',jaFont:'日本語フォント',zhFont:'中国語フォント',systemFonts:'インストール済みフォントを読む',
-  sizes:'文字サイズ',size:{word:'単語',info:'読み・意味',example:'例文',card:'カード全体',controls:'ボタン'},colors:'色',color:{word:'単語',text:'本文',dim:'補助',accent:'強調'},
+  sizes:'文字サイズ',size:{word:'単語',reading:'読み',info:'意味',example:'例文',card:'カード全体',controls:'ボタン'},colors:'色',color:{word:'単語',text:'本文',dim:'補助',accent:'強調'},
   bg:'背景',bgModes:['なし','単色','ゲーム画像','カードのスクショ','画像を選ぶ'],pick:'画像を選ぶ…',blur:'ぼかし',dim:'暗さ',shadow:'文字の影',
-  labels:{progress:'進捗',word:'単語',info:'読み · 意味',example:'例文 · 訳',shot:'スクリーンショット',card:'カード全体',controls:'ボタン'},
-  presetLabel:'プリセット',presets:{classic:'中央揃え',split:'左に画像',subtitle:'字幕風',minimal:'大きな文字'},mine:'マイレイアウト',pick:'選択…',none:'まだありません',saveAs:'現在のを保存',savedOk:'マイレイアウトに保存しました',opacity:'透明度',place:'配置',free:'自由配置',gridMode:'グリッド',gridSize:'グリッド',altHint:'Alt を押している間は吸着しません',
+  labels:{progress:'進捗',word:'単語',reading:'読み',info:'意味',example:'例文 · 訳',shot:'スクリーンショット',card:'カード全体',controls:'ボタン'},
+  presetLabel:'プリセット',presets:{classic:'中央揃え',split:'左に画像',subtitle:'字幕風',minimal:'大きな文字'},mine:'マイレイアウト',pick:'選択…',none:'まだありません',saveAs:'現在のを保存',savedOk:'マイレイアウトに保存しました',opacity:'透明度',scrim:'背景を暗く',place:'配置',free:'自由配置',gridMode:'グリッド',gridSize:'グリッド',altHint:'Alt を押している間は吸着しません',
   hint:'ブロックをドラッグで移動、端をドラッグで拡大縮小 · 矢印キーで微調整、Shift+矢印でサイズ',shotHint:'スクショ：辺で比率、角で拡大縮小（Shift で比率固定）· ダブルクリックか Alt ドラッグで位置、ホイールでズーム',dockTitle:'レイアウト',collapse:'たたむ',expand:'レイアウトツールを開く',help:'使い方',
   nudged:'重ならないよう移動',space:'Space',reviewed:'{n} 枚復習',noResult:'辞書に見つかりません',close:'閉じる',
   keys:'Space 裏返す/普通 · 1–4 評価 · F 全画面 · L レイアウト · Esc 終了',fontsFailed:'フォント一覧を読めませんでした。名前を直接入力できます'}
@@ -178,9 +178,9 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
     presets are thumbnails, placement a segmented switch, the grid slider shows only in grid mode, saved layouts sit in
     one small menu, the help is a tooltip. It fades while a block is dragged. */
  const dockKey='megulit-anki-hud-dock';
- let dock=(()=>{try{const d=JSON.parse(localStorage.getItem(dockKey))||{};return {px:Number.isFinite(d.px)?d.px:null,py:Number.isFinite(d.py)?d.py:null,op:Number.isFinite(d.op)?Math.min(100,Math.max(30,d.op)):100,collapsed:!!d.collapsed};}catch{return {px:null,py:null,op:100,collapsed:false};}})();
+ let dock=(()=>{try{const d=JSON.parse(localStorage.getItem(dockKey))||{};return {px:Number.isFinite(d.px)?d.px:null,py:Number.isFinite(d.py)?d.py:null,op:Number.isFinite(d.op)?Math.min(100,Math.max(30,d.op)):100,scrim:Number.isFinite(d.scrim)?Math.min(90,Math.max(0,d.scrim)):80,collapsed:!!d.collapsed};}catch{return {px:null,py:null,op:100,scrim:80,collapsed:false};}})();
  const saveDock=()=>{try{localStorage.setItem(dockKey,JSON.stringify(dock));}catch{}};
- const thumb=name=>{const L=M.preset(name);return '<svg viewBox="0 0 100 62" aria-hidden="true" focusable="false">'+['shot','word','info','example','controls'].map(k=>{const r=L[k];if(!r)return '';
+ const thumb=name=>{const L=M.preset(name);return '<svg viewBox="0 0 100 62" aria-hidden="true" focusable="false">'+['shot','word','reading','info','example','controls'].map(k=>{const r=L[k];if(!r)return '';
   return '<rect class="t-'+k+'" x="'+r.x+'" y="'+(r.y*.62)+'" width="'+r.w+'" height="'+Math.max(4,r.h*.62)+'"/>';}).join('')+'</svg>';};
  function editPanel(){
   const pre=Object.keys(M.PRESETS).map(k=>'<button type="button" class="hud-dock-preset" data-hud-preset="'+k+'" aria-label="'+esc(hc.presets[k])+'" data-tip="'+esc(hc.presets[k])+'">'+thumb(k)+'</button>').join('');
@@ -197,6 +197,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    '<label class="hud-dock-row hud-dock-grid"'+(grid?'':' hidden')+'><span class="hud-dock-k">'+esc(hc.gridSize)+'</span><input type="range" min="8" max="96" step="4" data-hud-grid value="'+hud.snap.grid+'" aria-label="'+esc(hc.gridSize)+'"><output>'+hud.snap.grid+'</output></label>'+
    '<div class="hud-dock-row"><span class="hud-dock-k">'+esc(hc.mine)+'</span><details class="hud-dock-menu"><summary>'+esc(hud.saved.length?hc.pick:hc.none)+'<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></summary><div class="hud-dock-list" role="menu">'+saved+'<hr><button type="button" role="menuitem" data-hud-save>+ '+esc(hc.saveAs)+'</button></div></details></div>'+
    '<label class="hud-dock-row hud-dock-op"><span class="hud-dock-k">'+esc(hc.opacity)+'</span><input type="range" min="30" max="100" step="5" data-dock-op value="'+dock.op+'" aria-label="'+esc(hc.opacity)+'"><output>'+dock.op+'%</output></label>'+
+   /* (user 2026-11-14: unreadable over a bright screenshot) a dark, blurred scrim behind the panel only */
+   '<label class="hud-dock-row hud-dock-op hud-dock-scrim"><span class="hud-dock-k">'+esc(hc.scrim)+'</span><input type="range" min="0" max="90" step="5" data-dock-scrim value="'+dock.scrim+'" aria-label="'+esc(hc.scrim)+'"><output>'+dock.scrim+'%</output></label>'+
    '</div><footer class="hud-dock-foot"><button type="button" class="hud-dock-ghost" data-hud-reset>'+esc(hc.reset)+'</button><button type="button" class="hud-dock-done" data-hud-done>'+esc(hc.done)+'</button></footer></div>';
  }
  /* where the dock goes: the saved spot, or the corner that covers the least of the blocks on screen */
@@ -232,6 +234,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    else if(b.hasAttribute('data-hud-save')){hud.saved=[...hud.saved,{name:hc.mine+' '+(hud.saved.length+1),layout:JSON.parse(JSON.stringify(hud.layout))}].slice(-6);saveHud();hud=M.load(localStorage);mountEdit(s);placeDock(s);toast(hc.savedOk);}};
   box.querySelector('[data-hud-grid]').oninput=event=>{hud.snap={...hud.snap,grid:Number(event.target.value)};event.target.nextElementSibling.value=event.target.value;saveHud();applyHud();};
   const setOp=v=>{dock.op=Math.min(100,Math.max(30,Number(v)||100));box.style.setProperty('--dk-op',String(dock.op/100));};setOp(dock.op);
+  const setScrim=v=>{dock.scrim=Math.min(90,Math.max(0,Number(v)||0));box.style.setProperty('--dk-scrim',String(dock.scrim/100));};setScrim(dock.scrim);
+  box.querySelector('[data-dock-scrim]').oninput=event=>{setScrim(event.target.value);event.target.nextElementSibling.value=dock.scrim+'%';saveDock();};
   box.querySelector('[data-dock-op]').oninput=event=>{setOp(event.target.value);event.target.nextElementSibling.value=dock.op+'%';saveDock();};
   /* on the opacity row the panel previews the chosen opacity instead of turning opaque (kept while the slider is held) */
   {const row=box.querySelector('.hud-dock-op');let held=false;const live=()=>box.classList.toggle('op-live',held||row.matches(':hover')||row.contains(document.activeElement));
@@ -298,8 +302,10 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  function placeBlocks(){
   const s=stage();if(!s)return;const c=canvas().getBoundingClientRect();if(!c.width)return;let changed=false;
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud,box=el.querySelector('.hud-content'),r=hud.layout[id];if(!box||!r)continue;
-   box.style.transform='none';const nw=box.offsetWidth,nh=box.offsetHeight;if(!nw||!nh||!box.textContent.trim()){H.applyRect(el,hostShown[id]||r);continue;}
-   const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.frame;H.applyRect(el,h.frame);box.style.transform='scale('+h.scale+')';box.style.left='0px';box.style.top='0px';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
+   /* (user 2026-11-14) 进度 and 按钮 fill their frames like every block: scaled to fit, centred both ways */
+   const rect=H.normRect(r,r,{w:.3,h:.3}),f=box.textContent.trim()?H.fitContent(box,rect.w*c.width/100,rect.h*c.height/100,{max:6,minPx:10}):null;
+   if(!f){hostShown[id]=rect;H.applyRect(el,rect);continue;}
+   const h=H.hugRect(rect,f.nw,f.nh,c.width,c.height,f.max,f.min);hostShown[id]=h.frame;H.applyRect(el,h.frame);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';}
   if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});if(editing&&dock.px===null)placeDock(s,'keep');
  }
  function paintBg(){
@@ -365,7 +371,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    '<fieldset><legend>'+esc(hc.jaFont)+'</legend><input data-look-font="jaFont" list="anki-hud-ja-fonts" value="'+esc(st.jaFont)+'" maxlength="80" aria-label="'+esc(hc.jaFont)+'"><datalist id="anki-hud-ja-fonts">'+opts(sysFonts||M.FONTS_JA,st.jaFont)+'</datalist></fieldset>'+
    '<fieldset><legend>'+esc(hc.zhFont)+'</legend><input data-look-font="zhFont" list="anki-hud-zh-fonts" value="'+esc(st.zhFont)+'" maxlength="80" aria-label="'+esc(hc.zhFont)+'"><datalist id="anki-hud-zh-fonts">'+opts(sysFonts||M.FONTS_ZH,st.zhFont)+'</datalist></fieldset>'+
    (typeof window.queryLocalFonts==='function'?'<button type="button" class="text-button" data-look-sysfonts>'+esc(hc.systemFonts)+'</button>':'')+
-   '<fieldset><legend>'+esc(hc.sizes)+'</legend>'+range('size','word',20,160,st.size.word,hc.size.word,'px')+range('size','info',12,80,st.size.info,hc.size.info,'px')+range('size','example',12,80,st.size.example,hc.size.example,'px')+range('size','card',12,60,st.size.card,hc.size.card,'px')+range('size','controls',11,32,st.size.controls,hc.size.controls,'px')+'</fieldset>'+
+   '<fieldset><legend>'+esc(hc.sizes)+'</legend>'+range('size','word',20,160,st.size.word,hc.size.word,'px')+range('size','reading',12,96,st.size.reading,hc.size.reading,'px')+range('size','info',12,80,st.size.info,hc.size.info,'px')+range('size','example',12,80,st.size.example,hc.size.example,'px')+range('size','card',12,60,st.size.card,hc.size.card,'px')+range('size','controls',11,32,st.size.controls,hc.size.controls,'px')+'</fieldset>'+
    '<fieldset><legend>'+esc(hc.colors)+'</legend><div class="anki-look-colors">'+['word','text','dim','accent'].map(k=>'<label><input type="color" data-look="color.'+k+'" value="'+st.color[k]+'"><span>'+esc(hc.color[k])+'</span></label>').join('')+'</div>'+
    '<label class="anki-look-check"><input type="checkbox" data-look-shadow'+(st.shadow?' checked':'')+'><span>'+esc(hc.shadow)+'</span></label></fieldset>'+
    '<fieldset><legend>'+esc(hc.bg)+'</legend><div class="anki-seg anki-seg-5" role="radiogroup">'+M.BG_MODES.map((m,i)=>'<button type="button" role="radio" data-look-bg="'+m+'" aria-checked="'+(st.bg.mode===m)+'">'+esc(hc.bgModes[i])+'</button>').join('')+'</div>'+
