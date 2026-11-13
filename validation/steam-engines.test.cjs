@@ -165,6 +165,7 @@ test('Spike .wad: the Japanese .lin set gives the lines, a Chinese set pairs by 
  assert.strictEqual(spike.patchLines(list)[0].lines[1],'「请多关照」');
  const en=tmp('dr-en-');put(en,{'dr1_data_us.wad':wad({'Dr1/data/us/script/e00_001_000.lin':lin(['Hope\'s Peak Academy...','Nice to meet you.'])})});
  assert.deepStrictEqual(spike.scenes(en),[]);
+ assert.deepStrictEqual(scenes.unsupportedReason(en)?.code,'WAD_NO_JAPANESE');assert.strictEqual(spike.unsupported(dir),'');
  for(const d of [dir,en])fs.rmSync(d,{recursive:true,force:true});
 });
 test('real data: STEINS;GATE (Steam) spoken lines carry their voice.mpk clip',{skip:!fs.existsSync(path.join(sg,'USRDIR','voice.mpk'))&&'not installed'},()=>{
