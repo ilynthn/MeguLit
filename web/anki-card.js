@@ -38,19 +38,35 @@
   b.innerHTML='<div class="hud-fit"><div class="card nightMode tm-card hud-inner"></div></div><span class="hud-label"></span>';
   b.querySelector('.hud-label').textContent=hud?.labels?.[id]||id;return b;
  }
+ /* (user 2026-11-13) each block hugs its content: shown[id] is the frame on screen; snapping against the other
+    blocks (the page's progress and buttons included) and drawing guides while one is moved */
+ const shown={};let hostFrames={},snapOpt={mode:'free',grid:24};
+ function guideLayer(){let g=document.querySelector('#hud-guides');if(!g){g=document.createElement('div');g.id='hud-guides';document.body.append(g);}return g;}
+ function others(id){return [...Object.entries(shown),...Object.entries(hostFrames).filter(([k])=>!(k in shown))].filter(([k])=>k!==id).map(([,r])=>r);}
  function attachBlock(el,id){
   if(!globalThis.MeguHud)return;
-  MeguHud.attach(el,{stage:()=>document.documentElement,rect:()=>hud.layout[id],editing:()=>!!hud?.edit,onCommit:r=>{hud.layout[id]=r;schedule();
-   parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');}});
+  MeguHud.attach(el,{stage:()=>document.documentElement,rect:()=>shown[id]||hud.layout[id],editing:()=>!!hud?.edit,
+   snap:(r,kind,alt)=>alt?null:MeguHud.snapRect(r,others(id),kind,{...snapOpt,SW:innerWidth,SH:innerHeight}),guides:g=>MeguHud.drawGuides(guideLayer(),g),
+   onCommit:r=>{hud.layout[id]=r;schedule();parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');}});
  }
  function place(){
-  if(!hud)return;for(const [id,el] of Object.entries(blocks)){const r=hud.layout[id];if(!r)continue;
-   if(id==='card')for(const [k,v] of [['left',r.x+'%'],['top',r.y+'%'],['width',r.w+'%'],['height',r.h+'%'],['right','auto'],['bottom','auto']])el.style.setProperty(k,v,'important');
-   else if(globalThis.MeguHud)MeguHud.applyRect(el,r);}
+  if(!hud)return;const r=hud.layout.card;
+  if(blocks.card&&r)for(const [k,v] of [['left',r.x+'%'],['top',r.y+'%'],['width',r.w+'%'],['height',r.h+'%'],['right','auto'],['bottom','auto']])blocks.card.style.setProperty(k,v,'important');
+  schedule();
  }
  function fitBlocks(){
-  for(const [id,el] of Object.entries(blocks)){if(id==='card'||id==='shot')continue;const fitBox=el.querySelector('.hud-fit');if(!fitBox)continue;fitBox.style.transform='';
-   const s=Math.max(.3,Math.min(1,el.clientWidth/Math.max(1,fitBox.scrollWidth),el.clientHeight/Math.max(1,fitBox.scrollHeight)));if(s<.999)fitBox.style.transform='scale('+s+')';}
+  if(!globalThis.MeguHud)return;const SW=innerWidth,SH=innerHeight,fresh={};
+  for(const k of Object.keys(shown))if(!(k in blocks))delete shown[k];
+  for(const [id,el] of Object.entries(blocks)){
+   if(id==='card'){shown.card=hud.layout.card;continue;}
+   const box=el.querySelector('.hud-fit');if(!box)continue;box.style.transform='none';let nw=0,nh=0;
+   if(id==='shot'){const img=box.querySelector('img');nw=img?.naturalWidth||0;nh=img?.naturalHeight||0;if(nw){box.style.width=nw+'px';box.style.height=nh+'px';}}
+   else{box.style.width='max-content';box.style.height='auto';box.style.maxWidth=Math.round(SW*.94)+'px';nw=box.offsetWidth;nh=box.offsetHeight;}
+   const r=hud.layout[id];if(!r||!nw||!nh)continue;const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5);shown[id]=h.rect;MeguHud.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';
+   if(h.fresh){hud.layout[id]=h.rect;fresh[id]=h.rect;}
+  }
+  for(const [id,r] of Object.entries(fresh))parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');
+  parent.postMessage({type:'tome-anki-hud-frames',nonce,frames:{...shown}},'*');
  }
  function buildHud(){
   const stage=hudStage();stage.replaceChildren();for(const k of Object.keys(blocks))delete blocks[k];
@@ -62,7 +78,6 @@
   else{blocks.card=viewport;viewport.dataset.hud='card';viewport.classList.add('hud-block');if(!viewport.querySelector('.hud-label')){const l=document.createElement('span');l.className='hud-label';viewport.append(l);}
    viewport.querySelector('.hud-label').textContent=hud.labels?.card||'card';attachBlock(viewport,'card');
    const img=root.querySelector('img[src^="data:image/"]');try{parent.postMessage({type:'tome-anki-shot',nonce,src:img?img.getAttribute('src'):''},'*');}catch{}}
-  for(const el of Object.values(blocks))if(el!==viewport)new ResizeObserver(schedule).observe(el);
   place();schedule();
  }
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(layout);}}
@@ -94,9 +109,9 @@
  addEventListener('message',event=>{
   if(event.source!==parent||event.data?.nonce!==nonce||!nonce)return;
   if(event.data.type==='tome-anki-card'){fit=event.data.fit!==false;copy=event.data.copy||copy;mix=event.data.mix||{};
-   if(event.data.hud&&typeof event.data.hud==='object'){hud={layout:{...event.data.hud.layout},edit:!!event.data.hud.edit,labels:event.data.hud.labels||{}};applyVars(event.data.hud.vars);}
+   if(event.data.hud&&typeof event.data.hud==='object'){hud={layout:{...event.data.hud.layout},edit:!!event.data.hud.edit,labels:event.data.hud.labels||{}};if(event.data.hud.snap)snapOpt=event.data.hud.snap;if(event.data.hud.frames)hostFrames=event.data.hud.frames;applyVars(event.data.hud.vars);}
    content(event.data.html);autoplay(event.data.auto);}
-  else if(event.data.type==='tome-anki-hud'&&hud){if(event.data.layout)hud.layout={...hud.layout,...event.data.layout};if('edit' in event.data){hud.edit=!!event.data.edit;
+  else if(event.data.type==='tome-anki-hud'&&hud){if(event.data.layout)hud.layout={...hud.layout,...event.data.layout};if(event.data.snap)snapOpt=event.data.snap;if(event.data.frames)hostFrames=event.data.frames;if('edit' in event.data){hud.edit=!!event.data.edit;
    document.body.classList.toggle('hud-edit',hud.edit);}applyVars(event.data.vars);place();schedule();}
   else if(event.data.type==='tome-anki-fit'){fit=event.data.fit!==false;viewport.scrollTop=0;schedule();}
   else if(event.data.type==='tome-anki-mix'){mix=event.data.mix||{};applyMix();}

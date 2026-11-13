@@ -310,6 +310,7 @@ export function fieldify(grid,filtered=false){
     same game scrolls back in, and once the wall is idle enough spare covers for the widest zoom are made in one batch.
     Dragging and zooming then never insert DOM: with this page's :has() rules one inserted cover re-ran style for the
     whole document (about 30 ms each time). */
+ let tier='small';
  const pool=new Map(),shield=document.createElement('i');
  shield.className='field-shield';shield.setAttribute('aria-hidden','true');host.append(shield);
  /* the capsule drops its backdrop blur while the wall moves; toggled on the capsule itself, since a :has() on .main
@@ -330,11 +331,15 @@ export function fieldify(grid,filtered=false){
   if(list?.length){const node=list.pop();node.removeAttribute('data-parked');return node;}
   return make(index);
  }
+ /* 2026-11-13 (CDP: restyling ~250 covers took 5 ms a frame while dragging or zooming, 0.7 ms for bare elements): each
+    cover sits in a classless <mg-cell> that carries the per-frame transform and opacity, so the frame's style pass
+    matches almost no rules; the cover itself is never touched while the wall moves. Its images decode off the main
+    thread ahead of their first paint. */
  function make(index){
-  const source=items[index],node=source.cloneNode(true);
-  node.draggable=false;node.classList.add('field-cell');
-  node.querySelectorAll('img').forEach(img=>{img.draggable=false;img.decoding='async';});
-  sources.set(node,source);return node;
+  const source=items[index],card=source.cloneNode(true),node=document.createElement('mg-cell');
+  card.draggable=false;card.classList.add('field-cell');
+  card.querySelectorAll('img').forEach(img=>{img.draggable=false;img.decoding='async';img.decode?.().catch(()=>{});});
+  node.append(card);sources.set(node,source);return node;
  }
  function park(cell){parkNode(cell.node,cell.index);}
  function parkNode(node,index){
@@ -366,12 +371,14 @@ export function fieldify(grid,filtered=false){
  const warmLater=()=>{if(filtered||warmId||warmIdle)return;warmId=setTimeout(()=>{warmId=0;warmIdle=idle(warm,{timeout:1500});},1400);};
  function paint(){
   constrain();
-  const {x,y,z}=state,cx=width/2,cy=podY-(filtered?0:14*z); /* a card is cover + caption, taller than its cell box: lift the rows so the capsule sits in the middle of a gap */
-  /* 2026-11-13 (user: zooming the wall is very laggy): the zoom tier restyles every cover (captions, shadows, hover); while the wheel zoom is still gliding it waits, and changes once when the zoom settles */{const zoom=z>1.05?'large':z<.85?'tiny':'small';if(!zoomBusy&&host.dataset.zoom!==zoom)host.dataset.zoom=zoom;}
+  const {x,y,z}=state,cx=width/2,cy=podY;
+  /* 2026-11-13 (user: zooming the wall is very laggy): the zoom tier restyles covers (captions, shadows, hover); while the wheel zoom is still gliding it waits, and changes once when the zoom settles.
+     CDP trace: written on the wall it restyled ~2800 nodes and re-laid out ~4000 in one 128 ms frame; it now sits on each cover and the paint loop below switches at most 24 covers a frame */
+  if(!zoomBusy)tier=z>1.05?'large':z<.85?'tiny':'small';
   /* 2026-11-12 (user: dragging the wall still lagged): every cover is placed on every frame, from transform and opacity
      only (each cover is its own compositor layer, so no paint). The old 90 ms plane-shift frames made the lens snap in
      steps, and the speed classes it toggled restyled every cover mid-drag; both are gone. */
-  const stamp=x.toFixed(2)+' '+y.toFixed(2)+' '+z.toFixed(4)+' '+width+' '+height+' '+cy;
+  const stamp=x.toFixed(2)+' '+y.toFixed(2)+' '+z.toFixed(4)+' '+width+' '+height+' '+cy+' '+tier;
   if(stamp===painted)return;
   painted=stamp;
   const firstCol=Math.max(filtered?0:-Infinity,Math.floor((x-cx/z)/cw)-1);
@@ -385,7 +392,10 @@ export function fieldify(grid,filtered=false){
    if(cell.col>=firstCol&&cell.col<=lastCol&&cell.row>=firstRow&&cell.row<=lastRow)continue;
    park(cell);cells.delete(key);
   }
-  let added=null;
+  /* 2026-11-13 (user: dragging right after opening the library still hitched): before the spare pool is warm every new
+     cover is a fresh clone (style, layout and first paint of its subtree). Covers inside the window are made at once;
+     ones in the margin ring outside it come at most 6 per frame, so a fast first drag spreads the cloning over frames */
+  let added=null,made=0,deferred=false,switched=0;
   for(let row=firstRow;row<=lastRow;row++)for(let col=firstCol;col<=lastCol;col++){
    /* E279 (user report 2026-11-09: the same game twice, side by side): a cols x ceil(n/cols) tile has more cells than
       games and refilled the spare ones from the start, right next to the originals. The open wall is one running
@@ -395,10 +405,14 @@ export function fieldify(grid,filtered=false){
    const key=row+':'+col;
    let cell=cells.get(key);
    if(!cell){
-    const game=index%items.length,node=take(game);
+    const game=index%items.length;
+    if(!pool.get(game)?.length){const sx=cx+(col*cw-x)*z,sy=cy+(row*ch-y)*z,mx=cardWidth*z,my=cardHeight*z;if((sx<-mx||sx>width+mx||sy<-my||sy>height+my)&&made>=6){deferred=true;continue;}made++;}
+    const node=take(game);
+    if(node.dataset.zoom!==tier)node.dataset.zoom=tier;
+
     if(!node.isConnected)(added||=document.createDocumentFragment()).append(node);
-    cell={node,col,row,index:game,t:'',o:''};cells.set(key,cell);
-   }
+    cell={node,col,row,index:game,t:'',o:'',z:tier};cells.set(key,cell);
+   }else if(cell.z!==tier){if(switched<24){cell.node.dataset.zoom=cell.z=tier;switched++;}else deferred=true;}
    const dx=(col*cw-x)*z,dy=(row*ch-y)*z;
    const d=Math.min(1,Math.hypot(dx,dy)/radius);
    // E222/E223 (user): covers stay on the grid; the wall is a plain background behind the search capsule.
@@ -408,9 +422,10 @@ export function fieldify(grid,filtered=false){
    if(cell.o!==o){cell.node.style.opacity=o;cell.o=o;}
   }
   if(added)plane.append(added);
+  if(deferred){painted='';queue();}
  }
- /* 2026-11-13 (user: dragging is smooth now but wants a little motion blur): a directional blur along the movement, only when the wall moves fast, in half-pixel steps so the filter is not rebuilt every frame; none with reduced motion */let zoomBusy=false,blurKey='0 0';const blurNode=(()=>{let svg=document.getElementById('mg-wall-blur-svg');if(!svg){svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id='mg-wall-blur-svg';svg.setAttribute('width','0');svg.setAttribute('height','0');svg.setAttribute('aria-hidden','true');svg.style.cssText='position:absolute;width:0;height:0;pointer-events:none';svg.innerHTML='<filter id="mg-wall-blur" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="0 0"/></filter>';document.body.append(svg);}return svg.querySelector('feGaussianBlur');})();const motionBlur=(sx,sy)=>{const step=v=>reduceMotion.matches?0:Math.min(6,Math.max(0,Math.round((Math.abs(v)-.35)*4)))/2;const key=step(sx)+' '+step(sy);if(key===blurKey)return;blurKey=key;blurNode?.setAttribute('stdDeviation',key);/* 2026-11-13 (user: dragging and zooming the wall still lag): an SVG url() filter on the whole plane is rasterised on the CPU and flattens every cover layer into one surface each frame, which was the drag/zoom stall. The blur is now a GPU CSS blur, only while the wall coasts or is flung fast, and it switches itself off for the session once frames run long while it is on. */const amt=Math.max(step(sx),step(sy));plane.style.filter=amt&&!wallBlurOff?`blur(${(amt*.5).toFixed(1)}px)`:'';};let wallBlurOff=false,slowFrames=0,lastFrameAt=0;const frameCost=now=>{const dt=lastFrameAt?now-lastFrameAt:16;lastFrameAt=now;if(plane.style.filter&&dt>22&&dt<200){if(++slowFrames>5){wallBlurOff=true;plane.style.filter='';}}else if(dt<=22)slowFrames=Math.max(0,slowFrames-1);};
-  function frame(now){
+ /* 2026-11-13 (CDP trace, user: drag and zoom still hitch): the motion blur is gone. Every change of its step repainted the covers (80-110 ms frames with the blur on the plane, 20-40 ms frames with it on each cover's layer); the wall moves without it */let zoomBusy=false;
+ function frame(now){
   raf=0;
   if(coastEnd){
    const dt=Math.min(32,Math.max(0,now-coastAt)),decay=Math.exp(-dt/105);
@@ -430,10 +445,10 @@ export function fieldify(grid,filtered=false){
    if(Math.abs(zoomTarget-state.z)<.0008)state.z=zoomTarget;else zooming=true;
   }
   zoomAt=zooming?now:0;zoomBusy=zooming;
-  /* 2026-11-13 (judge: the search capsule sat on the cover titles of the row above): once the wall rests it eases to the row gap, so the capsule never covers a cover or its title */if(!filtered&&!coastEnd&&!drag?.active&&!zooming){const goal=Math.round((state.y-ch/2)/ch)*ch+ch/2,gap=goal-state.y;if(Math.abs(gap)>.4){state.y+=reduceMotion.matches?gap:gap*.2;zooming=true;}else state.y=goal;}
-  frameCost(now);paint();{const fast=drag?.active||coastEnd;motionBlur(fast?vx:0,fast?vy:0);}
+  /* 2026-11-13 (user: no forced capsule position, free drag): the wall rests exactly where the drag or its coast leaves it; no easing to a row gap afterwards */
+  paint();
   if(!coastEnd&&!drag?.active&&!zooming)moving(false);
-  if(coastEnd||zooming||(drag?.active&&Math.hypot(vx,vy)>.75)||blurKey!=='0 0')queue();
+  if(coastEnd||zooming||(drag?.active&&Math.hypot(vx,vy)>.75))queue();
  }
  const queue=()=>{if(!raf)raf=requestAnimationFrame(frame);};
  const measure=()=>{

@@ -363,12 +363,14 @@ img{-webkit-user-drag:none}
 .lib-field{position:relative;height:calc(100vh - var(--titlebar-height));overflow:hidden;cursor:grab;touch-action:none;user-select:none}
 /* 2026-11-12: a `.dragging *` rule restyled the whole page when a drag began and ended (75 ms each); one shield over the
    wall carries the grabbing cursor instead, and keeps hover and hit tests off the moving covers */
-.lib-field.dragging{cursor:grabbing!important}
+/* 2026-11-13 (CDP trace: 20 ms restyle of ~800 nodes at each drag start and release): cursor is inherited, so a grabbing cursor on the wall itself restyled every cover; the shield alone carries it */
 .lib-field>.field-shield{position:absolute;inset:0;z-index:5;display:none;cursor:grabbing}
 .lib-field.dragging>.field-shield{display:block}
 .lib-field .field-grid{position:absolute;inset:0;display:block!important;margin:0!important;padding:0!important;overflow:hidden}
 .field-plane{position:absolute;inset:0}
-.lib-field .field-plane>*{position:absolute!important;top:0;left:0;width:168px;translate:none!important}
+.lib-field .field-plane>*{position:absolute!important;top:0;left:0;width:168px}
+/* 2026-11-13: the open wall wraps each cover in a classless <mg-cell> (grimoire.js); its entrance glide uses translate, so only the covers placed straight on the plane (search orbit) keep translate off */
+.lib-field .field-plane>:not(mg-cell){translate:none!important}
  /* 2026-11-12 (user: dragging the wall still lagged): titles, info rows and shadows no longer switch off while the wall
    moves; every cover is its own layer, so they cost nothing to move, while switching them repainted every cover twice */
 .lib-field .field-feature{position:absolute;inset:0;display:block!important;margin:0!important;padding:0!important;z-index:3}
@@ -601,7 +603,7 @@ img{-webkit-user-drag:none}
    scaling or fading a cover never repaints the others. Captions and the info row stop painting while the wall moves. */
 .lib-field .field-plane>*{backface-visibility:hidden}
 /* E225 (user: blurry after zooming out then in): layers are promoted only while moving; at rest they re-raster at the real scale */
-.lib-field.field-moving .field-plane>.field-cell:not([data-parked]){will-change:transform}
+/* 2026-11-13: no .field-moving rule here; a class rule on the wall restyled every cover at each drag start and stop (see e255-polish.css) */
 /* E224: the search field sits at the exact centre of the capsule; both button groups take the same width */
 .field-search .side{flex:0 0 112px;display:flex;align-items:center}
 .field-search>.side:first-child{justify-content:flex-start}

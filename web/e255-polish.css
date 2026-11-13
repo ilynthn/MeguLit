@@ -185,21 +185,17 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-la
 /* E269 无限墙放大时清晰：静止时不让封面成为独立合成层（否则按原尺寸栅格化再被放大而发糊）；拖动/缩放中才提升图层保流畅 */
 .lib-field .library-card .cover-frame{will-change:auto!important;backface-visibility:visible!important}
 .lib-field .library-card .cover-frame:hover{will-change:transform!important}
-.lib-field.field-moving .field-plane>.field-cell:not([data-parked]){will-change:transform}
-.lib-field:not(.field-moving) .field-plane,.lib-field:not(.field-moving) .field-plane>.field-cell{will-change:auto!important}
 .lib-field .field-plane img{image-rendering:auto}
 /* E270 覆盖 E269：默认保留合成层（流畅，缩小时略软可接受）；只有放大且静止时才取消图层，按实际尺寸清晰重绘 */
-.lib-field .field-plane>*{will-change:transform!important}
-.lib-field[data-zoom=large]:not(.field-moving) .field-plane>.field-cell{will-change:auto!important}
-.lib-field:not(.field-moving) .field-plane{will-change:auto!important}
-/* 2026-11-12 spare covers parked off-screen never take a layer */
-.lib-field .field-plane>.field-cell[data-parked]{will-change:auto!important}
-/* E272 缩得很小时：作品名渐隐（不再绘制文字），封面降采样，减轻绘制 */
+.lib-field .field-plane>*{will-change:transform,opacity!important}
+/* 2026-11-12 spare covers parked off-screen never take a layer. 2026-11-13: will-change no longer follows .field-moving or the zoom tier, so starting, stopping or zooming the wall never restyles the covers; every shown cover keeps one layer */
+.lib-field .field-plane>[data-parked]{will-change:auto!important}
+/* E272 缩得很小时：作品名渐隐（不再绘制文字），封面降采样，减轻绘制。2026-11-13：档位写在每张封面上、由 grimoire.js 每帧分批切换（原来写在整面墙上，一次切换重算全部 2800 个节点+重排，128 ms 长帧）；悬停层改 visibility 不触发布局 */
 .lib-field .game-caption,.lib-field .library-card-meta{transition:opacity .25s ease,visibility 0s linear 0s}
-.lib-field[data-zoom=tiny] .game-caption,.lib-field[data-zoom=tiny] .library-card-meta{opacity:0;visibility:hidden;transition:opacity .25s ease,visibility 0s linear .25s}
-.lib-field[data-zoom=tiny] .field-plane img{image-rendering:pixelated;image-rendering:-webkit-optimize-contrast}
-.lib-field[data-zoom=tiny] .library-card .cover-frame{box-shadow:none!important}
-.lib-field[data-zoom=tiny] .game-hover{display:none}
+.lib-field .field-plane>[data-zoom=tiny] .game-caption,.lib-field .field-plane>[data-zoom=tiny] .library-card-meta{opacity:0;visibility:hidden;transition:opacity .25s ease,visibility 0s linear .25s}
+.lib-field .field-plane>[data-zoom=tiny] img{image-rendering:pixelated;image-rendering:-webkit-optimize-contrast}
+.lib-field .field-plane>[data-zoom=tiny] .library-card .cover-frame{box-shadow:none!important}
+.lib-field .field-plane>[data-zoom=tiny] .game-hover{visibility:hidden}
 
 /* E266 detail page motion: synopsis height animation (no line-clamp, JS sets max-height), fade at the cut, sliding tab bar */
 .synopsis-panel.is-collapsed .game-synopsis{display:block!important;-webkit-line-clamp:unset!important;-webkit-box-orient:initial!important}
@@ -218,9 +214,8 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-la
 .library-card .game-card{overflow:visible!important}
 .lib-field .field-plane .library-card .cover-frame,.library-card .cover-frame{background:transparent!important;clip-path:none!important;overflow:hidden;border-radius:6px!important;box-shadow:0 12px 20px -14px rgba(0,0,0,.75),0 3px 6px -4px rgba(0,0,0,.45)!important}
 .library-card .cover-frame>:is(img,.cover){clip-path:none!important;border-radius:6px!important}
-.lib-field[data-zoom=tiny] .field-plane .library-card .cover-frame{box-shadow:none!important}
+.lib-field .field-plane>[data-zoom=tiny] .library-card .cover-frame{box-shadow:none!important}
 
 /* 2026-11-13 (user: wall drag/zoom still lags): cover layers stay promoted while the wall is up, instead of being
    created at every drag start and dropped at every stop; parked covers hold none */
-.lib-field .field-plane>.field-cell:not([data-parked]){will-change:transform!important}
-.lib-field[data-zoom=large]:not(.field-moving) .field-plane>.field-cell:not([data-parked]){will-change:transform!important}
+.lib-field .field-plane{will-change:auto!important}

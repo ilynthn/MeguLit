@@ -62,14 +62,15 @@
 .anki-hud-frame-slot{position:absolute;inset:0}
 .anki-hud-frame{display:block;width:100%;height:100%;border:0;background:transparent;color-scheme:dark}
 .anki-hud-layer{position:absolute;inset:0;z-index:3;pointer-events:none}
-.anki-hud-block{position:absolute;box-sizing:border-box;display:flex;align-items:center;justify-content:center;pointer-events:auto;border-radius:12px;outline:1px dashed transparent;outline-offset:-1px;transition:outline-color .18s ease,background-color .18s ease}
-.anki-hud-block[data-hud=progress]{justify-content:flex-start;pointer-events:none}
+.anki-hud-block{position:absolute;box-sizing:border-box;pointer-events:auto;border-radius:12px;outline:1px dashed transparent;outline-offset:-1px;transition:outline-color .18s ease,background-color .18s ease}
+.anki-hud-block[data-hud=progress]{pointer-events:none}
+.anki-hud .hud-content{position:absolute;left:0;top:0;width:max-content;transform-origin:0 0}
 .anki-hud-progress{display:flex;align-items:baseline;gap:12px;min-width:0;font-size:calc(var(--hud-size-controls,16px)*.9);color:var(--hud-dim,#a99e97);text-shadow:var(--hud-shadow,none);white-space:nowrap}
 .anki-hud-progress .anki-hud-deck{overflow:hidden;text-overflow:ellipsis}
 .anki-hud-progress b{font-weight:600;color:var(--hud-text,#ece4dc);font-variant-numeric:tabular-nums;letter-spacing:.04em}
-.anki-hud-block[data-hud=controls] .review-controls{display:flex;flex-wrap:nowrap;justify-content:center;gap:12px;margin:0;width:100%}
+.anki-hud-block[data-hud=controls] .review-controls{display:flex;flex-wrap:nowrap;justify-content:center;gap:12px;margin:0;padding:4px}
 .anki-hud-block[data-hud=controls] button{font-size:var(--hud-size-controls,16px)}
-.anki-hud-block[data-hud=controls] button.primary{min-width:min(280px,60%);min-height:2.9em;padding:.6em 2.2em;border-radius:999px;letter-spacing:.08em}
+.anki-hud-block[data-hud=controls] button.primary{min-width:280px;min-height:2.9em;padding:.6em 2.2em;border-radius:999px;letter-spacing:.08em}
 .review-page .anki-hud .anki-rating{min-width:5.2em;min-height:3.3em;padding:.45em 1.1em;border-radius:14px;justify-content:center;backdrop-filter:none}
 .anki-hud .hud-label{display:none}
 .anki-hud .hud-handle{display:none;position:absolute;z-index:3;touch-action:none}
@@ -85,7 +86,7 @@
 .anki-hud .hud-handle[data-edge=ne]{top:-6px;right:-6px;cursor:nesw-resize}.anki-hud .hud-handle[data-edge=sw]{bottom:-6px;left:-6px;cursor:nesw-resize}
 .anki-hud-block.hud-dragging{will-change:transform;opacity:.94;transition:none}
 .anki-hud-block.hud-resizing{transition:none}
-.anki-hud-edit{position:absolute;z-index:7;top:10px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;max-width:calc(100% - 24px);padding:8px 10px 8px 16px;border:1px solid var(--g-rule-strong,var(--line));border-radius:12px;background:var(--g-raise,var(--surface));box-shadow:0 12px 30px #0006;font-size:12px;color:var(--g-t2,var(--muted))}
+.anki-hud-edit{position:absolute;z-index:7;top:52px;right:12px;width:min(560px,calc(100% - 24px));box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;gap:8px;max-width:calc(100% - 24px);padding:8px 10px 8px 16px;border:1px solid var(--g-rule-strong,var(--line));border-radius:12px;background:var(--g-raise,var(--surface));box-shadow:0 12px 30px #0006;font-size:12px;color:var(--g-t2,var(--muted))}
 .anki-hud-edit[hidden]{display:none}
 .anki-hud-edit button.primary{padding:5px 16px;min-height:0}
 .anki-hud-keys{position:absolute;right:12px;bottom:8px;z-index:2;font-size:11px;color:var(--hud-dim,#a99e97);opacity:.0;transition:opacity .2s ease;pointer-events:none}
@@ -116,3 +117,21 @@
 .review-page #review-content>.anki-hud{align-self:stretch;width:100%;box-sizing:border-box}
 /* a transformed or filtered ancestor would trap the fixed full-screen stage inside it */
 html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-content>div,#review-content){transform:none!important;filter:none!important;animation:none!important;contain:none!important;backdrop-filter:none!important;will-change:auto!important;perspective:none!important;z-index:auto!important;isolation:auto!important;mix-blend-mode:normal!important}
+/* (user 2026-11-13) FF14-style layout editing: presets, saved layouts, free placement with guides or a grid */
+.anki-hud-edit-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.anki-hud-edit-hint{flex:1;min-width:0}
+.anki-hud-edit-k{font-size:11px;color:var(--g-t1,var(--text))}
+.anki-hud-edit .anki-seg{min-width:0}
+.anki-seg.anki-seg-presets{grid-template-columns:repeat(4,auto)}.anki-seg.anki-seg-presets button{padding:6px 12px}
+.anki-seg.anki-seg-2{grid-template-columns:repeat(2,auto)}.anki-seg.anki-seg-2 button{padding:6px 12px}
+.anki-hud-edit select{min-width:120px}
+.anki-hud-grid-size{display:inline-flex;align-items:center;gap:8px}.anki-hud-grid-size input{width:110px;accent-color:var(--g-gold,var(--accent))}.anki-hud-grid-size output{font-variant-numeric:tabular-nums;min-width:3.4em}
+.anki-hud-grid{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity .2s ease;background-image:linear-gradient(to right,rgba(255,255,255,.09) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,.09) 1px,transparent 1px);background-size:var(--hud-grid,24px) var(--hud-grid,24px)}
+.anki-hud.editing[data-snap=grid] .anki-hud-grid{opacity:1}
+.anki-hud.editing[data-snap=free] .anki-hud-grid{opacity:1;background-image:linear-gradient(to right,transparent calc(50% - .5px),rgba(255,111,177,.28) calc(50% - .5px),rgba(255,111,177,.28) calc(50% + .5px),transparent calc(50% + .5px)),linear-gradient(to bottom,transparent calc(50% - .5px),rgba(255,111,177,.28) calc(50% - .5px),rgba(255,111,177,.28) calc(50% + .5px),transparent calc(50% + .5px));background-size:auto}
+.anki-hud-guides{position:absolute;inset:0;pointer-events:none;z-index:5}
+.anki-hud .hud-guide{position:absolute;background:#5ec8ff;box-shadow:0 0 6px #5ec8ffaa}.anki-hud .hud-guide-x{top:0;bottom:0;width:1px}.anki-hud .hud-guide-y{left:0;right:0;height:1px}
+.anki-hud .hud-guide-centre{background:#ff6fb1;box-shadow:0 0 6px #ff6fb1aa}.anki-hud .hud-guide-gap{background:#7dffa8;box-shadow:0 0 6px #7dffa8aa}
+@media (prefers-reduced-motion:reduce){.anki-hud-grid{transition:none}}
+.anki-hud-edit .select-control,.anki-hud-edit .font-control{width:150px;flex:none}
+.anki-hud-edit-row small{flex-basis:100%;color:var(--g-t2,var(--muted))}

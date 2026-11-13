@@ -52,3 +52,38 @@ test('the card magnifier looks words up in MOJi first and falls back to the loca
  assert.ok(i>0);assert.match(body,/q\('moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("q('moji')")<body.indexOf("q('local')"));
  assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
 });
+test('a block frame hugs its content and keeps its scale once known',()=>{
+ const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* 800x200 px area for a 4:1 content: fills it */
+ assert.equal(a.fresh,true);assert.equal(a.scale,2);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h],[10,10,80,20]);
+ const b=H.hugRect({x:10,y:10,w:80,h:40},400,100,1000,1000);/* too tall: frame shrinks to the content, centred */
+ assert.deepEqual([b.rect.x,b.rect.y,b.rect.w,b.rect.h,b.rect.s],[10,20,80,20,2]);
+ const c=H.hugRect(b.rect,450,100,1000,1000);/* a longer sentence at the same scale grows its box */
+ assert.equal(c.fresh,false);assert.equal(c.scale,2);assert.equal(c.rect.w,90);
+ const d=H.hugRect({x:0,y:0,w:10,h:10,s:5},400,100,1000,1000);assert.ok(d.scale<=2.475,'never wider than the stage');
+});
+test('free placement snaps to other blocks, the stage centre and equal gaps; grid mode rounds to the grid',()=>{
+ const o={mode:'free',SW:1000,SH:1000,thr:7};
+ let r=H.snapRect({x:20.4,y:50,w:10,h:10},[{x:20,y:10,w:30,h:10}],'move',o);assert.equal(r.rect.x,20);assert.ok(r.guides.some(g=>g.axis==='x'&&g.at===20));
+ r=H.snapRect({x:44.6,y:70,w:10,h:10},[],'move',o);assert.equal(r.rect.x,45);assert.ok(r.guides.some(g=>g.kind==='centre'));
+ /* A at 0-10, B at 20-30 in the same row: placing a 10-wide block at 39.6 snaps to 40 (gap 10) */
+ r=H.snapRect({x:39.6,y:0,w:10,h:10},[{x:0,y:0,w:10,h:10},{x:20,y:0,w:10,h:10}],'move',o);assert.equal(r.rect.x,40);assert.ok(r.guides.some(g=>g.kind==='gap'));
+ r=H.snapRect({x:33,y:33,w:10,h:10},[],'move',o);assert.deepEqual(r.guides,[]);
+ r=H.snapRect({x:13,y:27,w:20,h:10},[],'move',{mode:'grid',grid:50,SW:1000,SH:1000});assert.deepEqual([r.rect.x,r.rect.y],[15,25]);
+ r=H.snapRect({x:10,y:10,w:21.7,h:10},[],'se',{mode:'grid',grid:50,SW:1000,SH:1000});assert.equal(r.rect.w,20);
+ r=H.snapRect({x:10,y:10,w:29.7,h:10},[{x:40,y:50,w:5,h:5}],'e',o);assert.equal(r.rect.w,30,'a resized right edge snaps to another block');
+});
+test('four layout presets cover every block and the user can keep their own layouts',()=>{
+ assert.deepEqual(Object.keys(M.PRESETS),['classic','split','subtitle','minimal']);
+ for(const name of Object.keys(M.PRESETS)){const l=M.preset(name);for(const id of Object.keys(M.LAYOUT)){const r=l[id];assert.ok(r.x>=0&&r.y>=0&&r.x+r.w<=100.01&&r.y+r.h<=100.01,name+'.'+id);}}
+ assert.notDeepEqual(M.preset('split').shot,M.preset('classic').shot);
+ const store={v:null,getItem(){return this.v;},setItem(k,v){this.v=v;}};
+ M.save(store,{layout:M.preset('minimal'),style:{},snap:{mode:'grid',grid:32},saved:[{name:'<b>mine',layout:M.preset('split')},...Array(9).fill({name:'x',layout:{}})]});
+ const back=M.load(store);assert.equal(back.snap.mode,'grid');assert.equal(back.snap.grid,32);assert.equal(back.saved.length,6);assert.equal(back.saved[0].name,'bmine');assert.deepEqual(back.saved[0].layout.shot,M.preset('split').shot);
+ assert.deepEqual(back.layout.word,M.preset('minimal').word);
+});
+test('the layout editor offers presets, saved layouts, free/grid placement and draws guides',()=>{
+ const src=read('anki-review.js'),card=read('anki-card.js'),css=read('anki-layout.css');
+ for(const s of ['data-hud-preset','data-hud-saved','data-hud-save','data-hud-mode','data-hud-grid','H.snapRect','H.hugRect','H.drawGuides','tome-anki-hud-frames'])assert.ok(src.includes(s),s);
+ for(const s of ['MeguHud.snapRect','MeguHud.hugRect','MeguHud.drawGuides','tome-anki-hud-frames',"id==='shot'"])assert.ok(card.includes(s),s);
+ assert.match(css,/\.anki-hud\.editing\[data-snap=grid\] \.anki-hud-grid\{opacity:1\}/);assert.match(read('anki-card.css'),/\.hud-guide-x/);
+});

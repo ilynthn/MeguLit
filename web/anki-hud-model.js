@@ -14,6 +14,14 @@
   card:{x:8,y:8,w:84,h:77},
   controls:{x:22,y:87.5,w:56,h:10}
  };
+ /* (user 2026-11-13) four ready layouts in the spirit of FF14's HUD presets; each can still be fine-tuned */
+ const PRESETS={
+  classic:LAYOUT,
+  split:{progress:{x:2,y:1.5,w:30,h:5},shot:{x:2.5,y:9,w:52,h:74},word:{x:58,y:10,w:39,h:15},info:{x:58,y:27,w:39,h:12},example:{x:58,y:42,w:39,h:24},card:{x:58,y:9,w:39,h:74},controls:{x:58,y:86,w:39,h:10}},
+  subtitle:{progress:{x:78,y:1.5,w:20,h:4.5},shot:{x:6,y:5,w:88,h:62},word:{x:6,y:69,w:34,h:11},info:{x:41,y:70,w:53,h:9},example:{x:6,y:80,w:88,h:9.5},card:{x:10,y:58,w:80,h:30},controls:{x:30,y:90.5,w:40,h:8}},
+  minimal:{progress:{x:40,y:2,w:20,h:4},word:{x:10,y:16,w:80,h:30},info:{x:16,y:48,w:68,h:10},example:{x:12,y:60,w:76,h:13},shot:{x:79,y:76,w:19,h:19},card:{x:10,y:10,w:80,h:75},controls:{x:30,y:87,w:40,h:9}}
+ };
+ const SNAP={mode:'free',grid:24};
  const FONTS_JA=['Yu Mincho','Yu Gothic UI','Meiryo','MS Mincho','MS Gothic','Noto Serif JP','Noto Sans JP','BIZ UDPMincho','BIZ UDPGothic','UD Digi Kyokasho N-R'];
  const FONTS_ZH=['Microsoft YaHei UI','SimSun','KaiTi','FangSong','DengXian','Noto Sans SC','Noto Serif SC','Source Han Sans SC','LXGW WenKai'];
  const STYLE={jaFont:'',zhFont:'',size:{word:64,info:28,example:30,card:22,controls:16},color:{word:'#f6e7d8',text:'#ece4dc',dim:'#a99e97',accent:'#f0883e'},
@@ -35,8 +43,12 @@
  function cleanLayout(l){
   const H=root.MeguHud||(typeof require==='function'?require('./hud-drag.js'):null);return H.mergeLayout(l&&typeof l==='object'?l:{},LAYOUT);
  }
- function load(storage){let raw={};try{raw=JSON.parse(storage.getItem(KEY))||{};}catch{}return {layout:cleanLayout(raw.layout),style:cleanStyle(raw.style)};}
- function save(storage,state){try{storage.setItem(KEY,JSON.stringify({layout:cleanLayout(state.layout),style:cleanStyle(state.style)}));return true;}catch{return false;}}
+ function cleanSnap(s){s=s&&typeof s==='object'?s:{};return {mode:s.mode==='grid'?'grid':'free',grid:clamp(s.grid,8,96,SNAP.grid)};}
+ /* the user's own saved layouts: at most 6, each with a short name */
+ function cleanSaved(list){return (Array.isArray(list)?list:[]).filter(x=>x&&typeof x==='object').slice(0,6).map((x,i)=>({name:String(x.name||'').replace(/[<>]/g,'').trim().slice(0,24)||'#'+(i+1),layout:cleanLayout(x.layout)}));}
+ function preset(name){return cleanLayout(PRESETS[name]||LAYOUT);}
+ function load(storage){let raw={};try{raw=JSON.parse(storage.getItem(KEY))||{};}catch{}return {layout:cleanLayout(raw.layout),style:cleanStyle(raw.style),snap:cleanSnap(raw.snap),saved:cleanSaved(raw.saved)};}
+ function save(storage,state){try{storage.setItem(KEY,JSON.stringify({layout:cleanLayout(state.layout),style:cleanStyle(state.style),snap:cleanSnap(state.snap),saved:cleanSaved(state.saved)}));return true;}catch{return false;}}
  /* CSS custom properties for a style (the card frame and the page both read them) */
  function cssVars(style){
   const s=cleanStyle(style),q=f=>f?'"'+f+'",':'';
@@ -53,6 +65,6 @@
   if(key===' '||key==='Enter')return answerShown?(ratings.includes(3)?'rate-3':'primary'):'primary';
   return null;
  }
- const api={keyAction,KEY,LAYOUT,STYLE,FONTS_JA,FONTS_ZH,BG_MODES,cleanStyle,cleanLayout,load,save,cssVars};
+ const api={keyAction,KEY,LAYOUT,PRESETS,SNAP,cleanSnap,cleanSaved,preset,STYLE,FONTS_JA,FONTS_ZH,BG_MODES,cleanStyle,cleanLayout,load,save,cssVars};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.MeguAnkiHud=api;
 })(globalThis);

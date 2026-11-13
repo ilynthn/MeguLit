@@ -9,18 +9,21 @@ const hudCopy={
   sizes:'字号',size:{word:'单词',info:'读音释义',example:'例句',card:'整卡模式',controls:'按钮'},colors:'颜色',color:{word:'单词',text:'正文',dim:'次要',accent:'高亮'},
   bg:'背景',bgModes:['无','纯色','游戏背景','卡片截图','自选图片'],pick:'选择图片…',blur:'模糊',dim:'暗度',shadow:'文字阴影',
   labels:{progress:'进度',word:'单词',info:'读音 · 释义',example:'例句 · 译文',shot:'截图',card:'整张卡片',controls:'按钮'},
+  presetLabel:'预设',presets:{classic:'经典居中',split:'左图右文',subtitle:'字幕式',minimal:'极简大字'},mine:'我的布局',pick:'选择…',none:'还没有',saveAs:'另存当前',savedOk:'已另存为我的布局',place:'摆放',free:'无极摆放',gridMode:'网格对齐',gridSize:'网格',altHint:'按住 Alt 临时关闭吸附',
   hint:'拖动方块移动，拖边角缩放 · 方向键微调，Shift+方向键改大小',reviewed:'已复习 {n}',noResult:'词典里没有找到',close:'关闭',
   keys:'空格 翻面/良好 · 1–4 评分 · F 全屏 · L 布局 · Esc 退出',fontsFailed:'没能读取系统字体，可直接输入字体名'},
  en:{look:'Appearance',layout:'Edit layout',done:'Done',reset:'Restore defaults',full:'Full screen',exitFull:'Exit full screen',jaFont:'Japanese font',zhFont:'Chinese font',systemFonts:'Load installed fonts',
   sizes:'Text size',size:{word:'Word',info:'Reading & meaning',example:'Example',card:'Whole card',controls:'Buttons'},colors:'Colours',color:{word:'Word',text:'Text',dim:'Secondary',accent:'Highlight'},
   bg:'Background',bgModes:['None','Colour','Game art','Card screenshot','Own picture'],pick:'Choose picture…',blur:'Blur',dim:'Darken',shadow:'Text shadow',
   labels:{progress:'Progress',word:'Word',info:'Reading · meaning',example:'Example · translation',shot:'Screenshot',card:'Whole card',controls:'Buttons'},
+  presetLabel:'Presets',presets:{classic:'Classic',split:'Picture left',subtitle:'Subtitles',minimal:'Minimal'},mine:'My layouts',pick:'Choose…',none:'None yet',saveAs:'Save current',savedOk:'Saved to my layouts',place:'Placement',free:'Free',gridMode:'Grid',gridSize:'Grid',altHint:'Hold Alt to turn snapping off',
   hint:'Drag a block to move it, drag its edges to resize · arrows nudge, Shift+arrows resize',reviewed:'{n} reviewed',noResult:'Not in the dictionary',close:'Close',
   keys:'Space flip/Good · 1–4 rate · F full screen · L layout · Esc leave',fontsFailed:'Could not read installed fonts; type a font name instead'},
  ja:{look:'外観',layout:'レイアウト調整',done:'完了',reset:'既定に戻す',full:'全画面',exitFull:'全画面を終了',jaFont:'日本語フォント',zhFont:'中国語フォント',systemFonts:'インストール済みフォントを読む',
   sizes:'文字サイズ',size:{word:'単語',info:'読み・意味',example:'例文',card:'カード全体',controls:'ボタン'},colors:'色',color:{word:'単語',text:'本文',dim:'補助',accent:'強調'},
   bg:'背景',bgModes:['なし','単色','ゲーム画像','カードのスクショ','画像を選ぶ'],pick:'画像を選ぶ…',blur:'ぼかし',dim:'暗さ',shadow:'文字の影',
   labels:{progress:'進捗',word:'単語',info:'読み · 意味',example:'例文 · 訳',shot:'スクリーンショット',card:'カード全体',controls:'ボタン'},
+  presetLabel:'プリセット',presets:{classic:'中央揃え',split:'左に画像',subtitle:'字幕風',minimal:'大きな文字'},mine:'マイレイアウト',pick:'選択…',none:'まだありません',saveAs:'現在のを保存',savedOk:'マイレイアウトに保存しました',place:'配置',free:'自由配置',gridMode:'グリッド',gridSize:'グリッド',altHint:'Alt を押している間は吸着しません',
   hint:'ブロックをドラッグで移動、端をドラッグで拡大縮小 · 矢印キーで微調整、Shift+矢印でサイズ',reviewed:'{n} 枚復習',noResult:'辞書に見つかりません',close:'閉じる',
   keys:'Space 裏返す/普通 · 1–4 評価 · F 全画面 · L レイアウト · Esc 終了',fontsFailed:'フォント一覧を読めませんでした。名前を直接入力できます'}
 };
@@ -138,7 +141,9 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  const H=globalThis.MeguHud,M=globalThis.MeguAnkiHud,ankiKeyAction=M.keyAction,hc=hudCopy[locale]||hudCopy.zh;
  let sysFonts=null,hud=M.load(localStorage),editing=false,immersive=false,shotSrc='',reviewed=0;
  const saveHud=()=>M.save(localStorage,hud);
- const hudMessage=()=>({layout:hud.layout,vars:M.cssVars(hud.style),edit:editing,labels:hc.labels});
+ /* hostShown/cardFrames: the frames on screen (each block hugs its content), used for snapping on both sides */
+ const hostShown={};let cardFrames={};
+ const hudMessage=()=>({layout:hud.layout,vars:M.cssVars(hud.style),edit:editing,labels:hc.labels,snap:hud.snap,frames:{...hostShown}});
  const post=data=>{try{currentFrame?.contentWindow?.postMessage({...data,nonce:currentFrame.dataset.nonce},'*');}catch{}};
  function frame(card){
   const iframe=document.createElement('iframe'),nonce=crypto.randomUUID();iframe.className='anki-hud-frame';iframe.title=text.ankiReview;iframe.sandbox='allow-scripts';
@@ -148,17 +153,47 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    type:'tome-anki-card',nonce,html:card.html,fit,copy,mix,auto:play,hud:hudMessage()},'*');};return iframe;
  }
  function stage(){return target.querySelector('.anki-hud');}
+ const canvas=()=>stage()?.querySelector('.anki-hud-canvas');
+ function editPanel(){
+  const pre=Object.keys(M.PRESETS).map(k=>'<button type="button" data-hud-preset="'+k+'">'+esc(hc.presets[k])+'</button>').join('');
+  const saved=hud.saved.map((x,i)=>'<option value="'+i+'">'+esc(x.name)+'</option>').join('');
+  return '<div class="anki-hud-edit-row"><span class="anki-hud-edit-hint">'+esc(hc.hint)+'</span><button type="button" class="text-button" data-hud-reset>'+esc(hc.reset)+'</button><button type="button" class="primary" data-hud-done>'+esc(hc.done)+'</button></div>'+
+   '<div class="anki-hud-edit-row"><span class="anki-hud-edit-k">'+esc(hc.presetLabel)+'</span><div class="anki-seg anki-seg-presets" role="group">'+pre+'</div>'+
+   '<span class="anki-hud-edit-k">'+esc(hc.mine)+'</span><select data-hud-saved aria-label="'+esc(hc.mine)+'"><option value="">'+esc(hud.saved.length?hc.pick:hc.none)+'</option>'+saved+'</select><button type="button" class="text-button" data-hud-save>'+esc(hc.saveAs)+'</button></div>'+
+   '<div class="anki-hud-edit-row"><span class="anki-hud-edit-k">'+esc(hc.place)+'</span><div class="anki-seg anki-seg-2" role="radiogroup"><button type="button" role="radio" data-hud-mode="free" aria-checked="'+(hud.snap.mode==='free')+'">'+esc(hc.free)+'</button><button type="button" role="radio" data-hud-mode="grid" aria-checked="'+(hud.snap.mode==='grid')+'">'+esc(hc.gridMode)+'</button></div>'+
+   '<label class="anki-hud-grid-size"><span>'+esc(hc.gridSize)+'</span><input type="range" min="8" max="96" step="4" data-hud-grid value="'+hud.snap.grid+'"><output>'+hud.snap.grid+'px</output></label><small>'+esc(hc.altHint)+'</small></div>';
+ }
+ function mountEdit(s){
+  const box=s.querySelector('.anki-hud-edit');box.innerHTML=editPanel();
+  box.querySelector('[data-hud-done]').onclick=()=>setEditing(false);box.querySelector('[data-hud-reset]').onclick=resetHud;
+  box.onclick=event=>{const b=event.target.closest('button');if(!b)return;
+   if(b.dataset.hudPreset){hud.layout=M.preset(b.dataset.hudPreset);saveHud();applyHud();}
+   else if(b.dataset.hudMode){hud.snap={...hud.snap,mode:b.dataset.hudMode};saveHud();box.querySelectorAll('[data-hud-mode]').forEach(x=>x.setAttribute('aria-checked',String(x===b)));applyHud();}
+   else if(b.hasAttribute('data-hud-save')){hud.saved=[...hud.saved,{name:hc.mine+' '+(hud.saved.length+1),layout:JSON.parse(JSON.stringify(hud.layout))}].slice(-6);saveHud();hud=M.load(localStorage);mountEdit(s);toast(hc.savedOk);}};
+  box.querySelector('[data-hud-saved]').onchange=event=>{const x=hud.saved[Number(event.target.value)];if(!event.target.value||!x)return;hud.layout=M.cleanLayout(x.layout);saveHud();applyHud();};
+  box.querySelector('[data-hud-grid]').oninput=event=>{hud.snap={...hud.snap,grid:Number(event.target.value)};event.target.nextElementSibling.value=event.target.value+'px';saveHud();applyHud();};
+  try{enhanceSelects(box);}catch{}
+ }
  function shell(){
   let s=stage();if(s)return s;
   s=document.createElement('section');s.className='anki-hud';s.setAttribute('aria-label',text.ankiReview);
-  s.innerHTML='<div class="anki-hud-bg" aria-hidden="true"></div><div class="anki-hud-bar anki-toolbar"></div><div class="anki-hud-canvas"><div class="anki-hud-frame-slot"></div><div class="anki-hud-layer"><div class="anki-hud-block" data-hud="progress"><div class="anki-hud-progress" aria-live="polite"></div></div><div class="anki-hud-block" data-hud="controls"><div class="review-controls" data-controls></div></div></div><div class="anki-hud-edit" hidden><span>'+esc(hc.hint)+'</span><button type="button" class="text-button" data-hud-reset>'+esc(hc.reset)+'</button><button type="button" class="primary" data-hud-done>'+esc(hc.done)+'</button></div><div class="anki-hud-keys" aria-hidden="true">'+esc(hc.keys)+'</div></div>';
+  s.innerHTML='<div class="anki-hud-bg" aria-hidden="true"></div><div class="anki-hud-bar anki-toolbar"></div><div class="anki-hud-canvas"><div class="anki-hud-grid" aria-hidden="true"></div><div class="anki-hud-frame-slot"></div><div class="anki-hud-layer"><div class="anki-hud-block" data-hud="progress"><div class="anki-hud-progress hud-content" aria-live="polite"></div></div><div class="anki-hud-block" data-hud="controls"><div class="review-controls hud-content" data-controls></div></div><div class="anki-hud-guides" aria-hidden="true"></div></div><div class="anki-hud-edit" hidden></div><div class="anki-hud-keys" aria-hidden="true">'+esc(hc.keys)+'</div></div>';
   target.replaceChildren(s);
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud;el.insertAdjacentHTML('beforeend','<span class="hud-label">'+esc(hc.labels[id]||id)+'</span>');
-   H.attach(el,{stage:()=>s.querySelector('.anki-hud-canvas'),rect:()=>hud.layout[id],editing:()=>editing,onCommit:r=>{hud.layout[id]=r;saveHud();}});}
-  s.querySelector('[data-hud-done]').onclick=()=>setEditing(false);s.querySelector('[data-hud-reset]').onclick=resetHud;
+   H.attach(el,{stage:canvas,rect:()=>hostShown[id]||hud.layout[id],editing:()=>editing,
+    snap:(r,kind,alt)=>{if(alt)return null;const c=canvas().getBoundingClientRect();return H.snapRect(r,Object.entries({...cardFrames,...hostShown}).filter(([k])=>k!==id).map(([,v])=>v),kind,{...hud.snap,SW:c.width,SH:c.height});},
+    guides:g=>H.drawGuides(s.querySelector('.anki-hud-guides'),g),onCommit:r=>{hud.layout[id]=r;saveHud();placeBlocks();}});}
+  mountEdit(s);new ResizeObserver(()=>placeBlocks()).observe(s.querySelector('.anki-hud-canvas'));
   applyHud();return s;
  }
- function placeBlocks(){const s=stage();if(!s)return;for(const el of s.querySelectorAll('.anki-hud-block'))H.applyRect(el,hud.layout[el.dataset.hud]);}
+ /* the page's own blocks (progress, buttons) hug their content the same way the card's blocks do */
+ function placeBlocks(){
+  const s=stage();if(!s)return;const c=canvas().getBoundingClientRect();if(!c.width)return;let changed=false;
+  for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud,box=el.querySelector('.hud-content'),r=hud.layout[id];if(!box||!r)continue;
+   box.style.transform='none';const nw=box.offsetWidth,nh=box.offsetHeight;if(!nw||!nh||!box.textContent.trim()){H.applyRect(el,hostShown[id]||r);continue;}
+   const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.rect;H.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
+  if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});
+ }
  function paintBg(){
   const s=stage();if(!s)return;const bg=s.querySelector('.anki-hud-bg'),b=hud.style.bg;
   const src=b.mode==='game'?String(cover()||''):b.mode==='shot'?shotSrc:b.mode==='image'?b.image:'';
@@ -168,6 +203,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  }
  function applyHud(){
   const s=stage();if(!s)return;for(const [k,v] of Object.entries(M.cssVars(hud.style)))s.style.setProperty(k,v);
+  s.dataset.snap=hud.snap.mode;s.style.setProperty('--hud-grid',hud.snap.grid+'px');
   placeBlocks();paintBg();post({type:'tome-anki-hud',...hudMessage()});
  }
  function setEditing(on){
@@ -175,7 +211,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   s.querySelectorAll('.anki-hud-bar details[open]').forEach(d=>d.open=false);s.querySelector('[data-hud-layout]')?.setAttribute('aria-pressed',String(editing));
   post({type:'tome-anki-hud',edit:editing});if(editing)s.querySelector('[data-hud-done]').focus();
  }
- function resetHud(){hud={layout:M.cleanLayout({}),style:M.cleanStyle({})};saveHud();applyHud();const bar=stage()?.querySelector('.anki-hud-bar');if(bar){bar.querySelector('.anki-look')?.remove();mountLook(bar);}}
+ function resetHud(){hud={...hud,layout:M.cleanLayout({}),style:M.cleanStyle({}),snap:M.cleanSnap({})};saveHud();const s=stage();if(s)mountEdit(s);applyHud();const bar=s?.querySelector('.anki-hud-bar');if(bar){bar.querySelector('.anki-look')?.remove();mountLook(bar);}}
  /* Full screen: the stage covers the window (fixed, above the top bar) and the window itself goes full screen through
     the desktop shell, or the browser Fullscreen API outside it. Esc leaves. */
  async function setImmersive(on){
@@ -252,12 +288,13 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   if(!currentFrame||event.source!==currentFrame.contentWindow||event.data?.nonce!==currentFrame.dataset.nonce)return;const d=event.data;
   if(d.type==='tome-anki-replay')replay(currentCard,target.querySelector('[data-replay]'));
   else if(d.type==='tome-anki-hud-move'&&Object.hasOwn(M.LAYOUT,d.id)){hud.layout[d.id]=H.normRect(d.rect,M.LAYOUT[d.id]);saveHud();}
+  else if(d.type==='tome-anki-hud-frames'&&d.frames&&typeof d.frames==='object'){cardFrames=Object.fromEntries(Object.entries(d.frames).filter(([k])=>Object.hasOwn(M.LAYOUT,k)).map(([k,r])=>[k,H.normRect(r,M.LAYOUT[k],{w:.3,h:.3})]));}
   else if(d.type==='tome-anki-shot'){shotSrc=/^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(String(d.src||''))?d.src:'';paintBg();}
   else if(d.type==='tome-anki-key')key(String(d.key||''));
   else if(d.type==='tome-anki-lookup')lookup(String(d.word||'').slice(0,60));};
  window.addEventListener('message',messages);
  stopMessages=()=>{window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);clearInterval(poll);leaveHud();};
- function progress(s,html){s.querySelector('.anki-hud-progress').innerHTML=html;}
+ function progress(s,html){s.querySelector('.anki-hud-progress').innerHTML=html;requestAnimationFrame(placeBlocks);}
  function mountFrame(s,card){currentFrame=frame(card);s.querySelector('.anki-hud-frame-slot').replaceChildren(currentFrame);}
  function drawCard(card){
   if(!isCurrent())return;currentCard=card;currentFrame=null;
@@ -269,7 +306,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const play=s.querySelector('[data-replay]');if(play)play.onclick=()=>card.manualAudio?playCardAudio(card):replay(card,play);
   s.querySelector('[data-fit]').onclick=event=>{fit=!fit;event.currentTarget.textContent=fit?copy.fit:copy.original;event.currentTarget.setAttribute('aria-pressed',
    String(fit));currentFrame.contentWindow.postMessage({type:'tome-anki-fit',nonce:currentFrame.dataset.nonce,fit},'*');};
-  const controls=s.querySelector('[data-controls]');controls.replaceChildren();
+  const controls=s.querySelector('[data-controls]');controls.replaceChildren();requestAnimationFrame(placeBlocks);
   if(!card.answerShown){const button=document.createElement('button');button.className='primary';button.textContent=text.showAnswer;button.onclick=async()=>{button.disabled=true;
    try{drawCard(await api('anki_show_answer',{cardId:card.cardId}));}catch(error){button.disabled=false;failed(error);}};controls.append(button);}
   else for(const[ease,index]of card.buttons.map((ease,index)=>[ease,index])){
@@ -324,7 +361,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const s=shell();toolbar(s,'<button class="text-button" data-stop>'+copy.endPractice+'</button>');
   progress(s,'<span class="anki-hud-deck">'+esc(copy.practiceTag)+' · '+esc(card.deck)+'</span><b class="anki-hud-count">'+esc(card.position)+' / '+esc(card.total)+'</b>');
   const show=()=>{mountFrame(s,{html:shown?card.answer:card.question,when:shown?'flip':'next'});
-   const controls=s.querySelector('[data-controls]');controls.replaceChildren();const button=document.createElement('button');button.className='primary';button.textContent=shown?copy.next:text.showAnswer;
+   const controls=s.querySelector('[data-controls]');controls.replaceChildren();requestAnimationFrame(placeBlocks);const button=document.createElement('button');button.className='primary';button.textContent=shown?copy.next:text.showAnswer;
    button.onclick=()=>{if(shown)practice(card.deck,true);else{shown=true;show();}};controls.append(button);};
   s.querySelector('[data-stop]').onclick=async()=>{try{await api('anki_practice',{end:true});}catch{}drawDecks();};show();
  }

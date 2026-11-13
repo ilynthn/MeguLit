@@ -84,6 +84,13 @@ export function wallIn(next,incoming=next?[...next.querySelectorAll('.library-ca
  if(!next||!incoming.length||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
  const [cx,cy]=centre(next);let far=1;const d=incoming.map(el=>{const r=el.getBoundingClientRect(),dx=(r.left+r.width/2)-cx,dy=(r.top+r.height/2)-cy,h=Math.hypot(dx,dy);far=Math.max(far,h);return {el,dx,dy,h};});
  for(const {el,dx,dy,h} of d){const delay=Math.round((1-h/far)*240);
-  el.animate([{translate:`${dx*.32}px ${dy*.32}px`,scale:1.12,opacity:0},{translate:'0 0',scale:1,opacity:1}],{duration:520,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
+  /* 2026-11-13 (user: the wall still hitched when dragged right after opening): on the wall each cover's <mg-cell> is
+     already a compositor layer, so the entrance plays on it (an individual translate composes with the wall's inline
+     transform; a scale there would also scale that transform's offset, so the cell only glides and fades, and the
+     cover inside keeps its own zoom). Animating the inner card promoted a layer per card for the entrance and
+     repainted every cover when those layers dropped at the end. */
+  const cell=el.closest('mg-cell');
+  if(cell)cell.animate([{translate:`${dx*.32}px ${dy*.32}px`,opacity:0},{translate:'0 0',opacity:cell.style.opacity||'1'}],{duration:520,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
+  else el.animate([{translate:`${dx*.32}px ${dy*.32}px`,scale:1.12,opacity:0},{translate:'0 0',scale:1,opacity:1}],{duration:520,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
   cover(el)?.animate([{scale:1.16,translate:`${(dx/Math.max(1,h))*-4}% ${(dy/Math.max(1,h))*-4}%`},{scale:1,translate:'0 0'}],{duration:720,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});}
 }
