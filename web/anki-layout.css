@@ -132,7 +132,8 @@ html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-
 .anki-hud.dock-dragging .anki-hud-frame{pointer-events:none}
 /* the chosen opacity (--dk-op, set from the dock's own slider) applies until the pointer is on the dock or it is being dragged */
 .anki-hud-edit .hud-dock-panel{opacity:var(--dk-op,1)}
-.anki-hud-edit:is(:hover,:focus-within,.dragging) .hud-dock-panel{opacity:1}
+/* 2026-11-14 (user: 透明度调整无效) .anki-hud-edit is the whole edit layer, so its :hover was always on and the panel never faded: only the panel's own hover counts, and not while the pointer is on the opacity row, so the slider previews live */
+.anki-hud-edit .hud-dock-panel:is(:hover,:focus-within):not(:has(.hud-dock-op:is(:hover,:active,:focus-within))),.anki-hud-edit.dragging .hud-dock-panel{opacity:1}
 .anki-hud-edit.over-content:not(:hover,:focus-within,.dragging) .hud-dock-panel{backdrop-filter:blur(14px)}
 .anki-hud.hud-moving .anki-hud-edit,.anki-hud-edit.hud-moving{opacity:.08;pointer-events:none}
 .hud-dock-panel{position:relative;box-sizing:border-box;border:1px solid var(--dk-line-2);border-radius:3px;background:var(--dk-bg);box-shadow:0 24px 56px rgba(0,0,0,.55),0 4px 12px rgba(0,0,0,.3),0 0 0 1px rgba(0,0,0,.35),inset 0 0 0 1px color-mix(in srgb,var(--t-text,#ece4dc) 7%,transparent),inset 0 1px 0 color-mix(in srgb,var(--t-text,#ece4dc) 14%,transparent);
@@ -144,7 +145,7 @@ html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-
 .anki-hud-edit[data-side=left] .hud-dock-pill{right:auto;left:0}
 .hud-dock-pill svg{width:13px;height:13px;fill:var(--dk-accent)}
 .anki-hud-edit.collapsed .hud-dock-pill{opacity:var(--dk-op,1);transform:none;pointer-events:auto;transition-delay:.06s}
-.anki-hud-edit.collapsed:is(:hover,:focus-within,.dragging) .hud-dock-pill{opacity:1}
+.anki-hud-edit.collapsed .hud-dock-pill:is(:hover,:focus-within),.anki-hud-edit.collapsed.dragging .hud-dock-pill{opacity:1}
 .hud-dock-pill:hover{border-color:color-mix(in srgb,var(--dk-accent) 60%,var(--dk-line-2))}
 .hud-dock-head{display:flex;align-items:center;gap:8px;height:32px;padding:0 4px 0 10px;border-bottom:1px solid var(--dk-line-2);background:color-mix(in srgb,var(--t-text,#ece4dc) 5%,transparent);cursor:grab;user-select:none;touch-action:none}
 .anki-hud-edit.dragging .hud-dock-head,.anki-hud-edit.dragging .hud-dock-pill{cursor:grabbing}
