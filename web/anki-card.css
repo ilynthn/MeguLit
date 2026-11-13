@@ -57,7 +57,7 @@ body.hud.hud-whole #card-content .tm-card{background:transparent!important;borde
 [data-hud=shot] img{display:block;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain;border-radius:10px}
 .hud-label{display:none}
 .hud-handle{display:none;position:absolute;z-index:3;touch-action:none}
-body.hud-edit .hud-block{outline-color:color-mix(in srgb,var(--hud-accent,#f0883e) 75%,transparent);background:rgba(10,7,9,.28);cursor:move;user-select:none}
+body.hud-edit .hud-block{outline:2px dashed rgba(240,136,62,.8);background:rgba(10,7,9,.28);cursor:move;user-select:none}
 body.hud-edit .hud-block:hover{background:rgba(10,7,9,.42)}
 body.hud-edit .hud-label{display:block;position:absolute;top:5px;left:9px;z-index:2;padding:1px 7px;border-radius:5px;background:var(--hud-accent,#f0883e);color:#1a1012;font:600 12px/1.6 "Microsoft YaHei UI",sans-serif;text-shadow:none;pointer-events:none}
 body.hud-edit .hud-handle{display:block}

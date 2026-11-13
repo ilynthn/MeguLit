@@ -108,9 +108,11 @@
 .anki-seg.anki-seg-5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .anki-seg.anki-seg-5 button{font-size:10.5px;white-space:normal;line-height:1.25}
 /* Full screen: the stage covers the window, top bar included (the bar itself is untouched), tools fade until needed */
-.anki-hud.immersive{position:fixed;inset:0;z-index:2100;min-height:0;border-radius:0;background:var(--bg,#0d0a0c)}
+.anki-hud.immersive{position:fixed;inset:0;z-index:2100;min-height:0;border-radius:0;background:#0d0a0c}
 .anki-hud.immersive .anki-hud-bar{position:absolute;top:0;right:0;left:0;padding:10px 16px;opacity:.18;transition:opacity .2s ease}
 .anki-hud.immersive .anki-hud-bar:is(:hover,:focus-within){opacity:1}
 .anki-hud.immersive .anki-hud-canvas{flex:1}
 @media (prefers-reduced-motion:reduce){.anki-hud-block,.anki-hud-keys,.anki-hud.immersive .anki-hud-bar{transition:none}}
 .review-page #review-content>.anki-hud{align-self:stretch;width:100%;box-sizing:border-box}
+/* a transformed or filtered ancestor would trap the fixed full-screen stage inside it */
+html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-content>div,#review-content){transform:none!important;filter:none!important;animation:none!important;contain:none!important;backdrop-filter:none!important;will-change:auto!important;perspective:none!important;z-index:auto!important;isolation:auto!important;mix-blend-mode:normal!important}
