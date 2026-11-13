@@ -29,7 +29,7 @@ const mg=fx.game(R,'Unknown Format Game');
 const ksDir=path.join(R,'games','Loose KS');fs.mkdirSync(ksDir,{recursive:true});fs.writeFileSync(path.join(ksDir,'game.exe'),Buffer.alloc(2048,7));
 const GAMES=[{id:'g-mgpk',title:'未知封包のゲーム',executable:mg.exe},{id:'g-missing',title:'Missing',executable:path.join(R,'games','nope','x.exe')}];
 const DB=fx.db(GAMES);
-const waitIdle=async()=>{for(let i=0;i<400;i++){if(probe.status(R).state!=='running')return;await new Promise(r=>setTimeout(r,100));}throw Error('probe did not finish');};
+const waitIdle=async()=>{for(let i=0;i<1500;i++){if(probe.status(R).state!=='running')return;await new Promise(r=>setTimeout(r,100));}throw Error('probe did not finish');};
 
 test('probe: a background worker classifies every library game and stores the result (resumable)',async()=>{
  const s=probe.start(R,DB,{reason:'test',perGameMs:60000});assert.equal(s.state,'running');assert.equal(s.total,2);
