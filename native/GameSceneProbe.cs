@@ -17,20 +17,25 @@ public sealed class GameSceneProbe : IDisposable {
  const int Columns=24, Rows=12, BoxRows=4;
  const double Changed=.62, BoxGone=.35, Returned=.13;
  const int SettleMs=1200;
+ // E578 (live beta38, ダストマニア: the player hid the game's text window, MeguLit's line stayed on the bare picture): the box band alone
+ // going away while the rest of the picture stays is the text window being hidden; it must hold this long with no new line.
+ const double BoxOnly=.5, StillPicture=.13;
+ const int BoxSettleMs=650;
  Bitmap frame;
  int[] last, baseline, lastBox, baseBox;
  DateTime inputAt, next, candidateAt;
- bool hidden;
+ bool hidden,boxHidden;
+ DateTime boxAt;
  int changed, returned;
  int width, height;
  // Why the last hide / show / keep decision was taken; GalWindowBridge sends it with dialogScene for the reader log.
  public string Reason="";
 
- public void Reset(){last=null;baseline=null;lastBox=null;baseBox=null;changed=returned=0;hidden=false;inputAt=DateTime.MinValue;candidateAt=DateTime.MinValue;}
- public void Line(){baseline=null;baseBox=null;changed=returned=0;hidden=false;inputAt=DateTime.MinValue;candidateAt=DateTime.MinValue;}
+ public void Reset(){last=null;baseline=null;lastBox=null;baseBox=null;changed=returned=0;hidden=boxHidden=false;inputAt=DateTime.MinValue;candidateAt=DateTime.MinValue;boxAt=DateTime.MinValue;}
+ public void Line(){baseline=null;baseBox=null;changed=returned=0;hidden=boxHidden=false;inputAt=DateTime.MinValue;candidateAt=DateTime.MinValue;boxAt=DateTime.MinValue;}
  public void Input(){
   if(hidden||baseline!=null||last==null)return;
-  baseline=last;baseBox=lastBox;inputAt=DateTime.UtcNow;changed=0;candidateAt=DateTime.MinValue;
+  baseline=last;baseBox=lastBox;inputAt=DateTime.UtcNow;changed=0;candidateAt=DateTime.MinValue;boxAt=DateTime.MinValue;
  }
  public static double Difference(int[] a,int[] b){
   if(a==null||b==null||a.Length==0||a.Length!=b.Length)return 0;
@@ -72,11 +77,15 @@ public sealed class GameSceneProbe : IDisposable {
   if(baseline==null)return null;
   double delta=Difference(baseline,pixels);
   if(hidden){
-   returned=delta<=Returned?returned+1:0;
+   /* a hidden text window comes back: the box band looks as it did before the input again */
+   returned=(boxHidden?Difference(baseBox,box):delta)<=Returned?returned+1:0;
    if(returned>=2){Line();Reason="scene back";return true;}
    return null;
   }
   if(candidateAt==DateTime.MinValue){
+   double bandDelta=Difference(baseBox,box);
+   if(delta<=StillPicture&&bandDelta>=BoxOnly){if(boxAt==DateTime.MinValue)boxAt=now;else if((now-boxAt).TotalMilliseconds>=BoxSettleMs){hidden=boxHidden=true;returned=0;Reason="text window hidden: box "+Math.Round(bandDelta*100)+"%, picture "+Math.Round(delta*100)+"%";return false;}return null;}
+   boxAt=DateTime.MinValue;
    if((now-inputAt).TotalMilliseconds>1900){Line();return null;}
    changed=delta>=Changed?changed+1:0;
    if(changed>=3)candidateAt=now;
@@ -121,6 +130,10 @@ public sealed class GameSceneProbe : IDisposable {
    if(run(day,600)!=true)return false;
    // A flash that settles back within the window: not hidden.
    p.Line();run(day,170);p.Input();run(cg,600);if(run(day,1500)==false)return false;
+   // E578: the text window alone is hidden (picture unchanged): hidden after it holds, shown again when the window is back.
+   using(var bare=pic(Color.SkyBlue,Color.SkyBlue)){p.Line();run(day,170);p.Input();if(run(bare,1000)!=false)return false;if(run(day,600)!=true)return false;
+    // a box that only blinks (a new line redrawing it) is not a hidden window
+    p.Line();run(day,170);p.Input();run(bare,340);if(run(day,1200)==false)return false;}
   }
   return true;
  }

@@ -91,7 +91,7 @@ class HookControl{
   }
   if(this.plan==='euphoria474'&&h.state.hookExact474===false)this.start('read');
   const hiding=['embed','euphoria474'].includes(this.plan);
-  if(!p.hookHide){this.ocr(false);if(hiding)this.start('read');else if(explicit&&this.plan==='off')this.start('read');return;}
+  if(!p.hookHide){h.hooks.probeHide?.(false);this.ocr(false);if(hiding)this.start('read');else if(explicit&&this.plan==='off')this.start('read');return;}
   // The verified YU-RIS 0.474 build uses a custom draw hook; read-only discovery does not expose that hook.
   if(h.state.hookExact474===true){if(!explicit&&!(h.state.bound&&h.state.coverEnabled!==false))return;if(this.plan!=='euphoria474')this.start('euphoria474',p.hookFast!==false);return;}
   const identity=String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');if(this.discoveryIdentity!==identity){this.discoveryIdentity=identity;this.readOnlySince=null;}
@@ -106,9 +106,12 @@ class HookControl{
   if(hiding)this.start('read');
   if(!t){if(this.plan==='off')this.start('read');
    // Streams carry text but none can be embedded: this game is covered by OCR instead.
-   if(threads.some(x=>x.selected&&x.sample)){if(this.readOnlySince==null)this.readOnlySince=this.now();{const s=threads.find(x=>x.selected)?.sample||'';if(!this.pendingSamples||this.pendingIdentity!==identity){this.pendingSamples=new Set();this.pendingIdentity=identity;}if(s)this.pendingSamples.add(s);}if(this.now()-this.readOnlySince<8000){this.status({hookCheckState:'waiting',hookCheckMessage:'优先查找可内嵌的引擎文本流，暂不启用 OCR'});return;}
+   if(threads.some(x=>x.selected&&x.sample)){if(p.hookHide)h.hooks.probeHide?.(true);if(this.readOnlySince==null)this.readOnlySince=this.now();{const s=threads.find(x=>x.selected)?.sample||'';if(!this.pendingSamples||this.pendingIdentity!==identity){this.pendingSamples=new Set();this.pendingIdentity=identity;}if(s)this.pendingSamples.add(s);}if(this.now()-this.readOnlySince<8000){this.status({hookCheckState:'waiting',hookCheckMessage:'优先查找可内嵌的引擎文本流，暂不启用 OCR'});return;}
     /* E531 (CLANNAD / Siglus: title menu strings came first, the EmbedSiglus dialogue stream only appears with the first story line):
        while an embed-capable hook is inserted, wait until several different lines passed without it before calling the game unsupported. */
+    /* E578: the selected stream cannot write back; the hook may still hide the game's own drawing of it (GDI / glyph hide). It is switched on
+       as a probe and the stream turns embeddable (hide-only) once a hidden draw is reported; only after several lines without one is the game unsupported. */
+    if(h.hooks.probing===true&&h.hooks.state.hookEmbedPending!==true&&this.pendingSamples.size<4){this.status({hookCheckState:'waiting',hookEmbedUnsupported:false,hookCheckMessage:'正在尝试通用隐藏原文：推进几句后自动生效'});return;}
     if(h.hooks.state.hookEmbedPending===true&&this.pendingSamples.size<4){this.status({hookCheckState:'waiting',hookEmbedUnsupported:false,hookCheckMessage:'已找到可内嵌的引擎钩子，进入剧情第一句后自动隐藏原文'});return;}/* E346 (user 2026-11-10): every engine that ends here tells the user how to get the game adapted. */this.status({hookCheckState:'reading',hookEmbedUnsupported:true,hookCheckMessage:EMBED_FEEDBACK});return;}
    this.status({hookCheckState:'waiting',hookCheckMessage:'已开启隐藏：等 Hook 找到游戏文本流，推进一句后自动开始隐藏'});return;}
   if(!explicit&&!(h.state.bound&&h.state.coverEnabled!==false))return;
