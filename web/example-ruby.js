@@ -8,7 +8,7 @@
    注音大小 (rubyScale) sets the reading's size. */
 const SKIP='input,textarea,select,rt,rp,ruby,[contenteditable],[data-exr-skip]';
 const KANJI=/[㐀-鿿豈-﫿々〆ヶ]/;
-const cache=new Map(),waiting=new Map();
+const cache=new Map(),waiting=new Map(),tries=new Map();
 let api=null,prefs={on:true,scale:.5},prefsAt=0,queued=null,observer=null;
 
 /* attribute for the element that shows one example line; ruby = the game's [[base,reading],…] when the page has it */
@@ -64,6 +64,8 @@ function letterRun(where,sp){const els=[];
 /* for an element a page keeps and refills (el.innerHTML=…): which line it now shows */
 export function setExample(el,text,ruby){if(!el)return;const t=String(text||'');if(!t){delete el.dataset.exr;delete el.dataset.exrRuby;delete el.dataset.exrDone;return;}
   el.dataset.exr=t;const pairs=Array.isArray(ruby)?ruby.filter(p=>Array.isArray(p)&&p[0]&&p[1]):[];if(pairs.length)el.dataset.exrRuby=JSON.stringify(pairs);else delete el.dataset.exrRuby;delete el.dataset.exrDone;hydrateExamples();}
+/* room for the reading above each line, even where a page pins a tight line-height; display-size lines keep their own */
+function roomForRuby(el){try{const cs=getComputedStyle(el),fs=parseFloat(cs.fontSize),lh=parseFloat(cs.lineHeight);if(!fs||fs>40)return;if(!lh||lh/fs<1.85)el.style.setProperty('line-height','1.95','important');}catch{}}
 async function readPrefs(){
   if(!api||Date.now()-prefsAt<30000)return prefs;prefsAt=Date.now();
   try{const s=await api('settings_get');const t=s?.values?.text||{};prefs={on:t.furigana!==false&&t.furigana!=='false',scale:Number(t.rubyScale)>0?Math.min(.85,Math.max(.2,Number(t.rubyScale))):.5};}catch{}
@@ -77,14 +79,18 @@ async function flush(){
   const need=[];for(const el of list){const k=keyOf(el.dataset.exr,el.dataset.exrRuby);if(!cache.has(k)&&!waiting.has(k)){waiting.set(k,true);let ruby=[];if(el.dataset.exrRuby==='none')ruby=false;else try{ruby=JSON.parse(el.dataset.exrRuby||'[]');}catch{}need.push({k,text:el.dataset.exr,ruby});}}
   if(need.length&&api){try{const r=await api('example_ruby',{items:need.map(x=>({text:x.text,ruby:x.ruby}))});
       need.forEach((x,i)=>{const it=r?.items?.[i];if(it&&!it.retry&&(r.ready||it.spans?.length))cache.set(x.k,it.spans||[]);});}catch{}
+    /* the tokenizer was still starting (or busy): ask again a little later, a few times at most */
+    const again=need.filter(x=>!cache.has(x.k)&&(tries.set(x.k,(tries.get(x.k)||0)+1).get(x.k))<4);if(again.length)setTimeout(hydrateExamples,4000);
     need.forEach(x=>waiting.delete(x.k));}
   for(const el of list){const k=keyOf(el.dataset.exr,el.dataset.exrRuby);if(!cache.has(k)||!el.isConnected)continue;
-    if(el.dataset.exrDone===el.dataset.exr)continue;el.dataset.exrDone=el.dataset.exr;applySpans(el,el.dataset.exr,cache.get(k));}
+    if(el.dataset.exrDone===el.dataset.exr)continue;el.dataset.exrDone=el.dataset.exr;if(applySpans(el,el.dataset.exr,cache.get(k)))roomForRuby(el);}
 }
 /* hydrate now (pages that build off-document can call it after attaching) */
 export function hydrateExamples(){if(!queued)queued=setTimeout(()=>flush().catch(()=>{}),30);}
 
 const STYLE=`html.exr-off ruby.exr rt{display:none}
+/* room for the reading above each line; any line-height a page sets itself wins */
+html:not(.exr-off) :where([data-exr]:has(ruby.exr)){line-height:1.95}
 ruby.exr{ruby-position:over;ruby-align:center}
 ruby.exr rt{font-size:calc(var(--exr-rt,.5) * 1em);font-weight:400;letter-spacing:0;line-height:1;opacity:.8;user-select:none;-webkit-user-select:none;font-style:normal;text-decoration:none}`;
 /* once, from app.js: watch the document for [data-exr] lines and give them ruby */
