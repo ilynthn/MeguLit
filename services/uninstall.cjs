@@ -215,9 +215,11 @@ function realRegistry(){
   deleteValue(key,name){reg(['delete',key,'/v',name,'/f']);},
   set(key,name,type,data){reg(['add',key,'/v',name,'/t',type,'/d',String(data),'/f']);}};
 }
+// The paths go through the environment, one per line. Passed after -Command they were split at every space, so the Start
+// menu shortcuts ("...\Start Menu\Programs\...") and "Uninstall MeguLit.lnk" were never read and stayed behind.
 function realShortcuts(files){
- const ps="[Console]::OutputEncoding=[Text.Encoding]::UTF8;$s=New-Object -ComObject WScript.Shell;$o=@{};foreach($f in $args){try{$l=$s.CreateShortcut($f);$o[$f]=@{target=$l.TargetPath;args=$l.Arguments;workdir=$l.WorkingDirectory}}catch{}};$o|ConvertTo-Json -Compress";
- try{const out=require('node:child_process').execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','& {'+ps+'}',...files],{encoding:'utf8',windowsHide:true,timeout:30000});return JSON.parse(out.replace(/^\ufeff/,'')||'{}');}catch{return {};}
+ const ps="[Console]::OutputEncoding=[Text.Encoding]::UTF8;$s=New-Object -ComObject WScript.Shell;$o=@{};foreach($f in ($env:MEGULIT_LNKS -split [char]10)){if(-not $f){continue};try{$l=$s.CreateShortcut($f);$o[$f]=@{target=$l.TargetPath;args=$l.Arguments;workdir=$l.WorkingDirectory}}catch{}};$o|ConvertTo-Json -Compress";
+ try{const out=require('node:child_process').execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',ps],{encoding:'utf8',windowsHide:true,timeout:30000,env:{...process.env,MEGULIT_LNKS:files.join('\n')}});return JSON.parse(out.replace(/^\ufeff/,'')||'{}');}catch{return {};}
 }
 
 /* ---------- command line: node services/uninstall.cjs --root <dir> [--no-keep-data] [--dry-run] [--json] [--leave-root] ---------- */
@@ -240,4 +242,4 @@ if(require.main===module){
   else{const r=execute(p,{leaveRoot:has('--leave-root')});process.stdout.write(has('--json')?JSON.stringify({plan:p,report:r}):describe(p)+'\n\nfailed: '+r.failed.length+'\n'+r.failed.map(f=>'  ! '+(f.path||f.key)+' '+f.error).join('\n')+'\n');}
  }catch(e){process.stdout.write(has('--json')?JSON.stringify({error:e.message}):'error: '+e.message+'\n');process.exitCode=1;}
 }
-module.exports={plan,execute,register,registerSoon,uninstallCommand,describe,keepNote,UNINSTALL_KEY,PATH_VALUE_KEYS,KEEP_NOTE,DATA_CACHES,_internal:{rootPlan,gamePlan,gameDirs,registryPlan,shortcutPlan,externalPlan,realRegistry}};
+module.exports={plan,execute,register,registerSoon,uninstallCommand,describe,keepNote,UNINSTALL_KEY,PATH_VALUE_KEYS,KEEP_NOTE,DATA_CACHES,_internal:{rootPlan,gamePlan,gameDirs,registryPlan,shortcutPlan,externalPlan,realRegistry,realShortcuts}};
