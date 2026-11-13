@@ -101,10 +101,15 @@ function steamLibraries(steam){
  const libs=new Map(),add=p=>{const n=path.normalize(p);if(!libs.has(n.toLowerCase()))libs.set(n.toLowerCase(),n);};add(steam);try{for(const p of vdfValues(fs.readFileSync(path.join(steam,'steamapps','libraryfolders.vdf'),'utf8'),'path'))add(p);}catch{}
  return [...libs.values()].filter(p=>fs.existsSync(path.join(p,'steamapps')));
 }
+// A Steam client in another language caches art with a language suffix (library_capsule_schinese.jpg,
+// header_schinese.jpg), often with no unsuffixed copy. Portrait art comes first, wherever it sits.
+const STEAM_ART=['library_600x900','library_capsule','header','library_header'];
 function steamCover(steam,appid){
- const base=path.join(steam,'appcache','librarycache',String(appid));const want=['library_600x900_schinese.jpg','library_600x900_japanese.jpg','library_600x900.jpg','library_capsule.jpg','header.jpg'];
- for(const n of want)if(fs.existsSync(path.join(base,n)))return path.join(base,n);
- try{for(const d of fs.readdirSync(base)){const sub=path.join(base,d);if(!fs.statSync(sub).isDirectory())continue;for(const n of want)if(fs.existsSync(path.join(sub,n)))return path.join(sub,n);}}catch{}
+ const base=path.join(steam,'appcache','librarycache',String(appid));let dirs=[base];
+ try{dirs=dirs.concat(fs.readdirSync(base,{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>path.join(base,d.name)));}catch{}
+ const files=dirs.map(d=>{try{return fs.readdirSync(d).map(n=>path.join(d,n));}catch{return [];}}).flat();
+ for(const kind of STEAM_ART)for(const name of [kind+'_schinese.jpg',kind+'_japanese.jpg',kind+'.jpg',new RegExp('^'+kind+'_[a-z]+\\.jpg$')]){
+  const hit=files.find(f=>typeof name==='string'?path.basename(f)===name:name.test(path.basename(f)));if(hit)return hit;}
  const old=path.join(steam,'appcache','librarycache',appid+'_library_600x900.jpg');return fs.existsSync(old)?old:'';
 }
 function steamGames(steam){
