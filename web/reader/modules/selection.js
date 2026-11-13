@@ -116,8 +116,7 @@
  }
  async function show(args,at,result){if(current&&card&&current.text===args.text&&current.start===args.start&&current.end===args.end){anchor=at;place();return;}close(true);
   current=args;anchor=at;b.selectionActive=true;const mine=current;card=el('section','tomoyo-selection-card word-image-preview-portal');{const shot=b.precaptureReader?.();
-  if(shot){const hidden=card;hidden.classList.add('megulit-precapture');hidden.__megulitShot=shot;Promise.race([shot,new Promise(r=>setTimeout(r,300))]).finally(()=>{
-  hidden.classList.remove('megulit-precapture');window.__tomoyoHitRegionsRefresh?.(true);});}}card.setAttribute('role','dialog');card.setAttribute('aria-label',
+  if(shot)card.__megulitShot=shot;/* game-only picture: the card is never hidden for it */}card.setAttribute('role','dialog');card.setAttribute('aria-label',
   '本地查词与选区解释');const top=el('header');dragCard(top);if(typeof ResizeObserver==='function'){const watched=card;new ResizeObserver(()=>{if(card===watched&&watched.isConnected)place();
   }).observe(watched);}top.append(el('span',''),button('×',()=>close()));const body=el('div','tomoyo-selection-body'),status=el('div','tomoyo-muted','本地查询中…'),actions=el('footer'),
   ai=el('div','tomoyo-ai-result');ai.hidden=true;actions.append(button('上下文解释',()=>askAI('explain')),button('AI 归纳义项',()=>askAI('summary')));body.append(status);

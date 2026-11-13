@@ -35,9 +35,10 @@ test('#116: nickname, a small avatar and the global style travel in the settings
  }finally{for(const d of [a,b,c])fs.rmSync(d,{recursive:true,force:true});}
 });
 test('#115: the lookup card picture is taken before the card shows, and its background follows the scroll',()=>{
- assert.match(read('web/reader/modules/selection.js'),/b\.precaptureReader\?\.\(\)[\s\S]{0,200}megulit-precapture/);
+ assert.match(read('web/reader/modules/selection.js'),/b\.precaptureReader\?\.\(\);\s*if\(shot\)card\.__megulitShot=shot;/);
  assert.match(read('web/reader/modules/v4.js'),/card\.__megulitShot/);
- assert.match(read('web/reader/host-surface.css'),/\.megulit-precapture \{ visibility: hidden !important; \}/);
+ /* 2026-11-14: the picture is the game window alone, so the card is never hidden for it */
+ assert.doesNotMatch(read('web/reader/modules/selection.js'),/megulit-precapture/);
  assert.match(read('web/reader/modules/background.js'),/translateY\('\+n\.scrollTop\+'px\)/);
  assert.match(read('services/reader.cjs'),/cardScreenshots\.set\(id,\{id,image,expires:Date\.now\(\)\+180000\}\)/);
 });

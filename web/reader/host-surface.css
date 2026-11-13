@@ -24,14 +24,6 @@ body.megulit-native-log #reader-host,body.megulit-native-log .tome-island-page,b
 [data-megulit-ui-scan] ol{max-height:14em;overflow:auto}
 [data-megulit-ui-scan] button{margin:6px 8px 6px 0}
 [name=galTranslationPrompt]{display:block;box-sizing:border-box;width:100%;resize:vertical;min-height:5em;color:inherit;background:var(--theme-background);border:1px solid var(--theme-border);border-radius:8px;padding:8px}
-.megulit-mining-capture { opacity: 0 !important; }
-.megulit-precapture { visibility: hidden !important; }
-/* E215.6: while a card picture is taken only the reader text (and native ISLAND pages) stay visible. */
-body.megulit-capturing *{visibility:hidden!important}
-body.megulit-capturing .sentence-window,body.megulit-capturing .sentence-window *,
-body.megulit-capturing .tome-island-page,body.megulit-capturing .tome-island-page *,
-body.megulit-capturing .tome-island-pair,body.megulit-capturing .tome-island-pair *{visibility:visible!important}
-body.megulit-capturing .megulit-mining-capture,body.megulit-capturing .megulit-mining-capture *{visibility:hidden!important}
 body.megulit-english-style .sentence-text .char-token.megulit-latin,
 body.megulit-english-style .tomoyo-cn-output:not([data-state=error]) .megulit-latin {
   font-family: var(--megulit-en-font, inherit) !important;
