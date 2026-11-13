@@ -24,7 +24,10 @@ const M={
 const RANGES=['year','month','week','day'];
 const PANELS=['keys','calendar','books','trend','dial','week','feel','top','analysis'];
 
+/* the learning slot survives sub-tab switches: drop the previous mount's click handler before adding a new one */
+let mounted=null;
 export async function mountStatistics(root,{api,env,selection,onSelection}){
+ mounted?.abort();const life=new AbortController();mounted=life;const seq={};
  const {locale,esc}=env,w=M[locale]||M.zh,num=v=>new Intl.NumberFormat(LANG[locale]).format(Math.round(v||0));
  const state={date:selection.date,global:selection.range,ranges:Object.fromEntries(PANELS.map(p=>[p,selection.range])),cache:new Map(),openBooks:false};
  const load=range=>{const key=range+'|'+state.date;if(!state.cache.has(key))state.cache.set(key,api('statistics',{range,date:state.date}).catch(error=>{state.cache.delete(key);throw error;}));return state.cache.get(key);};
@@ -103,13 +106,13 @@ export async function mountStatistics(root,{api,env,selection,onSelection}){
     <aside><b class="num">${num(d.totals.sentences)} ${w.sentences}</b>${w.sentencesLabel}<br><b class="num">${lastDay?(locale==='en'?lastDay.join('/'):`${lastDay[0]} 月 ${lastDay[1]} 日`):'—'}</b>${w.lastLabel}<br><b class="num">${days} ${range==='year'?(locale==='en'?'months':'个月'):range==='day'?(locale==='en'?'hours':'小时'):w.dayU}</b>${w.daysLabel}</aside></div>
     <div class="stg-foot"><div><b class="num">${num(maxBucket)}</b>${w.footMax[range]}</div><div><b class="num">${d.totals.seconds?num(c/(d.totals.seconds/3600)):'—'}</b>${w.perHour}</div><div><b class="num">${d.totals.sentences?(c/d.totals.sentences).toFixed(1):'—'}</b>${w.perSentence}</div><div><b class="num">${streak} <small>${range==='year'?(locale==='en'?'months':'个月'):range==='day'?(locale==='en'?'h':'小时'):w.dayU}</small></b>${w.streak[range]}</div></div>`:empty());}
  };
- async function draw(panel){const range=panel==='keys'?state.global:state.ranges[panel],box=el(panel);box.classList.add('stg-loading');
-  try{const data=await load(range);if(!root.isConnected)return;render[panel](data,range);}catch(error){box.innerHTML=`<p class="stg-empty">${esc(String(error?.message||error))}</p>`;}finally{box.classList.remove('stg-loading');}}
+ async function draw(panel){const range=panel==='keys'?state.global:state.ranges[panel],box=el(panel);box.classList.add('stg-loading');const mine=seq[panel]=(seq[panel]||0)+1;
+  try{const data=await load(range);if(!root.isConnected||life.signal.aborted||mine!==seq[panel])return;render[panel](data,range);}catch(error){box.innerHTML=`<p class="stg-empty">${esc(String(error?.message||error))}</p>`;}finally{box.classList.remove('stg-loading');}}
  const drawAll=()=>{label();PANELS.forEach(draw);};
  root.addEventListener('click',e=>{
   const sw=e.target.closest('.stg-rs [data-r]');if(sw){const panel=sw.parentElement.dataset.panel;state.ranges[panel]=sw.dataset.r;draw(panel);return;}
   const g=e.target.closest('[data-global]');if(g){state.global=g.dataset.global;PANELS.forEach(p=>state.ranges[p]=state.global);root.querySelectorAll('[data-global]').forEach(b=>b.setAttribute('aria-pressed',String(b===g)));onSelection?.({range:state.global,date:state.date});drawAll();return;}
   const s=e.target.closest('[data-shift]');if(s){const next=shiftPeriod({range:state.global,date:state.date},Number(s.dataset.shift));state.date=next.date;onSelection?.({range:state.global,date:state.date});drawAll();}
- });
+ },{signal:life.signal});
  drawAll();
 }

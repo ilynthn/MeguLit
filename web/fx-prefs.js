@@ -7,7 +7,6 @@ export const FX=[
  {id:'dictImpact',name:{zh:'词典 · 搜索框撞击',ja:'辞書 · 検索欄の衝突',en:'Dictionary · search box impact'},desc:{zh:'从中间搜索时，搜索框撞上顶栏、镜头运动',ja:'中央から検索したとき、検索欄が上端に当たりカメラが動く',en:'Searching from the centre slams the box into the top bar, with camera motion'}},
  {id:'dictField',name:{zh:'词典 · 背景漂浮字',ja:'辞書 · 背景の漂う文字',en:'Dictionary · drifting glyphs'},desc:{zh:'词典页背后漂浮的假名和常查词',ja:'辞書ページの背後を漂う仮名とよく調べる語',en:'Kana and your frequent words drifting behind the dictionary'}},
  {id:'explosion',name:{zh:'答错 · 爆裂魔法',ja:'不正解 · 爆裂魔法',en:'Wrong answer · Explosion'},desc:{zh:'练习答错时的爆炸、坑和烟',ja:'練習で間違えたときの爆発・穴・煙',en:'The blast, pit and smoke on a wrong answer'}},
- {id:'wildfire',name:{zh:'答错 · 蔓延火焰',ja:'不正解 · 広がる炎',en:'Wrong answer · spreading fire'},desc:{zh:'答错时火焰从错处向四周蔓延，两秒内烧尽',ja:'間違えた場所から炎が広がり、二秒で燃え尽きる',en:'Fire spreads out from the wrong answer and burns out within two seconds'}},
  {id:'heal',name:{zh:'答对 · 花鸟风月',ja:'正解 · 花鳥風月',en:'Right answer · flower fountain'},desc:{zh:'答对时的水花和花瓣，修复最早的坑',ja:'正解したときの水と花びら、いちばん古い穴を直す',en:'Water and petals on a right answer, mending the oldest pit'}},
  {id:'rite',name:{zh:'转职动画',ja:'転職アニメーション',en:'Class-change animation'},desc:{zh:'转职时每个元素的粒子和爆发',ja:'転職時の各元素の粒子と爆発',en:'Each element’s particles and burst when changing class'}},
  {id:'cardTilt',name:{zh:'游戏库 · 卡片倾斜',ja:'ライブラリ · カードの傾き',en:'Library · card tilt'},desc:{zh:'鼠标移到封面上时卡片跟着倾斜',ja:'表紙にマウスを乗せるとカードが傾く',en:'Covers tilt toward the pointer'}}

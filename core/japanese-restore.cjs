@@ -140,7 +140,8 @@ function gameRunning(gameDir){
   try{const out=require('node:child_process').execFileSync('powershell.exe',['-NoProfile','-Command',"[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }"],{encoding:'utf8',windowsHide:true,timeout:40000});
    return out.replace(/^﻿/,'').split(/\r?\n/).some(p=>p.toLowerCase().startsWith(dir));}catch{}
  }
- return false;
+ /* both checks failed: writing over files the game may hold open is not safe, so say so instead of "not running" */
+ throw Error('PROCESS_QUERY_FAILED');
 }
 function writeAtomic(file,data){const tmp=file+'.megulit-tmp';fs.writeFileSync(tmp,data);fs.renameSync(tmp,file);}
 

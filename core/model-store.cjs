@@ -33,14 +33,14 @@ class ModelStore{
      const attempt=new AbortController(),stop=()=>attempt.abort();controller.signal.addEventListener('abort',stop,{once:true});let idle=setTimeout(stop,30000);
      try{let have=0;try{have=fs.statSync(part).size;}catch{}
       const res=await fetch(src+'/'+m.repo+'/resolve/main/'+encodeURIComponent(m.file)+(src.includes('dl.megulit.com')?'':'?download=true'),{redirect:'follow',signal:attempt.signal,headers:have?{Range:'bytes='+have+'-'}:{}});
-      if(!res.ok||!res.body)throw Error('HTTP '+res.status);const resumed=have>0&&res.status===206;if(!resumed)have=0;
+      if(res.status===416&&have>0){/* the .part already holds the whole file */done=true;break;}if(!res.ok||!res.body)throw Error('HTTP '+res.status);const resumed=have>0&&res.status===206;if(!resumed)have=0;
       job.total=have+(Number(res.headers.get('content-length'))||0)||Math.round(m.size*1073741824);job.received=have;
       const out=fs.createWriteStream(part,{flags:resumed?'a':'w'});
       try{for await(const chunk of res.body){clearTimeout(idle);idle=setTimeout(stop,30000);job.received+=chunk.length;if(!out.write(chunk))await new Promise(r=>out.once('drain',r));}}finally{await new Promise(r=>out.end(r));}
       if(job.total&&job.received<job.total)throw Error('incomplete');done=true;break;
      }catch(e){last=e;}finally{clearTimeout(idle);controller.signal.removeEventListener('abort',stop);}
     }
-    if(!done&&!controller.signal.aborted)throw Error('下载失败：HuggingFace、国内镜像和 MeguLit 中转都连不上（'+String(last?.message||last||'')+'），请检查网络后重试');
+    if(!done&&controller.signal.aborted)throw Error('cancelled');if(!done)throw Error('下载失败：HuggingFace、国内镜像和 MeguLit 中转都连不上（'+String(last?.message||last||'')+'），请检查网络后重试');
     fs.renameSync(part,target);job.state='done';
    }catch(e){job.state=controller.signal.aborted?'cancelled':'error';job.error=controller.signal.aborted?'':String(e.message||e);}})();
   return this.status();

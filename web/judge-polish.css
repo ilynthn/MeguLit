@@ -8,9 +8,6 @@ html body .main :is(.tv-scene,.tv-scene>b,.tv-heatlink,.tv-heatsum>span,.tv-hot-
 html body .main :is(.gm-tag,.rw-rank,.gm-stg-no,.gm-stg-flag,.word-jlpt,.guide-badge){font-size:11px!important}
 html body .main :is(.tv-heatlink,.tv-heatsum>span,.tv-fig>small,.tv-more,.gm-kicker,.gm-stg-sub,.gm-card-node,.gm-card-meta>span,.settings-help,.word-source,.gm-hud-stats>span){color:color-mix(in srgb,var(--g-t1,#f1e0d2) 78%,transparent)!important}
 
-/* primary actions: solid, so the one thing to do stands out from the outlined secondary buttons */
-html body .main :is(button.primary,.tv-btn.primary):not(.text-button){background:linear-gradient(180deg,#b3313c,#8f2430)!important;border-color:#c9424d!important;color:#fff6ee!important;box-shadow:0 6px 18px -8px rgba(179,49,60,.7)!important}
-html body .main :is(button.primary,.tv-btn.primary):not(.text-button):hover{background:linear-gradient(180deg,#c23a45,#9c2834)!important}
 
 /* dictionary: a visible field with its own border and a readable hint; the drifting glyphs dim behind the search */
 html:not(#u):not(#v):not(#w) body #learning-content .lookup-form input{border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 32%,transparent)!important;font-size:16px!important}

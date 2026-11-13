@@ -26,3 +26,47 @@ html{color-scheme:dark;background:transparent}html,body{margin:0!important;width
 
 /* 2026-11-13 judges round 2: the frame is see-through so the card sits on MeguLit's own panel (no grey-blue slab), and a short card is centred in the space instead of hanging at the top. */
 #card-content .tm-card{border-color:#ffffff1f!important;background:#0b080b8c!important}
+
+/* 2026-11-13 (user: Anki 界面大改) HUD mode: no card box, each part is a block on a full-frame stage */
+body.hud #card-viewport{display:none!important}
+body.hud.hud-whole #card-viewport{display:flex!important;padding:0!important}
+body.hud.hud-whole #card-content{font-size:var(--hud-size-card,22px)}
+body.hud.hud-whole #card-content .tm-card{background:transparent!important;border-color:transparent!important}
+#hud-stage{position:fixed;inset:0;pointer-events:none}
+.hud-block{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:stretch;pointer-events:auto;border-radius:12px;outline:1px dashed transparent;outline-offset:-1px;transition:outline-color .18s ease,background-color .18s ease}
+.hud-fit{width:100%;transform-origin:50% 50%}
+.hud-inner.tm-card{max-width:none!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;overflow:visible!important;color:var(--hud-text,#ece4dc)!important;text-shadow:var(--hud-shadow,none)}
+.hud-inner .tm-sec{border:0!important;padding:0!important}
+.hud-inner .tm-tag{color:var(--hud-dim,#a99e97)}
+.hud-inner .tm-hl,.hud-inner .tm-hl rt{color:var(--hud-accent,#f0883e)}
+.hud-inner .tm-search{text-decoration:none;cursor:pointer;text-shadow:none}
+[data-hud=word] .tm-head{padding:0 64px!important;min-height:0}
+[data-hud=word] .tm-word{font-family:var(--hud-ja-font);font-size:var(--hud-size-word,64px);color:var(--hud-word,#f6e7d8);letter-spacing:.06em;line-height:1.25}
+[data-hud=word] .tm-head .tm-pitch{font-size:calc(var(--hud-size-word,64px)*.38)}
+[data-hud=info] .tm-sec{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;column-gap:.9em;row-gap:.2em;font-size:var(--hud-size-info,28px);text-align:center}
+[data-hud=info] .tm-reading{font-family:var(--hud-ja-font);font-size:1.12em;margin:0!important;color:var(--hud-word,#f6e7d8)}
+[data-hud=info] .tm-mean{font-family:var(--hud-zh-font);font-size:1em;line-height:1.5}
+[data-hud=info] .tm-pos{color:var(--hud-dim,#a99e97)}
+[data-hud=example] .tm-sec{text-align:center}
+[data-hud=example] .tm-ex{font-family:var(--hud-ja-font);font-size:var(--hud-size-example,30px);justify-content:center;line-height:2.05}
+[data-hud=example] .tm-ex .tm-jp{flex:0 1 auto}
+[data-hud=example] .tm-dim{color:var(--hud-text,#ece4dc)}
+[data-hud=example] .tm-tr{font-family:var(--hud-zh-font);font-size:calc(var(--hud-size-example,30px)*.7);color:var(--hud-dim,#a99e97);margin:0}
+[data-hud=example] .tm-src{font-size:calc(var(--hud-size-example,30px)*.45);text-align:center;color:var(--hud-dim,#a99e97)}
+[data-hud=shot] .hud-fit,[data-hud=shot] .hud-inner,[data-hud=shot] .tm-shot{height:100%}
+[data-hud=shot] img{display:block;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:contain;border-radius:10px}
+.hud-label{display:none}
+.hud-handle{display:none;position:absolute;z-index:3;touch-action:none}
+body.hud-edit .hud-block{outline-color:color-mix(in srgb,var(--hud-accent,#f0883e) 75%,transparent);background:rgba(10,7,9,.28);cursor:move;user-select:none}
+body.hud-edit .hud-block:hover{background:rgba(10,7,9,.42)}
+body.hud-edit .hud-label{display:block;position:absolute;top:5px;left:9px;z-index:2;padding:1px 7px;border-radius:5px;background:var(--hud-accent,#f0883e);color:#1a1012;font:600 12px/1.6 "Microsoft YaHei UI",sans-serif;text-shadow:none;pointer-events:none}
+body.hud-edit .hud-handle{display:block}
+.hud-handle[data-edge=n],.hud-handle[data-edge=s]{left:14px;right:14px;height:9px;cursor:ns-resize}
+.hud-handle[data-edge=e],.hud-handle[data-edge=w]{top:14px;bottom:14px;width:9px;cursor:ew-resize}
+.hud-handle[data-edge=n]{top:-4px}.hud-handle[data-edge=s]{bottom:-4px}.hud-handle[data-edge=e]{right:-4px}.hud-handle[data-edge=w]{left:-4px}
+.hud-handle[data-edge=nw],.hud-handle[data-edge=ne],.hud-handle[data-edge=sw],.hud-handle[data-edge=se]{width:14px;height:14px;border-radius:50%;background:var(--hud-accent,#f0883e);box-shadow:0 0 0 2px #1a1012}
+.hud-handle[data-edge=nw]{top:-6px;left:-6px;cursor:nwse-resize}.hud-handle[data-edge=se]{bottom:-6px;right:-6px;cursor:nwse-resize}
+.hud-handle[data-edge=ne]{top:-6px;right:-6px;cursor:nesw-resize}.hud-handle[data-edge=sw]{bottom:-6px;left:-6px;cursor:nesw-resize}
+.hud-block.hud-dragging{will-change:transform;opacity:.94;transition:none}
+.hud-block.hud-resizing{transition:none}
+@media (prefers-reduced-motion:reduce){.hud-block{transition:none}}

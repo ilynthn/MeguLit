@@ -60,7 +60,7 @@ function render(info,{api,invoke,locale}){
   fill.style.width=pct+'%';bar.setAttribute('aria-valuenow',String(pct));
   if(s.phase==='downloading'){state.textContent=total&&got>=total?t.verifying:`${t.downloading} ${mb(got)} / ${mb(total)} · ${pct}%`;}
   else if(s.phase==='ready'){clearInterval(poll);fill.style.width='100%';bar.classList.add('done');state.textContent=t.ready;go.disabled=false;go.textContent=s.hot?t.hotGo:t.restart;go.dataset.mode=s.hot?'hot':'install';}
-  else if(s.phase==='error'){if(info.hot&&!s.hot){/* the hot package failed: the retry fetches the full one */info.hot=false;card.querySelector('[data-upd-keep]').textContent=t.keep;}clearInterval(poll);bar.classList.add('fail');state.textContent=t.failed+(s.error?' · '+s.error:'');go.disabled=false;go.textContent=t.retry;go.dataset.mode='retry';}
+  else if(s.phase==='error'){if(info.hot&&!s.hot){/* the hot package failed: the retry fetches the full one */info.hot=false;const keep=card?.querySelector('[data-upd-keep]');if(keep)keep.textContent=t.keep;}clearInterval(poll);bar.classList.add('fail');state.textContent=t.failed+(s.error?' · '+s.error:'');go.disabled=false;go.textContent=t.retry;go.dataset.mode='retry';}
  };
  const begin=async()=>{bar.classList.remove('fail','done');go.disabled=true;try{show(await api('update_start',{current:info.current}));}catch(e){show({phase:'error',error:String(e?.message||e)});return;}
   clearInterval(poll);let inflight=false;poll=setInterval(async()=>{if(!card){clearInterval(poll);return;}if(inflight)return;inflight=true;try{show(await api('update_status'));}catch{}finally{inflight=false;}},250);};

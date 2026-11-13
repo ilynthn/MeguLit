@@ -23,11 +23,3 @@ test('N0 dialects: every region is in, each point has a region tag, meaning, sta
  const hit=L.findHit(pts.find(p=>p.hits.includes('知らへん')),'ほんまに知らへんわ');assert.equal(hit&&hit.text,'知らへん');
 });
 
-test('wrong answers start the spreading fire unless reduced motion; the fire is a pref of its own',()=>{
- const fx=fs.readFileSync(path.join(__dirname,'..','web','practice-fx.js'),'utf8');
- assert.match(fx,/import \{spreadFire\} from '\.\/flame-fx\.js'/);assert.match(fx,/fxPref\('wildfire'\)/);
- const fl=fs.readFileSync(path.join(__dirname,'..','web','flame-fx.js'),'utf8');
- assert.match(fl,/if\(calm\|\|/,'reduced motion: no fire');assert.match(fl,/requestAnimationFrame/);assert.match(fl,/pointer-events:none/);
- assert.match(fl,/MAX_PARTS=\d+/,'particle cap');
- assert.match(fs.readFileSync(path.join(__dirname,'..','web','fx-prefs.js'),'utf8'),/id:'wildfire'/);
-});

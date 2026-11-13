@@ -115,8 +115,10 @@ export function setupMarquees(root){
   if(reduceMotion.matches)a.pause();
   marquees.set(box,a);mqObserver?.observe(box);
   const host=box.closest('.book,.library-card')||box;
-  host.addEventListener('mouseenter',()=>{const now=a.currentTime||0,t=now%total;if(t<rest)a.currentTime=now-t+rest;if(a.playState!=='running')a.play();});
-  if(reduceMotion.matches)host.addEventListener('mouseleave',()=>{a.pause();a.currentTime=0;});
+  /* setupMarquees runs again on resize and re-render: the old hover handlers (bound to cancelled animations) go first */
+  host._mqAbort?.abort();const life=host._mqAbort=new AbortController();
+  host.addEventListener('mouseenter',()=>{const now=a.currentTime||0,t=now%total;if(t<rest)a.currentTime=now-t+rest;if(a.playState!=='running')a.play();},{signal:life.signal});
+  if(reduceMotion.matches)host.addEventListener('mouseleave',()=>{a.pause();a.currentTime=0;},{signal:life.signal});
  }
 }
 

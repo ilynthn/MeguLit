@@ -51,7 +51,7 @@ function startWorker(root){
  py.stderr.on('data',d=>log(root,'py '+String(d).slice(0,300)));
  py.on('exit',()=>{for(const cb of w.waiting.splice(0))cb({error:'exited'});if(worker===w)worker=null;});const fail=()=>{for(const cb of w.waiting.splice(0))cb({error:'exited'});if(worker===w)worker=null;};py.on('error',fail);py.stdin.on('error',()=>{});
  return w;}
-function ask(root,file){return new Promise(resolve=>{if(!worker)worker=startWorker(root);const w=worker;clearTimeout(w.timer);w.waiting.push(msg=>{clearTimeout(w.timer);w.timer=setTimeout(()=>{try{w.py.stdin.end();}catch{}},60000);w.timer.unref?.();resolve(msg);});try{w.py.stdin.write(file+'\n');}catch{resolve({error:'write'});}});}
+function ask(root,file){return new Promise(resolve=>{if(!worker)worker=startWorker(root);const w=worker;clearTimeout(w.timer);w.waiting.push(msg=>{clearTimeout(w.timer);w.timer=setTimeout(()=>{if(worker===w)worker=null;try{w.py.stdin.end();}catch{}},60000);w.timer.unref?.();resolve(msg);});try{w.py.stdin.write(file+'\n');}catch{resolve({error:'write'});}});}
 
 /* ---- ratings per game ---- */
 const ratingsFile=cacheDir=>path.join(cacheDir,'ratings.json');

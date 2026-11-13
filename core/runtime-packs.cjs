@@ -85,7 +85,7 @@ function fetchTo(url,file,job,hops=0){
    job.total=Number(res.headers['content-length'])||job.total;
    const hash=createHash('sha256'),out=fs.createWriteStream(file);
    res.on('data',chunk=>{hash.update(chunk);job.received+=chunk.length;});
-   res.on('error',reject);out.on('error',reject);
+   res.on('error',e=>{out.destroy();reject(e);});out.on('error',reject);
    out.on('finish',()=>{if(job.total&&job.received<job.total)return reject(Error('下载不完整'));resolve(hash.digest('hex'));});
    res.pipe(out);
   });

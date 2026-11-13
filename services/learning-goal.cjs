@@ -28,7 +28,7 @@ function sunday(year,month,n){const d=new Date(year,month-1,1,9);d.setDate(1+((7
 const examDay=(kind,year,month)=>kind==='jlpt'?sunday(year,month,1):sunday(year,month,month===6?3:2);
 function countdown(goal,now=Date.now()){
   const out=[];
-  for(const kind of ['jlpt','eju'])if(goal?.[kind]){const g=goal[kind],d=examDay(kind,g.year,g.month),days=Math.ceil((d.getTime()-now)/864e5);out.push({kind,date:d.toISOString().slice(0,10),days,past:days<0});}
+  for(const kind of ['jlpt','eju'])if(goal?.[kind]){const g=goal[kind],d=examDay(kind,g.year,g.month),days=Math.ceil((d.getTime()-now)/864e5);/* local calendar date: toISOString() is UTC and shows the day before east of UTC+9 */out.push({kind,date:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),days,past:days<0});}
   return out.sort((a,b)=>a.days-b.days);
 }
 /* What comes first. groups: grammar categories pulled to the front, in order; level: the grammar level to open on;

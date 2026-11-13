@@ -369,6 +369,8 @@ async fn window_action(action: String, window: tauri::WebviewWindow, state: Stat
         "show_home" => reveal(window.app_handle()),
         "resize_nw"|"resize_ne"|"resize_sw"|"resize_se" => {if window.label()!="main"{return Err("INVALID_HOME_WINDOW".into());}if !window.is_maximized().unwrap_or(false){let name=match action.as_str(){"resize_nw"=>"NorthWest","resize_ne"=>"NorthEast","resize_sw"=>"SouthWest",_=>"SouthEast"};let direction=serde_json::from_value(json!(name)).map_err(|e|e.to_string())?;let native:&tauri::Webview<tauri::Wry>=window.as_ref();native.window().start_resize_dragging(direction).map_err(|e|e.to_string())?;}},
         "minimize" => window.minimize().map_err(|e| e.to_string())?,
+        // 2026-11-13 Anki review: immersive full screen (Esc in the page leaves it)
+        "fullscreen_on"|"fullscreen_off" => {if window.label()!="main"{return Err("INVALID_HOME_WINDOW".into());}window.set_fullscreen(action=="fullscreen_on").map_err(|e|e.to_string())?;},
         // StartupIsland shows the HWND outside Tao. Synchronize Tao's VISIBLE flag
         // before changing MAXIMIZED; otherwise apply_diff maximizes then hides the
         // window, and a subsequent show exposes only the final rectangle.
@@ -527,7 +529,7 @@ fn main() {
             if window.label()=="reader"{let root=state.root.clone();tauri::async_runtime::spawn_blocking(move||{let _=run_service(root,json!({"action":"reader_detach"}));});return;}
             if window.label()!="main"{return;}
             if !state.exiting.load(Ordering::SeqCst) {
-                state.window_memory.queue_capture(window.clone());state.window_memory.flush();
+                state.window_memory.capture(window);state.window_memory.flush();
                 let close_to_tray=window_policy::close_to_tray(&state.root);
                 if close_to_tray { api.prevent_close(); let _=window.hide(); }
             }

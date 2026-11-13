@@ -49,3 +49,68 @@
 .anki-install-bar{height:4px;margin:6px 0 8px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
 .anki-install-bar i{display:block;height:100%;width:0;background:var(--g-gold,var(--accent));transition:width .4s ease}
 .anki-install-ask{margin:10px 0 0}
+
+/* 2026-11-13 (user: anki界面要大改) Review HUD: no panel or card box; a bar of tools, then a stage on which the word,
+   reading and meaning, example, screenshot, progress and buttons are blocks the user can move and resize. */
+.review-page #review-content>.anki-hud{flex:1;min-height:0}
+.anki-hud{position:relative;display:flex;flex-direction:column;min-height:min(560px,70vh);isolation:isolate;border-radius:14px;overflow:hidden;color:var(--hud-text,#ece4dc)}
+.anki-hud-bg{position:absolute;inset:0;z-index:-1;background-position:center;background-size:cover;background-repeat:no-repeat;filter:blur(var(--hud-bg-blur,0px));transform:scale(1.04)}
+.anki-hud[data-bg=none] .anki-hud-bg{transform:none}
+.anki-hud-bg::after{content:"";position:absolute;inset:0;background:#000;opacity:var(--hud-bg-dim,0)}
+.anki-hud-bar{flex:none;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:4px 12px;padding:4px 6px 8px;position:relative;z-index:6}
+.anki-hud-canvas{position:relative;flex:1;min-height:0}
+.anki-hud-frame-slot{position:absolute;inset:0}
+.anki-hud-frame{display:block;width:100%;height:100%;border:0;background:transparent;color-scheme:dark}
+.anki-hud-layer{position:absolute;inset:0;z-index:3;pointer-events:none}
+.anki-hud-block{position:absolute;box-sizing:border-box;display:flex;align-items:center;justify-content:center;pointer-events:auto;border-radius:12px;outline:1px dashed transparent;outline-offset:-1px;transition:outline-color .18s ease,background-color .18s ease}
+.anki-hud-block[data-hud=progress]{justify-content:flex-start;pointer-events:none}
+.anki-hud-progress{display:flex;align-items:baseline;gap:12px;min-width:0;font-size:calc(var(--hud-size-controls,16px)*.9);color:var(--hud-dim,#a99e97);text-shadow:var(--hud-shadow,none);white-space:nowrap}
+.anki-hud-progress .anki-hud-deck{overflow:hidden;text-overflow:ellipsis}
+.anki-hud-progress b{font-weight:600;color:var(--hud-text,#ece4dc);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.anki-hud-block[data-hud=controls] .review-controls{display:flex;flex-wrap:nowrap;justify-content:center;gap:12px;margin:0;width:100%}
+.anki-hud-block[data-hud=controls] button{font-size:var(--hud-size-controls,16px)}
+.anki-hud-block[data-hud=controls] button.primary{min-width:min(280px,60%);min-height:2.9em;padding:.6em 2.2em;border-radius:999px;letter-spacing:.08em}
+.review-page .anki-hud .anki-rating{min-width:5.2em;min-height:3.3em;padding:.45em 1.1em;border-radius:14px;justify-content:center;backdrop-filter:none}
+.anki-hud .hud-label{display:none}
+.anki-hud .hud-handle{display:none;position:absolute;z-index:3;touch-action:none}
+.anki-hud.editing .anki-hud-block{pointer-events:auto;outline-color:color-mix(in srgb,var(--hud-accent,#f0883e) 75%,transparent);background:rgba(10,7,9,.32);cursor:move;user-select:none}
+.anki-hud.editing .anki-hud-block>:not(.hud-handle,.hud-label){pointer-events:none}
+.anki-hud.editing .hud-label{display:block;position:absolute;top:5px;left:9px;z-index:2;padding:1px 7px;border-radius:5px;background:var(--hud-accent,#f0883e);color:#1a1012;font-size:12px;font-weight:600;line-height:1.6;pointer-events:none}
+.anki-hud.editing .hud-handle{display:block}
+.anki-hud .hud-handle[data-edge=n],.anki-hud .hud-handle[data-edge=s]{left:14px;right:14px;height:9px;cursor:ns-resize}
+.anki-hud .hud-handle[data-edge=e],.anki-hud .hud-handle[data-edge=w]{top:14px;bottom:14px;width:9px;cursor:ew-resize}
+.anki-hud .hud-handle[data-edge=n]{top:-4px}.anki-hud .hud-handle[data-edge=s]{bottom:-4px}.anki-hud .hud-handle[data-edge=e]{right:-4px}.anki-hud .hud-handle[data-edge=w]{left:-4px}
+.anki-hud .hud-handle:is([data-edge=nw],[data-edge=ne],[data-edge=sw],[data-edge=se]){width:14px;height:14px;border-radius:50%;background:var(--hud-accent,#f0883e);box-shadow:0 0 0 2px #1a1012}
+.anki-hud .hud-handle[data-edge=nw]{top:-6px;left:-6px;cursor:nwse-resize}.anki-hud .hud-handle[data-edge=se]{bottom:-6px;right:-6px;cursor:nwse-resize}
+.anki-hud .hud-handle[data-edge=ne]{top:-6px;right:-6px;cursor:nesw-resize}.anki-hud .hud-handle[data-edge=sw]{bottom:-6px;left:-6px;cursor:nesw-resize}
+.anki-hud-block.hud-dragging{will-change:transform;opacity:.94;transition:none}
+.anki-hud-block.hud-resizing{transition:none}
+.anki-hud-edit{position:absolute;z-index:7;top:10px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;max-width:calc(100% - 24px);padding:8px 10px 8px 16px;border:1px solid var(--g-rule-strong,var(--line));border-radius:12px;background:var(--g-raise,var(--surface));box-shadow:0 12px 30px #0006;font-size:12px;color:var(--g-t2,var(--muted))}
+.anki-hud-edit[hidden]{display:none}
+.anki-hud-edit button.primary{padding:5px 16px;min-height:0}
+.anki-hud-keys{position:absolute;right:12px;bottom:8px;z-index:2;font-size:11px;color:var(--hud-dim,#a99e97);opacity:.0;transition:opacity .2s ease;pointer-events:none}
+.anki-hud:hover .anki-hud-keys{opacity:.55}
+.anki-hud-lookup{position:absolute;z-index:8;top:12%;left:50%;transform:translateX(-50%);width:min(520px,calc(100% - 32px));max-height:60%;overflow:auto;padding:14px 18px;border:1px solid var(--g-rule-strong,var(--line));border-radius:14px;background:var(--g-raise,var(--surface));box-shadow:0 18px 50px #0007;color:var(--g-t1,var(--text))}
+.anki-hud-lookup header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.anki-hud-lookup strong{font-size:22px;font-family:var(--hud-ja-font)}
+.anki-hud-lookup ol{margin:0;padding-left:20px}.anki-hud-lookup li{margin:8px 0}.anki-hud-lookup li p{margin:2px 0 0;color:var(--g-t2,var(--muted));font-size:13px;line-height:1.6}
+/* Appearance pop-over, in the same shape as the volume mixer */
+.anki-look .anki-look-controls{width:330px;max-height:min(70vh,640px);overflow:auto}
+.anki-look fieldset{margin:0 0 12px;padding:0;border:0;min-width:0}
+.anki-look legend{margin-bottom:6px;font-size:11.5px;color:var(--g-t1,var(--text))}
+.anki-look .font-control{display:flex;flex-direction:column;gap:6px}.anki-look .font-control>*{width:100%}
+.anki-look input:not([type=range],[type=color],[type=checkbox]){width:100%;box-sizing:border-box}
+.anki-look-colors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.anki-look-colors label{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;grid-template-columns:none;font-size:11px}
+.anki-look input[type=color]{width:100%;height:28px;padding:2px;border:1px solid var(--g-rule,var(--line));border-radius:6px;background:transparent;cursor:pointer}
+.anki-look-check{display:flex!important;align-items:center;gap:8px;margin-top:6px}
+.anki-look-bgrow{display:flex;align-items:center;gap:10px;margin:8px 0 2px}.anki-look-bgrow input[type=color]{width:56px;flex:none}
+.anki-seg.anki-seg-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.anki-seg.anki-seg-5 button{font-size:10.5px;white-space:normal;line-height:1.25}
+/* Full screen: the stage covers the window, top bar included (the bar itself is untouched), tools fade until needed */
+.anki-hud.immersive{position:fixed;inset:0;z-index:2100;min-height:0;border-radius:0;background:var(--bg,#0d0a0c)}
+.anki-hud.immersive .anki-hud-bar{position:absolute;top:0;right:0;left:0;padding:10px 16px;opacity:.18;transition:opacity .2s ease}
+.anki-hud.immersive .anki-hud-bar:is(:hover,:focus-within){opacity:1}
+.anki-hud.immersive .anki-hud-canvas{flex:1}
+@media (prefers-reduced-motion:reduce){.anki-hud-block,.anki-hud-keys,.anki-hud.immersive .anki-hud-bar{transition:none}}
+.review-page #review-content>.anki-hud{align-self:stretch;width:100%;box-sizing:border-box}

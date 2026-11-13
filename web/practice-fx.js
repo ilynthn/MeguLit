@@ -5,7 +5,6 @@
    Again / Good / Easy buttons of the review) and only reacts within a moment of the learner's own click or key. */
 import {fxPref} from './fx-prefs.js';
 import {calm,NS,scarMarkup,debris,explosion,fountain} from './burst-fx.js';
-import {spreadFire} from './flame-fx.js';
 const WRONG='.wrong,.miss,.gm-blank.bad',RIGHT='.right,.hit,.gm-blank.ok',MAX=6;
 let lastInput=0,queued=null,lastPoint=null;
 const recent=()=>performance.now()-lastInput<1600;
@@ -23,10 +22,8 @@ function scarsOf(box){
 }
 function center(el){const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};}
 async function blast(el){
- const pref=fxPref('explosion'),fire=fxPref('wildfire');if(!pref.on&&!fire.on)return;
+ const pref=fxPref('explosion');if(!pref.on)return;
  const box=scope(el),c0=center(el),er0=el.getBoundingClientRect(),hitP=lastPoint&&lastPoint.x>=er0.left-4&&lastPoint.x<=er0.right+4&&lastPoint.y>=er0.top-4&&lastPoint.y<=er0.bottom+4?lastPoint:c0,{x,y}=hitP;
- if(fire.on){const bb=box.getBoundingClientRect();spreadFire(x,y,{k:fire.k,bounds:{left:Math.max(0,bb.left),top:Math.max(0,bb.top),right:Math.min(innerWidth,bb.right),bottom:Math.min(innerHeight,bb.bottom)}});}
- if(!pref.on)return;
  await explosion(x,y,{shake:box,bar:document.querySelector('header.titlebar'),k:pref.k});
  if(!box.isConnected)return;
  const svg=scarsOf(box),b=box.getBoundingClientRect(),seed=Math.floor(Math.random()*2147483646)+1;

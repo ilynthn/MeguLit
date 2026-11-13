@@ -79,7 +79,7 @@ function tidyRollback(root){if(!root)return false;const old=path.join(root,'Megu
 // Done once per installed version, also when the update itself was run by an older version's script.
 function refreshIcons(root,current,run=(file,args)=>{const c=require('node:child_process').spawn(file,args,{detached:true,stdio:'ignore',windowsHide:true});c.on('error',()=>{});c.unref();}){
  if(!root||!current)return false;const mark=path.join(root,'data','icon-refresh.json');let seen='';try{seen=JSON.parse(fs.readFileSync(mark,'utf8')).version||'';}catch{}
- if(seen===String(current))return false;try{run(path.join(process.env.SystemRoot||'C:\Windows','System32','ie4uinit.exe'),['-show']);fs.mkdirSync(path.dirname(mark),{recursive:true});fs.writeFileSync(mark,JSON.stringify({version:String(current)}));return true;}catch{return false;}
+ if(seen===String(current))return false;try{run(path.join(process.env.SystemRoot||'C:\\Windows','System32','ie4uinit.exe'),['-show']);fs.mkdirSync(path.dirname(mark),{recursive:true});fs.writeFileSync(mark,JSON.stringify({version:String(current)}));return true;}catch{return false;}
 }
 async function check(current,fetcher=fetch,root=''){current=String(current||'').trim().replace(/^v/,'');tidyRollback(root);refreshIcons(root,current);try{require('./uninstall.cjs').registerSoon(root,current);}catch{}
  const rel=await latest(fetcher),hotfix=isHotfix(root,rel,current),isNewer=newer(rel.version,current)||hotfix;

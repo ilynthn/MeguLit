@@ -6,16 +6,64 @@
  let mix={};
  function applyMix(){
   const level=channel=>Number.isFinite(mix[channel])?Math.min(1,Math.max(0,mix[channel]/100)):1;
-  for(const audio of root.querySelectorAll('audio'))audio.volume=level('master')*level(audio.dataset?.ankiChannel||'');
+  for(const audio of all('audio'))audio.volume=level('master')*level(audio.dataset?.ankiChannel||'');
  }
- function stopAudio(){playback++;root.querySelectorAll('audio').forEach(audio=>audio.pause());}
+ /* audio in the card, including what HUD mode moved out to its blocks */
+ function all(sel){const list=[...root.querySelectorAll(sel)];if(hud){const s=document.querySelector('#hud-stage');if(s&&s.querySelectorAll)list.push(...s.querySelectorAll(sel));}return list;}
+ function stopAudio(){playback++;all('audio').forEach(audio=>audio.pause());}
  function layout(){
   scheduled=false;const width=Math.max(120,viewport.clientWidth-24),height=Math.max(60,viewport.clientHeight-24);
   root.style.setProperty('width',width+'px','important');root.style.setProperty('transform','none','important');
   const contentWidth=Math.max(width,root.scrollWidth),contentHeight=Math.max(1,root.offsetHeight,root.scrollHeight),scale=TomeAnkiFit.fitScale(width,height,contentWidth,contentHeight,fit);
   root.style.setProperty('transform','scale('+scale+')','important');stage.style.setProperty('width',Math.ceil(contentWidth*scale)+'px','important');stage.style.setProperty('height',Math.ceil(contentHeight*scale)+'px','important');
   /* 2026-11-13 judges round 2: tell the host how tall the card naturally is, so the frame hugs the card instead of filling the page */
-  try{parent.postMessage({type:'tome-anki-size',nonce,height:Math.ceil(contentHeight)+24},'*');}catch{}
+  if(!hud)try{parent.postMessage({type:'tome-anki-size',nonce,height:Math.ceil(contentHeight)+24},'*');}catch{}
+  if(hud)fitBlocks();
+ }
+ /* 2026-11-13 (user: Anki 界面大改) HUD mode: the MeguLit note is split into word / reading+meaning / example /
+    screenshot blocks placed by percentage on a full-frame stage; any other template stays whole as one "card" block.
+    The page sends the layout and the look (CSS variables); moving a block in edit mode reports the new rect back. */
+ let hud=null;const blocks={};
+ function hudStage(){let s=document.querySelector('#hud-stage');if(!s){s=document.createElement('div');s.id='hud-stage';s.addEventListener('click',playClick);s.addEventListener('click',lookupClick);document.body.append(s);}return s;}
+ function applyVars(vars){for(const [k,v] of Object.entries(vars||{}))if(/^--hud-[a-z-]+$/.test(k))document.documentElement.style.setProperty(k,String(v));}
+ function split(){
+  const card=root.querySelector('.tm-card');if(!card||!card.querySelector||!card.querySelector('.tm-word'))return null;
+  const sec=n=>n&&n.closest?n.closest('.tm-sec')||n:n,word=card.querySelector('.tm-head'),mean=card.querySelector('.tm-mean'),info=mean?sec(mean):null;
+  const ex=card.querySelector('.tm-ex'),example=ex?sec(ex):null,shot=card.querySelector('.tm-shot'),used=[word,info,example,shot].filter(Boolean);
+  const rest=[...card.children].filter(n=>!used.includes(n)&&!used.some(u=>u.contains(n)));
+  return {word:word?[word]:[],info:info?[info,...(example?[]:rest)]:[],example:example?[example,...rest]:info?[]:rest,shot:shot?[shot]:[]};
+ }
+ function block(id){
+  const b=document.createElement('div');b.className='hud-block';b.dataset.hud=id;b.tabIndex=-1;
+  b.innerHTML='<div class="hud-fit"><div class="card nightMode tm-card hud-inner"></div></div><span class="hud-label"></span>';
+  b.querySelector('.hud-label').textContent=hud?.labels?.[id]||id;return b;
+ }
+ function attachBlock(el,id){
+  if(!globalThis.MeguHud)return;
+  MeguHud.attach(el,{stage:()=>document.documentElement,rect:()=>hud.layout[id],editing:()=>!!hud?.edit,onCommit:r=>{hud.layout[id]=r;schedule();
+   parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');}});
+ }
+ function place(){
+  if(!hud)return;for(const [id,el] of Object.entries(blocks)){const r=hud.layout[id];if(!r)continue;
+   if(id==='card')for(const [k,v] of [['left',r.x+'%'],['top',r.y+'%'],['width',r.w+'%'],['height',r.h+'%'],['right','auto'],['bottom','auto']])el.style.setProperty(k,v,'important');
+   else if(globalThis.MeguHud)MeguHud.applyRect(el,r);}
+ }
+ function fitBlocks(){
+  for(const [id,el] of Object.entries(blocks)){if(id==='card'||id==='shot')continue;const fitBox=el.querySelector('.hud-fit');if(!fitBox)continue;fitBox.style.transform='';
+   const s=Math.max(.3,Math.min(1,el.clientWidth/Math.max(1,fitBox.scrollWidth),el.clientHeight/Math.max(1,fitBox.scrollHeight)));if(s<.999)fitBox.style.transform='scale('+s+')';}
+ }
+ function buildHud(){
+  const stage=hudStage();stage.replaceChildren();for(const k of Object.keys(blocks))delete blocks[k];
+  document.body.classList.add('hud');document.body.classList.toggle('hud-edit',!!hud.edit);
+  let parts=null;try{parts=split();}catch{parts=null;}
+  document.body.classList.toggle('hud-whole',!parts);
+  if(parts){for(const [id,nodes] of Object.entries(parts)){if(!nodes.length)continue;const b=block(id);nodes.forEach(n=>b.querySelector('.hud-inner').append(n));stage.append(b);blocks[id]=b;attachBlock(b,id);}
+   const img=blocks.shot?.querySelector('img[src^="data:image/"]');try{parent.postMessage({type:'tome-anki-shot',nonce,src:img?img.getAttribute('src'):''},'*');}catch{}}
+  else{blocks.card=viewport;viewport.dataset.hud='card';viewport.classList.add('hud-block');if(!viewport.querySelector('.hud-label')){const l=document.createElement('span');l.className='hud-label';viewport.append(l);}
+   viewport.querySelector('.hud-label').textContent=hud.labels?.card||'card';attachBlock(viewport,'card');
+   const img=root.querySelector('img[src^="data:image/"]');try{parent.postMessage({type:'tome-anki-shot',nonce,src:img?img.getAttribute('src'):''},'*');}catch{}}
+  for(const el of Object.values(blocks))if(el!==viewport)new ResizeObserver(schedule).observe(el);
+  place();schedule();
  }
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(layout);}}
  function content(html){
@@ -41,15 +89,19 @@
   root.querySelectorAll('[data-anki-play]').forEach(button=>{button.setAttribute('aria-label',copy.play);const audio=button.parentElement.querySelector('audio');if(!audio)return;audio.hidden=true;audio.controls=false;audio.onended=()=>button.setAttribute('aria-pressed','false');audio.onpause=()=>button.setAttribute('aria-pressed','false');});
   root.querySelectorAll('[data-anki-replay]').forEach(button=>button.setAttribute('aria-label',copy.play));
   root.querySelectorAll('img,video,audio').forEach(node=>{node.addEventListener('load',schedule);node.addEventListener('loadedmetadata',schedule);node.addEventListener('error',schedule);});
-  applyMix();error.hidden=true;viewport.scrollTop=0;schedule();document.fonts?.ready.then(schedule);
+  applyMix();error.hidden=true;viewport.scrollTop=0;if(hud)buildHud();schedule();document.fonts?.ready.then(schedule);
  }
  addEventListener('message',event=>{
   if(event.source!==parent||event.data?.nonce!==nonce||!nonce)return;
-  if(event.data.type==='tome-anki-card'){fit=event.data.fit!==false;copy=event.data.copy||copy;mix=event.data.mix||{};content(event.data.html);autoplay(event.data.auto);}
+  if(event.data.type==='tome-anki-card'){fit=event.data.fit!==false;copy=event.data.copy||copy;mix=event.data.mix||{};
+   if(event.data.hud&&typeof event.data.hud==='object'){hud={layout:{...event.data.hud.layout},edit:!!event.data.hud.edit,labels:event.data.hud.labels||{}};applyVars(event.data.hud.vars);}
+   content(event.data.html);autoplay(event.data.auto);}
+  else if(event.data.type==='tome-anki-hud'&&hud){if(event.data.layout)hud.layout={...hud.layout,...event.data.layout};if('edit' in event.data){hud.edit=!!event.data.edit;
+   document.body.classList.toggle('hud-edit',hud.edit);}applyVars(event.data.vars);place();schedule();}
   else if(event.data.type==='tome-anki-fit'){fit=event.data.fit!==false;viewport.scrollTop=0;schedule();}
   else if(event.data.type==='tome-anki-mix'){mix=event.data.mix||{};applyMix();}
   else if(event.data.type==='tome-anki-play-all'){
-   stopAudio();const ticket=playback,tracks=[...root.querySelectorAll('audio[src]')];
+   stopAudio();const ticket=playback,tracks=all('audio[src]');
    if(!tracks.length){parent.postMessage({type:'tome-anki-replay',nonce},'*');return;}
    const next=i=>{
     if(ticket!==playback||!tracks[i])return;
@@ -63,16 +115,27 @@
  /* (user 2026-11-12) play the card's own clips by themselves: word = the word's reading; sentence = the example
     (synthesized or the game's voice); both = the word, then the example */
  function autoplay(mode){if(!mode||mode==='off')return;const want=mode==='word'?['word']:mode==='sentence'?['sentence','game']:['word','sentence','game'];
-  const tracks=[...root.querySelectorAll('audio[src]')].filter(a=>want.includes(a.dataset.ankiChannel||'')).sort((a,b)=>(a.dataset.ankiChannel==='word'?0:1)-(b.dataset.ankiChannel==='word'?0:1));if(!tracks.length)return;
+  const tracks=all('audio[src]').filter(a=>want.includes(a.dataset.ankiChannel||'')).sort((a,b)=>(a.dataset.ankiChannel==='word'?0:1)-(b.dataset.ankiChannel==='word'?0:1));if(!tracks.length)return;
   stopAudio();const ticket=playback;const next=i=>{if(ticket!==playback||!tracks[i])return;const audio=tracks[i],button=audio.parentElement.querySelector('[data-anki-play]');audio.currentTime=0;audio.addEventListener('ended',()=>{button?.setAttribute('aria-pressed','false');setTimeout(()=>next(i+1),250);},{once:true});audio.play().then(()=>button?.setAttribute('aria-pressed','true')).catch(()=>{});};
   setTimeout(()=>next(0),180);}
- root.addEventListener('click',async event=>{
+ const playClick=async event=>{
   const button=event.target.closest('button[data-anki-play],button[data-anki-replay]');if(!button)return;event.preventDefault();
   if(button.hasAttribute('data-anki-replay')){parent.postMessage({type:'tome-anki-replay',nonce},'*');return;}
   const audio=button.parentElement.querySelector('audio');if(!audio)return;
   stopAudio();audio.currentTime=0;
   try{await audio.play();button.setAttribute('aria-pressed','true');error.hidden=true;}catch{error.textContent=copy.failed;error.hidden=false;}
- });
- root.addEventListener('submit',event=>event.preventDefault());root.addEventListener('click',event=>{if(event.target.closest('a'))event.preventDefault();});
+ };
+ root.addEventListener('click',playClick);
+ root.addEventListener('submit',event=>event.preventDefault());
+ /* Links never navigate the sandbox; the template's magnifier (.tm-search) asks the page to look the word up instead */
+ const lookupClick=event=>{const a=event.target.closest?.('a');if(!a)return;event.preventDefault();if(hud?.edit)return;
+  if(a.classList.contains('tm-search')){const w=a.closest('.tm-card,.hud-inner,#card-content')?.querySelector('.tm-word')||root.querySelector('.tm-word');
+   const word=(w?.textContent||'').trim().slice(0,60);if(word)parent.postMessage({type:'tome-anki-lookup',nonce,word},'*');}};
+ root.addEventListener('click',lookupClick);
+ /* While the layout is being edited a press moves the block, it never plays audio or follows a link */
+ document.addEventListener?.('click',event=>{if(hud?.edit){event.stopPropagation();event.preventDefault();}},true);
+ /* Review shortcuts work while focus is inside the card too: the page decides what each key does */
+ document.addEventListener?.('keydown',event=>{if(event.target.closest?.('input,select,textarea')||event.ctrlKey||event.metaKey||event.altKey)return;
+  if([' ','Enter','1','2','3','4','f','F','l','L','r','R','Escape'].includes(event.key)){event.preventDefault();parent.postMessage({type:'tome-anki-key',nonce,key:event.key},'*');}});
  new ResizeObserver(schedule).observe(viewport);addEventListener('resize',schedule);
 })();

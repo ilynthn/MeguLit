@@ -20,6 +20,8 @@ function keep(root,exe,shot,now=Date.now()){
  if(!shot?.jpeg||!(shot.score>=MIN_SCORE)||!/^[0-9a-f]{16}$/.test(shot.hash||''))return 'skipped';
  const dir=dirOf(root,exe),list=readIndex(dir),near=list.find(it=>hamming(it.hash,shot.hash)<=SAME);
  if(near&&near.score>=shot.score)return 'duplicate';
+ /* a full shelf where every kept shot scores higher: the new one would be written and deleted at once */
+ {const others=list.filter(it=>it!==near);if(others.length>=KEEP&&others.every(it=>it.score>=shot.score))return 'skipped';}
  const file=now.toString(36)+'-'+shot.hash.slice(0,6)+'.jpg';fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,file),Buffer.from(shot.jpeg,'base64'));
  let next=list.filter(it=>it!==near);if(near)try{fs.rmSync(path.join(dir,near.file),{force:true});}catch{}
  next.push({file,score:shot.score,hash:shot.hash,at:now});next.sort((a,b)=>b.score-a.score);

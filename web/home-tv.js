@@ -113,7 +113,7 @@ function swapScript(script,lines,onPick){if(!script)return;const esc2=t=>String(
  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(script.dataset.timer!==token)return;
  const outs=olds.map((el,k)=>keep(el.animate([{opacity:1,transform:'translate3d(0,0,0)'},{opacity:0,transform:'translate3d(0,-16px,0)'}],{duration:OUT,delay:k*GAP,
   easing:'cubic-bezier(.4,0,.7,.4)',fill:'forwards'})).finished);
- Promise.all(outs).then(()=>{if(script.dataset.timer!==token)return;script._anims=[];paint(next);
+ Promise.all(outs.map(p=>p.catch(()=>null))).then(()=>{/* a newer swap cancels these fades: their finished promises reject with AbortError */if(script.dataset.timer!==token)return;script._anims=[];paint(next);
   script.querySelectorAll('p').forEach((el,k)=>{keep(el.animate([{opacity:0,transform:'translate3d(0,28px,0)'},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:720,
    delay:k*90,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'}));
    const no=el.querySelector('.tv-sno');if(no)keep(no.animate([{opacity:0},{opacity:1}],{duration:420,delay:k*90+260,easing:'ease-out',fill:'backwards'}));});}).catch(()=>{

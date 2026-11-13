@@ -430,8 +430,15 @@ class HookNative{
    if(L.seen.some(x=>x.text===text)){L.repeats.push(now);if(L.looping||L.repeats.length>=2){if(!L.looping)this.trace('menu loop detected; repeating lines ignored');L.looping=true;return;}}
    else{if(L.looping)this.trace('menu loop ended');L.looping=false;L.repeats=[];}
    L.seen.push({text,at:now});if(L.seen.length>12)L.seen.shift();}
+  this.learnBareName(text);
   const speaker=this.speaker&&this.now()-this.speaker.at<2500?this.speaker.text:'';this.speaker=null;/* E416 the choice detector learns every dialogue line and speaker, whatever the engine */(this.choice||(this.choice=new ChoiceCapture(()=>this.now()))).noteDialogue(text,speaker);/* E407 a new dialogue line ends the choice screen */if(text.replace(/\s+/g,'')!==String(this.lastSource||'').replace(/\s+/g,''))this.clearChoices('new dialogue line');this.lastSource=text;this.lastSourceAt=this.now();this.palFlush?.();this.lastSourceStream=this.sourceStream||'';this.trace('source chars='+text.length+' sequence='+((this.state.hookSequence||0)+1));this.notify({hookActive:true,processAttached:true,streamSelected:true,hookRecovering:false,hookSource:text,hookSpeaker:speaker,hookSourceEngine:engine,hookFlowGrid:engine==='nvl'?(this.flowGridName||''):'',...(()=>{const f=engine==='nvl'?this.flowLayout(text):null;/* E410 */return {hookFlowPageStart:f?.pageStart===true,hookFlowRow:f?.row||'',hookSourceIndex:Number.isSafeInteger(f?.index)?f.index:-1};})(),hookSourceLine:nativeLine,hookSourceOrigin:origin||'live',hookSourceRuby:this.sourceRuby?.get(text)||[],hookSequence:(this.state.hookSequence||0)+1,receivedText:!!text.trim(),hookMessage:text.trim()?'已收到真实游戏台词':'收到空文本信号'});
  }
+ /* #141 (CLANNAD: a bare name sent as its own string, with no brackets, before the 「…」 line). A short name-like line
+    followed within 2 s by a quoted line is a name candidate; the second time it happens the name is learned, so from then
+    on splitSpeaker moves it to the speaker field. Any engine. */
+ learnBareName(text){const now=this.now(),c=this.nameCandidate,bare=String(text||'').trim();this.nameCandidate=null;
+  if(c&&now-c.at<2000&&/^[「『]/.test(bare)){const N=this.nameHits||(this.nameHits=new Map());const hits=(N.get(c.text)||0)+1;N.set(c.text,hits);if(N.size>400)N.delete(N.keys().next().value);if(hits>=2&&!this.knownSpeakers?.has(c.text)){this.noteSpeaker(c.text);this.trace('speaker name learned from bare lines');}if(this.knownSpeakers?.has(c.text)&&!this.speaker)this.speaker={text:c.text,at:now};}
+  if(bare.length>=1&&bare.length<=8&&speakerName(bare)===bare&&!/[\s　「『（(【［\[。、，,.！？!?…‥・～〜]/.test(bare))this.nameCandidate={text:bare,at:now};}
  /* #141 names seen in a name stream or split from a line; at most 200 are kept. */
  noteSpeaker(n){const K=this.knownSpeakers||(this.knownSpeakers=new Set());if(!n||n.length>16)return;K.delete(n);K.add(n);if(K.size>200)K.delete(K.values().next().value);}
  markerTarget(v){this.waitTarget=v;this.syncMarker();this.flowMarker(v);}

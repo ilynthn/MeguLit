@@ -111,10 +111,8 @@ html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-hot-news .tv-hot-meta sma
 /* fewer competing decorations: the diagonal rule and the big index numeral recede */
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-tl{opacity:.35}
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-index{opacity:.45}
-/* the bottom bar: the game name without wide tracking; the one primary action is solid */
+/* the bottom bar: the game name without wide tracking */
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-who{letter-spacing:.04em!important;font-size:14px!important}
-html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-act .tv-btn.primary{background:linear-gradient(180deg,#b3313c,#8f2430)!important;border-color:#c9424d!important;color:#fff6ee!important}
-html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-act .tv-btn.primary:hover{background:linear-gradient(180deg,#c23a45,#9c2834)!important}
 /* narrower windows: the cover and its ring step right so they never cover the first quoted line */
 @media (max-width:1560px){html:not(#u):not(#v):not(#w):not(#x) body .tv-home :is(.tv-cover,.tv-ring){translate:clamp(0px,calc((1560px - 100vw)*.22),70px) 0}}
 
@@ -158,10 +156,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .game-reception .review-name{font-size
  html:not(#u):not(#v):not(#w):not(#x) body .dtv-marks{display:none}
 }
 
-/* every page: the one primary action of a view is a solid button (the outlined variant read like the secondary ones) */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main button.primary:not(.text-button){background:linear-gradient(180deg,#b3313c,#8f2430)!important;border:1px solid #c9424d!important;color:#fff6ee!important;box-shadow:0 8px 22px -12px rgba(179,49,60,.8)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main button.primary:not(.text-button):hover{background:linear-gradient(180deg,#c23a45,#9c2834)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main button.primary:not(.text-button) :is(.primary-label,svg){color:#fff6ee!important}
 
 /* Study (Anki): the card frame hugs the card (anki-card.js reports its height) and the card with its buttons sits in
    the middle of the page; no grey slab or extra box around it, the progress line and tools read at 13px. */
@@ -200,8 +194,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .settings-row .setting-description>sma
 html:not(#u):not(#v):not(#w):not(#x) body .settings-row:is(:hover,:focus-within) .setting-description>small.settings-help+small.settings-help{display:block!important}
 
 /* ---- round 3 ---- */
-/* calmer primary buttons everywhere: solid, no coloured glow */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main button.primary:not(.text-button),html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-act .tv-btn.primary{box-shadow:0 6px 16px -10px #000c!important}
 /* home: the title block rises to meet the activity card, numbers step down, one decoration less, no repeated game name */
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-title{bottom:21vh!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-fig>b{font-size:clamp(34px,2.9vw,58px)!important;line-height:1.05!important}
