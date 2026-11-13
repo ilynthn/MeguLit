@@ -54,8 +54,8 @@
  }
  function groups(entry){if(entry.definition_groups)return entry.definition_groups;return (entry.definitions||[]).map(s=>({title:String(s).split(/[；;]/)[0],text:String(s)}));
   }
- function senses(entry,parent){const list=groups(entry),box=el('div','tomoyo-senses');const add=(g,i,host)=>{const row=el('div','tomoyo-sense');row.append(el('span',
-  'tomoyo-sense-number',String(i+1).padStart(2,'0')),el('div','',g.text));host.append(row);};list.slice(0,3).forEach((g,i)=>add(g,i,box));if(list.length>3){const details=el('details'),
+ function senses(entry,parent){const list=groups(entry),box=el('div','tomoyo-senses');const add=(g,i,host)=>{const row=el('div','tomoyo-sense');/* no 01/02/03 prefixes (owner rule, 2026-11-14) */row.append(
+  el('div','',g.text));host.append(row);};list.slice(0,3).forEach((g,i)=>add(g,i,box));if(list.length>3){const details=el('details'),
   summary=el('summary','',`展开其余 ${list.length-3} 个义项`);details.append(summary);list.slice(3).forEach((g,i)=>add(g,i+3,details));box.append(details);}if(!list.length)box.append(el('p',
   'tomoyo-muted','本地辞书没有收录这个写法'));parent.append(box);}
  /* Word card class, JLPT level and MOJi lookup count come from MOJi 辞書 (user 2026-11-13); local classes stay when MOJi has no entry. */
