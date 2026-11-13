@@ -2,29 +2,29 @@
 .main .detail-back{margin-bottom:6px}
 
 /* hero: cover + title column, left aligned, stats as a ledger under actions */
-.main .game-detail-hero{display:grid!important;grid-template-columns:clamp(150px,15vw,210px) minmax(0,1fr);align-items:end!important;gap:clamp(24px,3vw,44px)!important;padding:20px 0 28px!important;border-bottom:1px solid var(--g-rule-strong)!important}
+.main .game-detail-hero{display:grid!important;padding:20px 0 28px!important;}
 .main .game-detail-hero::after{left:clamp(75px,7.5vw,105px)!important}
-.main .detail-cover{width:auto!important;align-self:start}
+.main .detail-cover{width:auto!important;}
 .main .detail-cover .cover,.main .detail-cover img{width:100%;aspect-ratio:3/4;object-fit:cover}
-.main .detail-title{display:flex;flex-direction:column;min-width:0;padding-bottom:2px}
+.main .detail-title{flex-direction:column;min-width:0;padding-bottom:2px}
 .main .detail-title .detail-engine{order:0;margin:0 0 10px!important;font-size:11.5px!important;letter-spacing:.16em!important;text-transform:uppercase;color:var(--g-t3)!important}
-.main .detail-title h1{order:1;margin:0 0 8px!important;font-size:clamp(30px,3.4vw,48px)!important;line-height:1.15!important;max-width:22ch}
+.main .detail-title h1{order:1;margin:0 0 8px!important;line-height:1.15!important;}
 .main .detail-title>.settings-help{order:2;margin:0!important;font-size:12.5px;color:var(--g-t3)!important;letter-spacing:.04em}
 .main .detail-actions{order:3;display:flex;flex-wrap:wrap;gap:10px!important;margin-top:22px!important}
 .main .detail-actions>button{height:40px!important;padding:0 18px!important}
 .main .detail-title>.detail-statistics{order:4}
 
-.main .detail-statistics{display:grid!important;grid-template-columns:repeat(4,minmax(0,max-content));gap:0 clamp(24px,3.4vw,52px)!important;margin:26px 0 0!important;padding-top:16px;border-top:1px solid var(--g-rule)}
-.main .detail-statistics .stat-card{display:flex!important;flex-direction:column-reverse!important;align-items:flex-start!important;gap:4px!important;padding:0!important;border:0!important;text-align:left!important;min-width:0}
+.main .detail-statistics{grid-template-columns:repeat(4,minmax(0,max-content));padding-top:16px;}
+.main .detail-statistics .stat-card{flex-direction:column-reverse!important;align-items:flex-start!important;gap:4px!important;border:0!important;text-align:left!important;min-width:0}
 .main .detail-statistics .stat-card span{font-size:11px!important;letter-spacing:.14em!important;color:var(--g-t3)!important;opacity:1!important;white-space:nowrap}
-.main .detail-statistics .stat-card strong{font-size:clamp(20px,1.9vw,26px)!important;line-height:1.1;color:var(--g-t1)!important;white-space:nowrap}
+.main .detail-statistics .stat-card strong{color:var(--g-t1)!important;white-space:nowrap}
 
 /* tabs: left aligned, full-width rule */
 .main .detail-tabs{justify-content:flex-start!important;gap:28px!important;margin:0 0 4px!important;padding:0!important;border-bottom:1px solid var(--g-rule)!important}
 .main .detail-tabs>button{position:relative;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;color:var(--g-t3)!important;padding:14px 0 12px!important;font-size:13px;letter-spacing:.08em;transition:color .2s var(--g-ease)}
 .main .detail-tabs>button:hover{color:var(--g-t1)!important}
 .main .detail-tabs>button[aria-selected="true"]{color:var(--g-t1)!important}
-.main .detail-tabs>button::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--m-crimson-hi,var(--g-gold));transform:scaleX(0);transform-origin:left;transition:transform .3s var(--g-ease)}
+.main .detail-tabs>button::after{position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--m-crimson-hi,var(--g-gold));transform:scaleX(0);transform-origin:left;transition:transform .3s var(--g-ease)}
 .main .detail-tabs>button[aria-selected="true"]::after{transform:scaleX(1)}
 
 /* overview: reading column + archive aside */
@@ -56,28 +56,28 @@
  .main .detail-statistics{grid-template-columns:repeat(2,minmax(0,max-content));row-gap:14px!important}
 }
 @media(max-width:640px){
- .main .game-detail-hero{grid-template-columns:110px minmax(0,1fr);align-items:start!important}
- .main .detail-title h1{font-size:26px!important}
+ 
+ 
 }
 @media(prefers-reduced-motion:reduce){.main .detail-tabs>button::after,.detail-main .review-platform::after{transition:none}}
 /* E238 全屏适配：页签与正文同一 1400px 居中列 */
 .main>.detail-tabs,.main .detail-tabs,.main .cn-guide{box-sizing:border-box;width:100%!important;max-width:1400px!important;margin-left:auto!important;margin-right:auto!important}
 .main .detail-tabs>button::after,.main .detail-tabs>button[aria-selected="true"]::after{content:none!important;display:none!important}
 /* E238 详情页头部：与主页一致 — 封面 | 标题与按钮 | 右侧数据栏（替代主页“今日阅读”位置） */
-.main .game-detail-hero{grid-template-columns:clamp(170px,16vw,230px) minmax(0,1fr)!important;align-items:center!important;gap:clamp(28px,3.5vw,56px)!important;border-bottom:0!important}
+.main .game-detail-hero{gap:clamp(28px,3.5vw,56px)!important;border-bottom:0!important}
 .main .game-detail-hero::after{display:none!important}
-.main .detail-title{display:grid!important;grid-template-columns:minmax(0,1fr) clamp(200px,17vw,260px);column-gap:clamp(32px,4vw,72px);align-items:center}
+.main .detail-title{display:grid!important;grid-template-columns:minmax(0,1fr) clamp(200px,17vw,260px);column-gap:clamp(32px,4vw,72px);}
 .main .detail-title>*{grid-column:1}
 .main .detail-title h1{font-size:clamp(36px,4.2vw,64px)!important;max-width:none!important}
-.main .detail-statistics{grid-column:2!important;grid-row:1 / span 8;align-self:center;display:flex!important;flex-direction:column;gap:0!important;margin:0!important;padding:4px 0 4px clamp(20px,2vw,32px)!important;border-top:0!important;border-left:1px solid var(--g-rule-strong,rgba(242,232,218,.16))}
-.main .detail-statistics .stat-card{display:flex!important;flex-direction:column-reverse;gap:2px;padding:12px 0!important;border-bottom:1px solid var(--g-rule,rgba(242,232,218,.1))}
+.main .detail-statistics{grid-column:2!important;align-self:center;display:flex!important;flex-direction:column;gap:0!important;margin:0!important;padding:4px 0 4px clamp(20px,2vw,32px)!important;border-top:0!important;border-left:1px solid var(--g-rule-strong,rgba(242,232,218,.16))}
+.main .detail-statistics .stat-card{display:flex!important;flex-direction:column-reverse;gap:2px;border-bottom:1px solid var(--g-rule,rgba(242,232,218,.1))}
 .main .detail-statistics .stat-card:last-child{border-bottom:0}
 .main .detail-statistics .stat-card span{font-size:12px;letter-spacing:.08em;color:rgba(242,232,218,.6)}
 .main .detail-statistics .stat-card strong{font-size:26px!important;font-weight:500;line-height:1.15}
-@media(max-width:1000px){.main .detail-title{grid-template-columns:minmax(0,1fr)}.main .detail-statistics{grid-column:1!important;grid-row:auto;flex-direction:row;flex-wrap:wrap;gap:0 32px!important;border-left:0;padding-left:0!important;margin-top:20px!important}.main .detail-statistics .stat-card{border-bottom:0}}
+@media(max-width:1000px){.main .detail-title{grid-template-columns:minmax(0,1fr)}.main .detail-statistics{grid-column:1!important;flex-direction:row;flex-wrap:wrap;gap:0 32px!important;border-left:0;padding-left:0!important;margin-top:20px!important}.main .detail-statistics .stat-card{border-bottom:0}}
 /* E240 详情页：按钮行与封面底部对齐 */
 .main .game-detail-hero{align-items:stretch!important}
-.main .detail-cover{align-self:start}
+
 .main .detail-title{grid-template-rows:auto auto auto 1fr;align-items:start;height:100%}
 .main .detail-title>.detail-actions{grid-row:4;align-self:end;margin-bottom:0!important}
 .main .detail-statistics{grid-row:1 / -1!important}

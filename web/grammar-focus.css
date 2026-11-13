@@ -40,7 +40,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side{justify-content:
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-cap{font-size:13px!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;letter-spacing:.04em!important;line-height:1.6!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-hero-prog{font:600 34px/1.1 var(--mg-mono,ui-monospace,monospace);color:#fff;font-variant-numeric:tabular-nums}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-hero-prog small{font-size:17px;color:color-mix(in srgb,var(--gf-t1) 66%,transparent);margin-left:2px}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode{display:flex!important;gap:0!important;height:6px!important;width:100%!important;margin:6px 0 18px!important;opacity:1!important;grid-template-columns:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode{display:flex!important;gap:0!important;width:100%!important;margin:6px 0 18px!important;opacity:1!important;grid-template-columns:none!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i{flex:1 1 0!important;min-width:0!important;height:100%!important;background:color-mix(in srgb,var(--gf-t1) 26%,transparent)!important;border-radius:0!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i.on{background:var(--gf-gold)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i.cur{background:var(--gf-red)!important}
@@ -51,19 +51,19 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side>p.gm-cap{margin-
 /* the next-lesson card takes the wider share of its row; the Anki offer sits under it, not in front of it */
 @media (min-width:1200px){html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)!important}}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer{order:15}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer .gm-anki-note{font-size:12px!important}
+
 
 /* ---- overview card: heading top, sentence middle, hint bottom ---- */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto 1fr auto!important;align-content:stretch!important;align-items:center!important;gap:16px!important;padding:30px 34px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{grid-template-columns:minmax(0,1fr)!important;align-content:stretch!important;align-items:center!important;gap:16px!important;}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview .gm-overview-kicker{grid-row:auto!important;align-self:start;font-size:15px!important;font-weight:600!important;letter-spacing:.08em!important;color:var(--gf-t1)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{align-self:end;font-size:13.5px!important;letter-spacing:.04em!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{font-size:13.5px!important;letter-spacing:.04em!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important}
 
 /* ---- stage cards ---- */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-no{color:color-mix(in srgb,var(--gf-t1) 70%,transparent)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{color:#fff!important;opacity:1!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{color:#fff!important;opacity:1!important;}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-glyph{color:color-mix(in srgb,#fff 80%,transparent)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{font-size:14px!important;color:var(--gf-t1)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{font-size:13px!important;color:var(--gf-t1),transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{color:var(--gf-t1)!important}
+
 /* bars: gold = learned, everything else one quiet grey */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar i{background:color-mix(in srgb,var(--gf-t1) 16%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar i.on{background:var(--gf-gold)!important}
@@ -71,7 +71,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar i.on{backg
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-flag{background:transparent!important;border:0!important;color:color-mix(in srgb,var(--gf-gold) 85%,transparent)!important;padding:0!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-flag::before{content:"✓ "}
 /* the stage to take next: the one red card in the strip */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next{border-color:transparent!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gf-red) 60%,transparent)!important;background:linear-gradient(180deg,color-mix(in srgb,var(--gf-red) 16%,rgba(0,0,0,.86)),rgba(0,0,0,.86) 70%)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next{border-color:transparent!important;background:linear-gradient(180deg,color-mix(in srgb,var(--gf-red) 16%,rgba(0,0,0,.86)),rgba(0,0,0,.86) 70%)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-flag{background:var(--gf-red)!important;color:#fff!important;border:0!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-bar i.cur{background:var(--gf-red)!important}
 
@@ -92,9 +92,9 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next :is(.g
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next{box-shadow:inset 3px 0 0 var(--mg-red,#c8323c)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{font-variant-numeric:tabular-nums}
 /* round 3: the Anki offer is a quiet panel (no gold edge); the overview sentence steps back behind the lesson title */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer{border-left:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 14%,transparent)!important;background:rgba(16,13,17,.5)!important;padding:14px 22px!important;gap:6px 18px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer{border-left:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 14%,transparent)!important;padding:14px 22px!important;gap:6px 18px!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer .gm-anki-note{font-size:11.5px!important;margin:0!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview .gm-piece{font-size:min(20px,1.3vw)!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 82%,transparent)!important}
+
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{padding:24px 30px!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.rw-bar{flex-wrap:nowrap!important;white-space:nowrap}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.lg-bar :is(a,button){font-size:14px!important;font-weight:600!important}
@@ -109,30 +109,30 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview .gm-piece{color:c
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{text-wrap:balance}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side>p.gm-cap,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer p:not(.gm-anki-note){color:color-mix(in srgb,var(--g-t1,#f1e0d2) 90%,transparent)!important}
 /* lesson rows: the description stays on one line so the row height and its labels hold */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist{min-width:0}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{grid-template-rows:auto auto 1fr!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{align-self:start}
 
 /* 2026-11-13: stage glyph shows the whole lesson head (no cut), so long heads shrink instead; cards label the meaning */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.long{font-size:22px!important;line-height:1.55!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-lbl{display:inline-block;margin-right:6px;padding:1px 5px;font-size:11px;line-height:1.4;vertical-align:1px;border:1px solid color-mix(in srgb,var(--gf-t1) 30%,transparent);color:color-mix(in srgb,var(--gf-t1) 70%,transparent)}
+
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-lbl{display:inline-block;line-height:1.4;vertical-align:1px;border:1px solid color-mix(in srgb,var(--gf-t1) 30%,transparent);color:color-mix(in srgb,var(--gf-t1) 70%,transparent)}
 /* 2026-11-13 stage card layout: Japanese forms (hero) -> nickname + what the grammar does -> progress. Cards in the strip
    stretch to one height; the progress line sits on the bottom edge. Long forms shrink and may wrap, never cut */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg{display:flex!important;flex-direction:column;align-items:stretch;gap:0!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-no{margin-bottom:8px}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{display:flex;align-items:flex-end;height:58px;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none;font-size:34px!important;line-height:1.1!important;word-break:keep-all;overflow-wrap:anywhere;padding-right:34px}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.long{font-size:26px!important;line-height:1.15!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.xlong{font-size:22px!important;line-height:1.25!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{margin-top:12px;font-size:15px!important;font-weight:700;line-height:1.3}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{margin-top:4px;font-size:13px;line-height:1.5;color:color-mix(in srgb,var(--gf-t1) 90%,transparent);min-height:3em}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{display:flex;align-items:flex-end;height:58px;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none;word-break:keep-all;overflow-wrap:anywhere;padding-right:34px}
+
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.xlong{line-height:1.25!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{margin-top:12px;font-weight:700;line-height:1.3}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{margin-top:4px;line-height:1.5;min-height:3em}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{margin-top:auto;padding-top:10px;font-size:12px!important;color:color-mix(in srgb,var(--gf-t1) 60%,transparent)!important;font-family:var(--mg-mono)}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar{margin-top:6px}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{color:color-mix(in srgb,var(--gf-t1) 72%,transparent)!important;font-size:11px}
+
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{text-wrap:balance;word-break:keep-all;overflow-wrap:anywhere}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{font-size:17px!important;letter-spacing:.02em}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:12.5px}
+
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-lbl{font-size:12px;padding:2px 7px;margin-right:8px}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:13px;color:color-mix(in srgb,var(--gf-t1) 92%,transparent)}
+
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.long{font-size:28px!important;line-height:1.15!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.xlong{font-size:22px!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{font-size:12px!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:13.5px;color:var(--gf-t1)}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{text-transform:none;letter-spacing:0;line-height:1.5;white-space:normal;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;font-size:12.5px!important}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{text-wrap:pretty}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:14px}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{display:grid;grid-template-columns:auto 1fr;align-items:start}
+
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{color:var(--gf-t1)}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{text-transform:none;letter-spacing:0;line-height:1.5;white-space:normal;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;font-size:12.5px!important;text-wrap:pretty}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:14px}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{display:grid;grid-template-columns:auto 1fr;align-items:start}

@@ -54,7 +54,6 @@ function bolt(x0,y0,x1,y1,n=10,j=22){const pts=[[x0,y0]];for(let i=1;i<n;i++){co
 /* invented rune shapes for the fire circle: a few strokes on a small grid, seeded, never a real script */
 function runeSet(n,seed){let s=seed;const r=()=>{s=(s*16807)%2147483647;return s/2147483647;};return Array.from({length:n},()=>{const k=2+Math.floor(r()*3),st=[];for(let i=0;i<k;i++){const a=[Math.floor(r()*3)-1,Math.floor(r()*3)-1],b=[Math.floor(r()*3)-1,Math.floor(r()*3)-1];if(a[0]===b[0]&&a[1]===b[1])b[1]=-a[1]||1;st.push([a,b]);}if(r()<.4)st.push('o');return st;});}
 const RUNES_A=runeSet(40,11),RUNES_B=runeSet(56,23);
-function drawRune(c,rn,x,y,sz,rot){c.save();c.translate(x,y);c.rotate(rot);c.beginPath();for(const st of rn){if(st==='o'){c.moveTo(sz*.35,0);c.arc(0,0,sz*.35,0,TAU);continue;}c.moveTo(st[0][0]*sz*.5,st[0][1]*sz*.5);c.lineTo(st[1][0]*sz*.5,st[1][1]*sz*.5);}c.stroke();c.restore();}
 const poly=(c,cx,cy,r,n,step,rot)=>{c.beginPath();for(let i=0;i<=n;i++){const q=rot-Math.PI/2+(i*step%n)*TAU/n;c[i?'lineTo':'moveTo'](cx+Math.cos(q)*r,cy+Math.sin(q)*r);}c.stroke();};
 const arcP=(c,cx,cy,r,p,rot=0)=>{if(p<=0)return;c.beginPath();c.arc(cx,cy,r,rot-Math.PI/2,rot-Math.PI/2+TAU*Math.min(1,p));c.stroke();};
 const stage=(s,t0,d)=>s.ct<0?1:Math.min(1,Math.max(0,(s.ct-t0)/d));
@@ -97,41 +96,10 @@ function drawLockup(s,c,el){
 }
 
 /* ---------- the fire vortex disc (original geometry; style only after the user's references) ---------- */
-const DISC=new Map();
-function fireDisc(r){
- if(DISC.has(r))return DISC.get(r);const pad=30,W=(r+pad)*2,cv=document.createElement('canvas');cv.width=cv.height=W;const c=cv.getContext('2d');c.translate(W/2,W/2);c.globalCompositeOperation='lighter';c.lineCap='round';
- const stroke=(w,col,blur)=>{c.lineWidth=w;c.strokeStyle=col;c.shadowColor='#ff4a1a';c.shadowBlur=blur;c.stroke();};
- const ri=r*.22,K=11;
- /* (judge fx7: the arms were even neon tubes) each arm is a crescent: thick at the inner ring, drawn to a point at the
-    rim — a filled shape with a hot core of its own, so the disc reads as blades of flame, not tubing */
- const blade=(a,sweep,w0,col,core)=>{const P=(t)=>{const q=1-t,x0=Math.cos(a)*ri,y0=Math.sin(a)*ri,x1=Math.cos(a+.35)*r*.62,y1=Math.sin(a+.35)*r*.62,x2=Math.cos(a+sweep-.25)*r*1.02,y2=Math.sin(a+sweep-.25)*r*1.02,x3=Math.cos(a+sweep)*r*.94,y3=Math.sin(a+sweep)*r*.94;
-   return [q*q*q*x0+3*q*q*t*x1+3*q*t*t*x2+t*t*t*x3,q*q*q*y0+3*q*q*t*y1+3*q*t*t*y2+t*t*t*y3];};
-  const N=28,L=[],Rr=[];for(let i=0;i<=N;i++){const t=i/N,[x,y]=P(t),[x2,y2]=P(Math.min(1,t+.01)),[x1,y1]=P(Math.max(0,t-.01)),dx=x2-x1,dy=y2-y1,d=Math.hypot(dx,dy)||1,w=w0*Math.pow(1-t,1.15)*(t<.08?.55+t*5.6:1);L.push([x-dy/d*w,y+dx/d*w]);Rr.push([x+dy/d*w*.45,y-dx/d*w*.45]);}
-  const fill=(k,col,blur)=>{c.beginPath();L.forEach(([x,y],i)=>{const [cx,cy]=P(i/N);c[i?'lineTo':'moveTo'](cx+(x-cx)*k,cy+(y-cy)*k);});for(let i=N;i>=0;i--){const [x,y]=Rr[i],[cx,cy]=P(i/N);c.lineTo(cx+(x-cx)*k,cy+(y-cy)*k);}c.closePath();c.shadowColor='#ff4a1a';c.shadowBlur=blur;c.fillStyle=col;c.fill();};
-  fill(1,col,16);if(core)fill(.32,core,5);};
- for(let i=0;i<K;i++)blade(i/K*Math.PI*2,1.6,r*.075,'rgba(214,52,28,.78)','rgba(255,222,160,.95)');
- for(let i=0;i<K;i++)blade(i/K*Math.PI*2+.2,1.25,r*.03,'rgba(255,120,60,.55)',null);
- /* heavy outer rim and its inner line */
- c.beginPath();c.arc(0,0,r,0,Math.PI*2);stroke(r*.05,'rgba(214,44,26,.92)',22);stroke(r*.014,'rgba(255,176,96,.95)',8);
- c.beginPath();c.arc(0,0,r*.9,0,Math.PI*2);stroke(r*.008,'rgba(255,150,80,.6)',6);
- /* the small inner ring with a scalloped edge */
- c.beginPath();c.arc(0,0,ri,0,Math.PI*2);stroke(r*.016,'rgba(255,150,80,.85)',10);
- c.beginPath();c.arc(0,0,ri*.35,0,Math.PI*2);stroke(r*.012,'rgba(255,220,160,.8)',6);
- /* warm wash across the disc */
- c.globalCompositeOperation='lighter';const g=c.createRadialGradient(0,0,ri,0,0,r);g.addColorStop(0,'rgba(255,120,60,.10)');g.addColorStop(.8,'rgba(226,60,30,.08)');g.addColorStop(1,'rgba(226,60,30,0)');c.fillStyle=g;c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.fill();
- DISC.set(r,cv);return cv;
-}
 /* (judge fx7: the glyph sat on top of every line) the idle disc lies tilted at about 0.58 and is drawn in two halves:
    the far half before the glyph, the near half after it, so the character stands inside the ring */
-function fireHalf(s,c,spr,side){const br=(.88+.12*Math.sin(s.t*2.2))*(side>0?.8:1);c.save();c.globalAlpha*=br;c.translate(s.cx,s.cy+(s.H0||s.H)*.11);c.rotate(-.1);c.scale(1,.58);c.beginPath();c.rect(-spr.width,side<0?-spr.height:0,spr.width*2,spr.height);c.clip();c.rotate(s.t*.35);c.drawImage(spr,-spr.width/2,-spr.height/2);c.restore();}
 /* (judge fx8: the tunnel read as one ball of yarn) every layer but the deepest is only its rim and the outer ends of
    its blades, so the rings stand apart and can be counted down the shaft */
-const RING=new Map();
-function fireRing(r){if(RING.has(r))return RING.get(r);const disc=fireDisc(r),W=disc.width,cv=document.createElement('canvas');cv.width=cv.height=W;const c=cv.getContext('2d');c.drawImage(disc,0,0);c.globalCompositeOperation='destination-in';const g=c.createRadialGradient(W/2,W/2,r*.62,W/2,W/2,r*.82);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'#000');c.fillStyle=g;c.fillRect(0,0,W,W);RING.set(r,cv);return cv;}
-const layerY=(s,i,L)=>s.cy+s.H*(.3-i*(.62/(L-1)));
-function layerBurst(s,i,L,base){const y=layerY(s,i,L),sc=.95-i*.09;for(let k=0;k<26;k++){const a=R(0,TAU),v=R(160,380)*sc;s.add({type:'spark',x:s.cx+Math.cos(a)*base*sc*.5,y:y+Math.sin(a)*base*sc*.17,vx:Math.cos(a)*v,vy:Math.sin(a)*v*.34-40,drag:1.6,g:40,life:R(.5,.9),r:R(1,1.8),trail:[]});}for(let k=0;k<6;k++)s.add({type:'flame',x:s.cx+R(-1,1)*base*sc*.4,y:y+R(-6,6),vx:R(-60,60),vy:R(-60,-10),drag:2,life:R(.4,.7),r:R(14,22)});}
-function tunnelBurst(s,r){/* (judge fx8: 1px rays read as a sea urchin) filled tongues of flame and embers */for(let k=0;k<12;k++){const a=R(0,TAU),v=R(180,420)*(r/200);s.add({type:'wedge',x:s.cx+Math.cos(a)*r*.5,y:s.cy+Math.sin(a)*r*.5,vx:Math.cos(a)*v,vy:Math.sin(a)*v,drag:1.8,life:R(.4,.7),r:R(2.5,4.5)});}for(let k=0;k<10;k++){const a=R(0,TAU),v=R(60,200);s.add({type:'ember',x:s.cx+Math.cos(a)*r*.5,y:s.cy+Math.sin(a)*r*.5,vx:Math.cos(a)*v,vy:Math.sin(a)*v,drag:1.4,life:R(.6,1.2),r:R(.8,1.6)});}s.flash=Math.max(s.flash,.18);}
-function columnBurst(s,base){for(let k=0;k<14;k++){const a=k/14*TAU+R(-.15,.15),v=R(320,620);s.add({type:'wedge',x:s.cx,y:s.cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,drag:1.5,life:R(.6,1),r:R(4,7)});}for(let k=0;k<30;k++){const a=R(0,TAU),v=R(80,320);s.add({type:'ember',x:s.cx,y:s.cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-30,drag:1.2,g:20,life:R(.9,1.6),r:R(.9,1.8)});}for(let k=0;k<18;k++){const a=R(0,TAU),v=R(60,200);s.add({type:'flame',x:s.cx,y:s.cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-50,drag:2,life:R(.6,1.1),r:R(18,32)});}s.flash=.4;}
 
 /* ---------- snow and frost (ice) ---------- */
 /* a six-armed flake with side branches, cached per size, softness and variant */
@@ -234,29 +202,8 @@ function edgeOwn(el,W,H,c,rnd){const M=Math.min(W,H),corners=[[0,0,.78],[W,0,2.3
   return;}
 }
 /* edge patterns, one per element, drawn once per size */
-const EDGE=new Map();
 function edgeField(el,W,H){if(el==='ice')return frostField(W,H);return cornerArt(el,W,H);
 }
-function edgeFieldOld(el,W,H){const key=el+W+'x'+H;if(EDGE.has(key))return EDGE.get(key);
- const cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');c.lineCap='round';c.lineJoin='round';
- let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
- if(el!=='earth'){edgeOwn(el,W,H,c,rnd);EDGE.set(key,cv);return cv;}
- const ST={fire:{col:(d)=>`rgba(255,${120+d*25},60,${.9-d*.12})`,glow:'#ff5a1a',jit:.35,side:.5,bend:.6,len:.32,w:2.2},
-  thunder:{col:(d)=>`rgba(${220+d*8},235,255,${.95-d*.12})`,glow:'#9fd0ff',jit:.9,side:.45,bend:.9,len:.34,w:1.4},
-  wind:{col:(d)=>`rgba(200,255,230,${.75-d*.1})`,glow:'#8fe0c0',jit:.08,side:.25,bend:1.3,len:.4,w:1.4,curl:1},
-  water:{col:(d)=>`rgba(170,220,255,${.8-d*.1})`,glow:'#5fb0f0',jit:.12,side:.3,bend:1,len:.3,w:1.6,curl:-1},
-  earth:{col:(d)=>`rgba(${40+d*10},${26+d*6},${16},${.85-d*.12})`,glow:'#000',jit:.55,side:.55,bend:.5,len:.3,w:3},
-  light:{col:(d)=>`rgba(255,240,190,${.8-d*.12})`,glow:'#fff1b8',jit:.02,side:.2,bend:.3,len:.55,w:1.2},
-  dark:{col:(d)=>`rgba(150,90,230,${.9-d*.1})`,glow:'#6a3ab0',jit:.18,side:.35,bend:1.1,len:.36,w:3.2,curl:1}}[el];
- c.shadowColor=ST.glow;c.shadowBlur=el==='earth'?0:6;
- const grow=(x,y,a,len,w,depth)=>{if(depth>3||len<4)return;const steps=Math.max(4,Math.round(len/8));let px=x,py=y,aa=a;
-  for(let i=1;i<=steps;i++){aa+=(rnd()-.5)*ST.jit+(ST.curl?ST.curl*.06*ST.bend:0);const nx=px+Math.cos(aa)*len/steps,ny=py+Math.sin(aa)*len/steps;c.strokeStyle=ST.col(depth);c.lineWidth=Math.max(.5,w*(1-i/steps*.7));c.beginPath();c.moveTo(px,py);c.lineTo(nx,ny);c.stroke();
-   if(rnd()<ST.side){const sd=rnd()<.5?1:-1;grow(nx,ny,aa+sd*(.5+rnd()*.6),len*(.35+rnd()*.25)*(1-i/steps*.4),w*.6,depth+1);}px=nx;py=ny;}};
- const corners=[[0,0,.78],[W,0,2.36],[0,H,-.78],[W,H,-2.36]];
- for(const [x,y,a] of corners)for(let k=0;k<6;k++)grow(x,y,a+(rnd()-.5)*1.2,Math.min(W,H)*ST.len*(.7+rnd()*.6),ST.w,0);
- for(let k=0;k<12;k++){const e=k%4,u=rnd();const [x,y,a]=e===0?[u*W,0,Math.PI/2]:e===1?[u*W,H,-Math.PI/2]:e===2?[0,u*H,0]:[W,u*H,Math.PI];grow(x,y,a+(rnd()-.5)*.8,Math.min(W,H)*ST.len*.45*(.6+rnd()*.6),ST.w*.7,1);}
- if(el==='light'){c.globalCompositeOperation='lighter';for(let k=0;k<5;k++){const x=W*(.1+k*.2),g=c.createLinearGradient(x,0,x+W*.08,H*.6);g.addColorStop(0,'rgba(255,240,190,.22)');g.addColorStop(1,'rgba(255,240,190,0)');c.fillStyle=g;c.beginPath();c.moveTo(x-W*.03,0);c.lineTo(x+W*.04,0);c.lineTo(x+W*.16,H*.65);c.lineTo(x+W*.05,H*.65);c.closePath();c.fill();}}
- EDGE.set(key,cv);return cv;}
 /* floors */
 function floor(el,s,c,W0,H0,t){const fy=s.cy+H0*.5,x0=s.cx-W0/2;c.save();
  if(el==='ice'){c.globalCompositeOperation='source-over';const dg=c.createLinearGradient(0,fy-H0*.07,0,fy);dg.addColorStop(0,'rgba(230,246,255,0)');dg.addColorStop(.35,'rgba(230,246,255,.28)');dg.addColorStop(1,'rgba(200,232,250,.12)');c.fillStyle=dg;c.beginPath();c.moveTo(x0,fy);for(let x=0;x<=W0;x+=8)c.lineTo(x0+x,fy-H0*(.035+.018*Math.sin(x*.021+1.3)+.012*Math.sin(x*.057)));c.lineTo(x0+W0,fy);c.closePath();c.fill();}

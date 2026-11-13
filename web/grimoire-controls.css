@@ -1,48 +1,38 @@
 /* E219 魔导书控件：封蜡按钮 / 书页按钮 / 魔导石开关 / 书签滑条 / 菱形勾选 / 书页对话框。最后加载 */
-:root{--g-wine:#9e1b32;--g-wine-hi:#c02a43;--g-wine-deep:#5e0f1d;--g-hair:color-mix(in srgb,var(--gold-hi,#ffd7a0) 40%,transparent)}
-:root{--e-ink:#17181c;--e-graphite:#292a30;--e-graphite-2:#33343b;--e-paper:#f2e8da;--e-red:#c8303c;--e-red-btn:#b72a36;--e-grey:#aaa49c;--e-hair:rgba(242,232,218,.3);
+:root{--g-wine:#9e1b32;--g-wine-hi:#c02a43;--g-wine-deep:#5e0f1d;--g-hair:color-mix(in srgb,var(--gold-hi,#ffd7a0) 40%,transparent);--e-ink:#17181c;--e-graphite:#292a30;--e-graphite-2:#33343b;--e-paper:#f2e8da;--e-red:#c8303c;--e-red-btn:#b72a36;--e-grey:#aaa49c;--e-hair:rgba(242,232,218,.3);
  --m-crimson:#b72a36;--m-crimson-hi:#c8303c;
  --e-check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.4 6.6 11.2 12.5 4.8'/%3E%3C/svg%3E")}
 /* E234 编辑设计控件（书籍排版 × 现代交互）。主按钮：爆裂红实底，图标单独一格，用细线和文字隔开，像章节号；次按钮：文字加一小段底线，悬停拉满 */
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){
- display:inline-flex;align-items:center;gap:0;border:0!important;border-radius:8px!important;clip-path:none!important;
- padding:0 22px 0 0!important;color:var(--e-paper)!important;letter-spacing:.04em;font-weight:600;
- background:var(--e-red-btn)!important;box-shadow:none!important;transition:background-color .2s ease-out,transform .14s ease-out}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{content:none!important}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg{display:block!important;align-self:stretch;width:46px!important;height:auto!important;padding:0 15px;margin:0 16px 0 0;box-sizing:border-box;border-right:1px solid rgba(242,232,218,.35);fill:currentColor;stroke:none}
+ display:inline-flex;align-items:center;border:0!important;color:var(--e-paper)!important;letter-spacing:.04em;font-weight:600;transition:background-color .2s ease-out,transform .14s ease-out}
+
+:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg{box-sizing:border-box;border-right:1px solid rgba(242,232,218,.35);stroke:none}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):not(:has(>svg)){padding:0 22px!important}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover{background:var(--e-red)!important;filter:none}
+:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover{filter:none}
 :is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab){
- position:relative;border:0!important;border-radius:6px!important;box-shadow:none!important;background:transparent!important;
- color:var(--e-paper)!important;font-weight:600;letter-spacing:.04em;transition:background-color .2s ease-out,transform .14s ease-out}
-:is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab)::after{content:"";position:absolute;left:var(--e-ul-x,14px);right:var(--e-ul-x,14px);bottom:7px;height:1px;background:currentColor;
+ position:relative;
+ color:var(--e-paper)!important;font-weight:600;letter-spacing:.04em;}
+:is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab)::after{position:absolute;left:var(--e-ul-x,14px);right:var(--e-ul-x,14px);bottom:7px;height:1px;background:currentColor;
  transform-origin:left;transform:scaleX(.24);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
-:is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab):hover{background:rgba(242,232,218,.06)!important}
+
 :is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab):hover::after{transform:none}
 :is(button.primary,button.secondary,.g-btn,.hero-play):not(.icon-button):active:not(:disabled){transform:scale(.97)}
 :is(button.primary,button.secondary,.g-btn,.hero-play):focus-visible{outline:1.5px solid var(--e-paper)!important;outline-offset:4px}
 :is(button.primary,button.secondary,.g-btn):disabled{opacity:.4}
 
 /* 开关：精致现代，不书本化 */
-input.switch{appearance:none;-webkit-appearance:none;position:relative;width:44px!important;height:26px!important;border:0!important;border-radius:13px!important;cursor:pointer;
- background:var(--e-graphite-2)!important;box-shadow:inset 0 0 0 1px rgba(242,232,218,.14)!important;transition:background-color .22s ease-out,box-shadow .22s}
-input.switch::before{content:""!important;position:absolute;top:3px!important;left:3px!important;width:20px!important;height:20px!important;border-radius:50%!important;border:0!important;transform:none!important;
- background:var(--e-grey)!important;box-shadow:0 1px 3px rgba(0,0,0,.35)!important;transition:transform .28s cubic-bezier(.3,1.3,.5,1),background-color .22s}
-input.switch:checked{background:var(--e-red)!important;box-shadow:none!important}
-input.switch:checked::before{transform:translateX(18px)!important;background:var(--e-paper)!important}
-input.switch:hover{box-shadow:inset 0 0 0 1px rgba(242,232,218,.3)!important}
-input.switch:checked:hover{box-shadow:none!important}
+input.switch{appearance:none;-webkit-appearance:none;position:relative;border:0!important;cursor:pointer;}
+input.switch::before{content:""!important;position:absolute;border:0!important;transform:none!important;}
+
+
+
+
 
 /* 滑条：阅读进度尺，细线、刻度、红色已读段，滑块是一根竖线 */
-input[type=range]{appearance:none;-webkit-appearance:none;height:30px!important;background:transparent!important;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:9px!important;border:0!important;border-radius:0!important;
- background:linear-gradient(var(--e-red),var(--e-red)) 0 100%/var(--v,50%) 2px no-repeat,
-  linear-gradient(rgba(242,232,218,.3),rgba(242,232,218,.3)) 0 100%/100% 1px no-repeat,
-  repeating-linear-gradient(90deg,rgba(242,232,218,.32) 0 1px,transparent 1px 10%) 0 100%/100% 8px no-repeat,
-  repeating-linear-gradient(90deg,rgba(242,232,218,.16) 0 1px,transparent 1px 2%) 0 100%/100% 4px no-repeat!important}
-input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:3px!important;height:22px!important;margin-top:-11px!important;border:0!important;border-radius:1px!important;clip-path:none!important;
- background:var(--e-paper)!important;box-shadow:none!important;transition:height .15s ease-out,margin-top .15s ease-out}
-input[type=range]:hover::-webkit-slider-thumb,input[type=range]:active::-webkit-slider-thumb{height:26px!important;margin-top:-15px!important}
+input[type=range]{appearance:none;-webkit-appearance:none;background:transparent!important;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{border:0!important;}
+input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;border:0!important;}
+
 
 /* 勾选 */
 input[type=checkbox]:not(.switch){appearance:none;-webkit-appearance:none;width:17px!important;height:17px!important;min-width:17px;margin:0;border:0!important;border-radius:4px!important;
@@ -59,8 +49,8 @@ input[type=checkbox]:not(.switch):checked::after{transform:scale(1)!important}
 .main[data-kids~="game-detail-content"] .panel,.game-detail-content .panel{background:none!important;backdrop-filter:none!important;border:0!important;border-radius:0!important;box-shadow:none!important}
 .game-detail-hero{position:relative;padding:34px 8px 30px!important;gap:36px!important;border-bottom:1px solid var(--g-rule-strong)!important}
 .game-detail-hero::after{content:"";position:absolute;left:50%;bottom:-5px;width:9px;height:9px;transform:translateX(-50%) rotate(45deg);background:var(--bg,#140d0c);border:1px solid var(--g-gold)}
-.detail-cover{width:172px!important;position:relative}
-.detail-cover .cover,.detail-cover img{border-radius:2px!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 35%,transparent),0 0 0 5px rgba(20,12,11,.9),0 0 0 6px color-mix(in srgb,var(--gold-accent,#edb56e) 20%,transparent),0 22px 40px -18px rgba(0,0,0,.9)!important}
+.detail-cover{width:172px!important;}
+.detail-cover .cover,.detail-cover img{box-shadow:0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 35%,transparent),0 0 0 5px rgba(20,12,11,.9),0 0 0 6px color-mix(in srgb,var(--gold-accent,#edb56e) 20%,transparent),0 22px 40px -18px rgba(0,0,0,.9)!important}
 .detail-title h1{font-family:var(--g-serif)!important;font-weight:500!important;font-size:clamp(28px,3vw,40px)!important;letter-spacing:.02em;color:var(--g-t1)!important;margin-bottom:10px!important}
 .detail-title :is(.muted,.detail-engine,.detail-info-row){color:var(--g-t3)!important;font-size:12.5px;letter-spacing:.06em}
 .detail-engine .embed-status{color:var(--g-gold)!important;text-decoration-color:color-mix(in srgb,var(--gold-accent,#edb56e) 40%,transparent)!important}
@@ -73,15 +63,15 @@ input[type=checkbox]:not(.switch):checked::after{transform:scale(1)!important}
 .detail-statistics .stat-card:first-child{border-left:0!important}
 .detail-statistics .stat-card strong{font-family:var(--g-serif);font-weight:500;font-size:clamp(22px,2.2vw,30px);color:var(--g-t1)}
 .detail-statistics .stat-card span{font-size:11.5px;letter-spacing:.18em;color:var(--g-gold);opacity:.8}
-.detail-tabs{background:none!important;border:0!important;box-shadow:none!important;gap:26px!important;justify-content:center;padding:0!important;margin:18px auto 6px!important}
-.detail-tabs .tab{position:relative;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;color:var(--g-t3)!important;padding:8px 2px!important;letter-spacing:.1em;transition:color .2s}
-.detail-tabs .tab::after{content:"";position:absolute;left:50%;right:50%;bottom:0;height:1px;background:var(--g-gold);transition:left .3s var(--g-ease),right .3s var(--g-ease)}
+.detail-tabs{justify-content:center;margin:18px auto 6px!important}
+.detail-tabs .tab{border:0!important;transition:color .2s}
+.detail-tabs .tab::after{position:absolute;bottom:0;}
 .detail-tabs .tab:hover{color:var(--g-t1)!important}
-.detail-tabs .tab.active{color:var(--g-t1)!important}
+
 .detail-tabs .tab.active::after{left:0;right:0}
 .game-detail-content>.panel,.game-detail-content .panel{padding:22px 4px!important;border-top:1px solid var(--g-rule)!important}
 .game-detail-content :is(h2,h3){font-family:var(--g-serif)!important;font-weight:500!important;letter-spacing:.04em;color:var(--g-t1)}
-.game-detail-content :is(h2,h3)::before{content:"";display:inline-block;width:6px;height:6px;margin:0 12px 3px 0;transform:rotate(45deg);border:1px solid var(--g-gold)}
+.game-detail-content :is(h2,h3)::before{content:"";width:6px;height:6px;margin:0 12px 3px 0;transform:rotate(45deg);border:1px solid var(--g-gold)}
 .game-detail-content p{line-height:1.95;color:var(--g-t2)}
 .game-detail-content .record{background:none!important;border:0!important;border-bottom:1px solid var(--g-rule)!important;border-radius:0!important;box-shadow:none!important}
 @media(max-width:700px){.detail-statistics .stat-card:nth-child(3){border-left:0!important}}
@@ -96,7 +86,7 @@ button.secondary:not(.icon-button):has(>svg:first-child){padding-left:20px!impor
 .game-detail-content :is(h2,h3)::before{display:none!important}
 .detail-tabs .tab::after{background:var(--e-red)!important;height:2px!important;border-radius:0;left:0!important;right:0!important;transform:scaleX(0);transform-origin:left;transition:transform .32s cubic-bezier(.2,.8,.2,1)}
 .detail-tabs .tab.active::after{transform:none}
-.jacket .ribbon{width:10px!important;height:120px!important;top:-2px!important;background:var(--e-red)!important;clip-path:polygon(0 0,100% 0,100% 100%,50% 93%,0 100%)!important;box-shadow:none!important}
+.jacket .ribbon{top:-2px!important;box-shadow:none!important}
 .jacket .ribbon::before,.jacket .ribbon::after{content:none!important}
 input.form-input,.form-input{border:0!important;border-bottom:1px solid var(--e-hair)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding-left:0!important;transition:border-color .2s}
 input.form-input:focus,.form-input:focus{border-bottom-color:var(--e-red)!important;outline:none}
@@ -105,12 +95,12 @@ input.form-input:focus,.form-input:focus{border-bottom-color:var(--e-red)!import
 /* E235 设置页（编辑设计）：左侧是一本书的目录，组名是小号章名，项目右侧是衬线页码；选中项变亮并拉出红色细线，没有菱形 */
 .main .settings-nav{counter-reset:none}
 .main .settings-nav .settings-category{counter-reset:sec}
-.main .settings-nav .settings-category>summary{font-size:12.5px!important;letter-spacing:.06em;color:var(--e-grey)!important;padding:14px 0 6px!important}
-.main .settings-nav .settings-category button{counter-increment:sec;display:flex!important;justify-content:space-between;align-items:baseline;width:100%;padding:8px 0!important;color:var(--e-grey)!important;font-size:14px;text-align:left;transition:color .2s}
-.main .settings-nav .settings-category button::after{content:counter(sec);font:italic 13px var(--g-serif);color:rgba(170,164,156,.8);margin-left:12px}
-.main .settings-nav .settings-category button::before{content:none!important}
-.main .settings-nav .settings-category button:hover{color:var(--e-paper)!important}
-.main .settings-nav .settings-category button.active{color:var(--e-paper)!important;box-shadow:inset 0 -1px 0 var(--e-red)!important}
+.main .settings-nav .settings-category>summary{font-size:12.5px!important;}
+.main .settings-nav .settings-category button{counter-increment:sec;}
+.main .settings-nav .settings-category button::after{font:italic 13px var(--g-serif);color:rgba(170,164,156,.8);margin-left:12px}
+
+
+
 .main .settings-nav .settings-category button.active::after{color:var(--e-paper)}
 /* 搜索、下拉、数字框、多行文本：同一种底线 */
 .settings-search,.settings-search input{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
@@ -118,7 +108,7 @@ input.form-input:focus,.form-input:focus{border-bottom-color:var(--e-red)!import
 .settings-search:focus-within{border-bottom-color:var(--e-red)!important}
 .main .select-trigger{background:transparent!important;border:0!important;border-bottom:1px solid var(--e-hair)!important;border-radius:0!important;box-shadow:none!important;padding-left:0!important;transition:border-color .2s}
 .main .select-trigger:hover,.main .select-trigger[aria-expanded=true]{border-bottom-color:var(--e-paper)!important}
-.select-popup{background:rgba(41,42,48,.94)!important;backdrop-filter:blur(18px);border:0!important;border-radius:10px!important;box-shadow:0 0 0 1px rgba(242,232,218,.1),0 20px 40px -12px rgba(0,0,0,.7)!important;padding:8px 0!important}
+.select-popup{background:rgba(41,42,48,.94)!important;backdrop-filter:blur(18px);border:0!important;box-shadow:0 0 0 1px rgba(242,232,218,.1),0 20px 40px -12px rgba(0,0,0,.7)!important;}
 .select-popup [role=option]{position:relative;border-radius:0!important;padding:8px 18px!important}
 .select-popup [role=option][aria-selected=true]{color:var(--e-paper)!important;background:none!important}
 .select-popup [role=option][aria-selected=true]::before{content:"";position:absolute;left:6px;top:50%;width:6px;height:1px;background:var(--e-red)}
@@ -129,40 +119,34 @@ input.form-input:focus,.form-input:focus{border-bottom-color:var(--e-red)!import
 .main .settings-content textarea:focus{outline:none;background:rgba(23,24,28,.6)!important}
 
 /* E236 开关换回皮带：皮带上一道缝线，黄铜搭扣滑过去扣上，打开时皮带翻出爆裂红 */
-input.switch{width:56px!important;height:26px!important;border-radius:6px!important;box-shadow:inset 0 1px 0 rgba(255,235,220,.08),inset 0 -1px 0 rgba(0,0,0,.35)!important;
- background:linear-gradient(90deg,transparent 6px,rgba(242,232,218,.22) 6px,rgba(242,232,218,.22) calc(100% - 6px),transparent calc(100% - 6px)) 0 50%/100% 1px no-repeat,#3a2a27!important;
+input.switch{width:56px!important;height:26px!important;border-radius:6px!important;
  -webkit-mask:none;transition:background-color .24s ease-out}
 input.switch::before{top:3px!important;left:3px!important;width:22px!important;height:20px!important;border-radius:4px!important;background:#3a2a27!important;box-shadow:inset 0 0 0 2px #8c7d76!important;transition:transform .28s cubic-bezier(.3,1.25,.5,1),box-shadow .24s,background-color .24s}
 input.switch::after{content:"";position:absolute;top:7px;left:13px;width:2px;height:12px;border-radius:1px;background:#8c7d76;transform:rotate(32deg);transition:transform .28s cubic-bezier(.3,1.25,.5,1),background-color .24s}
-input.switch:checked{background:linear-gradient(90deg,transparent 6px,rgba(255,215,200,.4) 6px,rgba(255,215,200,.4) calc(100% - 6px),transparent calc(100% - 6px)) 0 50%/100% 1px no-repeat,var(--e-red-btn)!important}
+
 input.switch:checked::before{transform:translateX(28px)!important;background:var(--e-red-btn)!important;box-shadow:inset 0 0 0 2px #e2b96f,0 1px 2px rgba(0,0,0,.4)!important}
 input.switch:checked::after{transform:translateX(28px);background:#e2b96f}
-input.switch:hover,input.switch:checked:hover{box-shadow:inset 0 1px 0 rgba(255,235,220,.12),inset 0 -1px 0 rgba(0,0,0,.35)!important}
+
 /* E236 主按钮图标格：16px 实心图标居中，分隔线单独一条 */
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){position:relative}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg{align-self:center!important;width:16px!important;height:16px!important;padding:0!important;margin:0 29px 0 15px!important;border:0!important;color:var(--e-paper);fill:currentColor!important}
+
+:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg{align-self:center!important;padding:0!important;margin:0 29px 0 15px!important;border:0!important;color:var(--e-paper);fill:currentColor!important}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg *{fill:currentColor;stroke:none}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):has(>svg)::before{content:""!important;position:absolute;left:46px;top:10px;bottom:10px;width:1px;background:rgba(242,232,218,.38)}
 /* E235 惠惠×魔导书控件重绘：魔石拉杆 / 封印主按钮 / 绣金书签丝带 / 符文展开键 */
-input[type=range]::-webkit-slider-thumb{width:16px!important;height:16px!important;margin-top:-4px!important;border-radius:2px!important;transform:rotate(45deg);
- background:radial-gradient(circle at 35% 30%,#ff8a96 0 14%,var(--e-red) 45%,var(--g-wine-deep) 100%)!important;
- box-shadow:0 0 0 1.5px var(--e-paper),0 0 0 3px rgba(23,24,28,.85),0 0 10px rgba(200,48,60,.55)!important;transition:transform .15s ease-out,box-shadow .2s ease-out}
+input[type=range]::-webkit-slider-thumb{transition:transform .15s ease-out,box-shadow .2s ease-out}
 input[type=range]:hover::-webkit-slider-thumb,input[type=range]:active::-webkit-slider-thumb{height:16px!important;margin-top:-4px!important;transform:rotate(45deg) scale(1.15);
  box-shadow:0 0 0 1.5px var(--gold-hi,#ffd7a0),0 0 0 3px rgba(23,24,28,.85),0 0 16px rgba(255,90,90,.8)!important}
 input[type=range]:focus-visible{outline:none}
 input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 1.5px var(--gold-hi,#ffd7a0),0 0 0 4px var(--e-red)!important}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){gap:10px;padding:0 24px 0 18px!important;border-radius:6px!important;
- background:linear-gradient(180deg,#c8303c,#a3202d 55%,#86172a)!important;
- box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-hi,#ffd7a0) 38%,transparent),inset 0 0 0 3px rgba(94,15,29,.55),inset 0 1px 0 4px rgba(255,255,255,.05),0 2px 10px rgba(134,23,42,.35)!important}
+
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg{width:12px!important;height:12px!important;padding:0;margin:0;border:0;align-self:center;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--gold-hi,#ffd7a0) 60%,transparent))}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover{background:linear-gradient(180deg,#d93a47,#b72a36 55%,#94192e)!important;
- box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-hi,#ffd7a0) 60%,transparent),inset 0 0 0 3px rgba(94,15,29,.55),0 4px 16px rgba(200,48,60,.45)!important}
+
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):active{transform:scale(.97)}
 .jacket .ribbon{width:14px!important;height:128px!important;clip-path:polygon(0 0,100% 0,100% 100%,50% 88%,0 100%)!important;
  background:radial-gradient(circle at 50% 86%,var(--gold-hi,#ffd7a0) 0 1.5px,transparent 2px),
   linear-gradient(90deg,transparent 2px,color-mix(in srgb,var(--gold-hi,#ffd7a0) 55%,transparent) 2px 3px,transparent 3px calc(100% - 3px),color-mix(in srgb,var(--gold-hi,#ffd7a0) 55%,transparent) calc(100% - 3px) calc(100% - 2px),transparent 0),
   linear-gradient(90deg,#7a1424,#c8303c 45%,#a3202d 70%,#6a1020)!important}
-.synopsis-footer [data-synopsis-toggle]{gap:8px;padding:4px 2px!important;color:var(--e-paper)!important;letter-spacing:.08em;border-bottom:1px solid rgba(200,48,60,.6)!important;border-radius:0!important;transition:color .2s,border-color .2s}
+.synopsis-footer [data-synopsis-toggle]{gap:8px;color:var(--e-paper)!important;letter-spacing:.08em;border-bottom:1px solid rgba(200,48,60,.6)!important;transition:color .2s,border-color .2s}
 .synopsis-footer [data-synopsis-toggle]:hover{color:var(--gold-hi,#ffd7a0)!important;border-bottom-color:var(--gold-hi,#ffd7a0)!important}
 .synopsis-footer [data-synopsis-toggle] span{font-size:0;width:6px;height:6px;border:solid var(--e-red);border-width:0 1.5px 1.5px 0;transform:translateY(-2px) rotate(45deg);transition:transform .25s ease-out}
 .synopsis-panel.is-expanded [data-synopsis-toggle] span{transform:translateY(2px) rotate(225deg)}
@@ -179,7 +163,7 @@ body :is(h1,h2,h3,.panel-title,strong,b){font-weight:600}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)>svg{display:none!important}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{content:""!important;display:block!important;flex:none;width:9px;height:9px;background:var(--gold-hi,#ffd7a0);
  clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);filter:drop-shadow(0 0 4px var(--gold-hi,#ffd7a0));transition:transform .4s}
-:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::after{content:"";position:absolute;left:30px;right:18px;bottom:7px;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 70%,transparent),transparent);pointer-events:none}
+:is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::after{position:absolute;bottom:7px;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 70%,transparent),transparent);pointer-events:none}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover{background:linear-gradient(100deg,color-mix(in srgb,var(--e-red) 95%,white 5%),color-mix(in srgb,var(--e-red-btn) 82%,transparent) 60%,color-mix(in srgb,var(--g-wine-deep) 60%,transparent))!important;box-shadow:inset 3px 0 0 var(--gold-hi,#ffd7a0)!important}
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover::before{transform:rotate(90deg) scale(1.15)}
 /* E236 次按钮：透明玻璃块 */
@@ -188,8 +172,7 @@ body :is(h1,h2,h3,.panel-title,strong,b){font-weight:600}
 :is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab)::after{content:none!important}
 :is(button.secondary,.g-btn:not(.primary)):not(.icon-button):not(.switch):not(.select-trigger):not(.tab):hover{background:rgba(255,255,255,.1)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-hi,#ffd7a0) 35%,transparent)!important}
 /* E236 Anki 复习底板 + 工具链接胶囊 */
-.anki-review-panel{border-radius:16px!important;background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02))!important;border:1px solid rgba(255,255,255,.09)!important;
- box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 20px 50px rgba(0,0,0,.35)!important;backdrop-filter:blur(18px) saturate(1.3)}
+
 .anki-tools{gap:6px!important;flex-wrap:wrap}
 .anki-tools .text-button{padding:5px 12px!important;border-radius:999px!important;font-size:12.5px;color:rgba(242,232,218,.88)!important;background:rgba(255,255,255,.04)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)!important;border:0!important;text-decoration:none!important}
 .anki-tools .text-button::before,.anki-tools .text-button::after{content:none!important}
@@ -197,16 +180,15 @@ body :is(h1,h2,h3,.panel-title,strong,b){font-weight:600}
 /* E236 滑条：法杖拉杆 — 红色菱形魔石 + 细杖身，轨道 2px 直线 */
 input[type=range]{height:34px!important}
 input[type=range]::-webkit-slider-runnable-track{height:2px!important;border-radius:0!important;background:linear-gradient(90deg,var(--g-wine-deep),var(--e-red)) 0/var(--v,50%) 100% no-repeat,rgba(242,232,218,.18)!important}
-input[type=range]::-webkit-slider-thumb{width:14px!important;height:26px!important;margin-top:-18px!important;border-radius:0!important;transform:none!important;box-shadow:none!important;
- clip-path:polygon(50% 0,100% 27%,58% 50%,58% 100%,42% 100%,42% 50%,0 27%)!important;background:linear-gradient(180deg,#ff8a96,#c8303c 30%,#7a1424 50%,#f2e8da 52%,#c9b8a0)!important}
+input[type=range]::-webkit-slider-thumb{transform:none!important;}
 input[type=range]:is(:hover,:active)::-webkit-slider-thumb{height:26px!important;margin-top:-18px!important;transform:none!important;box-shadow:none!important;background:linear-gradient(180deg,#ffb0b8,#e0404e 30%,#8e1a2a 50%,var(--gold-hi,#ffd7a0) 52%,#e0c89c)!important}
 input[type=range]:focus-visible::-webkit-slider-thumb{background:linear-gradient(180deg,#fff,var(--gold-hi,#ffd7a0) 30%,#c8303c 50%,var(--gold-hi,#ffd7a0) 52%,#e0c89c)!important}
 /* E236 页签：玻璃底座，选中为红玻璃 + 金菱形 */
-.detail-tabs{display:inline-flex!important;gap:4px;padding:4px!important;border:0!important;border-radius:12px;background:rgba(255,255,255,.04)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
-.detail-tabs .tab{position:relative;padding:7px 16px!important;border-radius:9px!important;color:rgba(242,232,218,.85)!important;background:none!important}
-.detail-tabs .tab::after{content:none!important}
-.detail-tabs .tab.active{color:#fff6ee!important;background:linear-gradient(180deg,rgba(226,70,84,.32),rgba(168,28,44,.22))!important;box-shadow:inset 0 0 0 1px rgba(255,180,170,.25),inset 0 1px 0 rgba(255,255,255,.12)}
-.detail-tabs .tab.active::before{content:"";position:absolute;left:50%;bottom:-1px;width:5px;height:5px;background:var(--gold-hi,#ffd7a0);transform:translateX(-50%) rotate(45deg);box-shadow:0 0 6px var(--gold-hi,#ffd7a0)}
+.detail-tabs{border:0!important;}
+.detail-tabs .tab{position:relative;color:rgba(242,232,218,.85)!important;}
+
+
+.detail-tabs .tab.active::before{content:"";position:absolute;}
 /* E236 展开/收起：玻璃胶囊 */
 .synopsis-footer [data-synopsis-toggle]{padding:6px 14px 6px 16px!important;border:0!important;border-radius:999px!important;background:rgba(255,255,255,.05)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
 .synopsis-footer [data-synopsis-toggle]:hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-hi,#ffd7a0) 40%,transparent)}
@@ -217,9 +199,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb{background:linear-gradient
   linear-gradient(90deg,transparent 2px,color-mix(in srgb,var(--gold-hi,#ffd7a0) 55%,transparent) 2px 3px,transparent 3px calc(100% - 3px),color-mix(in srgb,var(--gold-hi,#ffd7a0) 55%,transparent) calc(100% - 3px) calc(100% - 2px),transparent 0),
   linear-gradient(90deg,#7a1424,#c8303c 45%,#a3202d 70%,#6a1020)}
 /* E236 设置左栏：去掉序号，加暗色玻璃底板（与学习页子页签一致） */
-.main .settings-nav .settings-category button::after{content:none!important}
-.main .settings-nav{padding:14px 18px!important;border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 22%,transparent)!important;border-radius:12px!important;
- background:linear-gradient(180deg,rgba(30,20,20,.78),rgba(18,14,16,.72))!important;box-shadow:inset 0 1px 0 color-mix(in srgb,var(--gold-hi,#ffd7a0) 8%,transparent),0 16px 40px rgba(0,0,0,.35)!important;backdrop-filter:blur(16px) saturate(1.2)}
+
+
 /* E236 Anki 连接状态：魔石灯状态签 */
 .review-card>.eyebrow:first-child{display:inline-flex;align-items:center;gap:9px;width:max-content;padding:4px 14px 4px 12px;border-radius:999px;font-size:12.5px;letter-spacing:.12em;
  color:#ffe6c4!important;background:linear-gradient(90deg,rgba(200,48,60,.22),rgba(200,48,60,.04));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-hi,#ffd7a0) 22%,transparent)}
@@ -229,16 +210,16 @@ input[type=range]:focus-visible::-webkit-slider-thumb{background:linear-gradient
 /* E237 修正 */
 /* Anki 复习落地页：竖向居中排版，去掉横贯全屏的分隔线 */
 .review-card:has(>.anki-tools){display:flex!important;flex-direction:column;align-items:center;text-align:center;gap:0}
-.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools){display:flex!important;justify-content:center;align-items:stretch;gap:12px!important;margin:28px 0 0!important;padding:0!important;border:0!important;box-shadow:none!important;background:none!important}
+.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools){align-items:stretch;gap:12px!important;margin:28px 0 0!important;padding:0!important;border:0!important;box-shadow:none!important;background:none!important}
 .review-card:has(>.anki-tools)>.review-controls:not(.anki-tools)::before,.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools)::after{content:none!important}
 .review-card>[data-current]{margin:12px 0 0!important;padding:2px 6px!important;font-size:12.5px!important;color:rgba(242,232,218,.7)!important;border:0!important;background:none!important;box-shadow:none!important}
 .review-card>[data-current]:hover{color:var(--gold-hi,#ffd7a0)!important}
 .review-card>.anki-tools{margin-top:22px!important;padding-top:18px;border-top:1px solid color-mix(in srgb,var(--gold-hi,#ffd7a0) 12%,transparent)}
 .main .anki-tools .text-button+.text-button::before{content:none!important}
 /* 设置左栏选中：去掉长红线，只留左侧金菱形 + 文字微移 */
-.main .settings-nav .settings-category button{position:relative;transition:color .2s,padding .2s}
-.main .settings-nav .settings-category button.active{box-shadow:none!important;padding-left:14px!important;color:#fff3e2!important}
-.main .settings-nav .settings-category button.active::before{content:""!important;display:block!important;position:absolute;left:0;top:50%;width:5px;height:5px;margin-top:-2.5px;background:var(--gold-accent,#edb56e);transform:rotate(45deg);box-shadow:0 0 6px color-mix(in srgb,var(--gold-accent,#edb56e) 70%,transparent)}
+
+.main .settings-nav .settings-category button.active{box-shadow:none!important;}
+.main .settings-nav .settings-category button.active::before{content:""!important;background:var(--gold-accent,#edb56e);box-shadow:0 0 6px color-mix(in srgb,var(--gold-accent,#edb56e) 70%,transparent)}
 /* 详情页页签：取消胶囊和红条，金菱形居中在文字下方 */
 .detail-tabs{display:flex!important;padding:0!important;background:none!important;box-shadow:none!important;border-radius:0!important;gap:6px!important;border-bottom:1px solid rgba(242,232,218,.1)!important}
 .detail-tabs .tab,.detail-tabs .tab.active{padding:8px 14px 14px!important;border-radius:0!important;background:none!important;box-shadow:none!important;letter-spacing:0!important}
@@ -266,10 +247,10 @@ input[type=range]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb{backgr
 .settings-content :is(.select-trigger,.settings-row>input:not([type=range])):is(:hover,:focus,[aria-expanded=true]){border-bottom-color:var(--gold-accent,#edb56e)!important;background:rgba(255,255,255,.06)!important;outline:none}
 .settings-content .select-control{width:280px!important}
 /* 强调色色块恢复颜色 */
-.color-swatches .swatch{background:var(--swatch)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)!important;border-radius:4px!important;padding:0!important;min-height:0!important}
-.color-swatches .swatch.active{box-shadow:0 0 0 2px var(--e-ink),0 0 0 3px var(--gold-accent,#edb56e)!important}
+.color-swatches .swatch{padding:0!important;min-height:0!important}
+
 /* 设置左栏字号放大，和右侧细节区分 */
-.main .settings-nav .settings-category button{font-size:15px!important;padding-top:10px!important;padding-bottom:10px!important}
+.main .settings-nav .settings-category button{padding-top:10px!important;padding-bottom:10px!important}
 .main .settings-nav .settings-category summary{font-size:17px!important;letter-spacing:.06em;color:color-mix(in srgb,var(--gold-accent,#edb56e) 75%,transparent)!important}
 /* 工具页：删标题后留出顶部间距 */
 .grimoire-page:has(>.g-page-head){padding-top:40px}
@@ -282,10 +263,10 @@ input[type=range]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb{backgr
 :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){text-decoration:underline!important;text-decoration-color:color-mix(in srgb,var(--gold-hi,#ffd7a0) 75%,transparent)!important;text-decoration-thickness:1px!important;text-underline-offset:7px!important}
 /* Anki 落地页：按钮整块放到中下 */
 .review-card:has(>.anki-tools){min-height:62vh;justify-content:flex-start}
-.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools){margin-top:clamp(56px,16vh,180px)!important}
+
 /* E240 Anki：牌组下拉留在上方，只把按钮下移 */
-.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools){flex-wrap:wrap;margin-top:24px!important}
-.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools)>:is(select,.select-control){flex:0 0 100%;order:-1;max-width:280px;margin:0 calc(50% - 140px)!important}
+.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools){margin-top:24px!important}
+.review-card:has(>.anki-tools)>.review-controls:not(.anki-tools)>:is(select,.select-control){order:-1;}
 .review-card:has(>.anki-tools)>.review-controls:not(.anki-tools)>button{margin-top:clamp(56px,14vh,160px)!important}
 /* E241 Anki 按钮布局修正：网格两行，按钮不折行 */
 .review-card:has(>.anki-tools)>.review-controls:not(.anki-tools){display:grid!important;grid-template-columns:auto auto;justify-content:center;column-gap:12px;row-gap:clamp(56px,14vh,160px)!important;flex-wrap:nowrap}
@@ -308,11 +289,11 @@ input[type=range]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb{backgr
 @media(max-width:760px){.main .settings-content .settings-row .setting-slider{width:100%!important}}
 
 /* E249 compact settings controls, sized for their content */
-.main .settings-content .settings-row .select-control.compact-select{width:var(--select-width,160px)!important;max-width:100%;flex:none}
-.main .settings-content .settings-row .select-trigger{width:100%!important;text-align:center!important;padding-inline:28px!important}
+
+.main .settings-content .settings-row .select-trigger{padding-inline:28px!important}
 .compact-select-popup>button{text-align:center}
 .main .settings-content .settings-row>.font-control{width:max-content!important;max-width:100%;flex:none}
-.main .settings-content .font-control>.compact-select{width:var(--select-width,160px)!important}
+
 .main .settings-content .settings-row>input:not([type=range]):not([type=checkbox]):not([type=color]){width:180px!important;text-align:center;padding-inline:12px!important}
 .main .settings-content .settings-row>input[type=url]:not([type=range]):not([type=checkbox]):not([type=color]),.main .settings-content .settings-row>input[name$="Url"]:not([type=range]):not([type=checkbox]):not([type=color]),.main .settings-content .settings-row>input[name$="baseUrl"]:not([type=range]):not([type=checkbox]):not([type=color]){width:min(320px,100%)!important;text-align:left}
 .main .settings-content .settings-row>textarea{width:min(440px,100%)!important;text-align:left}
@@ -321,21 +302,21 @@ input[type=range]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb{backgr
 :root[data-theme=black]{color-scheme:dark;--bg:#07080a;--surface:#101114;--surface-hover:#1b1d21;--g-raise:#101114;--g-raise-2:#1b1d21}
 :root[data-theme=light]{--e-ink:#f5ede2;--e-graphite:#e7dccd;--e-graphite-2:#dfd1bf;--e-paper:#301919;--e-grey:#6e4f47}
 .app-backdrop:after{background:color-mix(in srgb,var(--bg) calc(var(--background-dim,.78)*100%),transparent)}
-:root[data-theme=light] .main .settings-nav .settings-category button.active{color:var(--g-t1)!important}
-:root[data-theme=light] .main .settings-nav .settings-category summary{color:var(--g-gold)!important}
+
+
 :root[data-theme=light] .main .settings-content :is(input,textarea,.select-trigger){color:var(--g-t1)!important;border-bottom-color:var(--g-rule-strong)!important}
-:root[data-theme=light] .main .settings-nav{background:color-mix(in srgb,var(--surface) 60%,transparent)!important}
+
 
 /* E249 home cover keeps its original independent size; detail cover stays untouched */
-.home-page .g-hero{align-items:end!important}
+
 .home-page .g-hero .jacket{width:clamp(200px,17vw,244px)!important;height:auto!important;aspect-ratio:2/3;align-self:end!important;max-height:none}
-.home-page .g-hero .hero-title{font-size:calc(clamp(40px,4.4vw,72px) * var(--home-font-scale,1))!important}
+
 .home-page .g-hero :is(.kicker,.hero-meta){font-size:calc(14px * var(--home-font-scale,1))}
 .home-page .g-hero .hero-figs b{font-size:calc(30px * var(--home-font-scale,1))}
 .home-page .g-hero .hero-figs span{font-size:calc(13px * var(--home-font-scale,1))}
 .home-page .g-hero .hero-actions .g-btn{font-size:calc(15px * var(--home-font-scale,1))}
-.home-page .today .greet-hello{font-size:calc(20px * var(--home-font-scale,1))}
-.home-page .today .fig-value{font-size:calc(28px * var(--home-font-scale,1))}
+
+
 @media(max-width:760px){.home-page .g-hero .jacket{width:160px!important}}
 
 /* Home text begins on the cover's top edge, irrespective of title length */
@@ -346,28 +327,28 @@ input[type=range]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb{backgr
 .main .settings-content .settings-row>input[name=username]:not([type=range]):not([type=checkbox]):not([type=color]){width:150px!important}
 
 /* E251: discard the old SVG separator geometry so every chant button gets the same star */
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){gap:4px!important;padding:0 10px 0 6px!important;justify-content:flex-start!important;min-width:0!important;text-decoration:none!important}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{content:""!important;display:block!important;position:relative!important;inset:auto!important;width:8px!important;height:8px!important;flex:0 0 8px!important;margin:0!important;padding:0!important;border:0!important;align-self:center!important;background:var(--gold-hi,#ffd7a0)!important;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)!important;transform:none!important;transition:transform .4s ease!important;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--gold-hi,#ffd7a0) 50.2%,transparent))}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover::before{transform:rotate(90deg) scale(1.15)!important}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label{position:relative;display:inline-block;text-decoration:none!important}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label::after{content:"";position:absolute;left:0;right:0;bottom:-5px;height:1px;pointer-events:none;background:linear-gradient(90deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 80%,transparent),color-mix(in srgb,var(--gold-hi,#ffd7a0) 45%,transparent) 45%,transparent 100%)}
-@media(prefers-reduced-motion:reduce){body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{transition:none!important}}
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){text-decoration:none!important}
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{padding:0!important;align-self:center!important;}
+
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label{position:relative;text-decoration:none!important}
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label::after{position:absolute;left:0;right:0;bottom:-5px;height:1px;pointer-events:none;background:linear-gradient(90deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 80%,transparent),color-mix(in srgb,var(--gold-hi,#ffd7a0) 45%,transparent) 45%,transparent 100%)}
+@media(prefers-reduced-motion:reduce){}
 /* The home cover and copy share a row; copy spans exactly the cover's height. */
 .home-page .g-hero .hero-copy{height:calc(clamp(200px,17vw,244px) * 1.5);min-height:min-content;padding-bottom:0!important;box-sizing:border-box}
 .home-page .g-hero .hero-actions{margin-top:auto!important;padding-top:16px}
 @media(max-width:760px){.home-page .g-hero .hero-copy{height:240px}}
 
 /* E253: quiet smoked glass plate, with colour confined to the left edge */
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){clip-path:none!important;border-radius:4px!important;border:0!important;background:linear-gradient(105deg,color-mix(in srgb,var(--e-red-btn) 24%,#24242b 76%),rgba(31,33,40,.78) 70%)!important;box-shadow:inset 1px 0 0 color-mix(in srgb,var(--gold-hi,#ffd7a0) 65%,transparent),inset 0 1px 0 rgba(255,255,255,.055)!important;backdrop-filter:blur(12px);color:#f4e7d8!important}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover{background:linear-gradient(105deg,color-mix(in srgb,var(--e-red-btn) 36%,#29282f 64%),rgba(42,43,51,.9) 75%)!important;box-shadow:inset 1px 0 0 var(--gold-hi,#ffd7a0),inset 0 1px 0 rgba(255,255,255,.09)!important;filter:none!important}
+
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):hover{background:linear-gradient(105deg,color-mix(in srgb,var(--e-red-btn) 36%,#29282f 64%),rgba(42,43,51,.9) 75%)!important;}
 /* Simple library: flexible tracks consume the complete available row. */
 .lib-list .library-grid{width:100%;max-width:none;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));justify-content:stretch}
 @media(max-width:760px){.lib-list .library-grid{grid-template-columns:repeat(auto-fill,minmax(min(140px,100%),1fr))}}
 
 /* E254: full-size quiet controls; keep short left inset, remove the decorative baseline */
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){height:48px!important;min-height:48px!important;min-width:120px!important;font-size:16px!important;line-height:1.25!important;padding:0 18px 0 8px!important;gap:6px!important;align-items:center!important}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label{line-height:inherit!important}
-body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label::after{content:none!important;display:none!important}
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button){line-height:1.25!important;}
+
+body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label::after{display:none!important}
 .main :is(.hero-actions,.detail-actions,.review-controls)>button{height:48px!important;min-height:48px!important;align-items:center!important;line-height:1.25!important}
 .main :is(.hero-actions,.detail-actions)>button{font-size:16px!important}
 .main.field-list #library-results.lib-list{width:100%!important;max-width:none!important;min-width:0}
@@ -389,17 +370,17 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-la
 
 /* E249 (user: the jacket did not line up with the buttons when the title wraps): the jacket spans exactly from the
    "last read" line to the bottom of the buttons, measured by matchJacket (--jh), whatever the title length. */
-.g-hero .jacket{height:var(--jh,300px)!important;align-self:end!important;width:auto!important;aspect-ratio:2/3}
+.g-hero .jacket{height:var(--jh,300px)!important;width:auto!important;aspect-ratio:2/3}
 
 /* E250 (user: the greeting and stats column did not line up; make it look better): the column spans exactly the jacket's
    height (top at "last read", bottom on the buttons). Greeting on top, three figures share the middle as one row of
    labelled serif numbers split by hairlines, and the full-statistics link sits on the buttons' baseline. */
-.g-hero .today{height:var(--jh,auto)!important;align-self:end!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important;padding:0 0 0 28px!important;gap:0!important}
+.g-hero .today{height:var(--jh,auto)!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important;padding:0 0 0 28px!important;gap:0!important}
 .g-hero .today .greet{margin:0!important;padding-bottom:16px!important;border-bottom:1px solid var(--g-rule)}
 .g-hero .today .fig{flex:1 1 0;justify-content:center!important;padding:0!important;border-bottom:0!important;min-height:0}
 .g-hero .today .fig+.fig{border-top:1px solid var(--g-rule)}
-.g-hero .today .fig-label{font-size:12px!important;letter-spacing:.08em}
-.g-hero .today .fig-value{font:400 30px/1 var(--g-serif)!important;font-variant-numeric:lining-nums tabular-nums}
+
+
 .g-hero .today .g-link{margin:0!important;padding-top:12px;border-top:1px solid var(--g-rule);align-self:stretch}
 
 /* E249.2: jacket and today column start at the top of their row and are moved down to the "last read" line by script */

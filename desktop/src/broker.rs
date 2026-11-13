@@ -39,6 +39,7 @@ impl Broker {
   *slot=Some(Process{child,input});Ok(())
  }
  fn request(&self,request:Value)->Reply{
+  if CLOSING.load(Ordering::SeqCst){return Err("SERVICE_CLOSING".into());}
   let id=self.serial.fetch_add(1,Ordering::Relaxed);let(tx,rx)=mpsc::channel();
   {let mut process=self.process.lock().map_err(|_|"SERVICE_LOCK_FAILED")?;self.start(&mut process)?;
    self.pending.lock().unwrap_or_else(|e|e.into_inner()).insert(id,tx);let encoded=json!({"id":id,"request":request}).to_string()+"\n";
@@ -47,8 +48,16 @@ impl Broker {
   match rx.recv_timeout(Duration::from_secs(240)){Ok(result)=>result,Err(_)=>{self.pending.lock().unwrap_or_else(|e|e.into_inner()).remove(&id);Err("SERVICE_TIMEOUT".into())}}
  }
 }
-pub fn shutdown(){if let Some(broker)=BROKER.get(){
- if let Ok(mut slot)=broker.process.lock(){if let Some(mut process)=slot.take(){let _=process.input.write_all(b"{\"id\":0,\"request\":{\"action\":\"__shutdown\"}}\n");drop(process.input);let deadline=Instant::now()+Duration::from_secs(8);loop{if process.child.try_wait().ok().flatten().is_some(){break;}if Instant::now()>=deadline{let _=process.child.kill();let _=process.child.wait();break;}std::thread::sleep(Duration::from_millis(50));}}}
+static CLOSING:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+/* Exit must never hang on a stuck service: a request blocked in write_all on a full pipe holds the lock, and our own
+   shutdown write can block the same way. Wait for the lock at most 2 s and write on a throwaway thread; if we give up,
+   the job object (KILL_ON_JOB_CLOSE) ends node.exe when MeguLit exits. CLOSING stops requests from restarting node. */
+pub fn shutdown(){CLOSING.store(true,Ordering::SeqCst);if let Some(broker)=BROKER.get(){
+ let deadline=Instant::now()+Duration::from_secs(2);
+ let mut slot=loop{match broker.process.try_lock(){Ok(g)=>break g,Err(std::sync::TryLockError::Poisoned(e))=>break e.into_inner(),Err(std::sync::TryLockError::WouldBlock)=>{if Instant::now()>=deadline{return;}std::thread::sleep(Duration::from_millis(20));}}};
+ let Some(Process{mut child,mut input})=slot.take() else{return};drop(slot);
+ std::thread::spawn(move||{let _=input.write_all(b"{\"id\":0,\"request\":{\"action\":\"__shutdown\"}}\n");});
+ let deadline=Instant::now()+Duration::from_secs(8);loop{if child.try_wait().map(|s|s.is_some()).unwrap_or(true){break;}if Instant::now()>=deadline{let _=child.kill();let _=child.wait();break;}std::thread::sleep(Duration::from_millis(50));}
 }}
 /* Ties the Node service to this process: when MeguLit exits or is killed, Windows closes the job and ends node.exe too. */
 #[cfg(windows)]

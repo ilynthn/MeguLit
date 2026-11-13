@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 // E306 (user 2026-11-10: "make it the best hook": every engine should place each sentence of a full-screen page where
 // the game drew it, not only ISLAND, KiriKiri and Ren'Py). Engines without their own position source (BGI, Siglus,
 // Artemis, CatSystem2, anything LunaHook reads) are located on the picture instead: when a new hook line arrives,
@@ -150,7 +150,7 @@ public sealed class PageLocator : IDisposable {
     drawing them (OCR reads, never covers: MeguLit lays only its invisible readable copy and the translation). A group is
     shown once two reads agree and hidden after two reads without it. Nothing is ever written to the game. */
  public sealed class ScanItem { public int Id; public string Text; public List<Row> Rows; public int Seen, Misses; public bool Shown, Foreign; public DateTime Since; }
- volatile bool ScanOn; IntPtr ScanTarget; string ScanDialog, ScanSpeaker; bool ScanBand, ScanForeign; Thread Scanner; string ArtActive;
+ volatile bool ScanOn; string ScanSeen; IntPtr ScanTarget; string ScanDialog, ScanSpeaker; bool ScanBand, ScanForeign; Thread Scanner; string ArtActive;
  OcrEngine ForeignEngine; bool ForeignTried;
  readonly List<ScanItem> ScanItems = new List<ScanItem>(); int ScanId = 1000000;
  public void Scan(IntPtr target, bool on, string dialog, string speaker, bool band) { Scan(target, on, dialog, speaker, band, false); }
@@ -159,7 +159,7 @@ public sealed class PageLocator : IDisposable {
     foreign groups, which MeguLit maps back to the Japanese line or drops. */
  public void Scan(IntPtr target, bool on, string dialog, string speaker, bool band, bool foreign) {
   lock (Gate) { ScanTarget = target; ScanDialog = String.IsNullOrWhiteSpace(dialog) ? null : dialog; ScanSpeaker = String.IsNullOrWhiteSpace(speaker) ? null : speaker; ScanBand = band; ScanForeign = foreign; }
-  ScanOn = on && target != IntPtr.Zero;
+  bool was = ScanOn; ScanOn = on && target != IntPtr.Zero; if (was != ScanOn) { ScanSeen = null; Emit(new { type = "pageLocateStatus", status = "art scan " + (ScanOn ? "on" : "off") }); }
   if (ScanOn && Scanner == null) { Scanner = new Thread(ScanRun) { IsBackground = true, Name = "MeguLit art scan", Priority = ThreadPriority.BelowNormal }; Scanner.Start(); }
  }
  void ScanRun() {
@@ -182,7 +182,7 @@ public sealed class PageLocator : IDisposable {
      thumb = Thumb(image);
      bool pending = false; foreach (var it in ScanItems) if (!it.Shown || it.Misses > 0) pending = true;
      // The same picture: what is shown stays; a candidate seen once (or missed once) is read again to settle it.
-     if (last != null && Differ(last, thumb) < 1.2 && !pending) continue;
+     if (last != null && !Changed(last, thumb) && !pending) continue;
      // A picture that keeps moving with no Japanese on it (video, particles) is read every 2.1 s instead of 0.7 s.
      if (idle >= 4 && (DateTime.UtcNow - lastOcr).TotalMilliseconds < 2000) continue;
      last = thumb; lastOcr = DateTime.UtcNow;
@@ -196,6 +196,9 @@ public sealed class PageLocator : IDisposable {
      foreach (var g in foreignGroups) foreach (var r in g) Paint(image, r);
     }
     if (!ScanOn) continue;
+    /* E540: one log line when what the scan reads changes, so a silent opening can be told from an unread one */
+    string seen = groups.Count + "/" + foreignGroups.Count + (groups.Count > 0 ? " " + GroupText(groups[0]) : foreignGroups.Count > 0 ? " " + GroupText(foreignGroups[0]) : "");
+    if (seen != ScanSeen) { ScanSeen = seen; Emit(new { type = "pageLocateStatus", status = "art scan " + (seen.Length > 60 ? seen.Substring(0, 60) : seen) }); }
     idle = groups.Count + foreignGroups.Count == 0 ? Math.Min(idle + 1, 8) : 0;
     ScanReconcile(groups, foreignGroups, w, h);
    } catch (Exception e) { Emit(new { type = "pageLocateStatus", status = "art scan error " + e.Message }); Thread.Sleep(2000); }
@@ -255,6 +258,14 @@ public sealed class PageLocator : IDisposable {
    for (int y = 0; y < 36; y++) for (int x = 0; x < 64; x++) { var c = small.GetPixel(x, y); o[y * 64 + x] = (byte)((c.R * 3 + c.G * 6 + c.B) / 10); }
    return o;
   }
+ }
+ /* E540 (WHITE ALBUM2 opening, live 2026-11-13): one thin white line on a dark screen replacing another moves the 64x36
+    thumbnail by only 0.6-0.8 on average, under the 1.2 the scan used, so no card after the first was read. A change is also
+    eight cells moving by 16 or more (a new line: 14-68 cells; drifting snow and sparkles: 0-4). */
+ public static bool Changed(byte[] a, byte[] b) {
+  if (Differ(a, b) >= 1.2) return true;
+  int cells = 0; for (int i = 0; i < a.Length; i++) if (Math.Abs(a[i] - b[i]) >= 16 && ++cells >= 8) return true;
+  return false;
  }
  public static double Differ(byte[] a, byte[] b) { if (a == null || b == null || a.Length != b.Length) return 255; long s = 0; for (int i = 0; i < a.Length; i++) s += Math.Abs(a[i] - b[i]); return (double)s / a.Length; }
 
@@ -365,6 +376,8 @@ public sealed class PageLocator : IDisposable {
  }
  public static string ScanSelfTest() {
   Func<string, int, int, int, Row> row = (t, x, y, hh) => new Row(t, new Rectangle(x, y, 40 * t.Length, hh));
+  { var dark = new byte[64 * 36]; var line = (byte[])dark.Clone(); for (int x = 14; x < 46; x++) line[18 * 64 + x] = 60; var snow = (byte[])dark.Clone(); for (int i = 0; i < 4; i++) snow[i * 300] = 90;
+    if (Differ(dark, line) >= 1.2 || !Changed(dark, line) || Changed(dark, snow)) return "changed"; }
   if (Tidy("館 が あ る") != "館がある" || Tidy("Save  Load") != "Save Load") return "tidy";
   if (!Japanese("館がある") || !Japanese("第一章") || Japanese("这是中文翻译文本内容") || Japanese("SAVE") || Japanese("あ")) return "japanese";
   // A centred two-line card, the dialogue line with its name above it in the box, and a menu row: only the card is art.

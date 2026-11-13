@@ -7,14 +7,14 @@
 /* 顶部：总开关 + 期间 */
 .stg-period{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
 .stg-tabs{display:flex;gap:2px}
-.stg-tabs button{position:relative;padding:6px 14px 8px;color:var(--stg-t3);font-family:var(--g-serif);font-size:15px;transition:color .2s}
+.stg-tabs button{position:relative;padding:6px 14px 8px;color:var(--stg-t3);transition:color .2s}
 .stg-tabs button:hover{color:var(--stg-t1)}
 .stg-tabs button[aria-pressed=true]{color:var(--stg-t1)}
 .stg-tabs button[aria-pressed=true]::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;background:var(--accent)}
 .stg-nav{display:flex;align-items:center;gap:14px}
 .stg-nav b{font-family:var(--g-serif);font-weight:500;font-size:22px;min-width:9em;text-align:center}
-.stg-nav button{width:30px;height:30px;border-radius:50%;border:1px solid var(--stg-line);color:var(--stg-t2);display:grid;place-items:center;transition:border-color .2s,color .2s,transform .15s}
-.stg-nav button:hover{border-color:var(--stg-gold);color:var(--stg-t1)}.stg-nav button:active{transform:scale(.94)}
+.stg-nav button{width:30px;height:30px;border:1px solid var(--stg-line);color:var(--stg-t2);display:grid;place-items:center;transition:border-color .2s,color .2s,transform .15s}
+.stg-nav button:hover{color:var(--stg-t1)}.stg-nav button:active{transform:scale(.94)}
 .stg-rule{border:0;border-top:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 24%,transparent);margin:14px 0 0}
 /* 毛玻璃面板：顶边一道细金光 */
 .stg-glass{position:relative;margin-top:22px;padding:22px 24px}
@@ -23,10 +23,10 @@
 .stg-head h2{margin:0 auto 0 0;font-family:var(--g-serif);font-weight:500;font-size:17px}
 .stg-sub{order:3;color:var(--stg-t3);font-size:12px}
 .stg-sub b{font-family:var(--g-serif);font-weight:500;color:var(--stg-t1);font-size:15px}
-.stg-rs{display:inline-flex;gap:2px;padding:2px;border-radius:999px;background:rgba(241,224,210,.04);border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent)}
-.stg-rs button{min-width:28px;height:22px;padding:0 8px;border-radius:999px;font-family:var(--g-serif);font-size:12px;color:var(--stg-t3);transition:color .2s,background .2s}
+.stg-rs{display:inline-flex;gap:2px;padding:2px;border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent)}
+.stg-rs button{min-width:28px;height:22px;padding:0 8px;font-size:12px;color:var(--stg-t3);transition:color .2s,background .2s}
 .stg-rs button:hover{color:var(--stg-t1)}
-.stg-rs button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 60%,transparent);color:#fbefe6}
+
 .stg-empty{color:var(--stg-t3);font-size:13px;padding:22px 0 8px}
 .stg-note{color:var(--stg-t3);font-size:12px;margin:auto 0 0;padding-top:12px}
 .stg-note b{color:var(--stg-t1);font-weight:500;font-family:var(--g-serif)}
@@ -34,8 +34,8 @@
 .stg-keys{display:grid;grid-template-columns:repeat(4,1fr);padding:16px 8px}
 .stg-keys div{padding:0 22px}
 .stg-keys div+div{border-left:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 18%,transparent)}
-.stg-keys span{display:block;font-size:11px;letter-spacing:.18em;color:var(--stg-t3)}
-.stg-keys b{display:block;font-family:var(--g-serif);font-weight:500;font-size:30px;line-height:1.25;margin-top:4px}
+.stg-keys span{display:block;font-size:11px;color:var(--stg-t3)}
+.stg-keys b{display:block;font-weight:500;font-size:30px;line-height:1.25;margin-top:4px}
 .stg-keys b small{font-family:inherit;font-size:12px;color:var(--stg-t3);margin:0 4px 0 2px}
 /* 日历 + 书目 */
 .stg-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px;align-items:stretch}
@@ -44,7 +44,7 @@
 .stg-cal.month{grid-template-rows:auto}
 .stg-cal.year{grid-template-columns:repeat(4,1fr)}.stg-cal.day{grid-template-columns:repeat(6,1fr)}
 .stg-cal .wd{font-size:11px;color:var(--stg-t3);text-align:center;align-self:end}
-.stg-cal .cell{position:relative;min-height:44px;border-radius:6px;background:rgba(241,224,210,.035);border:1px solid transparent;padding:6px 8px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;transition:border-color .2s}
+.stg-cal .cell{position:relative;min-height:44px;background:rgba(241,224,210,.035);border:1px solid transparent;padding:6px 8px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;transition:border-color .2s}
 .stg-cal .cell:hover{border-color:color-mix(in srgb,var(--gold-accent,#edb56e) 30%,transparent)}
 .stg-cal .cell.blank{background:transparent;border:1px dashed var(--stg-rule)}
 .stg-cal .cell.is-today{border-color:var(--stg-gold)}
@@ -86,7 +86,7 @@
 .stg-peak small{position:absolute;left:18px;top:2px;white-space:nowrap;font-size:11px;color:var(--stg-t3)}
 .stg-tip{position:absolute;top:0;padding:5px 10px;border-radius:8px;background:rgba(20,13,12,.85);border:1px solid var(--stg-line);font-size:12px;color:var(--stg-t2);white-space:nowrap;pointer-events:none}
 .stg-tip b{font-family:var(--g-serif);font-weight:500;color:var(--stg-t1);margin-right:6px}
-.stg-axis{position:relative;height:16px;margin-top:6px;font-family:var(--g-serif);font-size:11px;color:var(--stg-t3)}
+.stg-axis{position:relative;height:16px;margin-top:6px;font-size:11px;color:var(--stg-t3)}
 .stg-axis span{position:absolute;transform:translateX(-50%);white-space:nowrap}
 .stg-axis span:first-child{transform:none}.stg-axis span:last-child{transform:translateX(-100%)}
 /* 三栏小面板 */
@@ -117,7 +117,7 @@
 .stg-feel polyline{fill:none;stroke-width:1.5}
 .stg-feel .a{stroke:var(--stg-pink)}.stg-feel .a-dot{fill:var(--stg-pink)}
 .stg-feel .b{stroke:var(--stg-gold)}.stg-feel .b-dot{fill:var(--stg-gold)}
-.stg-feel .c{stroke:var(--stg-t2)}.stg-feel .c-dot{fill:var(--stg-t2)}
+.stg-feel .c{stroke:var(--stg-t2)}
 /* 最常查的词 */
 .stg-top{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 26px;margin-top:10px}
 .stg-top .lk{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--stg-rule)}
@@ -189,3 +189,9 @@
 .stg-cal .cell,.stg-cal [class*=cell]{border-radius:0}
 .stg-book img,.stg-books img{border-radius:0}
 .stg-more{font-family:var(--stg-mono);letter-spacing:.15em}
+
+/* 2026-11-13 (AI-feel review: four equal number tiles). Characters read leads in gold; time and lookups follow smaller, last read quieter. */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .stg-keys>div>span{font-family:inherit!important;letter-spacing:.02em!important;font-size:12.5px!important;text-transform:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .stg-keys>div>b{font-size:26px!important;font-weight:500!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .stg-keys>div:first-child>b{font-weight:400!important;font-size:44px!important;color:var(--g-gold,var(--t-gold))!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .stg-keys>div:last-child>b{font-weight:400!important;font-size:18px!important;color:var(--t-text-2)!important}

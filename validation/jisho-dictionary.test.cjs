@@ -38,3 +38,10 @@ test('English interface asks Jisho on the dictionary page and the Anki lookup; C
  assert.match(anki,/q\(locale==='en'\?'jisho':'moji'\)[\s\S]{0,200}catch\(\(\)=>q\('local'\)\)/);
  assert.match(bridge,/request\.source==='jisho'\?await require\('\.\/jisho-dictionary\.cjs'\)\.lookupJisho/);
 });
+
+test('a damaged cache entry (no items) is fetched again instead of throwing every time',async()=>{
+ J._reset();const root=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-jisho-bad-'));fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
+ fs.writeFileSync(path.join(root,'data','config','jisho-cache.json'),JSON.stringify({'食べる':{at:Date.now()}}));
+ let calls=0;const rows=await J.lookupJisho('食べる',async()=>{calls++;return {ok:true,json:async()=>sample};},{root});
+ assert.equal(calls,1);assert.equal(rows[0].spelling,'食べる');J._reset();fs.rmSync(root,{recursive:true,force:true});
+});

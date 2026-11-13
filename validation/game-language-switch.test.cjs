@@ -94,3 +94,20 @@ test('the Japanese restore tool offers the language switch for KiriKiri and Unit
  assert.match(fs.readFileSync(path.join(__dirname,'../services/bridge.cjs'),'utf8'),/case 'jp_restore_steam'/);
  fs.rmSync(game,{recursive:true,force:true});fs.rmSync(appData,{recursive:true,force:true});
 });
+
+test('cf datapath: plain text and mixed escapes decode without throwing',()=>{
+ assert.equal(decodeCf('savedata'),'savedata');assert.equal(decodeCf('$(appdatapath)\\x30d1'),'$(appdatapath)パ');
+});
+
+test('JSON settings: undo after the game rewrote the file puts back every switched key',()=>{
+ const root=tmp('unity2'),home=tmp('home2'),localLow=path.join(home,'AppData','LocalLow');
+ const {g,data}=unityGame(root,'Game','Maker','Game');fs.writeFileSync(path.join(data,'StreamingAssets','langja.cy'),'x');
+ const low=path.join(localLow,'Maker','Game');fs.mkdirSync(path.join(low,'Saves'),{recursive:true});
+ const file=path.join(low,'Saves','Settings.json');
+ fs.writeFileSync(file,'{"objectJsonMap":{"keys":["Loc"],"values":["{\\"SelectedLocale\\":\\"en\\"}"]},"textLanguage":"English","volume":1}');
+ const env={home,localLow,registry:{query:()=>[],set:()=>{}},steamRunning:()=>false,prefKeyFor:()=>13};
+ LS.apply(g,env);fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('"volume":1','"volume":2'));
+ const u=LS.restore(g,env);assert.deepEqual(u.skipped,[]);
+ assert.equal(fs.readFileSync(file,'utf8'),'{"objectJsonMap":{"keys":["Loc"],"values":["{\\"SelectedLocale\\":\\"en\\"}"]},"textLanguage":"English","volume":2}');
+ fs.rmSync(root,{recursive:true,force:true});fs.rmSync(home,{recursive:true,force:true});
+});

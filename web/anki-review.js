@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import {enhanceSelects} from './select-control.js';
+import {reviewRest} from './empty-states.js';
 import './hud-drag.js';
 import './anki-hud-model.js';
 let stopMessages=()=>{};
@@ -281,10 +282,10 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   else if(action==='primary')controls.querySelector('button.primary:not(:disabled)')?.click();else controls.querySelector('.rating-'+action.slice(5)+':not(:disabled)')?.click();
   return true;
  }
- const keydown=event=>{if(!isCurrent()||!stage()){return;}if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.('input,select,textarea,[contenteditable],details[open],.anki-hud-lookup,.select-popup'))return;
+ const keydown=event=>{if(!isCurrent()){stop();return;}if(!stage())return;if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.('input,select,textarea,[contenteditable],details[open],.anki-hud-lookup,.select-popup'))return;
   if(event.key!=='Escape'&&event.target.closest?.('button')&&(event.key===' '||event.key==='Enter'))return;if(key(event.key))event.preventDefault();};
  document.addEventListener('keydown',keydown);
- const messages=event=>{if(!isCurrent()){window.removeEventListener('message',messages);return;}
+ const messages=event=>{if(!isCurrent()){stop();return;}
   if(!currentFrame||event.source!==currentFrame.contentWindow||event.data?.nonce!==currentFrame.dataset.nonce)return;const d=event.data;
   if(d.type==='tome-anki-replay')replay(currentCard,target.querySelector('[data-replay]'));
   else if(d.type==='tome-anki-hud-move'&&Object.hasOwn(M.LAYOUT,d.id)){hud.layout[d.id]=H.normRect(d.rect,M.LAYOUT[d.id]);saveHud();}
@@ -293,7 +294,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   else if(d.type==='tome-anki-key')key(String(d.key||''));
   else if(d.type==='tome-anki-lookup')lookup(String(d.word||'').slice(0,60));};
  window.addEventListener('message',messages);
- stopMessages=()=>{window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);clearInterval(poll);leaveHud();};
+ const stop=()=>{window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);clearInterval(poll);leaveHud();};stopMessages=stop;
  function progress(s,html){s.querySelector('.anki-hud-progress').innerHTML=html;requestAnimationFrame(placeBlocks);}
  function mountFrame(s,card){currentFrame=frame(card);s.querySelector('.anki-hud-frame-slot').replaceChildren(currentFrame);}
  function drawCard(card){
@@ -347,8 +348,10 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   }catch(error){failed(error);}finally{if(button)button.disabled=false;}}
  function drawDone(card){
   currentCard=card;currentFrame=null;leaveHud();
-  const heading=card.practiceDone?copy.practiceDone:card.finished?text.ankiFinished:text.ankiEmpty;
-  target.innerHTML='<section class="panel review-card">'+(card.deck?'<div class="eyebrow">'+esc(card.deck)+(card.total?' · '+esc(copy.total.replace('{n}',card.total)):'')+'</div>':'')+'<h2>'+heading+'</h2>'+(card.finished?'<p class="muted">'+text.ankiFinishedHint+'</p>':'')+'<div class="review-controls">'+(card.deck&&card.total!==0?'<button class="primary" data-practice>'+copy.practice+'</button>':'')+(card.deck?'<button class="secondary" data-custom>'+copy.custom+'</button><button class="secondary" data-limits>'+copy.limits+'</button>':'')+'<button class="secondary" data-decks>'+text.chooseDeck+'</button></div></section>';
+  /* 2026-11-13 (AI-feel review): the finished state says what was done today, when cards come back, and offers new words */
+  const lang=document.documentElement.lang||'zh',loc=lang.startsWith('ja')?'ja':lang.startsWith('en')?'en':'zh';
+  target.innerHTML=reviewRest({locale:loc,esc,kind:card.practiceDone?'practice':card.finished?'rest':'empty',deck:card.deck||'',reviewed:card.reviewedToday??null,nextDue:card.finished?card.nextDue:undefined,total:card.total??null,
+   extra:(card.deck&&card.total!==0?'<button class="secondary" data-practice>'+copy.practice+'</button>':'')+'<span class="es-quiet">'+(card.deck?'<button class="text-button" data-custom>'+copy.custom+'</button><button class="text-button" data-limits>'+copy.limits+'</button>':'')+'<button class="text-button" data-decks>'+text.chooseDeck+'</button></span>'});
   target.querySelector('[data-decks]').onclick=drawDecks;
   target.querySelector('[data-practice]')?.addEventListener('click',()=>practice(card.deck,false));
   target.querySelector('[data-custom]')?.addEventListener('click',event=>openAnki('custom',card.deck,event.currentTarget));

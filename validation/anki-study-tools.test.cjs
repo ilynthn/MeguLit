@@ -8,8 +8,12 @@ function fixture(t,handler){const db=new DatabaseSync(':memory:');db.exec('CREAT
  return {reviewer:new AnkiReviewer({db,fetcher}),calls};}
 test('a finished deck reports finished instead of failing',async t=>{
  const {reviewer}=fixture(t,a=>a==='deckNames'?['MeguLit']:a==='guiDeckReview'?true:a==='guiCurrentCard'?Error('Gui review is not currently active.'):a==='getDeckStats'?{1:{total_in_deck:4}}:null);
- assert.deepEqual(await reviewer.start('MeguLit'),{done:true,finished:true,deck:'MeguLit',total:4});
+ assert.deepEqual(await reviewer.start('MeguLit'),{done:true,finished:true,deck:'MeguLit',total:4,reviewedToday:0,nextDue:null});
  assert.deepEqual(await reviewer.snapshot(),{done:true});
+});
+test('a finished deck says how many were reviewed today and when cards are due again',async t=>{
+ const {reviewer}=fixture(t,(a,p)=>a==='deckNames'?['MeguLit']:a==='guiDeckReview'?true:a==='guiCurrentCard'?Error('Gui review is not currently active.'):a==='getDeckStats'?{1:{total_in_deck:9}}:a==='getNumCardsReviewedToday'?12:a==='findCards'?(/prop:due=3$/.test(p.query)?[1,2]:[]):null);
+ assert.deepEqual(await reviewer.start('MeguLit'),{done:true,finished:true,deck:'MeguLit',total:9,reviewedToday:12,nextDue:{days:3,count:2}});
 });
 test('stop returns Anki to the deck list',async t=>{const {reviewer,calls}=fixture(t,()=>true);assert.deepEqual(await reviewer.stop(),{stopped:true});assert.deepEqual(calls.map(c=>c.action),['guiDeckBrowser']);});
 test('practice walks the deck without answering cards',async t=>{

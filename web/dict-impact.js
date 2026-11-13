@@ -13,15 +13,6 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const f1=n=>n.toFixed(2);
 let busy=false,fxK=1;
 
-function scatterCloud(ix,iy){
- const cloud=document.querySelector('.dict-cloud');if(!cloud||getComputedStyle(cloud).opacity==='0')return;
- cloud.classList.add('is-burst');
- for(const g of cloud.querySelectorAll('i')){
-  const b=g.getBoundingClientRect(),cx=b.left+b.width/2,cy=b.top+b.height/2;let dx=cx-ix,dy=cy-iy;const m=Math.hypot(dx,dy)||1;dx/=m;dy/=m;
-  const far=rand(380,1000)+Math.max(0,600-m),spin=rand(-300,300),z=rand(-400,300),dur=rand(650,1300);
-  g.animate([{transform:'translate3d(0,0,0) rotate(0) scale(1)',opacity:1},{transform:`translate3d(${f1(dx*far)}px,${f1(dy*far+rand(0,240))}px,${f1(z)}px) rotate(${f1(spin)}deg) scale(${f1(rand(.4,1.3))})`,opacity:0}],{duration:dur,delay:rand(0,120),easing:'cubic-bezier(.12,.75,.3,1)',fill:'forwards'});
- }
-}
 function shards(x,y,power){
  const words=[...document.querySelectorAll('.g-dict-chips button')].map(b=>b.textContent.replace(/\d+/g,'').trim()).filter(Boolean);
  const fx=document.createElement('div');fx.className='dict-shards';fx.setAttribute('aria-hidden','true');

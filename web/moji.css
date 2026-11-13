@@ -16,10 +16,10 @@
 .moji-entry{cursor:pointer;transition:background .18s var(--g-ease,ease)}
 .moji-entry:hover,.moji-entry:focus-visible{background:var(--surface-hover)}
 .moji-detail{padding:4px 2px 20px;animation:moji-in .22s var(--g-ease,ease)}
-.moji-detail header{padding:10px 0 14px;border-bottom:1px solid var(--g-rule,#ffffff14);margin-bottom:12px}
+.moji-detail header{border-bottom:1px solid var(--g-rule,#ffffff14);}
 .moji-back{margin-bottom:6px}
-.moji-meanings{margin:0;padding-left:22px;display:grid;gap:16px}
-.moji-meanings>li::marker{color:var(--g-gold,var(--gold-accent,#edb56e));font-family:var(--g-serif,serif)}
+.moji-meanings{margin:0;}
+.moji-meanings>li::marker{font-family:var(--g-serif,serif)}
 .moji-meaning{font-size:14px;line-height:1.7;color:var(--g-t1,var(--text))}
 .moji-meaning-ja{font-size:13px;line-height:1.7;color:var(--g-t2,var(--muted));font-family:var(--g-serif-ja,serif)}
 .moji-examples{list-style:none;margin:8px 0 0;padding:0 0 0 12px;border-left:1px solid var(--g-rule-strong,#fff3);display:grid;gap:8px}

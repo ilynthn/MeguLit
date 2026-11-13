@@ -115,7 +115,7 @@ async function measure(cdp,file){await shot(cdp,file);const items=await cdp.eval
  return res;}
 
 async function openPage(cdp,page){
- await cdp.evaluate(`(()=>{document.querySelectorAll('dialog[open]').forEach(d=>{try{d.close();}catch{}});document.querySelectorAll('.dev-notice').forEach(d=>d.remove());return 1;})()`);
+ await cdp.evaluate(`(()=>{document.querySelectorAll('dialog[open]').forEach(d=>{try{d.close();}catch{}});document.querySelectorAll('.dev-notice,.lv-backdrop').forEach(d=>d.remove());return 1;})()`);
  const [route,tab]=page.split(':');
  if(page==='notice'){await cdp.evaluate(`(()=>{if(!document.querySelector('dialog.dev-notice[open]'))window.__megulitTest.notice();return 1;})()`);await sleep(1500);return;}
  if(['guide','feedback','profile'].includes(page)){await cdp.evaluate(`(async()=>{await window.__megulitTest.navigate('home');return 1;})()`);await sleep(1500);

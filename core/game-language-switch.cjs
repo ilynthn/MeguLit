@@ -24,7 +24,9 @@ const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const isFile=f=>{try{return fs.statSync(f).isFile();}catch{return false;}};
 const isDir=f=>{try{return fs.statSync(f).isDirectory();}catch{return false;}};
 const list=d=>{try{return fs.readdirSync(d);}catch{return [];}};
-const LANG_KEY=/lang|locale/i, SKIP_KEY=/store|font|dir|path|file|url|hook|count|history|voice/i;
+/* 2026-11-13 the key names the text language itself (languageType, textLanguageType, language, locale), not a sub/UI language,
+   a first-run flag (langinit_cn, initialSubLang) or a font (langUserFontFace0) */
+const LANG_KEY=/^(?:text|main|selected|current|game)?(?:lang(?:uage)?(?:type|id|code)?|locale)$/i, SKIP_KEY=/store|font|dir|path|file|url|hook|count|history|voice/i;
 
 /* ---- language codes ------------------------------------------------------------------------------------- */
 const JA_VALUE=/^(?:ja|jp|jpn|ja[-_]jp|japanese|日本語|nihongo)$/i;
@@ -40,7 +42,8 @@ function japaneseLike(v){
 
 /* ---- KiriKiri ---------------------------------------------------------------------------------------------- */
 const KRKR_MAGIC=Buffer.from([0xFE,0xFE,0x02,0xFF,0xFE]);
-function decodeCf(v){return String(v).split('\\x').filter(Boolean).map(h=>String.fromCodePoint(parseInt(h,16))).join('');}
+/* \xNNNN escapes may sit next to plain text ("savedata"); plain text stays as is instead of throwing on parseInt NaN */
+function decodeCf(v){return String(v).replace(/\\x([0-9a-f]{1,6})/gi,(m,h)=>{const n=parseInt(h,16);return n<=0x10ffff?String.fromCodePoint(n):m;});}
 function krkrDataDirs(gameDir,env){
  const out=[];
  for(const n of list(gameDir).filter(n=>/\.cf$/i.test(n))){
@@ -49,7 +52,20 @@ function krkrDataDirs(gameDir,env){
   let p=decodeCf(m[1]).replace(/\$\((appdatapath|vistapath)\)/gi,env.appData).replace(/\$\(personalpath\)/gi,env.documents).replace(/\$\(localappdatapath\)/gi,env.localAppData).replace(/\$\(exepath\)/gi,gameDir).replace(/\$\(savedgamespath\)/gi,path.join(env.home,'Saved Games'));
   if(!path.isAbsolute(p))p=path.join(gameDir,p);out.push(path.normalize(p));}
  out.push(path.join(gameDir,'savedata'));
+ /* 2026-11-13 (live test: 9-nine Ep4 stayed English after textLanguageType in data_anchor.ksd was set to 0, and the game
+    wrote 1 back): KiriKiri builds with krkrsteam keep their system variables (languageType, uiLanguageType) in Steam's
+    remote storage, userdata/<user>/<appid>/remote/datasc.ksd, or a Steam emulator's SteamEmu/Saves. data_anchor.ksd there
+    only holds a stale copy. Both places are read. */
+ out.push(path.join(gameDir,'SteamEmu','Saves'));
+ const app=steamApp(gameDir);
+ if(app)for(const root of steamRoots(gameDir,env))for(const user of list(path.join(root,'userdata')).filter(n=>/^\d+$/.test(n)))out.push(path.join(root,'userdata',user,app.appid,'remote'));
  return [...new Set(out)].filter(isDir);
+}
+function steamRoots(gameDir,env){
+ const out=[];if(env.steamRoot)out.push(env.steamRoot);
+ const m=/^(.*)[\\/]steamapps[\\/]common[\\/]/i.exec(path.resolve(gameDir)+path.sep);if(m)out.push(m[1]);
+ if(!env.steamRoot)try{const v=(env.registry?.query?.('HKCU\\Software\\Valve\\Steam')||[]).find(x=>/^SteamPath$/i.test(x.name));if(v?.data)out.push(path.normalize(v.data));}catch{}
+ return [...new Set(out.map(p=>path.resolve(p)))].filter(isDir);
 }
 /* TJS text of a save file, with what is needed to write it back */
 function readKrkr(buf){
@@ -66,8 +82,9 @@ function writeKrkr(info,text){
  return Buffer.concat([info.prefix,head,z]);}
 const KRKR_KEY=/"([A-Za-z_]\w*)"\s*=>\s*(?:(-?\d+)|"([^"\\]{1,24})")/g;
 function krkrChanges(text){
- const out=[];let m;KRKR_KEY.lastIndex=0;
- while((m=KRKR_KEY.exec(text))){const key=m[1];if(!LANG_KEY.test(key)||SKIP_KEY.test(key))continue;
+ const out=[];let m;KRKR_KEY.lastIndex=0;const seen=new Map();for(const x of text.matchAll(KRKR_KEY))seen.set(x[1],(seen.get(x[1])||0)+1);KRKR_KEY.lastIndex=0;
+ /* a key written many times is per-record data (ATRI keeps textlang in every backlog entry), not the setting */
+ while((m=KRKR_KEY.exec(text))){const key=m[1];if(!LANG_KEY.test(key)||SKIP_KEY.test(key)||seen.get(key)>1)continue;
   if(m[2]!=null){const v=Number(m[2]);out.push({key,from:v,to:0,index:m.index,match:m[0],next:m[0].replace(/-?\d+$/,'0')});}
   else{const to=japaneseLike(m[3]);out.push({key,from:m[3],to:to??m[3],index:m.index,match:m[0],next:to?m[0].replace(/"[^"]*"$/,'"'+to+'"'):m[0],already:JA_VALUE.test(m[3])});}}
  return out;}
@@ -133,7 +150,7 @@ function unityPlan(gameDir,env){
   const prefKey=files.some(f=>/\.(sav|dat|bin)$/i.test(f))?(env.prefKeyFor||preferenceLanguageKey)(path.join(data,'Managed')):null;
   for(const f of files.slice(0,200)){let buf;try{if(fs.statSync(f).size>256<<10)continue;buf=fs.readFileSync(f);}catch{continue;}
    if(/\.(json|txt|ini|cfg|xml|nson)$/i.test(f)&&!buf.includes(0)){const text=buf.toString('utf8'),ch=jsonChanges(text);if(ch.length)found=true;const todo=ch.filter(c=>c.next!==c.match);
-    if(todo.length){let next=text;for(const c of todo)next=next.replace(c.match,c.next);items.push({kind:'file',file:f,buf,next:Buffer.from(next,'utf8'),from:todo[0].from,to:todo[0].to,key:todo[0].key,format:'json'});}continue;}
+    if(todo.length){let next=text;for(const c of todo)next=next.replace(c.match,()=>c.next);items.push({kind:'file',file:f,buf,next:Buffer.from(next,'utf8'),from:todo[0].from,to:todo[0].to,key:todo[0].key,changes:todo.map(c=>({key:c.key,from:c.from,to:c.to})),format:'json'});}continue;}
    if(prefKey!=null){const pairs=prefPairs(buf,prefKey);if(!pairs.length)continue;found=true;const next=Buffer.from(buf);let changed=false;
     for(const p of pairs){if(p.value===UNITY_JAPANESE)continue;if(p.kind==='Single')next.writeFloatLE(UNITY_JAPANESE,p.offset);else next.writeInt32LE(UNITY_JAPANESE,p.offset);changed=true;}
     if(changed)items.push({kind:'file',file:f,buf,next,from:pairs[0].value,to:UNITY_JAPANESE,key:'Language',format:'pref',prefKey});}}
@@ -158,14 +175,14 @@ function setAcfLanguage(text,lang){
 
 /* ---- public ----------------------------------------------------------------------------------------------- */
 function environment(o={}){const home=o.home||os.homedir();return {home,appData:o.appData||process.env.APPDATA||path.join(home,'AppData','Roaming'),localAppData:o.localAppData||process.env.LOCALAPPDATA||path.join(home,'AppData','Local'),
- localLow:o.localLow||path.join(home,'AppData','LocalLow'),documents:o.documents||path.join(home,'Documents'),registry:o.registry||{query:regQuery,set:regSet},steamRunning:o.steamRunning||steamRunning,steamJapanese:o.steamJapanese,prefKeyFor:o.prefKeyFor};}
+ localLow:o.localLow||path.join(home,'AppData','LocalLow'),steamRoot:o.steamRoot||'',documents:o.documents||path.join(home,'Documents'),registry:o.registry||{query:regQuery,set:regSet},steamRunning:o.steamRunning||steamRunning,steamJapanese:o.steamJapanese,prefKeyFor:o.prefKeyFor};}
 function manifestPath(gameDir){return path.join(gameDir,BACKUP_DIR,'manifest.json');}
 function readManifest(gameDir){try{const m=JSON.parse(fs.readFileSync(manifestPath(gameDir),'utf8'));return m?.adapter===ADAPTER?m:null;}catch{return null;}}
 
 function plan(gameDir,options={}){
  const env=environment(options),krkr=krkrPlan(gameDir,env),unity=krkr?null:unityPlan(gameDir,env),steam=steamApp(gameDir);
  const engine=krkr?.engine||unity?.engine||'';
- const items=[...(krkr?.files||[]).map(f=>({kind:'file',file:f.file,buf:f.buf,next:writeKrkr(f.info,f.changes.reduce((t,c)=>t.replace(c.match,c.next),f.info.text)),from:f.changes[0].from,to:f.changes[0].to,key:f.changes[0].key,format:'krkr'})),...(unity?.items||[])];
+ const items=[...(krkr?.files||[]).map(f=>({kind:'file',file:f.file,buf:f.buf,next:writeKrkr(f.info,f.changes.reduce((t,c)=>t.replace(c.match,()=>c.next),f.info.text)),from:f.changes[0].from,to:f.changes[0].to,key:f.changes[0].key,changes:f.changes.map(c=>({key:c.key,from:c.from,to:c.to})),format:'krkr'})),...(unity?.items||[])];
  const found=!!(krkr?.found||unity?.found);
  /* Japanese is known to exist: the game keeps a language setting (KiriKiri), Japanese resources (Unity), or the Steam store lists it */
  const japanese=!!(krkr?.found||unity?.japaneseAssets?.length||env.steamJapanese===true);
@@ -195,18 +212,22 @@ function apply(gameDir,options={}){
   const text=fs.readFileSync(p.steamSwitch.acf,'utf8');items.push({kind:'file',file:p.steamSwitch.acf,buf:Buffer.from(text,'utf8'),next:Buffer.from(setAcfLanguage(text,'japanese'),'utf8'),from:p.steamSwitch.current,to:'japanese',key:'steam'});}
  if(!items.length)throw Error('NOTHING_TO_RESTORE');
  fs.mkdirSync(backup,{recursive:true});
- items.forEach((it,i)=>{
+ const save=()=>writeAtomic(manifestPath(gameDir),Buffer.from(JSON.stringify({version:1,adapter:ADAPTER,engine:p.engine,at:new Date().toISOString(),entries},null,1)));
+ /* a failure part way still records what was already changed, so restore can undo it */
+ try{items.forEach((it,i)=>{
   if(it.kind==='registry'){p.env.registry.set(it.key,it.name,it.type,it.patched);entries.push({kind:'registry',key:it.key,name:it.name,type:it.type,original:it.original,patched:it.patched,from:it.from,to:it.to});return;}
   const keep=String(i).padStart(2,'0')+'-'+path.basename(it.file);fs.writeFileSync(path.join(backup,keep),it.buf);writeAtomic(it.file,it.next);
-  entries.push({kind:'file',file:it.file,backup:keep,originalSha256:sha(it.buf),patchedSha256:sha(it.next),key:it.key,from:it.from,to:it.to,format:it.format||'',prefKey:it.prefKey});});
- writeAtomic(manifestPath(gameDir),Buffer.from(JSON.stringify({version:1,adapter:ADAPTER,engine:p.engine,at:new Date().toISOString(),entries},null,1)));
+  entries.push({kind:'file',file:it.file,backup:keep,originalSha256:sha(it.buf),patchedSha256:sha(it.next),key:it.key,from:it.from,to:it.to,format:it.format||'',prefKey:it.prefKey,changes:it.changes});});}catch(error){if(entries.length)save();throw error;}
+ save();
  return {applied:entries.length,cells:0,mode:entries.some(e=>e.key==='steam')?'steam':'setting'};
 }
 function revert(buf,e){
+ /* undo every key the apply changed, not only the first (older manifests carry one) */
+ if(Array.isArray(e.changes)&&e.changes.length>1){let cur=buf,any=false;for(const c of e.changes){const n=revert(cur,{...e,changes:null,key:c.key,from:c.from,to:c.to});if(n){cur=n;any=true;}}return any?cur:null;}
  try{
-  if(e.format==='krkr'){const info=readKrkr(buf);if(!info)return null;const ch=krkrChanges(info.text).filter(c=>c.key===e.key&&String(c.from)===String(e.to));if(!ch.length)return null;
-   let t=info.text;for(const c of ch)t=t.replace(c.match,typeof e.from==='number'?c.match.replace(/-?\d+$/,String(e.from)):c.match.replace(/"[^"]*"$/,'"'+e.from+'"'));return writeKrkr(info,t);}
-  if(e.format==='json'){const t=buf.toString('utf8'),ch=jsonChanges(t).filter(c=>c.key===e.key&&c.from===e.to);if(!ch.length)return null;let n=t;for(const c of ch)n=n.replace(c.match,c.match.replace(/[^"\\]*(\\?")$/,e.from+'$1'));return Buffer.from(n,'utf8');}
+  if(e.format==='krkr'){const info=readKrkr(buf);if(!info)return null;const all=krkrChanges(info.text),ch=all.filter(c=>c.key===e.key&&String(c.from)===String(e.to));/* the game (or the user) already put the old language back: nothing to write, the entry is done */if(!ch.length)return all.some(c=>c.key===e.key&&String(c.from)===String(e.from))?buf:null;
+   let t=info.text;for(const c of ch)t=t.replace(c.match,()=>typeof e.from==='number'?c.match.replace(/-?\d+$/,String(e.from)):c.match.replace(/"[^"]*"$/,()=>'"'+e.from+'"'));return writeKrkr(info,t);}
+  if(e.format==='json'){const t=buf.toString('utf8'),ch=jsonChanges(t).filter(c=>c.key===e.key&&c.from===e.to);if(!ch.length)return null;let n=t;for(const c of ch)n=n.replace(c.match,()=>c.match.replace(/[^"\\]*(\\?")$/,(_,q)=>e.from+q));return Buffer.from(n,'utf8');}
   if(e.format==='pref'){const pairs=prefPairs(buf,e.prefKey).filter(p=>p.value===e.to);if(!pairs.length)return null;const n=Buffer.from(buf);for(const p of pairs){if(p.kind==='Single')n.writeFloatLE(e.from,p.offset);else n.writeInt32LE(e.from,p.offset);}return n;}
  }catch{}
  return null;}

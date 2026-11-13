@@ -34,7 +34,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.about-eyebrow,.upd-eyebro
 
 /* progress is gold everywhere (red stays for the active / current mark) */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.stg-book .share,.ri-bar-saved){background:var(--t-bar-fill)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .stg-book .share{height:var(--t-bar-h)!important;border-radius:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .stg-book .share{border-radius:0!important}
 
 /* settings: the content uses the whole column; its scroller stays at the window's right edge */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-layout>.settings-content>*,
@@ -60,7 +60,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .dev-notice-actions>button:las
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog,dialog.profile-panel,.lv-opt){border-radius:var(--t-radius)!important}
 
 /* round 2: one N-level tag, square filters and chips, gold progress, red focus, mono kickers */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.word-jlpt,.ri-badge,.dh-w em){border-radius:0!important;background:transparent!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t-gold) 70%,transparent)!important;border:0!important;color:var(--t-gold)!important;font:600 10px/1.7 var(--t-mono)!important;letter-spacing:.1em!important;padding:0 6px!important;font-style:normal!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.word-jlpt,.ri-badge,.dh-w em){border-radius:0!important;background:transparent!important;border:0!important;font:600 10px/1.7 var(--t-mono)!important;letter-spacing:.1em!important;padding:0 6px!important;font-style:normal!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.sentence-filter .tab,.sentence-word,.revisit-chip,.review-card .eyebrow,.library-wall-toggle,.field-search input){border-radius:var(--t-radius)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.review-card .eyebrow,.sentence-source,.sentence-when,.sentence-words .muted,.ri-head em,.ri-status){font-family:var(--t-mono)!important;letter-spacing:var(--t-label-track)!important;font-size:var(--t-label-size)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .sentence-source{color:var(--t-label-color)!important}
@@ -139,8 +139,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .profile-perks li{color:
  --t-red:#a8232f;--t-red-2:#c0303d;--t-gold:#8a6400;
  --t-panel:linear-gradient(160deg,rgba(255,252,249,.94),rgba(248,242,238,.92));
  --t-panel-solid:linear-gradient(160deg,#fffcf9,#f6efea);
- --t-line:rgba(60,30,30,.12);--t-line-2:rgba(60,30,30,.22);
- --t-text:#2a1a1a;--t-text-2:#5a4640;--t-label-color:#5a4640;
+ --t-line:rgba(60,30,30,.12);--t-line-2:rgba(60,30,30,.22);--t-label-color:#5a4640;
  --t-bar-track:rgba(60,30,30,.1)}
 :root{--t-text:var(--text,#f3f3f5);--t-text-2:color-mix(in srgb,var(--text,#f3f3f5) 72%,transparent)}
 :root[data-theme=light]{--t-text:#2a1a1a;--t-text-2:#5a4640}
@@ -154,3 +153,42 @@ html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .about-page{
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .about-page :is(dd,.about-link,h1,h2,h3,strong,b,.about-support>p,figcaption,.about-tagline,p){color:var(--t-text)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .about-page :is(dt,.about-update-state,.about-eyebrow,small,.about-sub,em){color:var(--t-text-2)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .about-page :is(button.about-update,.about-link){color:var(--t-text)!important;background:rgba(255,255,255,.7)!important;box-shadow:inset 0 0 0 1px var(--t-line-2)!important;border-color:var(--t-line-2)!important}
+
+/* light theme, every page: the grey / gold ink tokens are dark enough for small text on the light paper, and the surfaces that were drawn dark
+   (dialogs, the news card, stat tiles, page tabs) take the light panel; light ink that was written for dark glass reads the text token */
+:root[data-theme=light]{--g-t3:#76604f;--g-gold:#8a5a24;--gold-accent:#8a5a24;--lb-ink-3:#76604f;--lb-gold:#8a5a24}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog){background:var(--t-panel-solid)!important;color:var(--t-text)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog) :is(h2,h3,li,p,kbd,nav button){color:var(--t-text)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog) kbd{background:rgba(60,30,30,.06)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.lb-tile,.tv-hot-news){background:var(--t-panel)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.lb-seg,.lb-tabs,.stg-tabs,.tabs)>button:is([aria-pressed=true],[aria-selected=true],.active,.on){color:var(--t-text)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main>.tabs{background:var(--t-panel)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main>.tabs>button{color:var(--t-text-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .game-caption .mq{color:var(--t-text)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.main .text-button,#reader-notice button){color:var(--t-red)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .tv-hot-news .tv-hot-meta{background:rgba(255,252,249,.92)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .tv-hot-news .tv-hot-meta small{color:var(--t-text-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .hero-placeholder .ph-title{color:#fff4ea!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .game-caption{opacity:1!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog) :is(b,small,label,button.secondary,button.text-button){color:var(--t-text)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog) small{color:var(--t-text-2)!important;opacity:1!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.game-dialog,.lv-dialog) button.secondary{background:#fff!important;box-shadow:inset 0 0 0 1px var(--t-line-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page :is(b,span,small,h2,.gm-kicker,.rw-title,.rw-album-btn,.gm-hero-prog,.gm-hero-level,.gm-stg-glyph,.gm-level){color:var(--t-text)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page :is(small,.gm-kicker,.lg-bar>span){color:var(--t-text-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page .gm-level.active{color:#fff!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page .gm-stg.on :is(span,b){color:#fff4ea!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page .gm-link{color:var(--t-red)!important}
+
+/* light theme, game library: the no-cover placeholder, the caption under each cover and the centre tool capsule were drawn for dark glass;
+   on the light paper they take the light panel and the text tokens (dark mode untouched, the wall's edge fade stays) */
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .cover-frame .hero-placeholder{background:var(--t-panel-solid)!important;border:1px solid var(--t-line-2)!important;color:var(--t-text-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .cover-frame .hero-placeholder svg{opacity:1!important;color:var(--t-text-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .cover-frame .hero-placeholder .ph-title{color:var(--t-text)!important;opacity:1!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .lib-field .cover-frame{background-color:transparent}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .lib-field .game-caption .mq{color:var(--t-text)!important;text-shadow:none!important;-webkit-text-stroke:0!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .lib-field .game-caption.mq-box{background:rgba(255,252,249,.72);border-radius:var(--t-radius)}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.lib-toolbar,.main>.field-search){background:var(--t-panel-solid)!important;box-shadow:0 10px 28px rgba(60,30,30,.16),var(--t-ring)!important;border-color:var(--t-line-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.lib-toolbar,.field-search) #game-search{background:#fff!important;color:var(--t-text)!important;box-shadow:inset 0 0 0 1px var(--t-line-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.lib-toolbar,.main>.field-search) input::placeholder{color:var(--t-text-2)!important;opacity:1}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.lib-toolbar,.field-search) .icon-button{color:var(--t-text-2)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.lib-toolbar,.field-search) .icon-button:hover{color:var(--t-text)!important}

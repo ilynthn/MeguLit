@@ -54,31 +54,31 @@
 .review-translate-error{margin:8px 0 0;color:#e6a56f}
 .rv-controls .select-trigger{line-height:28px}
 /* Game language dialog: Japanese original restore */
-.language-restore{display:grid;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
-.language-restore header{display:grid;gap:4px}.language-restore header small{color:var(--muted);font-size:12px}
-.restore-option{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--surface) 70%,#000)}
-.restore-option.is-recommended{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
-.restore-option>div{display:grid;gap:5px;min-width:0}.restore-option p{margin:0;font-size:12px;line-height:1.6;color:var(--muted)}.restore-option small{font-size:11px;color:var(--muted)}
-.restore-option>button{flex:none}
-details.restore-option{display:block}details.restore-option summary{cursor:pointer;list-style:none}details.restore-option summary::-webkit-details-marker{display:none}details.restore-option p{margin:8px 0 10px}
-.restore-tag{margin-left:8px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;color:var(--text);background:color-mix(in srgb,var(--accent) 22%,transparent)}
-.restore-mode{position:relative;display:inline-flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;cursor:pointer}.restore-mode input{position:absolute;opacity:0;width:0;height:0}.restore-mode input:checked+.review-switch{background:var(--accent)}.restore-mode input:checked+.review-switch::after{transform:translateX(13px)}
+
+
+
+
+
+
+
+
+
 
 .review-engine .select-control{min-width:112px}
 .rv-controls{row-gap:8px}
 
-.restore-actions{display:flex;flex-direction:column;gap:6px;flex:none}
 
-.restore-actions{width:132px}
-.restore-actions button{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.restore-progress{color:var(--text)!important}
+
+
+
+
 /* Extraction plan as a collapsible row under the recommended restore */
-details.restore-extract>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;user-select:none}
-details.restore-extract>summary::-webkit-details-marker{display:none}
-.restore-chevron{width:16px;height:16px;margin-left:auto;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s}
-details.restore-extract[open] .restore-chevron{transform:rotate(90deg)}
-.restore-body{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;margin-top:10px}
-.restore-body>div:first-child{display:grid;gap:5px;min-width:0}
-.language-swap-note{display:block;margin-top:4px;max-width:250px;line-height:1.5}
+
+
+
+
+
+
+
 
 .review-full-error{display:block;margin-top:4px;font-size:12px;opacity:.7}

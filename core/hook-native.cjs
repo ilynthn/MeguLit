@@ -92,13 +92,15 @@ class HookNative{
   const staged=path.join(this.folder,'HookBridge.updated.exe');if(fs.existsSync(staged))try{fs.copyFileSync(staged,path.join(this.folder,'HookBridge.exe'));fs.unlinkSync(staged);}catch{}
   HookNative.syncShippedHook(this.folder);
   const root=this.layout.hook,required=['LunaHost64.dll','LunaHook32.dll','LunaHook64.dll'],missing=required.filter(n=>!fs.existsSync(path.join(root,n)));if(missing.length||!fs.existsSync(path.join(this.folder,'HookBridge.exe'))){this.retryAt=this.now()+30000;this.notify({hookMessage:'Hook 组件缺失：'+missing.join('、'),hookAvailable:false});return;}
-  this.flowPage=FLOW_PAGE_EXES.test(name);this.flowGridName=(FLOW_GRIDS.find(([re])=>re.test(name))||[])[1]||'';  const identity=pid+"|"+started;if(identity!==this.identity){this.lastSource="";this.lastSourceAt=0;this.preferredThread=null;this.remembered=null;this.identity=identity;this.state.hookFramework=null;}this.pid=pid;this.started=started;this.enabled=this.preferences?.hookProfile!=='read'&&!this.preflight&&this.windowState?.bound===true&&(this.windowState?.coverEnabled!==false||this.preferences?.embedTranslation===true);this.route=this.enabled?(this.preferences?.hookProfile==='embed'?'embed':'custom'):'read';this.markerKey='';this.lastHeartbeat=this.now();const serial=++this.serial,child=this.process=this.spawn(path.join(this.folder,'HookBridge.exe'),[String(pid),hwnd,name,started,...(this.route==='read'?['--read-only']:this.route==='embed'?['--official-embed']:[])],{cwd:this.folder,windowsHide:true,stdio:['pipe','pipe','ignore']});child.stdin.on('error',()=>{});if(this.enabled)this.send({type:'enable'});
+  this.flowPage=FLOW_PAGE_EXES.test(name);this.flowGridName=(FLOW_GRIDS.find(([re])=>re.test(name))||[])[1]||'';  const identity=pid+"|"+started;if(identity!==this.identity){this.lastSource="";this.lastSourceAt=0;this.preferredThread=null;this.remembered=null;this.identity=identity;this.state.hookFramework=null;this.state.hookEmbedPending=false;}this.pid=pid;this.started=started;this.enabled=this.preferences?.hookProfile!=='read'&&!this.preflight&&this.windowState?.bound===true&&(this.windowState?.coverEnabled!==false||this.preferences?.embedTranslation===true);this.route=this.enabled?(this.preferences?.hookProfile==='embed'?'embed':'custom'):'read';this.markerKey='';this.lastHeartbeat=this.now();const serial=++this.serial,child=this.process=this.spawn(path.join(this.folder,'HookBridge.exe'),[String(pid),hwnd,name,started,...(this.route==='read'?['--read-only']:this.route==='embed'?['--official-embed']:[])],{cwd:this.folder,windowsHide:true,stdio:['pipe','pipe','ignore']});child.stdin.on('error',()=>{});if(this.enabled)this.send({type:'enable'});
   const failed=()=>{if(serial!==this.serial)return;this.process=null;++this.serial;this.retry('Hook 连接停止');};child.on('error',failed);child.on('exit',failed);
   createInterface({input:child.stdout}).on('line',line=>{if(serial!==this.serial||line.length>30000)return;let m;try{m=JSON.parse(line);}catch{return;}this.lastHeartbeat=this.now();
    if(m.type==='hookEngineFeature'&&['naninovel','cs2','siglus'].includes(m.framework)){
     if(m.framework==='siglus'&&this.enabled){this.enabled=false;this.route='read';this.verified=false;this.preferredThread=null;this.send({type:'disable',reason:'script-vm-capture-only'});}
     this.notify({hookFramework:m.framework});return;
    }
+   /* E531: an embed-capable hook is inserted; its stream appears with the first dialogue line, so a title menu is not "unsupported" */
+   if(m.type==='hookEmbedPending'){this.trace('embed hook pending '+String(m.code||'').slice(0,200));this.notify({hookEmbedPending:true});return;}
    /* E520: the bridge found this game's remembered dialogue stream (it embedded before): no warm-up, replace from the first line */
    if(m.type==='hookMemory'){this.remembered={name:String(m.name||'').slice(0,100),code:String(m.code||'').slice(0,1000)};this.trace('stream memory '+this.remembered.name+' '+this.remembered.code);this.notify({hookRemembered:true});try{this.onRemembered?.(this.remembered);}catch(e){this.trace('remembered error '+(e?.message||e));}return;}
    if(m.type==='hookEngineLine'&&PAGE_ENGINES.has(m.engine)){this.pageLine(m);return;}
@@ -231,7 +233,12 @@ class HookNative{
      and was read as a story line, and one line once arrived twice in one piece. Text without any Japanese is menu/help text here, and a line made of
      the same sentence twice is that sentence. */
   if(this.flowPage)this.syncEmbedMode();
-  if(this.flowPage){if(!this.flowStory(text)){this.trace('flow page: not a story line, dropped (menu/help) '+JSON.stringify(text.slice(0,40)));this.flowStreamCheck(true);return;}
+  if(this.flowPage){if(!this.flowStory(text)){
+    /* E532 (user: ファタモルガーナの館 opening 「館がある」「聖なるかな」 stayed Japanese only): a short Japanese card with no sentence stop is
+       opening/title-card text, not menu help. It goes to the art path (located on the picture, translated in the original's style)
+       and the selected stream stays: switching on every card made the streams flip every 2 s and resend the story line. */
+    if(HookNative.artCard(text)){this.trace('flow page: title card to art '+JSON.stringify(text.slice(0,40)));this.artCandidate(text);return;}
+    this.trace('flow page: not a story line, dropped (menu/help) '+JSON.stringify(text.slice(0,40)));this.flowStreamCheck(true);return;}
    const once=HookNative.undouble(text);if(once!==text){this.trace('flow page: doubled line collapsed chars='+text.length);this.source({...m,text:once},name);return;}}
   /* E282 (user: game ruby first): readings the game's own script gives this line (KiriKiri Z scene files) join the ruby
      the hook delivered; only for a line the script matched, and never twice for one base. */
@@ -336,6 +343,10 @@ class HookNative{
     selected and the story was neither read, hidden nor replaced. A story line is one the game's own script table has
     (original-text provider); without the table, one with the game's paragraph indent, a quote or sentence-final
     punctuation. A selected stream whose text is not story is switched to the stream that carries story. */
+ /* E532 a title card: 2-40 characters of Japanese with kana or kanji, no long katakana run (BGM/effect/resource names such as
+    「女中のテーマピアノソロ」), no ASCII words and no control help. A false hit costs nothing: the art path shows it only when OCR
+    finds that text on the picture. */
+ static artCard(text){const t=String(text||'').replace(/<r[^<>]*>|<\/r>/g,'').replace(/\s+/g,'');const n=[...t].length;return n>=2&&n<=40&&/[぀-ゟ㐀-鿿]/.test(t)&&!/[゠-ヿ]{4,}/.test(t)&&!/[A-Za-z]{2,}/.test(t)&&!HookNative.uiHelp(String(text||''));}
  flowStory(text){const t=String(text||'').replace(/<r[^<>]*>|<\/r>/g,'').trim();if(!t||!/[\u3040-\u30ff\u3400-\u9fff]/.test(t)&&!/^[「『“]/.test(t)||HookNative.uiHelp(String(text||'')))return false;
   /* E353 (offline replay of the whole WoH table): the table only ever says YES. A line it holds is story even when the
      official Chinese left it as it is (names such as 「青子。」); a line it cannot match (spells written <rソウ>[swel]</r>,

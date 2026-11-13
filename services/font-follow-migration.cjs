@@ -11,7 +11,7 @@ function follow(prefs){if(!prefs||typeof prefs!=='object')return false;let chang
  if(prefs.japaneseFontSource!=='game'){prefs.japaneseFontSource='game';changed=true;}
  if(prefs.japaneseFont!==undefined&&!automatic(prefs.japaneseFont)){prefs.japaneseFont='originalGothic';changed=true;}
  return changed;}
-function rewrite(file,edit){let doc;try{doc=JSON.parse(fs.readFileSync(file,'utf8'));}catch{return false;}if(!doc||typeof doc!=='object'||Array.isArray(doc)||!edit(doc))return false;const tmp=file+'.'+process.pid+'.tmp';fs.writeFileSync(tmp,JSON.stringify(doc,null,2));fs.renameSync(tmp,file);return true;}
+function rewrite(file,edit){/* only a missing or unparsable file means nothing to do; a locked file throws so the one-time flag is not set and the next start retries */let doc;try{doc=JSON.parse(fs.readFileSync(file,'utf8'));}catch(error){if(error?.code==='ENOENT'||error instanceof SyntaxError)return false;throw error;}if(!doc||typeof doc!=='object'||Array.isArray(doc)||!edit(doc))return false;const tmp=file+'.'+process.pid+'.tmp';fs.writeFileSync(tmp,JSON.stringify(doc,null,2));try{fs.renameSync(tmp,file);}catch(error){try{fs.unlinkSync(tmp);}catch{}throw error;}return true;}
 function migrateFiles(folder){
  const result={global:false,profiles:0};
  result.global=rewrite(path.join(folder,'gal-preferences.json'),follow);

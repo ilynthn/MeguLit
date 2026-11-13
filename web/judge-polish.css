@@ -16,8 +16,7 @@ html body .dict-field{opacity:.72}
 html body #learning-content .g-dict-chips{align-items:center}
 
 /* saved words: a long definition list folds to four lines; the reading reads */
-html body .main .word-row .word-def{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:normal!important}
-html body .main .word-row .word-def{white-space:pre-line!important}
+html body .main .word-row .word-def{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line!important}
 html body .main .word-row:hover .word-def,html body .main .word-row:focus-within .word-def{-webkit-line-clamp:unset;display:block}
 html body .main .word-row .word-reading{font-size:14px!important;display:flex;align-items:center;gap:8px}
 html body .main .word-row{background:color-mix(in srgb,#0d0a0d 72%,transparent)}

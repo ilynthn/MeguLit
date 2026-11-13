@@ -61,15 +61,16 @@ export function pageHTML(data,{locale,esc,filter='all',cat='gal'}){
 function placeInk(root){const nav=root.querySelector('.dl-filters'),on=nav?.querySelector('[aria-selected=true]'),ink=nav?.querySelector('.dl-filter-ink');if(!on||!ink)return;ink.style.width=on.offsetWidth+'px';ink.style.transform=`translateX(${on.offsetLeft}px)`;}
 /* the home's news thumbnails open the daily page on that article */
 function focusFromHome(main){let link='';try{link=sessionStorage.getItem('megulit-daily-focus')||'';sessionStorage.removeItem('megulit-daily-focus');}catch{}if(!link)return;const hit=[...main.querySelectorAll('[data-dl-open]')].find(e=>e.dataset.dlOpen===link);const item=hit?.closest('article,li')||hit;if(!item)return;requestAnimationFrame(()=>{item.scrollIntoView({block:'center',behavior:'smooth'});item.classList.add('dl-focus');setTimeout(()=>item.classList.remove('dl-focus'),2200);});}
+let onlineBack=null;
 export async function mountDaily(main,{api,locale,esc,toast,isCurrent=()=>true,lookup,openSettings}){
  let data=null,filter='all',cat=(()=>{try{return localStorage.getItem('megulit-daily-cat')==='acg'?'acg':'gal';}catch{return 'gal';}})();
  const paint=()=>{main.innerHTML=pageHTML(data,{locale,esc,filter,cat});bind();focusFromHome(main);requestAnimationFrame(()=>{placeInk(main);main.querySelector('.dl')?.classList.add('dl-ready');});};
  const load=async(spin)=>{if(spin)main.querySelector('[data-dl-refresh]')?.classList.add('dl-spin');/* Issue 129: never sit on the loading card. The service answers within ~12 s (8 s per relay request, 4 s for glosses); past LOAD_LIMIT the page shows the error card with its refresh button, and it reloads by itself when the connection comes back */let timer;try{data=await Promise.race([api('daily_view',spin?{force:true}:{}),new Promise((_,no)=>{timer=setTimeout(()=>no(Error('DAILY_TIMEOUT')),LOAD_LIMIT);})]);}catch(e){data={state:'error',error:/TIMEOUT/.test(String(e?.message||''))?'TIMEOUT':'NETWORK'};}finally{clearTimeout(timer);}if(isCurrent())paint();};
-  window.addEventListener('online',function back(){if(!isCurrent()){window.removeEventListener('online',back);return;}if(data?.state==='error')load(false);});
+  /* one recovery listener at a time: a visit replaces the previous visit's listener instead of piling up */if(onlineBack)window.removeEventListener('online',onlineBack);onlineBack=function back(){if(!isCurrent()){window.removeEventListener('online',back);if(onlineBack===back)onlineBack=null;return;}if(data?.state==='error')load(false);};window.addEventListener('online',onlineBack);
  function bind(){
   main.querySelectorAll('[data-dl-refresh]').forEach(b=>b.onclick=()=>load(true));
   bindOpen(main);
-  main.querySelectorAll('[data-dl-cat]').forEach(b=>b.onclick=()=>{if(b.dataset.dlCat===cat)return;cat=b.dataset.dlCat;filter='all';try{localStorage.setItem('megulit-daily-cat',cat);}catch{}const body=main.querySelector('.dl-news');body?.classList.add('dl-swap');setTimeout(paint,160);});
+  main.querySelectorAll('[data-dl-cat]').forEach(b=>b.onclick=()=>{if(b.dataset.dlCat===cat)return;cat=b.dataset.dlCat;filter='all';try{localStorage.setItem('megulit-daily-cat',cat);}catch{}const body=main.querySelector('.dl-news');body?.classList.add('dl-swap');setTimeout(()=>{if(isCurrent())paint();},160);});
   main.querySelectorAll('[data-dl-filter]').forEach(b=>b.onclick=()=>{if(b.dataset.dlFilter===filter)return;filter=b.dataset.dlFilter;
    main.querySelectorAll('[data-dl-filter]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));placeInk(main);
    const body=main.querySelector('.dl-news-body'),w=W[locale]||W.zh,inCat=data.news.items.filter(n=>(n.cat||'gal')===cat),shown=filter==='all'?inCat:inCat.filter(n=>n.source===filter);

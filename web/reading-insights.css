@@ -2,48 +2,48 @@
 /* 学习 → 读过的词 */
 .ri-panel .section-header{flex-wrap:wrap}
 .ri-panel .section-header h2{margin:0}
-.ri-status{margin:0 0 12px}
-.ri-words{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
-.ri-word{display:flex;justify-content:space-between;gap:12px;padding:13px 15px;background:color-mix(in srgb,var(--text) 4%,transparent)}
-.ri-word-main{min-width:0}
-.ri-word-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+
+.ri-words{gap:8px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.ri-word{justify-content:space-between;}
+
+.ri-word-head{flex-wrap:wrap}
 .ri-word .word-spelling{font-size:19px}
-.ri-word .word-reading{margin:3px 0 6px}
-.ri-word .word-def{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ri-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.ri-badge{font-size:11px;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text)}
+
+
+.ri-count{font-size:12px;font-variant-numeric:tabular-nums}
+.ri-badge{font-size:11px;}
 .ri-games{margin-top:6px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ri-save{white-space:nowrap;min-height:30px;padding:4px 12px;font-size:12px}
-.ri-levels{display:grid;gap:10px;margin-top:6px}
-.ri-level{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:12px;font-size:13px}
+.ri-save{white-space:nowrap;font-size:12px}
+.ri-levels{margin-top:6px}
+.ri-level{align-items:center;}
 .ri-level-name{font-weight:600}
-.ri-bar{position:relative;height:10px;border-radius:999px;background:color-mix(in srgb,var(--text) 8%,transparent);overflow:hidden}
-.ri-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
-.ri-bar-met{background:color-mix(in srgb,var(--accent) 45%,transparent)}
-.ri-bar-saved{background:var(--accent)}
-.ri-level-num{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+
+
+
+
+.ri-level-num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .ri-level-num b{color:var(--text);font-weight:600}
-.ri-key{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.ri-key i{display:inline-block;width:14px;height:8px;border-radius:999px}
-.ri-sub{font-size:14px;margin:22px 0 4px}
-.ri-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin:6px 0 10px}
+.ri-key{font-size:12px;}
+.ri-key i{border-radius:999px}
+.ri-sub{font-size:14px;}
+.ri-legend{font-size:12px;margin:6px 0 10px}
 .ri-legend span{display:inline-flex;align-items:center;gap:5px}
 .ri-legend .ri-seg{display:inline-block;width:12px;height:8px;border-radius:3px}
 .ri-lean{display:grid;gap:8px}
-.ri-lean-row{display:grid;grid-template-columns:minmax(80px,180px) minmax(0,1fr) auto;align-items:center;gap:12px;font-size:13px}
+
 .ri-lean-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ri-stack{display:flex;height:10px;border-radius:999px;overflow:hidden;gap:1px;background:color-mix(in srgb,var(--text) 8%,transparent)}
-.ri-n5{background:color-mix(in srgb,var(--accent) 20%,transparent)}
-.ri-n4{background:color-mix(in srgb,var(--accent) 38%,transparent)}
-.ri-n3{background:color-mix(in srgb,var(--accent) 56%,transparent)}
-.ri-n2{background:color-mix(in srgb,var(--accent) 76%,transparent)}
-.ri-n1{background:var(--accent)}
-.ri-beyond{background:color-mix(in srgb,var(--text) 22%,transparent)}
-.ri-credit{margin-top:16px;font-size:11px}
-@media(max-width:620px){.ri-level{grid-template-columns:30px minmax(0,1fr)}.ri-level-num{grid-column:1/-1}.ri-lean-row{grid-template-columns:minmax(0,1fr) auto}.ri-stack{grid-column:1/-1;grid-row:2}}
-.ri-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.ri-known{white-space:nowrap;min-height:30px;padding:4px 12px;font-size:12px}
-.ri-known:hover{border-color:color-mix(in srgb,#88d2b0 55%,transparent);color:#88d2b0}
+.ri-stack{border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--text) 8%,transparent)}
+
+
+
+
+
+
+.ri-credit{font-size:11px}
+@media(max-width:620px){.ri-level-num{grid-column:1/-1}.ri-stack{grid-column:1/-1;grid-row:2}}
+.ri-actions{flex-wrap:wrap;justify-content:flex-end}
+.ri-known{white-space:nowrap;font-size:12px}
+.ri-known:hover{color:#88d2b0}
 
 /* 2026-11-11 读过的词 rebuilt (megu-edit): HUD, black stage with the top word, ranked tracks, level tiles.
    Black / paper, one red, tracked mono, square, blueprint grid and corner marks. */

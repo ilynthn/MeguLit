@@ -346,7 +346,7 @@ class Matcher{
   let pick,method,status;
   if(found.length===1){pick=found[0];method='unique';status='exact';}
   else{const ahead=found.filter(c=>c[0]>this.last&&c[0]-this.last<=400).sort((a,b)=>a[0]-b[0]);if(this.last>=0&&ahead.length){pick=ahead[0];method='position';status='high';}else{/* E520 (first line after a restart or a load: no reading position yet): a repeated line whose every occurrence has the same original and translation gives the same answer wherever it is, so it is used; the reading position stays unknown */const same=c=>c.map(i=>(this.rt[i]??'')+''+(this.og[i]??'')).join('');if(this.last<0&&found.every(c=>same(c)===same(found[0]))){pick=found[0];method='same-text';status='high';}else return {status:'uncertain',method:'repeated',candidates:found.length};}}
-  if(method!=='same-text')this.last=pick.at(-1);const named=SPEAKER.test(norm(text)),original=pick.map((i,k)=>{const o=inlineTags(this.og[i]??'');return k||named||!SPEAKER.test(norm(this.rt[i]))?o:o.replace(/^s*/,'').replace(SPEAKER,'');}),already=pick.every(i=>japaneseLine(this.rt[i]));
+  if(method!=='same-text')this.last=pick.at(-1);const named=SPEAKER.test(norm(text)),original=pick.map((i,k)=>{const o=inlineTags(this.og[i]??'');return k||named||!SPEAKER.test(norm(this.rt[i]))?o:o.replace(/^[\s　]*/,'').replace(SPEAKER,'');}),already=pick.every(i=>japaneseLine(this.rt[i]));
   if(original.some(t=>!t.trim()))return {status:'uncertain',method:'empty-original',indices:pick};
   return {status,method,indices:pick,japanese:original.join('\n'),captured:text,alreadyJapanese:already};
  }

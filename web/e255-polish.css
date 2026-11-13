@@ -47,7 +47,7 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 .main[data-kids~="settings-layout"] .page-header>:not(.page-tools){display:none!important}
 .main[data-kids~="settings-layout"] .page-header .page-tools{position:absolute;right:0;top:6px}
 .settings-autosave-status[hidden]{display:none!important}
-.main .settings-content .settings-search{margin-top:0!important}
+
 
 /* ---------- 3. 设置行：文字与控件一律垂直居中 ---------- */
 .main .settings-content .settings-row{display:flex!important;align-items:center!important;min-height:64px;padding-block:14px!important;box-sizing:border-box}
@@ -63,23 +63,20 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 .main .settings-content .panel>.settings-row:last-child{border-bottom-color:transparent!important}
 
 /* ---------- 4. 颜色选择：宝石色板 ---------- */
-.main .settings-content input[type=color]{-webkit-appearance:none;appearance:none;width:52px!important;height:30px!important;padding:3px!important;border:0!important;border-radius:999px!important;cursor:pointer;
- background:linear-gradient(135deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 50%,transparent),rgba(120,70,40,.4))!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 35%,transparent),0 4px 10px -4px rgba(0,0,0,.6)!important;transition:box-shadow .2s,transform .2s}
+.main .settings-content input[type=color]{-webkit-appearance:none;appearance:none;border:0!important;cursor:pointer;transition:box-shadow .2s,transform .2s}
 .main .settings-content input[type=color]::-webkit-color-swatch-wrapper{padding:0}
-.main .settings-content input[type=color]::-webkit-color-swatch{border:0;border-radius:999px;box-shadow:inset 0 1px 2px rgba(255,255,255,.25),inset 0 -2px 4px rgba(0,0,0,.35)}
-.main .settings-content input[type=color]:hover{transform:translateY(-1px);box-shadow:0 0 0 1px var(--gold-hi,#ffd7a0),0 0 12px rgba(255,190,110,.35)!important}
+.main .settings-content input[type=color]::-webkit-color-swatch{border:0;}
+
 .color-swatches{gap:10px!important}
-.color-swatches .swatch{width:24px!important;height:24px!important;min-width:0!important;border:0!important;border-radius:50%!important;cursor:pointer;position:relative;
- background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.45),transparent 42%),var(--swatch)!important;
- box-shadow:inset 0 -3px 5px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.12),0 3px 8px -3px rgba(0,0,0,.6)!important;transition:transform .2s,box-shadow .2s!important}
-.color-swatches .swatch:hover{transform:translateY(-2px) scale(1.06)}
-.color-swatches .swatch.active{box-shadow:inset 0 -3px 5px rgba(0,0,0,.35),0 0 0 2px var(--e-ink,#17181c),0 0 0 3.5px var(--gold-accent,#edb56e),0 0 12px color-mix(in srgb,var(--gold-accent,#edb56e) 45%,transparent)!important}
+.color-swatches .swatch{min-width:0!important;border:0!important;border-radius:50%!important;cursor:pointer;position:relative;transition:transform .2s,box-shadow .2s!important}
+
+
 .accent-custom{height:28px!important;padding:0 12px!important;border-radius:999px!important;border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 35%,transparent)!important;background:transparent!important;font-size:12.5px!important}
 .accent-custom::before{content:"";width:12px;height:12px;margin-right:6px;border-radius:50%;background:conic-gradient(#e0475a,#e8b04c,#4fb38f,#3d8ec9,#8a5cc4,#e0475a)}
 .accent-custom:hover{border-color:var(--gold-accent,#edb56e)!important}
 
 /* ---------- 5. 左侧栏：主题同步，上下留白一致 ---------- */
-.main .settings-nav{padding:18px 18px!important;box-sizing:border-box}
+.main .settings-nav{box-sizing:border-box}
 .main .settings-nav .settings-category:first-child>summary{padding-top:0!important}
 .main .settings-nav .settings-category:last-child{padding-bottom:0!important;margin-bottom:0!important}
 .main .settings-nav .settings-category:last-child:not([open])>summary,.main .settings-nav .settings-category:last-child .settings-category-items>:last-child{padding-bottom:4px!important;margin-bottom:0!important}
@@ -88,7 +85,7 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 14px 34px -14px rgba(80,40,20,.28)!important;backdrop-filter:blur(16px) saturate(1.1)}
 :root[data-theme=light] .main .settings-nav .settings-category summary{color:#a8652d!important}
 :root[data-theme=light] .main .settings-nav .settings-category button{color:#6e4f47!important}
-:root[data-theme=light] .main .settings-nav .settings-category button.active{color:#301919!important}
+
 :root[data-theme=black] .main .settings-nav,:root[data-theme=black] .home-glass .main .settings-nav{
  background:linear-gradient(180deg,rgba(14,12,13,.86),rgba(6,6,7,.82))!important;border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 20%,transparent)!important;border-radius:12px!important;
  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--gold-hi,#ffd7a0) 6%,transparent),0 16px 40px rgba(0,0,0,.5)!important}
@@ -101,24 +98,20 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 :root[data-theme=black] .select-popup{background:rgba(8,8,9,.97)!important;border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 18%,transparent)!important}
 
 /* ---------- 6. 游戏库悬停详情：底角不漏色 ---------- */
-.library-card .cover-frame{background:#140d0c!important}
-.library-card .game-hover{inset:-3px!important;background:linear-gradient(transparent 6%,rgba(26,17,16,.88) 54%,#140d0c 92%)!important}
-/* E258 悬停瞬间漏色：封面图内缩 1px，边缘永远落在深色底与遮罩里；遮罩不再从 0 透明度淡入边缘 */
-.library-card .cover-frame>:is(img,.cover){clip-path:inset(1px round 5px)}
-.library-card .cover-frame{box-shadow:inset 0 0 0 1px #140d0c}
-.library-card .game-hover{transition:opacity .12s linear!important;will-change:opacity}
+
+.library-card .game-hover{inset:-3px!important;background:linear-gradient(transparent 6%,rgba(26,17,16,.88) 54%,#140d0c 92%)!important;will-change:opacity}
 /* E259 悬停只认封面本身；去掉过渡中的亚像素帧（漏色来源） */
 .library-card:hover .game-hover,.library-card:hover .game-hover>*{opacity:0}
 .library-card:hover .cover-frame{transform:none!important}
 .library-card .cover-frame:hover .game-hover,.library-card:has(.game-card:focus-visible) .game-hover{opacity:1!important}
 .library-card .cover-frame:hover .game-hover>*,.library-card:has(.game-card:focus-visible) .game-hover>*{opacity:1;translate:0 0}
-.library-card .cover-frame:hover{transform:none!important}
-.library-card .cover-frame,.library-card .game-hover,.library-card .game-hover>*{transition:none!important}
+
+
 /* E259 光晕去掉明显光心：平缓衰减 + 柔化边界，看不出光源位置 */
 .grimoire-glow .ember{background:radial-gradient(closest-side,color-mix(in srgb,var(--c) 62%,transparent) 0%,color-mix(in srgb,var(--c) 44%,transparent) 30%,color-mix(in srgb,var(--c) 20%,transparent) 62%,transparent 100%)!important;filter:blur(48px);top:-26vh!important}
 /* E260 下拉框按内容收窄，文字居中 */
-.main .settings-content .settings-row .select-control,.main .settings-content .settings-row .select-control.compact-select,.main .settings-content .font-control>.compact-select{width:max-content!important;min-width:128px!important;max-width:240px!important;flex:none!important}
-.main .settings-content .settings-row .select-trigger{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;width:100%!important;padding:0 34px!important;white-space:nowrap}
+.main .settings-content .settings-row .select-control,.main .settings-content .settings-row .select-control.compact-select,.main .settings-content .font-control>.compact-select{flex:none!important}
+.main .settings-content .settings-row .select-trigger{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;width:100%!important;white-space:nowrap}
 .main .settings-content .select-popup{min-width:100%!important;width:max-content!important}
 .main .settings-content .select-popup :is([role=option],button,li){justify-content:center!important;text-align:center!important}
 /* 颜色：去油光，不裁切 */
@@ -126,9 +119,9 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 .color-swatches .swatch{width:22px!important;height:22px!important;background:var(--swatch)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)!important}
 .color-swatches .swatch:hover{transform:translateY(-1px)}
 .color-swatches .swatch.active{box-shadow:0 0 0 2px var(--e-ink,#17181c),0 0 0 3px var(--gold-accent,#edb56e)!important}
-.main .settings-content input[type=color]{width:44px!important;height:26px!important;padding:2px!important;border-radius:8px!important;background:transparent!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 40%,transparent)!important;overflow:visible}
-.main .settings-content input[type=color]::-webkit-color-swatch{border-radius:6px;box-shadow:none}
-.main .settings-content input[type=color]:hover{transform:none;box-shadow:0 0 0 1px var(--gold-accent,#edb56e)!important}
+.main .settings-content input[type=color]{overflow:visible}
+
+
 /* E260 修正：标题/说明在左列内靠左（竖排 flex 里 align-self:center 会水平居中） */
 .main .settings-content .settings-row>div:first-child{align-items:flex-start!important;text-align:left!important}
 .main .settings-content .settings-row>div:first-child>:is(.settings-label,.settings-help){align-self:flex-start!important;text-align:left!important}
@@ -139,7 +132,7 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 .main .settings-content .setting-slider{align-self:center!important;height:auto!important}
 .main .settings-content .setting-slider input[type=range]{height:20px!important;margin:0!important}
 /* E262 下拉宽度按最长选项（JS 写入 --select-width），文字居中 */
-.main .settings-content .settings-row .select-control,.main .settings-content .settings-row .select-control.compact-select,.main .settings-content .font-control>.compact-select{width:var(--select-width,140px)!important;min-width:0!important;max-width:220px!important}
+.main .settings-content .settings-row .select-control,.main .settings-content .settings-row .select-control.compact-select,.main .settings-content .font-control>.compact-select{width:var(--select-width,140px)!important;min-width:0!important;}
 .main .settings-content .settings-row .select-trigger{padding:0 26px!important}
 /* 命中范围：行本身不接收指针，只有控件本体可点/可悬停 */
 .main .settings-content .settings-row{pointer-events:none}
@@ -149,8 +142,8 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 /* 侧栏选中星：与文字垂直对齐、不被裁 */
 .main .settings-nav .settings-category button{overflow:visible!important}
 .main .settings-nav .settings-category-items{overflow:visible}
-.main .settings-nav .settings-category button.active{padding-left:18px!important}
-.main .settings-nav .settings-category button.active::before{left:4px!important;top:50%!important;margin-top:0!important;transform:translateY(-50%) rotate(45deg)!important}
+
+.main .settings-nav .settings-category button.active::before{margin-top:0!important;}
 /* 顶部栏取色：恢复胶囊宝石款，留出右侧光圈空间 */
 .main .settings-content input[type=color]{width:52px!important;height:30px!important;padding:3px!important;margin-right:6px!important;border-radius:999px!important;background:linear-gradient(135deg,color-mix(in srgb,var(--gold-hi,#ffd7a0) 50%,transparent),rgba(120,70,40,.4))!important;box-shadow:0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 35%,transparent),0 4px 10px -4px rgba(0,0,0,.6)!important}
 .main .settings-content input[type=color]::-webkit-color-swatch{border-radius:999px;box-shadow:inset 0 1px 2px rgba(255,255,255,.25),inset 0 -2px 4px rgba(0,0,0,.35)}
@@ -168,8 +161,8 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button):disabled{fi
 ::view-transition-group(lib-search),::view-transition-group(lib-wall-toggle){animation-duration:.42s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.32s}
 /* E263 星与文字同一水平中线：改为行内 flex 项，不再绝对定位 */
-.main .settings-nav .settings-category button{display:flex!important;align-items:center!important;justify-content:flex-start!important}
-.main .settings-nav .settings-category button.active{padding-left:0!important}
+
+
 .main .settings-nav .settings-category button.active::before{position:static!important;flex:none;display:block!important;width:5px!important;height:5px!important;margin:0 9px 0 3px!important;transform:rotate(45deg) translateY(-1px)!important;left:auto!important;top:auto!important}
 body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button)::before{translate:0 -1px}
 body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-label{display:inline-flex!important;align-items:center;line-height:1!important;padding-top:1px}
@@ -193,8 +186,8 @@ body :is(button.primary,.g-btn.primary,.hero-play):not(.icon-button) .primary-la
 /* E272 缩得很小时：作品名渐隐（不再绘制文字），封面降采样，减轻绘制。2026-11-13：档位写在每张封面上、由 grimoire.js 每帧分批切换（原来写在整面墙上，一次切换重算全部 2800 个节点+重排，128 ms 长帧）；悬停层改 visibility 不触发布局 */
 .lib-field .game-caption,.lib-field .library-card-meta{transition:opacity .25s ease,visibility 0s linear 0s}
 .lib-field .field-plane>[data-zoom=tiny] .game-caption,.lib-field .field-plane>[data-zoom=tiny] .library-card-meta{opacity:0;visibility:hidden;transition:opacity .25s ease,visibility 0s linear .25s}
-.lib-field .field-plane>[data-zoom=tiny] img{image-rendering:pixelated;image-rendering:-webkit-optimize-contrast}
-.lib-field .field-plane>[data-zoom=tiny] .library-card .cover-frame{box-shadow:none!important}
+.lib-field .field-plane>[data-zoom=tiny] img{image-rendering:-webkit-optimize-contrast}
+
 .lib-field .field-plane>[data-zoom=tiny] .game-hover{visibility:hidden}
 
 /* E266 detail page motion: synopsis height animation (no line-clamp, JS sets max-height), fade at the cut, sliding tab bar */

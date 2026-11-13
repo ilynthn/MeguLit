@@ -10,6 +10,7 @@ import {updateHomeOverview,createHomeRefresh} from './home-refresh.js';
 import {recentGames} from './home-library.js';
 import {renderHomeTV,homeTVSignature} from './home-tv.js';
 import {historyHTML} from './history-view.js';
+import {historyEmpty,sentencesEmpty,trashEmpty,reviewRest} from './empty-states.js';
 import {readTime} from './read-time.js';
 import {createSeriesLibrary} from './series-library.js';
 import {createLibraryRefresh} from './library-refresh.js';
@@ -279,7 +280,7 @@ function bindDrag(){
 }
 
 function empty(label,symbol='library',sub=''){const kind={[text.emptyWords]:'words',[text.emptySentences]:'sentences',[text.emptyTrash]:'trash',[text.emptyHistory]:'history',
- [text.emptyDialogue]:'history'}[label];if(kind)return blankPage(kind);return `<div class="empty-state">${icon(symbol)}<h2>${esc(label)}</h2>${sub?`<p>${esc(sub)}</p>`:''}</div>`;
+ [text.emptyDialogue]:'history'}[label];if(kind==='history')return historyEmpty({locale,esc,games:model.games||[],mode:label===text.emptyHistory?'sessions':'dialogue'});if(kind==='sentences')return sentencesEmpty({locale,esc,games:model.games||[]});if(kind==='trash')return trashEmpty({locale,esc});if(label===text.reviewDone)return reviewRest({locale,esc,local:true,reviewed:Number(sub)||0});if(kind)return blankPage(kind);return `<div class="empty-state">${icon(symbol)}<h2>${esc(label)}</h2>${sub?`<p>${esc(sub)}</p>`:''}</div>`;
  }
 /* v1.0.5 空状态：说明这里会出现什么、怎么让它出现，并给出可以直接点的入口 */
 const BLANK={
@@ -312,7 +313,7 @@ function blankPage(kind){const [glyph,eyebrow,title,lede,steps,acts]=(BLANK[loca
  return `<section class="g-blank"><span class="glyph" aria-hidden="true">${glyph}</span><div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(title)}</h2><p class="lede">${esc(lede)}</p>${steps.length?`<div class="steps">${steps.map(([b,s],i)=>`<div><i>${nums[i]}</i><b>${esc(b)}</b>${esc(s)}</div>`).join('')}</div>`:''}<div class="acts">${acts.map(([to,label,alt],i)=>`<button type="button" class="${i||alt?'alt':'go'}" data-blank-go="${to}">${esc(label)}</button>`).join('')}</div></section>`;
   }
 document.addEventListener('click',event=>{const b=event.target.closest?.('[data-blank-go]');if(!b)return;const to=b.dataset.blankGo;if(to==='library')navigate('library');
- else navigate('learning',to==='kana'?'kana':'words');});
+ else if(to.startsWith('game:')){gameOrigin='library';selectedGameId=to.slice(5);navigate('game');}else navigate('learning',['kana','dictionary'].includes(to)?to:'words');});
 function heading(title,tools=''){return `<div class="page-header"><h1>${esc(title)}</h1><div class="page-tools">${tools}</div></div>`;}
 function card(game,library=false){
  const copy={zh:{hook:'Hook 可用',pending:'Hook 待实测',unsupported:'Hook 未适配',hookHint:'依据已有作品适配记录；实时连接状态请在游戏内查看',reading:'累计阅读',words:'关联单词',engine:'游戏引擎',last:'上次游玩',
@@ -346,7 +347,6 @@ function attachGameActions(main){
 }
 let launchInFlight=false,pendingHomeGame='';
 const playHomeMotion=createHomeMotion({frame:()=>document.querySelector('.app-frame'),reduced:()=>matchMedia('(prefers-reduced-motion:reduce)').matches});
-async function collapseHome(){await invoke('window_action',{action:'enter_overlay'});}
 async function startGame(id,button){
  if(launchInFlight)return;
  launchInFlight=true;if(button)button.disabled=true;
@@ -912,7 +912,7 @@ async function learning(token){
    }if(token===pageToken)commit();return;}
   let items,pending;try{[items,pending]=await Promise.all([api(subtab==='words'?'vocabulary':subtab==='trash'?'word_trash':'sentences'),subtab==='words'?api('unknown_words').catch(()=>[]):[]]);
    }catch(error){learningFailed(target,error,token);if(token===pageToken)commit();return;}if(token!==pageToken)return;
-  target.innerHTML=!items.length?empty(subtab==='words'?text.emptyWords:subtab==='trash'?text.emptyTrash:text.emptySentences,'learning'):`<div class="record-list">${items.map(item=>subtab==='sentences'?`<article class="record"><div class="record-meta"><span>${esc(item.title||'')}</span><span>${esc(readTime(item.created_at,locale))||datetime(item.created_at)}</span></div><p>${esc(item.text)}</p>${item.translation?`<p class="muted">${esc(item.translation)}</p>`:''}<div class="word-actions"><button class="icon-button" data-sentence-delete="${item.id}" aria-label="${{zh:'取消收藏',en:'Remove',ja:'保存を解除'}[locale]}" title="${{zh:'取消收藏',en:'Remove',ja:'保存を解除'}[locale]}">${icon('trash')}</button></div></article>`:`<article class="record word-row"><div><div class="word-spelling">${esc(item.spelling||item.reading)}</div><div class="word-reading">${esc(item.spelling&&item.spelling!==item.reading?item.reading:"")}${subtab==='words'?`<span class="word-jlpt${item.jlpt?'':' is-off'}">${esc(item.jlpt||({zh:'考级外',en:'Beyond JLPT',ja:'試験外'})[locale])}</span>`:''}</div>${subtab==='words'?`<div class="word-def">${esc(definitions(item.definitions))}</div>${item.example_text?`<div class="word-source"><button type="button" class="link-button" data-word-sentence="${item.id}" title="${{zh:'在句子页打开这句',en:'Open this line in Sentences',ja:'文のページで開く'}[locale]}">「${esc((t=>t.length>60?t.slice(0,60)+'…':t)(String(item.example_text).replace(/^[\s　「『]+|[」』\s　]+$/g,'')))}」</button>${item.example_game_id&&item.example_title?` · <button type="button" class="link-button" data-word-game="${esc(item.example_game_id)}">${esc(item.example_title)}</button>`:''}</div>`:''}`:`<div class="record-meta">${datetime(item.deleted_at)}</div>`}</div><div class="word-actions"><button class="icon-button" data-${subtab==='trash'?'restore':'delete'}="${item.id}" aria-label="${subtab==='trash'?text.restore:text.delete}">${icon(subtab==='trash'?'restore':'trash')}</button></div></article>`).join('')}</div>`;
+  target.innerHTML=!items.length?empty(subtab==='words'?text.emptyWords:subtab==='trash'?text.emptyTrash:text.emptySentences,'learning'):`<div class="record-list">${items.map(item=>subtab==='sentences'?`<article class="record"><div class="record-meta"><span>${esc(item.title||'')}</span><span>${esc(readTime(item.created_at,locale))||datetime(item.created_at)}</span></div><p>${esc(item.text)}</p>${item.translation?`<p class="muted">${esc(item.translation)}</p>`:''}<div class="word-actions"><button class="icon-button" data-sentence-delete="${item.id}" aria-label="${{zh:'取消收藏',en:'Remove',ja:'保存を解除'}[locale]}" title="${{zh:'取消收藏',en:'Remove',ja:'保存を解除'}[locale]}">${icon('trash')}</button></div></article>`:`<article class="record word-row${subtab==='trash'?' trash-row':''}"><div><div class="word-spelling">${esc(item.spelling||item.reading)}</div><div class="word-reading">${esc(item.spelling&&item.spelling!==item.reading?item.reading:"")}${subtab==='words'?`<span class="word-jlpt${item.jlpt?'':' is-off'}">${esc(item.jlpt||({zh:'考级外',en:'Beyond JLPT',ja:'試験外'})[locale])}</span>`:''}</div>${subtab==='words'?`<div class="word-def">${esc(definitions(item.definitions))}</div>${item.example_text?`<div class="word-source"><button type="button" class="link-button" data-word-sentence="${item.id}" title="${{zh:'在句子页打开这句',en:'Open this line in Sentences',ja:'文のページで開く'}[locale]}">「${esc((t=>t.length>60?t.slice(0,60)+'…':t)(String(item.example_text).replace(/^[\s　「『]+|[」』\s　]+$/g,'')))}」</button>${item.example_game_id&&item.example_title?` · <button type="button" class="link-button" data-word-game="${esc(item.example_game_id)}">${esc(item.example_title)}</button>`:''}</div>`:''}`:`<div class="record-meta">${esc({zh:'删除于 ',ja:'削除 ',en:'Deleted '}[locale]||'')}${datetime(item.deleted_at)}</div>`}</div><div class="word-actions"><button class="${subtab==='trash'?'es-restore-btn':'icon-button'}" data-${subtab==='trash'?'restore':'delete'}="${item.id}" aria-label="${subtab==='trash'?text.restore:text.delete}">${icon(subtab==='trash'?'restore':'trash')}${subtab==='trash'?`<span class="es-restore">${esc({zh:'恢复到单词本',ja:'単語帳に戻す',en:'Restore to words'}[locale]||text.restore)}</span>`:''}</button></div></article>`).join('')}</div>`;
   if(subtab==='words'){if(pending.length){const section=document.createElement('details');section.className='panel revisit-words';section.innerHTML=`<summary><span class="revisit-title">${{zh:'常查单词',en:'Frequently looked up',ja:'よく調べる単語'}[locale]}</span><small class="muted">${number(pending.length)} ${{zh:'个',en:'words',ja:'語'}[locale]}</small><svg class="revisit-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary><p class="settings-help">${{zh:'查过多次、还没标为已掌握的词。打开查词卡片或搜索词典时计数，2 秒内重复点同一个词只算一次',en:'Words you looked up often and have not marked as known. Counted when a lookup card opens or you search the dictionary; repeats within 2 seconds count once',ja:'何度も調べ、まだ覚えた印を付けていない語です。辞書カードを開くか検索したときに数え、2秒以内の重複は1回とします'}[locale]}</p><div class="revisit-list">${pending.map(word=>`<span class="revisit-chip"><b>${esc(word.surface)}</b><small>${number(word.lookups)}</small></span>`).join('')}</div>`;
    target.prepend(section);}}
   target.querySelectorAll('[data-delete]').forEach(button=>button.addEventListener('click',()=>confirmDelete(items.find(w=>w.id===Number(button.dataset.delete)))));
@@ -1030,7 +1030,7 @@ function dictionary(target){
     }catch(error){if(request===ticket&&results.isConnected)results.innerHTML=empty(online?L.fail:text.serviceFailed,'word');}
   });
   if(pendingLookup){const word=pendingLookup;pendingLookup='';const input=target.querySelector('#lookup-input');input.value=word;/* the form is attached by commit() after this returns */setTimeout(()=>{
-   const form=target.querySelector('#lookup-form');if(form.isConnected)form.requestSubmit(form.querySelector('button[value=moji]'));},0);}
+   const form=target.querySelector('#lookup-form');if(form?.isConnected)form.requestSubmit(form.querySelector('button[value=moji]'));},0);}
 }
 /* 2026-11-13 Anki review HUD: the latest played game's art for its background, and the window's own full screen */
  const ankiCover=()=>recentGames(model.games||[]).find(g=>g.cover)?.cover||'',ankiWindow=action=>invoke('window_action',{action});
@@ -1047,7 +1047,7 @@ async function localReview(token,target){
   const words=await api('vocabulary');if(token!==pageToken)return;
   if(!words.length){target.innerHTML=empty(text.emptyWords,'learning');return;}
   let index=0,revealed=false;
-  function draw(){const word=words[index];if(!word){target.innerHTML=empty(text.reviewDone,'check');return;}
+  function draw(){const word=words[index];if(!word){target.innerHTML=empty(text.reviewDone,'check',String(words.length));return;}
     target.innerHTML=`<section class="panel review-card"><div class="muted">${index+1} / ${words.length}</div><h2>${esc(word.spelling)}</h2>${revealed?`<div class="word-reading">${esc(word.reading)}</div><div class="word-def">${esc(definitions(word.definitions))}</div>`:`<p class="muted">${text.reviewSub}</p>`}<div class="review-controls"><button class="primary" id="review-next">${revealed?text.next:text.showAnswer}</button></div></section>`;
     target.querySelector('#review-next').addEventListener('click',async()=>{if(revealed){await api('record_review',{id:word.id});index++;revealed=false;}else revealed=true;
      draw();});

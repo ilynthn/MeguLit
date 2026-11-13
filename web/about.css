@@ -15,25 +15,25 @@
 .about-link{display:flex;justify-content:space-between;align-items:center;width:100%;margin:6px 0 0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:#f3e9dc;cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
 .about-link:hover{background:rgba(200,50,60,.14);border-color:rgba(200,50,60,.45)}
 .about-link span{color:#c8323c}
-.about-made{margin:16px 2px 0;font-size:13px;color:#a8998f}
-.about-support{margin-top:22px;border-color:rgba(200,50,60,.35);background:linear-gradient(180deg,rgba(200,50,60,.10),rgba(42,34,35,.72) 120px)}
-.about-support h2{margin:0;font-size:22px}
-.about-support>p{margin:8px 0 0;color:#cdbfb3;line-height:1.7}
-.about-pay{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;margin-top:18px}
-.about-qrs{display:flex;gap:16px}
+
+.about-support{border-color:rgba(200,50,60,.35);}
+.about-support h2{font-size:22px}
+
+.about-pay{display:grid;}
+.about-qrs{display:flex;}
 .about-qrs figure{margin:0;text-align:center}
-.about-qr{width:168px;height:168px;padding:10px;background:#fff;border-radius:12px}
+.about-qr{background:#fff;}
 .about-qr img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
-.about-qrs figcaption{margin-top:8px;font-weight:600}
-.about-intl{border-left:1px solid rgba(255,255,255,.08);padding-left:18px}
-.about-intl p{margin:0;color:#cdbfb3;line-height:1.7}
-.about-sponsor{margin-top:14px;width:100%}
+
+
+.about-intl p{margin:0;line-height:1.7}
+.about-sponsor{width:100%}
 .about-sponsor:active,.about-link:active{transform:scale(.97)}
-.about-thanks{margin-top:12px!important;color:#d9a54a!important}
+
 .about-credits{margin-top:18px}
 .about-credits p{margin:0;color:#a8998f;line-height:1.8;font-size:13px}
-@media (max-width:760px){.about-grid,.about-pay{grid-template-columns:1fr}.about-intl{border-left:0;padding-left:0}}
-.about-support-strong{margin:10px 0 0;font-weight:700;color:#f3e9dc!important}
+@media (max-width:760px){.about-grid,.about-pay{grid-template-columns:1fr}}
+.about-support-strong{margin:10px 0 0;}
 /* First-run "add your game folders" dialog */
 .first-run{border:0;padding:0;background:transparent;color:#f3e9dc;max-width:min(520px,92vw)}
 .first-run::backdrop{background:rgba(12,9,10,.62);backdrop-filter:blur(6px)}

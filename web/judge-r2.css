@@ -8,22 +8,22 @@ html body #learning-content .dict-home{position:relative;z-index:2;display:grid;
 html body #learning-content #lookup-results:not(:empty)~.dict-home{display:none}
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready .g-dict-chips{display:none!important}
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready #lookup-results:empty{min-height:0!important}
-html body .dict-home .dh-col{background:color-mix(in srgb,#120d11 86%,transparent);border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 16%,transparent);padding:22px 24px 14px;min-width:0}
+html body .dict-home .dh-col{border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 16%,transparent);padding:22px 24px 14px;min-width:0}
 html body .dict-home header{display:flex;align-items:baseline;gap:14px;padding-bottom:14px;border-bottom:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 10%,transparent)}
 html body .dict-home h3{margin:0;font:600 18px/1.3 var(--g-serif,serif);color:var(--g-t1,#f1e0d2);letter-spacing:.02em}
-html body .dict-home header p{margin:0;font-size:13px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 62%,transparent);flex:1;min-width:0}
+html body .dict-home header p{margin:0;flex:1;min-width:0}
 html body .dict-home header .text-button{font-size:13px;white-space:nowrap}
 html body .dict-home ol{list-style:none;margin:0;padding:0}
 html body .dict-home li+li{border-top:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 7%,transparent)}
 html body .dict-home li>button{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:baseline;column-gap:12px;row-gap:4px;padding:12px 8px;transition:background-color .18s}
-html body .dict-home li>button:hover{background:color-mix(in srgb,var(--g-gold,#edb56e) 7%,transparent)}
+
 html body .dict-home li>button:focus-visible{outline:2px solid var(--g-gold,#edb56e);outline-offset:-2px}
 html body .dict-home b{font:500 21px/1.2 var(--g-serif-ja,serif);color:var(--g-t1,#f1e0d2);white-space:nowrap}
 html body .dict-home i{font-style:normal;font-size:13px;color:var(--g-gold,#edb56e);white-space:nowrap}
 html body .dict-home em{font-style:normal;font-size:11px;padding:1px 6px;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 40%,transparent);color:var(--g-gold,#edb56e)}
 html body .dict-home span{grid-column:3;font-size:14px;line-height:1.5;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 84%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-html body .dict-home small{grid-column:4;font-size:12px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 58%,transparent);white-space:nowrap;justify-self:end}
-html body .dict-home .dh-often small{font-variant-numeric:tabular-nums;color:var(--g-gold,#edb56e)}
+html body .dict-home small{grid-column:4;font-size:12px;white-space:nowrap;justify-self:end}
+html body .dict-home .dh-often small{font-variant-numeric:tabular-nums;}
 html body .dict-home .dh-often i:empty{display:none}
 html body .dict-home .dh-recent li>button{grid-template-columns:minmax(0,auto) minmax(0,1fr) auto}
 html body .dict-home .dh-w{display:flex;align-items:baseline;gap:10px;min-width:0}
@@ -52,14 +52,14 @@ html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready>.lookup-fo
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready>.moji-account{order:2;justify-content:flex-start!important;margin:10px 0 0!important;gap:14px}
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready>:is(.g-dict-chips,#lookup-results,.dict-home){order:3}
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready>.moji-account :is(.moji-state){font-size:13px!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 66%,transparent)!important}
-html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready>.moji-account .text-button{font-size:13px!important;padding:4px 12px!important;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 40%,transparent)!important;color:var(--g-gold,#edb56e)!important}
+html:not(#u):not(#v):not(#w):not(#x) body #learning-content .dh-ready>.moji-account .text-button{font-size:13px!important;color:var(--g-gold,#edb56e)!important}
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .lookup-form :is(input,button){height:50px!important;box-sizing:border-box}
 html:not(#u):not(#v):not(#w):not(#x) body #learning-content .lookup-form input::placeholder{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 72%,transparent)!important}
-html:not(#u):not(#v):not(#w):not(#x) body .dict-field{opacity:.42!important}
+
 /* shorter windows show fewer rows so all three panels keep their headings on screen */
-@media (max-height:1000px){html body .dict-home .dh-often li:nth-child(n+9),html body .dict-home .dh-recent li:nth-child(n+6){display:none}}
+@media (max-height:1000px){}
 @media (max-height:900px){html body .dict-home .dh-often li:nth-child(n+5),html body .dict-home .dh-recent li:nth-child(n+4){display:none}
- html body .dict-home .dh-days ol{height:70px;padding-top:16px}html body .dict-home .dh-col{padding-top:14px;padding-bottom:10px}html body .dict-home header{padding-bottom:10px}html body #learning-content .dict-home{gap:14px;margin-top:14px}}@media (max-width:1100px){html body #learning-content .dict-home{grid-template-columns:minmax(0,1fr)}}
+ html body .dict-home .dh-col{padding-top:14px;padding-bottom:10px}html body .dict-home header{padding-bottom:10px}html body #learning-content .dict-home{gap:14px;margin-top:14px}}@media (max-width:1100px){html body #learning-content .dict-home{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){html body .dict-home *{transition:none!important}}
 
 /* Grammar: the goal line and the rank meter share one row instead of stacking as two full-width bars; the N0 note
@@ -74,8 +74,8 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.gm-n0note i{display:none}
 html:not(#u):not(#v):not(#w):not(#x) body .gm-page>:is(.gm-stgs,.gm-tracks){order:20}
 html:not(#u):not(#v):not(#w):not(#x) body .gm-hero-ghost{display:none!important}
 html:not(#u):not(#v):not(#w):not(#x) body .gm-page>.gm-overview{transform:none!important;min-width:0;align-content:center!important}
-html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-sentence{flex-wrap:nowrap!important;column-gap:3px;overflow:hidden}
-html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-piece{flex-shrink:0!important;white-space:nowrap!important;font-size:min(20px,1.3vw)!important;width:auto!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-sentence{column-gap:3px;}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-piece{flex-shrink:0!important;white-space:nowrap!important;width:auto!important}
 html:not(#u):not(#v):not(#w):not(#x) body .gm-overview .gm-punct{margin-left:-2px}
 /* level picker: a segmented control whose chosen level is filled */
 html:not(#u):not(#v):not(#w):not(#x) body .gm-hud .gm-levels{gap:0!important;border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 20%,transparent)}
@@ -125,7 +125,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .cover-frame .hero-placeholder svg{wid
 html:not(#u):not(#v):not(#w):not(#x) body .cover-frame .hero-placeholder .ph-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden;font:500 17px/1.5 var(--g-serif-ja,serif);color:var(--g-t1,#f1e0d2);text-align:center;text-wrap:balance}
 html:not(#u):not(#v):not(#w):not(#x) body .lib-field .cover-frame{background-color:#140e11}
 /* captions read: larger, brighter, no heavy serif at 12px */
-html:not(#u):not(#v):not(#w):not(#x) body .lib-field .game-caption .mq{font-size:14px!important;font-weight:600!important;letter-spacing:.01em!important;color:#f4e6da!important;text-shadow:0 1px 6px #000c}
+html:not(#u):not(#v):not(#w):not(#x) body .lib-field .game-caption .mq{font-size:14px!important;letter-spacing:.01em!important;color:#f4e6da!important;text-shadow:0 1px 6px #000c}
 /* the tool capsule is a solid warm surface that lifts off the wall (it was a grey-blue glass that blended into the covers) */
 html:not(#u):not(#v):not(#w):not(#x) body .main>.field-search{background:color-mix(in srgb,#150f12 94%,transparent)!important;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 30%,transparent)!important;box-shadow:0 14px 34px -12px #000!important}
 html:not(#u):not(#v):not(#w):not(#x) body .main>.field-search input::placeholder{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 70%,transparent)!important}
@@ -133,7 +133,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .main>.field-search input::placeholder
 /* Detail: the title block (engine, name, last played, actions) is centred against the cover instead of leaving a
    gap above the buttons; the numbers column shares its left edge and width with the technical card below; the
    synopsis uses the card's width; the technical card and ratings get a clear label/value contrast. */
-html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title{grid-template-columns:minmax(0,1fr) 300px!important;grid-template-rows:1fr auto auto auto auto 1fr!important;column-gap:40px!important}
+html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title{grid-template-columns:minmax(0,1fr) 300px!important;column-gap:40px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title>.detail-engine{grid-row:2!important;grid-column:1!important}
 html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title>h1{grid-row:3!important;grid-column:1!important}
 html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title>p.settings-help{grid-row:4!important;grid-column:1!important;font-size:14px!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 76%,transparent)!important}
@@ -141,7 +141,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title>.detai
 html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-title>.detail-statistics{grid-column:2!important;grid-row:1/-1!important}
 html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-engine .embed-status{display:inline-block;padding:3px 10px;margin-left:6px;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 45%,transparent);background:color-mix(in srgb,var(--g-gold,#edb56e) 10%,transparent);letter-spacing:.06em!important;font-size:12px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .game-detail-hero .detail-engine{font-size:12px!important}
-html:not(#u):not(#v):not(#w):not(#x) body .detail-overview #game-synopsis-body{max-width:none!important;font-size:15.5px!important;line-height:1.95!important}
+html:not(#u):not(#v):not(#w):not(#x) body .detail-overview #game-synopsis-body{font-size:15.5px!important;}
 html:not(#u):not(#v):not(#w):not(#x) body .detail-technical .detail-info-row>span:first-child{font-size:12px!important;letter-spacing:.04em!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 58%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .detail-technical .detail-info-row>span:last-child{font-size:14.5px!important;color:var(--g-t1,#f1e0d2)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .game-reception .review-score{font-size:26px!important}
@@ -159,15 +159,15 @@ html:not(#u):not(#v):not(#w):not(#x) body .game-reception .review-name{font-size
 
 /* Study (Anki): the card frame hugs the card (anki-card.js reports its height) and the card with its buttons sits in
    the middle of the page; no grey slab or extra box around it, the progress line and tools read at 13px. */
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>.record-meta{margin-bottom:auto!important;border-bottom:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 10%,transparent);padding-bottom:10px}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>.review-controls{margin-bottom:auto!important;margin-top:22px!important;justify-content:center}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>[data-card]{flex:0 1 auto!important;min-height:0;background:transparent!important;display:flex;flex-direction:column;width:min(1040px,100%);align-self:center;border-radius:0!important}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-card-frame{background:transparent!important;border:0!important;border-radius:0!important}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-card-frame.hugs{flex:0 1 auto;min-height:0}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>.record-meta>span{font-size:13px!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 80%,transparent)!important;font-variant-numeric:tabular-nums}
+
+
+
+
+
+
+
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-toolbar :is(summary,button){font-size:13px!important}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .review-controls button.primary{min-width:180px;height:48px}
+html:not(#u):not(#v):not(#w):not(#x) body .review-page .review-controls button.primary{height:48px}
 /* Settings: a row the chosen engine does not use is really hidden (the grimoire row style used to override [hidden]),
    and long help text folds to two lines, opening in full when the row is hovered or focused. */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-row[hidden]{display:none!important}
@@ -175,7 +175,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-row[hidden]{display:
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-section-title{font-size:38px!important;margin-bottom:8px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-search{margin-top:14px}
 /* the API key row looks like every other row: bold label and note on the left, the field with its button on the right */
-html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(300px,420px);column-gap:40px;align-items:center;padding:18px 0 4px!important;margin:0!important;border:0!important;background:none!important;border-top:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 9%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel{display:grid!important;column-gap:40px;align-items:center;padding:18px 0 4px!important;margin:0!important;border:0!important;background:none!important;border-top:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 9%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.panel-title{grid-column:1;grid-row:1;font:600 17px/1.4 var(--g-serif,serif)!important;letter-spacing:.01em!important;text-transform:none!important;color:var(--g-t1,#f1e0d2)!important;margin:0!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.settings-help{grid-column:1;grid-row:2;margin:4px 0 0!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group{grid-column:2;grid-row:1/3;margin:0!important}
@@ -183,7 +183,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group{grid-
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-row .select-trigger{background:rgba(10,9,12,.5)!important;border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 16%,transparent)!important;border-radius:2px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content :is(.settings-row,.key-panel) input:not([type=checkbox]):not([type=radio]):not([type=range]){border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 16%,transparent)!important;border-radius:2px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{border-radius:var(--t-radius)!important;border:0!important;background:var(--t-panel)!important;box-shadow:var(--t-ring)!important}
-html:not(#u):not(#v):not(#w):not(#x) body .settings-content :is(.tr-conn-head,.tr-shared-head){font-size:13px!important;letter-spacing:.06em!important;color:color-mix(in srgb,var(--g-gold,#edb56e) 92%,#fff)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-content :is(.tr-conn-head,.tr-shared-head){letter-spacing:.06em!important;color:color-mix(in srgb,var(--g-gold,#edb56e) 92%,#fff)!important}
 /* the current page in the side list has a soft block behind it, not only a thin bar */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-nav .settings-category-items>button:not(.active){color:color-mix(in srgb,var(--g-t1,#f1e0d2) 74%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-row .setting-description>small.settings-help{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;max-width:60ch;text-wrap:pretty}
@@ -232,8 +232,8 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-stg.has-next .gm-stg-bar i.cur{bac
 @media (max-height:860px){html:not(#u):not(#v):not(#w):not(#x) body .gm-page>:is(.gm-hero,.gm-overview){min-height:0!important}
  html:not(#u):not(#v):not(#w):not(#x) body .gm-hero-main{padding-block:18px!important}}
 /* study: the card and its button sit a little above centre on a soft vignette; card text larger in wide windows */
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel{padding-bottom:9vh!important;background:radial-gradient(60% 55% at 50% 48%,rgba(10,7,9,.62),rgba(10,7,9,.18) 75%,transparent)!important}
-html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>[data-card]{width:min(1180px,100%)!important}
+
+
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-toolbar button.text-button{border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 26%,transparent)!important;padding:5px 14px!important}
 /* settings: card controls on the same right edge as the rest (the scroller keeps its scrollbar at the window edge) */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{margin-inline:0!important;padding-inline:20px!important}

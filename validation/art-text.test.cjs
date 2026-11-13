@@ -45,16 +45,16 @@ test('GalNative sends the art scan state to the bridge only when it changes, off
 });
 test('the OCR read path reads only, diffs the frame first and never writes to the game',()=>{
  const src=read('native/PageLocator.cs'),scan=src.slice(src.indexOf('// ---- art scan'),src.indexOf(' void Report(Found f,'));
- assert.match(scan,/Differ\(last, thumb\) < 1\.2/);assert.match(scan,/Thread\.Sleep\(busy \? 400 : 700\)/);assert.match(scan,/source = "ocr"/);
+ assert.match(scan,/!Changed\(last, thumb\)/);assert.match(scan,/Thread\.Sleep\(busy \? 400 : 700\)/);assert.match(scan,/source = "ocr"/);
  assert.doesNotMatch(scan,/WriteProcessMemory|SendMessage|PostMessage|SetWindowPos|FillRect/);
 });
-test('a stale art show waiting for its translation is dropped once the line was hidden',async()=>{
+test('a stale art show waiting for its translation is dropped once the line was hidden (E540: the line itself went out at once)',async()=>{
  const R=require('../services/reader.cjs').Reader;
  const r=Object.create(R.prototype);const out=[];let release;r.runtime={emit:(_,m)=>out.push(m)};r.embedCached=()=>'';r.displayLanguage=()=>'en';r.prefs=()=>({});r.workPrompt='';r.loadKeys=()=>{};r.localReady=async()=>{};
  r.translator=()=>({translate:()=>new Promise(res=>{release=res;})});
  const shown=r.artText({type:'artText',id:7,text:'館がある',visible:true,rows:[]});await new Promise(res=>setImmediate(res));
  await r.artText({type:'artText',id:7,text:'館がある',visible:false});release('There is a mansion');await shown;
- assert.deepEqual(out.map(m=>m.visible),[false]);
+ assert.deepEqual(out.map(m=>m.visible),[true,false]);assert.equal(out[0].translation,'');
 });
 test('the bridge self-test of the art scan passes (when GalWindowBridge.exe is built)',{skip:!fs.existsSync(path.join(__dirname,'..','native','GalWindowBridge.exe'))},()=>{
  const r=require('node:child_process').spawnSync(path.join(__dirname,'..','native','GalWindowBridge.exe'),['--art-scan-self-test'],{encoding:'utf8',timeout:20000});

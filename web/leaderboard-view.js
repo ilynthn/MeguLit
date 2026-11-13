@@ -101,17 +101,6 @@ function localHTML(data,w,locale,esc){
 }
 const flag='<svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M6 21V4m0 0h10l-2 4 2 4H6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
 const reportButton=(e,w,esc)=>e.avatar&&!e.me?`<button type="button" class="leaderboard-report" data-lb-report="${esc(e.avatar)}" title="${w.report}" aria-label="${w.report}">${flag}</button>`:'';
-function podiumPeople(entries,metric,w,locale,esc,images){
- /* the first three entries by position (ties keep their shared rank number); shown 2 · 1 · 3 */
- const order=[1,0,2].map(i=>({e:entries[i],place:i+1}));
- return `<div class="lb-stage" role="list">${order.map(({e,place})=>!e?vacantPlace(place,w):`<div class="lb-place medal-${MEDAL[place]}${e.me?' is-me':''}" role="listitem" data-rank="${place}" style="--delay:${({1:2,2:1,3:0})[place]*140}ms"><div class="lb-who">${place===1?crown:''}${personButton(e,`<span class="lb-ring">${avatarHTML(e,images,esc)}</span><span class="lb-name">${esc(e.name)}</span>${rankTag(e,esc)}`,esc)}<span class="lb-score">${esc(formatValue(metric,e.value,locale))}</span>${reportButton(e,w,esc)}</div><div class="lb-block">${laurel(e.rank)}</div><span class="lb-ghost" aria-hidden="true">${e.rank}</span></div>`).join('')}</div>`;
-}
-function tableRows(entries,metric,w,locale,esc,images,max=0){
- if(!entries.length)return '';
- /* E418 each row carries its share of the leader's value as a bar */
- const pct=e=>max>0?Math.max(2,Math.min(100,Math.round((Number(e.value)||0)/max*100))):0;
- return `<div class="lb-table"><div class="lb-thead" aria-hidden="true"><span>${w.colRank}</span><span>${w.colReader}</span><span>${w[metric]}</span></div><ol class="leaderboard-list lb-rows">${entries.map(e=>`<li class="${e.me?'is-me':''}" style="--pct:${pct(e)}%"><span class="leaderboard-rank">${e.rank}</span>${personButton(e,`${avatarHTML(e,images,esc)}<span class="leaderboard-name">${esc(e.name)}</span>${rankTag(e,esc)}`,esc)}${reportButton(e,w,esc)}<strong>${esc(formatValue(metric,e.value,locale))}</strong></li>`).join('')}</ol></div>`;
-}
 /* E419 readers as equals: no podium, no rank ladder. A magic circle shows what everyone gathered together, then one
    grimoire card per reader, all the same size; the order is kept but the number is only a small sigil code. */
 const SIGIL=(()=>{const c=100,pt=(r,a)=>`${(c+r*Math.cos(a)).toFixed(1)},${(c+r*Math.sin(a)).toFixed(1)}`;
@@ -188,8 +177,6 @@ let stageCover='';
 const stage=()=>`<div class="dtv-bg lb-backdrop" aria-hidden="true" style="--dtv-cover:${stageCover?`url(&quot;${stageCover}&quot;)`:'none'}"><i class="dtv-glyph">読</i></div><div class="dtv-marks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
 function page(top,sub,body){return `${stage()}<div class="leaderboard-page">${top}${subRow(sub)}<div class="lb-body">${body}</div></div>`;}
 /* E388 your own avatar is the way to change it: click → pick → crop window → upload. */
-const camera='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.6 3.2 6.5 2h3l.9 1.2H13a1.5 1.5 0 0 1 1.5 1.5v7.1A1.5 1.5 0 0 1 13 13.3H3a1.5 1.5 0 0 1-1.5-1.5V4.7A1.5 1.5 0 0 1 3 3.2zM8 11a2.9 2.9 0 1 0 0-5.8A2.9 2.9 0 0 0 8 11z"/></svg>';
-function avatarButton(entry,data,w,esc){return `<button type="button" class="lb-avatar-edit" data-lb-avatar title="${esc(w.changeAvatar)}" aria-label="${esc(w.changeAvatar)}">${avatarHTML(entry,data.avatars||{},esc)}<span class="lb-avatar-badge">${camera}</span></button>`;}
 /* E404 the 我的主页 chip, on every tab: your picture and name (or 注册 / 登录 when signed out); on 阅读榜 with a rank it
    also shows the rank and value. The whole chip opens the 个人主页 panel. Same two-line height in every state. */
 function myChip(data,w,locale,esc){

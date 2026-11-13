@@ -10,8 +10,9 @@ function familyClass(name){const n=flat(name);if(!n)return '';
  if(/mincho|明朝|minchou|serif|ming|song|宋|ｍｉｎ/.test(n)||/(^|[^a-z])min(\d|[^a-z]|$)/.test(n))return 'mincho';
  if(/gothic|ゴシック|goth|sans|meiryo|メイリオ|hei|黑|丸ゴ|round/.test(n))return 'gothic';
  return '';}
-function pick({face,prerendered,fonts}={}){
- face=String(face||'').trim().slice(0,64);if(!face||/["\<>;{}]/.test(face))return null;
+/* E503 family: an engine that ships only a glyph atlas (MAGES FONT.PNG) names no face, only mincho / gothic from its strokes */
+function pick({face,prerendered,fonts,family}={}){
+ face=String(face||'').trim().slice(0,64);if(!face&&(family==='mincho'||family==='gothic'))return {key:family==='mincho'?'originalMincho':'originalGothic',face:family,reason:'atlas '+family};if(!face||/["\<>;{}]/.test(face))return null;
  const want=familyClass(String(prerendered||'').replace(/\.[a-z0-9]+$/i,'')),have=familyClass(face);
  if(want&&have&&want!==have)return {key:want==='mincho'?'originalMincho':'originalGothic',face,reason:'prerendered '+prerendered};
  const hit=(fonts||[]).find(f=>f&&f.lang!=='zh'&&[f.family,...(Array.isArray(f.names)?f.names:[])].some(n=>flat(n)===flat(face)));
@@ -22,5 +23,6 @@ function pick({face,prerendered,fonts}={}){
    reported Segoe UI); never the dialogue font. */
 const UI_FACE=/^(segoe ui.*|tahoma|ms shell dlg.*|system|ms sans serif|marlett|microsoft sans serif|yu gothic ui|meiryo ui|ms ui gothic|arial|verdana)$/i;
 function uiFace(face){return UI_FACE.test(String(face||'').trim());}
-function rank(message){return message&&message.probe?1:2;}
+/* E503 a scan of the game's files (Unity / MAGES / Ren'Py) sits between the probe and an engine's live report */
+function rank(message){return message&&message.probe?1:message&&message.scanned?1.5:2;}
 module.exports={pick,familyClass,rank,uiFace};

@@ -60,7 +60,7 @@ public static class HookBridge {
   // Zero-size glyphs: Naninovel's reveal rewrites vertex colours, so colour/alpha tags stay visible, but it keeps sizes.
   return "<size=0>"+text+"</size>";}
  static DateTime LastHeartbeat=DateTime.MinValue;
- static bool KnownIsland;static volatile bool ScriptCaptureOnly;static volatile bool SharedResourceStream;static ulong MagesAddress;static uint Pid;static string Selected="",ProcessStarted="",BoundProcess="";static IntPtr GameWindow;static bool Enabled,Started,ReplacementEnabled;static volatile bool Connected,Quit;static Dictionary<string,object> Resume;static bool FromMemory,MemorySaved;static int ProbePending;static WaitRenderHook WaitHook;
+ static bool KnownIsland;static volatile bool ScriptCaptureOnly;static bool EmbedPendingSent;static volatile bool SharedResourceStream;static ulong MagesAddress;static uint Pid;static string Selected="",ProcessStarted="",BoundProcess="";static IntPtr GameWindow;static bool Enabled,Started,ReplacementEnabled;static volatile bool Connected,Quit;static Dictionary<string,object> Resume;static bool FromMemory,MemorySaved;static int ProbePending;static WaitRenderHook WaitHook;
  static void Emit(object value){lock(OutputGate)Console.WriteLine(Json.Serialize(value));}
  /* Paths relative to the MeguLit.V3 root (this exe lives in native\). */
  // Unity games draw embedded text with TextMeshPro fonts that lack Chinese. MeguLit downloads LunaTranslator's TMP font
@@ -123,7 +123,7 @@ static void FinishEmbed(long id,string trans,bool hide=false){PendingEmbed p;loc
  static void ScriptCapture(){if(ScriptCaptureOnly)return;ScriptCaptureOnly=true;Emit(new{type="hookEngineFeature",framework="siglus"});Diagnostic("script VM hooks are capture only");}
  static bool UnityPluginHooks;
  static readonly string[] UnityPluginEntries={"EHMF2@TextTypewriterEffect:TextTypewriterEffect:TextTypewriterEffect:StartText:7:JIT:UNITY","EHMF2@TextTypewriterEffect:TextTypewriterEffect:TextTypewriterEffect:StartText:5:JIT:UNITY","EHMF2@TextTypewriterEffect:TextTypewriterEffect:TextTypewriterEffect:SetTextImmediate:1:JIT:UNITY"};
- static void OnInsert(uint pid,ulong address,string code){Diagnostic("insert "+code);if(pid!=Pid)return;
+ static void OnInsert(uint pid,ulong address,string code){Diagnostic("insert "+code);if(pid!=Pid)return;/* E531 (CLANNAD: "暂时不能隐藏原文" on the title menu) an embed-capable hook (code E...) is in, its stream just has not spoken yet */if((code??"").StartsWith("E")&&!EmbedPendingSent){EmbedPendingSent=true;Emit(new{type="hookEmbedPending",code=code});}
   /* 2026-11-13 (DDLC Plus: the dialogue box never reached TMP_Text.set_text, only the history panel did): Unity games often
      feed their dialogue box through a typewriter/text plugin that builds the TMP mesh itself. Once the Unity JIT hooks are in,
      the entry methods of known text plugins are inserted as well (a method the game does not have simply never resolves). */

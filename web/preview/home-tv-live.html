@@ -1,9 +1,0 @@
-<!doctype html><html lang="zh"><head><meta charset="utf-8"><link rel="stylesheet" href="../app.css"><link rel="stylesheet" href="../grimoire.css"><link rel="stylesheet" href="../home-tv.css"><style>body{margin:0;background:var(--bg)}#main{height:100vh}</style></head><body><main id="main"></main>
-<script type="module">
-import {renderHomeTV} from '../home-tv.js';
-const now=Date.now(),D=864e5,sec=t=>Math.floor(t/1000);
-const games=[['g1','サクラノ詩','KiriKiri',2,184000,412000,318],['g2','WHITE ALBUM2','AQUAPLUS',24,96000,220000,164],['g3','素晴らしき日々','KiriKiri',72,51000,150000,92],['g4','千恋＊万花','Siglus',300,30000,90000,70]].map(([id,title,engine,h,rs,ch,lw])=>({id,title,engine,available:true,lastPlayedAt:now-h*36e5,readingSeconds:rs,characters:ch,learnedWords:lw,cover:''}));
-const model={games,stats:{readingSeconds:5220,words:37,lookups:112},preferences:{username:'魚魚棟',homeShowcase:null}};
-const api=async(name,args)=>{if(name==='game_detail')return {sentences:[{text:'櫻の芸術家として、俺は――'},{text:'美しいものを、美しいと言えるように'}],words:[{spelling:'芸術',reading:'げいじゅつ',definitions:'art'},{spelling:'櫻',reading:'さくら'},{spelling:'才能',reading:'さいのう'}],sessions:Array.from({length:10},(_,i)=>({started_at:sec(now-i*3*D),active_seconds:600+i*500}))};if(name==='learning_activity')return Array.from({length:120},(_,i)=>({day:new Date(now-i*D).toISOString().slice(0,10),seconds:(i*97)%3600,lookups:i%7}));return {};};
-renderHomeTV(document.querySelector('#main'),{model,api,locale:'zh',esc:s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]),icon:()=>'',number:n=>Number(n).toLocaleString(),duration:s=>Math.round(s/3600)+'h',relativeTime:t=>Math.round((now-t)/36e5)+' 小时前',greeting:'下午好，魚魚棟',navigate:(...a)=>console.log('nav',a),onLaunch:id=>console.log('launch',id),onDetail:id=>console.log('detail',id),onAdd:()=>{},savePreferences:v=>console.log('save',JSON.stringify(v))});
-</script></body></html>

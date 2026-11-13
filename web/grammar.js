@@ -310,8 +310,6 @@ function judgeHTML(point,real,{esc,locale}){
  if(!rounds.length&&!who)return `<p class="gm-cap">${esc(loc(point.gist,locale))}</p>`;
  return `<p class="gm-play-lead">哪一句是日本人会说的？选对了，惠惠告诉你为什么</p><ol class="gm-jds">${rounds.map((rd,i)=>`<li class="gm-jd" data-jd><p class="gm-jd-q"><em>${String(i+1).padStart(2,'0')}</em>${rd.title?`来自《${esc(rd.title)}》的一句`:'哪句自然？'}</p><div class="gm-jd-opts">${rd.options.map(o=>`<button type="button" class="gm-jd-opt" data-ok="${o.ok?1:0}"${o.form?` data-form="${esc(o.form)}"`:''} lang="ja"><span class="gm-jd-plain">${esc(o.text)}</span><span class="gm-jd-marked" hidden>${mark(o)}</span></button>`).join('')}</div><p class="gm-jd-why" hidden>${rd.translation?`<span class="gm-tr">${esc(rd.translation)}</span>`:''}<span>${esc(loc(point.gist,locale))}</span></p></li>`).join('')}${meanRound}${who}</ol>`;
 }
-function splitHTML(e,esc,point,locale){const c=[...e.text],name=loc(point.title,locale).split(/\s*—+\s*/)[0];return `<div class="gm-split" data-split><p class="gm-ja gm-split-line" lang="ja"><span>${esc(c.slice(0,e.start).join(''))}</span><mark class="gm-hl gm-split-hl" data-explain="${esc(point.id)}" role="button" tabindex="0">${esc(c.slice(e.start,e.end).join(''))}<small>${esc(name)}</small></mark><span>${esc(c.slice(e.end).join(''))}</span></p>${e.translation?`<p class="gm-tr">${esc(e.translation)}</p>`:''}</div>`;
- }
 /* A lesson: six short steps, one shown at a time; every step is in the page so returning to it is instant. */
 export function lessonHTML(point,data,{locale,esc,step=0}){
  const w=grammarMessages[locale]||grammarMessages.zh,real=data?.examples?.[point.id]||[],r=data?.progress?.[point.id]||{};

@@ -65,7 +65,7 @@ function mountTextSource(dialog,{id,api,invoke,locale,esc}){
  dialog.addEventListener('close',()=>clearTimeout(timer));
  const busy=on=>{for(const b of box.querySelectorAll('button'))b.disabled=on;};
  const run=async(kind,source)=>{busy(true);status.textContent=w.importing;
-  try{paint(await api('text_source_import',{id,kind,dir:source}));}catch(error){const code=String(error?.message||error).match(/[A-Z][A-Z0-9_]{4,}/)?.[0]||'';status.textContent=w.errors[code]||sourceWords.zh.errors[code]||w.failed;}
+  try{paint(await api('text_source_import',{id,kind,dir:source}));}catch(error){const code=String(error?.message||error).match(/[A-Z][A-Z0-9_]{4,}/)?.[0]||'';status.textContent=w.errors[code]||(locale==='ja'?sourceWords.en:sourceWords.zh).errors[code]||w.failed;}
   finally{busy(false);}};
  // Manual pick (user, 2026-11-10): the picker opens at the game and its title names the file to select.
  patchBtn.onclick=async()=>{let file;try{file=await invoke('pick_patch_file',{title:w.pickTitle(last?.patchHint||''),directory:last?.gameDir||null});}catch{return;}if(file)run('patch',file);};
@@ -91,7 +91,7 @@ export async function openGameLanguage({id,api,invoke,locale,esc,toast,onChanged
    status.textContent=searching;
    await api('game_original_executable',{id,mode,executable});
    dialog.close();toast(saved);await onChanged?.();
-  }catch(error){status.textContent=launchReason(error,locale)||launchReason('JAPANESE_EXECUTABLE_REQUIRED',locale);}
+  }catch(error){status.textContent=launchReason((String(error?.message||error||'').match(/[A-Z][A-Z0-9_]{4,}/)||[])[0]||'',locale)||launchReason('JAPANESE_EXECUTABLE_REQUIRED',locale);}
   finally{for(const button of controls)button.disabled=false;}
  }
  dialog.querySelector('[data-locale]').onchange=async event=>{try{await api('game_locale_mode',{id,japanese:event.target.checked});}catch{event.target.checked=!event.target.checked;}};

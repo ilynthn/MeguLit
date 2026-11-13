@@ -42,7 +42,7 @@ async function lookupJisho(query,fetcher=fetch,options={}){
  const word=typeof query==='string'?query.trim().slice(0,100):'';if(!word)return [];
  const now=options.now||Date.now(),key=word.normalize('NFKC');
  const hit=memory.get(key)||load(options.root||'')[key];
- if(hit&&now-hit.at<(hit.items.length?TTL:MISS_TTL)){memory.set(key,hit);return hit.items;}
+ if(hit&&Array.isArray(hit.items)&&now-hit.at<(hit.items.length?TTL:MISS_TTL)){memory.set(key,hit);return hit.items;}
  if(inflight.has(key))return inflight.get(key);
  const job=(async()=>{
   if(!options.noThrottle)await throttle();

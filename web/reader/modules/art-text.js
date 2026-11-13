@@ -3,6 +3,9 @@
 // drawing its art text untouched; PageLocator finds where (art mode, artText). Over each line MeguLit lays the same text,
 // invisible but readable (click a character to look it up, drag to select and add), placed row by row where the game
 // drew it, plus the translation, shown like the game's own text. Both leave when the picture no longer shows the line.
+// E533 (live test 2026-11-13, ファタ title: clicking 館の扉を開く opened a word card for 扉 and the game never started): art
+// text is often a game button or a card the player clicks through, so the invisible copy is left out of the reader's hit
+// region (interaction.js NODES) and takes no pointer: a click on it always reaches the game.
 (function installArtText(){
  'use strict';
  if(!document.body||!window.__tomoyoChinese){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installArtText,{once:true});else setTimeout(installArtText,50);return;}
@@ -11,10 +14,11 @@
  style.textContent=`.megulit-art{position:fixed;inset:0;pointer-events:none;z-index:40}
 .megulit-art-item{position:absolute;inset:0;transition:opacity .45s ease;opacity:0}
 .megulit-art-item.is-shown{opacity:1}
-.megulit-art .megulit-art-row{position:absolute;white-space:pre;line-height:1;pointer-events:auto;margin:0;padding:0;font-family:var(--tomoyo-gal-jp-font,"MS Mincho",serif)}
+.megulit-art .megulit-art-row{position:absolute;white-space:pre;line-height:1;pointer-events:none;margin:0;padding:0;font-family:var(--tomoyo-gal-jp-font,"MS Mincho",serif)}
 .megulit-art .megulit-art-row,.megulit-art .megulit-art-row *{color:transparent!important;text-shadow:none!important;-webkit-text-stroke:0!important;filter:none!important;background:none!important}
 .megulit-art .megulit-art-row ::selection,.megulit-art .megulit-art-row::selection{color:transparent;background:rgba(255,214,120,.35)}
 .megulit-art-cn{position:absolute;white-space:pre-wrap;text-align:center;pointer-events:none;font-family:var(--tomoyo-gal-cn-font,"Microsoft YaHei",sans-serif);color:#fff;text-shadow:0 0 3px rgba(0,0,0,.9),0 0 8px rgba(0,0,0,.6);line-height:1.35}
+.megulit-art-cn.is-late{animation:megulit-art-late .45s ease}@keyframes megulit-art-late{from{opacity:0}}
 .megulit-art-ja{position:absolute;white-space:pre-wrap;pointer-events:auto;line-height:1.3;font-family:var(--tomoyo-gal-jp-font,"Yu Mincho","MS Mincho",serif)}`;
  document.head.append(style);
  const layer=document.createElement('div');layer.className='megulit-art';layer.setAttribute('aria-live','off');document.body.append(layer);
@@ -24,7 +28,7 @@
  function remove(id){const it=items.get(id);if(!it)return;items.delete(id);it.classList.remove('is-shown');setTimeout(()=>it.remove(),500);}
  /* an item read again (OCR art scan: a poem growing line by line, a better read) is replaced in place, without a new fade */
  function show(m){
-  const old=items.get(m.id);if(old){items.delete(m.id);old.remove();}
+  const old=items.get(m.id),hadCn=!!old?.querySelector('.megulit-art-cn');if(old){items.delete(m.id);old.remove();}
   const rows=Array.isArray(m.rows)?m.rows.filter(r=>r&&typeof r.text==='string'&&r.text.trim()&&Number.isFinite(r.x)&&Number.isFinite(r.y)):[];
   if(!rows.length)return;
   const k=scale(m),item=document.createElement('div');item.className='megulit-art-item';item.dataset.artId=String(m.id);
@@ -67,7 +71,7 @@
    const cn=document.createElement('div');cn.className='megulit-art-cn';cn.textContent=translation;
    const size=Math.max(12,rowH*(shown?.7:.8));place(cn,size,Math.max(1,Math.ceil([...translation].length*size/(innerWidth*.9))));
    if(shown){const jaEl=item.querySelector('.megulit-art-ja');if(jaEl)cn.style.top=(parseFloat(jaEl.style.top)+(low?-size*1.45:rowH*1.2))+'px';}
-   item.append(cn);
+   /* E540: the translation that arrives after its line fades in on its own */if(old&&!hadCn)cn.classList.add('is-late');item.append(cn);
   }
   if(old)item.classList.add('is-shown');layer.append(item);items.set(m.id,item);if(!old)requestAnimationFrame(()=>item.classList.add('is-shown'));
  }
