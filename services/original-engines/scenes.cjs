@@ -116,7 +116,8 @@ function parseAstMulti(text){const lines=[],zh=[],ruby=[],anchors=[],re=/\btext\
   last=end+1;re.lastIndex=end+1;}
  return {lines,anchors,zh,ruby};}
 function parseAst(buf){const lines=[],anchors=[],text=decode(buf),re=/"((?:[^"\\]|\\.)*)"/g;let m;
- if(/\btext\s*=\s*\{\s*ja\s*=\s*\{/.test(text))return parseAstMulti(text);
+ /* E560: a scene may open with text = { hide = true, ja = {...} } (The Shell II/III openings) */
+ if(/\btext\s*=\s*\{\s*(?:\w+\s*=\s*[\w"]+\s*,\s*)*ja\s*=\s*\{/.test(text))return parseAstMulti(text);
  while((m=re.exec(text))){const s=m[1].replace(/\\(.)/g,'$1');if(ascii(s))anchors.push(s);else lines.push(s);}
  return {lines,anchors};}
 const isPfs=f=>/\.pfs(?:\.\d+)?$/i.test(f);
