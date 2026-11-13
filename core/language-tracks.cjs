@@ -87,6 +87,17 @@ function japaneseTrack(text){
  out=out.split(/\r?\n/).map(foreignTail).join('\n');
  return out;
 }
+/* 2026-11-13 (adapt/krkr-bgi, live サノバウィッチ Steam 日简繁): a multi-language container carries the game's own translation
+   of the line. chineseTrack(raw, ja) takes away every copy of the Japanese line and returns the first Chinese track (the
+   engine keeps each track twice, display + measure, so a doubled remainder keeps one copy). '' when the container has no
+   Chinese track or the remainder does not read as one clean track. Used as the official pairing for that line. */
+function chineseTrack(raw,ja){
+ if(typeof raw!=='string'||typeof ja!=='string')return '';const r=raw.replace(/\s+/g,''),j=ja.replace(/\s+/g,'');if(j.length<2||r.length<=j.length||!r.includes(j))return '';
+ let rest=r.split(j).join('');rest=rest.split(SEP_ALL).filter(x=>x.length>=2).join('');rest=inlineCommands(rest);if(!rest||KANA.test(rest)||!HAN.test(rest))return '';
+ /* the first track: the shortest prefix the remainder starts by repeating */
+ for(let n=2;n*2<=rest.length;n++){if(rest.slice(0,n)===rest.slice(n,2*n))return rest.slice(0,n);}
+ return '';
+}
 /* E312 (live test 2026-11-13, Summer Pockets: 10_プロローグ0725___for_summerpockets_language___for_summerpockets and a half-scrolled
    ト80_幻想パー were read and drawn as story lines): script/scene identifiers that pass through the text call. A line with no
    whitespace and no sentence punctuation that carries a number_ prefix or a double underscore is a name, not dialogue. */
@@ -100,4 +111,4 @@ function scriptIdentifier(text){const t=String(text||'').trim();if(!t||/\s/.test
 function repeatedFrames(text){const u=String(text||'').replace(/\s+/g,'').match(/[『「“（(][^『「“（()）”」』]{1,40}[』」”）)]/gu)||[];if(u.length<3)return false;let run=1;for(let i=1;i<u.length;i++){run=u[i]===u[i-1]?run+1:1;if(run>=4)return true;}return false;}
 function stuttered(text){if(repeatedFrames(text))return true;const c=[...String(text||'').replace(/\s+/g,'')];if(c.length<8)return false;let n=0;const kinds=new Set();for(let i=1;i<c.length;i++)if(c[i]===c[i-1]&&!/[ー…‥―・～—\-.。！？!?]/u.test(c[i])){n++;kinds.add(c[i]);}return kinds.size>=3&&n*4>=c.length;}
 function soundCaption(text){const t=String(text||'').trim();return /^[■□◆◇▼▽★☆※◎●○]/u.test(t)&&[...t].length<=30&&!/[、。「」『』！？!?\r\n]/u.test(t);}
-module.exports={stuttered,soundCaption,scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
+module.exports={chineseTrack,stuttered,soundCaption,scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};
