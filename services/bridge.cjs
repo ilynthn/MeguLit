@@ -207,6 +207,8 @@ async function dispatch(request,runtime=null) {
   /* E456 (2026-11-11): every action is awaited before the database closes; a handler that returned its promise unawaited (learning_level_set) ran on a closed database ("database is not open") */
   try {return await (async()=>{
     if(String(request.action).startsWith('series_'))return require('./series.cjs').handle(db,root,request);
+    /* 2026-11-13 card wall (services/card-wall.cjs) */
+    if(String(request.action).startsWith('cards_'))return require('./card-wall.cjs').handle(db,root,request);
     switch(request.action) {
       case 'anki_sync':{
         const {AnkiSync}=require('./anki-sync.cjs'),{Anki}=require('../core/anki.cjs');const config=store.readJSON(path.join(root,'data','config','v4-preferences.json'));

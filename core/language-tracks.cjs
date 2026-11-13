@@ -47,13 +47,13 @@ function semicolonTracks(text){
 /* A whole line of Chinese (no kana, mostly Han, at least two characters only Chinese uses). Japanese lines written only in
    kanji are short and do not use these function characters. */
 /* E501 (live 9-nine beta.24: 「…よかったわ」「大概是因為…」 stayed in the Japanese line): 了 的 很 夠/够 繫 also mark Chinese in a kana-free row */
-const ZH_ONLY=/[這这麼么嗎吗您們们個个裡請请說说沒没還还讓让給给對对呢吧啊妳哪喔了的很夠够繫]/gu;
+const ZH_ONLY=/[這这麼么嗎吗您們们個个裡請请說说沒没還还讓让給给對对呢吧啊妳哪喔了的很夠够繫你]/gu;/* 2026-11-13 (ATRI 「成為你的右腿！」): 你 too */
 /* E270 (user, ATRI: a Traditional Chinese line still reached the reader as Japanese): also count Han forms that modern
    Japanese writes differently (traditional 從圖讓與學會實點經國關應歡聽讀賣錢樣黑處體發變邊氣當覺 and simplified 时为无开关长
    见头应问题电话书车门东亲爱欢谢语听读买卖钱样谁黑处发变边气觉), and the full-width comma ， that Japanese text does not use. */
 const ZH_FORM=/[從圖讓與學會實點經國關應歡聽讀賣錢樣黑處體發變邊氣當覺爲无为时开关长见头应问题电话书车门东亲爱欢谢语听读买卖钱样谁处发变边气觉试图从实经]/gu;
 function zhScore(t){return (t.match(ZH_ONLY)||[]).length+(t.match(ZH_FORM)||[]).length;}
-function foreignLine(text){const t=String(text||'');if(KANA.test(t))return false;const han=(t.match(/[㐀-鿿]/gu)||[]).length;if(han<6)return false;const score=zhScore(t);return score>=2||(score>=1&&t.includes('，'));}
+function foreignLine(text){const t=String(text||'');if(KANA.test(t))return false;const han=(t.match(/[㐀-鿿]/gu)||[]).length;if(han<4)return false;const score=zhScore(t);if(han<6)return score>=2;return score>=2||(score>=1&&t.includes('，'));}
 /* A line that arrives as Japanese rows plus a Chinese row of the same text keeps only the Japanese rows. */
 // Chinese translation patches that "borrow" Shift-JIS code points (借码) store Chinese sentences as unrelated JIS kanji;
 // only the patch's own font shows them as Chinese. Read back (an old save from the patched game, a patch launcher
@@ -74,6 +74,9 @@ function foreignRows(text){const rows=String(text).split(/\r?\n/);if(rows.length
    then two equal halves (a stray end marker letter allowed) keeps one. %l groups are left to inlineAlternatives. */
 function inlineCommands(text){return text.replace(/%(?!l)[a-z][a-z0-9]*;/gi,'').replace(/#(?:[0-9a-f]{6,8})?;/gi,'');}
 function halveLoose(s){const once=halve(s);if(once!==s)return once;const m=/^([\s\S]*?)[A-Za-z]{1,2}\s*$/.exec(s);if(m&&KANA.test(m[1])){const body=m[1].trimEnd(),h=halve(body);if(h!==body)return h;}return s;}
+/* 2026-11-13 (live ATRI: 「…足になります！成为你的右腿！成為你的右腿！」): a multi-language stream glues the Simplified and Traditional
+   lines onto the Japanese one in a single row. After the last kana's sentence end, a kana-free tail that reads as Chinese goes. */
+function foreignTail(row){const s=String(row);let last=-1;for(let i=s.length-1;i>=0;i--){if(/[ぁ-ゟァ-ヺ]/u.test(s[i])){last=i;break;}}if(last<0)return s;const end=s.slice(last).search(/[。！？!?」』…]/u);if(end<0)return s;const cut=last+end+1;let at=cut;while(at<s.length&&/[。！？!?」』…\s]/u.test(s[at]))at++;const tail=s.slice(at);if(!tail||/[ぁ-ゟァ-ヺ]/u.test(tail))return s;const han=(tail.match(/[㐀-鿿]/gu)||[]).length;return han>=3&&(zhScore(tail)>=1||tail.includes('，'))?s.slice(0,at).trimEnd():s;}
 function japaneseTrack(text){
  if(typeof text!=='string'||!text)return text;
  let out=inlineAlternatives(text);
@@ -81,6 +84,7 @@ function japaneseTrack(text){
  out=tracks(out)??out;
  out=semicolonTracks(out)??out;
  out=foreignRows(out);
+ out=out.split(/\r?\n/).map(foreignTail).join('\n');
  return out;
 }
 /* E312 (live test 2026-11-13, Summer Pockets: 10_プロローグ0725___for_summerpockets_language___for_summerpockets and a half-scrolled

@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 using System;using System.Collections.Generic;
 // The draw adapters frame complete script strings before LunaHost buffers them. Content is never deduplicated.
 public sealed class HookSourceFrames{
@@ -14,14 +14,16 @@ public sealed class HookSourceFrames{
 // LunaHost may flush multiple successive embed callbacks as one unmarked string.
 // Only collapse a batch that exactly reconstructs from individual callbacks.
 public sealed class EmbedSourceBatch{
- readonly List<string> Lines=new List<string>();
+ readonly List<string> Lines=new List<string>();readonly List<DateTime> Times=new List<DateTime>();
  DateTime LastAt;
- public void Clear(){Lines.Clear();}
+ public void Clear(){Lines.Clear();Times.Clear();}
+ /* the lines that came in one burst with the newest (each within 300 ms of the next), oldest first */
+ public List<string> Recent(DateTime now){var r=new List<string>();if((now-LastAt).TotalMilliseconds>1500)return r;for(int i=Lines.Count-1;i>=0;i--){if(i<Lines.Count-1&&(Times[i+1]-Times[i]).TotalMilliseconds>300)break;r.Insert(0,Lines[i]);}return r;}
  public void Add(string text,DateTime now){
   if(String.IsNullOrWhiteSpace(text)||text.Length>4000)return;
-  if((now-LastAt).TotalMilliseconds>1500)Lines.Clear();
-  LastAt=now;Lines.Add(text.Trim());
-  if(Lines.Count>128)Lines.RemoveAt(0);
+  if((now-LastAt).TotalMilliseconds>1500){Lines.Clear();Times.Clear();}
+  LastAt=now;Lines.Add(text.Trim());Times.Add(now);
+  if(Lines.Count>128){Lines.RemoveAt(0);Times.RemoveAt(0);}
  }
  public string LastLine(string output,DateTime now){
   if(Lines.Count<2||(now-LastAt).TotalMilliseconds>1500)return output;

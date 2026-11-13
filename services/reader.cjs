@@ -53,6 +53,8 @@ class Reader{
   /* 2026-11-12 (user: "自动校准的同时直接替换成游戏原生字体"): the engine names the face it draws the text with (KiriKiri
      MessageLayer.font.face). Our Japanese text takes it: the game's own font file when the folder scan found that family,
      else the installed face by name. A font the user picked by hand is kept. */
+  /* 2026-11-13 card wall: an engine hook reports a picture on the game's screen (card-wall.cjs 'seen') */
+  if(message.type==='imageShown'&&typeof message.name==='string'&&this.gameExe)try{require('./card-wall.cjs').noteSeen(this.root,this.gameExe,message.name);}catch{}
   if(message.type==='hookFont')this.engineFont(message);
   if(message.type==='hookFontFile')this.engineFontFile(message);
   if(message.type==='markerPresence')this.immersion.marker(message.present===true);
@@ -60,6 +62,7 @@ class Reader{
   /* Issue 127: Alt+H and its hotkey registration reach the log, so a report shows whether the cover was really switched */if(message.type==='ready')this.logVisibility({type:'readerHotkeys',menu:message.hotkey,cover:message.coverHotkey,mode:message.modeHotkey});if(message.type==='cover'&&typeof message.coverEnabled==='boolean')this.logVisibility({type:'cover',enabled:message.coverEnabled});
   if(message.type==='ready'){this.gal?.send({type:'dialogConfig',scene:config.immersion===true,auto:config.immersion===true,active:config.immersion&&config.dialogDetection==='visual',marker:config.immersion&&config.dialogDetection==='marker'});this.gal?.setGameAudio(config.ankiGameMedia!==false);}
   if(message.type==='gameClosed'||message.bound===false)this.immersion.bind('');else if(message.gameHwnd)this.immersion.bind(message.gameHwnd+'|'+message.gameProcessId+'|'+message.gameStarted);
+  /* 2026-11-13 (ATRI: the choice overlay was drawn in a reader window hidden as "scene changed"): while choices are on screen the reader stays shown */if(Object.prototype.hasOwnProperty.call(message,'hookChoices'))this.immersion.choices(!!message.hookChoices);
   if(typeof message.hookSource==='string'){this.gal?.send({type:'markerSource',text:message.hookSource});if(!message.hookRecovering&&message.hookSourceOrigin!=='history'){
    if(message.hookSource&&message.hookSource!==this.immersion.currentText)this.gal?.send({type:'dialogSceneLine'});
    this.immersion.source(message.hookSource,message.hookSourceEngine);
@@ -107,7 +110,7 @@ class Reader{
   if(this.gal)return {attached:true};
   this.overlayPid=pid;
   const layout={...require('../core/layout.cjs'),overlayHwnd:String(hwnd)};
-  this.immersion=new(require('../core/immersion.cjs').Immersion)(message=>{if(message.dialogVisible===false)require('./scene-shots.cjs').maybe(this,{hidden:true});this.logVisibility({type:'dialogVisibility',visible:message.dialogVisible,reason:message.reason});this.runtime.emit('reader-event',{type:'dialogVisibility',visible:message.dialogVisible});clearTimeout(this.hideTimer);if(message.dialogVisible===false)this.hideTimer=setTimeout(()=>this.gal?.send({type:'dialogVisibility',visible:false}),140);else this.gal?.send({type:'dialogVisibility',visible:message.dialogVisible});this.runtime.emit('reader-event',message);});this.immersion.configure(this.runtime.config());/* E422: a page game is known before its first line */this.immersion.flowGame=()=>this.gal?.hooks?.flowPage===true;this.tick=setInterval(()=>this.immersion.tick(),100);this.tick.unref();
+  this.immersion=new(require('../core/immersion.cjs').Immersion)(message=>{if(message.dialogVisible===false)require('./scene-shots.cjs').maybe(this,{hidden:true});this.logVisibility({type:'dialogVisibility',visible:message.dialogVisible,reason:message.reason});this.runtime.emit('reader-event',{type:'dialogVisibility',visible:message.dialogVisible,choiceOnly:message.choiceOnly===true});clearTimeout(this.hideTimer);if(message.dialogVisible===false)this.hideTimer=setTimeout(()=>this.gal?.send({type:'dialogVisibility',visible:false}),140);else this.gal?.send({type:'dialogVisibility',visible:message.dialogVisible});this.runtime.emit('reader-event',message);});this.immersion.configure(this.runtime.config());/* E422: a page game is known before its first line */this.immersion.flowGame=()=>this.gal?.hooks?.flowPage===true;this.tick=setInterval(()=>this.immersion.tick(),100);this.tick.unref();
   this.fonts=new(require('../core/game-fonts.cjs').GameFonts)(layout,()=>{this.runtime.emit('reader-event',{type:'fonts',fonts:this.fonts.payload(true)});});
   this.gal=new(require('../core/gal-native.cjs').GalNative)(layout,pid,message=>this.event(message),this.runtime.spawnReaderNative);this.gal.onLineVoice=(text,wav)=>{/* E455 a kept clip loses its music first when separation is on and ready */const keep=v=>{try{require('./game-voice.cjs').remember(this.root,text,v);}catch{}};if(this.runtime.config().ankiVoiceIsolate===false)return keep(wav);require('./vocal-sep.cjs').isolate(this.root,wav).then(clean=>keep(clean||wav),()=>keep(wav));};
   if(!this.gal.process){this.stop();throw Error('READER_NATIVE_MISSING');}

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
@@ -586,7 +586,8 @@ public class GalWindowBridge {
             }
         }
         if(args.Length>=1&&args[0]=="--page-locator-ocr-test"){string r=PageLocator.OcrSelfTest(args.Length>1?args[1]:null);Console.WriteLine(r=="0"?"PASS page locator OCR: three drawn paragraphs found, wrapped where they were drawn, boxes at the drawn margin":(r.StartsWith("skip")?"SKIP "+r:"FAIL page locator OCR: "+r));return r=="0"||r.StartsWith("skip")?0:13;}
-        if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.UTF8;Console.Write(PageLocator.ScanFile(args[1]));return 0;}
+        if(args.Length==3&&args[0]=="--choice-file"){Console.OutputEncoding=Encoding.UTF8;Console.Write(PageLocator.ChoiceFile(args[1],args[2]));return 0;}
+if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.UTF8;Console.Write(PageLocator.ScanFile(args[1]));return 0;}
         if(args.Length>=1&&args[0]=="--art-scan-ocr-test"){string r=PageLocator.ScanOcrSelfTest(args.Length>1?args[1]:null);Console.WriteLine(r=="0"?"PASS art scan OCR: centred opening lines read and grouped, the text box with its name and dialogue left out":(r.StartsWith("skip")?"SKIP "+r:"FAIL art scan OCR: "+r));return r=="0"||r.StartsWith("skip")?0:15;}
         if(args.Length==1&&args[0]=="--art-scan-self-test"){string r=PageLocator.ScanSelfTest();Console.WriteLine(r=="0"?"PASS art scan: Japanese rows outside the dialogue grouped, shown after two reads, hidden after two misses":"FAIL art scan: "+r);return r=="0"?0:14;}
         if(args.Length==1&&args[0]=="--page-locator-self-test"){bool passed=PageLocator.SelfTest();Console.WriteLine(passed?"PASS page locator: hook line aligned to OCR rows, split where the game wrapped, OCR mistakes tolerated, punctuation kept on its row":"FAIL page locator");return passed?0:12;}

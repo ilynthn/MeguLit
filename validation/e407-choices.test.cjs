@@ -23,9 +23,16 @@ test('E407 choices: overlay ruby markup and box mapping',()=>{
 test('E407 choices: read-only capture wired end to end, never written back',()=>{
  const bridge=read('native/HookBridge.cs');assert.match(bridge,/type="hookAuxText"/);assert.match(bridge,/aux\.role!=2/);
  assert.match(read('native/PageLocator.cs'),/public void RequestChoices/);assert.match(read('native/GalWindowBridge.cs'),/type=="choiceLocate"/);
- const hook=read('core/hook-native.cjs');assert.match(hook,/m\.type==='hookAuxText'/);assert.match(hook,/clearChoices\('new dialogue line'\)/);assert.match(hook,/'choice ocr '/);
+ const hook=read('core/hook-native.cjs');assert.match(hook,/m\.type==='hookAuxText'/);assert.match(hook,/clearChoices\('new dialogue line',400,text\)/);assert.match(hook,/'choice ocr '/);
  assert.match(read('core/gal-native.cjs'),/message\.type==='hookChoiceBoxes'/);
  assert.ok(JSON.parse(read('web/reader/modules.json')).includes('choice-overlay'));assert.match(read('web/reader/module-list.js'),/"choice-overlay"/);
  assert.match(read('services/reader.cjs'),/case 'layoutDiagnostic'/);
  const policy=read('native/EmbedTextPolicy.cs');assert.match(policy,/Writable\(int role\) \{ return role == 0 \|\| role == 1; \}/);
+});
+test('E407 choices: the overlay never covers the game text (no backing, invisible Japanese copy, ruby and translation only)',()=>{
+ const src=read('web/reader/modules/choice-overlay.js');
+ assert.doesNotMatch(src,/megulit-choice-mask/);
+ assert.match(src,/\.megulit-choice-jp\{[^}]*color:transparent/);
+ for(const rule of src.match(/'\.megulit-choice[^']*\{[^}]*\}'/g)||[])assert.doesNotMatch(rule,/background:(?!none)/,rule);
+ assert.match(read('web/reader/modules/interaction.js'),/\.megulit-choice,\.megulit-choice-cn'/);
 });

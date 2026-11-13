@@ -10,10 +10,12 @@
    A long press or a drag only plays with the card (the tilt); it never flips. */
 const reduce=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const words={zh:{cg:'CG',shot:'场景',back:'卡背',flip:'点击翻面'},ja:{cg:'CG',shot:'場面',back:'カードの裏',flip:'クリックで裏返す'},en:{cg:'CG',shot:'Scene',back:'Card back',flip:'Click to turn over'}};
+/* the crest's character: the title's first kanji/kana, else its first letter (shared with the card maker's card back) */
+export function crestGlyph(title){return [...String(title||'')].find(c=>/[一-鿿぀-ヿ]/.test(c))||String(title||' ').trim().charAt(0).toUpperCase()||'M';}
 export function flipCard(card,{api,id,esc,game,locale='zh'}){
  const flip=card.querySelector('.dtv-flip'),art=card.querySelector('.dtv-back-art');if(!flip||!art)return;
  const w=words[locale]||words.zh;card.setAttribute('aria-label',w.flip);
- const glyph=[...String(game?.title||'')].find(c=>/[一-鿿぀-ヿ]/.test(c))||String(game?.title||' ').trim().charAt(0).toUpperCase()||'M';
+ const glyph=crestGlyph(game?.title);
  let angle=0,busy=null,list=null,last='',pressAt=0,pressXY=[0,0];
  const crest=()=>{art.className='dtv-back-art is-crest';art.innerHTML=`<i class="dtv-ring"></i><i class="dtv-ring is-inner"></i><b>${esc(glyph)}</b><span>MeguLit</span><small>${esc(game?.title||'')}</small>`;};
  crest();

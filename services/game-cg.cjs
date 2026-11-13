@@ -239,4 +239,12 @@ function image(root,executable,name,opts={}){
  if(opts.safe&&!require('./cg-rating.cjs').isSafe(require('./cg-rating.cjs').ratings(cacheDirOf(root,executable))[String(name||'').toLowerCase()]))throw Error('CG_HIDDEN');
  const b=fs.readFileSync(pictureFile(root,executable,name));return {mime:mimeOf(b),data:b.toString('base64')};
 }
-module.exports={list,image,scan,ksdText,tokens,kbad,esSlots,sdcUnpack,mzpNameSets,yssdArrays,siglusTable,siglusGlobalTables,SIGLUS_KEY};
+/* 2026-11-13 card wall (no spoilers): only explicit unlock marks of the KiriKiri system saves ("cg_<FILE>" set to a
+   true value), never bare names that merely appear in the save; null when there is no KiriKiri save */
+function kirikiriMarked(executable){const dir=path.dirname(String(executable||''));const saves=kirikiriSaves(dir);if(!saves.length)return null;const out=new Set();
+ for(const f of saves){try{const buf=fs.readFileSync(f),v=kbadValue(buf);
+  if(v&&typeof v==='object'){for(const k of Object.keys(v)){const m=/^cg_(.+)$/i.exec(k);if(m&&v[k])out.add(base(m[1]));}}
+  else for(const m of ksdText(buf).matchAll(/"cg_([^"]+?)"\s*=>\s*(?:\(int\)\s*)?(?:[1-9]\d*|true)/gi))out.add(base(m[1]));}catch{}}
+ return out;}
+const cachedPicture=(root,executable,name)=>{const d=cacheDirOf(root,executable);for(const ext of Object.values(EXT)){const f=path.join(d,String(name).toLowerCase()+ext);if(fs.existsSync(f))return f;}return null;};
+module.exports={list,image,scan,pictureFile,kirikiriMarked,cachedPicture,ksdText,tokens,kbad,esSlots,sdcUnpack,mzpNameSets,yssdArrays,siglusTable,siglusGlobalTables,SIGLUS_KEY};

@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 // E306 (user 2026-11-10: "make it the best hook": every engine should place each sentence of a full-screen page where
 // the game drew it, not only ISLAND, KiriKiri and Ren'Py). Engines without their own position source (BGI, Siglus,
 // Artemis, CatSystem2, anything LunaHook reads) are located on the picture instead: when a new hook line arrives,
@@ -432,6 +432,81 @@ public sealed class PageLocator : IDisposable {
   int serial = Interlocked.Increment(ref ChoiceSerial);
   ThreadPool.QueueUserWorkItem(_ => { try { LocateChoices(target, options, serial); } catch (Exception e) { Emit(new { type = "pageLocateStatus", status = "choice error " + e.Message }); } });
  }
+ /* an option made only of punctuation (「…………」) has nothing OCR could match */
+ static bool Missing(List<Row> rows, List<string> options) { foreach (var o in options) { if (Plain(o, null).Length < 2) continue; if (Find(rows, o) == null) return true; } return false; }
+ /* bands 30% high every 15%; on a wide picture each band is also read in three overlapping half-width tiles, which OCR
+    reads at twice the size (a full-width band of a 1920 picture misread 「おはよう」 as 「おばよ?」) */
+ List<Row> ReadBands(Bitmap image, int w, int h, int serial = -1) {
+  var all = new List<Row>(); int band = Math.Max(48, h * 30 / 100), step = Math.Max(24, h * 15 / 100);
+  var cols = new List<int[]>(); if (w >= 1400) { int tw = w / 2; cols.Add(new[] { 0, tw }); cols.Add(new[] { w / 4, tw }); cols.Add(new[] { w - tw, tw }); } else cols.Add(new[] { 0, w });
+  for (int top = 0; top < h; top += step) {
+   int bh = Math.Min(band, h - top); if (bh < 24) break; if (serial >= 0 && (serial != ChoiceSerial || Disposed)) break; /* a newer request took over */
+   foreach (var c in cols)
+    using (var part = image.Clone(new Rectangle(c[0], top, c[1], bh), image.PixelFormat)) {
+     List<Row> got; lock (OcrLock) got = Read(part, c[1], bh);
+     foreach (var r in got) all.Add(new Row(r.Text, new Rectangle(r.Box.Left + c[0], r.Box.Top + top, r.Box.Width, r.Box.Height)));
+    }
+   if (top + bh >= h) break;
+  }
+  return all;
+ }
+ static List<Row> Merge(List<Row> rows, List<Row> extra) {
+  var list = new List<Row>(rows);
+  foreach (var r in extra) {
+   bool dup = false;
+   foreach (var q in list) { var i = Rectangle.Intersect(q.Box, r.Box); if (i.Width * i.Height > 0.5 * Math.Min(q.Box.Width * q.Box.Height, r.Box.Width * r.Box.Height)) { dup = true; break; } }
+   if (!dup) list.Add(r);
+  }
+  list.Sort((a, c) => Math.Abs(a.Box.Top - c.Box.Top) > Math.Min(a.Box.Height, c.Box.Height) / 2 ? a.Box.Top.CompareTo(c.Box.Top) : a.Box.Left.CompareTo(c.Box.Left));
+  return list;
+ }
+ /* the boxes of the options on the OCR rows (shared by the live locator and --choice-file) */
+ /* the boxes of the options on the OCR rows (shared by the live locator and --choice-file) */
+ static void ChoiceItems(List<Row> rows, List<string> options, List<object> items, List<string> missed) {
+  var rowOf = new int[options.Count]; var used = new HashSet<int>();
+  for (int k = 0; k < options.Count; k++) {
+   string option = options[k]; rowOf[k] = -1;
+   var f = Find(rows, option);
+   /* 2026-11-13 (ATRI 「アトリを行かせるアトリは俺が預かる」, CLANNAD, Summer Pockets: the engine hands every option over as one
+      glued string): a match over rows standing apart (a gap of at least 0.8 row height, so not one line wrapped) is one
+      option per row, cut where each row ends (Find's Parts). */
+   if (f != null && f.Last > f.First && f.Parts.Count == f.Last - f.First + 1) {
+    bool apart = true;
+    for (int i = f.First; i < f.Last && apart; i++) { var a = rows[i].Box; var b = rows[i + 1].Box; apart = b.Top - a.Bottom >= 0.8 * Math.Min(a.Height, b.Height); }
+    if (apart) { for (int i = f.First; i <= f.Last; i++) { string part = f.Parts[i - f.First]; var q = rows[i].Box; used.Add(i); if (part.Length > 0) items.Add(new { text = part, x0 = q.Left, y0 = q.Top, x1 = q.Right, y1 = q.Bottom }); } continue; }
+   }
+   if (f == null || f.Last - f.First > 1) { missed.Add(option); continue; }
+   int x0 = int.MaxValue, y0 = int.MaxValue, x1 = 0, y1 = 0;
+   for (int i = f.First; i <= f.Last; i++) { used.Add(i); var q = rows[i].Box; x0 = Math.Min(x0, q.Left); y0 = Math.Min(y0, q.Top); x1 = Math.Max(x1, q.Right); y1 = Math.Max(y1, q.Bottom); }
+   if (f.First == f.Last) rowOf[k] = f.First;
+   items.Add(new { text = option, x0 = x0, y0 = y0, x1 = x1, y1 = y1 });
+  }
+  /* 2026-11-13 (CLANNAD: OCR read 「やめておく」 as 「ゃあそく彡~」 on the row right under 「上書きで何か吹き込む」): the options come in
+     their on-screen order, so a missed option takes the unused row next to its found neighbour when that row lines up with
+     it (same left edge or same centre within a row height), sits within two row heights and has about as many characters */
+  for (int k = 0; k < options.Count; k++) {
+   if (rowOf[k] >= 0 || !missed.Contains(options[k])) continue; int n = Plain(options[k], null).Length; if (n < 2) continue;
+   foreach (int dir in new[] { -1, 1 }) {
+    int nb = k + dir; if (nb < 0 || nb >= options.Count || rowOf[nb] < 0) continue;
+    int r = rowOf[nb] - dir; if (r < 0 || r >= rows.Count || used.Contains(r)) continue;
+    Rectangle a = rows[rowOf[nb]].Box, q = rows[r].Box; int h = Math.Max(a.Height, q.Height), m = Plain(rows[r].Text, null).Length;
+    bool lined = Math.Abs(a.Left - q.Left) <= h || Math.Abs((a.Left + a.Right) / 2 - (q.Left + q.Right) / 2) <= h;
+    bool near = Math.Abs((q.Top + q.Bottom) / 2 - (a.Top + a.Bottom) / 2) <= 2.5 * h;
+    if (!lined || !near || m < n * 0.5 || m > n * 1.6) continue;
+    used.Add(r); rowOf[k] = r; missed.Remove(options[k]); items.Add(new { text = options[k], x0 = q.Left, y0 = q.Top, x1 = q.Right, y1 = q.Bottom }); break;
+   }
+  }
+ } public static string ChoiceFile(string file, string optionList) {
+  var locator = new PageLocator(m => { }); try { locator.Engine = OcrEngine.TryCreateFromLanguage(new Language("ja")); } catch { } if (locator.Engine == null) return "no Japanese OCR";
+  var options = new List<string>(optionList.Split('|'));
+  using (var src = new Bitmap(file)) using (var image = new Bitmap(src.Width, src.Height, PixelFormat.Format24bppRgb)) {
+   using (var g = Graphics.FromImage(image)) g.DrawImage(src, 0, 0, src.Width, src.Height);
+   var rows = locator.Read(image, image.Width, image.Height); if (Missing(rows, options)) rows = Merge(rows, locator.ReadBands(image, image.Width, image.Height));
+   var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, options, items, missed);
+   return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new { items = items, missed = missed });
+  }
+ }
+
  void LocateChoices(IntPtr target, List<string> options, int serial) {
   if (!EngineTried) { EngineTried = true; try { Engine = OcrEngine.TryCreateFromLanguage(new Language("ja")); } catch { Engine = null; } }
   if (Engine == null) { Emit(new { type = "hookChoiceBoxes", serial = serial, items = new object[0], missed = options.ToArray(), rows = new string[0], status = "no Japanese OCR" }); return; }
@@ -444,15 +519,12 @@ public sealed class PageLocator : IDisposable {
    using (var image = new Bitmap(w, h, PixelFormat.Format24bppRgb)) {
     if (!GameCapture.Into(target, image, 3)) return;
     lock (OcrLock) rows = Read(image, w, h);
+    /* 2026-11-13 (ファタモルガーナの館: the whole picture read as no text at all, its ornate frame and portrait spoil the page
+       layout; a band across the options reads them): when an option is not on the rows, the picture is read again in
+       overlapping horizontal bands and the rows found there are added */
+    if (ms == 1500 && serial == ChoiceSerial && Missing(rows, options)) rows = Merge(rows, ReadBands(image, w, h, serial));
    }
-   var items = new List<object>(); var missed = new List<string>();
-   foreach (var option in options) {
-    var f = Find(rows, option);
-    if (f == null || f.Last - f.First > 1) { missed.Add(option); continue; }
-    int x0 = int.MaxValue, y0 = int.MaxValue, x1 = 0, y1 = 0;
-    for (int i = f.First; i <= f.Last; i++) { var q = rows[i].Box; x0 = Math.Min(x0, q.Left); y0 = Math.Min(y0, q.Top); x1 = Math.Max(x1, q.Right); y1 = Math.Max(y1, q.Bottom); }
-    items.Add(new { text = option, x0 = x0, y0 = y0, x1 = x1, y1 = y1 });
-   }
+   var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, options, items, missed);
    if (items.Count >= 2 || ms == 1500) {
     var seen = new List<string>(); foreach (var r in rows) { if (seen.Count >= 24) break; seen.Add(r.Text.Length > 40 ? r.Text.Substring(0, 40) : r.Text); }
     Emit(new { type = "hookChoiceBoxes", serial = serial, sw = w, sh = h, items = items.ToArray(), missed = missed.ToArray(), rows = seen.ToArray(), status = items.Count >= 2 ? "found" : "miss" });
@@ -503,10 +575,12 @@ public sealed class PageLocator : IDisposable {
   var o = new StringBuilder();
   for (int i = 0; i < s.Length; i++) {
    string n = s[i].ToString().Normalize(NormalizationForm.FormKC);
-   foreach (char c in n) if (Char.IsLetterOrDigit(c)) { o.Append(c); if (map != null) map.Add(i); }
+   foreach (char c in n) if (Char.IsLetterOrDigit(c)) { o.Append(Large(c)); if (map != null) map.Add(i); }
   }
   return o.ToString();
  }
+ /* 2026-11-13 (CLANNAD: OCR read 「やめておく」 as 「ゃあて第く」): small and large kana compare equal, OCR mixes them up */
+ static char Large(char c) { int i = "ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ".IndexOf(c); return i < 0 ? c : "あいうえおつやゆよわアイウエオツヤユヨワカケ"[i]; }
  static int Lcs(string a, string b) {
   if (a.Length == 0 || b.Length == 0) return 0;
   int[] p = new int[b.Length + 1], c = new int[b.Length + 1];

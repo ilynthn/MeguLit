@@ -405,8 +405,13 @@ function library(){
 
   const pod=document.createElement('div'),left=document.createElement('span'),right=document.createElement('span');
   pod.className='field-search';left.className=right.className='side';
+  /* 2026-11-13 card wall entry: the library capsule's own switch row, right side, before select and add (the top bar stays as it is) */
+  const cardWallButton=document.createElement('button');
+  {const label={zh:'卡面墙',en:'Card wall',ja:'カードウォール'}[locale];cardWallButton.type='button';cardWallButton.className='icon-button card-wall-entry';cardWallButton.setAttribute('aria-label',label);cardWallButton.title=label;
+   cardWallButton.innerHTML='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1.8v2.4"/><rect x="5.5" y="4.2" width="13" height="17.6" rx="2.2"/><rect x="8" y="7.4" width="8" height="11.4" rx="1"/></svg>';
+   cardWallButton.onclick=()=>import('./card-wall.js').then(m=>m.openCardWall(main)).catch(error=>console.warn('card wall',error));}
   left.append(main.querySelector('#refresh-library'),main.querySelector('#library-settings'),main.querySelector('#adaptation-overview'),wallToggle);
-  right.append(main.querySelector('#select-games'),main.querySelector('#add-game'));
+  right.append(cardWallButton,main.querySelector('#select-games'),main.querySelector('#add-game'));
   pod.append(left,input,right);main.append(pod);main.classList.add('field-page');
   const searchAppearance=()=>main.classList.toggle('searching',document.activeElement===input||!!input.value);
   input.addEventListener('focus',searchAppearance);
