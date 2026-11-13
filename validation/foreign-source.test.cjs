@@ -62,9 +62,9 @@ test('a provisional foreign pick (boot screen text) gives way to the dialogue st
  h.state.hookThreads.push({id:'bios',sample:bios.slice(0,3).join('\n'),selected:false});h.foreignPick();h.state.hookThreads[2]={id:'bios',sample:bios.join('\n'),selected:false};
  assert.equal(h.foreignPick(),false,'a changing BIOS dump is not prose');
  h.state.hookThreads.push({id:'say',sample:line,selected:false});
- assert.equal(h.foreignPick(),false,'one mapped sample is not yet a dialogue stream');
- h.state.hookThreads[3]={id:'say',sample:line2,selected:false};
- assert.equal(h.foreignPick(),true);assert.deepEqual(picked,['boot','say']);
+ /* E501 (DDLC Plus live: waiting for a second sample lost the first story line and left 「Skip Intro」 in the reader):
+    while the pick is a short label, the first mapped prose sample takes over */
+ assert.equal(h.foreignPick(),true,'one prose sample replaces a label pick');assert.deepEqual(picked,['boot','say']);
  h.state.hookThreads=[{id:'boot',sample:'Skip Intro',selected:false},{id:'say',sample:line2,selected:true}];
  assert.equal(h.foreignPick(),false,'never goes back');
  h.manualThread='mine';h.state.hookThreads=[{id:'mine',sample:'Skip Intro',selected:true},{id:'say2',sample:line,selected:false}];

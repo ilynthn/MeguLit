@@ -46,7 +46,8 @@ function semicolonTracks(text){
 
 /* A whole line of Chinese (no kana, mostly Han, at least two characters only Chinese uses). Japanese lines written only in
    kanji are short and do not use these function characters. */
-const ZH_ONLY=/[這这麼么嗎吗您們们個个裡請请說说沒没還还讓让給给對对呢吧啊妳哪喔]/gu;
+/* E501 (live 9-nine beta.24: 「…よかったわ」「大概是因為…」 stayed in the Japanese line): 了 的 很 夠/够 繫 also mark Chinese in a kana-free row */
+const ZH_ONLY=/[這这麼么嗎吗您們们個个裡請请說说沒没還还讓让給给對对呢吧啊妳哪喔了的很夠够繫]/gu;
 /* E270 (user, ATRI: a Traditional Chinese line still reached the reader as Japanese): also count Han forms that modern
    Japanese writes differently (traditional 從圖讓與學會實點經國關應歡聽讀賣錢樣黑處體發變邊氣當覺 and simplified 时为无开关长
    见头应问题电话书车门东亲爱欢谢语听读买卖钱样谁黑处发变边气觉), and the full-width comma ， that Japanese text does not use. */
@@ -90,6 +91,9 @@ function scriptIdentifier(text){const t=String(text||'').trim();if(!t||/\s/.test
    line; the sound-effect caption 「■自動車（車内／走行）」 came through the scenario stream as the first line). A typewriter frame where many
    characters repeat in place is never text to read, and a short line that opens with a block/marker symbol and has no
    sentence punctuation is a caption (sound effect, BGM, location), not dialogue. */
-function stuttered(text){const c=[...String(text||'').replace(/\s+/g,'')];if(c.length<8)return false;let n=0;const kinds=new Set();for(let i=1;i<c.length;i++)if(c[i]===c[i-1]&&!/[ー…‥―・～—\-.。！？!?]/u.test(c[i])){n++;kinds.add(c[i]);}return kinds.size>=3&&n*4>=c.length;}
+/* E501 (live 千恋＊万花 beta.24: the first line read 「『お客さん』『お客さん』『お客さん』『お客さん』『先生』…■自動車…」): redraw frames can repeat a
+   whole quoted phrase in place, so four or more equal quoted units back to back are a frame dump, not a line */
+function repeatedFrames(text){const u=String(text||'').replace(/\s+/g,'').match(/[『「“（(][^『「“（()）”」』]{1,40}[』」”）)]/gu)||[];if(u.length<3)return false;let run=1;for(let i=1;i<u.length;i++){run=u[i]===u[i-1]?run+1:1;if(run>=4)return true;}return false;}
+function stuttered(text){if(repeatedFrames(text))return true;const c=[...String(text||'').replace(/\s+/g,'')];if(c.length<8)return false;let n=0;const kinds=new Set();for(let i=1;i<c.length;i++)if(c[i]===c[i-1]&&!/[ー…‥―・～—\-.。！？!?]/u.test(c[i])){n++;kinds.add(c[i]);}return kinds.size>=3&&n*4>=c.length;}
 function soundCaption(text){const t=String(text||'').trim();return /^[■□◆◇▼▽★☆※◎●○]/u.test(t)&&[...t].length<=30&&!/[、。「」『』！？!?\r\n]/u.test(t);}
 module.exports={stuttered,soundCaption,scriptIdentifier,inlineCommands,halveLoose,borrowedCode,foreignLine,foreignRows,japaneseTrack,inlineAlternatives,tracks,semicolonTracks};

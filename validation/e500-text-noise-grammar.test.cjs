@@ -40,3 +40,15 @@ test('grammar: next lesson follows the stage order and stats wait for the report
  assert.match(g.listHTML({},{locale:'zh',esc,level:'N5'}),/gm-hud-stats wait/);
  assert.doesNotMatch(html,/gm-hud-stats wait/);
 });
+
+test('E501 a quoted phrase redrawn four times in place is a frame dump; a real repeat of three is kept',()=>{
+ const lt=require('../core/language-tracks.cjs');
+ assert.equal(lt.stuttered('『お客さん』『お客さん』『お客さん』『お客さん』『先生』『先生』『先生』『先生』■自動車（車内／走行）'),true);
+ assert.equal(lt.stuttered('「はい」「はい」「はい」'),false);
+ assert.equal(lt.stuttered('『お客さん』'),false);
+});
+test('E501 a traditional Chinese track glued after the Japanese closing bracket is cut',()=>{
+ const lt=require('../core/language-tracks.cjs');
+ const t='「カケルの世界の眼が不完全なせいでしょうね……。\nあなたを見つけるの、本当に大変なのよ。\n無事にまた繋がってよかったわ」「大概是因為阿翔的世界之眼不完整吧……。\n要找到你真的花了我很多功夫喔。\n能夠平安再次連繫上真是太好了」';
+ assert.equal(lt.foreignRows(t),'「カケルの世界の眼が不完全なせいでしょうね……。\nあなたを見つけるの、本当に大変なのよ。\n無事にまた繋がってよかったわ」');
+});

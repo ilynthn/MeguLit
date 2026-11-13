@@ -1,0 +1,114 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 学习 → 语法, readability pass (2026-11-13, user: 风格很好 排版也是 但是易读性非常差 找不到重点).
+   Same colours, fonts and grid; only the hierarchy changes so one thing leads the page:
+   - the next-lesson card: a sized-down red title, one readable sentence, the start button right under it
+   - the side column: level and this level's progress as two clear figures
+   - the overview card: heading on top, the sentence in the middle, the hint at the bottom (no empty top half)
+   - stage cards: Japanese in full-contrast white, one accent (red) for the stage to take next, gold only for progress
+   - the top strips and small print: larger and brighter
+   Loaded after judge-r2.css, so it carries one more :not() than that file. */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page{--gf-t1:var(--g-t1,#f1e0d2);--gf-red:var(--mg-red,#c8323c);--gf-gold:var(--g-gold,#edb56e)}
+
+/* ---- top strip: level picker + stats ---- */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hud .gm-hud-stats{gap:28px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hud .gm-hud-stats>span{font-size:13px!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;letter-spacing:.02em!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hud .gm-hud-stats>span>b{font-size:18px!important;color:#fff!important;margin-right:4px;font-variant-numeric:tabular-nums}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hud .gm-tag{color:color-mix(in srgb,var(--gf-t1) 62%,transparent)!important}
+
+/* ---- goal line + rank meter ---- */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>:is(.lg-bar,.rw-bar){font-size:14px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.lg-bar .lg-bar-k{font-size:13px!important;color:color-mix(in srgb,var(--gf-t1) 72%,transparent)!important;letter-spacing:.06em!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.lg-bar :is(b,strong,span:not(.lg-bar-k)){font-size:14px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.rw-bar .rw-rank{font-size:12px!important;color:color-mix(in srgb,var(--gf-t1) 70%,transparent)!important;letter-spacing:.14em!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.rw-bar .rw-title{font-size:15px!important;color:#fff!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.rw-bar .rw-mana{font-size:13px!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;font-variant-numeric:tabular-nums}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.rw-bar .rw-meter i{background:var(--gf-gold)!important}
+
+/* ---- next-lesson card ---- */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero{grid-template-columns:minmax(0,1fr) 240px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-main{gap:10px!important;padding:26px 40px!important;align-content:center!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero .gm-kicker{font-size:14px!important;letter-spacing:.12em!important;color:#fff!important;font-weight:600}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero h2{gap:4px 14px!important;margin:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero .gm-hero-ja{font-size:clamp(38px,3.3vw,60px)!important;line-height:1.12!important;text-wrap:balance;max-width:100%}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero .gm-hero-ja[data-len=l]{font-size:clamp(34px,2.8vw,50px)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero .gm-hero-ja[data-len=xl]{font-size:clamp(28px,2.2vw,40px)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero h2 small{flex-basis:100%;font-size:19px!important;font-weight:600!important;color:#fff!important;line-height:1.5!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero .gm-hero-gist{font-size:15.5px!important;line-height:1.8!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;max-width:44em!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-wrap:pretty}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero .gm-hero-row{margin-top:8px!important;gap:20px 28px!important;align-items:center}
+/* side column: this level's progress leads (figure + bar), your own level is one quiet line under it */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side{justify-content:center!important;gap:6px!important;padding:24px 28px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-cap{font-size:13px!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;letter-spacing:.04em!important;line-height:1.6!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-hero-prog{font:600 34px/1.1 var(--mg-mono,ui-monospace,monospace);color:#fff;font-variant-numeric:tabular-nums}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-hero-prog small{font-size:17px;color:color-mix(in srgb,var(--gf-t1) 66%,transparent);margin-left:2px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode{display:flex!important;gap:0!important;height:6px!important;width:100%!important;margin:6px 0 18px!important;opacity:1!important;grid-template-columns:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i{flex:1 1 0!important;min-width:0!important;height:100%!important;background:color-mix(in srgb,var(--gf-t1) 26%,transparent)!important;border-radius:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i.on{background:var(--gf-gold)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i.cur{background:var(--gf-red)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-hero-me{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--gf-t1) 14%,transparent)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-hero-me .gm-hero-level{font-size:20px!important;color:#fff!important;line-height:1.2!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-link{font-size:13px!important;margin-left:auto}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side>p.gm-cap{margin-top:6px!important}
+/* the next-lesson card takes the wider share of its row; the Anki offer sits under it, not in front of it */
+@media (min-width:1200px){html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)!important}}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer{order:15}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer .gm-anki-note{font-size:12px!important}
+
+/* ---- overview card: heading top, sentence middle, hint bottom ---- */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto 1fr auto!important;align-content:stretch!important;align-items:center!important;gap:16px!important;padding:30px 34px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview .gm-overview-kicker{grid-row:auto!important;align-self:start;font-size:15px!important;font-weight:600!important;letter-spacing:.08em!important;color:var(--gf-t1)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{align-self:end;font-size:13.5px!important;letter-spacing:.04em!important;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important}
+
+/* ---- stage cards ---- */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-no{color:color-mix(in srgb,var(--gf-t1) 70%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{color:#fff!important;opacity:1!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-glyph{color:color-mix(in srgb,#fff 80%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{font-size:14px!important;color:var(--gf-t1)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{font-size:13px!important;color:var(--gf-t1),transparent)!important}
+/* bars: gold = learned, everything else one quiet grey */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar i{background:color-mix(in srgb,var(--gf-t1) 16%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar i.on{background:var(--gf-gold)!important}
+/* CLEAR is a quiet word, not a box */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-flag{background:transparent!important;border:0!important;color:color-mix(in srgb,var(--gf-gold) 85%,transparent)!important;padding:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-flag::before{content:"✓ "}
+/* the stage to take next: the one red card in the strip */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next{border-color:transparent!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gf-red) 60%,transparent)!important;background:linear-gradient(180deg,color-mix(in srgb,var(--gf-red) 16%,rgba(0,0,0,.86)),rgba(0,0,0,.86) 70%)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-flag{background:var(--gf-red)!important;color:#fff!important;border:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-bar i.cur{background:var(--gf-red)!important}
+
+/* ---- small print everywhere on the page ---- */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page .gm-card-gist{color:color-mix(in srgb,var(--gf-t1) 82%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page :is(.gm-card-node,.gm-card-meta>span){color:color-mix(in srgb,var(--gf-t1) 72%,transparent)!important}
+
+@media (max-width:1100px){
+ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero{grid-template-columns:minmax(0,1fr) 200px!important}
+ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-main{padding:26px 28px!important}
+ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side{padding:26px 22px!important}}
+@media (prefers-reduced-motion:reduce){html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg{transition:none!important}}
+/* the Anki offer's explanation was dark grey on dark */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-anki-offer p{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 80%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-anki-offer .gm-anki-note{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 64%,transparent)!important}
+/* lesson rows: the next lesson's labels were red on a red row */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next :is(.gm-card-no,.gm-card-meta b){color:#fff!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next{box-shadow:inset 3px 0 0 var(--mg-red,#c8323c)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{font-variant-numeric:tabular-nums}
+/* round 3: the Anki offer is a quiet panel (no gold edge); the overview sentence steps back behind the lesson title */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer{border-left:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 14%,transparent)!important;background:rgba(16,13,17,.5)!important;padding:14px 22px!important;gap:6px 18px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer .gm-anki-note{font-size:11.5px!important;margin:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview .gm-piece{font-size:min(20px,1.3vw)!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 82%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{padding:24px 30px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.rw-bar{flex-wrap:nowrap!important;white-space:nowrap}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.lg-bar :is(a,button){font-size:14px!important;font-weight:600!important}
+/* round 4: one mark per job — the stage to take next keeps its NEXT tag and red segment, no outline; the bar's first
+   learned segment is always visible; the Anki panel sits a step darker than the lesson card */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next{box-shadow:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode i.on:first-child{min-width:4px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side .gm-barcode{height:7px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer{background:rgba(10,8,10,.62)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer :is(h3,h4,b,strong):first-child{font-size:15px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview .gm-piece{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 66%,transparent)!important;font-size:min(18px,1.2vw)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{text-wrap:balance}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-hero-side>p.gm-cap,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-anki-offer p:not(.gm-anki-note){color:color-mix(in srgb,var(--g-t1,#f1e0d2) 90%,transparent)!important}
+/* lesson rows: the description stays on one line so the row height and its labels hold */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page>.gm-overview{grid-template-rows:auto auto 1fr!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{align-self:start}
