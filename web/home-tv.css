@@ -252,19 +252,26 @@
 
 /* 2026-11-13 (user: "把＋卡移到最右边 不要是卡牌了 鼠标放上去再出来 … 圆角的") the hand editor is a rounded tab docked on the right edge:
    only a sliver with a gold grip shows, it slides out under the pointer and tucks back after it leaves (home-picker.js) */
-.tv-dock{position:absolute;right:0;bottom:22vh;z-index:12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:62px;min-height:112px;height:auto;margin:0;padding:18px 0!important;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--g-gold) 40%,transparent)!important;border-radius:12px!important;background:linear-gradient(160deg,color-mix(in srgb,var(--g-gold) 14%,var(--bg)),color-mix(in srgb,var(--bg) 92%,#000))!important;color:var(--g-t1)!important;box-shadow:-14px 16px 32px -20px #000;transform:translateX(calc(100% - 12px));transition:transform .5s cubic-bezier(.22,1.25,.36,1),box-shadow .25s;cursor:pointer}
+.tv-dock{position:absolute;right:0;bottom:22vh;z-index:12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:62px;min-height:112px;height:auto;margin:0;padding:21px 0 21px!important;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--g-gold) 40%,transparent)!important;border-radius:12px!important;background:linear-gradient(160deg,color-mix(in srgb,var(--g-gold) 14%,var(--bg)),color-mix(in srgb,var(--bg) 92%,#000))!important;color:var(--g-t1)!important;box-shadow:-14px 16px 32px -20px #000;transform:translateX(calc(100% - 12px));transition:transform .5s cubic-bezier(.22,1.25,.36,1),box-shadow .25s,scale .14s var(--mgc-ease,ease-out);cursor:pointer}
 /* (user: "做成竖着的卡牌形状侧拉栏", "这个字显示有问题") a whole portrait card (four rounded corners) peeking from the right edge; it slides fully into view
    flush with the edge (no gap the pointer could fall into) and is never rotated, so the vertical label stays sharp and nothing is cut at the screen edge */
 .tv-dock::before{content:"";position:absolute;left:4px;top:22%;bottom:22%;width:3px;border-radius:3px;background:var(--g-gold);opacity:.8;transition:opacity .2s}
-.tv-dock::after{content:"";position:absolute;inset:5px;border:1px solid color-mix(in srgb,var(--g-gold) 20%,transparent);border-radius:8px;pointer-events:none}
+/* the inner frame: 4px inside the padding edge = 5px inside the outer edge, so its radius is 12 - 5 = 7 and the two golds run concentric */
+.tv-dock::after{content:"";position:absolute;inset:4px;border:1px solid color-mix(in srgb,var(--g-gold) 22%,transparent);border-radius:7px;pointer-events:none;transition:border-color .24s var(--mgc-ease,ease-out)}
 .tv-dock.out{transform:translateX(-2px);box-shadow:-18px 22px 40px -22px #000,0 0 22px -8px color-mix(in srgb,var(--g-gold) 45%,transparent)}.tv-dock.out::before{opacity:0}
 /* the plus is drawn, not a glyph: a font's ＋ sits high or low in its box, a drawn one is exactly centred */
-.tv-dock b{display:block;flex:none;width:15px;height:15px;font-size:0;background:linear-gradient(var(--g-gold),var(--g-gold)) center/1.5px 100% no-repeat,linear-gradient(var(--g-gold),var(--g-gold)) center/100% 1.5px no-repeat}
+.tv-dock b{position:relative;display:block;flex:none;width:14px;height:14px;font-size:0}
+/* both strokes are borders: Chromium snaps border widths and edges to whole device pixels, so the plus stays crisp at 100/125/150 % */
+.tv-dock b::before,.tv-dock b::after{content:"";position:absolute;box-sizing:border-box}
+.tv-dock b::before{left:6px;top:0;width:2px;height:14px;border-left:2px solid var(--g-gold)}
+.tv-dock b::after{top:6px;left:0;width:14px;height:2px;border-top:2px solid var(--g-gold)}
 /* the label: vertical, its trailing letter-space taken back so the plus and the text centre as one group */
-.tv-dock span{display:block;flex:none;writing-mode:vertical-rl;text-orientation:upright;font-size:12px;line-height:1;letter-spacing:.16em;margin-bottom:-.16em;white-space:nowrap;color:color-mix(in srgb,var(--g-t1) 88%,transparent)}
-:root:lang(en) .tv-dock span,.tv-dock span:lang(en){text-orientation:mixed;letter-spacing:.06em;margin-bottom:-.06em}
-.tv-dock:active{scale:.97}
-.tv-dock:focus-visible{outline:1px solid var(--g-gold);outline-offset:-5px}
+.tv-dock span{display:block;flex:none;writing-mode:vertical-rl;text-orientation:upright;font-size:12px;line-height:1;letter-spacing:2px;margin-bottom:-2px;white-space:nowrap;color:color-mix(in srgb,var(--g-t1) 88%,transparent)}
+:root:lang(en) .tv-dock span,.tv-dock span:lang(en){text-orientation:mixed;letter-spacing:1px;margin-bottom:-1px}
+/* controls-b: hover is a whisper (the inner frame warms), press settles (scale .98, frame firms), the gold ring is the keyboard focus and sits on the inner frame */
+.tv-dock:hover::after,.tv-dock.out::after{border-color:color-mix(in srgb,var(--g-gold) 38%,transparent)}
+.tv-dock:active{scale:.98}.tv-dock:active::after{border-color:color-mix(in srgb,var(--g-gold) 60%,transparent)}
+.tv-dock:focus-visible{outline:2px solid var(--g-gold);outline-offset:-6px}
 /* the window: the library as covers, ticked ones go into the hand */
 .tv-pick{position:absolute;inset:0;z-index:30;display:grid;place-items:center;opacity:0;transition:opacity .2s}
 .tv-pick.in{opacity:1}

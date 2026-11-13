@@ -78,6 +78,14 @@ html:not(#mgc1):not(#mgc2):not(#mgc3):not(#mgc4):not(#mgc5):not(#mgc6):not(#mgc7
  &:is(.active,[aria-selected=true],[aria-pressed=true])::before{content:""!important;position:absolute!important;left:50%!important;bottom:-5px!important;width:7px!important;height:7px!important;margin-left:-3.5px!important;transform:rotate(45deg)!important;background:var(--mgc-ground)!important;border:1px solid var(--mgc-red)!important;display:block!important;opacity:1!important;top:auto!important}
  &:disabled{color:var(--mgc-ink-3)!important;opacity:.6}
 }
+/* the second-level dropdown under the top nav (.main>.tabs: 历史 › 阅读会话 / 对话记录, 学习 › …) keeps the top bar's own marker:
+   a small filled gold diamond under the current item, no red rule and no hollow diamond (2026-11-14, user) */
+& body .main>.tabs>button.tab{padding:8px 14px 10px!important;
+ &::before{content:none!important;display:none!important}
+ &::after,&:hover::after{content:""!important;position:absolute!important;left:50%!important;right:auto!important;top:auto!important;bottom:2px!important;width:5px!important;height:5px!important;margin-left:0!important;border:0!important;background:var(--gold-accent,#edb56e)!important;transform:translateX(-50%) rotate(45deg) scale(0)!important;opacity:1!important;transition:transform .3s var(--mgc-ease)!important}
+ &:hover::after{transform:translateX(-50%) rotate(45deg) scale(.6)!important;opacity:.55!important}
+ &:is(.active,[aria-selected=true],[aria-pressed=true])::after{transform:translateX(-50%) rotate(45deg) scale(1)!important;opacity:1!important;height:5px!important}
+}
 & body :is(.detail-tabs,.settings-page-tabs,.dl-cats,.history-tabs){border-bottom:1px solid var(--mgc-line)!important}
 
 /* ---------- segmented: one group in a hairline frame, selected is solid crimson ---------- */
