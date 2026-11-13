@@ -43,9 +43,9 @@ test('DLL: every covered path asks the matcher only while a line is pushed, and 
  for(const s of ['GetGlyphOutlineW, dialogue font, the line again: every glyph blank','blank glyph keeps its metrics','the same character in the menu size: drawn','GdipDrawString of the line: not drawn','ID2D1RenderTarget::DrawTextLayout of the line: not drawn','after OFF: the line\'s glyph is drawn again'])assert.ok(h.includes(s),s);
  assert.doesNotMatch(h,/CreateWindow/,'self-test never opens a window');});
 
-test('HookBridge: pushes only for a selected stream that cannot write back, with replacement on',()=>{
+test('HookBridge: pushes only for a selected stream that cannot write back, with replacement on or while the reader probes (E578)',()=>{
  const b=read('native/HookBridge.cs');
- assert.ok(b.includes('static bool GlyphWanted(){lock(Gate){Candidate c;return !GlyphCached&&Enabled&&ReplacementEnabled&&Selected!=""&&Candidates.TryGetValue(Selected,out c)&&c.gdiProbe;}}'));
+ assert.ok(b.includes('static bool GlyphWanted(){lock(Gate){Candidate c;return !GlyphCached&&Enabled&&(ReplacementEnabled||ProbeWanted)&&Selected!=""&&Candidates.TryGetValue(Selected,out c)&&c.gdiProbe;}}'));
  assert.ok(b.includes('Diagnostic("source id="+tp.Key()+" chars="+text.Length);GlyphLine(text);'),'pushed before the reader gets the line');
  assert.ok(b.includes('static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&'),'never when an engine-specific embed hook exists');
  assert.ok(b.includes('replacement disabled; reason="+reason+"; selected="+Selected);GlyphOff();'),'switching hiding off stops it at once');
@@ -83,5 +83,5 @@ test('packaged MeguLitFont32/64.dll are the glyph-hide build (version export >= 
   const tag=/MeguLitFont version=(\d+)/.exec(buf.toString('latin1'));assert.ok(tag&&Number(tag[1])>=want,n+' version '+(tag?tag[1]:'none')+' < '+want);}
  const b=read('Build.ps1');for(const f of ['build.cmd','selftest\\run-match.cmd','selftest\\run-hide.cmd'])assert.ok(b.includes("if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\\fontprobe\\"+f+"')) -ne 0) { throw"),'Build.ps1 builds and self-tests '+f);
  const ci=read('.github/workflows/ci.yml');assert.ok(ci.includes('native\\fontprobe\\build.cmd'));assert.match(ci,/run-hide\.cmd/);
- const h=read('native/HookBridge.cs');assert.ok(h.includes('hideTrying=item.Key==Selected&&c.gdiProbe&&!c.hideOnly&&ReplacementEnabled&&!GlyphCached'));
+ const h=read('native/HookBridge.cs');assert.ok(h.includes('hideTrying=item.Key==Selected&&c.gdiProbe&&!c.hideOnly&&(ReplacementEnabled||ProbeWanted)&&!GlyphCached'));
  const g=read('web/reader/modules/gal.js');assert.ok(g.includes("item.hideOnly?' [隐藏原文]':item.embeddable?' [可清空]':item.hideTrying?' [仅读取 · 尝试隐藏原文]':' [仅读取]'"),'three-state stream label');});

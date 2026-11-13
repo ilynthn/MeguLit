@@ -161,6 +161,9 @@
     body.tomoyo-game-style .sentence-text .char-token,body.tomoyo-gal-bound .sentence-text .char-token { filter:var(--tomoyo-gal-jp-filter,none)!important; }
     body.tomoyo-game-style .tomoyo-cn-output,body.tomoyo-gal-bound .tomoyo-cn-output { filter:var(--tomoyo-gal-cn-filter,none)!important;background-size:100% calc((1.65 + var(--megulit-translation-line-offset,0)) * 1em)!important;background-repeat:repeat-y!important; }
     .sentence-text .megulit-ruby-base[data-tomoyo-reading]::before { -webkit-text-fill-color:var(--tomoyo-gal-color,#fffaf2)!important;background-image:none!important; }
+    /* E578 (live beta38, ダストマニア: the game's line and MeguLit's copy a few px apart looked doubled and smeared): where the hook cannot hide the game's
+       text (megulit-readonly-hook) the Japanese line stays laid out on the game's own text for lookups and ruby, but its glyphs are not painted. */
+    body.tomoyo-gal-bound.megulit-readonly-hook .sentence-window:not(.tome-island-page) .sentence-text .char-token { -webkit-text-fill-color:transparent!important;background-image:none!important;filter:none!important;-webkit-text-stroke:0!important;text-shadow:none!important; }
     .tomoyo-gal-fields { border:1px solid #505465; border-radius:8px; padding:10px 12px; margin:14px 0; }
     .tomoyo-gal-fields legend { padding:0 5px; }
     .tomoyo-gal-fields button { background:#343847; color:#eef1fa; border:1px solid #505465; border-radius:5px; padding:5px 8px; margin:6px 6px 0 0; cursor:pointer; }
