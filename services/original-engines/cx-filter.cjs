@@ -81,9 +81,13 @@ function filter(scheme){
   return buf;};
 }
 let known=null;
-function schemes(){if(known)return known;
- let raw={};try{raw=JSON.parse(fs.readFileSync(path.join(__dirname,'cx-schemes.json'),'utf8'));}catch{}
- known=(raw.schemes||[]).map(s=>({...s,cb:s.cb?(b=>new Uint32Array(b.buffer.slice(b.byteOffset,b.byteOffset+b.length)))(Buffer.from(s.cb,'base64')):null}));return known;}
+/* E561 schemes an adapter pack adds (params target "cx-scheme") are tried first; a malformed one is left out */
+let fileSchemes=null;
+function packCx(){try{return require('../adapter-packs.cjs').params('cx-scheme');}catch{return [];}}
+function schemes(){const extra=packCx();if(known&&known.extra===extra)return known;
+ if(!fileSchemes){let raw={};try{raw=JSON.parse(fs.readFileSync(path.join(__dirname,'cx-schemes.json'),'utf8'));}catch{}fileSchemes=raw.schemes||[];}
+ const ok=s=>s&&Number.isSafeInteger(s.mask)&&Number.isSafeInteger(s.offset)&&Array.isArray(s.prolog)&&Array.isArray(s.odd)&&Array.isArray(s.even)&&(s.cb===undefined||typeof s.cb==='string'&&s.cb.length<=8192);
+ known=[...extra.map(x=>x.value).filter(ok),...fileSchemes].map(s=>({...s,cb:s.cb?(b=>new Uint32Array(b.buffer.slice(b.byteOffset,b.byteOffset+b.length)))(Buffer.from(s.cb,'base64')):null}));known.extra=extra;return known;}
 // The control block of a scheme that keeps it in a plug-in (TPM / DLL): " Encryption control block", inverted.
 const SIG=Buffer.from(' Encryption control block','latin1');
 function controlBlockIn(file){let b;try{b=fs.readFileSync(file);}catch{return null;}let at=b.indexOf(SIG);
@@ -95,7 +99,7 @@ const looks=b=>HEAD.test(b.toString('latin1',0,4))||(b.length>=4&&(b[1]^b[3])===
 const memo=new Map();
 // The filter of one archive: the known scheme that turns most of its encrypted entries into known heads (at least
 // two and more than reading them as they are), or null.
-function forArchive(file){let key;try{const st=fs.statSync(file);key=path.resolve(file).toLowerCase()+'|'+st.size+'|'+st.mtimeMs;}catch{return null;}
+function forArchive(file){let key;try{const st=fs.statSync(file);key=path.resolve(file).toLowerCase()+'|'+st.size+'|'+st.mtimeMs+'|'+schemes().length;}catch{return null;}
  if(memo.has(key))return memo.get(key);let best=null;
  try{const xp3=require('./xp3.cjs'),list=xp3.list(file);const sample=(list?list.files:[]).filter(e=>e.encrypted&&e.size>=16).slice(0,16).map(e=>{try{return {e,r:xp3.read(file,e).subarray(0,32)};}catch{return null;}}).filter(Boolean);
   const plainHits=sample.filter(s=>looks(s.r)).length;let top=Math.max(1,plainHits);const dir=path.dirname(file);

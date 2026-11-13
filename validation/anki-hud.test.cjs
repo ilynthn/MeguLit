@@ -87,3 +87,49 @@ test('the layout editor offers presets, saved layouts, free/grid placement and d
  for(const s of ['MeguHud.snapRect','MeguHud.hugRect','MeguHud.drawGuides','tome-anki-hud-frames',"id==='shot'"])assert.ok(card.includes(s),s);
  assert.match(css,/\.anki-hud\.editing\[data-snap=grid\] \.anki-hud-grid\{opacity:1\}/);assert.match(read('anki-card.css'),/\.hud-guide-x/);
 });
+
+/* 2026-11-13 (user) the screenshot frame changes shape freely and the picture always covers it, framed by focus and zoom */
+test('the screenshot keeps its framing (focus, zoom) in the layout and the picture always covers its frame',()=>{
+ assert.deepEqual(H.normRect({x:1,y:2,w:30,h:40,fx:150,fy:-3,z:9}),{x:1,y:2,w:30,h:40,fx:100,fy:0,z:4});
+ assert.equal(H.normRect({x:1,y:2,w:30,h:40,z:1}).z,undefined);
+ const o=H.coverOverflow(1600,900,400,400,1);assert.equal(o.y,0);assert.ok(Math.abs(o.x-311.11)<.1);
+ assert.ok(H.coverOverflow(1600,900,400,400,2).y>0,'zoom lets the picture move up and down too');
+ const M2=M.cleanLayout({shot:{x:5,y:5,w:20,h:60,fx:70,fy:30,z:1.5}});assert.deepEqual(M2.shot,{x:5,y:5,w:20,h:60,fx:70,fy:30,z:1.5});
+ const card=read('anki-card.js'),css=read('anki-card.css'),drag=read('hud-drag.js');
+ assert.match(card,/ratio:id==='shot'/);assert.match(card,/function frameShot/);assert.match(card,/objectPosition/);assert.match(card,/addEventListener\('wheel'/);
+ assert.match(css,/\[data-hud=shot\] img\{[^}]*object-fit:cover/);assert.doesNotMatch(css,/object-fit:fill/);
+ /* edges move one side; corners scale freely, Shift keeps the proportions (screenshot only) */
+ assert.match(drag,/ratio&&edge\.length===2&&last\.shiftKey/);assert.match(drag,/for\(const k of \['fx','fy','z'\]\)if\(start\[k\]!==undefined\)r\[k\]=start\[k\]/);
+});
+test('blocks never overlap: a long example pushes the screenshot, which gives up space before the buttons',()=>{
+ const word={x:30,y:4,w:40,h:12},info={x:10,y:17,w:80,h:8},example={x:5,y:26,w:90,h:28},shot={x:17,y:43,w:66,h:43},controls={x:30,y:88,w:40,h:9};
+ const r=H.settle({word,info,example,shot},[controls],'shot',1.6).rects;
+ const ov=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+ const all=[...Object.values(r),controls];for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++)assert.ok(!ov(all[i],all[j]),'overlap '+i+'/'+j);
+ assert.ok(r.shot.y>=example.y+example.h);assert.ok(r.shot.y+r.shot.h<=controls.y);assert.equal(r.example.h,example.h);
+ /* a long meaning pushes the example (a text block keeps its size), and the screenshot after it */
+ const s2=H.settle({info:{x:10,y:17,w:80,h:20},example:{x:5,y:30,w:90,h:14},shot},[controls],'shot');
+ assert.equal(s2.rects.example.h,14);assert.ok(s2.rects.example.y>=37);assert.ok(s2.nudged.includes('example')&&s2.nudged.includes('shot'));
+ /* a hand-made layout that overlaps is also pulled apart, side by side blocks are left alone */
+ const s3=H.settle({shot:{x:2,y:9,w:52,h:74},word:{x:58,y:10,w:39,h:15},example:{x:58,y:20,w:39,h:24}},[],'shot');
+ assert.deepEqual(s3.rects.shot,{x:2,y:9,w:52,h:74});assert.ok(s3.rects.example.y>=25);
+ assert.match(read('anki-card.js'),/MeguHud\.settle\(own,fixed,'shot'/);assert.match(read('anki-card.css'),/\.hud-label\[data-nudge\]::after/);
+});
+test('the layout tools are a compact floating dock that moves, folds and keeps out of the way',()=>{
+ const src=read('anki-review.js'),css=read('anki-layout.css');
+ for(const s of ['data-dock-grip','data-dock-collapse','data-dock-expand','hud-dock-presets','hud-dock-seg','hud-dock-menu','hud-dock-tip','function placeDock','megulit-anki-hud-dock',"'tome-anki-hud-drag'"])assert.ok(src.includes(s),s);
+ assert.match(css,/\.anki-hud\.hud-moving \.anki-hud-edit\{opacity:\.08;pointer-events:none\}/);assert.match(css,/\.anki-hud-edit\.collapsed \.hud-dock-panel\{/);
+ assert.match(css,/@media \(prefers-reduced-motion:reduce\)\{\.anki-hud-edit,/);assert.doesNotMatch(css,/transition:all/);
+ /* Done is the dock's own quiet button, never the site's red sweep (unify.css button.primary) */
+ assert.match(src,/class="hud-dock-done" data-hud-done/);assert.doesNotMatch(src,/class="primary" data-hud-done/);
+ /* review buttons: one set with their keys, no site primary sweep */
+ assert.match(src,/button\.className='hud-primary'/);assert.match(src,/<kbd>'\+ease\+'<\/kbd>/);assert.match(css,/review-controls :is\(button\.hud-primary,button\.anki-rating\):hover:not\(:disabled\)::after\{transform:scaleX\(1\)/);
+});
+test('full screen covers the window and the top bar, never hides the window, and leaves layout editing alone',()=>{
+ const src=read('anki-review.js'),i=src.indexOf('async function setImmersive'),body=src.slice(i).split(/\r?\n \}\r?\n/)[0];
+ assert.match(body,/s\.showPopover\(\)/);assert.match(body,/s\.requestFullscreen\(\)/);assert.doesNotMatch(body,/documentElement\.requestFullscreen/);assert.doesNotMatch(body,/setEditing/);
+ assert.match(src,/if\(!stage\(\)\|\|event\.repeat\)return;/);
+ assert.match(read('anki-layout.css'),/\.anki-hud\.immersive:fullscreen,\.anki-hud\.immersive:popover-open\{position:fixed;inset:0/);
+ const rs=fs.readFileSync(path.join(__dirname,'..','desktop','src','main.rs'),'utf8');
+ assert.match(rs,/fn fill_monitor\(/);assert.doesNotMatch(rs,/set_fullscreen\(action/);assert.match(rs,/restore_home_surface\(window\);window\.show\(\)/);assert.match(rs,/current_monitor\(\)/);
+});

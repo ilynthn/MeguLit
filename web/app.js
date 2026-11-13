@@ -12,7 +12,8 @@ import {renderHomeTV,homeTVSignature} from './home-tv.js';
 import {historyHTML} from './history-view.js';
 import {historyEmpty,sentencesEmpty,trashEmpty,reviewRest} from './empty-states.js';
 import {readTime} from './read-time.js';
-import {createSeriesLibrary} from './series-library.js';
+import {createSeriesLibrary,libraryEntries} from './series-library.js';
+import {driftFilter} from './library-drift.js';
 import {createLibraryRefresh} from './library-refresh.js';
 import {mountSettingsAutosave,leaveSettings,flushSettings} from './settings-autosave.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -33,6 +34,8 @@ import {leaderboardLabel,mountLeaderboard,setView as setLeaderboardView} from '.
 import {setForumFilter} from './forum-view.js';
 import {maybeFirstRun} from './first-run.js';
 let selectedGameId='',gameOrigin='library',selectedSeriesId='';
+/* 2026-11-13 the detail tab a page asked the game page to open on (学习 › 句子 书架 → 收录句子); used once */
+let gameTab='';
 import {renderSettings} from './settings.js';
 import {openProfilePanel} from './profile-panel.js';
 import {avatarHTML} from './leaderboard-view.js';
@@ -46,7 +49,9 @@ let route='home',subtab='',search='',pageToken=0,toastTimer;
 let pendingDictionaryQuery=''; /* 学习 → 句子: a word clicked there opens the dictionary on it */
 /* v1.1.6 (user: coming back to Settings started from scratch): the last section is remembered, also across restarts */
 let settingsSection=(()=>{try{return localStorage.getItem('megulit-settings-section')||'';}catch{return '';}})(),settingsProfile='';
-const LIBRARY_WALL_KEY='tome-library-wall';
+const LIBRARY_WALL_KEY='tome-library-wall',LIBRARY_VIEW_KEY='megulit-library-view';
+/* 2026-11-13 three library views: wall (infinite wall), list (simple grid), tracks (the search's multi-track orbit, always on) */
+const libraryView=()=>{const v=localStorage.getItem(LIBRARY_VIEW_KEY);return v==='wall'||v==='list'||v==='tracks'?v:localStorage.getItem(LIBRARY_WALL_KEY)==='off'?'list':'wall';};
 let libraryBusy=false,navigationTicket=0;
 const libraryCopy=()=>({zh:{refresh:'刷新游戏库',settings:'游戏库设置',done:'游戏库已刷新',added:n=>'已发现 '+n+' 个新游戏'},en:{refresh:'Refresh library',settings:'Library settings',
  done:'Library refreshed',added:n=>'Found '+n+' new games'},ja:{refresh:'ライブラリを更新',settings:'ライブラリ設定',done:'ライブラリを更新しました',added:n=>n+' 件の新しいゲームを追加'}}[locale]);
@@ -140,7 +145,7 @@ function relativeTime(timestamp){
   return date.toLocaleDateString(locales[locale],{year:'numeric',month:'short',day:'numeric'});
 }
 const datetime=timestamp=>timestamp?new Date(timestamp*1000).toLocaleString(locales[locale],{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):text.unknownTime;
-function duration(seconds){const min=Math.floor((seconds||0)/60);return min>=60?`${Math.floor(min/60)} ${text.hours} ${min%60} ${text.minutes}`:`${min} ${text.minutes}`;
+function duration(seconds){seconds=Math.max(0,Math.round(seconds||0));/* short sessions (79 s) used to floor to 1 min / 0 min */if(seconds<60)return `${seconds} ${({zh:"秒",ja:"秒",en:"s"})[locale]||"s"}`;const min=Math.round(seconds/60);return min>=60?`${Math.floor(min/60)} ${text.hours} ${min%60} ${text.minutes}`:`${min} ${text.minutes}`;
  }
 function toast(message){clearTimeout(toastTimer);const element=document.querySelector('#toast');element.textContent=message;element.classList.add('visible');toastTimer=setTimeout(()=>element.classList.remove('visible'),
  4600);}
@@ -347,9 +352,16 @@ function attachGameActions(main){
 }
 let launchInFlight=false,pendingHomeGame='';
 const playHomeMotion=createHomeMotion({frame:()=>document.querySelector('.app-frame'),reduced:()=>matchMedia('(prefers-reduced-motion:reduce)').matches});
+/* 2026-11-13 launch plate (user pick F1): while a launch runs the button says so and its foot line sweeps */
+const LAUNCHING={zh:'启动中…',ja:'起動中…',en:'Starting…'};
+function markLaunching(button,on){
+ if(!button)return;const node=[...button.childNodes].filter(n=>(n.nodeType===3||(n.nodeType===1&&n.tagName!=='svg'))&&n.textContent.trim()).pop();
+ if(on){button.setAttribute('aria-busy','true');if(node){button.dataset.idleLabel=node.textContent;node.textContent=LAUNCHING[locale]||LAUNCHING.zh;}return;}
+ button.removeAttribute('aria-busy');if(node&&button.dataset.idleLabel!==undefined){node.textContent=button.dataset.idleLabel;delete button.dataset.idleLabel;}
+}
 async function startGame(id,button){
  if(launchInFlight)return;
- launchInFlight=true;if(button)button.disabled=true;
+ launchInFlight=true;if(button)button.disabled=true;markLaunching(button,true);
  let started=false;
  try{
   await invoke('reader_open',{background:true});
@@ -377,11 +389,11 @@ async function startGame(id,button){
     openGameLanguage({id,api,invoke,locale,esc,toast,onChanged:async()=>{model=await api('home');renderRoute();}}).catch(()=>toast(text.serviceFailed));};dialog.querySelector('.dialog-actions').append(choose);
     }
   }
- }finally{launchInFlight=false;if(button)button.disabled=false;}
+ }finally{launchInFlight=false;if(button)button.disabled=false;markLaunching(button,false);}
 }
 
 const seriesUI=createSeriesLibrary({model:()=>model,locale:()=>locale,text:()=>text,esc,icon,api,invoke,card,modal,duration,number,relativeTime,search:()=>search,
- toast,bindGames:attachGameActions,onLibraryRendered:showLibraryResults,openSeries:id=>{selectedSeriesId=id;navigate('series');},back:()=>navigate('library'),reload:async()=>{
+ toast,bindGames:attachGameActions,onLibraryRendered:showLibraryResults,refresh:async()=>{model=await api('home');},libraryView:()=>libraryView(),openSeries:id=>{selectedSeriesId=id;navigate('series');},back:()=>navigate('library'),reload:async()=>{
  model=await api('home');const main=document.querySelector('#main'),scroll=main.scrollTop;if(route==='library')renderGames();else if(route==='series')seriesUI.renderDetail(main,
  selectedSeriesId);main.scrollTop=scroll;}});
 function library(){
@@ -389,18 +401,20 @@ function library(){
   main.innerHTML=heading(text.library,`<span class="lib-left"></span><input id="game-search" type="search" placeholder="${text.searchGames}" aria-label="${text.searchGames}" value="${esc(search)}"><button class="icon-button" id="refresh-library" aria-label="${libraryCopy().refresh}" title="${libraryCopy().refresh}" aria-busy="${libraryBusy}" ${libraryBusy?'disabled':''}>${icon('refresh')}</button><button class="icon-button" id="library-settings" aria-label="${libraryCopy().settings}" title="${libraryCopy().settings}">${icon('settings')}</button><button class="icon-button" id="adaptation-overview" aria-label="${esc(overviewLabel(locale))}" title="${esc(overviewLabel(locale))}">${icon('stats')}</button><button class="icon-button" id="select-games" aria-label="${text.series.select}" title="${text.series.select}">${icon('multiselect')}</button><button class="icon-button" id="add-game" aria-label="${text.addGame}">${icon('plus')}</button>`)+`<div id="library-results"></div>`;
   const input=main.querySelector('#game-search');
   const wallToggle=document.createElement('button');
-  const wallLabel={zh:'无限墙',en:'Infinite wall',ja:'無限ウォール'}[locale];
-  wallToggle.type='button';wallToggle.className='library-wall-toggle';import('./library-switch-motion.js').catch(()=>{});
-  wallToggle.setAttribute('role','switch');wallToggle.setAttribute('aria-label',wallLabel);
-  wallToggle.setAttribute('aria-checked',String(localStorage.getItem(LIBRARY_WALL_KEY)!=='off'));
+  const viewLabels={wall:{zh:'无限墙',en:'Infinite wall',ja:'無限ウォール'},list:{zh:'列表',en:'Grid',ja:'一覧'},tracks:{zh:'多轨道',en:'Tracks',ja:'マルチトラック'}};
+  /* 2026-11-13 (user): the switch is three LEDs; each click lights one more (1 tracks, 2 infinite wall, 3 simple grid), all three lit -> back to one */
+  const viewOrder=['tracks','wall','list'];
+  const showView=view=>{const label=viewLabels[view][locale]||viewLabels[view].zh,lit=viewOrder.indexOf(view)+1;wallToggle.dataset.view=view;wallToggle.dataset.lit=String(lit);wallToggle.setAttribute('aria-checked',String(view!=='list'));wallToggle.setAttribute('aria-label',label);wallToggle.title=label;};
+  wallToggle.type='button';wallToggle.className='library-wall-toggle library-view-leds';wallToggle.innerHTML='<i></i><i></i><i></i>';import('./library-switch-motion.js').catch(()=>{});
+  wallToggle.setAttribute('role','switch');showView(libraryView());
   wallToggle.onclick=async()=>{
     // E275: ignore clicks while a switch is running, otherwise the stored state and the shown layout drift apart
     let motion=null;try{motion=await import('./library-switch-motion.js');}catch{}
     if(motion?.isBusy())return;
-    const enabled=wallToggle.getAttribute('aria-checked')!=='true';
-    localStorage.setItem(LIBRARY_WALL_KEY,enabled?'on':'off');
-    wallToggle.setAttribute('aria-checked',String(enabled));
-    if(motion)motion.switchLibrary(enabled,()=>renderGames()).catch(()=>renderGames());else renderGames();
+    const from=libraryView(),view=viewOrder[(viewOrder.indexOf(from)+1)%3];
+    localStorage.setItem(LIBRARY_VIEW_KEY,view);localStorage.setItem(LIBRARY_WALL_KEY,view==='list'?'off':'on');
+    showView(view);
+    if(motion)motion.switchLibrary(view,()=>renderGamesNow('plain'),from).catch(()=>renderGamesNow('plain'));else renderGames();
   };
 
   const pod=document.createElement('div'),left=document.createElement('span'),right=document.createElement('span');
@@ -434,7 +448,7 @@ function library(){
    navigate('game');}}).catch(()=>{});renderGames();
   /* v1.1.6 (user): opening the library straight into the wall plays the same outside-in gathering as switching to it */
   /* hidden from the first paint (cards start at opacity 0) and revealed only once each card holds its start frame, so the laid-out wall never flashes */
-  if(localStorage.getItem(LIBRARY_WALL_KEY)!=='off'&&!search.trim()&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const h0=document.querySelector('#library-results');
+  if(libraryView()==='wall'&&!search.trim()&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const h0=document.querySelector('#library-results');
    h0?.classList.add('lib-entering');const reveal=()=>document.querySelector('#library-results')?.classList.remove('lib-entering');setTimeout(reveal,900);requestAnimationFrame(()=>requestAnimationFrame(async()=>{
    try{const m=await import('./library-switch-motion.js');const h=document.querySelector('#library-results');if(h&&route==='library')m.wallIn(h);}catch{}finally{
    reveal();}}));}
@@ -445,10 +459,14 @@ let gameTransition=null;
 function renderGames(){
   const host=document.querySelector('#library-results');if(!host)return;
   if(gameTransition){gameTransition.cancel();gameTransition=null;}
+  /* multi-track view: library-drift.js carries every cover from where it is, so the render is a plain one */
+  if(libraryView()==='tracks'&&host.classList.contains('field-drift')){
+    const q=search.trim();let ids=null;if(q){const e=libraryEntries(model,search,false);ids=[...e.series.map(s=>'s:'+s.id),...e.games.map(g=>g.id)];}
+    if(driftFilter(host,ids))return;return renderGamesNow('drift');}
   const animate=!matchMedia('(prefers-reduced-motion: reduce)').matches,plane=host.querySelector('.field-plane');
   const orbit=host.classList.contains('field-orbit'),wall=!!plane&&!orbit&&!host.querySelector('.field-feature'),filtered=!!search.trim();
   const cells=plane?[...plane.children].filter(c=>!c.hasAttribute('data-parked')):[];
-  if(!animate||!cells.length||!((wall&&filtered)||(orbit&&!filtered)))return renderGamesNow();
+  if(!animate||!cells.length||!((wall&&filtered)||(orbit&&!filtered&&libraryView()!=='tracks')))return renderGamesNow();
   const b=host.getBoundingClientRect(),cx=b.left+b.width/2,cy=b.top+b.height/2;
   const dist=cells.map(c=>{const r=c.getBoundingClientRect();return Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy);}),max=Math.max(1,...dist);
   /* E272: leaving the orbit, covers fall back into the capsule (reverse of their entrance) */
@@ -463,6 +481,9 @@ function renderGames(){
 function renderGamesNow(mode=''){
   const host=document.querySelector('#library-results');
   if(!host)return;
+  /* view switch: library-switch-motion.js owns the whole transition, so just lay out the new view */
+  if(mode==='plain'){window.__megulitOrbitWarm=true;seriesUI.renderLibrary(host);return;}
+  if(mode==='drift'){window.__megulitOrbitWarm=true;seriesUI.renderLibrary(host);window.__megulitOrbitWarm=false;return;}
   const animate=!matchMedia('(prefers-reduced-motion: reduce)').matches;
   const oldSingle=host.querySelector('.field-feature > [data-member-id]');
   const oldRect=oldSingle?.getBoundingClientRect();
@@ -560,14 +581,14 @@ let stopSimpleGrid=()=>{};
 function showLibraryResults(grid,selecting){
   stopSimpleGrid();stopSimpleGrid=()=>{};
   const host=grid.parentElement,main=host.closest('.main');
-  const wall=!selecting&&localStorage.getItem(LIBRARY_WALL_KEY)!=='off';
+  const view=libraryView(),wall=!selecting&&view!=='list';
   host.classList.toggle('lib-field',wall);
   host.classList.toggle('lib-list',!wall);
   if(!wall)stopSimpleGrid=fitLibraryGrid(grid);
   host.classList.toggle('lib-selecting',selecting);
   main.classList.toggle('field-list',!wall);
-  main.classList.toggle('field-selecting',selecting);
-  const single=wall&&!!search.trim()&&grid.childElementCount===1&&grid.firstElementChild.hasAttribute('data-member-id');
+  /* 2026-11-13 Blueprint multi-select: the bar floats over the grid, so picking no longer moves the capsule (no field-selecting) */
+  const single=wall&&view!=='tracks'&&!!search.trim()&&grid.childElementCount===1&&grid.firstElementChild.hasAttribute('data-member-id');
   main.classList.toggle('field-single',single);
   if(single){
     stopField();grid.classList.add('field-feature');
@@ -575,9 +596,10 @@ function showLibraryResults(grid,selecting){
     grid.querySelectorAll('img').forEach(img=>{img.draggable=false;});
     return;
   }
-  if(wall){fieldify(grid,!!search.trim());return;}
+  if(wall){fieldify(grid,!!search.trim(),view==='tracks');return;}
   stopField();
-  if(selecting)grid.querySelectorAll('[draggable],img').forEach(node=>{node.draggable=false;});
+  /* cards stay draggable: series-library cancels dragstart while picking, so leaving the mode in place needs no attribute writes */
+  if(selecting)grid.querySelectorAll('img').forEach(node=>{node.draggable=false;});
 }
 
 // E237 Tools → restore Japanese: list library games that ship Japanese data, check one, then apply or undo.
@@ -913,7 +935,7 @@ async function learning(token){
   if(subtab==='review'){await review(token,target);if(token===pageToken){enhanceSelects(target);commit();}return;}
   if(subtab==='sentences'){try{const {mountSentences}=await import('./sentences-page.js');if(token!==pageToken)return;await mountSentences(target,{api,locale,esc,
    toast,errorMessage,empty,emptyLabel:text.emptySentences,readTime,datetime,icon,isCurrent:()=>token===pageToken,rerender:()=>renderRoute(),lookup:word=>{pendingDictionaryQuery=word;
-   navigate('learning','dictionary');},openGame:id=>{gameOrigin='library';selectedGameId=id;navigate('game');}});}catch(error){learningFailed(target,error,token);
+   navigate('learning','dictionary');},openGame:(id,opts)=>{gameOrigin='library';selectedGameId=id;gameTab=opts?.tab||'';navigate('game');},games:model.games,cover});}catch(error){learningFailed(target,error,token);
    }if(token===pageToken)commit();return;}
   let items,pending;try{[items,pending]=await Promise.all([api(subtab==='words'?'vocabulary':subtab==='trash'?'word_trash':'sentences'),subtab==='words'?api('unknown_words').catch(()=>[]):[]]);
    }catch(error){learningFailed(target,error,token);if(token===pageToken)commit();return;}if(token!==pageToken)return;
@@ -1193,15 +1215,15 @@ async function renderRoute(){watchStage();
    if(route!=='learning'&&route!=='statistics')main.classList.remove('review-page');if(route!=='learning'&&route!=='statistics')delete main.dataset.page;main.scrollTop=0;
   try{
     if(route==='home')home();else if(route==='library')library();else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();
-     await renderGamePage({main,id:selectedGameId,api,invoke,locale,text,esc,icon,cover,duration,datetime,relativeTime,number,definitions,isCurrent:()=>token===pageToken,
+     await renderGamePage({main,id:selectedGameId,tab:(t=>(gameTab='',t))(gameTab),api,invoke,locale,text,esc,icon,cover,duration,datetime,relativeTime,number,definitions,isCurrent:()=>token===pageToken,
      onBack:()=>navigate(gameOrigin),onLaunch:startGame,onEdit:editGame,onRemove:removeGame,onForum:game=>{setForumFilter({game:String(game?.title||''),engine:'',
-     tag:'',mine:false});setLeaderboardView({tab:'forum'});navigate('leaderboard');},onOriginalChanged:async()=>{model=await api('home');if(token===pageToken)renderRoute();
+     tag:'',mine:false});setLeaderboardView({tab:'forum'});navigate('leaderboard');},onLookup:word=>{pendingLookup=word;navigate('learning','dictionary');},onOriginalChanged:async()=>{model=await api('home');if(token===pageToken)renderRoute();
      },toast});}else if(route==='history')await history(token);else if(route==='learning')await learning(token);else if(route==='settings')await settings(token);
      else if(route==='leaderboard')await mountLeaderboard(main,{api,locale,esc,toast,isCurrent:()=>token===pageToken,lookup:word=>{pendingLookup=word;navigate('learning',
      'dictionary');},openSettings:section=>{settingsSection=section;settingsProfile='';try{localStorage.setItem('megulit-settings-section',section);}catch{}navigate('settings');
      }});else if(route==='daily')await mountDaily(main,{api,locale,esc,toast,isCurrent:()=>token===pageToken,lookup:word=>{pendingLookup=word;navigate('learning',
      'dictionary');},openSettings:section=>{settingsSection=section;settingsProfile='';try{localStorage.setItem('megulit-settings-section',section);}catch{}navigate('settings');
-     }});else if(route==='about'){main.innerHTML=aboutHTML(locale,esc);mountAbout(main,api,toast);}else if(route==='tools'){main.innerHTML=toolsHTML(locale,esc);
+     }});else if(route==='about'){main.innerHTML=aboutHTML(locale,esc);mountAbout(main,api,toast,model);}else if(route==='tools'){main.innerHTML=toolsHTML(locale,esc);
      main.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>b.dataset.tool==='0'?japaneseRestore():toast((grimoireWords[locale]||grimoireWords.zh).toolPending)));
      }else if(route==='statistics')await statistics(token);
     if(token===pageToken){enhanceSelects(main);dockPageTools(main);moveTabInk();alignSubtabs();{const group=route==='statistics'?'learning':route,view=group+':'+subtab;
@@ -1268,4 +1290,4 @@ document.addEventListener('click',e=>{const input=e.target.closest?.('label.sett
  root.style.opacity='0.999';pending=requestAnimationFrame(()=>{root.style.opacity='';pending=0;});});};
  document.addEventListener('visibilitychange',repaint);addEventListener('focus',repaint);addEventListener('pageshow',repaint);})();
 /* contrast check (validation/contrast-check.cjs): only the headless test transport gets page navigation and the start notice */
-if(window.__TOME_TEST_TRANSPORT__)window.__megulitTest={navigate:(next,tab)=>{if(next==='game')selectedGameId=model.games[0]?.id||'';return navigate(next,tab||'');},notice:()=>mountDevNotice({api,locale,esc,toast,version:VERSION})};
+if(window.__TOME_TEST_TRANSPORT__)window.__megulitTest={navigate:(next,tab)=>{if(next==='game')selectedGameId=model.games[0]?.id||'';return navigate(next,tab||'');},notice:()=>mountDevNotice({api,locale,esc,toast,version:VERSION,force:true})};

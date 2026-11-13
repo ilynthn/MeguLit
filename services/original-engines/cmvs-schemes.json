@@ -1,0 +1,26 @@
+{
+  "_comment": "E592 CMVS (Purple Software) CPZ5/CPZ6 schemes, from GARbro ArcFormats/Cmvs (morkt, MIT): ArcCPZ.cs CreateCpz5Scheme / DefaultCpz5Secret and CmvsMD5.cs. Numbers are hex strings. The reader tries every md5 variant in this order and keeps the first that gives a sane directory. A new title's variant or secret can be added here or sent as an adapter pack's params (same shape). out: [state index, op (^ + -), constant] per result word.",
+  "md5": {
+    "Mirai":   {"init": ["67452301", "EFCDAB89", "98BADCFE", "10325476"], "out": [[0, "^", "0"], [1, "^", "0"], [2, "^", "0"], [3, "^", "0"]]},
+    "A":       {"init": ["C74A2B01", "E7C8AB8F", "D8BEDC4E", "7302A4C5"], "out": [[3, "^", "0"], [1, "^", "0"], [2, "^", "0"], [0, "^", "0"]]},
+    "Chrono":  {"init": ["C74A2B01", "E7C8AB8F", "D8BEDC4E", "7302A4C5"], "out": [[2, "^", "45A76C2F"], [1, "-", "5BA17FCB"], [0, "^", "79ABE8AD"], [3, "-", "1C08561B"]]},
+    "B":       {"init": ["53FE9B2C", "F2C93EA8", "EE81BA59", "A2C8973E"], "out": [[1, "^", "49875325"], [2, "+", "54F46D7D"], [3, "^", "AD7948B7"], [0, "+", "1D0638AD"]]},
+    "Memoria": {"init": ["A79463F9", "B6E755C5", "C696AF21", "6983E978"], "out": [[1, "^", "0"], [2, "^", "0"], [3, "^", "0"], [0, "^", "0"]]},
+    "Natsu":   {"init": ["63FE9A7C", "C2B93E98", "EF91BA5C", "72C9A82E"], "out": [[1, "+", "45876329"], [2, "^", "54F36D6C"], [3, "+", "4387A749"], [0, "^", "E3F9A742"]]},
+    "Aoi":     {"init": ["C74A2B02", "E7C8AB8F", "38BEBC4E", "7531A4C3"], "out": [[2, "^", "53A76D2E"], [1, "+", "5BB17FDA"], [0, "+", "6853E14D"], [3, "^", "F5C6A9A3"]]}
+  },
+  "cpz5": {
+    "secret": ["CD90F089", "E982B782", "A282AB88", "CD82718E", "52838A83", "A882AA82", "7592648E", "B582AB82",
+               "E182BF82", "DC82A282", "4281B782", "ED82F48E", "BF82EA82", "A282E182", "B782DC82", "6081E682",
+               "C6824181", "A482A282", "E082A982", "F48EA482", "BF82C182", "A282E182", "B582DC82", "F481BD82"],
+    "decoderFactor": "1A743125",
+    "entryInitKey": "2547A39E",
+    "entrySubKey": "5C29E87B",
+    "entryTailKey": "BC",
+    "entryKeyPos": "9",
+    "indexSeed": "2A65CB4E",
+    "indexAddend": "784C5962",
+    "indexSubtrahend": "79",
+    "dirKeyAddend": ["0", "00112233", "0", "34258765"]
+  }
+}

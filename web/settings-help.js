@@ -105,14 +105,30 @@ export function fieldHelp(scope,key,locale){
  const name=key.endsWith('.model')?'model':key;const own=scoped[scope+'|'+key];if(own)return own[{zh:0,en:1,ja:2}[locale]]||own[0];return (scope==='anki'?anki[key]:scope==='translation'?translation[key]:null)?.[{
   zh:0,en:1,ja:2}[locale]]||hints[name]?.[{zh:0,en:1,ja:2}[locale]]||'';
 }
+/* 2026-11-13 redesign (option D): the 「怎么选分词引擎？」 callout became two engine rows that split one game-like line,
+   so the difference is seen rather than read. The rows are the switch; the select stays in the form (hidden) and saves as before. */
+const ENGINES=[
+ {id:'sudachi',name:'SudachiDict Full',recommended:true,diff:[1],split:[['東京','とうきょう'],['スカイツリー'],['に'],['行','い','き'],['たかっ'],['た']],
+  fit:{zh:'日常玩 GAL',en:'Everyday VN reading',ja:'普段のノベルゲームに'},lex:{zh:'完整词库，人名地名等专有名词更全',en:'Full lexicon with more names and proper nouns',ja:'固有名詞が多い完全な辞書'}},
+ {id:'unidic',name:'UniDic',diff:[1,2],split:[['東京','とうきょう'],['スカイ'],['ツリー'],['に'],['行','い','き'],['たかっ'],['た']],
+  fit:{zh:'细看语法结构',en:'Studying grammar closely',ja:'文法を細かく見るときに'},lex:{zh:'统一短单位，词形和活用拆得更细',en:'Consistent short units; forms and inflections split finer',ja:'統一された短単位で語形・活用を細かく分割'}}];
+const ENGINE_WORDS={zh:{rec:'推荐',current:'正在使用',use:'改用',legend:'灰底 = 两种引擎切法不同',note:'两种都在本地运行；游戏原文自带注音时，仍以原文读音为准'},
+ en:{rec:'Recommended',current:'In use',use:'Use',legend:'Grey = the two engines split differently',note:'Both run locally. Readings supplied by the game keep priority'},
+ ja:{rec:'おすすめ',current:'使用中',use:'切り替え',legend:'灰色 = 2 つのエンジンで分割が異なる箇所',note:'どちらもローカルで動作します。ゲーム原文のルビが引き続き優先されます'}};
+const escapeText=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function engineRowsHtml(current,locale='zh'){
+ const w=ENGINE_WORDS[locale]||ENGINE_WORDS.zh,pick=v=>v[locale]||v.zh;
+ const token=([kanji,ruby,tail=''],i,diff)=>`<span class="tk${diff.includes(i)?' tk-diff':''}">${ruby?`<ruby>${kanji}<rt>${ruby}</rt></ruby>${tail}`:kanji}</span>`;
+ return ENGINES.map(e=>{const on=current===e.id;return `<div class="rpk-eng" role="radio" tabindex="0" aria-checked="${on}" data-engine="${e.id}"><div class="rpk-eng-name"><strong>${e.name}</strong>${e.recommended?`<em>${escapeText(w.rec)}</em>`:''}<small>${escapeText(pick(e.fit))}</small></div><div class="rpk-line" lang="ja">${e.split.map((t,i)=>token(t,i,e.diff)).join('')}</div><div class="rpk-eng-lex">${escapeText(pick(e.lex))}</div><span class="rpk-eng-pick">${escapeText(on?w.current:w.use)}</span></div>`;}).join('')
+  +`<p class="rpk-note"><span class="tk-key"><span class="tk-swatch" aria-hidden="true"></span>${escapeText(w.legend)}</span><span>${escapeText(w.note)}</span></p>`;
+}
 export function configureDictionary({content,form,locale}){
- const details=document.createElement('aside');details.className='engine-explanation';
- const words={zh:['怎么选分词引擎？','日常玩 GAL 推荐 SudachiDict Full：完整词库覆盖更多专有名词，并支持不同粒度的分词','UniDic：按统一的短单位分析词形、词性和活用，适合细看语言结构，也可在某句切分不理想时切换比较','两种引擎都在本地运行；游戏原文已有注音时，MeguLit 仍优先采用原文读音'],
-  en:['Which tokenizer?','For everyday visual novel reading, use SudachiDict Full: its full lexicon includes more proper nouns and supports multiple split lengths',
-  'UniDic uses consistent short units with detailed word forms and inflections. Useful for inspecting grammar and comparing difficult splits','Both run locally. Readings supplied by the game retain priority'],
-  ja:['分かち書きエンジンの選び方','普段のノベルゲームには SudachiDict Full をおすすめします。固有名詞を多く含む辞書と複数の分割単位を利用できます','UniDic は統一された短単位で語形・品詞・活用を分析します。文法を細かく見るときや、分割結果を比較するときに向いています','どちらもローカルで動作します。ゲーム原文のルビは引き続き優先されます']}[locale];
- const title=document.createElement('strong');title.textContent=words[0];details.append(title);for(const word of words.slice(1)){const p=document.createElement('p');
-  p.textContent=word;details.append(p);}form.elements.namedItem('readingEngine').closest('.settings-row').after(details);
+ const select=form.elements.namedItem('readingEngine'),row=select?.closest('.settings-row');
+ if(select&&row){row.classList.add('rpk-engine-row');const box=document.createElement('div');box.className='rpk-engines';box.setAttribute('role','radiogroup');
+  box.setAttribute('aria-label',row.querySelector('.settings-label')?.textContent||'');
+  const draw=()=>{box.innerHTML=engineRowsHtml(select.value,locale);};draw();row.after(box);select.addEventListener('change',draw);
+  const choose=target=>{const r=target.closest('[data-engine]');if(!r||r.getAttribute('aria-checked')==='true')return;select.value=r.dataset.engine;select.dispatchEvent(new Event('change',{bubbles:true}));draw();box.querySelector(`[data-engine="${r.dataset.engine}"]`)?.focus();};
+  box.addEventListener('click',e=>choose(e.target));box.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(e.target);}});}
  const provider=form.elements.namedItem('lookupProvider'),change=()=>{for(const field of form.elements){const match=/^lookupProfiles\.([^.]+)\./.exec(field.name||'');
   if(match)field.closest('.settings-row').dataset.unavailable=String(provider.value!==match[1]);}};provider.addEventListener('change',change);change();
 }

@@ -5,6 +5,8 @@ const path=require('node:path');
 const {spawn}=require('node:child_process');
 const crypto=require('node:crypto');
 const store=require('./store.cjs');
+/* 2026-11-13 every relay call goes through one gate: short GET cache, Retry-After on 429, backoff (services/relay-gate.cjs) */
+require('./relay-gate.cjs').install();
 const root=(process.env.MEGULIT_ROOT||process.env.TOME_FINAL_ROOT)?path.resolve(process.env.MEGULIT_ROOT||process.env.TOME_FINAL_ROOT):path.resolve(__dirname,'..');
 const MAX_INPUT=512*1024;
 function cleanUiState(values){
@@ -209,6 +211,8 @@ async function dispatch(request,runtime=null) {
     if(String(request.action).startsWith('series_'))return require('./series.cjs').handle(db,root,request);
     /* 2026-11-13 card wall (services/card-wall.cjs) */
     if(String(request.action).startsWith('cards_'))return require('./card-wall.cjs').handle(db,root,request);
+    /* E563 probe → desensitized upload → adapter packs (services/adapter-actions.cjs) */
+    if(String(request.action).startsWith('adapter_'))return await require('./adapter-actions.cjs').handle(db,root,request,runtime);
     switch(request.action) {
       case 'anki_sync':{
         const {AnkiSync}=require('./anki-sync.cjs'),{Anki}=require('../core/anki.cjs');const config=store.readJSON(path.join(root,'data','config','v4-preferences.json'));
@@ -419,6 +423,7 @@ async function dispatch(request,runtime=null) {
               (collection IN ('sessions','sentence_read_events','lookup_events','sentences','word_sentences') AND json_extract(payload,'$.media_id')=?)`).run(game.legacy_id,game.legacy_id);
             db.prepare('DELETE FROM games WHERE id=?').run(game.id);
             db.exec('COMMIT');
+            require('./sentence-scenes.cjs').removeGame(root,game.id);
           }catch(error){db.exec('ROLLBACK');throw error;}
         }else db.prepare('UPDATE games SET removed_at=? WHERE id=?').run(Math.floor(Date.now()/1000),game.id);
         return {removed:game.id};
@@ -463,9 +468,11 @@ async function dispatch(request,runtime=null) {
       case 'kana_game_words':return require('./kana.cjs').gameWords(db,request.words);
       case 'vocabulary':{/* 2026-11-12 each saved word carries its JLPT level (N5–N1) when the open JLPT list has it */const rows=db.prepare('SELECT v.id,v.spelling,v.reading,v.definitions,v.status,v.created_at,e.text AS example_text,e.game_id AS example_game_id,g.title AS example_title FROM vocabulary v LEFT JOIN examples e ON e.id=(SELECT id FROM examples WHERE word_id=v.id ORDER BY id DESC LIMIT 1) LEFT JOIN games g ON g.id=e.game_id ORDER BY v.created_at DESC,v.id DESC LIMIT 1000').all();let jlpt=null;try{jlpt=require('./learning-insights.cjs').loadJlpt();}catch{}return jlpt?rows.map(r=>({...r,jlpt:(jlpt.byForm.get(r.spelling)||jlpt.byForm.get(r.reading)||null)?.level||null})):rows;}
       case 'sentences':return require('./saved-sentences.cjs').list(db,{source:request.source});
-      case 'sentence_save':{const r=require('./saved-sentences.cjs').save(db,{gameId:request.gameId,text:request.text,translation:request.translation,source:request.source});runtime?.emit?.('reader-event',{type:'sentence-saved'});return r;}
-      case 'sentence_delete':{const r=require('./saved-sentences.cjs').remove(db,{id:request.id,gameId:request.gameId,text:request.text});runtime?.emit?.('reader-event',{type:'sentence-saved'});return r;}
+      case 'sentence_save':{const r=require('./saved-sentences.cjs').save(db,{gameId:request.gameId,text:request.text,translation:request.translation,source:request.source});/* a new sentence of the game being read: its clean picture when one matches (async) */if(r.created&&r.game_id&&runtime?.reader?.gameId===r.game_id)require('./sentence-scenes.cjs').attach(runtime.reader,r.id);runtime?.emit?.('reader-event',{type:'sentence-saved'});return r;}
+      case 'sentence_delete':{const r=require('./saved-sentences.cjs').remove(db,{id:request.id,gameId:request.gameId,text:request.text},{root});runtime?.emit?.('reader-event',{type:'sentence-saved'});return r;}
       case 'sentence_state':return require('./saved-sentences.cjs').state(db,{gameId:request.gameId,text:request.text});
+      /* 2026-11-13 the clean game picture kept with a collected sentence (sentence-scenes.cjs); file names are checked strictly */
+      case 'sentence_scene':return require('./sentence-scenes.cjs').read(root,String(request.id||''),request.file);
       case 'word_trash':return db.prepare('SELECT id,word_id,deleted_at,snapshot FROM word_trash ORDER BY deleted_at DESC,id DESC LIMIT 30').all().map(row=>{const s=JSON.parse(row.snapshot);return {id:row.id,deleted_at:row.deleted_at,spelling:s.word?.spelling || s.spelling || '',reading:s.word?.reading || s.reading || ''};});
       case 'delete_word':return deleteWord(db,Number(request.id));
       case 'restore_word':return restoreWord(db,Number(request.id));

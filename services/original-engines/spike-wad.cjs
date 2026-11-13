@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* Spike Chunsoft PC releases built on the SDL2 port (Steam ダンガンロンパ 1・2 Reload: DR1_us.exe / DR2_us.exe).
    Game data lives in *.wad archives: "AGAR", version (2 x u32), header size + header, then the file table (u32 count;
    per file u32 name length, name, u64 size, u64 offset), the directory table (u32 count; per dir u32 name length, name,
@@ -26,7 +27,7 @@ function parseTable(h,size){if(h.length<20||h.toString('latin1',0,4)!=='AGAR')re
  need(p+4);const d=h.readUInt32LE(p);p+=4;if(d>1000000)return null;
  for(let i=0;i<d;i++){need(p+4);p+=4+h.readUInt32LE(p);need(p+4);const c=h.readUInt32LE(p);p+=4;for(let j=0;j<c;j++){need(p+4);p+=4+h.readUInt32LE(p)+1;}}
  need(p);for(const f of files){f.offset+=p;if(f.offset+f.size>size)return null;}return files;}
-function wadRead(file,e){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(e.size);fs.readSync(fd,b,0,e.size,e.offset);return b;}finally{fs.closeSync(fd);}}
+const wadRead=(file,e)=>kit.readAt(file,e.offset,e.size);
 // The strings of one .lin, in table order, without BOM, NUL and colour tags.
 function linStrings(b){if(!b||b.length<16||b.readUInt32LE(0)!==2)return null;const to=b.readUInt32LE(8);if(to<16||to+4>b.length)return null;
  const n=b.readUInt32LE(to);if(n>100000||to+8+n*4>b.length)return null;const out=[];

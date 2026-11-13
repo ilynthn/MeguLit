@@ -52,7 +52,7 @@ function startService(root){const child=spawn(process.execPath,[path.join(ROOT,'
 /* ---------- static server + test transport ---------- */
 const TRANSPORT=`<script>(()=>{const S=JSON.parse(decodeURIComponent((location.hash.slice(1))||'%7B%7D'));const svg=c=>'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="100%" height="100%" fill="'+c+'"/></svg>');
  window.__TOME_TEST_TRANSPORT__=async(command,args)=>{if(command!=='service')return null;const r=(args&&args.request)||{};
-  if(r.action==='background'&&S.color)return svg(S.color);if(/^(update_check|update_status|site_updates|launch|focus_game)$/.test(r.action))return {};
+  if(r.action==='background'&&S.color)return svg(S.color);if(r.action==='site_updates')return fetch('/__site-updates.json').then(x=>x.ok?x.json():[]).catch(()=>[]);if(/^(update_check|update_status|launch|focus_game)$/.test(r.action))return {};
   let out;try{out=await fetch('/svc',{method:'POST',body:JSON.stringify(r)}).then(x=>x.json());}catch{out={ok:false,error:'SERVICE_FAILED'};}if(!out.ok)throw Error(out.error);let d=out.data;
   if(r.action==='home'&&d&&d.preferences){if(S.color){d.preferences.glassColor=S.color;d.preferences.homeBackground='custom.png';d.preferences.backgroundDim=0;d.background={...(d.background||{}),dim:0};}if(S.theme)d.preferences.themeMode=S.theme;}
   return d;};})();</script>`;
@@ -60,7 +60,7 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=
 function startWeb(service){const server=http.createServer(async(req,res)=>{try{
   if(req.method==='POST'&&req.url==='/svc'){let body='';for await(const c of req)body+=c;let reply;try{reply={ok:true,data:await service.call(JSON.parse(body))};}catch(e){reply={ok:false,error:e.message};}
    res.writeHead(200,{'content-type':'application/json'});return res.end(JSON.stringify(reply===undefined?null:reply));}
-  let rel=decodeURIComponent(new URL(req.url,'http://x').pathname);if(rel==='/')rel='/index.html';const file=path.join(WEB,path.normalize(rel));
+  let rel=decodeURIComponent(new URL(req.url,'http://x').pathname);if(rel==='/__site-updates.json'){res.writeHead(200,{'content-type':'application/json'});return res.end(fs.readFileSync(path.join(ROOT,'site','public','assets','updates.json')));}if(rel==='/')rel='/index.html';const file=path.join(WEB,path.normalize(rel));
   if(!file.startsWith(WEB)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);return res.end();}
   let data=fs.readFileSync(file);if(rel==='/index.html')data=Buffer.from(String(data).replace(/<script type="module"/,TRANSPORT+'<script type="module"'));
   res.writeHead(200,{'content-type':TYPES[path.extname(file).toLowerCase()]||'application/octet-stream'});res.end(data);}catch{res.writeHead(500);res.end();}});
@@ -68,7 +68,7 @@ function startWeb(service){const server=http.createServer(async(req,res)=>{try{
 
 /* ---------- headless Edge over CDP ---------- */
 function edgePath(){for(const p of [process.env.MEGULIT_EDGE,'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'])if(p&&fs.existsSync(p))return p;throw Error('EDGE_NOT_FOUND');}
-async function startEdge(profile){const child=spawn(edgePath(),['--headless=new','--remote-debugging-port=0','--user-data-dir='+profile,'--window-size=1920,1080','--hide-scrollbars','--force-device-scale-factor=1',
+async function startEdge(profile){const child=spawn(edgePath(),['--headless=new','--remote-debugging-port=0','--user-data-dir='+profile,'--window-size='+String(arg('size','1920x1080')).replace('x',','),'--hide-scrollbars','--force-device-scale-factor=1',
   '--no-first-run','--no-default-browser-check','--disable-extensions','--mute-audio','about:blank'],{stdio:'ignore'});
  const portFile=path.join(profile,'DevToolsActivePort');for(let i=0;i<100&&!fs.existsSync(portFile);i++)await sleep(100);const port=fs.readFileSync(portFile,'utf8').split(/\r?\n/)[0];
  let target;for(let i=0;i<50&&!target;i++){target=(await fetch(`http://127.0.0.1:${port}/json/list`).then(r=>r.json()).catch(()=>[])).find(t=>t.type==='page');if(!target)await sleep(100);}
@@ -76,7 +76,7 @@ async function startEdge(profile){const child=spawn(edgePath(),['--headless=new'
  ws.onmessage=e=>{const m=JSON.parse(e.data);const w=m.id&&waits.get(m.id);if(w){waits.delete(m.id);m.error?w[1](Error(m.error.message)):w[0](m.result);}};
  const send=(method,params={})=>new Promise((res,rej)=>{const id=next++;waits.set(id,[res,rej]);ws.send(JSON.stringify({id,method,params}));});
  const evaluate=async(expression)=>{const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error('EVAL: '+(r.exceptionDetails.exception?.description||r.exceptionDetails.text));return r.result.value;};
- await send('Page.enable');await send('Runtime.enable');await send('Emulation.setDeviceMetricsOverride',{width:1920,height:1080,deviceScaleFactor:1,mobile:false});
+ await send('Page.enable');await send('Runtime.enable');await send('Emulation.setDeviceMetricsOverride',{width:Number(String(arg('size','1920x1080')).split('x')[0]),height:Number(String(arg('size','1920x1080')).split('x')[1]),deviceScaleFactor:1,mobile:false});
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
  return {send,evaluate,stop:()=>{try{ws.close();}catch{}child.kill();}};}
 

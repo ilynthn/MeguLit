@@ -34,15 +34,12 @@ test('kana game words: a word inside a longer hiragana run does not count',()=>{
  assert.equal('漢字' in out,false);
 });
 
-test('achievement: all CRITICAL PERFECT is exactly 101.0000%, ranks follow the thresholds',async()=>{
+test('achievement: all CRITICAL PERFECT shows 101.0% with AP and no letter rank',async()=>{
  const D=await import('../web/kana/data.js');
  const fast=['か','シ','き'].map(show=>({show,ok:true,t:1,limit:10}));
- assert.equal(D.achievement(fast).pct,101);
- assert.equal(D.fmtPct(101),'101.0000%');
- assert.equal(D.rankOf(100.5),'SSS+');
- assert.equal(D.rankOf(100.49),'SSS');
- assert.equal(D.rankOf(49.9),'D');
+ assert.equal(D.achievement(fast).pct,101);assert.equal(D.achievement(fast).rank,undefined);assert.equal(D.achievement(fast).ap,true);
+ assert.equal(D.fmtPct(101),'101.0%');
  const miss=D.achievement([{show:'か',ok:false,t:3,limit:10}]);
- assert.equal(miss.pct,0);
+ assert.equal(miss.pct,0);assert.equal(miss.ap,false);
  assert.equal(D.judge({ok:true,hint:true,t:1}),'GOOD');
 });

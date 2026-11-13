@@ -51,8 +51,10 @@ const steam='e:/steam/steamapps/common/',have=n=>fs.existsSync(steam+n);
 const sc=()=>require('../services/original-engines/scenes.cjs');
 function cxPairs(dir){const e=sc().ENGINES['kirikiri-cx'];let total=0,paired=0;for(const s of e.scenes(dir)){const r=e.parse(s.read());r.lines.forEach((l,i)=>{if(!l.trim())return;total++;if((r.zh[i]||'').trim())paired++;});}return {total,paired};}
 for(const [name,min] of [['9-nine-Episode 4',11690],['ATRI -My Dear Moments-',11201]])
- test('D: '+name+' Japanese lines paired with the release Chinese',{skip:!have(name)&&'no local copy'},()=>{
-  const dir=steam+name;assert.equal(sc().detect(dir),'kirikiri-cx');const r=cxPairs(dir);if(!r.total)return;/* cache still building */assert.ok(r.paired>=min,JSON.stringify(r));});
+ test('D: '+name+' Japanese lines paired with the release Chinese',{skip:!have(name)&&'no local copy',timeout:20*60e3},async()=>{
+  /* a cold cx cache (fresh TEMP) decrypts in a worker first; wait for it, not for GARbro */
+  const dir=steam+name;let id=sc().detect(dir);for(const end=Date.now()+18*60e3;sc().cxBuilds.size&&Date.now()<end;id=sc().detect(dir))await new Promise(r=>setTimeout(r,2000));
+  assert.equal(id,'kirikiri-cx');const r=cxPairs(dir);if(!r.total)return;/* cache still building */assert.ok(r.paired>=min,JSON.stringify(r));});
 test('D: Summer Pockets (Siglus dat tables): every story line has its Chinese column',{skip:!have('Summer Pockets')&&'no local copy'},()=>{
  const dir=steam+'Summer Pockets',e=sc().ENGINES.siglus,base=e.scenes(dir).filter(s=>/^\d\d_/.test(s.name)).map(s=>({name:s.name,lines:e.parse(s.read()).lines}));
  const p=e.patchLines(base,{dirs:[dir]});assert.ok(p);let total=0,paired=0;

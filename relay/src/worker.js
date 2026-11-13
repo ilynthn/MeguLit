@@ -14,9 +14,16 @@ import {avatarUpload,avatarDelete,avatarGet,avatarReport,avatarsFor,avatarStatus
 /* #117 交流 board */
 import {forumRoute,forumDeletes,cleanupForumImages} from './forum.js';
 import {newsGet,hotWordsDailyGet,refreshDaily,imageGet,articleGet} from './daily.js';
+/* E562 adapter packs, before/after reports, desensitized probe uploads */
+import {adaptersRoute} from './adapters.js';
 
 /* requests per window; key prefix → [limit, seconds] */
-export const RATE={ip:[120,60],feedback:[4,3600],'feedback-day':[12,86400],'lb-post':[6,600],'lb-id':[20,3600],'lb-get':[60,60],'adapt-post':[30,3600],'adapt-get':[120,3600],diag:[20,3600],'diag-dl':[30,3600],avatar:[5,3600],'avatar-get':[600,60],report:[20,3600],hot:[60,60],daily:[60,60],'daily-img':[240,60],release:[30,60],appeal:[3,86400],profile:[30,3600],'social-get':[120,60],follow:[60,3600],'profile-report':[3,86400],'profile-appeal':[3,86400],'forum-get':[120,60],'forum-post':[5,3600],'forum-reply':[30,3600],'forum-day':[60,86400],'forum-ip':[40,3600],'forum-img':[60,3600]};
+/* 2026-11-13 (user: 限制太大了; api.megulit.com answered 429 to a whole IP for over a minute): reads are loosened, writes,
+   codes and logins stay strict. The overall limit counts a signed-in request by its token ('user'), so a family, an
+   internet café or a school behind one IP no longer share 120 a minute; 'ip-shared' still caps one IP as a whole.
+   Old: ip 120/60 s, lb-get 60, adapt-get 120/h, avatar-get 600, hot 60, daily 60, daily-img 240, release 30,
+   social-get 120, forum-get 120. */
+export const RATE={ip:[600,60],user:[600,60],'ip-shared':[3000,60],'adapt-feed':[60,3600],'adapt-pack':[1200,3600],'adapt-report':[30,3600],probe:[64,3600],feedback:[4,3600],'feedback-day':[12,86400],'lb-post':[6,600],'lb-id':[20,3600],'lb-get':[300,60],'adapt-post':[30,3600],'adapt-get':[600,3600],diag:[20,3600],'diag-dl':[30,3600],avatar:[5,3600],'avatar-get':[1200,60],report:[20,3600],hot:[300,60],daily:[300,60],'daily-img':[900,60],release:[120,60],appeal:[3,86400],profile:[30,3600],'social-get':[600,60],follow:[60,3600],'profile-report':[3,86400],'profile-appeal':[3,86400],'forum-get':[600,60],'forum-post':[5,3600],'forum-reply':[30,3600],'forum-day':[60,86400],'forum-ip':[40,3600],'forum-img':[60,3600]};
 const encoder=new TextEncoder();
 const hex=buffer=>[...new Uint8Array(buffer)].map(b=>b.toString(16).padStart(2,'0')).join('');
 export async function sha256(value){return hex(await crypto.subtle.digest('SHA-256',typeof value==='string'?encoder.encode(value):value));}
@@ -51,17 +58,20 @@ async function refreshRelease(env,which){
  await env.DB.prepare('INSERT INTO release_cache(which,body,fetched_at) VALUES(?,?,?) ON CONFLICT(which) DO UPDATE SET body=excluded.body,fetched_at=excluded.fetched_at').bind(which,body,Math.floor(Date.now()/1000)).run();
  return body;
 }
+/* seconds until the window that refused the last call ends; handle() sends it as Retry-After on every 429 */
+let refusedFor=0;
+export const retryAfter=()=>refusedFor||60;
 /* 2026-11-13 D1 daily rows_written was at 94% of the free tier: every request wrote a rate_limits row (the global ip
    bucket plus the route's own). The short, high-traffic windows now use Cloudflare's own rate limiting bindings
    (no D1 write at all); the rare long windows (hourly / daily caps) stay in D1, where a row per hit is nothing. */
 export const NATIVE={ip:'RL_IP','lb-get':'RL_LB_GET','avatar-get':'RL_AVATAR_GET',hot:'RL_HOT',daily:'RL_DAILY','daily-img':'RL_DAILY_IMG',release:'RL_RELEASE','social-get':'RL_SOCIAL_GET','forum-get':'RL_FORUM_GET'};
 export async function hit(env,kind,subject,now=Date.now()){
  const limiter=env[NATIVE[kind]||''];
- if(limiter?.limit){try{return (await limiter.limit({key:`${kind}:${subject}`})).success;}catch{/* fall through to D1 */}}
+ if(limiter?.limit){try{const ok=(await limiter.limit({key:`${kind}:${subject}`})).success;if(!ok)refusedFor=RATE[kind]?.[1]||60;return ok;}catch{/* fall through to D1 */}}
  const [limit,seconds]=RATE[kind],windowStart=Math.floor(now/1000/seconds)*seconds,bucket=`${kind}:${subject}:${windowStart}`;
  const row=await env.DB.prepare('INSERT INTO rate_limits(bucket,count,reset_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 RETURNING count').bind(bucket,windowStart+seconds).first();
  if(Math.random()<.02)await env.DB.prepare('DELETE FROM rate_limits WHERE reset_at<?').bind(Math.floor(now/1000)).run();
- return (row?.count??1)<=limit;
+ const ok=(row?.count??1)<=limit;if(!ok)refusedFor=Math.max(1,windowStart+seconds-Math.floor(now/1000));return ok;
 }
 async function clientKey(request,env){return (await sha256((env.HASH_SALT||'megulit-relay')+':'+(request.headers.get('cf-connecting-ip')||'unknown'))).slice(0,32);}
 /* Leaderboard identity: a logged-in account (one row across PCs) or else the install id; only hashes are stored. */
@@ -222,6 +232,13 @@ export async function diagnosticsDownload(url,env,ip,now=new Date()){
  return new Response(object.body,{headers:{'content-type':'application/zip','content-disposition':`attachment; filename="megulit-diagnostics-${id}.zip"`,'cache-control':'private, no-store'}});
 }
 
+/* the overall limit: by token when the request is signed in (a token cannot be guessed, a fake one only reaches the
+   per-IP 'ip-shared' cap), else by IP */
+async function overall(request,env,ip,now){
+ const auth=request.headers.get('authorization')||'';
+ if(/^Bearer mgl_[A-Za-z0-9_-]{43}$/.test(auth))return await hit(env,'ip-shared',ip,now.getTime())&&await hit(env,'user',(await sha256('tok:'+auth)).slice(0,32),now.getTime());
+ return hit(env,'ip',ip,now.getTime());
+}
 /* ---- router ---------------------------------------------------------------------------------------------------- */
 const social={json,fail,readJSON,hit,sha256,authenticate,avatarsFor,signReview};
 export async function handle(request,env,now=new Date(),ctx=null){
@@ -230,7 +247,8 @@ export async function handle(request,env,now=new Date(),ctx=null){
  const ip=await clientKey(request,env);
  let response;
  try{
-  if(!await hit(env,'ip',ip,now.getTime()))response=fail('RATE_LIMITED',429);
+  refusedFor=0;
+  if(!await overall(request,env,ip,now))response=fail('RATE_LIMITED',429);
   else if(path==='/api/health'&&request.method==='GET')response=json({ok:true,service:'megulit-relay'});
   else if(path==='/api/leaderboard')response=request.method==='POST'?await leaderboardPost(request,env,ip,now):request.method==='GET'?await leaderboardGet(url,env,ip,now):request.method==='DELETE'?await leaderboardDelete(request,url,env,ip,now):fail('METHOD_NOT_ALLOWED',405);
   else if(path==='/api/leaderboard/avatar/appeal'&&request.method==='POST'){const who=await subjects(request,env,url.searchParams.get('id'),now);response=await hit(env,'appeal',who.primary||ip,now.getTime())?await avatarAppeal(request,env,who.primary,url,now):fail('RATE_LIMITED',429);}
@@ -267,8 +285,10 @@ export async function handle(request,env,now=new Date(),ctx=null){
   else if(path==='/api/feedback')response=request.method==='POST'?await feedbackPost(request,env,{readJSON,fail,json,hit},ip,now):fail('METHOD_NOT_ALLOWED',405);
   else if(path==='/api/diagnostics')response=request.method==='POST'?await diagnosticsPost(request,env,ip,url,now):fail('METHOD_NOT_ALLOWED',405);
   else if(path.startsWith('/api/diagnostics/download/')&&request.method==='GET')response=await diagnosticsDownload(url,env,ip,now);
+  else if(path.startsWith('/api/adapters/')||path==='/api/probe'||path.startsWith('/api/probe/'))response=await adaptersRoute(request,env,ip,now,url,path,{json,fail,hit,readJSON})||fail('NOT_FOUND',404);
   else response=fail('NOT_FOUND',404);
  }catch(error){console.error('relay error',error?.message);response=fail('SERVER_ERROR',500);}
+ if(response.status===429&&!response.headers.get('retry-after'))response.headers.set('retry-after',String(retryAfter()));
  for(const[k,v]of Object.entries(cors))response.headers.set(k,v);
  return response;
 }

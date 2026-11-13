@@ -16,13 +16,25 @@ public sealed class HookSourceFrames{
 public sealed class EmbedSourceBatch{
  readonly List<string> Lines=new List<string>();readonly List<DateTime> Times=new List<DateTime>();
  DateTime LastAt;
- public void Clear(){Lines.Clear();Times.Clear();}
+ public void Clear(){Lines.Clear();Times.Clear();PageLines.Clear();PageTimes.Clear();}
+ /* E542 (user, CLANNAD HD prologue in ADV: one sentence per click): the engine hands the hook every sentence up to the next
+    stop at once (eight callbacks in 60 ms) and LunaHost flushes them seconds later as one string, while the game shows them
+    one click at a time. When an output is exactly a run of two or more separate callbacks (newest last), those callbacks
+    are its parts, oldest first, and ageMs is how long ago the first of them came (clicks since then were advances). */
+ readonly List<string> PageLines=new List<string>();readonly List<DateTime> PageTimes=new List<DateTime>();
+ public List<string> Parts(string output,DateTime now,out double ageMs){ageMs=0;string value=(output??"").Trim();if(value.Length==0||PageLines.Count<2)return null;
+  for(int end=PageLines.Count-1;end>=1;end--){int at=value.Length;var parts=new List<string>();
+   for(int i=end;i>=0&&at>0;i--){string line=PageLines[i];if(line.Length==0||line.Length>at||String.CompareOrdinal(value,at-line.Length,line,0,line.Length)!=0)break;parts.Insert(0,line);at-=line.Length;
+    if(at==0&&parts.Count>=2&&parts.Count<=40&&(now-PageTimes[i]).TotalSeconds<=15){ageMs=(now-PageTimes[i]).TotalMilliseconds;return parts;}}}
+  return null;}
  /* the lines that came in one burst with the newest (each within 300 ms of the next), oldest first */
  public List<string> Recent(DateTime now){var r=new List<string>();if((now-LastAt).TotalMilliseconds>1500)return r;for(int i=Lines.Count-1;i>=0;i--){if(i<Lines.Count-1&&(Times[i+1]-Times[i]).TotalMilliseconds>300)break;r.Insert(0,Lines[i]);}return r;}
  public void Add(string text,DateTime now){
   if(String.IsNullOrWhiteSpace(text)||text.Length>4000)return;
   if((now-LastAt).TotalMilliseconds>1500){Lines.Clear();Times.Clear();}
   LastAt=now;Lines.Add(text.Trim());Times.Add(now);
+  if(PageLines.Count>0&&(now-PageTimes[PageTimes.Count-1]).TotalSeconds>15){PageLines.Clear();PageTimes.Clear();}
+  PageLines.Add(text.Trim());PageTimes.Add(now);if(PageLines.Count>64){PageLines.RemoveAt(0);PageTimes.RemoveAt(0);}
   if(Lines.Count>128){Lines.RemoveAt(0);Times.RemoveAt(0);}
  }
  public string LastLine(string output,DateTime now){

@@ -45,6 +45,11 @@ export default {
     /* E443 Hugging Face model files (speech model) for networks that reach neither huggingface.co nor hf-mirror.com:
        /hf/<owner>/<repo>/resolve/<40-hex revision>/<file> is served from R2, filled from Hugging Face on the first miss.
        Only the allow-listed repositories; the client still checks every byte against its SHA-256. */
+    /* E??? (user, 2026-11-13: "不能全走 r2 镜像吗"): the third-party tools MeguLit downloads (Locale Emulator, the
+       llama.cpp build) also go through the mirror instead of GitHub:
+       /gh/<owner>/<repo>/releases/download/<tag>/<file>, filled from GitHub on the first miss, Range supported.
+       Only the allow-listed repositories; the app still checks every byte against its own SHA-256. */
+    if (path.startsWith('/gh/')) return serveGh(request, env, ctx, path.slice(4));
     if (path.startsWith('/hf/')) return serveModel(request, env, ctx, path.slice(4));
     if (path.startsWith('/files/')) return serveFile(request, env, ctx, path.slice(1));
     if (path === '/') return Response.redirect(`${SITE}/#download`, 302);
@@ -220,6 +225,31 @@ async function serveModel(request, env, ctx, rest) {
   }
   const ranged = request.headers.has('range');
   obj = await env.BUCKET.get(key, ranged ? { range: request.headers } : {});
+  if (!obj) return new Response('missing', { status: 404 });
+  const headers = new Headers(cors());
+  obj.writeHttpMetadata(headers);
+  headers.set('etag', obj.httpEtag);
+  headers.set('accept-ranges', 'bytes');
+  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  const status = ranged && obj.range ? 206 : 200;
+  if (status === 206) headers.set('content-range', `bytes ${obj.range.offset}-${obj.range.offset + obj.range.length - 1}/${obj.size}`);
+  return new Response(request.method === 'HEAD' ? null : obj.body, { status, headers });
+}
+
+const GH_REPOS = new Set(['xupefei/Locale-Emulator', 'ggml-org/llama.cpp', 'ankitects/anki']);
+async function serveGh(request, env, ctx, rest) {
+  const m = /^([\w.-]+\/[\w.-]+)\/releases\/download\/([\w.-]+)\/([\w.%-]+)$/.exec(rest);
+  if (!m || !GH_REPOS.has(m[1]) || [m[2], m[3]].some(p => p === '..' || p === '.')) return new Response('not found', { status: 404 });
+  const key = `files/gh/${m[1]}/${m[2]}/${m[3]}`;
+  if (!(await env.BUCKET.head(key))) {
+    const up = await fetch(`https://github.com/${m[1]}/releases/download/${m[2]}/${m[3]}`, { redirect: 'follow' });
+    if (!up.ok || !up.body) return new Response('upstream ' + up.status, { status: 502 });
+    const len = Number(up.headers.get('content-length') || 0), encoded = up.headers.has('content-encoding');
+    const body = len > 8e6 && !encoded ? up.body.pipeThrough(new FixedLengthStream(len)) : await up.arrayBuffer();
+    await env.BUCKET.put(key, body, { httpMetadata: { contentType: 'application/octet-stream' } });
+  }
+  const ranged = request.headers.has('range');
+  const obj = await env.BUCKET.get(key, ranged ? { range: request.headers } : {});
   if (!obj) return new Response('missing', { status: 404 });
   const headers = new Headers(cors());
   obj.writeHttpMetadata(headers);

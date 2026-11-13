@@ -166,18 +166,29 @@ export function guideText(section, locale = 'zh') {
 }
 
 /* E426 Guides start folded as one short card under the real settings; opening animates the height (grid 0fr to 1fr) and each block is a step card with an icon. */
-export function mountGuide({ content, section, locale = 'zh', esc, api, toast, actions = {} }) {
+/* 2026-11-13 (user: the dictionary guide offered 「一键下载注音词典」 while the dictionary was already installed and the click
+   faked a re-download). A download CTA reads the real install state: installed → a quiet ✓ 已就绪 mark, never a button. */
+const READY = T('已就绪', 'Ready', '準備完了');
+export function guideActionMarkup(id, { installed = {}, locale = 'zh', esc = s => String(s) } = {}) {
+  const pick = v => v[locale] || v.zh;
+  if (installed[id]) return `<span class="guide-chip guide-ready" data-guide-ready="${esc(id)}">${esc(pick(READY))}</span>`;
+  return `<button type="button" class="guide-chip guide-act" data-guide-act="${esc(id)}">${esc(pick(ACTIONS[id] || T(id, id, id)))}</button>`;
+}
+export function mountGuide({ content, section, locale = 'zh', esc, api, toast, actions = {}, installed = {} }) {
   const g = GUIDES[section]; if (!g || !content) return () => {};
   const pick = v => v[locale] || v.zh;
   const step = text => esc(pick(text)).replace(/\{(link|act):([a-zA-Z]+)\}/g, (_, kind, id) => kind === 'link'
     ? `<button type="button" class="guide-chip" data-guide-link="${esc(id)}">${esc(pick(LINK_LABEL[id] || T(id, id, id)))} ↗</button>`
-    : `<button type="button" class="guide-chip guide-act" data-guide-act="${esc(id)}">${esc(pick(ACTIONS[id] || T(id, id, id)))}</button>`);
+    : guideActionMarkup(id, { installed, locale, esc }));
+  /* 2026-11-13 dictionary guide redesign: the words before the first colon become the item's bold term (presentation only) */
+  const term = html => { if (section !== 'dictionary') return html; const i = html.indexOf('：'); return i > 0 && i < 24 && !html.slice(0, i).includes('<') ? `<b class="guide-term">${html.slice(0, i)}</b>${html.slice(i + 1)}` : html; };
   const card = document.createElement('section');
   card.className = 'panel settings-guide';
+  card.dataset.guide = section;
   const open = !!opened()[section];
   card.classList.toggle('open', open);
   card.innerHTML = `<button type="button" class="guide-head" aria-expanded="${open}"><span class="guide-badge">${esc(pick(T('教程', 'Guide', 'ガイド')))}</span><span class="guide-title"><b>${esc(pick(g.title))}</b>${g.summary ? `<small>${esc(pick(g.summary))}</small>` : ''}</span><span class="guide-caret" aria-hidden="true">▾</span></button>`
-    + `<div class="guide-body"><div class="guide-inner">${g.blocks.map((b, i) => `<div class="guide-block"><div class="guide-icon" aria-hidden="true">${esc(b.icon || String(i + 1))}</div><div class="guide-main"><h3>${esc(pick(b.head))}</h3><ol>${b.steps.map(s => `<li>${step(s)}</li>`).join('')}</ol></div></div>`).join('')}</div></div>`;
+    + `<div class="guide-body"><div class="guide-inner">${g.blocks.map((b, i) => `<div class="guide-block"><div class="guide-icon" aria-hidden="true">${esc(b.icon || String(i + 1))}</div><div class="guide-main"><h3>${esc(pick(b.head))}</h3><ol>${b.steps.map(s => `<li>${term(step(s))}</li>`).join('')}</ol></div></div>`).join('')}</div></div>`;
   const head = card.querySelector('.guide-head');
   head.addEventListener('click', () => { const next = !card.classList.contains('open'); card.classList.toggle('open', next); head.setAttribute('aria-expanded', String(next)); remember(section, next); });
   card.querySelectorAll('[data-guide-link]').forEach(button => button.addEventListener('click', () => {

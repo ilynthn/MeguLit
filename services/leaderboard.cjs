@@ -142,13 +142,18 @@ function join(root,{name,shareGames=false,consent,requireAccount=false}={},optio
 async function call(url,init,fetcher,who=null,raw=false){
  const headers={'user-agent':'MeguLit',...(init.body&&!init.type?{'content-type':'application/json'}:{}),...(init.type?{'content-type':init.type}:{})};
  if(who){let token='';try{token=who.token();}catch{}if(token)headers.authorization='Bearer '+token;}
+ /* 2026-11-13 (每周热词 · 短句 said 连不上 while the rest worked): the Cloudflare host rate-limits a whole IP (error 1015,
+    HTTP 429) after a burst of page prefetches. A GET to one of the two built-in relay hosts that is refused that way, or
+    does not answer, is tried once on the other host (same Worker and database, see relay-config.cjs). */
+ const twin=init.method==='GET'?(()=>{const hosts=[relay.DEFAULT_RELAY_BASE,relay.CN_RELAY_BASE],i=hosts.findIndex(h=>url.startsWith(h+'/'));return i<0?'':hosts[1-i]+url.slice(hosts[i].length);})():'';
  let r;try{r=await fetcher(url,{method:init.method,body:init.body,headers,signal:AbortSignal.timeout(TIMEOUT)});}
- catch(e){return {state:'error',error:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK'};}
+ catch(e){if(twin&&!init.twin)return call(twin,{...init,twin:true},fetcher,who,raw);return {state:'error',error:e?.name==='TimeoutError'?'TIMEOUT':'NETWORK'};}
+ if(r.status===429&&twin&&!init.twin)return call(twin,{...init,twin:true},fetcher,who,raw);
  /* the relay rotates account tokens at most daily; keep the new one or the account would log out a day later */
  const rotated=r.headers?.get?.('x-megulit-token');if(who&&rotated&&/^mgl_[A-Za-z0-9_-]{43}$/.test(rotated))try{who.save(rotated);}catch{}
  if(raw&&r.ok){try{return {state:'ok',bytes:Buffer.from(await r.arrayBuffer())};}catch{return {state:'error',error:'BAD_RESPONSE'};}}
  let data=null;try{data=await r.json();}catch{}
- if(!r.ok)return {state:'error',error:typeof data?.error==='string'&&/^[A-Z_]{2,40}$/.test(data.error)?data.error:'HTTP_'+r.status};
+ if(!r.ok){const out={state:'error',error:typeof data?.error==='string'&&/^[A-Z_]{2,40}$/.test(data.error)?data.error:'HTTP_'+r.status};if(r.status===429)out.retryAfter=require('./relay-gate.cjs').retryAfterSeconds(r);return out;}
  return {state:'ok',data:data||{}};
 }
 /* submit(stats) — stats as collectStats() returns it; this week's lookup counts ride along (term + count only). */

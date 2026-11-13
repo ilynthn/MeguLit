@@ -10,7 +10,8 @@ export const FX=[
  {id:'heal',name:{zh:'答对 · 花鸟风月',ja:'正解 · 花鳥風月',en:'Right answer · flower fountain'},desc:{zh:'答对时的水花和花瓣，修复最早的坑',ja:'正解したときの水と花びら、いちばん古い穴を直す',en:'Water and petals on a right answer, mending the oldest pit'}},
  {id:'rite',name:{zh:'转职动画',ja:'転職アニメーション',en:'Class-change animation'},desc:{zh:'转职时每个元素的粒子和爆发',ja:'転職時の各元素の粒子と爆発',en:'Each element’s particles and burst when changing class'}},
  {id:'wallBlur',name:{zh:'游戏库 · 拖动模糊',ja:'ライブラリ · ドラッグのブラー',en:'Library · drag motion blur'},desc:{zh:'快速拖动封面墙时整面墙轻微模糊',ja:'表紙の壁を素早く動かすと壁全体が少しぼける',en:'The cover wall blurs slightly while it moves fast'}},
- {id:'cardTilt',name:{zh:'游戏库 · 卡片倾斜',ja:'ライブラリ · カードの傾き',en:'Library · card tilt'},desc:{zh:'鼠标移到封面上时卡片跟着倾斜',ja:'表紙にマウスを乗せるとカードが傾く',en:'Covers tilt toward the pointer'}}
+ {id:'cardTilt',name:{zh:'游戏库 · 卡片倾斜',ja:'ライブラリ · カードの傾き',en:'Library · card tilt'},desc:{zh:'鼠标移到封面上时卡片跟着倾斜',ja:'表紙にマウスを乗せるとカードが傾く',en:'Covers tilt toward the pointer'}},
+ {id:'aboutReel',name:{zh:'关于 · 封面短片',ja:'アプリ情報 · カバー映像',en:'About · cover reel'},desc:{zh:'关于页左上角循环播放的短片、logo 闪动和打开时的入场动画',ja:'アプリ情報ページ左上でループする映像、ロゴのグリッチ、開いたときの登場アニメーション',en:'The looping reel on the About page, the logo glitch and the opening animation'}}
 ];
 const KEY='megulit.fx.v1';
 export function readFx(){try{const v=JSON.parse(localStorage.getItem(KEY)||'{}');return {all:v.all!==false,items:v.items&&typeof v.items==='object'?v.items:{}};}catch{return {all:true,items:{}};}}

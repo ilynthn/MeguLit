@@ -3,21 +3,29 @@
    moving / dragging state of the wall, so starting and stopping a drag restyles no toploader; every motion is
    transform or opacity. The 3D context of a toploader exists only while it tilts. */
 .cw-page{
- --cw-rim:rgba(255,255,255,.075);--cw-rim-line:rgba(255,255,255,.34);--cw-edge:rgba(255,255,255,.5);--cw-inner:rgba(255,255,255,.2);
- --cw-glass:linear-gradient(162deg,rgba(255,255,255,.11),rgba(255,255,255,.025) 38%,rgba(255,255,255,.012) 62%,rgba(255,255,255,.07));
- --cw-shadow:0 26px 36px -18px rgba(0,0,0,.72),0 8px 14px -8px rgba(0,0,0,.5);
+ --cw-rim:rgba(255,255,255,.04);--cw-rim-line:rgba(255,255,255,.2);--cw-edge:rgba(255,255,255,.5);--cw-inner:rgba(255,255,255,.2);
+ --cw-glass:linear-gradient(162deg,rgba(255,255,255,.12),rgba(255,255,255,.05) 38%,rgba(255,255,255,.035) 62%,rgba(255,255,255,.09));
+ --cw-shadow:8px 18px 26px -8px rgba(0,0,0,.6),3px 6px 10px -4px rgba(0,0,0,.45);
  --cw-glint:rgba(255,255,255,.2);--cw-tab:rgba(255,255,255,.07);--cw-tab-line:rgba(255,255,255,.26);
- --cw-veil:rgba(7,6,8,.78);
+ --cw-veil:rgba(7,6,8,.88);
  position:fixed;z-index:40;overflow:hidden;contain:strict;outline:none;color:var(--g-t1,#f1e0d2);
  background:
-  radial-gradient(120% 85% at 50% 32%,rgba(255,236,214,.055),transparent 62%),
+  radial-gradient(60% 55% at 50% 8%,rgba(255,226,196,.11),transparent 72%),
   repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px),
   repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 4px),
-  linear-gradient(180deg,#1c1817,#110e0e 70%,#0c0a0a);
+  radial-gradient(90% 60% at 50% 112%,rgba(173,21,57,.16),transparent 70%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .9 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"),
+  linear-gradient(180deg,#2a2321,#1d1716 62%,#141010);
 }
+/* a gallery wall: a soft wash from above, the corners falling off into the dark (static, one paint) */
+.cw-page::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+ background:radial-gradient(115% 100% at 50% 18%,transparent 42%,rgba(5,3,4,.62) 100%)}
+:root[data-theme=light] .cw-page::after{background:radial-gradient(130% 100% at 50% 40%,transparent 60%,rgba(90,60,40,.16) 100%)}
+.cw-sigil{position:absolute;left:50%;top:50%;width:1200px;height:1200px;margin:-600px 0 0 -600px;background:no-repeat center/100% 100%;opacity:.11;pointer-events:none;will-change:transform;-webkit-mask-image:radial-gradient(closest-side,#000 30%,transparent);mask-image:radial-gradient(closest-side,#000 30%,transparent)}
+:root[data-theme=light] .cw-sigil{opacity:.12}
 :root[data-theme=light] .cw-page{
- --cw-rim:rgba(255,255,255,.34);--cw-rim-line:rgba(70,55,45,.22);--cw-edge:rgba(255,255,255,.95);--cw-inner:rgba(70,55,45,.16);
- --cw-glass:linear-gradient(162deg,rgba(255,255,255,.42),rgba(255,255,255,.1) 38%,rgba(255,255,255,.05) 62%,rgba(255,255,255,.3));
+ --cw-rim:rgba(255,255,255,.12);--cw-rim-line:rgba(40,30,25,.16);--cw-edge:rgba(255,255,255,.9);--cw-inner:rgba(40,30,25,.12);
+ --cw-glass:linear-gradient(162deg,rgba(255,255,255,.26),rgba(255,255,255,.04) 38%,rgba(255,255,255,.02) 62%,rgba(255,255,255,.16));
  --cw-shadow:0 24px 32px -16px rgba(60,40,25,.5),0 6px 12px -6px rgba(60,40,25,.36),0 1px 3px rgba(60,40,25,.25);
  --cw-glint:rgba(255,255,255,.55);--cw-tab:rgba(255,255,255,.4);--cw-tab-line:rgba(70,55,45,.2);
  --cw-veil:rgba(36,28,24,.7);
@@ -30,6 +38,7 @@
 .cw-field{position:absolute;inset:0;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
 .cw-page.cw-dragging .cw-field{cursor:grabbing}
 .cw-plane{position:absolute;inset:0}
+.cw-page[data-mode=b] .cw-sigil{display:none}
 .cw-plane>mg-cell{display:block;position:absolute;left:0;top:0;width:168px;height:226px;will-change:transform}
 .cw-tl.cw-anim .cw-hang{will-change:transform}
 /* simple list: the library's simple mode, a scrolling grid */
@@ -51,6 +60,9 @@
 .cw-tilt{position:absolute;inset:0}
 .cw-tilt.is-tilting,.cw-tilt.tilt-out{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
 .cw-tilt.is-tilting{transition-duration:.16s;transition-timing-function:cubic-bezier(.2,.6,.3,1)}
+.cw-tilt{transition:translate .45s cubic-bezier(.22,1,.36,1)}
+.cw-tilt.is-tilting{translate:0 -6px}
+.cw-tilt.is-tilting .cw-drop{translate:4px 8px;opacity:.9}
 .cw-drop{position:absolute;inset:3px 4px 2px;border-radius:12px;box-shadow:var(--cw-shadow);pointer-events:none}
 
 /* the card inside: a collectible card, 63:88, with a thin printed frame */
@@ -65,12 +77,11 @@
 .cw-foil{position:absolute;inset:0;pointer-events:none;opacity:0;display:none;mix-blend-mode:soft-light;transition:opacity .5s ease;
  background:radial-gradient(farthest-corner circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.75),rgba(255,255,255,0) 52%),
   linear-gradient(115deg,rgba(255,120,160,.22),rgba(120,200,255,.22) 50%,rgba(255,226,120,.2))}
-.cw-tilt.is-tilting .cw-foil,.cw-tilt.tilt-out .cw-foil{display:block}
+.cw-tl[data-finish] .cw-tilt.is-tilting .cw-foil,.cw-tl[data-finish] .cw-tilt.tilt-out .cw-foil{display:block}
 .cw-tilt.is-tilting .cw-foil{opacity:.8;transition-duration:.2s}
 /* inspect: one 3D context from the hang down, so the sleeve's panes, its edges and the two-sided card all turn together */
 .cw-ghost .cw-hang{perspective:1500px}
 .cw-ghost .cw-tilt,.cw-ghost .cw-card,.cw-ghost .cw-flip,.cw-ghost .cw-thick{transform-style:preserve-3d}
-.cw-ghost .cw-drop{display:none}
 .cw-ghost .cw-shell{translate:0 0 3.5px}
 .cw-thick{position:absolute;inset:0;pointer-events:none}
 .cw-pane{position:absolute;inset:0;border-radius:11px;transform:translateZ(-3.5px);background:var(--cw-glass);box-shadow:inset 0 0 0 1px var(--cw-inner),inset 0 0 0 8px var(--cw-rim),0 0 0 1px var(--cw-rim-line)}
@@ -93,12 +104,12 @@
 /* the shell: rigid clear PVC with a thick rim (thinner at the open top), a thumb notch, a fixed glint, a reflection that
    slides against the tilt, a light that sweeps across while a card is pressed in, and a few fine scuffs */
 .cw-shell{position:absolute;inset:0;border-radius:11px;transform-origin:50% 100%;pointer-events:none;
- background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='226'%3E%3Cg fill='none' stroke='white' stroke-linecap='round' stroke-opacity='.26' stroke-width='.45'%3E%3Cpath d='M28 168c18-9 36-14 52-15'/%3E%3Cpath d='M118 52c9 6 15 13 19 22'/%3E%3Cpath d='M40 74l23-7'/%3E%3Cpath d='M96 196c10 2 21 1 30-3'/%3E%3Cpath d='M132 130l9 15'/%3E%3C/g%3E%3C/svg%3E") 0 0/100% 100% no-repeat,var(--cw-glass);
+ background:var(--cw-scuff,none) 0 0/100% 100% no-repeat,var(--cw-glass);
  clip-path:path('M11 0H69A15 11 0 0 0 99 0H157A11 11 0 0 1 168 11V215A11 11 0 0 1 157 226H11A11 11 0 0 1 0 215V11A11 11 0 0 1 11 0Z')}
 .cw-tilt.is-tilting .cw-shell,.cw-tilt.tilt-out .cw-shell{translate:0 0 2px}
-.cw-shell::before{content:"";position:absolute;inset:0;border-radius:11px;border:8px solid var(--cw-rim);border-top-width:4px;
+.cw-shell::before{content:"";position:absolute;inset:0;border-radius:11px;border:5px solid var(--cw-rim);border-top-width:3px;
  box-shadow:inset 0 0 0 1px var(--cw-inner),0 0 0 1px var(--cw-rim-line)}
-.cw-shell::after{content:"";position:absolute;inset:0;border-radius:11px;box-shadow:inset 1px 1px 0 var(--cw-edge),inset -1px -1px 0 rgba(0,0,0,.18);opacity:.9}
+.cw-shell::after{content:"";position:absolute;inset:0;border-radius:11px;box-shadow:inset 1.5px 1.5px 0 var(--cw-edge),inset -1px -1px 0 rgba(0,0,0,.32);opacity:.9}
 .cw-lip{position:absolute;left:4px;right:4px;top:3px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--cw-edge) 18%,var(--cw-glint) 50%,var(--cw-edge) 82%,transparent);opacity:.55}
 .cw-glare{position:absolute;inset:-45%;pointer-events:none;
  background:linear-gradient(118deg,transparent 40%,var(--cw-glint) 46.5%,rgba(255,255,255,.04) 50%,transparent 53%,transparent 56%,rgba(255,255,255,.07) 58%,transparent 61%);
@@ -137,8 +148,192 @@
 .cw-btn:disabled{opacity:.55;cursor:default}
 .cw-btn:focus-visible{outline:2px solid var(--g-gold,#edb56e);outline-offset:3px}
 .cw-eject{color:var(--g-gold,#edb56e)}
-.cw-hint{position:absolute;left:0;right:0;bottom:84px;margin:0;text-align:center;font:500 11px/1 var(--t-mono,monospace);letter-spacing:.2em;color:rgba(255,255,255,.75);opacity:0;pointer-events:none}
+.cw-hint{position:absolute;left:0;right:0;bottom:84px;margin:0;text-align:center;font:400 13px/1 var(--g-serif,serif);letter-spacing:.06em;color:rgba(255,244,232,.86);opacity:0;pointer-events:none}
 
 @media (prefers-reduced-motion:reduce){
  .cw-tilt.is-tilting,.cw-tilt.tilt-out,.cw-glare,.cw-foil,.cw-toast,.cw-btn,.cw-tl .cw-tilt::after,.cw-tilt .cw-card{transition:none}
 }
+
+/* ---------- labels, plate, first-card line ---------- */
+/* the museum label under a filled toploader: the work's title, quiet, one line */
+.cw-label{position:absolute;left:-18px;right:-18px;top:238px;margin:0;text-align:center;font:400 13px/1.35 var(--g-serif-ja,serif);letter-spacing:.02em;color:#c9bfae;transition:color .3s ease;pointer-events:none}
+.cw-label b{font-weight:400;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:balance}
+.cw-label small{display:none}
+.cw-page:not([data-mode=b]) .cw-tl:not(.is-filled) .cw-label{display:none}
+.cw-first{position:absolute;left:50%;bottom:86px;z-index:5;margin:0;transform:translateX(-50%);max-width:min(560px,80%);text-align:center;font:400 13px/1.6 var(--g-serif,serif);letter-spacing:.06em;color:var(--g-t2,#c3ab9c);pointer-events:none;text-wrap:balance}
+.cw-pod{z-index:6}
+.cw-toast{z-index:21}
+/* inspect: a pool of light behind the card, the plate beside it */
+.cw-veil{background:radial-gradient(42% 52% at 50% 46%,rgba(173,21,57,.13),transparent 72%),radial-gradient(60% 70% at 50% 46%,rgba(255,232,206,.05),transparent 70%),var(--cw-veil)}
+.cw-plate{position:absolute;margin:0;transform:translateY(-50%);opacity:0;pointer-events:none;color:var(--g-t1,#f1e0d2)}
+.cw-plate-title{margin:0;font:400 30px/1.18 var(--g-serif-ja,serif);letter-spacing:.02em;text-wrap:balance}
+.cw-ch{display:inline-block;white-space:pre}
+.cw-plate-meta{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 0;font:500 13px/1 var(--g-serif,serif);letter-spacing:.08em;color:var(--g-gold,#edb56e)}
+.cw-plate-meta span+span{color:var(--g-t3,#8a746b)}
+.cw-btn[hidden]{display:none}
+::selection{background:color-mix(in srgb,var(--accent,#ad1539) 55%,transparent)}
+
+.cw-tl:hover .cw-label,.cw-tl:focus-visible .cw-label{color:var(--g-gold,#edb56e)}
+/* while inspecting, the wall's own capsule steps back */
+.cw-pod{transition:opacity .25s ease}
+.cw-page.is-inspecting .cw-pod,.cw-page.is-inspecting .cw-first{opacity:0;pointer-events:none}
+/* inspect glare: one narrow diagonal band, never over the face */
+.cw-ghost .cw-glare{opacity:.24}
+/* the bare card is a printed card: a lit stock edge and its own contact shadow */
+.cw-ghost.is-loose .cw-face{box-shadow:0 0 0 1px rgba(255,240,220,.3),0 1px 0 1px rgba(0,0,0,.4)}
+/* the hand: grab the card, the sleeve's mouth lights when a free card is over it */
+.cw-ghost .cw-card{cursor:grab}
+.cw-viewer.dragging,.cw-viewer.dragging .cw-ghost .cw-card{cursor:grabbing}
+.cw-ghost .cw-lip{transition:opacity .25s ease}
+.cw-ghost.near-mouth .cw-lip{opacity:1;background:linear-gradient(90deg,transparent,var(--g-gold,#edb56e) 18%,#fff3dc 50%,var(--g-gold,#edb56e) 82%,transparent)}
+/* the bin: a ring that closes as the card nears the edge */
+.cw-bin{position:absolute;left:0;top:0;width:64px;height:64px;opacity:0;pointer-events:none;z-index:3;color:var(--g-t1,#f1e0d2)}
+.cw-bin svg{display:block;width:64px;height:64px;overflow:visible}
+.cw-bin circle,.cw-bin path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.cw-bin-track{stroke:rgba(255,255,255,.14);stroke-width:1.5}
+.cw-bin-ring{stroke:var(--g-gold,#edb56e);stroke-width:2.2;transform:rotate(-90deg);transform-origin:32px 32px}
+.cw-bin-icon{stroke:currentColor;stroke-width:1.5}
+.cw-bin::before{content:"";position:absolute;inset:5px;border-radius:50%;background:rgba(18,12,12,.72);transition:background-color .2s ease}
+.cw-bin.is-armed::before{background:var(--accent,#ad1539)}
+.cw-bin.is-armed .cw-bin-ring{stroke:#ff9fb0}
+.cw-bin.is-armed{color:#fff}
+/* the second ask */
+.cw-confirm{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(5,3,4,.45)}
+.cw-confirm[hidden]{display:none}
+.cw-confirm-box{width:min(380px,calc(100% - 48px));padding:24px 24px 20px;border-radius:14px;background:radial-gradient(120% 90% at 50% 0%,#33171b,#1f0e0f 70%);border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 42%,transparent);box-shadow:0 30px 60px -24px rgba(0,0,0,.85)}
+.cw-confirm-box::before{content:"";position:absolute;width:12px;height:12px;background:#2a1316;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 42%,transparent);rotate:45deg}
+.cw-confirm-box[data-side=l]::before{left:-7px;top:calc(var(--ay,50%) - 6px);border-width:0 0 1px 1px}
+.cw-confirm-box[data-side=r]::before{right:-7px;top:calc(var(--ay,50%) - 6px);border-width:1px 1px 0 0}
+.cw-confirm-box[data-side=b]::before{bottom:-7px;left:calc(var(--ax,50%) - 6px);border-width:0 1px 1px 0}
+.cw-confirm-box[data-side=t]::before{top:-7px;left:calc(var(--ax,50%) - 6px);border-width:1px 0 0 1px}
+.cw-confirm-box h3{margin:0 0 10px;font:400 21px/1.3 var(--g-serif,serif);letter-spacing:.02em;color:var(--g-t1,#f1e0d2)}
+.cw-confirm-box p{margin:0 0 20px;font:400 13.5px/1.7 var(--g-serif,serif);color:var(--g-t2,#c3ab9c)}
+.cw-confirm-row{display:flex;justify-content:flex-end;gap:10px}
+.cw-discard{color:#ffd9df;border-color:color-mix(in srgb,var(--accent,#ad1539) 75%,transparent);background:color-mix(in srgb,var(--accent,#ad1539) 34%,var(--g-raise,#1d1513))}
+.cw-discard:hover{background:color-mix(in srgb,var(--accent,#ad1539) 55%,var(--g-raise,#1d1513))}
+:root[data-theme=light] .cw-confirm-box{box-shadow:0 30px 60px -24px rgba(60,40,25,.45)}
+@media (prefers-reduced-motion:reduce){.cw-tilt,.cw-label,.cw-pod,.cw-bin::before,.cw-ghost .cw-lip{transition:none}}
+.cw-bin svg{position:relative;z-index:1}
+
+/* at rest each toploader hangs a touch off true; hover lifts it on the pin whatever the tilt setting */
+.cw-tl{rotate:var(--cw-rest,0deg);translate:0 var(--cw-dy,0px)}
+.cw-tl:hover .cw-tilt,.cw-tl:focus-visible .cw-tilt{translate:0 -6px}
+.cw-tl:hover .cw-drop,.cw-tl:focus-visible .cw-drop{translate:4px 8px}
+.cw-drop{transition:translate .45s cubic-bezier(.22,1,.36,1)}
+.cw-pin{box-shadow:0 3px 3px -1px rgba(0,0,0,.6),2px 7px 9px -2px rgba(0,0,0,.4),inset 0 -1px 1px rgba(0,0,0,.35),inset 1px 1px 1px rgba(255,248,230,.55)}
+:root[data-theme=light] .cw-tl:hover .cw-label{color:#8a1d2c}
+:root[data-theme=light] .cw-label{color:#5d4a40}
+/* inspect: the wall behind goes soft, not just dark */
+.cw-veil{-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
+/* the bin: a crimson casting circle */
+.cw-bin{width:88px;height:88px;margin:-12px 0 0 -12px}
+.cw-bin svg{width:88px;height:88px}
+.cw-bin-ring{stroke:var(--g-gold,#edb56e);stroke-width:2}
+.cw-bin-track{stroke:rgba(237,181,110,.18)}
+.cw-bin::before{inset:9px;background:rgba(22,16,16,.86);box-shadow:0 10px 24px -8px rgba(0,0,0,.7)}
+.cw-bin.is-armed .cw-bin-ring{stroke:#fff1dc;stroke-width:2.4}
+.cw-bin-flare{position:absolute;inset:0;border-radius:50%;border:2px solid var(--g-gold,#edb56e);pointer-events:none}
+/* the ask stands by the bin */
+.cw-confirm{display:block;background:transparent}
+.cw-confirm-box{position:absolute;width:min(360px,calc(100% - 48px))}
+/* simple list: real rows, a small toploader beside the title, source and date */
+.cw-page[data-mode=b] .cw-plane{grid-template-columns:repeat(auto-fill,minmax(400px,1fr));justify-items:stretch;row-gap:0;column-gap:48px;padding:56px max(40px,5vw) 150px}
+.cw-page[data-mode=b] .cw-plane>mg-cell{width:auto;height:112px;border-bottom:1px solid var(--g-rule,rgba(237,181,110,.11))}
+.cw-page[data-mode=b] .cw-plane .cw-tl{zoom:.38;rotate:none;translate:none;margin:42px 0 0 6px}
+.cw-page[data-mode=b] .cw-plane .cw-pin,.cw-page[data-mode=b] .cw-plane .cw-tab{display:none}
+.cw-page[data-mode=b] .cw-plane .cw-label{display:block;zoom:2.632;left:84px;right:auto;top:50%;width:300px;transform:translateY(-50%);text-align:left;font-size:15px}
+.cw-page[data-mode=b] .cw-plane .cw-tl:not(.is-filled) .cw-label{display:block;color:var(--g-t3,#8a746b)}
+.cw-page[data-mode=b] .cw-plane .cw-label b{-webkit-line-clamp:2}
+.cw-page[data-mode=b] .cw-plane .cw-label small{display:block;margin-top:7px;font:400 12px/1 var(--g-serif,serif);letter-spacing:.04em;color:var(--g-t3,#8a746b)}
+@media (prefers-reduced-motion:reduce){.cw-drop{transition:none}}
+
+/* hover: one quick light across the plastic */
+
+.cw-label{color:#d3c7b6}
+/* the hand: lifted off the mat the card's shadow grows and softens */
+/* the card's own shadow, moved by the lift spring (lz): a tight contact core plus a soft cast */
+.cw-ghost.is-out .cw-lift{inset:24% 22%;border-radius:45%;background:rgba(0,0,0,.34);box-shadow:0 0 34px 26px rgba(0,0,0,.34)}
+/* inspect: a soft ground shadow under the sleeve */
+.cw-ghost .cw-drop{display:block;inset:auto 10% -18px;height:24px;border-radius:50%;box-shadow:none;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent);opacity:1}
+.cw-ghost.is-out .cw-drop{opacity:.6}
+
+
+/* ---------- inspect material: clear PVC, not a bezel ----------
+   At inspect size the sleeve keeps its real proportions (a 5 px rim on a 168 px sleeve) but the rim is clear: almost no
+   fill, the light caught in its two edges (outer and inner), a faint refraction band just inside, the back pane the same. */
+.cw-ghost{--cw-rim:rgba(255,255,255,.012);--cw-rim-line:rgba(255,255,255,.3);--cw-inner:rgba(255,255,255,.26)}
+.cw-ghost .cw-shell::before{border-width:4px;border-top-width:2.5px;box-shadow:inset 0 0 0 .5px var(--cw-inner),0 0 0 .5px var(--cw-rim-line)}
+.cw-ghost .cw-shell::after{box-shadow:inset .6px .6px 0 rgba(255,255,255,.75),inset -.6px -.6px 0 rgba(0,0,0,.4),inset 0 0 0 4.5px rgba(255,255,255,.03),inset 0 0 7px rgba(255,255,255,.1)}
+.cw-ghost .cw-pane{box-shadow:inset 0 0 0 .5px var(--cw-inner),inset 0 0 0 4px var(--cw-rim),0 0 0 .5px var(--cw-rim-line);background:linear-gradient(162deg,rgba(255,255,255,.05),transparent 40%,rgba(255,255,255,.03))}
+.cw-ghost .cw-side{background:linear-gradient(90deg,rgba(255,255,255,.4),rgba(255,255,255,.08) 35%,rgba(0,0,0,.18) 70%,rgba(255,255,255,.28));opacity:.8}
+/* the front plastic lies over the part of the card still inside: a faint film and its sheen */
+.cw-ghost .cw-shell{background:var(--cw-scuff,none) 0 0/100% 100% no-repeat,linear-gradient(rgba(255,244,234,.045),rgba(255,244,234,.045)),var(--cw-glass)}
+/* the card's printed face takes the light as it turns */
+.cw-ghost .cw-foil{display:block;transition:none;opacity:calc(var(--gl,0) * .22);mix-blend-mode:soft-light}
+
+/* ---------- finishes ----------
+   闪卡 (shine): crushed-ice prism like a maimai DX PASS. Facets of grey set against a rainbow with 'difference', so each
+   shard has its own hue and all of them swing through the spectrum as the card turns; color-dodge over the print, so it
+   blazes in the light areas and the dark print stays dark; fine glitter on top; strongly directional (it all but goes
+   out at one angle and flares at the other).
+   镭射 (holo): a laser-film grating, fine parallel lines with one smooth rainbow band sweeping across them.
+   Both are drawn only on the card under the pointer and the card being inspected; --px/--py are its angle. */
+.cw-tl[data-finish] .cw-tilt.is-tilting .cw-foil,.cw-tl[data-finish] .cw-tilt.tilt-out .cw-foil,.cw-ghost[data-finish] .cw-foil{display:block;transition:none}
+.cw-tl[data-finish=shine] .cw-foil{mix-blend-mode:screen;transition:none;background:var(--cw-glint-a) 0 0/60px 60px;-webkit-mask-image:radial-gradient(farthest-corner circle at calc(50% + var(--px,0) * 45%) calc(40% + var(--py,0) * 45%),#000 0%,#000 22%,rgba(0,0,0,.45) 50%,rgba(0,0,0,.18) 85%);mask-image:radial-gradient(farthest-corner circle at calc(50% + var(--px,0) * 45%) calc(40% + var(--py,0) * 45%),#000 0%,#000 22%,rgba(0,0,0,.45) 50%,rgba(0,0,0,.18) 85%);
+ opacity:clamp(.08,calc(.3 - var(--px,0) * .9 + var(--py,0) * .3),1)}
+.cw-tl[data-finish=shine] .cw-glint{position:absolute;inset:0;pointer-events:none;display:none;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(farthest-corner circle at calc(50% + var(--px,0) * 45%) calc(40% + var(--py,0) * 45%),#000 0%,#000 22%,rgba(0,0,0,.45) 50%,rgba(0,0,0,.18) 85%);mask-image:radial-gradient(farthest-corner circle at calc(50% + var(--px,0) * 45%) calc(40% + var(--py,0) * 45%),#000 0%,#000 22%,rgba(0,0,0,.45) 50%,rgba(0,0,0,.18) 85%)}
+.cw-tl[data-finish=shine] .cw-glint.is-b{background:var(--cw-glint-b) 23px 41px/68px 68px;opacity:clamp(.08,calc(1 - max(var(--px,0),calc(var(--px,0) * -1)) * 1.6),1)}
+.cw-tl[data-finish=shine] .cw-glint.is-c{background:var(--cw-glint-c) 47px 13px/56px 56px;opacity:clamp(.08,calc(.3 + var(--px,0) * .9 - var(--py,0) * .3),1)}
+.cw-tl[data-finish=holo] .cw-foil{mix-blend-mode:color-dodge;transition:none;opacity:clamp(.1,calc(.24 + max(var(--px,0),calc(var(--px,0) * -1)) * .22),.5);filter:brightness(.62) contrast(1.12);
+ background:repeating-linear-gradient(90deg,rgba(255,255,255,.1) 0 1px,transparent 1px 3px),
+  repeating-linear-gradient(105deg,hsl(330 88% 62%) 0%,hsl(38 92% 62%) 8%,hsl(140 75% 58%) 16%,hsl(198 88% 62%) 24%,hsl(268 82% 66%) 32%,hsl(330 88% 62%) 40%) calc(50% + var(--px,0) * 60%) calc(50% + var(--py,0) * 30%)/300% 300%;
+ -webkit-mask-image:radial-gradient(farthest-corner circle at calc(50% + var(--px,0) * 45%) calc(40% + var(--py,0) * 45%),#000 0%,#000 14%,rgba(0,0,0,.4) 42%,rgba(0,0,0,.1) 78%);mask-image:radial-gradient(farthest-corner circle at calc(50% + var(--px,0) * 45%) calc(40% + var(--py,0) * 45%),#000 0%,#000 14%,rgba(0,0,0,.4) 42%,rgba(0,0,0,.1) 78%)}
+
+
+/* ---------- the velvet pad under a card taken out ----------
+   Not a room, just one piece of cloth: a deep crimson velvet pad the size of a display tray, with a thin gold piping,
+   the nap catching a little light at the top left, and its shadow on what is behind. One static layer, faded in. */
+.cw-desk{position:absolute;left:50%;top:-4%;width:min(60vw,840px);height:92%;translate:-50% 0;scale:.975;opacity:0;pointer-events:none;border-radius:22px;
+ transform:perspective(1700px) rotateX(15deg);transform-origin:50% 100%;
+ transition:opacity .45s cubic-bezier(.22,1,.36,1),scale .55s cubic-bezier(.22,1,.36,1);
+ background:radial-gradient(70% 55% at 34% 18%,rgba(255,206,196,.1),transparent 62%),radial-gradient(120% 100% at 50% 40%,#4c1921,#34101a 58%,#240a10 100%);
+ box-shadow:inset 0 0 0 1px rgba(237,181,110,.34),inset 0 0 0 7px rgba(0,0,0,.14),inset 0 0 0 8px rgba(237,181,110,.12),inset 0 0 50px rgba(0,0,0,.45),
+  0 2px 0 #3a1219,0 9px 0 #1d080c,0 10px 0 rgba(237,181,110,.18),0 60px 80px -30px rgba(0,0,0,.9)}
+.cw-desk::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:.4;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .3 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
+.cw-viewer.desk .cw-desk{opacity:1;scale:1}
+:root[data-theme=light] .cw-desk{background:radial-gradient(90% 60% at 30% 12%,rgba(255,230,222,.14),transparent 60%),radial-gradient(130% 100% at 50% 45%,#6a2630,#4c1a22 60%,#35111a 100%)}
+@media (prefers-reduced-motion:reduce){.cw-desk{transition:none}}
+/* on the table the close button steps up to the top corner, clear of the sleeve's mouth at the bottom */
+.cw-viewer.desk .cw-bar{bottom:calc(100% - 64px);left:calc(100% - 76px);white-space:nowrap}
+.cw-viewer.desk .cw-hint{opacity:0!important}
+
+
+
+/* the whole CG over the face while it tours */
+.cw-full{position:absolute;left:0;top:0;max-width:none;opacity:0;transform-origin:0 0;pointer-events:none;user-select:none}
+/* the finish of a made card, next to Close */
+.cw-viewer.desk .cw-bar{left:calc(100% - 250px)}
+@media (prefers-reduced-motion:reduce){.cw-bar .cw-finish button::after{transition:none}}
+
+/* --gl, how much light the finish catches, animates smoothly */
+@property --gl{syntax:'<number>';inherits:true;initial-value:0}
+/* the two extra glint sets show wherever the shine foil shows: the hovered card and the inspected one */
+.cw-tl[data-finish=shine] .cw-tilt.is-tilting .cw-glint,.cw-tl[data-finish=shine] .cw-tilt.tilt-out .cw-glint,.cw-ghost[data-finish=shine] .cw-glint{display:block}
+/* in inspect the card turns in 3D around its centre: its shadow lies well behind every angle it can reach, so the turning
+   card never cuts through it (that crossing drew a hard diagonal seam with half the card darkened); scaled back up for
+   the perspective it loses */
+.cw-ghost .cw-lift{translate:0 0 -170px;scale:1.115}
+
+/* control system B segmented control (controls-b.css): 2px plate, hairline dividers, the chosen one solid red */
+.cw-bar .cw-finish{display:inline-flex;align-items:stretch;gap:0;padding:0;border:1px solid var(--mgc-line,rgba(240,229,218,.2));border-radius:var(--mgc-r,2px);background:color-mix(in srgb,var(--mgc-plate,#191315) 82%,transparent)}
+.cw-bar .cw-finish button{min-height:30px;padding:0 14px;margin:0;border:0;border-left:1px solid var(--mgc-line,rgba(240,229,218,.2));border-radius:0;background:transparent;color:var(--mgc-ink-2,#b8a69a);font:500 13px/1 var(--mgc-ui,sans-serif);letter-spacing:.02em;cursor:pointer;transition:background-color var(--mgc-t,.24s),color var(--mgc-t,.24s)}
+.cw-bar .cw-finish button:first-of-type{border-left:0}
+.cw-bar .cw-finish button:hover{background:color-mix(in srgb,var(--mgc-ink,#f0e5da) 9%,transparent);color:var(--mgc-ink,#f0e5da)}
+.cw-bar .cw-finish button[aria-checked=true]{background:var(--mgc-red,#c8323c);color:#fff;font-weight:600}
+.cw-bar .cw-finish button::after{content:none}
+.cw-bar .cw-finish{height:auto;margin-right:8px}
+.cw-confirm-box h3{font-family:var(--mgc-serif,serif)}
+
+/* control system B: one radius for panels too */
+.cw-confirm-box,.cw-toast{border-radius:var(--mgc-r,2px)}
+.cw-confirm-box::before{border-radius:0}

@@ -7,6 +7,6 @@ test('E461 the update check falls back to the relay when api.github.com is unrea
  const r=await latest(fetcher);assert.equal(r.version,'9.9.9');assert.ok(asked.some(u=>u.startsWith('https://api.megulit.com/api/release/latest')));
 });
 test('E461 the relay serves the release JSON and the daily page does not wait for every thumbnail',()=>{
- const w=fs.readFileSync(path.join(__dirname,'..','relay','src','worker.js'),'utf8');assert.ok(w.includes('async function releaseGet(which,env)')&&w.includes('release_cache'));assert.match(w,/release:\[30,60\]/);
+ const w=fs.readFileSync(path.join(__dirname,'..','relay','src','worker.js'),'utf8');assert.ok(w.includes('async function releaseGet(which,env)')&&w.includes('release_cache'));assert.match(w,/release:\[120,60\]/);
  const d=fs.readFileSync(path.join(__dirname,'..','services','daily.cjs'),'utf8');assert.match(d,/const THUMB_BUDGET=2500;/);assert.match(d,/Promise\.race\(\[Promise\.all\(jobs\)/);
 });

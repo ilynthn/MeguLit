@@ -47,6 +47,7 @@
   if(!globalThis.MeguHud)return;
   MeguHud.attach(el,{stage:()=>document.documentElement,rect:()=>shown[id]||hud.layout[id],editing:()=>!!hud?.edit,
    snap:(r,kind,alt)=>alt?null:MeguHud.snapRect(r,others(id),kind,{...snapOpt,SW:innerWidth,SH:innerHeight}),guides:g=>MeguHud.drawGuides(guideLayer(),g),
+   ratio:id==='shot',onActive:on=>{try{parent.postMessage({type:'tome-anki-hud-drag',nonce,on},'*');}catch{}},
    onCommit:r=>{hud.layout[id]=r;schedule();parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');}});
  }
  function place(){
@@ -60,20 +61,46 @@
   for(const [id,el] of Object.entries(blocks)){
    if(id==='card'){shown.card=hud.layout.card;continue;}
    const box=el.querySelector('.hud-fit');if(!box)continue;box.style.transform='none';let nw=0,nh=0;
-   if(id==='shot'){const img=box.querySelector('img');nw=img?.naturalWidth||0;nh=img?.naturalHeight||0;if(nw){box.style.width=nw+'px';box.style.height=nh+'px';}}
+   /* (user 2026-11-13) the screenshot is a frame of its own shape: the picture always covers it (object-fit: cover),
+      framed by a focus point and zoom the user drags / scrolls; edges change the proportions, corners scale */
+   if(id==='shot'){const r=hud.layout.shot;if(!r)continue;const rect=MeguHud.normRect(r,r,{w:.3,h:.3});shown.shot=rect;MeguHud.applyRect(el,rect);
+    box.style.cssText='';el.classList.add('hud-crop');frameShot(el,rect);continue;}
    else{box.style.width='max-content';box.style.height='auto';box.style.maxWidth=Math.round(SW*.94)+'px';nw=box.offsetWidth;nh=box.offsetHeight;}
    const r=hud.layout[id];if(!r||!nw||!nh)continue;const h=MeguHud.hugRect(r,nw,nh,SW,SH,id==='shot'?6:id==='word'?4:2.5);shown[id]=h.rect;MeguHud.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';
    if(h.fresh){hud.layout[id]=h.rect;fresh[id]=h.rect;}
   }
+  /* (user 2026-11-13) nothing overlaps: a longer example pushes what is under it down, the screenshot gives up space */
+  const own=Object.fromEntries(Object.entries(shown).filter(([k])=>k!=='card'&&blocks[k]));
+  const fixed=Object.entries(hostFrames).filter(([k])=>!(k in shown)).map(([,r])=>r);
+  const st=MeguHud.settle(own,fixed,'shot',2.2);
+  for(const [id,el] of Object.entries(blocks)){if(id==='card')continue;const r=st.rects[id];if(!r)continue;shown[id]=r;MeguHud.applyRect(el,r);if(id==='shot')frameShot(el,r);
+   const lab=el.querySelector('.hud-label');if(lab){const o=own[id],moved=o&&(Math.abs(r.y-o.y)>2.5||Math.abs(r.h-o.h)>2.5);if(st.nudged.includes(id)&&moved)lab.dataset.nudge=' · '+(hud.labels?.nudged||'auto');else delete lab.dataset.nudge;}}
   for(const [id,r] of Object.entries(fresh))parent.postMessage({type:'tome-anki-hud-move',nonce,id,rect:r},'*');
   parent.postMessage({type:'tome-anki-hud-frames',nonce,frames:{...shown}},'*');
+ }
+ function frameShot(el,r){const img=el.querySelector('img');if(!img)return;const v=hud.layout.shot||{};
+  img.style.objectPosition=(v.fx??50)+'% '+(v.fy??50)+'%';img.style.transformOrigin=(v.fx??50)+'% '+(v.fy??50)+'%';img.style.transform=v.z>1?'scale('+v.z+')':'';}
+ /* framing: Alt-drag or a drag while "framing" (double-click) pans, the wheel zooms (Shift: pans sideways) */
+ function shotFraming(el){
+  const commit=()=>{const r=hud.layout.shot;parent.postMessage({type:'tome-anki-hud-move',nonce,id:'shot',rect:r},'*');};
+  let wheelTimer=0;
+  el.addEventListener('dblclick',e=>{if(!hud?.edit)return;e.preventDefault();el.classList.toggle('hud-framing');});
+  el.addEventListener('pointerdown',down=>{if(!hud?.edit||down.button!==0||down.target.closest('.hud-handle'))return;if(!down.altKey&&!el.classList.contains('hud-framing'))return;
+   down.preventDefault();down.stopImmediatePropagation();const img=el.querySelector('img');if(!img?.naturalWidth)return;try{el.setPointerCapture(down.pointerId);}catch{}
+   const v={...hud.layout.shot},o=MeguHud.coverOverflow(img.naturalWidth,img.naturalHeight,el.clientWidth,el.clientHeight,v.z||1),fx=v.fx??50,fy=v.fy??50;el.classList.add('hud-panning');
+   const move=e=>{hud.layout.shot={...hud.layout.shot,fx:o.x?Math.min(100,Math.max(0,fx-(e.clientX-down.clientX)/o.x*100)):50,fy:o.y?Math.min(100,Math.max(0,fy-(e.clientY-down.clientY)/o.y*100)):50};frameShot(el);};
+   const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);el.classList.remove('hud-panning');hud.layout.shot=MeguHud.normRect(hud.layout.shot,hud.layout.shot);commit();};
+   el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);},true);
+  el.addEventListener('wheel',e=>{if(!hud?.edit)return;e.preventDefault();const v={...hud.layout.shot};
+   if(e.shiftKey)v.fx=Math.min(100,Math.max(0,(v.fx??50)+Math.sign(e.deltaY||e.deltaX)*4));else v.z=Math.min(4,Math.max(1,(v.z||1)*(e.deltaY<0?1.08:1/1.08)));
+   hud.layout.shot=MeguHud.normRect(v,v);frameShot(el);clearTimeout(wheelTimer);wheelTimer=setTimeout(commit,250);},{passive:false});
  }
  function buildHud(){
   const stage=hudStage();stage.replaceChildren();for(const k of Object.keys(blocks))delete blocks[k];
   document.body.classList.add('hud');document.body.classList.toggle('hud-edit',!!hud.edit);
   let parts=null;try{parts=split();}catch{parts=null;}
   document.body.classList.toggle('hud-whole',!parts);
-  if(parts){for(const [id,nodes] of Object.entries(parts)){if(!nodes.length)continue;const b=block(id);nodes.forEach(n=>b.querySelector('.hud-inner').append(n));stage.append(b);blocks[id]=b;attachBlock(b,id);}
+  if(parts){for(const [id,nodes] of Object.entries(parts)){if(!nodes.length)continue;const b=block(id);nodes.forEach(n=>b.querySelector('.hud-inner').append(n));stage.append(b);blocks[id]=b;if(id==='shot')shotFraming(b);attachBlock(b,id);}
    const img=blocks.shot?.querySelector('img[src^="data:image/"]');try{parent.postMessage({type:'tome-anki-shot',nonce,src:img?img.getAttribute('src'):''},'*');}catch{}}
   else{blocks.card=viewport;viewport.dataset.hud='card';viewport.classList.add('hud-block');if(!viewport.querySelector('.hud-label')){const l=document.createElement('span');l.className='hud-label';viewport.append(l);}
    viewport.querySelector('.hud-label').textContent=hud.labels?.card||'card';attachBlock(viewport,'card');

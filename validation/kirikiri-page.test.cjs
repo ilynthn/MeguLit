@@ -67,7 +67,9 @@ test('ADV KiriKiri games read exactly as before: hook lines go straight through,
  f.end(1,false,'アドベンチャーの台詞です。',false);f.tick(2000);
  f.hookLine('次の台詞です。');f.begin(2,false,false);f.tick(2000);f.end(2,false,'次の台詞です。',false);
  assert.deepEqual(f.sources(),['アドベンチャーの台詞です。','次の台詞です。']);
- assert.equal(f.of('hookPage').length,0);assert.equal(f.of('hookTextPos').length,0);
+ assert.equal(f.of('hookPage').length,0);
+ /* E550: ADV lines report only their canvas position (krkr_adv_v1), never a page position */
+ assert.deepEqual([...new Set(f.of('hookTextPos').map(m=>m.engine))].filter(e=>e!=='krkr_adv_v1'),[]);
 });
 
 test('leaving the full-screen page releases a held hook line to the ADV box at once',t=>{

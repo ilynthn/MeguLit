@@ -85,38 +85,14 @@ function mages(root){const ma=require('../services/original-engines/mages.cjs');
  return null;}
 
 /* --- Ren'Py --- */
-/* minimal unpickler for the RPA index: {name: [(offset, length[, prefix])]} */
-function unpickle(b){const st=[],memo=[],marks=[];let p=0;const pop=()=>st.pop(),mark=()=>{const m=marks.pop();return st.splice(m);};
- while(p<b.length){const op=b[p++];switch(op){
-  case 0x80:p++;break;case 0x95:p+=8;break;case 0x2e:return st.pop();
-  case 0x7d:st.push(new Map());break;case 0x5d:st.push([]);break;case 0x29:st.push([]);break;case 0x28:marks.push(st.length);break;
-  case 0x4e:st.push(null);break;case 0x88:st.push(true);break;case 0x89:st.push(false);break;
-  case 0x58:{const n=b.readUInt32LE(p);st.push(b.toString('utf8',p+4,p+4+n));p+=4+n;break;}
-  case 0x8c:{const n=b[p];st.push(b.toString('utf8',p+1,p+1+n));p+=1+n;break;}
-  case 0x8d:{const n=Number(b.readBigUInt64LE(p));st.push(b.toString('utf8',p+8,p+8+n));p+=8+n;break;}
-  case 0x54:case 0x42:{const n=b.readUInt32LE(p);st.push(b.subarray(p+4,p+4+n));p+=4+n;break;}
-  case 0x55:case 0x43:{const n=b[p];st.push(b.subarray(p+1,p+1+n));p+=1+n;break;}
-  case 0x4a:st.push(b.readInt32LE(p));p+=4;break;case 0x4b:st.push(b[p]);p++;break;case 0x4d:st.push(b.readUInt16LE(p));p+=2;break;
-  case 0x8a:{const n=b[p];let v=0n;for(let i=n-1;i>=0;i--)v=(v<<8n)|BigInt(b[p+1+i]);if(n&&b[p+n]&0x80)v-=1n<<BigInt(8*n);st.push(Number(v));p+=1+n;break;}
-  case 0x85:st.push([pop()]);break;case 0x86:{const b2=pop(),a=pop();st.push([a,b2]);break;}case 0x87:{const c=pop(),b2=pop(),a=pop();st.push([a,b2,c]);break;}
-  case 0x74:st.push(mark());break;case 0x6c:st.push(mark());break;
-  case 0x61:{const v=pop();st[st.length-1].push(v);break;}case 0x65:{const items=mark();st[st.length-1].push(...items);break;}
-  case 0x73:{const v=pop(),k=pop();st[st.length-1].set(k,v);break;}case 0x75:{const items=mark(),d=st[st.length-1];for(let i=0;i+1<items.length;i+=2)d.set(items[i],items[i+1]);break;}
-  case 0x64:{const items=mark(),d=new Map();for(let i=0;i+1<items.length;i+=2)d.set(items[i],items[i+1]);st.push(d);break;}
-  case 0x71:memo[b[p++]]=st[st.length-1];break;case 0x72:memo[b.readUInt32LE(p)]=st[st.length-1];p+=4;break;case 0x94:memo.push(st[st.length-1]);break;
-  case 0x68:st.push(memo[b[p++]]);break;case 0x6a:st.push(memo[b.readUInt32LE(p)]);p+=4;break;
-  default:throw Error('PICKLE_OP_'+op.toString(16));}}
- throw Error('PICKLE_END');}
-function rpaIndex(file){const fd=fs.openSync(file,'r');try{const head=Buffer.alloc(64);fs.readSync(fd,head,0,64,0);const line=head.toString('latin1').split('\n')[0],m=/^RPA-3\.0 ([0-9a-f]{16}) ([0-9a-f]{8})/i.exec(line);if(!m)return null;
- const at=parseInt(m[1],16),key=parseInt(m[2],16),size=fs.fstatSync(fd).size,raw=Buffer.alloc(size-at);fs.readSync(fd,raw,0,raw.length,at);
- const idx=unpickle(zlib.inflateSync(raw)),out=new Map();for(const [name,parts] of idx){const t=parts&&parts[0];if(!t)continue;const prefix=t[2];out.set(String(name),{offset:(t[0]^key)>>>0,length:(t[1]^key)>>>0,prefix:Buffer.isBuffer(prefix)?prefix:Buffer.from(String(prefix||''),'latin1')});}return out;}finally{fs.closeSync(fd);}}
-function rpaRead(file,e){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(e.length-e.prefix.length);fs.readSync(fd,b,0,b.length,e.offset);return Buffer.concat([e.prefix,b]);}finally{fs.closeSync(fd);}}
+/* E580 the RPA index, pickle decoder and .rpyc slots come from the Ren'Py script reader (renpy-rpyc.cjs) */
+const rpyc=require('../services/original-engines/renpy-rpyc.cjs'),{unpickle,rpaIndex,rpaRead}=rpyc;
 /* the font a Ren'Py script assigns to dialogue text: gui.text_font, else style.default.font / gui.default_font */
 const FONT_KEYS=['text_font','default_font','interface_text_font','name_text_font'];
 function fontsInScript(text){const out=[];for(const key of FONT_KEYS){const re=new RegExp('(?:gui\\.|define\\s+gui\\.|style\\.default\\.)?'+key+'\\s*=\\s*[\'"]([^\'"]+\\.(?:ttf|otf|ttc))[\'"]','gi');let m;while((m=re.exec(text)))out.push({key,file:m[1]});}
  const st=/style\.default\.font\s*=\s*['"]([^'"]+\.(?:ttf|otf|ttc))['"]/i.exec(text);if(st)out.push({key:'default_font',file:st[1]});return out;}
 /* compiled .rpyc (RENPY RPC2 slots of zlib pickles): the variable name and its expression string sit next to each other */
-function fontsInRpyc(buf){let data=buf;if(buf.toString('latin1',0,10)==='RENPY RPC2'){let p=10;const parts=[];while(p+12<=buf.length){const slot=buf.readUInt32LE(p),start=buf.readUInt32LE(p+4),len=buf.readUInt32LE(p+8);p+=12;if(!slot)break;try{parts.push(zlib.inflateSync(buf.subarray(start,start+len)));}catch{}}data=Buffer.concat(parts);}else{try{data=zlib.inflateSync(buf);}catch{}}
+function fontsInRpyc(buf){let data=buf;try{data=rpyc.data(buf,{all:true})||buf;}catch{}
  const s=data.toString('latin1'),out=[];for(const key of FONT_KEYS){let i=-1;while((i=s.indexOf(key,i+1))>=0){const m=/['"]([^'"\x00]{1,120}\.(?:ttf|otf|ttc))['"]/i.exec(s.slice(i,i+600));if(m){out.push({key,file:m[1]});break;}}}return out;}
 function renpy(root){const game=path.join(root,'game');if(!fs.existsSync(game))return null;const scripts=[],files=new Map(),archives=[];
  for(const f of walk(game,n=>/\.(rpy|rpyc|rpa|ttf|otf|ttc)$/i.test(n),3000)){const rel=path.relative(game,f).replace(/\\/g,'/');if(/\.rpa$/i.test(f))archives.push(f);else if(/\.rpyc?$/i.test(f)){if(/(^|\/)(gui|options|screens|styles?|font[^/]*)\.rpyc?$/i.test(rel))scripts.push({rel,read:()=>fs.readFileSync(f)});}else files.set(rel.toLowerCase(),{rel,read:()=>fs.readFileSync(f)});}

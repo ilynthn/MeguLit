@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E329 YU-RIS scenes for zero-latency translation (女装山脈, YU-RIS 0x1C2/0x1C3).
    The scripts are ysbin\yst?????.ybn (YSTB) inside YPF archives: pac/ysbin.ypf, overlaid by update*.ypf next to the
    program in load order. A YSTB has four segments (instructions, arguments, resource strings, line numbers), each XOR
@@ -17,7 +18,7 @@ const memo=(map,key,make)=>{if(map.has(key))return map.get(key);const v=make();m
 // Index names are stored bitwise-NOT; their length byte is NOT-ed and then swapped through this table.
 const SWAP=[0x03,0x48,0x06,0x35,0x0C,0x10,0x11,0x19,0x1C,0x1E,0x09,0x0B,0x0D,0x13,0x15,0x1B,0x20,0x23,0x26,0x29,0x2C,0x2F,0x2E,0x32];
 const swapLen=new Map();for(let i=0;i<SWAP.length;i+=2){swapLen.set(SWAP[i],SWAP[i+1]);swapLen.set(SWAP[i+1],SWAP[i]);}
-const sjis=new TextDecoder('shift_jis');
+const sjis=kit.SJIS;
 function ypfIndex(buf,size,wide,swap){const count=buf.readUInt32LE(8),files=[];let p=32;
  for(let i=0;i<count;i++){if(p+5>buf.length)return null;let len=buf[p+4]^0xff;if(swap)len=swapLen.get(len)??len;p+=5;
   if(p+len+(wide?22:18)>buf.length)return null;const raw=Buffer.from(buf.subarray(p,p+len));for(let k=0;k<raw.length;k++)raw[k]^=0xff;p+=len;
@@ -33,7 +34,7 @@ function ypfList(file){return memo(ypfMemo,file+'|'+stat(file),()=>{let fd;
   for(const wide of [false,true])for(const swap of [true,false]){const files=ypfIndex(buf,size,wide,swap);if(files)return files;}
   return null;
  }catch{return null;}finally{if(fd!==undefined)fs.closeSync(fd);}});}
-function ypfRead(file,e){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(e.packed);fs.readSync(fd,b,0,e.packed,e.offset);return e.compressed?zlib.inflateSync(b):b;}finally{fs.closeSync(fd);}}
+function ypfRead(file,e){const b=kit.readAt(file,e.offset,e.packed);return e.compressed?zlib.inflateSync(b):b;}
 const YST=n=>/^yst\d+\.ybn$/i.test(n);
 // Scene files of one archive, first copy of each name (a patch archive can hold a name twice; the engine takes the first).
 function ypfScenes(file){const files=ypfList(file);if(!files)return [];const seen=new Set(),out=[];
@@ -230,8 +231,8 @@ const ownerOf=dir=>/[\\/]\.megulit-japanese[^\\/]*[\\/]/i.test(dir+path.sep)?pat
 function codecFor(dirs){for(const d of [...new Set(dirs.flatMap(d=>[d,ownerOf(d)]).filter(Boolean))])for(const exe of exesIn(d)){const c=loaderCodec(exe);if(c)return c;}return null;}
 // Without a loader: Shift-JIS, else GBK, whichever reads with fewer broken characters.
 const gbk=new TextDecoder('gbk'),KANA=/[ぁ-ゖァ-ヺ]/g;
-function plainCodec(raws){const sample=raws.slice(0,3000),score=dec=>{let bad=0,kana=0;for(const b of sample){const t=dec.decode(b);bad+=(t.match(/�/g)||[]).length;kana+=(t.match(KANA)||[]).length;}return {bad,kana};};
- const s=score(sjis),g=score(gbk);return {decode:b=>(s.bad<g.bad||s.bad===g.bad&&s.kana>=g.kana?sjis:gbk).decode(b)};}
+/* E577 kit.codepageOf */
+function plainCodec(raws){const dec=kit.codepageOf(raws.slice(0,3000))==='gbk'?gbk:sjis;return {decode:b=>dec.decode(b)};}
 
 // Longest common subsequence length of two anchor lists.
 function inOrder(a,b){let prev=new Uint32Array(b.length+1),cur=new Uint32Array(b.length+1);

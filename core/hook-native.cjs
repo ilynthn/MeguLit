@@ -2,7 +2,11 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process'),{createInterface}=require('node:readline');
 const {identifierNoise}=require('./text-noise.cjs');const {ChoiceCapture,placeChoices,SYMBOL_OPTION}=require('./choice-capture.cjs');const {DoubleLine}=require('./double-line.cjs');
-function cleanSource(text,name='',code=''){if(code.endsWith(':JIT:UNITY'))text=text.replace(/<br\s*\/?>/gi,'\n').replace(/<ruby[^>]*>(.*?)<\/ruby>/gis,'$1').replace(/<\/?(?:color|size|font|b|i|u|s|mark|align|line-height|cspace|mspace|indent|margin|voffset|alpha|link|style|noparse|sprite)(?:[=\s][^>]*)?>/gi,'');return text.replace(/\r\n?/g,'\n').replace(/\x05/g,/^BGI(?:\.exe)?$/i.test(name)?'\n':'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');}
+/* #148 (WHITE ALBUM2, AQUAPLUS: phone lines came as 「<F16「やぁ…」>」): inline engine tags of one ASCII letter (+ up to 3
+   digits) wrapped straight around Japanese text are unwrapped for every engine; <R漢字|かな> keeps its base. HTML-like tags
+   (<br>, <b>) are never touched: the letter must be followed by non-ASCII text. */
+function unwrapTags(text){let s=String(text),prev;do{prev=s;s=s.replace(/<R([^<>|\x00-\x7f][^<>|]*)\|[^<>]*>/g,'$1').replace(/<[A-Za-z]\d{0,3}(?=[^\x00-\x7f])([^<>]*)>/g,'$1');}while(s!==prev);return s;}
+function cleanSource(text,name='',code=''){if(code.endsWith(':JIT:UNITY'))text=text.replace(/<br\s*\/?>/gi,'\n').replace(/<ruby[^>]*>(.*?)<\/ruby>/gis,'$1').replace(/<\/?(?:color|size|font|b|i|u|s|mark|align|line-height|cspace|mspace|indent|margin|voffset|alpha|link|style|noparse|sprite)(?:[=\s][^>]*)?>/gi,'');text=unwrapTags(text);return text.replace(/\r\n?/g,'\n').replace(/\x05/g,/^BGI(?:\.exe)?$/i.test(name)?'\n':'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');}
 /* A speaker name from a name stream: brackets and control marks stripped; anything that reads like a sentence is not a name. */
 function speakerName(raw){const n=String(raw||'').replace(/[\x00-\x1f]/g,'').replace(/^[\s【\[「『(（]+|[\s】\]」』)）:：]+$/gu,'').trim();if(n.length%2===0&&n.length>=4&&n.slice(0,n.length/2)===n.slice(n.length/2))return speakerName(n.slice(0,n.length/2)); /* a name stream that sends the name twice (時雨時雨) */
  return n&&n.length<=16&&(/^[?？]+$/.test(n)||!/[。、！？!?…]/.test(n))?n:'';}
@@ -46,7 +50,7 @@ class HookNative{
     script provider knows where pages start and most pages hold more than one line (HuneX tables, multilingual KiriKiri
     [cm]/[l]). Every page rule (page clears, no duplicates, row continuation, no marker/box auto-hide, no preflight) follows. */
  /* E422: the reader's skip key (Ctrl / the game's skip held), for the bridge's skip-burst rule. */
- skipHeld(v){const held=v===true;if(held===this.skipKey)return;this.skipKey=held;if(this.process)this.send({type:'skipHeld',held});}
+ skipHeld(v){const held=v===true;if(held===this.skipKey)return;if(held&&this.pageQueue?.rest.length){const q=this.pageQueue;this.pageQueue=null;this.source({...q.base,text:q.rest[q.rest.length-1]},q.name);}this.skipKey=held;if(this.process)this.send({type:'skipHeld',held});}
  /* 2026-11-12 (user, ファタモルガーナの館: "这死馆也没有上一句渐暗"): the script guess (flowGame: many multi-sentence pages) is
     overruled by the engine itself: once its page DLL reports lines (with their real places, box or full page), the game is not laid out as a flow page */
  get flowPage(){if(this._flowPage===true)return true;if(this.pageMode&&this.pageMode.engine!=='ocr')return false;return this.originalText?.flowGame?.()===true;}
@@ -91,6 +95,7 @@ class HookNative{
   // A HookBridge built while ToMe ran is staged as HookBridge.updated.exe and installed here, before the bridge starts.
   const staged=path.join(this.folder,'HookBridge.updated.exe');if(fs.existsSync(staged))try{fs.copyFileSync(staged,path.join(this.folder,'HookBridge.exe'));fs.unlinkSync(staged);}catch{}
   HookNative.syncShippedHook(this.folder);
+  HookNative.fetchRuntimeDump(this.folder);
   const root=this.layout.hook,required=['LunaHost64.dll','LunaHook32.dll','LunaHook64.dll'],missing=required.filter(n=>!fs.existsSync(path.join(root,n)));if(missing.length||!fs.existsSync(path.join(this.folder,'HookBridge.exe'))){this.retryAt=this.now()+30000;this.notify({hookMessage:'Hook 组件缺失：'+missing.join('、'),hookAvailable:false});return;}
   this.flowPage=FLOW_PAGE_EXES.test(name);this.flowGridName=(FLOW_GRIDS.find(([re])=>re.test(name))||[])[1]||'';  const identity=pid+"|"+started;if(identity!==this.identity){this.lastSource="";this.lastSourceAt=0;this.preferredThread=null;this.remembered=null;this.identity=identity;this.state.hookFramework=null;this.state.hookEmbedPending=false;}this.pid=pid;this.started=started;this.enabled=this.preferences?.hookProfile!=='read'&&!this.preflight&&this.windowState?.bound===true&&(this.windowState?.coverEnabled!==false||this.preferences?.embedTranslation===true);this.route=this.enabled?(this.preferences?.hookProfile==='embed'?'embed':'custom'):'read';this.markerKey='';this.lastHeartbeat=this.now();const serial=++this.serial,child=this.process=this.spawn(path.join(this.folder,'HookBridge.exe'),[String(pid),hwnd,name,started,...(this.route==='read'?['--read-only']:this.route==='embed'?['--official-embed']:[])],{cwd:this.folder,windowsHide:true,stdio:['pipe','pipe','ignore']});child.stdin.on('error',()=>{});if(this.enabled)this.send({type:'enable'});
   const failed=()=>{if(serial!==this.serial)return;this.process=null;++this.serial;this.retry('Hook 连接停止');};child.on('error',failed);child.on('exit',failed);
@@ -102,6 +107,8 @@ class HookNative{
    /* E531: an embed-capable hook is inserted; its stream appears with the first dialogue line, so a title menu is not "unsupported" */
    if(m.type==='hookEmbedPending'){this.trace('embed hook pending '+String(m.code||'').slice(0,200));this.notify({hookEmbedPending:true});return;}
    /* E520: the bridge found this game's remembered dialogue stream (it embedded before): no warm-up, replace from the first line */
+   /* signature memory: the remembered hook was relocated by its byte signature (game updated/other build) and inserted before the first line, always on, no switch; a miss is silent and falls back to the existing search */
+   if(m.type==='hookSignature'){this.state.hookSignature={found:!!m.found,moved:!!m.moved,module:String(m.module||'').slice(0,100)};this.trace('stream signature '+(m.found?(m.moved?'relocated ':'same place ')+String(m.code||'').slice(0,200):'not found in '+String(m.module||'')));return;}
    if(m.type==='hookMemory'){this.remembered={name:String(m.name||'').slice(0,100),code:String(m.code||'').slice(0,1000)};this.trace('stream memory '+this.remembered.name+' '+this.remembered.code);this.notify({hookRemembered:true});try{this.onRemembered?.(this.remembered);}catch(e){this.trace('remembered error '+(e?.message||e));}return;}
    if(m.type==='hookEngineLine'&&PAGE_ENGINES.has(m.engine)){this.pageLine(m);return;}
    if(m.type==='hookTextPos'&&m.engine==='pal_sprite_v1'){this.palPosition(m);return;}
@@ -113,7 +120,7 @@ class HookNative{
    if(m.type==='hookRender'){this.notify({hookDrawCount:Number(m.count)||0,hookDrawAt:Number(m.at)||0});return;}
    if(m.type==='waitMarkerDrawn'){this.emit({type:'waitMarkerDrawn'});return;}
    if(m.type==='waitMarkerStatus'){this.notify({waitMarkerMessage:String(m.message||'').slice(0,300),waitMarkerHookActive:m.active===true});return;}
-   if(m.type==='hookSource'&&typeof m.text==='string'&&m.text.length<=4000){this.source(m,name);return;}
+   if(m.type==='hookSource'&&typeof m.text==='string'&&m.text.length<=4000){this.sourcePage(m,name);return;}
    // v1.1.4: speaker names from a name-role stream, for every engine that reports one (user: the log showed every line as narration).
    if(m.type==='hookAuxText'&&typeof m.text==='string'&&m.text.length<=400){this.auxText(m);return;}
    if(m.type==='hookName'&&typeof m.text==='string'){const n=speakerName(m.text);if(n){this.speaker={text:n,at:this.now()};this.noteSpeaker(n);}return;}
@@ -216,6 +223,29 @@ class HookNative{
   else if(this.choice?.active)this.clearChoices('choices no longer on screen');}
  /* 2026-11-13 the choice detector also knows the names learned from bare name lines (CLANNAD 「朋也」) */newChoiceCapture(){const C=new ChoiceCapture(()=>this.now());C.extraNames=()=>this.knownSpeakers||[];return C;}
  clearChoices(why,keep=0,line=''){clearTimeout(this.choiceTimer);const shown=!!this.choice?.active||!!this.state.hookChoices;this.choice?.reset(keep,line);this.choiceOptions=null;/* 2026-11-13 candidates that came with the line itself are asked for again */if(keep&&this.choice?.items.length){this.choiceTimer=setTimeout(()=>this.requestChoices(0),450);this.choiceTimer.unref?.();}if(!shown)return;this.trace('choice cleared: '+why);this.notify({hookChoices:null});}
+ /* E542 (user, CLANNAD HD prologue: one sentence per click, but eight sentences arrived as one line): HookBridge marks an
+    output that is exactly several separate engine callbacks with parts (oldest first) and partsAgeMs. Only the first part
+    is shown; each advance input of the player (click / Space / Enter in the game, readerInput) shows the next. Inputs made
+    after the first callback but before LunaHost flushed the batch already advanced the game, so they are replayed. A
+    held skip shows the last part at once. Any new line from the game drops what is left. */
+ sourcePage(m,name){
+  const parts=Array.isArray(m.parts)?m.parts.map(p=>String(p||'').trim()).filter(Boolean):[];
+  this.pageQueue=null;
+  if(parts.length<2||parts.join('')!==String(m.text).trim()||this.skipKey){this.source(m,name);return;}
+  const now=this.now(),age=Math.max(0,Number(m.partsAgeMs)||0),since=now-age;
+  const done=(this.advanceTimes||[]).filter(t=>t>=since&&t<=now).length,first=Math.min(done,parts.length-1);
+  this.trace('page parts '+parts.length+' shown from '+(first+1));
+  const base={...m};delete base.parts;delete base.partsAgeMs;
+  this.pageQueue={base,name,rest:parts.slice(first+1)};this.partAt=now;
+  this.source({...base,text:parts[first]},name);
+ }
+ advance(){
+  const now=this.now();this.advanceTimes=(this.advanceTimes||[]).filter(t=>now-t<20000);this.advanceTimes.push(now);
+  const q=this.pageQueue;if(!q||!q.rest.length){this.pageQueue=null;return false;}
+  /* a double click or key repeat is one advance */if(now-(this.partAt||0)<250)return false;this.partAt=now;
+  const next=q.rest.shift();if(!q.rest.length)this.pageQueue=null;
+  this.trace('page part advance '+JSON.stringify(next.slice(0,20)));this.source({...q.base,text:next},q.name);return true;
+ }
  source(m,name){
   /* 2026-11-12 (ファタモルガーナの館: "……けれど……", drawn large in the middle of the opening, was hidden and shown as a subtitle
      at the bottom): while the engine says its text window is hidden, a line is art text. HookBridge leaves it to the game;
@@ -291,7 +321,11 @@ class HookNative{
   if(this.flowPage&&m.engine==='ocr')return;
   if(!Number.isSafeInteger(m.line)||m.line<1||!['begin','end'].includes(m.phase))return;
   const now=this.now(),engine=m.engine,K=this.pageState&&this.pageState.engine===engine?this.pageState:(this.pageReset(),this.pageState={engine,lines:new Map(),held:[],timer:null});
-  if(!m.nvl){if(this.pageMode?.mode==='nvl')this.trace(engine+' page mode off');this.pageMode={mode:'adv',engine,at:now};this.releasePageHeld();return;}
+  if(!m.nvl){if(this.pageMode?.mode==='nvl')this.trace(engine+' page mode off');this.pageMode={mode:'adv',engine,at:now};this.releasePageHeld();
+   /* E550 ADV sentence: where the engine draws it (canvas pixels, with the canvas size) and its colour, so the reader places and
+      paints each line like the game without calibration (web text-position.js, <engine>_adv_v1). */
+   if(engine!=='ocr'&&m.sw>0&&m.sh>0)this.emit({type:'hookTextPos',engine:engine+'_adv_v1',line:m.line,token:m.line,phase:m.phase,x0:m.x0,y0:m.y0,x1:m.x1,y1:m.y1,size:m.size,sw:m.sw,sh:m.sh,count:m.count,...(typeof m.color==='string'&&/^#[0-9a-f]{6}$/i.test(m.color)?{color:m.color}:{}),at:now});
+   return;}
   if(this.pageMode?.mode!=='nvl')this.trace(engine+' page mode on');this.pageMode={mode:'nvl',engine,at:now};
   let e=K.lines.get(m.line);if(!e){e={line:m.line,same:m.same===true,hookText:'',origin:'live',ended:false,at:now};K.lines.set(m.line,e);if(K.lines.size>64)K.lines.delete(K.lines.keys().next().value);
    if(!e.same)this.emit({type:'hookPage',engine,line:m.line*2-1,same:false,token:0,at:now});}
@@ -405,6 +439,11 @@ class HookNative{
  /* E345 the hook engine (MeguLitHook32/64.dll) comes with the runtime pack, which is downloaded once. A newer build shipped
     with MeguLit in native\megulithook\ (YU-RIS embed) replaces the installed one before a game is attached; the old file
     is kept as .previous. A file still loaded by a running game cannot be replaced and is tried again next time. */
+ /* 2026-11-13 cold "runtime-dump" pack (docs/runtime-dump-pack.md): fetched in the background the first time a game is
+    hooked, no switch and no message; HookBridge injects it as soon as the files are there (also later in the same run).
+    Offline or any failure: nothing happens, the next game start tries once more. */
+ static fetchRuntimeDump(folder){try{if(HookNative.dumpFetch)return;const packs=require('./runtime-packs.cjs').RuntimePacks.shared(path.dirname(folder));
+  if(packs.installed('runtime-dump')||!packs.manifest().packs?.['runtime-dump'])return;HookNative.dumpFetch=packs.ensure('runtime-dump').catch(()=>{}).finally(()=>{HookNative.dumpFetch=null;});}catch{}}
  static syncShippedHook(folder){for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){try{
   const src=path.join(folder,'megulithook',name),dst=path.join(folder,'..','runtime','megulithook',name);
   if(!fs.existsSync(src)||!fs.existsSync(path.dirname(dst)))continue;

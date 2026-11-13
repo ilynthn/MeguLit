@@ -20,7 +20,7 @@ catch [System.IO.IOException] { Write-Output 'Hook bridge update staged for the 
 & $taskCsc /nologo /target:exe /optimize+ ("/out:" + (Join-Path $taskRoot 'native\GameProcess.exe')) (Join-Path $taskRoot 'native\GameProcess.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Native game process helper build failed' }
 # The hook injectors (one per game bitness) and the API key vault were only shipped as prebuilt binaries; build them here.
-foreach ($taskHelper in @(@('HookInjector32.exe','/platform:x86','HookInjector.cs','HookTarget.cs'),@('HookInjector64.exe','/platform:x64','HookInjector.cs','HookTarget.cs'),@('ColdCapture32.exe','/platform:x86','ColdCapture.cs'),@('ColdCapture64.exe','/platform:x64','ColdCapture.cs'),@('KeyVault.exe','/reference:System.Security.dll','KeyVault.cs'))) {
+foreach ($taskHelper in @(@('HookInjector32.exe','/platform:x86','HookInjector.cs','HookTarget.cs'),@('HookInjector64.exe','/platform:x64','HookInjector.cs','HookTarget.cs'),@('ColdCapture32.exe','/platform:x86','ColdCapture.cs'),@('ColdCapture64.exe','/platform:x64','ColdCapture.cs'),@('KeyVault.exe','/reference:System.Security.dll','KeyVault.cs'),@('RuntimeHarvest.exe','/platform:x64','RuntimeHarvest.cs'))) {
  & $taskCsc /nologo /target:exe /optimize+ $taskHelper[1] ('/out:' + (Join-Path $taskRoot ('native\' + $taskHelper[0]))) @($taskHelper[2..($taskHelper.Count-1)] | ForEach-Object { Join-Path $taskRoot ('native\' + $_) })
  if ($LASTEXITCODE -ne 0) { throw "Native helper build failed: $($taskHelper[0])" }
 }

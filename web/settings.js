@@ -154,10 +154,13 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
  if(section==='speech')stopTranslation=configureSpeech({content,form,api,locale,esc,toast});
  stopPacks();stopPacks=['speech','dictionary'].includes(section)?mountRuntimePacks({content,api,locale,esc,toast}):()=>{};
  /* E383 built-in tutorial card at the top of the page; its buttons run the step for the reader */
- {const started={zh:'已开始下载，进度见本页下方「运行组件」',en:'Download started; progress is under Runtime components below',ja:'ダウンロードを開始しました。進行状況は下の「実行コンポーネント」に表示されます'}[locale]||'';
-  const pack=id=>async()=>{try{await api('pack_download',{ids:[id]});toast(started);content.querySelector('.runtime-packs,[data-runtime-packs]')?.scrollIntoView({
+ {const started={zh:'已开始下载，进度见本页下方「运行组件」',en:'Download started; progress is under Runtime components below',ja:'ダウンロードを開始しました。進行状況は下の「実行コンポーネント」に表示されます'}[locale]||'',
+   ready={zh:'已经安装好了，不用再下载',en:'Already installed; nothing to download',ja:'インストール済みです。ダウンロードは不要です'}[locale]||'';
+  /* 2026-11-13 the guide's download buttons read the real pack state: an installed pack shows ✓ 已就绪 and a click never re-downloads */
+  const installed={};if(['speech','dictionary'].includes(section)){try{for(const p of (await api('pack_status')).packs||[])installed[p.id]=!!p.installed;}catch{}}
+  const pack=id=>async()=>{try{const now=(await api('pack_status')).packs?.find(p=>p.id===id);if(now?.installed){toast(ready);return;}await api('pack_download',{ids:[id]});toast(started);content.querySelector('.runtime-packs,[data-runtime-packs]')?.scrollIntoView({
   behavior:'smooth',block:'center'});}catch{toast(text.serviceFailed);}};
-  mountGuide({content,section,locale,esc,api,toast,actions:{voice:pack('voice'),reading:pack('reading'),ankiCheck:async()=>{try{const status=await api('anki_status');
+  mountGuide({content,section,locale,esc,api,toast,installed,actions:{voice:pack('voice'),reading:pack('reading'),ankiCheck:async()=>{try{const status=await api('anki_status');
    toast(status.connected?text.ankiConnected:text.ankiOffline);}catch{toast(text.serviceFailed);}}}});}
  enhanceSelects(content);
  form.querySelectorAll('input[type=color]').forEach(element=>element.oninput=()=>element.dataset.empty='false');

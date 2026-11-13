@@ -1,0 +1,14 @@
+{
+ "_note": "ExHIBIT rld key seeds per title (RLDManager by marcussacana, MIT; Python port DrSimp515/RLDManager-py, MIT). Add a seed here (or ship it as an adapter-pack param) when a new title is solved; titles whose scripts are not encrypted need none.",
+ "seeds": {
+  "Sakura no Mori Dreamers JP": "0xAD2B78EA",
+  "Sakura no Mori Dreamers JP alt": "0x0C328491",
+  "Princess Evangile": "0x39AA8BA0",
+  "Princess Evangile W": "0xE69A420B",
+  "Magical Marriage Lunatics JP": "0xC9E849B1",
+  "Magical Marriage Lunatics EN": "0xFA267D75",
+  "Imouto Paradise 3 JP": "0x2A17122A",
+  "Imouto Paradise 3 EN": "0x2A18A1A4",
+  "Imouto Paradise 3 def": "0xAE85A916"
+ }
+}

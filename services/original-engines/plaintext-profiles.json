@@ -1,0 +1,105 @@
+{
+ "note": "E620 grammar profiles of the F2 plain-text script family, read by plaintext.cjs (field reference in its header). Regular expressions are JavaScript source strings. Order matters: the first profile whose match passes owns a folder.",
+ "profiles": [
+  {
+   "id": "suika2", "engine": "Suika 2", "status": "完整",
+   "source": "Suika 2 (MIT) src/script.c, tool/package.c and its successor OpenNovel (MIT) src/file.c + docs/md_en/reference.md: txt/*.txt scripts; data01.arc = u64 count, {char name[256], u64 size, u64 offset (absolute)}; since 2.x names and bodies XORed with a stream from the build key (default cafef00dabadbeef; other keys: add them to table.cipher.suika). *name*[voice*]text, @choose / @ichoose label text …, \\n, \\^{ruby}, \\#{color} … inline, a leading \\ continues the message",
+   "match": {"any": [{"table": "suika2"}, {"all": [{"sub": ["txt", "\\.txt$"]}, {"sub": ["conf", "^config\\.txt$"]}]}, {"has": "^data01\\.arc$"}]},
+   "files": {"name": "\\.txt$", "subs": ["txt"]},
+   "table": {"name": "^data01\\.arc$", "entry": "^txt/.*\\.txt$", "cipher": {"suika": ["cafef00dabadbeef"]},
+    "spec": {"count": {"at": 0, "type": "u64le"}, "entries": 8, "encoding": "utf-8",
+     "fields": [{"name": "name", "type": "cstr", "size": 256}, {"name": "size", "type": "u64le"}, {"name": "offset", "type": "u64le"}]}},
+   "encoding": "auto",
+   "comment": "^#", "anchor": "^[@:]",
+   "say": [
+    {"re": "^\\*([^*]*)\\*(?:[^*]*\\*)?(.*)$", "name": 1, "text": 2},
+    {"re": "^@i?choose\\s+(.*)$", "choices": {"split": "\\s+", "start": 1, "every": 2}},
+    {"re": "^@select\\s+(.*)$", "choices": {"split": "\\s+", "start": 3}}
+   ],
+   "escapes": {"\\n": "\n"},
+   "strip": ["^\\\\", "^t\\d+=", "\\\\\\^\\{[^}]*\\}", "\\\\[#@fopwMLe!]\\{[^}]*\\}", "\\\\(---|===)"]
+  },
+  {
+   "id": "nvlist", "engine": "NVList", "status": "完整",
+   "source": "NVList user guide ch20 (Apache-2.0): text lines, @ Lua line, @@ Lua block, # comment, ## comment block; [ ] inline Lua; @choice(\"a\", \"b\") options",
+   "match": {"any": [{"find": ["res", "\\.lvn$", 3]}, {"all": [{"has": "^nvlist.*\\.(jar|exe)$"}, {"has": "^res(\\.nvl|\\.zip)?$"}]}]},
+   "files": {"name": "\\.lvn$", "subs": ["res"], "depth": 4, "keepPath": true},
+   "zips": {"name": "^res\\.(nvl|zip)$", "entry": "\\.lvn$"},
+   "encoding": "auto",
+   "blocks": [["^##", "^##"], ["^@@\\s*$", "^@@\\s*$"]],
+   "comment": "^#", "anchor": "^@",
+   "say": [{"re": "^@choice\\(\\s*\"(.*)\"\\s*\\)\\s*$", "choices": {"split": "\"\\s*,\\s*\""}}],
+   "strip": ["\\[[^\\]]*\\]", "\\$\\{[^}]*\\}"]
+  },
+  {
+   "id": "vnds", "engine": "VNDS", "status": "完整",
+   "source": "VNDS .scr format (digital-haze script_format.txt via the BASLQC/vnds wiki): text <string> (@ no wait, ~ / ! blank), choice a|b|c, everything else a command",
+   "match": {"all": [{"any": [{"has": "^script\\.zip$"}, {"find": ["script", "\\.scr$", 1]}]}, {"has": "^(foreground|background)(\\.zip)?$"}]},
+   "files": {"name": "\\.scr$", "subs": ["script"], "depth": 2},
+   "zips": {"name": "^script\\.zip$", "entry": "\\.scr$"},
+   "encoding": "auto", "bare": false,
+   "comment": "^#",
+   "say": [
+    {"re": "^text\\s+@?(?![~!]\\s*$)(.+)$", "text": 1},
+    {"re": "^choice\\s+(.+)$", "choices": {"split": "\\|"}}
+   ]
+  },
+  {
+   "id": "pymo", "engine": "pymo", "status": "完整",
+   "source": "CPyMO cpymo_interpreter.c (AGPL, format facts only): script/<name>.txt, #say [name,]text, #text text,x1,y1,…, #title text, #sel n then n option lines, #select_text n,opt…",
+   "match": {"all": [{"has": "^gameconfig\\.txt$"}, {"sub": ["script", "\\.txt$"]}]},
+   "files": {"name": "\\.txt$", "subs": ["script"]},
+   "encoding": "auto", "bare": false,
+   "comment": "^;",
+   "say": [
+    {"re": "^#say\\s+(.*)$", "args": {"split": ",", "name": 0, "text": "rest"}},
+    {"re": "^#text\\s+([^,]*)", "text": 1},
+    {"re": "^#title\\s+(.*)$", "text": 1},
+    {"re": "^#sel\\s+(\\d+)", "follow": 1},
+    {"re": "^#select_text\\s+(.*)$", "choices": {"split": ",", "start": 1, "count": 0}}
+   ],
+   "escapes": {"\\n": "\n", "\\r": "\n"}
+  },
+  {
+   "id": "pywright", "engine": "PyWright", "status": "半成品",
+   "source": "PyWright (github saluk/PyWright, no licence: format facts only) games/<game>/<case>/*.txt: \"quoted\" lines are text with {n} newlines and {…} markup, nt <name> sets the name tag, list / li <option> / showlist choices, # comments, lowercase commands",
+   "match": {"any": [{"has": "^pywright\\.(exe|py)$"}, {"all": [{"sub": ["games", "."]}, {"has": "^core$"}, {"has": "^art$"}, {"has": "^data\\.txt$"}]}]},
+   "files": {"name": "\\.txt$", "subs": ["games"], "depth": 3, "keepPath": true},
+   "encoding": "auto", "bare": false,
+   "comment": "^#",
+   "say": [
+    {"re": "^nt\\s+(.+)$", "name": 1},
+    {"re": "^li\\s+(.+)$", "text": 1},
+    {"re": "^\"(.*?)\"?\\s*$", "text": 1}
+   ],
+   "escapes": {"{n}": "\n"},
+   "strip": ["\\{[^}]*\\}"]
+  },
+  {
+   "id": "instead", "engine": "INSTEAD", "status": "半成品",
+   "source": "INSTEAD (MIT, instead-hub): game folder or .zip with main3.lua (stead3) / main.lua, header -- $Name: …$; every string literal (\"…\" or '…') holding non-ASCII text is a line; ^ is a line break; [[ ]] long strings across lines and .idf containers are not read",
+   "match": {"all": [{"has": "^main3?\\.lua$"}, {"any": [{"peek": ["main3.lua", "\\$Name|room\\s*\\{|obj\\s*\\{|dlg\\s*\\{"]}, {"peek": ["main.lua", "\\$Name|room\\s*\\{|obj\\s*\\{|dlg\\s*\\{"]}]}]},
+   "files": {"name": "\\.lua$", "subs": [""], "depth": 2},
+   "zips": {"name": "\\.zip$", "entry": "\\.lua$"},
+   "encoding": "auto", "bare": false,
+   "comment": "^--",
+   "say": [{"re": "\"((?:[^\"\\\\]|\\\\.)*[^\\x00-\\x7f](?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*[^\\x00-\\x7f](?:[^'\\\\]|\\\\.)*)'", "text": "any", "all": true}],
+   "escapes": {"^": "\n", "\\\"": "\"", "\\'": "'"}
+  },
+  {
+   "id": "airnovel", "engine": "AIRNovel", "status": "半成品",
+   "source": "AIRNovel (MPL-2.0): config.anprj (XML, first_script) + mat/*.an scripts, KAG-like [tag a=b], ; comment, *label, &expr&; speaker / choice / ruby tags not documented; a build packed into package.nw is taken by the TyranoScript fingerprint first",
+   "match": {"any": [{"has": "^config\\.anprj$"}, {"find": ["mat", "\\.an$", 2]}]},
+   "files": {"name": "\\.(an|sn)$", "subs": ["mat", ""], "depth": 3},
+   "encoding": "auto",
+   "comment": "^;", "anchor": "^[*@]",
+   "blocks": [["^\\[\\s*(iscript|macro)\\b", "^\\[\\s*(endscript|endmacro)\\b"]],
+   "strip": ["\\[[^\\]]*\\]", "&[^&]*&"]
+  },
+  {
+   "id": "kaleido", "engine": "Kaleido ADV Workshop", "status": "需实物", "detectOnly": true,
+   "source": "Kaleido ADV Workshop: M2 PSB archive pairs scenario_info.psb.m + scenario_body.bin (Squirrel 2 scripts), encrypted with a 13-character key kept in the exe: recognised only, the key needs a real game",
+   "match": {"all": [{"has": "_info\\.psb\\.m$"}, {"has": "_body\\.bin$"}]}
+  }
+ ]
+}

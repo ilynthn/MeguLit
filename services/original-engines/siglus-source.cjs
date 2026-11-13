@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E450 SiglusEngine Scene.pck original sources (the .ss scripts a release keeps after its compiled scenes), as in
    siglus-ssu (Jirehlov, Unlicense OR 0BSD; pck.py source_angou_decrypt, native_ops.py): after the scene data comes an
    "OS" section, a size table and one chunk per source file. A chunk is XOR-ed with last_code; it holds a version, a
@@ -19,10 +20,8 @@ const SA={
 };
 const xor=(b,code,st=0)=>{const n=code.length;for(let i=0;i<b.length;i++)b[i]^=code[(st+i)%n];return b;};
 const u32=(b,o)=>o+4<=b.length?b.readUInt32LE(o):0;
-function lzss(src){if(src.length<8)throw Error('SIGLUS_LZSS');const org=src.readUInt32LE(4),out=Buffer.alloc(org);let si=8,o=0;
- while(o<org){if(si>=src.length)throw Error('SIGLUS_LZSS');let fl=src[si++];
-  for(let k=0;k<8&&o<org;k++,fl>>=1){if(fl&1){out[o++]=src[si++];}else{const tok=src[si]|(src[si+1]<<8);si+=2;const off=tok>>4,len=(tok&15)+2;if(!off||off>o)throw Error('SIGLUS_LZSS');for(let j=0;j<len&&o<org;j++){out[o]=out[o-off];o++;}}}}
- return out;}
+/* E577 kit.lzDistance (references measured back from the output) */
+function lzss(src){if(src.length<8)throw Error('SIGLUS_LZSS');try{return kit.lzDistance(src,src.readUInt32LE(4),{at:8,strict:true});}catch{throw Error('SIGLUS_LZSS');}}
 const S=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
 const K=Array.from({length:64},(_,i)=>Math.floor(Math.abs(Math.sin(i+1))*2**32)>>>0);
 // The engine's MD5 variant: standard rounds, its own tail padding.
@@ -58,7 +57,7 @@ function sources(file){const b=fs.readFileSync(file);if(b.length<96)return [];co
  for(let i=0;i+4<=sizes.length;i+=4){const sz=sizes.readUInt32LE(i);if(!sz||pos+sz>b.length)break;try{out.push(chunk(b.subarray(pos,pos+sz)));}catch{}pos+=sz;}
  return out;}
 const decode=raw=>{if(raw[0]===0xff&&raw[1]===0xfe)return raw.toString('utf16le',2);if(raw[0]===0xef&&raw[1]===0xbb)return raw.toString('utf8',3);
- try{return new TextDecoder('utf-8',{fatal:true}).decode(raw);}catch{return new TextDecoder('shift_jis').decode(raw);}};
+ try{return new TextDecoder('utf-8',{fatal:true}).decode(raw);}catch{return kit.SJIS.decode(raw);}};
 /* Lines with their voice from source text: a KOE / koe / exkoe call sets the voice of the next message
    (@mes(id,name,text), or a plain 「…」 line). Comment lines (;) are skipped. */
 // The text argument of @mes(id,name,text) anywhere on a line (other tags may wrap it: @SIZE(20)@mes(...)@SIZE@RET).

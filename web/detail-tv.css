@@ -25,7 +25,6 @@
 .main[data-kids~="dtv-bg"] .detail-tabs{border-bottom:1px solid color-mix(in srgb,var(--g-t1) 12%,transparent)!important;gap:28px!important}
 .main[data-kids~="dtv-bg"] .detail-tabs>button{counter-increment:dtv;font-size:14px!important;letter-spacing:.18em;color:var(--g-t3)!important;background:none!important}
 .main[data-kids~="dtv-bg"] .detail-tabs{counter-reset:dtv}
-.main[data-kids~="dtv-bg"] .detail-tabs>button::before{content:counter(dtv,decimal-leading-zero);margin-right:8px;font-family:var(--dtv-mono);font-size:10px;letter-spacing:.1em;color:var(--g-gold);opacity:.7}
 .main[data-kids~="dtv-bg"] .detail-tabs>button[aria-selected="true"]{color:var(--g-t1)!important}
 .main[data-kids~="dtv-bg"] .detail-tabs>button::after{background:linear-gradient(90deg,var(--g-gold),transparent)!important;height:2px!important}
 

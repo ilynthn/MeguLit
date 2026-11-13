@@ -27,12 +27,17 @@ function partOf(line,dialogue){const key=plain(line),d=plain(dialogue);if(!key||
    - an option made only of ellipses (「…………」, staying silent) is still an option; it needs no translation */
 const BULLETS=/[♪♫●○◆◇■□★☆▶▷►▼▽／|｜]+・?/;
 const SYMBOLIC=/^[…‥・ー―－\-.。、]{2,12}$/;
+/* #146 (WHITE ALBUM2, AQUAPLUS: 「１．電話をかける２．メールを送る」 came as one string, the reader saw one option): options
+   numbered 1. 2. 3. in order inside one string, the first at its start, are one candidate per number (every engine). */
+function numbered(raw){const t=String(raw||'').trim(),re=/([0-9０-９])[.．、:：)）]/g,cuts=[];let m;
+ while((m=re.exec(t))){const c=m[1].charCodeAt(0),d=c>=0xff10?c-0xff10:c-48;if(d===cuts.length+1&&(cuts.length||m.index===0))cuts.push(m.index);}
+ if(cuts.length<2)return null;const parts=cuts.map((c,i)=>t.slice(c,i+1<cuts.length?cuts[i+1]:t.length).trim()).filter(Boolean);return parts.length>=2?parts:null;}
 function halves(key){/* X+X (X at least 2 chars) -> X; also X+X+X */for(const n of [2,3]){if(key.length%n)continue;const x=key.slice(0,key.length/n);if(x.length>=2&&x.repeat(n)===key)return x;}return key;}
 function stripNames(line){let s=line,prev;do{prev=s;s=s.replace(/^【([^】]{1,16})】\1?/,'');}while(s!==prev&&s);return s;}
 class ChoiceCapture{
  constructor(now=()=>Date.now()){this.now=now;this.items=[];this.active=false;this.at=0;this.lines=[];this.names=new Set();this.dialogue='';this.grewAt=0;this.order=null;}
  /* the text pieces one frame stands for */
- static pieces(text){const out=[];for(const raw of String(text||'').split(/\r?\n|\\n/)){const parts=raw.split(BULLETS).map(s=>s.trim()).filter(Boolean);
+ static pieces(text){const out=[];for(const raw of String(text||'').split(/\r?\n|\\n/)){let parts=raw.split(BULLETS).map(s=>s.trim()).filter(Boolean);if(parts.length<2){const n=numbered(raw);if(n)parts=n;}
    for(const p of parts.length?parts:[raw]){let line=stripNames(p.trim()).replace(/^[\d０-９]+[.．、:：)\]]\s*/,'');const key=plain(line);const h=SYMBOLIC.test(key)?key:halves(key);if(h!==key)line=h;out.push({line,doubled:h!==key,list:parts.length>=2});}}
   return out;}
  /* every dialogue line (and its speaker) as the hook delivers it; a line that extends the previous one is typing */

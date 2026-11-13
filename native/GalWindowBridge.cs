@@ -298,7 +298,7 @@ public class GalWindowBridge {
         return true;
     }
     static void InterfaceMode(bool translation,bool userAction){
-        if(translation&&userAction){FindOverlay();if(Overlay!=IntPtr.Zero&&IsIconic(Overlay))ShowWindow(Overlay,9);}
+        if(translation&&userAction){FindOverlay();if(Overlay!=IntPtr.Zero&&IsIconic(Overlay))ShowWindow(Overlay,4);}
         if(translation!=TranslationMode){
             if(!translation&&Captured&&Target==IntPtr.Zero&&(FloatDX!=0||FloatDY!=0))OriginalRect=new Rect(OriginalRect.Left+FloatDX,OriginalRect.Top+FloatDY,OriginalRect.Right+FloatDX,OriginalRect.Bottom+FloatDY);
             FloatDX=FloatDY=0;Dragging=false;
@@ -340,9 +340,18 @@ public class GalWindowBridge {
         // Menu open: topmost, so neither clicking the game nor focusing another MeguLit window puts the menu under the game.
         SetWindowPos(Overlay,menu||GetAncestor(GetForegroundWindow(),3)==gameRoot?new IntPtr(-1):IntPtr.Zero,0,0,0,0,0x0001|0x0002|0x0010);
         Emit(new{type="coverDebug",text=menu?"Alt+T 菜单打开：阅读层固定到游戏上方":"阅读层已移到前台游戏上方"});}
+    /* P0 2026-11-13 (user, ファタモルガーナの館 full screen: the game flashed and kept dropping to the desktop; Alt+T sent it
+       to the desktop). A full-screen game (its window covers its whole monitor: KiriKiri fsmethod=cds, TOPMOST popup, E533)
+       minimises itself as soon as it loses the foreground. MeguLit then must never take the foreground from it: the overlay
+       stays WS_EX_NOACTIVATE also with the Alt+T menu open, the menu is never focused, a minimised overlay is shown without
+       activation. The menu works by mouse; the game keeps the keyboard. */
+    public static bool CoversMonitor(int l,int t,int r,int b,int ml,int mt,int mr,int mb){return r-l>=mr-ml&&b-t>=mb-mt&&l<=ml&&t<=mt&&r>=mr&&b>=mb;}
+    public static bool OverlayMayActivate(bool fullscreenGame,bool bound,bool menu){return !(bound&&fullscreenGame)&&menu;}
+    static bool FullscreenTarget(){try{if(Target==IntPtr.Zero||!IsWindow(Target))return false;IntPtr root=GetAncestor(Target,2);Rect w;if(root==IntPtr.Zero||!GetWindowRect(root,out w))return false;var m=System.Windows.Forms.Screen.FromHandle(root).Bounds;return CoversMonitor(w.Left,w.Top,w.Right,w.Bottom,m.Left,m.Top,m.Right,m.Bottom);}catch{return false;}}
     public static bool ReadingVisible(bool context,bool gameMinimized,bool overlayMinimized,bool cover,bool dialogue,bool menu){return context&&!gameMinimized&&!overlayMinimized&&(menu||(cover&&dialogue));}
     static void FocusMenuOnce(){
         if(!MenuOpen||!MenuRegionReady||!MenuFocusPending)return;
+        if(TranslationMode&&FullscreenTarget()){MenuFocusPending=false;return;}
         IntPtr foreground=GetAncestor(GetForegroundWindow(),3),overlayRoot=GetAncestor(Overlay,3),gameRoot=Target==IntPtr.Zero?IntPtr.Zero:GetAncestor(Target,3);
         // A queued menu-open must not pull the keyboard back after the user switched applications.
         uint foregroundPid;GetWindowThreadProcessId(GetForegroundWindow(),out foregroundPid);bool ownHome=PreferredOverlay!=IntPtr.Zero&&foregroundPid==(uint)OverlayPid;
@@ -385,6 +394,13 @@ public class GalWindowBridge {
         else if(type=="sceneShot"){string id=Str(d,"id");IntPtr target=Target;
             ThreadPool.QueueUserWorkItem(delegate{string jpeg="",hash="";double score=0;try{Rect rect;if(target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=GameAudio.SceneShot(target,rect.Right,rect.Bottom,out score,out hash);}catch{}
                 try{Emit(new{type="sceneShot",id=id,jpeg=jpeg,score=score,hash=hash});}catch{}});}
+        /* 2026-11-13 collected sentence pictures: a full clean frame (asked only while the dialogue box is hidden) and a cheap probe of the top hash */
+        else if(type=="sceneFrame"){string id=Str(d,"id");IntPtr target=Target;
+            ThreadPool.QueueUserWorkItem(delegate{string jpeg="",hash="";double score=0;try{Rect rect;if(target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=GameAudio.SceneFrame(target,rect.Right,rect.Bottom,out score,out hash);}catch{}
+                try{Emit(new{type="sceneFrame",id=id,jpeg=jpeg,score=score,topHash=hash});}catch{}});}
+        else if(type=="sceneProbe"){string id=Str(d,"id");IntPtr target=Target;
+            ThreadPool.QueueUserWorkItem(delegate{string hash="";try{Rect rect;if(target!=IntPtr.Zero&&GetClientRect(target,out rect))hash=GameAudio.SceneProbe(target,rect.Right,rect.Bottom);}catch{}
+                try{Emit(new{type="sceneProbe",id=id,topHash=hash});}catch{}});}
         else if(type=="mediaClip"){string id=Str(d,"id");long from=(long)Num(d,"from",0),to=(long)Num(d,"to",0);bool shot=Bool(d,"screenshot"),readerShot=Bool(d,"readerScreenshot");IntPtr target=Target,readerWindow=Overlay;
             var readerArea=new System.Drawing.Rectangle((int)Num(d,"readerX",0),(int)Num(d,"readerY",0),(int)Num(d,"readerWidth",0),(int)Num(d,"readerHeight",0));
             ThreadPool.QueueUserWorkItem(delegate{string wav="",jpeg="";bool voiced=false;try{var voice=GameAudio.Voice(Audio.Range(from,to));if(voice!=null){voiced=true;wav=Convert.ToBase64String(GameAudio.Wav(voice));}
@@ -405,16 +421,16 @@ public class GalWindowBridge {
                 if(owner==pid&&candidate!=Overlay&&IsWindowVisible(candidate)&&!IsIconic(candidate)&&GetClientRect(candidate,out r)){long area=(long)r.Right*r.Bottom;if(area>bestArea){bestArea=area;best=candidate;}}return true;},IntPtr.Zero);
             string name=ProcessName(pid),image=ProcessImage(pid);if(name!="")WantedProcess=name;if(image!="")WantedExecutable=image;NextAutoBind=DateTime.MinValue;
             if(best!=IntPtr.Zero&&bestArea>=320L*240&&Target!=best){try{Bind(best);}catch{}}}
-        else if(type=="bind"){WantedExecutable="";FindOverlay();if(Overlay!=IntPtr.Zero&&IsIconic(Overlay))ShowWindow(Overlay,9);if(d.TryGetValue("settings",out value)&&value is Dictionary<string,object>)Settings((Dictionary<string,object>)value);bool keepMenu=MenuOpen;InterfaceMode(true,false);if(keepMenu){MenuOpen=true;MenuFocusPending=true;}Bind(new IntPtr(Int64.Parse(Str(d,"hwnd"))),true);}
+        else if(type=="bind"){WantedExecutable="";FindOverlay();if(Overlay!=IntPtr.Zero&&IsIconic(Overlay))ShowWindow(Overlay,4);if(d.TryGetValue("settings",out value)&&value is Dictionary<string,object>)Settings((Dictionary<string,object>)value);bool keepMenu=MenuOpen;InterfaceMode(true,false);if(keepMenu){MenuOpen=true;MenuFocusPending=true;}Bind(new IntPtr(Int64.Parse(Str(d,"hwnd"))),true);}
         else if(type=="configure"){if(!ModeConfigured&&d.ContainsKey("interfaceMode")){ModeConfigured=true;InterfaceMode(Str(d,"interfaceMode")=="translation",false);}Settings(d);WantedProcess=Bool(d,"bindEnabled")?Str(d,"gameProcess"):"";if(!Bool(d,"bindEnabled")&&(Target!=IntPtr.Zero||TrackedGame!=null)){RevealGame(Target);ForgetGame();Target=IntPtr.Zero;Restore();Emit(new{type="bound",bound=false,message="已解除窗口绑定"});}}
         else if(type=="unbind"){WantedExecutable="";WantedProcess="";RevealGame(Target);ForgetGame();Target=IntPtr.Zero;Restore();Emit(new{type="bound",bound=false,message="已解除窗口绑定"});}
         // The page passes where the button went down, so the strip stays under the same spot of the cursor even though
         // the drag only starts after a few pixels of movement.
         else if(type=="floatDrag"){if(TranslationMode&&Target==IntPtr.Zero&&Overlay!=IntPtr.Zero&&GetCursorPos(out DragStart)&&GetWindowRect(Overlay,out DragRect)){if(d.ContainsKey("x")&&d.ContainsKey("y")){DragStart.X=(int)Num(d,"x",DragStart.X);DragStart.Y=(int)Num(d,"y",DragStart.Y);}Dragging=true;}}
-        else if(type=="menu"){bool open=Bool(d,"open");if(open!=MenuOpen)RegionAckPending=false;if(open&&!MenuOpen){MenuFocusPending=true;FindOverlay();if(Overlay!=IntPtr.Zero&&IsIconic(Overlay))ShowWindow(Overlay,9);}bool returning=MenuOpen&&!open&&TranslationMode&&Target!=IntPtr.Zero&&GetAncestor(GetForegroundWindow(),2)==Overlay;MenuOpen=open;ReaderActivationPolicy();RefreshReaderPointer();if(returning)SetForegroundWindow(GetAncestor(Target,2));if(!open){MenuRegionReady=false;MenuFocusPending=false;}if(open&&!TranslationMode&&PreferredOverlay==IntPtr.Zero){FindOverlay();if(Overlay!=IntPtr.Zero){
+        else if(type=="menu"){bool open=Bool(d,"open");if(open!=MenuOpen)RegionAckPending=false;if(open&&!MenuOpen){MenuFocusPending=true;FindOverlay();if(Overlay!=IntPtr.Zero&&IsIconic(Overlay))ShowWindow(Overlay,4);}bool returning=MenuOpen&&!open&&TranslationMode&&Target!=IntPtr.Zero&&GetAncestor(GetForegroundWindow(),2)==Overlay;MenuOpen=open;ReaderActivationPolicy();RefreshReaderPointer();if(returning)SetForegroundWindow(GetAncestor(Target,2));if(!open){MenuRegionReady=false;MenuFocusPending=false;}if(open&&!TranslationMode&&PreferredOverlay==IntPtr.Zero){FindOverlay();if(Overlay!=IntPtr.Zero){
             // Only when needed: re-showing and re-activating the already visible, already active main window made it
             // hide and reappear once (with the Windows open animation) on the first menu after start.
-            if(!IsWindowVisible(Overlay))ShowWindow(Overlay,5);if(GetAncestor(GetForegroundWindow(),3)!=GetAncestor(Overlay,3))SetForegroundWindow(Overlay);IsShown=true;MenuFocusPending=false;}}}
+            bool keepGame=FullscreenTarget()&&GetAncestor(GetForegroundWindow(),3)==GetAncestor(Target,3);if(!IsWindowVisible(Overlay))ShowWindow(Overlay,keepGame?4:5);if(!keepGame&&GetAncestor(GetForegroundWindow(),3)!=GetAncestor(Overlay,3))SetForegroundWindow(Overlay);IsShown=true;MenuFocusPending=false;}}}
         else if(type=="hitRegions"){MenuRegionReady=Bool(d,"menuOpen");RegionAckPending=MenuRegionReady;HitRegions.Clear();object regions;if(d.TryGetValue("regions",out regions)&&regions is System.Collections.ArrayList){foreach(object item in (System.Collections.ArrayList)regions){var rect=item as Dictionary<string,object>;if(rect==null||HitRegions.Count>=256)continue;double x=Num(rect,"x",0),y=Num(rect,"y",0),w=Num(rect,"width",0),h=Num(rect,"height",0);if(w>0&&h>0&&w<=16384&&h<=16384&&Math.Abs(x)<32768&&Math.Abs(y)<32768)HitRegions.Add(new HitRegion{Bounds=new Rect((int)x,(int)y,(int)(x+w),(int)(y+h)),Pass=Bool(rect,"pass")});}}
             // Over a bound game apply the new region right away instead of in the next tick (which also captures the game
             // for text and marker detection and made the menu wait ~170 ms before it could open).
@@ -430,7 +446,7 @@ public class GalWindowBridge {
     static IntPtr NoActivateWindow;
     static void ReaderActivationPolicy(){
         IntPtr window=Overlay;
-        bool reading=window!=IntPtr.Zero&&TranslationMode&&Target!=IntPtr.Zero&&!MenuOpen;
+        bool reading=window!=IntPtr.Zero&&TranslationMode&&Target!=IntPtr.Zero&&!OverlayMayActivate(FullscreenTarget(),true,MenuOpen);
         if(NoActivateWindow!=IntPtr.Zero&&(NoActivateWindow!=window||!reading)){
             if(IsWindow(NoActivateWindow))SetWindowLong(NoActivateWindow,-20,GetWindowLong(NoActivateWindow,-20)&~0x08000000);
             NoActivateWindow=IntPtr.Zero;
@@ -616,8 +632,10 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         }
         if(args.Length>0&&args[0]=="--focus-self-test"){
             if(!ReadingVisible(true,false,false,true,true,false)||!ReadingVisible(true,false,false,false,false,true)||ReadingVisible(false,false,false,true,true,true)||ReadingVisible(true,true,false,true,true,true)||ReadingVisible(true,false,true,true,true,true)||ReadingVisible(true,false,false,false,true,false))return 5;
-            Emit(new{type="focus-selftest",passed=true,foreignApplicationsYield=true,minimizedWindowPreserved=true});return 0;
+            if(!CoversMonitor(0,0,1920,1080,0,0,1920,1080)||CoversMonitor(0,0,1280,720,0,0,1920,1080)||!CoversMonitor(-8,-8,1928,1088,0,0,1920,1080)||OverlayMayActivate(true,true,true)||!OverlayMayActivate(false,true,true)||OverlayMayActivate(false,true,false))return 6;
+            Emit(new{type="focus-selftest",passed=true,fullscreenGameKeepsForeground=true,foreignApplicationsYield=true,minimizedWindowPreserved=true});return 0;
         }
+        if(args.Length>0&&args[0]=="--scene-frame-self-test"){string r=GameAudio.SceneFrameSelfTest();Console.WriteLine(r=="0"?"PASS scene frame: top hash ignores the dialogue box, other scenes differ, fades give nothing, JPEG long side 1600":"FAIL scene frame: "+r);return r=="0"?0:15;}
         if(args.Length>0&&args[0]=="--audio-self-test"){if(!GameAudio.SelfTest())return 7;Console.WriteLine("PASS game audio: speech found over steady music, music alone rejected, WAV valid");return 0;}
         if(args.Length>0&&args[0]=="--self-test"){
             Rect b=Place(new Rect(100,200,1100,1000),4,66,92,26);

@@ -7,13 +7,13 @@
      0x41 <3 bytes> text\0              narration
      0x42 <4 bytes> name\0 text\0       a spoken line and its speaker
    Text is Shift-JIS. Other commands (voice and image names, jumps) are ASCII and dropped. */
-const fs=require('node:fs'),path=require('node:path');
-const sj=new TextDecoder('shift_jis');
+const fs=require('node:fs'),path=require('node:path'),kit=require('./kit.cjs');/* E605 */
+const sj=kit.SJIS;
 const PROSE=/[ぁ-ゖァ-ヺ一-龯]/;
-function list(b){if(b.length<16)return null;const n=b.readInt32LE(0);if(n<=0||n>0xff||4+n*12>b.length)return null;const exts=[];
+function list(b,fileSize=b.length){if(b.length<16)return null;const n=b.readInt32LE(0);if(n<=0||n>0xff||4+n*12>b.length)return null;const exts=[];
  for(let i=0;i<n;i++){const p=4+i*12,ext=b.toString('latin1',p,p+4).replace(/\0.*$/s,'');if(!/^[A-Za-z0-9]{1,4}$/.test(ext))return null;exts.push({ext,count:b.readUInt32LE(p+4),dir:b.readUInt32LE(p+8)});}
  const read=size=>{const out=[];for(const e of exts){let d=e.dir;for(let i=0;i<e.count;i++){if(d+size+8>b.length)return null;const name=b.toString('latin1',d,d+size).replace(/\0.*$/s,'');
-   const s=b.readUInt32LE(d+size),o=b.readUInt32LE(d+size+4);if(!name||o+s>b.length)return null;out.push({name:name+'.'+e.ext.toLowerCase(),size:s,offset:o});d+=size+8;}}return out;};
+   const s=b.readUInt32LE(d+size),o=b.readUInt32LE(d+size+4);if(!name||o+s>fileSize)return null;out.push({name:name+'.'+e.ext.toLowerCase(),size:s,offset:o});d+=size+8;}}return out;};
  return read(9)||read(13);}
 function decode(raw){const d=Buffer.from(raw);for(let i=0;i<d.length;i++)d[i]=((d[i]>>>2)|(d[i]<<6))&255;return d;}
 function cstr(d,p){const e=d.indexOf(0,p);return e<0?null:{s:d.subarray(p,e),next:e+1};}
@@ -34,7 +34,9 @@ function parse(buf){const d=Buffer.isBuffer(buf)?buf:Buffer.from(buf),lines=[],a
   const who=text(name.s),s=text(t.s);if(!s||!PROSE.test(s)||s.includes('�')||who.length>24)continue;lines.push(who);voices.push(null);lines.push(s);voices.push(voiceBefore(i));i=t.next-1;}
  const v=require('./voice-ref.cjs').keep(voices);return v?{lines,anchors,voices:v}:{lines,anchors};}
 function archives(dir){let names;try{names=fs.readdirSync(dir);}catch{return [];}
- return names.filter(f=>/\.arc$/i.test(f)).map(f=>path.join(dir,f)).filter(f=>{try{const fd=fs.openSync(f,'r');try{const h=Buffer.alloc(16);fs.readSync(fd,h,0,16,0);return h.readInt32LE(0)>0&&h.readInt32LE(0)<16&&/^(WSC|SCR)\0?$/i.test(h.toString('latin1',4,8).replace(/\0+$/,''));}finally{fs.closeSync(fd);}}catch{return false;}});}
+ return names.filter(f=>/\.arc$/i.test(f)).map(f=>path.join(dir,f)).filter(f=>{try{const fd=fs.openSync(f,'r');try{const h=Buffer.alloc(4+16*12);fs.readSync(fd,h,0,h.length,0);const n=h.readInt32LE(0);
+ /* E654 Willadv (Will's engine before AdvHD) keeps scripts beside images in one ARC, so WSC need not be the first extension */
+ if(!(n>0&&n<16))return false;for(let i=0;i<n;i++)if(/^(WSC|SCR)\0?$/i.test(h.toString('latin1',4+i*12,8+i*12).replace(/\0+$/,'')))return true;return false;}finally{fs.closeSync(fd);}}catch{return false;}});}
 function scenesIn(file){let b;try{b=fs.readFileSync(file);}catch{return [];}const es=list(b);if(!es)return [];
  return es.filter(e=>/\.(wsc|scr)$/i.test(e.name)).map(e=>({name:e.name,read:()=>decode(b.subarray(e.offset,e.offset+e.size))}));}
 const engine={
@@ -45,4 +47,6 @@ const engine={
  parse,test:n=>/\.wsc$/i.test(n),
  _internal:{list,decode},
 };
-module.exports={parse,decode,list,engine};
+/* E580 an archive's index without reading the whole file (the voice catalogue: voice archives are large) */
+const listFile=file=>{return list(kit.head(file,8<<20),kit.size(file));};
+module.exports={parse,decode,list,listFile,engine};

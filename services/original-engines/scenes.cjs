@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 // E280 script engines read as a set of scene files (user, 2026-11-10: zero-latency bilingual for more engines).
 // Each engine lists the running game's scene files and turns one file into text lines plus anchors (the parts a
 // translation keeps unchanged: commands, file names, labels). A patch file with the same name lines up with the running
@@ -23,18 +24,12 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const xp3=require('./xp3.cjs');
 const KANA=/[ぁ-ゖァ-ヺ]/g;
-function decode(buf){
- if(buf[0]===0xff&&buf[1]===0xfe)return buf.toString('utf16le',2);
- if(buf[0]===0xfe&&buf[1]===0xff){const b=Buffer.from(buf.subarray(2));b.swap16();return b.toString('utf16le');}
- if(buf[0]===0xef&&buf[1]===0xbb&&buf[2]===0xbf)return buf.toString('utf8',3);
- try{return new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch{}
- const score=enc=>{const t=new TextDecoder(enc).decode(buf);return {t,bad:(t.match(/�/g)||[]).length,kana:(t.match(KANA)||[]).length};};
- const sj=score('shift_jis'),gbk=score('gbk');return sj.bad<gbk.bad||sj.bad===gbk.bad&&sj.kana>=gbk.kana?sj.t:gbk.t;
-}
+/* E577 kit.decodeText: BOM, strict UTF-8, then Shift-JIS / GBK */
+const decode=kit.decodeText;
 const ascii=t=>/^[\x20-\x7e]*$/.test(t);
 const {stat}=require('./file-key.cjs');
-function walk(dir,depth,test,out=[]){let entries;try{entries=fs.readdirSync(dir,{withFileTypes:true});}catch{return out;}
- for(const e of entries){const full=path.join(dir,e.name);if(e.isDirectory()){if(depth>0&&!/^(save|savedata|\.megulit)/i.test(e.name))walk(full,depth-1,test,out);}else if(e.isFile()&&test(e.name,full))out.push(full);}return out;}
+/* E577 kit.walk (same folders skipped) */
+const walk=(dir,depth,test,out=[])=>kit.walk(dir,depth,test,out);
 
 // ---- KiriKiri -------------------------------------------------------------------------------------------------
 // Text lines are what is left of a line after its tags; command lines (@...), labels (*...) and tag-only lines are
@@ -91,7 +86,7 @@ function pfsList(file){
   return {files,key};
  }finally{fs.closeSync(fd);}
 }
-function pfsRead(file,entry,key){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(entry.size);fs.readSync(fd,b,0,entry.size,entry.offset);if(key)for(let i=0;i<b.length;i++)b[i]^=key[i%20];return b;}finally{fs.closeSync(fd);}}
+function pfsRead(file,entry,key){const b=kit.readAt(file,entry.offset,entry.size);return key?kit.xor(b,key):b;}
 const AST=n=>/\.ast$/i.test(n);
 function pfsScenes(file){let t;try{t=pfsList(file);}catch{return [];}if(!t)return [];return t.files.filter(e=>AST(e.name)).map(e=>({name:path.basename(e.name.replace(/\\/g,'/')),read:()=>pfsRead(file,e,t.key)}));}
 // Quoted strings in file order: the ones with any non-ASCII character are text, the rest are anchors.
@@ -154,18 +149,37 @@ function tlPairs(files){const langs=new Map();
    m2=t.match(/^old\s+"((?:[^"\\]|\\.)*)"/);if(m2){old=unq(m2[1]);continue;}
    m2=t.match(/^(?:new\s+|(?:[A-Za-z_][\w.]*\s+)*)"((?:[^"\\]|\\.)*)"/);if(m2&&old!==null){pairs.set(old,unq(m2[1]));old=null;}}}
  return langs;}
+/* E566 compiled scripts: a game without .rpy sources is read from its .rpyc files (loose or in .rpa archives), and a
+   compiled tl/<language> translation pairs by the translate identifier of each line (renpy-rpyc.cjs). */
+const rpyc=require('./renpy-rpyc.cjs');
+function renpyScenes(dir){const g=gameDir(dir),out=new Map();
+ for(const [key,s] of rpyc.scripts(g))out.set(key,{name:key,read:s.read});
+ for(const file of walk(g,4,RPY).filter(outsideTl)){const name=path.relative(g,file).replace(/\\/g,'/').toLowerCase();out.set(name,{name,read:()=>fs.readFileSync(file)});}
+ return [...out.values()].sort((a,b)=>a.name.localeCompare(b.name));}
+/* compiled tl files of a patch (or of the game's own tl folders): per language, id -> text and old -> new */
+function rpycTl(dirs){const langs=new Map(),add=buf=>{const t=rpyc.translations(buf);if(!t.lang||/^none$/i.test(t.lang))return;const l=langs.get(t.lang)||{ids:new Map(),strings:new Map()};langs.set(t.lang,l);for(const [k,v] of t.ids)if(!l.ids.has(k))l.ids.set(k,v);for(const [k,v] of t.strings)if(!l.strings.has(k))l.strings.set(k,v);};
+ const seen=new Set();for(const d of dirs){let names;try{names=fs.readdirSync(d);}catch{continue;}
+  for(const n of names){const f=path.join(d,n),k=f.toLowerCase();if(seen.has(k))continue;seen.add(k);
+   if(/\.rpyc$/i.test(n)&&/[\\/]tl[\\/]/i.test(f)){try{add(fs.readFileSync(f));}catch{}}
+   else if(/\.rpa$/i.test(n)){let idx;try{idx=rpyc.rpaIndex(f);}catch{continue;}if(!idx)continue;for(const [name,e] of idx)if(/(^|\/)tl\/[^/]+\/.*\.rpyc$/i.test(name))try{add(rpyc.rpaRead(f,e));}catch{}}}}
+ return langs;}
+const chineseScore=values=>{let score=0;for(const v of values)if(/[一-鿿]/.test(v)&&!(v.match(KANA)||[]).length)score++;return score;};
 const renpy={
  id:'renpy',hint:'game\\tl\\<语言> 文件夹',
- scenes(dir){const g=gameDir(dir);return walk(g,4,RPY).filter(outsideTl).sort().map(file=>({name:path.relative(g,file).toLowerCase(),read:()=>fs.readFileSync(file)}));},
- archives:()=>[],sources:dir=>walk(gameDir(dir),4,RPY).filter(outsideTl),
- parse:parseRpy,test:RPY,
- // The patch: the tl language whose translations are most Chinese; every running line is looked up by its text.
+ scenes:renpyScenes,
+ archives:()=>[],sources:dir=>{const g=gameDir(dir);return [...walk(g,4,RPY).filter(outsideTl),...walk(g,4,n=>/\.rpyc$/i.test(n)).filter(outsideTl),...walk(g,3,n=>/\.rpa$/i.test(n))];},
+ parse:buf=>rpyc.isRpyc(buf)?rpyc.parse(buf):parseRpy(buf),test:n=>RPY(n)||/\.rpyc$/i.test(n),
+ // The patch: the tl language whose translations are most Chinese. A source line is looked up by its text (.rpy tl,
+ // old/new string tables) and, for compiled scripts, by its translate identifier (E566).
  patchLines(base,found){
-  const files=found.dirs.flatMap(d=>fs.readdirSync(d).filter(RPY).map(f=>path.join(d,f)));
+  const files=found.dirs.flatMap(d=>{try{return fs.readdirSync(d).filter(RPY).map(f=>path.join(d,f));}catch{return [];}});
   let best=null,bestScore=0;
-  for(const [,pairs] of tlPairs(files)){let score=0;for(const v of pairs.values())if(/[一-鿿]/.test(v)&&!(v.match(KANA)||[]).length)score++;if(score>bestScore){best=pairs;bestScore=score;}}
-  if(!best)return null;
-  return base.map(scene=>({...scene,patched:scene.lines.some(t=>best.has(t)),lines:scene.lines.map(t=>best.has(t)?best.get(t):t)}));
+  for(const [,pairs] of tlPairs(files)){const score=chineseScore(pairs.values());if(score>bestScore){best=pairs;bestScore=score;}}
+  let comp=null,compScore=0;
+  for(const [,l] of rpycTl(found.dirs)){const score=chineseScore([...l.ids.values(),...l.strings.values()]);if(score>compScore){comp=l;compScore=score;}}
+  if(!best&&!comp)return null;
+  const lookup=(t,id)=>{if(comp&&id&&comp.ids.has(id))return comp.ids.get(id);if(best&&best.has(t))return best.get(t);if(comp&&comp.strings.has(t))return comp.strings.get(t);return null;};
+  return base.map(scene=>{let hit=false;const lines=scene.lines.map((t,k)=>{const v=lookup(t,scene.ids?.[k]);if(v==null)return t;hit=true;return v;});return {...scene,patched:hit,lines};});
  },
 };
 
@@ -436,11 +450,49 @@ const catsystem2=require('./catsystem2.cjs'),naninovel=require('./naninovel.cjs'
 const nitroplusN4=require('./nitroplus-n4.cjs');
 // E470 GARbro on-demand pack, tried after every reader of MeguLit's own (garbro.cjs).
 const garbro=require('./garbro.cjs').engine;
-const ENGINES={'nitroplus-n4':nitroplusN4,'kirikiri-lang':kirikiriLang,kirikiri,artemis,renpy,siglus,'kirikiri-cx':kirikiriCx,'kirikiri-dump':kirikiriDump,'kirikiri-ks':kirikiriKs,hunex,yuris,aquaplus,nscripter,'unity-text':unityText,higurashi,mages,'capcom-msg':capcomMsg,'spike-wad':spikeWad,pwaat,naninovel,catsystem2,rpgmaker,wolf,avg32,'nitro-npk':nitroNpk,'nitro-pak':nitroPak,iga,paz,bruns,'re-pak':rePak,fvp,advhd,reallive,vgprompter,garbro};
+/* E561 signed adapter packs (services/adapter-packs.cjs) go first: a pack exists for a folder only because the readers below
+   did not read it well; a pack that makes a game worse is turned off for that game by adapter-feed.cjs */
+const adapterPack=(()=>{try{return require('../adapter-packs.cjs').engine;}catch{return {id:'adapter-pack',scenes:()=>[],parse:()=>({lines:[],anchors:[]}),sources:()=>[]};}})();
+/* E565 Majiro scenario.arc (.mjo bytecode), E567 TyranoScript (loose / app.asar / NW.js zip; before kirikiri, which would
+   otherwise read its data/scenario/*.ks as plain KAG and keep the #name lines as text): majiro.cjs, tyrano.cjs. */
+/* E568 Softpal ADV (data.pac: SCRIPT.SRC + TEXT.DAT): softpal.cjs. */
+const majiro=require('./majiro.cjs').engine,tyrano=require('./tyrano.cjs').engine,softpal=require('./softpal.cjs').engine;
+/* E570 System-NNN (spt\*.spt), E571 codeX RScript / Liar-soft (scr.xfl .gsc), E572 AST (ARC1/ARC2, generic text scan:
+   last before GARbro): systemnnn.cjs, liar.cjs, ast.cjs. */
+const cmvs=require('./cmvs.cjs').engine,lucifen=require('./lucifen.cjs').engine,kaguya=require('./kaguya.cjs').engine,lcse=require('./lcse.cjs').engine,yuka=require('./yuka.cjs').engine;
+const systemnnn=require('./systemnnn.cjs').engine,liar=require('./liar.cjs').engine,ast=require('./ast.cjs').engine;
+/* E581–E584 group 3: QLIE packs, Entis GLS (NOA + Cotopha .csx), AliceSoft System 3.x (ALD + SCO, System39.ain), Marble (.mbl) */
+const qlie=require('./qlie.cjs').engine,entis=require('./entis.cjs').engine,alicesoft=require('./alicesoft.cjs').engine,marble=require('./marble.cjs').engine;
+/* E585 record-stream family (kit): Tmr-Hiro, NekoSDK, Ikura, ExHIBIT, EAGLS; archive layer + generic scan: Seraph, Interheart */
+const tmrhiro=require('./tmrhiro.cjs').engine,nekosdk=require('./nekosdk.cjs').engine,ikura=require('./ikura.cjs').engine,exhibit=require('./exhibit.cjs').engine,eagls=require('./eagls.cjs').engine,seraph=require('./seraph.cjs').engine,interheart=require('./interheart.cjs').engine;
+const circus=require('./circus.cjs').engine,whale=require('./whale.cjs').engine,ddsystem=require('./ddsystem.cjs').engine,aoi=require('./aoi.cjs').engine,kid=require('./kid.cjs').engine;/* E660–E664 F4b */
+/* E574 RPG Maker XP / VX / VX Ace (RGSSAD + Ruby Marshal, messages through rpgmaker.cjs): rgss.cjs */
+const rgss=require('./rgss.cjs').engine;
+/* E576 Silky's family (Silky Engine, AI6WIN, AI5WIN): silky.cjs */
+const silky=require('./silky.cjs').engine;
+/* E577–E579 group 2: NeXAS (script.pac *.bin), Malie (LIB/LIBU/LIBP + EXEC, per-title keys), ShiinaRio (WARC 1.1 here,
+   keyed WARC through GARbro's scheme database, scenario *.TXT parsed here) */
+const nexas=require('./nexas.cjs').engine,malie=require('./malie.cjs').engine,shiinario=require('./shiinario.cjs').engine;
+/* E610 F1 bundled-asset family (web / NW.js / Electron / zip): webbundle.cjs */
+const webbundle=require('./webbundle.cjs').engines;
+/* E630 F3 game-maker binaries */
+const makers=require('./makers.cjs').ENGINES;
+/* E640–E654 family F4a: Escude, PJADV, Luca System, Stuff (Propeller .msc), STCM2L; archive + generic scan engines */
+const escude=require('./escude.cjs').engine,pjadv=require('./pjadv.cjs').engine,luca=require('./luca.cjs').engine,stuff=require('./stuff.cjs').engine,stcm2=require('./stcm2.cjs').engine;
+const F4A_SCAN=require('./archive-scan.cjs').ENGINES;
+const ENGINES={'adapter-pack':adapterPack,'nitroplus-n4':nitroplusN4,'kirikiri-lang':kirikiriLang,tyrano,kirikiri,artemis,renpy,siglus,'kirikiri-cx':kirikiriCx,'kirikiri-dump':kirikiriDump,'kirikiri-ks':kirikiriKs,hunex,yuris,aquaplus,nscripter,'unity-text':unityText,higurashi,mages,'capcom-msg':capcomMsg,'spike-wad':spikeWad,pwaat,naninovel,catsystem2,rpgmaker,wolf,avg32,'nitro-npk':nitroNpk,'nitro-pak':nitroPak,iga,paz,bruns,'re-pak':rePak,fvp,advhd,reallive,vgprompter,majiro,softpal,systemnnn,liar,rgss,silky,tmrhiro,nekosdk,ikura,exhibit,eagls,ast,seraph,interheart,nexas,malie,shiinario,cmvs,lucifen,kaguya,lcse,yuka,qlie,entis,alicesoft,marble,...webbundle,plaintext:require('./plaintext.cjs').engine,circus,whale,ddsystem,aoi,kid,...makers,escude,pjadv,luca,stuff,stcm2,slg:F4A_SCAN.slg,ism:F4A_SCAN.ism,glib2:F4A_SCAN.glib2,tanuki:F4A_SCAN.tanuki,yaneurao:F4A_SCAN.yaneurao,rits:F4A_SCAN.rits,bluegale:F4A_SCAN.bluegale,cyberworks:F4A_SCAN.cyberworks,dxlib:F4A_SCAN.dxlib,garbro};
 // The engine whose running scripts this folder holds, if any can be read.
 function readable(id,dir){let scenes;try{scenes=ENGINES[id].scenes(dir);}catch{return false;}
  for(const s of scenes.slice(0,64)){try{if(ENGINES[id].parse(s.read()).lines.length)return true;}catch{}}return false;} /* 64: a game may open with many code-only scenes (女王蜂の王房 endings, first.ks) */
-function detect(dir){for(const id of Object.keys(ENGINES))if(readable(id,dir))return id;return null;}
+/* GARbro is the last resort: a folder MeguLit's own cx reader owns (encrypted KiriKiri Z xp3, cache still decrypting)
+   stays unread until that cache is ready instead of going to GARbro (9-nine- Ep4 / ATRI read as garbro). */
+function ownCx(dir){return cxArchives(dir).some(f=>{try{return xp3.list(f)?.files.some(e=>e.encrypted);}catch{return false;}});}
+/* E601 the readers of the engine the registry's fingerprints name are tried first (after an adapter pack), then every
+   reader in order as before, so a folder the fingerprints miss reads exactly as it did */
+function detect(dir){if(readable('adapter-pack',dir))return 'adapter-pack';
+ let hint=[];try{hint=require('./registry.cjs').readersFor(dir).filter(id=>ENGINES[id]&&id!=='garbro');}catch{}
+ for(const id of hint)if(readable(id,dir))return id;
+ for(const id of Object.keys(ENGINES)){if(id==='adapter-pack'||hint.includes(id))continue;if(id==='garbro'&&ownCx(dir))continue;if(readable(id,dir))return id;}return null;}
 function read(id,dir,overlay){const engine=ENGINES[id];
  // E449 a release's Chinese column gets the filled translations of the lines it leaves empty (fill.cjs).
  return engine.scenes(dir).map(s=>{const replaced=overlay?.get(s.name.toLowerCase());let parsed={lines:[],anchors:[]};try{parsed=engine.parse(replaced||s.read());}catch{}return fill.scene({name:s.name,...parsed,patched:!!replaced});});}

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E375 WOLF RPG Editor (Game.exe / GamePro.exe). Its data is Data/ either loose or packed in .wolf archives (DxLib
    DXArchive): Data.wolf for everything, or Data/BasicData.wolf, Data/MapData.wolf ... per folder.
      MapData/*.mps            maps: events, pages, event commands
@@ -60,11 +61,10 @@ function lzDecode(src){const size=src.readUInt32LE(0),end=Math.min(src.length,sr
  return out;}
 
 // ---- Text ---------------------------------------------------------------------------------------------------------
-function dec(b){try{return new TextDecoder('utf-8',{fatal:true}).decode(b);}catch{return new TextDecoder('shift_jis').decode(b);}}
+function dec(b){try{return new TextDecoder('utf-8',{fatal:true}).decode(b);}catch{return kit.SJIS.decode(b);}}
 // One code page for a whole file: UTF-8 (WOLF 3), else Shift-JIS or (a Chinese patch) GBK, whichever reads cleaner.
 function codepage(bufs){const all=Buffer.concat(bufs.slice(0,4000));try{new TextDecoder('utf-8',{fatal:true}).decode(all);return 'utf-8';}catch{}
- const score=enc=>{const t=new TextDecoder(enc).decode(all);return {enc,bad:(t.match(/�/g)||[]).length,kana:(t.match(KANA)||[]).length};};const sj=score('shift_jis'),gbk=score('gbk');
- return sj.bad<gbk.bad||sj.bad===gbk.bad&&sj.kana>=gbk.kana?'shift_jis':'gbk';}
+ /* E577 Shift-JIS vs GBK: kit.codepage */return kit.codepage(all);}
 function clean(text){const ruby=[];let t=String(text??'').replace(/\r/g,'');
  t=t.replace(/\\r\[([^,\]]+),([^\]]+)\]/g,(_,base,reading)=>{ruby.push([base,reading]);return base;});
  t=t.replace(/\\n(?![a-z\[])/g,'\n');

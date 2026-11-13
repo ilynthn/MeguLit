@@ -127,8 +127,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .lib-field .cover-frame{background-col
 /* captions read: larger, brighter, no heavy serif at 12px */
 html:not(#u):not(#v):not(#w):not(#x) body .lib-field .game-caption .mq{font-size:14px!important;letter-spacing:.01em!important;color:#f4e6da!important;text-shadow:0 1px 6px #000c}
 /* the tool capsule is a solid warm surface that lifts off the wall (it was a grey-blue glass that blended into the covers) */
-html:not(#u):not(#v):not(#w):not(#x) body .main>.field-search{background:color-mix(in srgb,#150f12 94%,transparent)!important;border:1px solid color-mix(in srgb,var(--g-gold,#edb56e) 30%,transparent)!important;box-shadow:0 14px 34px -12px #000!important}
-html:not(#u):not(#v):not(#w):not(#x) body .main>.field-search input::placeholder{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 70%,transparent)!important}
 
 /* Detail: the title block (engine, name, last played, actions) is centred against the cover instead of leaving a
    gap above the buttons; the numbers column shares its left edge and width with the technical card below; the
@@ -198,7 +196,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-fig>b{font-size:clamp(34p
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-figs{gap:10px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-kana{opacity:.45}
 html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-index{display:none!important}
-html:not(#u):not(#v):not(#w):not(#x) body .tv-home .tv-dialog .tv-who{display:none!important}
 /* library: deeper vignette so the wall reads as depth, fading at the edges instead of hard cuts; captions in the sans */
 html:not(#u):not(#v):not(#w):not(#x) body #library-results.lib-field::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background:radial-gradient(120% 95% at 50% 50%,transparent 52%,rgba(8,6,8,.55) 82%,rgba(8,6,8,.9) 100%)}
 html:not(#u):not(#v):not(#w):not(#x) body .lib-field .game-caption .mq{font-family:"Segoe UI Variable Text","Microsoft YaHei UI","Yu Gothic UI",system-ui,sans-serif!important;font-weight:600!important}

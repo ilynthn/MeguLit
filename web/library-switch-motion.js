@@ -1,6 +1,8 @@
 // E263: wall <-> simple list switch. Wall gathers to the centre and fades, the list then unrolls top-down like
 // dominoes (and the reverse), each cover with a small pan-crop. Uses individual translate/scale so the wall's own
 // positioning transforms are left alone.
+import {warmGsap} from './gsap-loader.js';
+import {syncMainKids} from './main-kids.js';
 const reduce=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const host=()=>document.querySelector('#library-results');
@@ -22,60 +24,79 @@ const capsule=()=>document.querySelector('.field-search');
 const remeasure=()=>dispatchEvent(new Event('megulit-field-measure'));
 const vignette=(el,out)=>el?.animate(out?[{scale:'1 1',opacity:1},{scale:'1.7 1',opacity:0}]:[{scale:'1.7 1',opacity:0},{scale:'1 1',opacity:1}],{pseudoElement:'::after',duration:out?300:560,easing:out?'cubic-bezier(.55,0,.75,.2)':'cubic-bezier(.2,.8,.2,1)',fill:out?'forwards':'backwards'});
 export const isBusy=()=>busy;
-export async function switchLibrary(toWall,render){
- if(busy)return;busy=true;
+/* 2026-11-13 option v2 "camera through planes" (CS mode): an AE 3D camera move through layered planes.
+   The old view flies past the lens as one plane (scale 1 -> 1.12 on an accelerating in, 160 ms, then drifting on). It is the live, already
+   rastered results layer, so the compositor moves it from the very first frame and keeps moving it while the main
+   thread builds the new view; it stays bright (an object passing the lens, not a dissolve), so a slow build can never leave an empty or muddy frame. On the commit
+   that carries the new view the camera cuts hard (no cross-dissolve): the new plane arrives from depth (scale .9 -> 1, expo-out, 420 ms or what is left of a 600 ms budget), the capsule's ring is there on the cut and the
+   outer covers wash in ring by ring from the capsule outwards (24 ms a ring). (2026-11-14: the blueprint HUD beat with the view's running number is gone: no numbering in the UI, and appending it to #main
+   restyled the whole page in the cut frame.)
+   Reads are batched before writes; every move is transform/opacity only (WAAPI for the planes so they run on the
+   compositor). */
+const FLY=200,ARRIVE=420,BUDGET=600,RING=16,RINGS=5,CARD=340,LIGHT=240,FLOOR=.7; /* 2026-11-13 (user recording, drift -> wall: 铺满的时候有几个地方卡): outer rings started near 0 and came up in 100 ms, which read as covers popping in at the edges; they now start at least 35% lit and rise over 240 ms */
+const EXPO_OUT='cubic-bezier(.16,1,.3,1)',FLY_IN='cubic-bezier(.35,0,.75,.45)'; /* an accelerating in that already reads in the first 100 ms, before the cut */
+warmGsap();
+/* keep the results host on its own compositor layer, so the fly-past starts on the click's first frame instead of
+   waiting for the whole view to be re-rastered as a new layer */
+const promote=()=>{const h=host();if(h&&h.style.willChange!=='transform, opacity')h.style.willChange='transform, opacity';};
+globalThis.requestIdleCallback?.(promote);
+/* one batch of reads: every visible card, the element that carries its own placement (wall cell, orbit slot or the
+   card itself) and its offset from the vanishing point. Rects come from the outer slot: in the grid that slot is the
+   content-visibility box, and measuring a card inside an off-screen one unlocked and laid it out (140 ms for 60) */
+function cells(root,vx,vy){const out=[];if(!root)return out;
+ for(const el of root.querySelectorAll('.library-card')){if(el.closest('[data-parked]'))continue;const r=(el.closest('mg-cell,.field-plane > *,.library-grid > *')||el).getBoundingClientRect();
+  if(!r.width||r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth)continue;const dx=r.left+r.width/2-vx,dy=r.top+r.height/2-vy;
+  out.push({node:el.closest('mg-cell,.field-plane > *')||el,dx,dy,h:Math.hypot(dx,dy)});if(out.length>=160)break;}
+ return out;}
+export async function switchLibrary(view,render,from=''){
+ if(busy)return;busy=true;const toWall=view!=='list',t0=performance.now();
  try{
-  if(reduce()){await render();return;}
-  const root=host(),cards=visible(root),anims=[];
-  // E269: capsule glides on its own 50ms after the click, toward the spot it last had in the other layout (remembered,
-  // never measured by toggling classes, which flashed the page)
-  let capAnim=null;
-  const capTimer=setTimeout(()=>{const cap=capsule(),target=spots[toWall?'wall':'list'];if(!cap||!target)return;const a=cap.getBoundingClientRect();
-   const dx=target.x-(a.left+a.width/2),dy=target.y-(a.top+a.height/2);cap.style.transition='none';
-   if(Math.abs(dx)+Math.abs(dy)>1)capAnim=cap.animate([{translate:'0 0'},{translate:`${dx}px ${dy}px`}],{duration:480,easing:'cubic-bezier(.22,.9,.24,1)',fill:'forwards'});},50);
-  {const c=capsule()?.getBoundingClientRect();if(c)spots[toWall?'list':'wall']={x:c.left+c.width/2,y:c.top+c.height/2};}
-  if(root&&!toWall){
-   const v=vignette(root,true);if(v)anims.push(v);
-   const [cx,cy]=centre(root);
-   for(const el of cards){const r=el.getBoundingClientRect(),dx=cx-(r.left+r.width/2),dy=cy-(r.top+r.height/2),d=Math.hypot(dx,dy);
-    anims.push(el.animate([{translate:'0 0',scale:1,opacity:1},{translate:`${dx*.75}px ${dy*.75}px`,scale:.5,opacity:0}],{duration:300,delay:Math.max(0,180-d*.22),easing:'cubic-bezier(.55,0,.75,.2)',fill:'forwards'}));}
-  }else if(root){
-   const tops=cards.map(el=>el.getBoundingClientRect().top),minTop=Math.min(...tops);
-   cards.forEach((el,i)=>{const r=el.getBoundingClientRect(),order=(tops[i]-minTop)*.5+r.left*.06;
-    anims.push(el.animate([{clipPath:'inset(0 0 0 0)',translate:'0 0',opacity:1},{clipPath:'inset(0 0 100% 0)',translate:'0 -16px',opacity:0}],{duration:240,delay:Math.max(0,160-order*.4),easing:'cubic-bezier(.55,0,.75,.2)',fill:'forwards'}));});
-  }
-  // E273: overlap — the new layout starts while the old one is still leaving, so the background never stands empty
-  await Promise.race([settle(anims),new Promise(r=>setTimeout(r,200))]);
-  // FLIP the whole capsule synchronously (render is synchronous), with its own transform transition paused, so it
-  // never jumps first and then slides
-  clearTimeout(capTimer);
-  const cap=capsule(),seen=cap?.getBoundingClientRect(),left=capAnim&&capAnim.playState!=='finished'?Math.max(120,480-(capAnim.currentTime||0)):0;
-  if(cap)cap.style.transition='none';capAnim?.cancel();
-  render();
-  if(toWall){remeasure();vignette(host(),false);}
-  const now=capsule();
-  {const r=now?.getBoundingClientRect();if(r)spots[toWall?'wall':'list']={x:r.left+r.width/2,y:r.top+r.height/2};}
-  if(now&&seen){const to=now.getBoundingClientRect(),dx=seen.left+seen.width/2-(to.left+to.width/2),dy=seen.top+seen.height/2-(to.top+to.height/2);
-   now.style.transition='none';
-   if(Math.abs(dx)+Math.abs(dy)>1){const m=now.animate([{translate:`${dx}px ${dy}px`},{translate:'0 0'}],{duration:left||240,easing:'cubic-bezier(.22,.9,.24,1)'});m.finished.catch(()=>{}).finally(()=>{now.style.transition='';if(toWall)remeasure();});}else now.style.transition='';}
-  const pending=host();pending?.classList.add('lib-entering');
-  await frame();
-  if(toWall){remeasure();await frame();}
-  const next=host(),incoming=next?[...next.querySelectorAll('.library-card')].filter(el=>!el.closest('[data-parked]')).slice(0,400):[];if(!next){pending?.classList.remove('lib-entering');return;}
-  if(!toWall){
-   const tops=incoming.map(el=>el.getBoundingClientRect().top),minTop=Math.min(...tops);
-   incoming.forEach((el,i)=>{const r=el.getBoundingClientRect(),delay=Math.min(220,(tops[i]-minTop)*.3+(r.left-next.getBoundingClientRect().left)*.06);
-    el.animate([{clipPath:'inset(0 0 100% 0)',translate:'0 -14px',opacity:0},{clipPath:'inset(0 0 0 0)',translate:'0 0',opacity:1}],{duration:420,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
-    cover(el)?.animate([{scale:1.18,translate:'0 -5%'},{scale:1,translate:'0 0'}],{duration:640,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});});
-  }else{
-   wallIn(next,incoming);
-  }
- next.classList.remove('lib-entering');
+  const root=host();
+  if(!root||reduce()){render();if(toWall)remeasure();return;}
+  /* reads (old plane) */
+  const cap0=capsule()?.getBoundingClientRect(),b0=root.getBoundingClientRect();
+  const [ox,oy]=cap0?[cap0.left+cap0.width/2,cap0.top+cap0.height/2]:centre(root);
+  /* writes: the old plane flies past the lens around the capsule */
+  root.style.transformOrigin=`${ox-b0.left}px ${oy-b0.top}px`;
+  /* 160 ms to 1.12, then a slow drift on toward the lens, so a long build never freezes the frame before the cut */
+  const fly=root.animate([{scale:1,easing:FLY_IN},{scale:1.12,offset:.4},{scale:1.17}],{duration:FLY*2,fill:'forwards'});
+  const dim=root.animate([{opacity:1,easing:'cubic-bezier(.5,0,.9,.5)'},{opacity:FLOOR,offset:.4},{opacity:FLOOR*.8}],{duration:FLY*2,fill:'forwards'});
+  /* wait until the fly-past runs on the compositor (rAF alone can run ahead of the commit), so it keeps playing
+     through the render below */
+  await Promise.race([fly.ready,new Promise(r=>setTimeout(r,48))]);await new Promise(r=>requestAnimationFrame(r));
+  const cap=capsule();if(cap)cap.style.transition='none';
+  /* the cut: the fly-past ends in the same task as the render, so the screen keeps the flying plane until the commit that
+     carries the new view, and the wall measures itself against an untransformed host */
+  fly.cancel();dim.cancel();root.style.transformOrigin='';
+  /* 2026-11-14 (CDP trace, tracks -> wall 190-290 ms): main-kids.js mirrors #main's children onto body from a MutationObserver,
+     which ran after this task's layout and restyled the whole page a second time (~2900 elements, 65-80 ms) in the same frame;
+     syncing here lets the one forced layout below see the final attributes */
+  window.__megulitOrbitWarm=true;render();syncMainKids(document.getElementById('main'));if(toWall)remeasure();
+  /* reads (new plane), still in the same task, so the cut and the arrival reach the screen in one commit */
+  const next=host(),cap1=capsule()?.getBoundingClientRect();
+  const [nx,ny]=cap1?[cap1.left+cap1.width/2,cap1.top+cap1.height/2]:[ox,oy];
+  const b1=next?.getBoundingClientRect(),fresh=next?cells(next,nx,ny):[],far=Math.max(1,...fresh.map(c=>c.h));
+  /* a slow build eats into the arrival, never into the 600 ms budget (the arrival keeps at least 300 ms) */
+  const arrive=Math.round(Math.max(300,Math.min(ARRIVE,BUDGET-(performance.now()-t0)))),card=arrive-(ARRIVE-CARD);
+  /* writes: cut. Capsule glides into the frame, the new plane arrives from depth, rings wash in */
+  const now=capsule(),runs=[];
+  if(now&&cap0&&cap1){const dx=ox-nx,dy=oy-ny;
+   if(Math.abs(dx)+Math.abs(dy)>1)runs.push(now.animate([{translate:`${dx}px ${dy}px`},{translate:'0 0'}],{duration:arrive,easing:EXPO_OUT}).finished.catch(()=>{}).finally(()=>{now.style.transition='';if(toWall)remeasure();}));
+   else now.style.transition='';}
+  if(next){next.style.transformOrigin=`${nx-b1.left}px ${ny-b1.top}px`;
+   runs.push(next.animate([{scale:.9},{scale:1}],{duration:arrive,easing:EXPO_OUT}).finished.catch(()=>{}));
+   for(const c of fresh){const ring=Math.min(RINGS,Math.floor(c.h/far*(RINGS+1))),pull=.08+ring*.012;
+    const o=c.node.style.opacity||1,delay=ring*RING;
+    /* opacity lands fast (no muddy half-lit covers), the push toward the lens runs the full expo-out */
+    c.node.animate([{opacity:Math.max(.35,1-ring*.13)*o},{opacity:o}],{duration:LIGHT,delay,easing:'cubic-bezier(.25,.1,.25,1)',fill:'backwards'});
+    c.node.animate([{translate:`${-c.dx*pull}px ${-c.dy*pull}px`},{translate:'0px 0px'}],{duration:card,delay,easing:EXPO_OUT,fill:'backwards'});}}
+  /* safety net: measure once more after everything has settled (layout-based, so it never re-seats the wall) */
   if(toWall)setTimeout(remeasure,760);
-  // safety: once everything has played, no animation may keep holding a card or cover
-  setTimeout(()=>{for(const el of document.querySelectorAll('#library-results .library-card,#library-results .cover-frame img,#library-results .cover-frame .cover'))for(const a of el.getAnimations())if(a.playState==='finished'||a.effect?.getComputedTiming?.().fill==='forwards')a.cancel();},1600);
- }finally{busy=false;host()?.classList.remove('lib-entering');}
+  await Promise.race([Promise.all(runs),new Promise(r=>setTimeout(r,arrive+80))]);
+  if(next)next.style.transformOrigin='';
+ }finally{busy=false;window.__megulitOrbitWarm=false;promote();const h=host();h?.classList.remove('lib-entering');h?.getAnimations().forEach(a=>{if(a.playState!=='running')a.cancel();});}
 }
+
 
 /* v1.1.6 (user: switching back to the wall, and opening the library, must gather from the outside in, not spread out
    from the centre): cards start further out from the centre, a little larger and transparent, and settle inward; the

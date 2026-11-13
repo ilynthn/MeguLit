@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E330 AQUAPLUS / Leaf KCAP archives (WHITE ALBUM2). script.pak holds one <scene>.txt string table per scene next to its
    compiled .bnr: the strings in order, separated by commas, as Shift-JIS. Strings with any non-ASCII character are text
    (dialogue, narration, names); the ASCII ones are anchors (mv01, sepia.AMP, B123.tga). In the text, <R漢字|よみ> is
@@ -13,27 +14,19 @@ const fs=require('node:fs'),path=require('node:path');
 const {stat}=require('./file-key.cjs');
 const listMemo=new Map();
 // Index: "KCAP", 2 words, count, then 44-byte entries (compressed flag, 24-byte name, crc, unpacked size, offset, size).
-function kcapList(file){const key=file+'|'+stat(file);if(listMemo.has(key))return listMemo.get(key);let out=null,fd;
- try{fd=fs.openSync(file,'r');const size=fs.fstatSync(fd).size,head=Buffer.alloc(16);fs.readSync(fd,head,0,16,0);
-  if(head.toString('latin1',0,4)==='KCAP'){const n=head.readUInt32LE(12);if(n>0&&n<200000&&16+n*44<=size){const idx=Buffer.alloc(n*44);fs.readSync(fd,idx,0,idx.length,
-   16);out=[];
-   for(let i=0;i<n;i++){const p=i*44,e={compressed:idx.readUInt32LE(p)===1,name:idx.toString('latin1',p+4,p+28).replace(/\0[\s\S]*$/,''),size:idx.readUInt32LE(p+32),
-    offset:idx.readUInt32LE(p+36),packed:idx.readUInt32LE(p+40)};
-    if(e.offset+e.packed>size){out=null;break;}out.push(e);}}}
- }catch{out=null;}finally{if(fd!==undefined)fs.closeSync(fd);}
+/* E577 the KCAP index is a kit table: 44-byte entries {u32 compressed (1), name[24], 4, u32 size, u32 offset, u32 packed} */
+const KCAP_TABLE={magic:'KCAP',count:{at:12,type:'u32le'},entries:16,encoding:'latin1',
+ fields:[{name:'flags',type:'u32le'},{name:'name',type:'cstr',size:24},{type:'skip',size:4},{name:'unpacked',type:'u32le'},{name:'offset',type:'u32le'},{name:'size',type:'u32le'}]};
+function kcapList(file){const key=file+'|'+stat(file);if(listMemo.has(key))return listMemo.get(key);let out=null;
+ try{const l=kit.table(file,KCAP_TABLE);if(l&&l.length)out=l.map(e=>({compressed:e.flags===1,name:e.name,size:e.unpacked,offset:e.offset,packed:e.size}));}catch{out=null;}
  listMemo.set(key,out);if(listMemo.size>32)listMemo.delete(listMemo.keys().next().value);return out;}
 // Leaf LZSS: 4 KiB window from 0xFEE, flag bits LSB first (1 = literal), references 12-bit offset + 4-bit length + 3.
-function lzss(src,start,outLen){const win=Buffer.alloc(4096),out=Buffer.alloc(outLen);let wp=0xfee,o=0,p=start;
- while(p<src.length&&o<outLen){let f=src[p++];
-  for(let b=0;b<8&&p<src.length&&o<outLen;b++,f>>=1){
-   if(f&1){const c=src[p++];out[o++]=c;win[wp]=c;wp=(wp+1)&4095;}
-   else{if(p+1>=src.length)break;const lo=src[p++],hi=src[p++],off=lo|(hi&0xf0)<<4,len=(hi&15)+3;for(let k=0;k<len&&o<outLen;k++){const c=win[(off+k)&4095];out[o++]=c;
-    win[wp]=c;wp=(wp+1)&4095;}}}}
- return out.subarray(0,o);}
-function kcapRead(file,e){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(e.packed);fs.readSync(fd,b,0,e.packed,e.offset);
- if(!e.compressed)return b;const len=b.length>=8?b.readUInt32LE(4):0;return lzss(b,8,len>0&&len<64<<20?len:e.size);}finally{fs.closeSync(fd);}}
+/* E577 the common LZSS variant (kit.lzss defaults) */
+const lzss=(src,start,outLen)=>kit.lzss(src.subarray(start),outLen);
+function kcapRead(file,e){const b=kit.readAt(file,e.offset,e.packed);
+ if(!e.compressed)return b;const len=b.length>=8?b.readUInt32LE(4):0;return lzss(b,8,len>0&&len<64<<20?len:e.size);}
 const TXT=n=>/^\d[\w]*\.txt$/i.test(n);
-const sjis=new TextDecoder('shift_jis');
+const sjis=kit.SJIS;
 const RUBY=/<R([^|>]*)\|([^>]*)>/g;
 // E461 <F16…> and <W10…> wrap text (font size, wait): the tag and its closing > are dropped, the text kept
 function clean(t){return t.replace(RUBY,'$1').replace(/<[A-Za-z]+\d*>?/g,'').replace(/>/g,'').replace(/\\n/g,'\n');}

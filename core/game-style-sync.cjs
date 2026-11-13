@@ -28,6 +28,9 @@ function combine(samples){
    if(gradients.length>=Math.ceil(list.length*.6)){style[prefix+'Gradient']=true;for(const side of ['Top','Bottom'])style[prefix+'Gradient'+side]=colour(gradients.map(s=>({style:{textColor:s.style['textGradient'+side]}})));}
    else style[prefix+'Gradient']=false;};
  if(textColor)style.textColor=textColor;if(readTextColor)style.readTextColor=readTextColor;
+ /* E550 the measured colour also belongs to the kind of line it was measured on (speech in 「」 / narration): games like
+    ファタモルガーナの館 draw narration grey and speech white, and the reader paints later lines of each kind with their own colour. */
+ {const kinds=[...new Set((unread.length?unread:valid).map(s=>s.lineKind))];if(textColor&&kinds.length===1&&['speech','narration'].includes(kinds[0]))style[kinds[0]+'TextColor']=textColor;}
  palette(unread,'text');palette(read,'readText');
  if(!unread.length&&read.length){style.readTextColor=textColor;delete style.textColor;}
  if(style.textColor&&style.readTextColor&&inverted(style.textColor,style.readTextColor)){style.readTextColor='';style.readTextGradient=false;}
@@ -101,7 +104,7 @@ class GameStyleSync{
    if(m.id!==pending.id||!m.result?.valid||missingColor){this.emit({type:'gameStyleStatus',gameStylePreview:false});const retry=this.calibrating&&(this.sampleAttempts||0)<3;this.status(this.calibrating?(retry?'waitingOriginal':'unmatched'):'unmeasured',{gameStyleReason:missingColor?'text-color-unavailable':m.result?.reason||m.error||'unmeasured',gameStyleElapsedMs:m.elapsedMs,gameStyleAttempt:this.sampleAttempts||1,gameStyleAttemptLimit:3});if(retry)this.request(true);return;}
    this.emit({type:'gameStyleStatus',gameStylePreview:false});
    if(!this.calibrating){this.samples=[m.result];this.publish();return;}
-   let sourceToken=2166136261;for(let i=0;i<this.source.length;i++)sourceToken=Math.imul(sourceToken^this.source.charCodeAt(i),16777619);m.result.sourceToken=this.sourceEngine==='cs2'?islandSource.token(this.source):sourceToken>>>0;m.result.read=this.sourceRead===true;this.samples.push(m.result);this.status('sampling',{gameStyleSamples:this.samples.length,gameStyleElapsedMs:m.elapsedMs});
+   let sourceToken=2166136261;for(let i=0;i<this.source.length;i++)sourceToken=Math.imul(sourceToken^this.source.charCodeAt(i),16777619);m.result.sourceToken=this.sourceEngine==='cs2'?islandSource.token(this.source):sourceToken>>>0;m.result.read=this.sourceRead===true;m.result.lineKind=gameStyle.lineKind?gameStyle.lineKind(this.source):'';this.samples.push(m.result);this.status('sampling',{gameStyleSamples:this.samples.length,gameStyleElapsedMs:m.elapsedMs});
    // One complete visible sentence is enough; no requirement to advance through several different lines.
    if(this.samples.length>=NEEDED)this.publish();});
   const failed=()=>{if(this.child!==child)return;this.emit({type:'gameStyleStatus',gameStylePreview:false});this.child=null;this.pending=null;clearTimeout(this.timeout);this.status('unavailable');};child.on('error',failed);child.on('exit',failed);return true;}

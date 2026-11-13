@@ -1,5 +1,9 @@
 import {activityCells} from './learning-activity.js';
 import {openLinesPicker} from './home-lines.js';
+import {createDepth,markFlat,cachedDaily,rememberDaily,dailyIsFresh,dailySignature,cachedActivity,rememberActivity} from './home-depth.js';
+import {createHand} from './home-hand.js';
+import {createDock,openHandPicker,HAND_MAX} from './home-picker.js';
+import {pickHeadline,cachedHeadline,translateHeadline,headlineLabel,activitySummary,emptyActivityHTML} from './home-today.js';
 
 const copy={
  zh:{tipClick:'单击',tipDetail:'作品详情',tipDbl:'双击',tipDraw:'抽一张',daily:'每日热点',streak:'最长连续',figRead:'累计阅读',figChars:'读过的字',figWords:'关联单词',last:'上次',coverHint:'单击查看详情 · 双击抽卡',
@@ -33,8 +37,8 @@ export function cleanShowcase(value){const v=value&&typeof value==='object'?valu
 
 export function showcaseGames(games,setting){const sc=cleanShowcase(setting),available=games.filter(g=>g.available!==false&&!sc.hidden.includes(g.id)),by=id=>available.find(g=>g.id===id),
  when=g=>g.lastLaunchedAt||g.lastPlayedAt||0,recent=[...available].sort((a,b)=>when(b)-when(a)),pinned=sc.pinned.map(by).filter(Boolean);
- if(sc.mode==='pick'){const picked=sc.order.map(by).filter(Boolean);if(picked.length)return [...pinned,...picked.filter(g=>!pinned.includes(g))];}
- return [...pinned,...recent.filter(g=>!pinned.includes(g))].slice(0,8);}
+ if(sc.mode==='pick'){const picked=sc.order.map(by).filter(Boolean);if(picked.length)return [...pinned,...picked.filter(g=>!pinned.includes(g))].slice(0,HAND_MAX);}
+ return [...pinned,...recent.filter(g=>!pinned.includes(g))].slice(0,HAND_MAX);}
 
 function palette(game){if(palettes.has(game.id))return Promise.resolve(palettes.get(game.id));const fallback=['#d05b34','#edb56e','#3b4a8c'];if(!game.cover)return Promise.resolve(fallback);
  return new Promise(done=>{const img=new Image();img.onload=()=>{try{const c=document.createElement('canvas');c.width=c.height=24;const x=c.getContext('2d',{willReadFrequently:true});
@@ -168,8 +172,9 @@ function deal(cover,background,animate,mode='draw'){const flip=cover.querySelect
   transform:'none'}],{duration:760,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});a.finished.then(()=>{artEl.style.background=background;fresh.remove();},
   ()=>fresh.remove());return 260;}
  const outDir=rnd(0,Math.PI*2),outDur=rnd(360,460);
- const old=document.createElement('div');old.className='tv-old';old.style.background=artEl.style.background;outLayer(cover).appendChild(old);
- old.animate([{transform:'none',opacity:1},{transform:`translate(${Math.cos(outDir)*18}%,${Math.sin(outDir)*14}%) rotate(${rnd(-12,12)}deg) scale(.97)`,opacity:.9,
+ /* a field card that goes back into the hand (cover.dataset.stow, set by the draw) flies there itself; only a card that is not in the hand is thrown off */
+ const stowed=cover.dataset.stow==='1';delete cover.dataset.stow;const old=document.createElement('div');old.className='tv-old';old.style.background=artEl.style.background;if(!stowed)outLayer(cover).appendChild(old);
+ if(!stowed)old.animate([{transform:'none',opacity:1},{transform:`translate(${Math.cos(outDir)*18}%,${Math.sin(outDir)*14}%) rotate(${rnd(-12,12)}deg) scale(.97)`,opacity:.9,
   offset:.35},{transform:`translate(${Math.cos(outDir)*rnd(120,160)}%,${Math.sin(outDir)*rnd(90,120)}%) rotate(${rnd(-50,50)}deg) scale(${rnd(.75,.9)})`,opacity:0}],
   {duration:outDur,easing:'cubic-bezier(.4,0,.6,1)',fill:'forwards'}).finished.then(()=>old.remove(),()=>old.remove());
  artEl.style.background=background;
@@ -209,7 +214,8 @@ export const DRAW_NAMES=Object.keys(DRAWS);
 
 /* 2026-11-13 judges round 2: a title like "English (日本語)" shows the first part big and the bracketed name as a line under it; the big title stays at two lines at most and no larger than ~5vw */
 function splitTitle(t){const m=String(t||'').match(/^(.+?)\s*[（(]([^（）()]+)[）)]\s*$/u);return m&&m[1].trim().length>1?[m[1].trim(),m[2].trim()]:[String(t||''),''];}
-function fitTitle(h){const max=Math.min(96,Math.max(40,innerWidth*.05));let size=max;h.style.fontSize=size+'px';const limit=()=>h.scrollHeight>size*1.12*2+size*.3||h.scrollWidth>h.clientWidth+2;
+/* 2026-11-13 (user: "不要左侧这么大一个作品名了") the game name is only the fallback when there is no daily headline, and it stays mid-sized */
+function fitTitle(h){const max=Math.min(56,Math.max(30,innerWidth*.03));let size=max;h.style.fontSize=size+'px';const limit=()=>h.scrollHeight>size*1.12*2+size*.3||h.scrollWidth>h.clientWidth+2;
  while(limit()&&size>26){size-=4;h.style.fontSize=size+'px';}}
 
 function tweenFig(el,to,fmt){if(!el)return;const from=+el.dataset.v||0;el.dataset.v=to;cancelAnimationFrame(+el.dataset.raf||0);if(matchMedia('(prefers-reduced-motion:reduce)').matches||from===to){
@@ -224,8 +230,9 @@ function glowTo(fn,g){if(!fn)return;const layer=document.querySelector('.grimoir
 
 const SENSITIVE_WORD=()=>{const l=document.documentElement.lang||'';return l.startsWith('ja')?'センシティブな内容':l.startsWith('en')?'Sensitive content':'敏感内容';},HOT_WORD=()=>{
  const l=document.documentElement.lang||'';return l.startsWith('ja')?'今日のトップ':l.startsWith('en')?'Top story today':'今日热点';};
-function fitLeft(root){const left=root.querySelector('.tv-left'),title=root.querySelector('.tv-title');if(!left||!title)return;/* 2026-11-13 (user: after a draw the heat map was gone): a title not laid out yet (mid card change) measures 0 high, which hid every block; measure only a laid-out title */if(!title.getBoundingClientRect().height)return;
- /* 2026-11-12 (user: "还有我说的封面呢") the day's top news cover is kept longest: the small blocks go first, then the cover gets compact, and only then goes *//* 2026-11-13 (user: "大封面呢"): the title box reaches far above its letters (tall glyph cells), so blocks were hidden over empty space; compare with where the title's text is actually drawn */const inkTop=(()=>{
+function fitLeft(root){const left=root.querySelector('.tv-left'),title=root.querySelector('.tv-title');if(!left)return;/* 2026-11-13 (user: "左下角不要字") the game name is hidden while the library has games; the column then reaches down to the bottom bar */
+ const titleShown=!!title&&getComputedStyle(title).display!=='none',bar=root.querySelector('.tv-dialog');if(titleShown||!bar){if(!title)return;/* 2026-11-13 (user: after a draw the heat map was gone): a title not laid out yet (mid card change) measures 0 high, which hid every block; measure only a laid-out title */if(!title.getBoundingClientRect().height)return;}
+ /* 2026-11-12 (user: "还有我说的封面呢") the day's top news cover is kept longest: the small blocks go first, then the cover gets compact, and only then goes *//* 2026-11-13 (user: "大封面呢"): the title box reaches far above its letters (tall glyph cells), so blocks were hidden over empty space; compare with where the title's text is actually drawn */const inkTop=!titleShown?bar.getBoundingClientRect().top:(()=>{
  let top=Infinity;const walk=document.createTreeWalker(title,NodeFilter.SHOW_TEXT),range=document.createRange();for(let n=walk.nextNode();n;n=walk.nextNode()){if(!n.nodeValue.trim())continue;
  range.selectNodeContents(n);for(const r of range.getClientRects())if(r.width>0&&r.height>0)top=Math.min(top,r.top);}return Number.isFinite(top)?top:title.getBoundingClientRect().top;
  })(),fits=()=>left.getBoundingClientRect().bottom<=inkTop-14,hot=left.querySelector('.tv-hot-news'),parts=['.tv-heatsum','.tv-daily','.tv-hot-news','.tv-heat-card'].map(s=>left.querySelector(s)).filter(Boolean);
@@ -244,8 +251,7 @@ export function cardify(card){const face=card.querySelector('.tv-face');let pres
  card.addEventListener('pointerleave',()=>{pressed=false;last=null;card.classList.remove('touch');face.style.transition='transform .7s cubic-bezier(.2,1.6,.4,1)';
   face.style.transform='';});}
 
-export function stopHomeTV(){if(!live)return;clearTimeout(live.timer);clearInterval(live.beat);clearInterval(live.typer);live.root?.removeEventListener('mousemove',
- live.move);live=null;}
+export function stopHomeTV(){if(!live)return;clearTimeout(live.timer);clearInterval(live.beat);clearInterval(live.typer);live.depth?.stop();live.hand?.stop();live=null;}
 
 export function homeTVSignature(model){return JSON.stringify([model.games.map(g=>[g.id,g.available,g.cover?.length,g.title,g.lastPlayedAt,g.readingSeconds,g.characters,
  g.learnedWords]),model.stats,model.preferences.homeShowcase,model.preferences.username]);}
@@ -259,19 +265,18 @@ export function renderHomeTV(main,ctx){
  const mins=s=>{const m=Math.floor((s||0)/60);return m>=60?`${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}`:`${m}m`;};
  main.innerHTML=`<div class="tv-home" tabindex="-1"><div class="tv-pile" aria-hidden="true"></div><div class="tv-canvas">
   <div class="tv-plane" data-z="-200"><div class="tv-tl"></div></div>
-  <div class="tv-plane" data-z="-80"><div class="tv-kana"></div><div class="tv-index"></div><div class="tv-ring"></div></div>
+  <div class="tv-plane" data-z="-80"><div class="tv-kana"></div><div class="tv-ring"></div></div>
   <div class="tv-plane" data-z="0"><div class="tv-slices"></div><div class="tv-script"></div><button type="button" class="tv-lines-edit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg><span></span></button></div>
-  <div class="tv-plane" data-z="60"><div class="tv-cover tv-card"><div class="tv-flip"><div class="tv-face"><div class="tv-art"></div><i class="tv-foil"></i><i class="tv-glare"></i></div><div class="tv-back"><img src="${LOGO}" alt=""><i></i><i></i><i></i><i></i></div></div></div></div></div>
-  <div class="tv-scan"></div><div class="tv-grain"></div><div class="tv-marks"><i></i><i></i><i></i><i></i></div><div class="tv-scene"></div>
-  <div class="tv-left"><div class="tv-clock"><span>${esc(date)}</span><b>${esc(greeting)}</b></div><div class="tv-heat-card tv-card"><div class="tv-face"><button class="tv-heatlink" data-go="activity"></button><div class="tv-heat"></div><div class="tv-heatsum"></div><button class="tv-daily" data-go="daily"><i aria-hidden="true"></i><span class="tv-daily-k">${w.daily}</span><span class="tv-daily-t"></span><small>→</small></button><div class="tv-daily-pics"></div><i class="tv-glare"></i></div></div></div>
+  <div class="tv-plane" data-z="60"><div class="tv-cover tv-card"><i class="tv-cshadow" aria-hidden="true"></i><div class="tv-flip"><div class="tv-face"><div class="tv-art"></div><i class="tv-foil"></i><i class="tv-glare"></i></div><div class="tv-back"><img src="${LOGO}" alt=""><i></i><i></i><i></i><i></i></div></div></div></div></div>
+  <div class="tv-scan"></div><div class="tv-grain"></div><div class="tv-marks"><i></i><i></i><i></i><i></i></div>
+  <div class="tv-left"><div class="tv-clock"><span>${esc(date)}</span><b>${esc(greeting)}</b></div><div class="tv-heat-card tv-card"><div class="tv-face"><button class="tv-heatlink" data-go="activity"></button><div class="tv-heat"></div><div class="tv-heat-none" hidden></div><div class="tv-heatsum"></div><button class="tv-daily" data-go="daily"><i aria-hidden="true"></i><span class="tv-daily-k">${w.daily}</span><span class="tv-daily-t"></span><small>→</small></button><div class="tv-daily-pics"></div><i class="tv-glare"></i></div></div></div>
   
   <div class="tv-figs"><button class="tv-fig" data-go="statistics"><b data-fig="time">0m</b><small>${w.figRead}</small></button><button class="tv-fig" data-go="detail"><b data-fig="chars">0</b><small>${w.figChars}</small></button><button class="tv-fig" data-go="words"><b data-fig="words">0</b><small>${w.figWords}</small></button><button class="tv-more" data-go="statistics">${w.full} →</button></div>
   <div class="tv-title"><div class="tv-h1" role="heading" aria-level="1"></div><div class="tv-meta"></div></div>
-  <div class="tv-rail"></div>
-  <div class="tv-dialog"><span class="tv-who"></span><span class="tv-line"></span><div class="tv-act"><button class="tv-btn primary tv-play" data-act="play" title="">${w.play}</button><button class="tv-btn" data-act="detail">${w.detail}</button><button class="tv-btn" data-go="library">${w.all}</button></div></div>
-  <section class="tv-drawer" aria-label="${w.title}"><h2>${w.title} <small>${w.sub}</small></h2><button class="tv-close">${w.close} ✕</button><div class="tv-mode"><button data-m="auto">${w.auto}</button><button data-m="pick">${w.pick}</button><input class="tv-search" type="search" placeholder="${w.search}" aria-label="${w.search}"></div><div class="tv-list"></div><div class="tv-hint"></div></section></div>`;
+  <div class="tv-hand"></div><div class="tv-ghosts" aria-hidden="true"></div>
+  <div class="tv-dialog"><span class="tv-who"></span><span class="tv-line"></span><div class="tv-act"></div></div></div>`;
  const root=main.querySelector('.tv-home'),$=s=>root.querySelector(s);
- live={root,timer:0,beat:0,typer:0,move:null};
+ live={root,timer:0,beat:0,typer:0,depth:null};
  const art=(g,p)=>g.cover?`url("${String(g.cover).replace(/"/g,'%22')}") center/cover`:`linear-gradient(160deg,${p[0]},${p[2]} 70%)`;
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{const to=b.dataset.go;if(to==='detail'){if(shown)onDetail(shown.id);return;}if(to==='words')navigate('learning',
   'words');else if(to==='activity')navigate('statistics');else navigate(to);}));
@@ -281,10 +286,15 @@ export function renderHomeTV(main,ctx){
   b.addEventListener('click',()=>{const g=shown;if(!g)return;openLinesPicker({api,locale,esc,game:g,shown:shownLines,relativeTime,onSave:async chosen=>{const d=await detail(api,
    g.id,locale);d.homeLines=chosen;if(shown!==g||!live||live.root!==root)return;const pick=homeLinesFor(d);shownLines=pick.lines.slice(-5);b.classList.toggle('custom',
    pick.custom);swapScript($('.tv-script'),shownLines,type);type(pick.lines[0]||'');}});});}
- $('[data-act="play"]')?.addEventListener('click',e=>shown&&onLaunch(shown.id,e.currentTarget));
+ /* 2026-11-13 (user: no 「继续游玩」 button on home cards, 禁止) covers stay artwork and title only; launching lives on the detail page */
  $('[data-act="detail"]')?.addEventListener('click',()=>shown&&onDetail(shown.id));
- const type=s=>{clearInterval(live.typer);let n=0;const line=$('.tv-line');line.textContent='';if(!s)return;live.typer=setInterval(()=>{line.textContent='「'+s.slice(0,
-  ++n)+(n<s.length?'':'」');if(n>=s.length)clearInterval(live.typer);},55);};
+ /* 2026-11-13 (user: "左下角显示小字作品名 … 把之前删掉的那个动效…拿回来 放左下角最下面 点缀一下") the bottom bar is back as a quiet accent: the game name in
+    small type rises in letter by letter, then one of its lines types itself out */
+ const type=s=>{clearInterval(live.typer);let n=0;const line=$('.tv-line');if(!line)return;line.textContent='';line.classList.toggle('typing',!!s);if(!s)return;
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){line.textContent='「'+s+'」';line.classList.remove('typing');return;}
+  live.typer=setInterval(()=>{line.textContent='「'+s.slice(0,++n)+(n<s.length?'':'」');if(n>=s.length){clearInterval(live.typer);line.classList.remove('typing');}},55);};
+ const nameIn=g=>{const who=$('.tv-who');if(!who)return;who.classList.remove('in');who.innerHTML=[...String(g.title||'')].map((c,i)=>`<i style="transition-delay:${Math.min(i,40)*22}ms">${esc(c)}</i>`).join('');
+  who.title=g.title+(g.lastPlayedAt?` · ${w.last} · ${relativeTime(g.lastPlayedAt)}`:'');void who.offsetWidth;requestAnimationFrame(()=>who.classList.add('in'));};
  const max=Math.max(1,...model.games.map(g=>g.characters||0));
  async function paint(i,flash=true,mode='draw'){
   const g=typeof i==='object'?i:list[i];if(!root.isConnected){if(live?.root===root)stopHomeTV();return;}if(!g||!live||live.root!==root)return;shown=g;cur=list.indexOf(g);
@@ -297,7 +307,7 @@ export function renderHomeTV(main,ctx){
   const k=(g.title.length*37+pool.indexOf(g)*13)%60,picked=homeLinesFor(d),sentences=picked.lines,words=(d.words||[]).filter(x=>x.spelling).slice(0,10),sessions=d.sessions||[];
   $('.tv-kana').textContent=[...g.title].find(c=>/[一-鿿぀-ヿ]/.test(c))||([...g.title].find(c=>/[A-Za-z0-9]/.test(c))||g.title.slice(0,1)).toUpperCase();
   if(!g.cover)$('.tv-art').style.background=art(g,p);/* 2026-11-13 user: a coverless draw showed a bare gradient — write the cleaned title on it */{const nm=String(g.title||'').replace(/\[[^\]]*\]|\([^)]*\)|【[^】]*】/g,
-   ' ').replace(/\s+/g,' ').trim()||g.title||'';$('.tv-art').innerHTML=g.cover?'':`<span class="tv-art-name" lang="ja">${esc(nm)}</span>`;}$('.tv-play').title=g.lastPlayedAt?`${w.last} · ${relativeTime(g.lastPlayedAt)}`:'';
+   ' ').replace(/\s+/g,' ').trim()||g.title||'';$('.tv-art').innerHTML=g.cover?'':`<span class="tv-art-name" lang="ja">${esc(nm)}</span>`;}$('.tv-cover').title=g.lastPlayedAt?`${g.title} · ${w.last} · ${relativeTime(g.lastPlayedAt)}`:g.title;
   const pct=Math.max(.02,Math.min(1,(g.characters||0)/max)),ring=$('.tv-ring');ring.style.left=(44+k%14)+'%';const C=2*Math.PI*44,N=60;
   ring.innerHTML=`<svg viewBox="0 0 100 100"><defs><linearGradient id="tvgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6e4"/><stop offset=".45" stop-color="var(--g-gold)"/><stop offset="1" stop-color="var(--tv-a)"/></linearGradient><filter id="tvglow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.4"/></filter></defs>${Array.from({length:N},(_,t)=>{const a=t/N*2*Math.PI-Math.PI/2,big=t%5===0,r1=big?38.6:39.4,r2=40.4;return `<line class="etch${big?' big':''}${t<Math.round(pct*N)?' on':''}" style="--d:${t*18}ms" x1="${(50+r1*Math.cos(a)).toFixed(2)}" y1="${(50+r1*Math.sin(a)).toFixed(2)}" x2="${(50+r2*Math.cos(a)).toFixed(2)}" y2="${(50+r2*Math.sin(a)).toFixed(2)}"/>`;}).join('')}<circle class="track" cx="50" cy="50" r="44"/><g transform="rotate(-90 50 50)"><circle class="glow" cx="50" cy="50" r="44" stroke-dasharray="${C}" stroke-dashoffset="${C}" filter="url(#tvglow)"/><circle class="prog" cx="50" cy="50" r="44" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></g><circle class="head" cx="50" cy="8.4" r=".9" style="transform-origin:50px 50px;transform:rotate(0deg)"/></svg>`;
    requestAnimationFrame(()=>requestAnimationFrame(()=>{const off=C*(1-pct);ring.querySelectorAll('.prog,.glow').forEach(c=>c.style.strokeDashoffset=off);const h=ring.querySelector('.head');
@@ -308,61 +318,72 @@ export function renderHomeTV(main,ctx){
    }).join('');
   $('.tv-slices').innerHTML=Array.from({length:5},(_,j)=>`<i style="background:${art(g,p)};background-size:500% 100%;background-position:${j*25}% 0;transform:translateZ(${j%2?40:-20}px) translateY(${(j-2)*12}px)"></i>`).join('');
 
-  const no=String(Math.max(1,pool.indexOf(g)+1)).padStart(2,'0');$('.tv-index').textContent=no;$('.tv-scene').innerHTML=`SCENE <b>${no}</b> / ${String(pool.length).padStart(2,'0')}`;
+  const no=String(Math.max(1,pool.indexOf(g)+1)).padStart(2,'0');
   const t=$('.tv-title');t.classList.remove('in');setTimeout(()=>{if(mine!==token)return;let n=0;const [mainTitle,subTitle]=splitTitle(g.title);$('.tv-h1').innerHTML=(String(mainTitle).match(/[A-Za-z0-9À-ɏ'’:;!?.,&\-]+|\s+|./gu)||[]).map(word=>/^\s+$/.test(word)?' ':`<i class="w">${[...word].map(c=>`<span style="transition-delay:${(n++)*28}ms">${esc(c)}</span>`).join('')}</i>`).join('');
    $('.tv-h1').title=g.title;$('.tv-meta').innerHTML=(subTitle?`<span class="tv-sub" lang="ja">${esc(subTitle)}</span>`:'')+(g.lastPlayedAt?`<span>${w.last} · ${esc(relativeTime(g.lastPlayedAt))}</span>`:'');void t.offsetWidth;fitTitle($('.tv-h1'));
    fitLeft(root);setTimeout(()=>t.classList.add('in'),30);/* measure again once the new title has settled, so a block hidden mid-change comes back */setTimeout(()=>{
    if(live&&live.root===root)fitLeft(root);},900);},flash?Math.max(0,reveal-(performance.now()-started)):0);
   tweenFig($('[data-fig="time"]'),g.readingSeconds||0,v=>mins(v));tweenFig($('[data-fig="chars"]'),g.characters||0,v=>number(Math.round(v)));tweenFig($('[data-fig="words"]'),
    g.learnedWords||0,v=>number(Math.round(v)));
-  $('.tv-who').textContent=g.title;type(sentences[0]||'');
+  nameIn(g);type(sentences[0]||'');
   
   rail();
  }
- function rail(){const r=$('.tv-rail');r.innerHTML=list.map((g,i)=>`<button class="tv-chip${i===cur?' on':''}" data-i="${i}" title="${esc(g.title)}" style="--dur:${DUR}ms">${g.cover?`<img src="${esc(g.cover)}" alt="">`:''}${setting.pinned.includes(g.id)?'<span class="pin"></span>':''}<span class="bar"></span></button>`).join('')+`<button class="tv-edit" title="${w.edit}" aria-label="${w.edit}">＋</button>`;
-  r.querySelectorAll('.tv-chip').forEach(b=>b.addEventListener('click',()=>paint(+b.dataset.i,true,'fade')));r.querySelector('.tv-edit').addEventListener('click',
-   ()=>{drawer();$('.tv-drawer').classList.add('open');});}
- function drawer(){const all=model.games.filter(g=>g.available!==false),when=g=>g.lastLaunchedAt||g.lastPlayedAt||0,ids=[...setting.order.filter(id=>all.some(g=>g.id===id)),
-  ...[...all].sort((a,b)=>when(b)-when(a)).map(g=>g.id).filter(id=>!setting.order.includes(id))];setting.order=ids;
-  root.querySelectorAll('.tv-mode button').forEach(b=>b.classList.toggle('on',b.dataset.m===setting.mode));
-  $('.tv-list').innerHTML=ids.map((id,i)=>{const g=all.find(x=>x.id===id),p=setting.pinned.includes(id),h=setting.hidden.includes(id);return `<div class="tv-item${p?' pinned':''}${h?' hidden':''}" draggable="true" data-id="${esc(id)}" data-q="${esc((g.title+' '+(g.names||[]).join(' ')+' '+(g.engine||'')).toLowerCase())}"><div class="cv">${g.cover?`<img src="${esc(g.cover)}" alt="">`:''}<span class="n">${String(i+1).padStart(2,'0')}</span></div><p title="${esc(g.title)}">${esc(g.title)}</p><div class="ops"><button data-op="pin" class="${p?'on':''}">${w.pin}</button><button data-op="hide" class="${h?'on':''}">${w.hide}</button></div></div>`;
-   }).join('');
-  $('.tv-hint').textContent=setting.mode==='auto'?w.hintAuto:w.hintPick;filter();
-  let drag=null;root.querySelectorAll('.tv-item').forEach(el=>{el.addEventListener('dragstart',()=>{drag=el.dataset.id;el.classList.add('dragging');});el.addEventListener('dragend',
-   ()=>el.classList.remove('dragging'));el.addEventListener('dragover',e=>e.preventDefault());el.addEventListener('drop',()=>{const a=setting.order.indexOf(drag),
-   b=setting.order.indexOf(el.dataset.id);if(a<0||b<0||a===b)return;setting.order.splice(b,0,setting.order.splice(a,1)[0]);setting.mode='pick';commit();});
-   el.querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>{const id=el.dataset.id,key=b.dataset.op==='pin'?'pinned':'hidden';setting[key]=setting[key].includes(id)?setting[key].filter(x=>x!==id):[...setting[key],
-    id];commit();}));});}
- function filter(){const q=$('.tv-search').value.trim().toLowerCase();root.querySelectorAll('.tv-item').forEach(el=>{el.hidden=!!q&&!el.dataset.q.includes(q);});
-  }
- function commit(){model.preferences.homeShowcase=setting;savePreferences({homeShowcase:setting});drawer();const id=shown?.id;list=showcaseGames(model.games,setting);
+ /* 2026-11-13 (user) the cover strip became a hand of cards; picking one plays it onto the field (see home-hand.js) */
+ function rail(){hand.render(list.map(g=>({id:g.id,title:g.title,cover:g.cover,pinned:setting.pinned.includes(g.id),g})),shown?.id||null);placeCover();}
+ /* 2026-11-13 (user: "你要保证展示的卡要一直在手牌上方居中") the field card is centred over the fan of cards at every window size, measured on the
+    untilted scene; if it would reach into the fan it moves up. Never while a card is in flight (its landing pose is already fixed). */
+ /* measured on the card's resting box (hand.restRect), never on the card mid-animation; a touch left of the fan's centre (user: "往左边移动一点点") */
+ function placeCover(){const c=$('.tv-cover');if(!c||!live||live.root!==root||hand.flying())return;const fan=hand.extent();if(!fan)return;
+  const run=fn=>live.depth?live.depth.neutral(fn):fn();run(()=>{c.style.left='';c.style.top='';c.style.width='';const rr=root.getBoundingClientRect(),aim=fan.cx-Math.min(48,rr.width*.025);
+   /* (user: the card's top was cut off) a window too short for the card between the top and the fan gets a smaller card, it is never pushed off the top */
+   const minTop=Math.max(16,rr.height*.04),room=fan.top-14-minTop,r0=hand.restRect();if(r0.height>room&&room>80)c.style.width=(c.offsetWidth*room/r0.height)+'px';
+   for(let i=0;i<4;i++){const r=hand.restRect(),k=r.width/(c.offsetWidth||1)||1,dx=(aim-(r.left+r.width/2-rr.left))/k;if(Math.abs(dx)<.5)break;c.style.left=(c.offsetLeft+dx)+'px';}
+   const r=hand.restRect(),ky=r.height/(c.offsetHeight||1)||1,over=r.bottom-rr.top-(fan.top-14);if(over>0)c.style.top=(c.offsetTop-over/ky)+'px';
+   const r2=hand.restRect(),under=minTop-(r2.top-rr.top);if(under>0)c.style.top=(c.offsetTop+under/ky)+'px';
+   /* the deck a random draw is dealt from sits with the card */const pile=root.querySelector(':scope>.tv-pile');if(pile){/* the card's plane is 6% larger than the page on every side (.tv-canvas inset -6%) */pile.style.left=c.style.left?(c.offsetLeft-rr.width*.06)+'px':'';pile.style.top=c.style.top?(c.offsetTop-rr.height*.06)+'px':'';pile.style.width=c.style.width;}});}
+ function commit(){model.preferences.homeShowcase=setting;savePreferences({homeShowcase:setting});const id=shown?.id;list=showcaseGames(model.games,setting);
   paint(Math.max(0,list.findIndex(g=>g.id===id)),false);}
- root.querySelectorAll('.tv-mode button').forEach(b=>b.addEventListener('click',()=>{setting.mode=b.dataset.m;commit();}));
- $('.tv-search').addEventListener('input',filter);
- $('.tv-close').addEventListener('click',()=>$('.tv-drawer').classList.remove('open'));
- api('daily_view',{}).then(v=>{if(!live||live.root!==root)return;const n=v?.news?.items?.[0],h=v?.words?.words?.[0],t=$('.tv-daily-t'),pics=(v?.news?.items||[]).filter(x=>/^data:image\//.test(x.image||'')&&x.link).slice(0,
-  3),box=$('.tv-daily-pics');if(box){box.innerHTML=pics.map(x=>`<button type="button" class="tv-daily-pic${x.sensitive?' is-sensitive':''}" data-link="${esc(x.link)}" title="${esc(x.title)}" style="background-image:url(&quot;${x.image}&quot;)">${x.sensitive?`<span class="tv-sensitive">${esc(SENSITIVE_WORD())}</span>`:''}</button>`).join('');
+ /* 2026-11-13 (user: "不要全部作品 … 把＋卡移到最右边 不要是卡牌了 鼠标放上去再出来") the hand editor is a tab docked on the right edge that slides out
+    on hover and tucks back; it opens a window where the library's games are ticked into or out of the hand (home-picker.js) */
+ if(model.games.some(g=>g.available!==false))createDock(root,{locale,onOpen:()=>openHandPicker(root,{games:model.games,hand:list.map(g=>g.id),setting,locale,esc,
+  onSave:next=>{setting=next;commit();}})});
+ /* 2026-11-13 (user: "每次回到首页都重新加载、卡一下") the daily block paints at once from the cached copy without replaying its entrance, then refreshes
+    quietly and repaints only when the news really changed; flat one-colour pictures are never shown (user: "缩略图不要展示纯色图") */
+  let dailySig='';const showDaily=(v,instant)=>{if(!live||live.root!==root)return;const sig=dailySignature(v);if(sig===dailySig)return;dailySig=sig;if(instant)root.classList.add('tv-instant');const n=(v?.news?.items||[]).find(x=>!x.flat)||v?.news?.items?.[0],h=v?.words?.words?.[0],t=$('.tv-daily-t'),dailyCat=(()=>{try{return localStorage.getItem('megulit-daily-cat')==='acg'?'acg':'gal';}catch{return 'gal';}})(),{top,small:pics}=pickHeadline(v?.news?.items,dailyCat),box=$('.tv-daily-pics');if(box){box.innerHTML=pics.map(x=>`<button type="button" class="tv-daily-pic${x.sensitive?' is-sensitive':''}" data-link="${esc(x.link)}" title="${esc(x.title)}" style="background-image:url(&quot;${x.image}&quot;)">${x.sensitive?`<span class="tv-sensitive">${esc(SENSITIVE_WORD())}</span>`:''}</button>`).join('');
   box.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{try{sessionStorage.setItem('megulit-daily-focus',b.dataset.link);}catch{}navigate('daily');
-  }));}if(n){t.textContent=n.title;t.title=n.title+(n.source?' · '+n.source:'');}else if(h){t.textContent=h.term+(h.gloss?' · '+h.gloss:'');}/* 2026-11-12 (user) the empty space under the activity card shows the day's top news with its picture; an adult one is
-     blurred with a "sensitive content" note */
-  {const top=(v?.news?.items||[]).find(x=>/^data:image\//.test(x.image||'')&&x.link),left=$('.tv-left'),card=left?.querySelector('.tv-heat-card');left?.querySelector('.tv-hot-news')?.remove();
-   if(top&&left&&card){const b=document.createElement('button');b.type='button';b.className='tv-hot-news'+(top.sensitive?' is-sensitive':'');b.dataset.link=top.link;
-    b.innerHTML=`<span class="tv-hot-img" style="background-image:url(&quot;${top.image}&quot;)"></span>${top.sensitive?`<span class="tv-sensitive">${esc(SENSITIVE_WORD())}</span>`:''}<span class="tv-hot-meta"><small>${esc(HOT_WORD())}${top.source?' · '+esc(top.source):''}</small><b>${esc(top.title)}</b></span>`;
-    b.addEventListener('click',()=>{try{sessionStorage.setItem('megulit-daily-focus',top.link);}catch{}navigate('daily');});card.after(b);fitLeft(root);}}}).catch(()=>{
-     });
- api('learning_activity',{range:'year'}).then(records=>{if(!live||live.root!==root)return;const all=activityCells(Array.isArray(records)?records:[]);let from=Math.max(0,
-  all.length-20*7);while(from>0&&all[from].weekday!==0)from--;const cells=all.slice(from),active=cells.filter(c=>c.level).length;$('.tv-heat').innerHTML=cells.map((c,
+  }));}if(n){t.textContent=n.title;t.title=n.title+(n.source?' · '+n.source:'');}else if(h){t.textContent=h.term+(h.gloss?' · '+h.gloss:'');}/* 2026-11-13 (user: "左侧热力图卡片下面有第四张尺寸更大的第一头条", "左下角不要字") under the activity card the day's top story is a fourth,
+     larger picture, picture only; its title (in the UI language) labels it for the tooltip and screen readers. An adult one is blurred with a note */
+  {const left=$('.tv-left'),card=left?.querySelector('.tv-heat-card');let big=left?.querySelector('.tv-hot-news');if(!top||!card){big?.remove();}else{
+   if(!big){big=document.createElement('button');big.type='button';card.after(big);}big.className='tv-hot-news'+(top.sensitive?' is-sensitive':'');
+   big.innerHTML=`<span class="tv-hot-img" style="background-image:url(&quot;${top.image}&quot;)"></span>${top.sensitive?`<span class="tv-sensitive">${esc(SENSITIVE_WORD())}</span>`:''}`;
+   big.onclick=()=>{try{sessionStorage.setItem('megulit-daily-focus',top.link);}catch{}navigate('daily');};
+   const label=r=>{const text=headlineLabel(r,top.title);big.title=text+(top.source?'\n'+top.source:'');big.setAttribute('aria-label',HOT_WORD()+' · '+text.split('\n')[0]);};
+   const hit=cachedHeadline(top.title,locale);label(hit||{text:top.title,state:'original'});if(!hit)translateHeadline(api,top.title,locale).then(r=>{if(big.isConnected&&live?.root===root)label(r);});}
+   fitLeft(root);}
+  if(instant)requestAnimationFrame(()=>requestAnimationFrame(()=>root.classList.remove('tv-instant')));};
+ {const c=cachedDaily();if(c)showDaily(c,true);if(!c||!dailyIsFresh())api('daily_view',{}).then(v=>markFlat(v)).then(v=>{if(v)showDaily(rememberDaily(v),false);}).catch(()=>{});}
+
+ const showActivity=records=>{if(!live||live.root!==root)return;const all=activityCells(Array.isArray(records)?records:[]);let from=Math.max(0,
+  all.length-20*7);while(from>0&&all[from].weekday!==0)from--;const cells=all.slice(from),sum=activitySummary(cells,all),active=sum.active,card=$('.tv-heat-card'),none=$('.tv-heat-none');
+  card?.classList.toggle('is-empty',sum.empty);if(none){none.hidden=!sum.empty;none.innerHTML=sum.empty?emptyActivityHTML(locale,esc):'';}$('.tv-heat').innerHTML=cells.map((c,
   i)=>`<i style="grid-row:${c.weekday+1};grid-column:${Math.floor(i/7)+1}" class="${i===cells.length-1?'today':c.level?'l'+Math.min(3,c.level):''}" data-day="${esc(c.day)}" data-min="${Math.round((c.seconds||0)/60)}"></i>`).join('');
-  $('.tv-heatlink').textContent=`${w.activity} · ${active} ${w.days} →`;let run=0,best=0;for(const c of cells){run=c.level?run+1:0;best=Math.max(best,run);}const secs=cells.reduce((a,
-  c)=>a+(c.seconds||0),0);$('.tv-heatsum').innerHTML=`<span><b>${active}</b>${w.days}</span><span><b>${esc(duration(secs))}</b>${w.total}</span><span><b>${best}</b>${w.streak}</span>`;
-  }).catch(()=>{});
+  $('.tv-heatlink').textContent=sum.empty?`${w.activity} →`:`${w.activity} · ${active} ${w.days} →`;const best=sum.best,secs=sum.secs;$('.tv-heatsum').innerHTML=`<span><b>${active}</b>${w.days}</span><span><b>${esc(duration(secs))}</b>${w.total}</span><span><b>${best}</b>${w.streak}</span>`;
+  fitLeft(root);};
+ {let actSig=JSON.stringify(cachedActivity()||null);if(cachedActivity())showActivity(cachedActivity());api('learning_activity',{range:'year'}).then(r=>{rememberActivity(r);const n=JSON.stringify(r||null);if(n!==actSig){actSig=n;showActivity(r);}}).catch(()=>{});}
+ const hand=createHand({root,box:$('.tv-hand'),layer:$('.tv-ghosts'),cover:$('.tv-cover'),reduced:matchMedia('(prefers-reduced-motion:reduce)').matches,
+  back:`<img src="${LOGO}" alt="">`,art:h=>art(h.g||h,['#3b2a26','#5a3a30','#1a1110']),neutral:fn=>live?.depth?live.depth.neutral(fn):fn(),field:()=>shown,
+  onBusy:on=>live?.depth?.hold(on),
+  onPlay:(h,kind,ms)=>{if(kind!=='plain'){root.classList.add('tv-fly');/* the field card's table shadow grows in as the flying card comes down onto it */
+   $('.tv-cshadow')?.animate([{opacity:0},{opacity:0,offset:.55},{opacity:1}],{duration:ms||800,easing:'cubic-bezier(.3,0,.2,1)'});}paint(h.g,kind==='plain','fade');},
+  onLand:()=>{root.classList.remove('tv-fly');placeCover();}});live.hand=hand;
+ hand.state&&requestAnimationFrame(()=>placeCover());
  const canvas=$('.tv-canvas'),planes=[...root.querySelectorAll('.tv-plane')],reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
- live.move=e=>{if(reduced)return;const r=root.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;canvas.style.transform=`rotateY(${x*6}deg) rotateX(${-y*5}deg)`;
-  planes.forEach(p=>p.style.transform=`translate3d(${-x*p.dataset.z*.25}px,${-y*p.dataset.z*.2}px,${p.dataset.z}px)`);};
- root.addEventListener('mousemove',live.move);
- const onResize=()=>{if(live&&live.root===root)fitLeft(root);else removeEventListener('resize',onResize);};addEventListener('resize',onResize);
+ /* 2026-11-13 (user) every layer has its own depth: the far headline picture drifts against the pointer, near ones (cards, figures, rail, bottom bar) lead it */
+ {const L=(sel,z)=>{const el=$(sel);return el?{el,z}:null;};live.depth=createDepth(root,{canvas,planes,layers:[L('.tv-left',7),L('.tv-figs',8),
+  L('.tv-hand',24),L('.tv-dialog',5),L('.tv-title',9),L('.tv-marks',3),L('.tv-cshadow',-22)].filter(Boolean)});}
+ const onResize=()=>{if(live&&live.root===root){fitLeft(root);hand.relayout();placeCover();}else removeEventListener('resize',onResize);};addEventListener('resize',onResize);
  root.querySelectorAll('.tv-cover,.tv-heat-card').forEach(cardify);
- root.addEventListener('mouseleave',()=>{canvas.style.transform='';});
  const coverEl=$('.tv-cover');let clickTimer=0,pressAt=0,pressXY=[0,0];coverEl.setAttribute('aria-label',w.coverHint);const pop=document.createElement('div');pop.className='tv-pop';
   pop.innerHTML=`<p><i class="m1"></i><b>${w.tipClick}</b><span>${w.tipDetail}</span></p><p><i class="m2"></i><b>${w.tipDbl}</b><span>${w.tipDraw}</span></p>`;root.appendChild(pop);
   let popT=0;const hidePop=()=>{clearTimeout(popT);pop.classList.remove('on');};coverEl.addEventListener('pointermove',e=>{const r=root.getBoundingClientRect();
@@ -370,7 +391,11 @@ export function renderHomeTV(main,ctx){
   520);}});coverEl.addEventListener('pointerleave',hidePop);coverEl.addEventListener('pointerdown',hidePop);coverEl.addEventListener('pointerdown',e=>{pressAt=performance.now();
   pressXY=[e.clientX,e.clientY];});coverEl.addEventListener('click',e=>{/* (user 2026-11-12) a long press or a drag only plays with the card; letting go never opens the detail */if(e.detail&&(performance.now()-pressAt>350||Math.hypot(e.clientX-pressXY[0],
   e.clientY-pressXY[1])>6))return;clearTimeout(clickTimer);clickTimer=setTimeout(()=>shown&&onDetail(shown.id),260);});coverEl.addEventListener('dblclick',e=>{e.preventDefault();
-  clearTimeout(clickTimer);if(pool.length>1)paint(randomGame());});
+  clearTimeout(clickTimer);if(pool.length>1)draw(randomGame());});
+ /* 2026-11-13 (user: "再补一个随机抽卡出来的封面 和手牌选取的过渡动画") a random draw is tied to the hand: a game that is in the hand is played out of it like a
+    picked card (the field card flies home); any other game is drawn off the deck while the field card flies back into its slot in the hand */
+ function draw(g){if(!g||!live||live.root!==root)return;if(list.includes(g)){hand.play(g.id);return;}const prev=shown;
+  if(prev&&list.includes(prev)&&!matchMedia('(prefers-reduced-motion:reduce)').matches&&hand.stow(prev.id,g.id))$('.tv-cover').dataset.stow='1';paint(g);}
  if(list.length)paint(0,false);
  return stopHomeTV;
 }

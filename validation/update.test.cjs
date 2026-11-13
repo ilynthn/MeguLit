@@ -61,6 +61,17 @@ test('update: relays are tried when GitHub fails, and only with a digest',()=>{
  assert.equal(u.sources(rel,true)[3],rel.url,'China tries relays first');
  assert.deepEqual(u.sources({...rel,digest:''},true),[rel.url],'no digest, no relay');
 });
+/* User report (2026-11-13: "更新显示下载失败"): the site's own R2 mirror is one of the sources, first in
+   mainland China, and only for the full package — the small hot-update packages are not on it. */
+test('update: the dl.megulit.com mirror is a source for the full package only',()=>{
+ const full={name:'MeguLit-v9.9.9-win-x64.zip',url:'https://github.com/ilynthn/MeguLit/releases/download/v9.9.9/MeguLit-v9.9.9-win-x64.zip',digest:'a'.repeat(64)};
+ const dl='https://dl.megulit.com/files/'+full.digest+'/'+full.name;
+ const cn='https://cn-dl.megulit.com/files/'+full.digest+'/'+full.name;
+ assert.deepEqual(u.sources(full,true).slice(0,2),[cn,dl],'China: the China entry first, then Cloudflare');
+ assert.deepEqual(u.sources(full,false).slice(0,3),[full.url,dl,cn],'elsewhere GitHub first, then the mirrors');
+ assert.ok(!u.sources({...full,name:'MeguLit-hot-9.9.9-from-9.9.8-abcdef.zip'},true).some(x=>x.startsWith('https://dl.megulit.com/')),'no hot package on the mirror');
+ assert.ok(!u.sources({...full,digest:''},true).some(x=>x.startsWith('https://dl.megulit.com/')),'no digest, no mirror');
+});
 test('update: a failing GitHub download falls back to a relay; a replaced release is fetched again',async()=>{
  const fs=require('fs'),os=require('os'),path=require('path'),crypto=require('crypto');
  const make=()=>Buffer.concat([Buffer.from('PK'),crypto.randomBytes(5000)]);

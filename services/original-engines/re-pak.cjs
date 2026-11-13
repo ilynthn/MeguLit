@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* RE Engine packages (逆転裁判456 王泥喜セレクション, re_chunk_000.pak and its .patch_NNN.pak files). Layout as in
    ree-pak-rs (MIT, eigeen/ree-pak-rs): "KPKA", major, minor, feature flags, count, hash; then 48-byte entries
    (path hash low/high, u64 offset, compressed size, size, attributes, checksum). attributes & 0xF is the compression
@@ -15,7 +16,7 @@ function toc(file){const fd=fs.openSync(file,'r');try{const h=Buffer.alloc(16);f
  const n=h.readUInt32LE(8);if(n<=0||n>2000000)return null;const t=Buffer.alloc(n*48);fs.readSync(fd,t,0,t.length,16);const out=[];
  for(let i=0;i<n;i++){const p=i*48;out.push({file,hash:t.readUInt32LE(p+4).toString(16).padStart(8,'0')+t.readUInt32LE(p).toString(16).padStart(8,'0'),offset:Number(t.readBigUInt64LE(p+8)),packed:Number(t.readBigUInt64LE(p+16)),size:Number(t.readBigUInt64LE(p+24)),attr:Number(t.readBigUInt64LE(p+32)&0xffffffffn)});}
  return out;}finally{fs.closeSync(fd);}}
-function readRaw(e,len){const fd=fs.openSync(e.file,'r');try{const b=Buffer.alloc(len);fs.readSync(fd,b,0,len,e.offset);return b;}finally{fs.closeSync(fd);}}
+const readRaw=(e,len)=>kit.readAt(e.file,e.offset,len);
 function read(e){if((e.attr>>>16)&0xff)throw Error('RE_ENCRYPTED');const b=readRaw(e,e.packed),c=e.attr&0xf;return c===0?b:c===1?zlib.inflateRawSync(b):c===2?zlib.zstdDecompressSync(b):b;}
 function head(e){const c=e.attr&0xf;if((e.attr>>>16)&0xff)return null;if(c===0)return readRaw(e,Math.min(8,e.packed));
  if(c===1){try{return zlib.inflateRawSync(readRaw(e,Math.min(e.packed,256)),{finishFlush:zlib.constants.Z_SYNC_FLUSH}).subarray(0,8);}catch{return null;}}

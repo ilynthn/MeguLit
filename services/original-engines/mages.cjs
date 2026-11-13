@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E342 MAGES. engine (Steam STEINS;GATE): USRDIR/script.mpk holds one SC3 file per scene (.SCX). An SC3 file is
    "SC3\0", the offset of its string table, the offset of the table after it; each string runs to 0xFF. A byte 0x80-0xAF
    starts a two-byte glyph: (big-endian word & 0x7FFF) is an index into the game's font sheet, so the text is only
@@ -17,14 +18,13 @@ const charset=()=>charsetMemo||(charsetMemo=fs.readFileSync(path.join(__dirname,
 // MPK v2: "MPK\0", version 2.0, entry count (u64), index at 0x40 of 256-byte entries (compression, id, offset, size,
 // unpacked size, 224-byte name).
 const listMemo=new Map();
-function mpkList(file){const key=file+'|'+stat(file);if(listMemo.has(key))return listMemo.get(key);let out=null,fd;
- try{fd=fs.openSync(file,'r');const size=fs.fstatSync(fd).size,h=Buffer.alloc(16);fs.readSync(fd,h,0,16,0);
-  if(h.toString('latin1',0,4)==='MPK\0'&&h.readUInt16LE(6)===2){const n=h.readUInt32LE(8);if(n>0&&n<100000&&0x40+n*256<=size){const idx=Buffer.alloc(n*256);fs.readSync(fd,idx,0,idx.length,0x40);out=[];
-   for(let i=0;i<n;i++){const p=i*256,e={compressed:idx.readUInt32LE(p)!==0,offset:Number(idx.readBigUInt64LE(p+8)),packed:Number(idx.readBigUInt64LE(p+16)),size:Number(idx.readBigUInt64LE(p+24)),name:idx.toString('latin1',p+32,p+256).replace(/\0[\s\S]*$/,'')};
-    if(e.offset+e.packed>size){out=null;break;}out.push(e);}}}
- }catch{out=null;}finally{if(fd!==undefined)fs.closeSync(fd);}
+/* E577 the MPK index is a kit table: 256-byte entries {u32 compressed, 4, u64 offset, u64 packed, u64 size, name[224]} */
+const MPK_TABLE={magic:'MPK\0',count:{at:8,type:'u32le'},entries:0x40,encoding:'latin1',validate:(e,size)=>e.size>=0,
+ fields:[{name:'flags',type:'u32le'},{type:'skip',size:4},{name:'offset',type:'u64le'},{name:'size',type:'u64le'},{name:'unpacked',type:'u64le'},{name:'name',type:'cstr',size:224}]};
+function mpkList(file){const key=file+'|'+stat(file);if(listMemo.has(key))return listMemo.get(key);let out=null;
+ try{if(kit.head(file,8).readUInt16LE(6)===2){const l=kit.table(file,MPK_TABLE);if(l&&l.length)out=l.map(e=>({compressed:e.flags!==0,offset:e.offset,packed:e.size,size:e.unpacked,name:e.name}));}}catch{out=null;}
  listMemo.set(key,out);if(listMemo.size>16)listMemo.delete(listMemo.keys().next().value);return out;}
-function mpkRead(file,e){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(e.packed);fs.readSync(fd,b,0,e.packed,e.offset);return e.compressed?zlib.inflateSync(b):b;}finally{fs.closeSync(fd);}}
+function mpkRead(file,e){const b=kit.readAt(file,e.offset,e.packed);return e.compressed?zlib.inflateSync(b):b;}
 // One SC3 string as display lines: the speaker's name (if any) and the text, with ruby pairs and unknown glyphs counted.
 function decodeString(b,q,cs){let text='',name='',miss=0;const ruby=[];
  const glyph=()=>{const i=b.readUInt16BE(q)&0x7fff;q+=2;const c=cs[i];if(c===undefined){miss++;return '';}return c;};

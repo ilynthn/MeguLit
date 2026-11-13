@@ -8,7 +8,7 @@
     translationPrompt:'',choiceFont:'game',choiceSelectedColor:'',choiceUnselectedColor:'',
     typewriter:true,typewriterSpeed:35, layoutVersion: 22, style: 'classic', display: 'bilingual', furigana: true, japaneseSize: 34,
     translationSize: 30, rubyScale: .55, rubyOffsetX:0, rubyOffsetY:0, rubyRowOffsets:'',rubyRowOffsetsX:'', lineHeight: 0, lineHeightMode:'offset', translationLineHeight:0, japaneseSpacing:0, japaneseSpacingPx:0,chineseSpacingPx:0, gap: 6, translationWidth: 75,
-    paddingX: 20, paddingY: 10, textColor: '#fffaf2', readTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
+    paddingX: 20, paddingY: 10, textColor: '#fffaf2', readTextColor: '', speechTextColor: '', narrationTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
     bindEnabled: false, interfaceMode:'normal', gameProcess: 'BGI', x: 4, y: 70, width: 92, height: 27,
     autoGameStyle:true, livePosition:false, hookProfile:'read', embedTranslation:false, hookAutoStart:true, hookHide:true, hookFast:true, mask: false, maskMode: 'hook', maskColor: '#171923',
     scanAuto: true, scanX: 2, scanY: 60, scanWidth: 96, scanHeight: 38, blurRadius: 13, maskPadding: 6, fastMask:true,
@@ -83,11 +83,31 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     for (const key of ['textColor','maskColor']) if (/^#[0-9a-f]{6}$/i.test(value[key])) result[key] = value[key];
     // Colour of lines the game marks as already read; empty = same as textColor.
     if (value.readTextColor === '' || /^#[0-9a-f]{6}$/i.test(value.readTextColor)) result.readTextColor = value.readTextColor;
+    for (const key of ['speechTextColor','narrationTextColor']) if (value[key] === '' || /^#[0-9a-f]{6}$/i.test(value[key])) result[key] = value[key];
     if (['classic','clean','custom'].includes(value.style)) result.style = value.style;
     if (['bilingual','japanese','chinese','bilingual-en','english','none'].includes(value.display)) result.display = value.display;
     if (['outline','soft','none'].includes(value.shadow)) result.shadow = value.shadow;
     if (typeof value.gameProcess === 'string') result.gameProcess = value.gameProcess.slice(0,100);
     return result;
+  }
+  /* E550 per-line colour (ファタモルガーナの館: narration grey #9d9d9d, speech white). lineKind: 'speech' for a line in
+     brackets (「」『』（）, also after a speaker name), 'narration' otherwise. lineColor: the engine's colour for this line when
+     it reported one (not near black over light text: that is an outline), else the colour learned for the line's kind, else ''
+     (the plain text colour applies). A user's own read/gradient colours always win, as in paintFor. */
+  function lineKind(text) {
+    const t = String(text || '').replace(/^[\s　]+/, '');
+    if (!t) return '';
+    return /^(?:[^\s　「『（(“"]{1,16}[\s　]*)?[「『（(“"]/.test(t) && /[」』）)”"][\s　。、！？!?…―ー]*$/.test(t) ? 'speech' : 'narration';
+  }
+  function lineColor(settings, text='', engineColor='') {
+    if (!settings || settings.autoGameStyle === false) return '';
+    const own = settings.textGradient || settings.readTextGradient || !!settings.readTextColor && String(settings.readTextColor).toLowerCase() !== String(settings.textColor).toLowerCase();
+    if (own) return '';
+    const hex = c => /^#[0-9a-f]{6}$/i.test(String(c || ''));
+    const lum = c => { const v = [1,3,5].map(i => parseInt(String(c).slice(i, i + 2), 16)); return v[0] * .2126 + v[1] * .7152 + v[2] * .0722; };
+    if (hex(engineColor) && !(lum(engineColor) < 48 && !(hex(settings.textColor) && lum(settings.textColor) < 96))) return engineColor.toLowerCase();
+    const kind = lineKind(text), learned = kind && settings[kind + 'TextColor'];
+    return hex(learned) ? learned.toLowerCase() : '';
   }
   function paintFor(settings, read=false, engineColor='') {
     // An actual engine colour takes priority over a learned/manual gradient for that sentence.
@@ -208,5 +228,5 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     if (!dark) return shadows[kind] || shadows.outline;
     return kind === 'soft' ? '0 1px 3px #fff9' : '-1px 0 0 #fff9,1px 0 0 #fff9,0 -1px 0 #fff9,0 1px 0 #fff9';
   }
-  return { defaults, clean, paintFor, paintVariables, lineHeightFor, insets, scaleForViewport, gameScaleFor, fonts, shadows, shadowFor, japaneseFonts,chineseFonts,englishFonts,fontOptions,outlineFor };
+  return { defaults, clean, lineKind, lineColor, paintFor, paintVariables, lineHeightFor, insets, scaleForViewport, gameScaleFor, fonts, shadows, shadowFor, japaneseFonts,chineseFonts,englishFonts,fontOptions,outlineFor };
 });

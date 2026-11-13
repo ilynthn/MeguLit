@@ -18,7 +18,10 @@
   const f=fallback||{x:10,y:10,w:30,h:20},m=min||{w:4,h:3};
   const w=Math.min(100,Math.max(m.w,num(r?.w,f.w))),h=Math.min(100,Math.max(m.h,num(r?.h,f.h)));
   const x=Math.min(100-w,Math.max(0,num(r?.x,f.x))),y=Math.min(100-h,Math.max(0,num(r?.y,f.y)));
-  const out={x:round(x),y:round(y),w:round(w),h:round(h)};const s=Number(r?.s);if(Number.isFinite(s)&&s>=.05&&s<=8)out.s=Math.round(s*1000)/1000;return out;
+  const out={x:round(x),y:round(y),w:round(w),h:round(h)};const s=Number(r?.s);if(Number.isFinite(s)&&s>=.05&&s<=8)out.s=Math.round(s*1000)/1000;
+  /* framing of a cropped picture inside its frame: focus point (percent) and zoom */
+  for(const k of ['fx','fy']){const v=Number(r?.[k]);if(Number.isFinite(v))out[k]=round(Math.min(100,Math.max(0,v)));}
+  const z=Number(r?.z);if(Number.isFinite(z)&&z>1)out.z=Math.round(Math.min(4,z)*100)/100;return out;
  }
  function mergeLayout(saved,defaults){
   const out={};for(const key of Object.keys(defaults))out[key]=normRect(saved&&saved[key],defaults[key]);return out;
@@ -76,7 +79,7 @@
  }
  /* Moves (drag the body) and resizes (drag a handle) one block while editing() is true. onCommit gets the new rect.
     snap(rect,kind,altKey) may return {rect,guides}; guides(list) draws them. */
- function attach(el,{stage,rect,onCommit,editing,snap,guides}){
+ function attach(el,{stage,rect,onCommit,editing,snap,guides,ratio,onActive}){
   if(!el||el.dataset.hudDrag)return;el.dataset.hudDrag='1';
   for(const edge of EDGES){const h=el.ownerDocument.createElement('i');h.className='hud-handle';h.dataset.edge=edge;h.setAttribute('aria-hidden','true');el.append(h);}
   el.addEventListener('pointerdown',down=>{
@@ -84,21 +87,24 @@
    if(!handle&&down.target.closest('input,select,textarea,summary'))return;
    down.preventDefault();down.stopPropagation();try{el.setPointerCapture(down.pointerId);}catch{}
    const box=stage().getBoundingClientRect(),start=normRect(rect()),sw=box.width/100,sh=box.height/100;let last=down,frame=0,next=start;
-   el.classList.add(edge?'hud-resizing':'hud-dragging');
+   el.classList.add(edge?'hud-resizing':'hud-dragging');onActive?.(true);
    const paint=()=>{frame=0;const dx=(last.clientX-down.clientX)/sw,dy=(last.clientY-down.clientY)/sh;let cand;
     if(!edge)cand=normRect({x:start.x+dx,y:start.y+dy,w:start.w,h:start.h},start,{w:.3,h:.3});
     else{let {x,y,w,h}=start;
      if(edge.includes('e'))w=start.w+dx;if(edge.includes('s'))h=start.h+dy;
      if(edge.includes('w')){w=Math.max(1,start.w-dx);x=start.x+start.w-w;}
      if(edge.includes('n')){h=Math.max(1,start.h-dy);y=start.y+start.h-h;}
+     /* ratio blocks (the screenshot): edges change one side, corners scale freely, Shift keeps the proportions */
+     if(ratio&&edge.length===2&&last.shiftKey){const k=Math.max(w/start.w,h/start.h);w=start.w*k;h=start.h*k;
+      if(edge.includes('w'))x=start.x+start.w-w;if(edge.includes('n'))y=start.y+start.h-h;}
      cand=normRect({x,y,w,h},start,{w:1,h:1});}
     const res=snap?snap(cand,edge||'move',!!last.altKey):null;next=res?.rect||cand;guides?.(res?.guides||[]);
     if(!edge)el.style.transform='translate3d('+((next.x-start.x)*sw)+'px,'+((next.y-start.y)*sh)+'px,0)';else applyRect(el,next);};
    const move=e=>{last=e.getCoalescedEvents?.().at(-1)||e;if(!frame)frame=requestAnimationFrame(paint);};
    const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);
-    if(frame){cancelAnimationFrame(frame);paint();}guides?.([]);el.style.transform='';applyRect(el,next);el.classList.remove('hud-dragging','hud-resizing');
+    if(frame){cancelAnimationFrame(frame);paint();}guides?.([]);el.style.transform='';applyRect(el,next);el.classList.remove('hud-dragging','hud-resizing');onActive?.(false);
     el.classList.add('hud-settle');setTimeout(()=>el.classList.remove('hud-settle'),220);
-    if(next.x!==start.x||next.y!==start.y||next.w!==start.w||next.h!==start.h){const r={x:next.x,y:next.y,w:next.w,h:next.h};
+    if(next.x!==start.x||next.y!==start.y||next.w!==start.w||next.h!==start.h){const r={x:next.x,y:next.y,w:next.w,h:next.h};for(const k of ['fx','fy','z'])if(start[k]!==undefined)r[k]=start[k];
      /* a move keeps the scale; a resize asks for a new one */if(!edge&&Number.isFinite(start.s))r.s=start.s;onCommit(r);}};
    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   });
@@ -107,6 +113,30 @@
    const dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
    if(e.shiftKey){r.w+=dx;r.h+=dy;delete r.s;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n);});
  }
- const api={normRect,mergeLayout,applyRect,hugRect,snapRect,drawGuides,attach,EDGES};
+ /* Cover framing: how far (px) the picture overflows its frame on each axis, so a drag of d px moves the focus by d/over */
+ function coverOverflow(nw,nh,bw,bh,z){const k=Math.max(bw/nw,bh/nh)*(z||1);return {x:Math.max(0,nw*k-bw),y:Math.max(0,nh*k-bh)};}
+ /* (user 2026-11-13: a long example ran under the screenshot) No overlaps: blocks (id->rect, percent) are taken top to
+    bottom; a text block that runs into one above it moves down, the picture (flex) gives up its top or bottom instead.
+    obstacles never move. Returns {rects, nudged:[ids]}. Only the frames shown change, never the saved layout. */
+ function settle(blocks,obstacles,flex,gap=1,minH=8){
+  const over=(a,b)=>a.x<b.x+b.w-.01&&b.x<a.x+a.w-.01,vert=(a,b)=>a.y<b.y+b.h+gap-.01&&b.y<a.y+a.h+gap-.01,out={},nudged=new Set();
+  const ids=Object.keys(blocks).sort((a,b)=>blocks[a].y-blocks[b].y||(a===flex)-(b===flex));
+  const placed=(obstacles||[]).map(r=>({r,fixed:true}));
+  for(const id of ids){const r={...blocks[id]};
+   for(let pass=0;pass<8;pass++){let hit=null;
+    for(const p of placed){const o=p.r;if(!over(r,o)||!vert(r,o))continue;
+     /* what starts above (a moved block: above its middle) pushes this one down; a fixed one below is left to the end */
+     if(o.y<=r.y+.01||(!p.fixed&&o.y<r.y+r.h/2)){if(!hit||o.y+o.h>hit.y+hit.h)hit=o;}}
+    if(!hit)break;const top=hit.y+hit.h+gap;
+    if(id===flex){r.h=Math.max(minH,r.y+r.h-top);r.y=top;}else r.y=top;nudged.add(id);}
+   if(r.y+r.h>100){if(id===flex)r.h=Math.max(minH,100-r.y);else r.y=Math.max(0,100-r.h);}
+   out[id]=r;placed.push({r});}
+  /* the picture also ends before anything below it */
+  if(out[flex]){const s=out[flex];for(const o of [...(obstacles||[]),...Object.entries(out).filter(([k])=>k!==flex).map(([,v])=>v)]){
+   if(over(s,o)&&o.y>s.y+.01&&o.y<s.y+s.h+gap-.01){s.h=Math.max(minH,o.y-gap-s.y);nudged.add(flex);}}}
+  for(const k of Object.keys(out))out[k]=normRect(out[k],out[k],{w:.3,h:.3});
+  return {rects:out,nudged:[...nudged]};
+ }
+ const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,snapRect,drawGuides,attach,EDGES};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.MeguHud=api;
 })(globalThis);

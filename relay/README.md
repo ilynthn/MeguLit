@@ -355,3 +355,30 @@ and 20 per hour per install id; leaderboard reads 60/min; adaptation writes 30/h
 5/hour and downloads 30/hour per IP; avatar uploads 5/hour per user, avatar reads 600/min, reports 20/hour, hot
 words 60/min per IP; profile saves 30/hour, profile and follow reads 120/min, follow changes 60/hour per account;
 profile reports and objections 3/day each per account.
+
+## E562 adapter packs and desensitized probes
+
+Endpoints (`src/adapters.js`, tables in `migrations/0016_adapters.sql`, probe bundles in R2 under `probes/`):
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/adapters/feed?app=&format=` | the app (packs on offer, withdrawn versions, open probe requests; cached 5 min) |
+| GET | `/api/adapters/pack/:id/:version` | the app (the signed pack as published) |
+| POST | `/api/adapters/report` | the app (before/after line and pairing counts, anonymous game key) |
+| POST | `/api/probe` | the app (one ≤ 512 KiB chunk of a desensitized bundle; the last one opens the `adapter-probe` issue) |
+| GET | `/api/probe/download/:id?exp=&sig=` | link in the issue |
+| POST | `/api/adapters/publish`, `/withdraw`, `/probe-request`; GET `/api/adapters/reports` | maintainer, `Authorization: Bearer $ADAPTER_ADMIN_TOKEN` |
+
+The relay stores packs but cannot sign them: apps only load packs signed with a key in `services/adapter-pack-keys.json`.
+
+Deploy (once):
+
+```bash
+cd relay
+npx wrangler d1 migrations apply megulit-relay --remote
+npx wrangler secret put ADAPTER_ADMIN_TOKEN
+npx wrangler deploy
+```
+
+Create the GitHub label `adapter-probe` in the repository (issues are opened with it). Maintainer tool: `node tools/adapter-pack.cjs`
+(docs/ADAPTER-PACKS.md).

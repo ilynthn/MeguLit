@@ -115,6 +115,9 @@ bool('library','autoSeries','自动识别游戏系列','Automatically recognize 
 /* 2026-11-12 the game's good-looking scenes, captured quietly for the detail card's back (scene-shots.cjs) */
 bool('library','sceneShots','后台截下好看的场景','Keep good-looking scenes in the background','きれいな場面をバックグラウンドで保存');
 bool('library','sharedAdaptation','共享适配数据（匿名）','Share adaptation data (anonymous)','適応データの共有（匿名）');
+/* E596 opt-in, off by default: read a running game's memory (read-only) for keys / index / script structure; uploads only
+   what the user confirms item by item (services/runtime-harvest.cjs explain()) */
+bool('library','runtimeHarvest','运行时读取游戏结构（上传前逐项确认）','Runtime structure harvest (read-only, each upload confirmed)','実行時の構造収集（読み取りのみ・送信前に確認）');
 for(const engine of ['ollama','lmstudio'])fields.find(f=>f.scope==='translation'&&f.key==='provider').options.push(engine==='ollama'?option(engine,'Ollama（本地模型）',
  'Ollama','Ollama'):option(engine,'LM Studio（本地模型）','LM Studio','LM Studio'));
 choice('lookup','lookup_mode','查词触发方式','Lookup gesture','辞書を開く操作',[option('click','单击','Click','クリック'),option('hover','悬停','Hover','ホバー')]);

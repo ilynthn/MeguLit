@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');
 /* AVG32 (ZERO 涙 1997, Key's engine before RealLive): TXT/SEEN.TXT is a "PACL" archive. Header: magic, 12 bytes, count at
    0x10, then 32-byte entries from 0x20 (16-byte name, offset, packed size, unpacked size, flag). Each entry is "PACK",
    4 bytes, unpacked size, packed size, then LZ: flag bytes read MSB first (1 = literal), a reference is a 16-bit word,
@@ -23,7 +24,7 @@ function list(file){const b=fs.readFileSync(file);if(b.toString('latin1',0,4)!==
   if(off+16>b.length)continue;out.push({name,read:()=>{if(b.toString('latin1',off,off+4)!=='PACK')return b.subarray(off,off+b.readUInt32LE(e+20));return lz(b,off+16,b.readUInt32LE(off+8));}});}
  return out;}
 const sjLead=c=>(c>=0x81&&c<=0x9f)||(c>=0xe0&&c<=0xfc),gbLead=c=>c>=0x81&&c<=0xfe;
-const sjDec=new TextDecoder('shift_jis'),gbDec=new TextDecoder('gbk');
+const sjDec=kit.SJIS,gbDec=new TextDecoder('gbk');
 // Text: runs of double-byte Shift-JIS characters (the engine stores dialogue full-width); a run must carry kana or kanji.
 function runs(data,lead,dec){const lines=[];let i=0;
  while(i<data.length){let j=i;while(j+1<data.length&&lead(data[j])&&data[j+1]>=0x40&&data[j+1]!==0x7f)j+=2;

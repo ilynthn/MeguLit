@@ -92,8 +92,6 @@ export const GAME_WORDS=['ありがとう','あなた','あの','あれ','いい
    额外 1%：所有 BREAK 的平均奖励 × 1%（CRITICAL 1、PERFECT 0.75、GREAT 0.4、GOOD 0.3）；没有 BREAK 时按全部题目算。
    满分 101.0000%。 */
 export const JUDGES=['CRITICAL PERFECT','PERFECT','GREAT','GOOD','MISS'];
-export const RANKS=[[100.5,'SSS+'],[100,'SSS'],[99.5,'SS+'],[99,'SS'],[98,'S+'],[97,'S'],[94,'AAA'],[90,'AA'],[80,'A'],[75,'BBB'],[70,'BB'],[60,'B'],[50,'C'],[0,'D']];
-export const rankOf=p=>RANKS.find(([v])=>p>=v)[1];
 /* BREAK 只给最容易认错的几组，不让整行都变成 BREAK */
 export const BREAK_SET=new Set(['シ','ツ','ソ','ン','ク','ケ','タ','ぬ','め','ね','れ','わ','る','ろ']);
 export const isBreak=k=>BREAK_SET.has(k);
@@ -109,7 +107,10 @@ export function achievement(log){
  const counts=Object.fromEntries(JUDGES.map(j=>[j,0]));let got=0,max=0,bonus=0,breaks=0;
  const rows=log.map(l=>{const j=judge(l),br=l.brk??isBreak(l.show),w=br?5:1;counts[j]++;max+=w;got+=w*(br?BASE_BREAK:BASE)[j];if(br){breaks++;bonus+=BONUS[j];}return {...l,judge:j,brk:br};});
  if(!breaks)bonus=rows.reduce((s,r)=>s+BONUS[r.judge],0);
- const basePct=max?got/max*100:0,bonusPct=log.length?bonus/(breaks||log.length):0,pct=Math.round((basePct+bonusPct)*10000)/10000;
- return {pct,basePct,bonusPct,counts,rank:rankOf(pct),rows,breaks};
+ const basePct=max?got/max*100:0,bonusPct=log.length?bonus/(breaks||log.length):0,raw=basePct+bonusPct,pct=Math.min(101,Math.round(raw*10)/10);
+ return {pct,basePct,bonusPct,counts,ap:pct>=101,rows,breaks};
 }
-export const fmtPct=p=>(Number(p)||0).toFixed(4)+'%';
+/* 2026-11-13 user: 101 = AP (achievement().ap, shown as 惠惠's seal); no letter ranks; max 101, one decimal */
+export const fmtPct=p=>Math.max(0,Math.min(101,Number(p)||0)).toFixed(1)+'%';
+/* n distinct choices with the target: from pri first, then each fallback list in order; never short while the lists hold enough kana */
+export function pickChoices(t,pri,...fb){const o=[];for(const list of [pri,...fb])for(const x of list){if(o.length>=3)break;if(x&&x!==t&&!o.includes(x))o.push(x);}const a=[t,...o];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}

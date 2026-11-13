@@ -11,21 +11,24 @@ const hudCopy={
   bg:'背景',bgModes:['无','纯色','游戏背景','卡片截图','自选图片'],pick:'选择图片…',blur:'模糊',dim:'暗度',shadow:'文字阴影',
   labels:{progress:'进度',word:'单词',info:'读音 · 释义',example:'例句 · 译文',shot:'截图',card:'整张卡片',controls:'按钮'},
   presetLabel:'预设',presets:{classic:'经典居中',split:'左图右文',subtitle:'字幕式',minimal:'极简大字'},mine:'我的布局',pick:'选择…',none:'还没有',saveAs:'另存当前',savedOk:'已另存为我的布局',place:'摆放',free:'无极摆放',gridMode:'网格对齐',gridSize:'网格',altHint:'按住 Alt 临时关闭吸附',
-  hint:'拖动方块移动，拖边角缩放 · 方向键微调，Shift+方向键改大小',reviewed:'已复习 {n}',noResult:'词典里没有找到',close:'关闭',
+  hint:'拖动方块移动，拖边角缩放 · 方向键微调，Shift+方向键改大小',shotHint:'截图：拉边改比例，拉角缩放（Shift 保持比例）· 双击或按住 Alt 拖动取景，滚轮缩放',dockTitle:'布局',collapse:'折叠',expand:'展开布局工具',help:'操作说明',
+  nudged:'已自动让位',space:'空格',reviewed:'已复习 {n}',noResult:'词典里没有找到',close:'关闭',
   keys:'空格 翻面/良好 · 1–4 评分 · F 全屏 · L 布局 · Esc 退出',fontsFailed:'没能读取系统字体，可直接输入字体名'},
  en:{look:'Appearance',layout:'Edit layout',done:'Done',reset:'Restore defaults',full:'Full screen',exitFull:'Exit full screen',jaFont:'Japanese font',zhFont:'Chinese font',systemFonts:'Load installed fonts',
   sizes:'Text size',size:{word:'Word',info:'Reading & meaning',example:'Example',card:'Whole card',controls:'Buttons'},colors:'Colours',color:{word:'Word',text:'Text',dim:'Secondary',accent:'Highlight'},
   bg:'Background',bgModes:['None','Colour','Game art','Card screenshot','Own picture'],pick:'Choose picture…',blur:'Blur',dim:'Darken',shadow:'Text shadow',
   labels:{progress:'Progress',word:'Word',info:'Reading · meaning',example:'Example · translation',shot:'Screenshot',card:'Whole card',controls:'Buttons'},
   presetLabel:'Presets',presets:{classic:'Classic',split:'Picture left',subtitle:'Subtitles',minimal:'Minimal'},mine:'My layouts',pick:'Choose…',none:'None yet',saveAs:'Save current',savedOk:'Saved to my layouts',place:'Placement',free:'Free',gridMode:'Grid',gridSize:'Grid',altHint:'Hold Alt to turn snapping off',
-  hint:'Drag a block to move it, drag its edges to resize · arrows nudge, Shift+arrows resize',reviewed:'{n} reviewed',noResult:'Not in the dictionary',close:'Close',
+  hint:'Drag a block to move it, drag its edges to resize · arrows nudge, Shift+arrows resize',shotHint:'Screenshot: edges change the shape, corners scale (Shift keeps it) · double-click or Alt-drag to frame, wheel to zoom',dockTitle:'Layout',collapse:'Collapse',expand:'Open layout tools',help:'How it works',
+  nudged:'moved to avoid overlap',space:'Space',reviewed:'{n} reviewed',noResult:'Not in the dictionary',close:'Close',
   keys:'Space flip/Good · 1–4 rate · F full screen · L layout · Esc leave',fontsFailed:'Could not read installed fonts; type a font name instead'},
  ja:{look:'外観',layout:'レイアウト調整',done:'完了',reset:'既定に戻す',full:'全画面',exitFull:'全画面を終了',jaFont:'日本語フォント',zhFont:'中国語フォント',systemFonts:'インストール済みフォントを読む',
   sizes:'文字サイズ',size:{word:'単語',info:'読み・意味',example:'例文',card:'カード全体',controls:'ボタン'},colors:'色',color:{word:'単語',text:'本文',dim:'補助',accent:'強調'},
   bg:'背景',bgModes:['なし','単色','ゲーム画像','カードのスクショ','画像を選ぶ'],pick:'画像を選ぶ…',blur:'ぼかし',dim:'暗さ',shadow:'文字の影',
   labels:{progress:'進捗',word:'単語',info:'読み · 意味',example:'例文 · 訳',shot:'スクリーンショット',card:'カード全体',controls:'ボタン'},
   presetLabel:'プリセット',presets:{classic:'中央揃え',split:'左に画像',subtitle:'字幕風',minimal:'大きな文字'},mine:'マイレイアウト',pick:'選択…',none:'まだありません',saveAs:'現在のを保存',savedOk:'マイレイアウトに保存しました',place:'配置',free:'自由配置',gridMode:'グリッド',gridSize:'グリッド',altHint:'Alt を押している間は吸着しません',
-  hint:'ブロックをドラッグで移動、端をドラッグで拡大縮小 · 矢印キーで微調整、Shift+矢印でサイズ',reviewed:'{n} 枚復習',noResult:'辞書に見つかりません',close:'閉じる',
+  hint:'ブロックをドラッグで移動、端をドラッグで拡大縮小 · 矢印キーで微調整、Shift+矢印でサイズ',shotHint:'スクショ：辺で比率、角で拡大縮小（Shift で比率固定）· ダブルクリックか Alt ドラッグで位置、ホイールでズーム',dockTitle:'レイアウト',collapse:'たたむ',expand:'レイアウトツールを開く',help:'使い方',
+  nudged:'重ならないよう移動',space:'Space',reviewed:'{n} 枚復習',noResult:'辞書に見つかりません',close:'閉じる',
   keys:'Space 裏返す/普通 · 1–4 評価 · F 全画面 · L レイアウト · Esc 終了',fontsFailed:'フォント一覧を読めませんでした。名前を直接入力できます'}
 };
 const mixKey='tome-anki-audio-mix',mixChannels=['master','word','sentence','game'];
@@ -144,7 +147,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  const saveHud=()=>M.save(localStorage,hud);
  /* hostShown/cardFrames: the frames on screen (each block hugs its content), used for snapping on both sides */
  const hostShown={};let cardFrames={};
- const hudMessage=()=>({layout:hud.layout,vars:M.cssVars(hud.style),edit:editing,labels:hc.labels,snap:hud.snap,frames:{...hostShown}});
+ const hudMessage=()=>({layout:hud.layout,vars:M.cssVars(hud.style),edit:editing,labels:{...hc.labels,nudged:hc.nudged},snap:hud.snap,frames:{...hostShown}});
  const post=data=>{try{currentFrame?.contentWindow?.postMessage({...data,nonce:currentFrame.dataset.nonce},'*');}catch{}};
  function frame(card){
   const iframe=document.createElement('iframe'),nonce=crypto.randomUUID();iframe.className='anki-hud-frame';iframe.title=text.ankiReview;iframe.sandbox='allow-scripts';
@@ -155,26 +158,76 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  }
  function stage(){return target.querySelector('.anki-hud');}
  const canvas=()=>stage()?.querySelector('.anki-hud-canvas');
+ /* (user 2026-11-13: the layout panel was ugly and covered the word) a compact floating tool dock, like a design app's:
+    drag it by its head anywhere (remembered), it starts in the emptiest corner away from every block, folds to a pill;
+    presets are thumbnails, placement a segmented switch, the grid slider shows only in grid mode, saved layouts sit in
+    one small menu, the help is a tooltip. It fades while a block is dragged. */
+ const dockKey='megulit-anki-hud-dock';
+ let dock=(()=>{try{const d=JSON.parse(localStorage.getItem(dockKey))||{};return {fx:Number.isFinite(d.fx)?d.fx:null,fy:Number.isFinite(d.fy)?d.fy:null,collapsed:!!d.collapsed};}catch{return {fx:null,fy:null,collapsed:false};}})();
+ const saveDock=()=>{try{localStorage.setItem(dockKey,JSON.stringify(dock));}catch{}};
+ const thumb=name=>{const L=M.preset(name);return '<svg viewBox="0 0 100 62" aria-hidden="true" focusable="false">'+['shot','word','info','example','controls'].map(k=>{const r=L[k];if(!r)return '';
+  return '<rect class="t-'+k+'" x="'+r.x+'" y="'+(r.y*.62)+'" width="'+r.w+'" height="'+Math.max(4,r.h*.62)+'"/>';}).join('')+'</svg>';};
  function editPanel(){
-  const pre=Object.keys(M.PRESETS).map(k=>'<button type="button" data-hud-preset="'+k+'">'+esc(hc.presets[k])+'</button>').join('');
-  const saved=hud.saved.map((x,i)=>'<option value="'+i+'">'+esc(x.name)+'</option>').join('');
-  return '<div class="anki-hud-edit-row"><span class="anki-hud-edit-hint">'+esc(hc.hint)+'</span><button type="button" class="text-button" data-hud-reset>'+esc(hc.reset)+'</button><button type="button" class="primary" data-hud-done>'+esc(hc.done)+'</button></div>'+
-   '<div class="anki-hud-edit-row"><span class="anki-hud-edit-k">'+esc(hc.presetLabel)+'</span><div class="anki-seg anki-seg-presets" role="group">'+pre+'</div>'+
-   '<span class="anki-hud-edit-k">'+esc(hc.mine)+'</span><select data-hud-saved aria-label="'+esc(hc.mine)+'"><option value="">'+esc(hud.saved.length?hc.pick:hc.none)+'</option>'+saved+'</select><button type="button" class="text-button" data-hud-save>'+esc(hc.saveAs)+'</button></div>'+
-   '<div class="anki-hud-edit-row"><span class="anki-hud-edit-k">'+esc(hc.place)+'</span><div class="anki-seg anki-seg-2" role="radiogroup"><button type="button" role="radio" data-hud-mode="free" aria-checked="'+(hud.snap.mode==='free')+'">'+esc(hc.free)+'</button><button type="button" role="radio" data-hud-mode="grid" aria-checked="'+(hud.snap.mode==='grid')+'">'+esc(hc.gridMode)+'</button></div>'+
-   '<label class="anki-hud-grid-size"><span>'+esc(hc.gridSize)+'</span><input type="range" min="8" max="96" step="4" data-hud-grid value="'+hud.snap.grid+'"><output>'+hud.snap.grid+'px</output></label><small>'+esc(hc.altHint)+'</small></div>';
+  const pre=Object.keys(M.PRESETS).map(k=>'<button type="button" class="hud-dock-preset" data-hud-preset="'+k+'" aria-label="'+esc(hc.presets[k])+'" data-tip="'+esc(hc.presets[k])+'">'+thumb(k)+'</button>').join('');
+  const saved=hud.saved.map((x,i)=>'<button type="button" role="menuitem" data-hud-saved="'+i+'">'+esc(x.name)+'</button>').join('')||'<span class="hud-dock-empty">'+esc(hc.none)+'</span>';
+  const grid=hud.snap.mode==='grid';
+  return '<button type="button" class="hud-dock-pill" data-dock-expand aria-label="'+esc(hc.expand)+'"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h5v5H2zM9 2h5v3H9zM9 7h5v7H9zM2 9h5v5H2z"/></svg><span>'+esc(hc.dockTitle)+'</span></button>'+
+   '<div class="hud-dock-panel" role="dialog" aria-label="'+esc(hc.layout)+'">'+
+   '<header class="hud-dock-head" data-dock-grip><svg class="hud-dock-grip" viewBox="0 0 6 10" aria-hidden="true"><circle cx="1" cy="1" r="1"/><circle cx="5" cy="1" r="1"/><circle cx="1" cy="5" r="1"/><circle cx="5" cy="5" r="1"/><circle cx="1" cy="9" r="1"/><circle cx="5" cy="9" r="1"/></svg>'+
+   '<span class="hud-dock-title">'+esc(hc.layout)+'</span><span class="hud-dock-help" tabindex="0" role="button" aria-label="'+esc(hc.help)+'">?<span class="hud-dock-tip" role="tooltip">'+esc(hc.hint)+'<br>'+esc(hc.shotHint)+'<br>'+esc(hc.altHint)+'</span></span>'+
+   '<button type="button" class="hud-dock-ico" data-dock-collapse aria-label="'+esc(hc.collapse)+'"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7"/></svg></button></header>'+
+   '<div class="hud-dock-body">'+
+   '<div class="hud-dock-row"><span class="hud-dock-k">'+esc(hc.presetLabel)+'</span><div class="hud-dock-presets" role="group" aria-label="'+esc(hc.presetLabel)+'">'+pre+'</div></div>'+
+   '<div class="hud-dock-row"><span class="hud-dock-k">'+esc(hc.place)+'</span><div class="hud-dock-seg" role="radiogroup" aria-label="'+esc(hc.place)+'"><button type="button" role="radio" data-hud-mode="free" aria-checked="'+(!grid)+'">'+esc(hc.free)+'</button><button type="button" role="radio" data-hud-mode="grid" aria-checked="'+grid+'">'+esc(hc.gridMode)+'</button></div></div>'+
+   '<label class="hud-dock-row hud-dock-grid"'+(grid?'':' hidden')+'><span class="hud-dock-k">'+esc(hc.gridSize)+'</span><input type="range" min="8" max="96" step="4" data-hud-grid value="'+hud.snap.grid+'" aria-label="'+esc(hc.gridSize)+'"><output>'+hud.snap.grid+'</output></label>'+
+   '<div class="hud-dock-row"><span class="hud-dock-k">'+esc(hc.mine)+'</span><details class="hud-dock-menu"><summary>'+esc(hud.saved.length?hc.pick:hc.none)+'<svg viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></summary><div class="hud-dock-list" role="menu">'+saved+'<hr><button type="button" role="menuitem" data-hud-save>+ '+esc(hc.saveAs)+'</button></div></details></div>'+
+   '</div><footer class="hud-dock-foot"><button type="button" class="hud-dock-ghost" data-hud-reset>'+esc(hc.reset)+'</button><button type="button" class="hud-dock-done" data-hud-done>'+esc(hc.done)+'</button></footer></div>';
+ }
+ /* where the dock goes: the saved spot, or the corner that covers the least of the blocks on screen */
+ function dockOver(box,x,y,c){const W=box.offsetWidth,Hh=box.offsetHeight;box.classList.toggle('over-content',Object.values({...cardFrames,...hostShown}).some(r=>{const fx=r.x*c.width/100,fy=r.y*c.height/100;return fx<x+W&&x<fx+r.w*c.width/100&&fy<y+Hh&&y<fy+r.h*c.height/100;}));}
+ function placeDock(s,auto){
+  const box=s.querySelector('.anki-hud-edit'),c=s.querySelector('.anki-hud-canvas')?.getBoundingClientRect();if(!box||box.hidden||!c?.width)return;
+  const W=box.offsetWidth,Hh=box.offsetHeight,m=14,maxX=Math.max(m,c.width-W-m),maxY=Math.max(m,c.height-Hh-m);let x,y;
+  if(dock.fx!==null&&!auto){x=m+(maxX-m)*dock.fx;y=m+(maxY-m)*dock.fy;}
+  else{/* every block with a 10 px safety margin */const frames=Object.values({...cardFrames,...hostShown}).map(r=>({x:r.x*c.width/100-10,y:r.y*c.height/100-10,w:r.w*c.width/100+20,h:r.h*c.height/100+20}));
+   /* 'keep': an auto-placed dock stays where it is while it still covers nothing (no jumping on every change) */
+   if(auto==='keep'&&box.dataset.placed){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform),px=t.m41,py=t.m42;let hit=0;
+    for(const f of frames){hit+=Math.max(0,Math.min(px+W,f.x+f.w)-Math.max(px,f.x))*Math.max(0,Math.min(py+Hh,f.y+f.h)-Math.max(py,f.y));}if(hit<=0&&px<=maxX+1&&py<=maxY+1)return;}
+   box.dataset.placed='1';
+   /* corners first, then every spot on a 16 px grid; least covered wins, nearer an edge breaks ties */const cands=[[maxX,m],[m,m],[maxX,maxY],[m,maxY]];for(let gy=m;gy<=maxY;gy+=16)for(let gx=m;gx<=maxX;gx+=16)cands.push([gx,gy]);
+   let best=null;for(const [cx,cy] of cands){let hit=0;for(const f of frames){const ox=Math.max(0,Math.min(cx+W,f.x+f.w)-Math.max(cx,f.x)),oy=Math.max(0,Math.min(cy+Hh,f.y+f.h)-Math.max(cy,f.y));hit+=ox*oy;}
+    hit+=Math.min(cx-m,maxX-cx,cy-m,maxY-cy)*12;if(!best||hit<best.hit-1)best={hit,x:cx,y:cy};}
+   x=best.x;y=best.y;
+   const covered=best.hit-Math.min(best.x-m,maxX-best.x,best.y-m,maxY-best.y)*12;if(covered>0&&!dock.opened&&!box.classList.contains('collapsed')){box.classList.add('collapsed');box.dataset.autofold='1';x=maxX;y=m;}}
+  x=Math.min(maxX,Math.max(m,x));y=Math.min(maxY,Math.max(m,y));dockOver(box,x,y,c);box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=x+W/2>c.width/2?'right':'left';
  }
  function mountEdit(s){
-  const box=s.querySelector('.anki-hud-edit');box.innerHTML=editPanel();
+  const box=s.querySelector('.anki-hud-edit');box.innerHTML=editPanel();box.classList.toggle('collapsed',dock.collapsed);
   box.querySelector('[data-hud-done]').onclick=()=>setEditing(false);box.querySelector('[data-hud-reset]').onclick=resetHud;
+  const fold=on=>{dock.collapsed=on;saveDock();box.classList.toggle('collapsed',on);(on?box.querySelector('[data-dock-expand]'):box.querySelector('[data-hud-done]'))?.focus({preventScroll:true});};
   box.onclick=event=>{const b=event.target.closest('button');if(!b)return;
+   if(b.hasAttribute('data-dock-collapse')){fold(true);return;}if(b.hasAttribute('data-dock-expand')){if(!box.dataset.dragged){dock.opened=true;delete box.dataset.autofold;fold(false);}return;}
    if(b.dataset.hudPreset){hud.layout=M.preset(b.dataset.hudPreset);saveHud();applyHud();}
-   else if(b.dataset.hudMode){hud.snap={...hud.snap,mode:b.dataset.hudMode};saveHud();box.querySelectorAll('[data-hud-mode]').forEach(x=>x.setAttribute('aria-checked',String(x===b)));applyHud();}
-   else if(b.hasAttribute('data-hud-save')){hud.saved=[...hud.saved,{name:hc.mine+' '+(hud.saved.length+1),layout:JSON.parse(JSON.stringify(hud.layout))}].slice(-6);saveHud();hud=M.load(localStorage);mountEdit(s);toast(hc.savedOk);}};
-  box.querySelector('[data-hud-saved]').onchange=event=>{const x=hud.saved[Number(event.target.value)];if(!event.target.value||!x)return;hud.layout=M.cleanLayout(x.layout);saveHud();applyHud();};
-  box.querySelector('[data-hud-grid]').oninput=event=>{hud.snap={...hud.snap,grid:Number(event.target.value)};event.target.nextElementSibling.value=event.target.value+'px';saveHud();applyHud();};
+   else if(b.dataset.hudMode){hud.snap={...hud.snap,mode:b.dataset.hudMode};saveHud();box.querySelectorAll('[data-hud-mode]').forEach(x=>x.setAttribute('aria-checked',String(x===b)));box.querySelector('.hud-dock-grid').hidden=b.dataset.hudMode!=='grid';applyHud();}
+   else if(b.dataset.hudSaved!==undefined){const x=hud.saved[Number(b.dataset.hudSaved)];if(x){hud.layout=M.cleanLayout(x.layout);saveHud();applyHud();}b.closest('details').open=false;}
+   else if(b.hasAttribute('data-hud-save')){hud.saved=[...hud.saved,{name:hc.mine+' '+(hud.saved.length+1),layout:JSON.parse(JSON.stringify(hud.layout))}].slice(-6);saveHud();hud=M.load(localStorage);mountEdit(s);placeDock(s);toast(hc.savedOk);}};
+  box.querySelector('[data-hud-grid]').oninput=event=>{hud.snap={...hud.snap,grid:Number(event.target.value)};event.target.nextElementSibling.value=event.target.value;saveHud();applyHud();};
+  box.querySelector('.hud-dock-menu').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();e.currentTarget.open=false;e.currentTarget.querySelector('summary').focus();}});
+  /* drag by the head (or the folded pill); a click on the pill that did not move opens it */
+  for(const grip of box.querySelectorAll('[data-dock-grip],[data-dock-expand]'))grip.addEventListener('pointerdown',down=>{
+   if(down.button!==0||(grip.hasAttribute('data-dock-grip')&&down.target.closest('button,[role=button]')))return;
+   const c=s.querySelector('.anki-hud-canvas').getBoundingClientRect(),m0=new DOMMatrixReadOnly(getComputedStyle(box).transform),sx=m0.m41,sy=m0.m42;let moved=false,frame=0,last=down;
+   try{grip.setPointerCapture(down.pointerId);}catch{}box.classList.add('dragging');s.classList.add('dock-dragging');delete box.dataset.dragged;
+   const paint=()=>{frame=0;const W=box.offsetWidth,Hh=box.offsetHeight,x=Math.min(c.width-W-6,Math.max(6,sx+last.clientX-down.clientX)),y=Math.min(c.height-Hh-6,Math.max(6,sy+last.clientY-down.clientY));
+    box.style.transform='translate3d('+Math.round(x)+'px,'+Math.round(y)+'px,0)';box.dataset.side=x+W/2>c.width/2?'right':'left';
+    const m=14,maxX=Math.max(m+1,c.width-W-m),maxY=Math.max(m+1,c.height-Hh-m);dock.fx=Math.min(1,Math.max(0,(x-m)/(maxX-m)));dock.fy=Math.min(1,Math.max(0,(y-m)/(maxY-m)));};
+   const move=e=>{last=e;if(Math.abs(e.clientX-down.clientX)+Math.abs(e.clientY-down.clientY)>3)moved=true;if(moved&&!frame)frame=requestAnimationFrame(paint);};
+   const up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);removeEventListener('pointercancel',up);box.classList.remove('dragging');s.classList.remove('dock-dragging');
+    if(frame){cancelAnimationFrame(frame);paint();}if(moved){const t=new DOMMatrixReadOnly(getComputedStyle(box).transform);dockOver(box,t.m41,t.m42,c);saveDock();box.dataset.dragged='1';setTimeout(()=>delete box.dataset.dragged,0);}};
+   /* window listeners: the drag keeps going even where pointer capture is refused */addEventListener('pointermove',move);addEventListener('pointerup',up);addEventListener('pointercancel',up);});
   try{enhanceSelects(box);}catch{}
  }
+ const moving=on=>stage()?.classList.toggle('hud-moving',!!on);
  function shell(){
   let s=stage();if(s)return s;
   s=document.createElement('section');s.className='anki-hud';s.setAttribute('aria-label',text.ankiReview);
@@ -183,7 +236,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud;el.insertAdjacentHTML('beforeend','<span class="hud-label">'+esc(hc.labels[id]||id)+'</span>');
    H.attach(el,{stage:canvas,rect:()=>hostShown[id]||hud.layout[id],editing:()=>editing,
     snap:(r,kind,alt)=>{if(alt)return null;const c=canvas().getBoundingClientRect();return H.snapRect(r,Object.entries({...cardFrames,...hostShown}).filter(([k])=>k!==id).map(([,v])=>v),kind,{...hud.snap,SW:c.width,SH:c.height});},
-    guides:g=>H.drawGuides(s.querySelector('.anki-hud-guides'),g),onCommit:r=>{hud.layout[id]=r;saveHud();placeBlocks();}});}
+    guides:g=>H.drawGuides(s.querySelector('.anki-hud-guides'),g),onActive:moving,onCommit:r=>{hud.layout[id]=r;saveHud();placeBlocks();}});}
   mountEdit(s);new ResizeObserver(()=>placeBlocks()).observe(s.querySelector('.anki-hud-canvas'));
   applyHud();return s;
  }
@@ -193,7 +246,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud,box=el.querySelector('.hud-content'),r=hud.layout[id];if(!box||!r)continue;
    box.style.transform='none';const nw=box.offsetWidth,nh=box.offsetHeight;if(!nw||!nh||!box.textContent.trim()){H.applyRect(el,hostShown[id]||r);continue;}
    const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.rect;H.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
-  if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});
+  if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});if(editing&&dock.fx===null)placeDock(s,'keep');
  }
  function paintBg(){
   const s=stage();if(!s)return;const bg=s.querySelector('.anki-hud-bg'),b=hud.style.bg;
@@ -210,18 +263,25 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  function setEditing(on){
   editing=!!on;const s=stage();if(!s)return;s.classList.toggle('editing',editing);s.querySelector('.anki-hud-edit').hidden=!editing;
   s.querySelectorAll('.anki-hud-bar details[open]').forEach(d=>d.open=false);s.querySelector('[data-hud-layout]')?.setAttribute('aria-pressed',String(editing));
-  post({type:'tome-anki-hud',edit:editing});if(editing)s.querySelector('[data-hud-done]').focus();
+  post({type:'tome-anki-hud',edit:editing});if(editing){delete s.querySelector('.anki-hud-edit').dataset.placed;placeDock(s);(dock.collapsed?s.querySelector('[data-dock-expand]'):s.querySelector('[data-hud-done]'))?.focus({preventScroll:true});}else moving(false);
  }
- function resetHud(){hud={...hud,layout:M.cleanLayout({}),style:M.cleanStyle({}),snap:M.cleanSnap({})};saveHud();const s=stage();if(s)mountEdit(s);applyHud();const bar=s?.querySelector('.anki-hud-bar');if(bar){bar.querySelector('.anki-look')?.remove();mountLook(bar);}}
+ function resetHud(){hud={...hud,layout:M.cleanLayout({}),style:M.cleanStyle({}),snap:M.cleanSnap({})};dock={...dock,fx:null,fy:null};saveDock();saveHud();const s=stage();if(s){mountEdit(s);placeDock(s,true);}applyHud();const bar=s?.querySelector('.anki-hud-bar');if(bar){bar.querySelector('.anki-look')?.remove();mountLook(bar);}}
  /* Full screen: the stage covers the window (fixed, above the top bar) and the window itself goes full screen through
     the desktop shell, or the browser Fullscreen API outside it. Esc leaves. */
  async function setImmersive(on){
   on=!!on;if(on===immersive)return;immersive=on;const s=stage();s?.classList.toggle('immersive',on);document.documentElement.classList.toggle('anki-immersive',on);
   s?.querySelector('[data-hud-full]')?.setAttribute('aria-pressed',String(on));const b=s?.querySelector('[data-hud-full]');if(b)b.textContent=on?hc.exitFull:hc.full;
-  let native=false;if(windowAction){try{await windowAction(on?'fullscreen_on':'fullscreen_off');native=true;}catch{}}
-  if(!native)try{if(on&&!document.fullscreenElement)await document.documentElement.requestFullscreen?.();else if(!on&&document.fullscreenElement)await document.exitFullscreen();}catch{}
+  /* (user 2026-11-13: the top bar stayed above the HUD, a white strip at the bottom, the window vanished) the desktop
+     window covers the monitor; the stage itself goes to the top layer, above the top bar and every stacking context,
+     without moving the card frame: as a popover, or as the browser's full-screen element when the window cannot */
+  const pop=show=>{try{if(!s||typeof s.showPopover!=='function')return;if(show){if(!s.matches(':popover-open')){s.popover='manual';s.showPopover();}}else if(s.matches(':popover-open')){s.hidePopover();s.removeAttribute('popover');}}catch{}};
+  if(on){let native=false;if(windowAction){try{await windowAction('fullscreen_on');native=true;}catch{}}
+   if(!native&&!document.fullscreenElement&&s?.requestFullscreen){try{await s.requestFullscreen();browserFull=true;}catch{}}
+   if(!document.fullscreenElement)pop(true);}
+  else{pop(false);if(browserFull&&document.fullscreenElement){browserFull=false;try{await document.exitFullscreen();}catch{}}else if(windowAction){try{await windowAction('fullscreen_off');}catch{}}browserFull=false;}
  }
- const fullscreenSync=()=>{if(!document.fullscreenElement&&immersive&&!windowAction)setImmersive(false);};
+ let browserFull=false;
+ const fullscreenSync=()=>{if(!document.fullscreenElement&&immersive&&browserFull){browserFull=false;setImmersive(false);}};
  document.addEventListener('fullscreenchange',fullscreenSync);
  function leaveHud(){setEditing(false);if(immersive)setImmersive(false);}
  function lookup(word){
@@ -279,16 +339,17 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const s=stage();if(!s||!isCurrent())return;const controls=s.querySelector('[data-controls]'),ratings=[...controls.querySelectorAll('.anki-rating')].map(b=>Number(b.dataset.ease));
   const action=ankiKeyAction(k,{answerShown:ratings.length>0,ratings,editing,immersive});if(!action)return false;
   if(action==='fullscreen')setImmersive(!immersive);else if(action==='layout')setEditing(!editing);else if(action==='replay')s.querySelector('[data-replay]')?.click();
-  else if(action==='primary')controls.querySelector('button.primary:not(:disabled)')?.click();else controls.querySelector('.rating-'+action.slice(5)+':not(:disabled)')?.click();
+  else if(action==='primary')controls.querySelector('button.hud-primary:not(:disabled),button.primary:not(:disabled)')?.click();else controls.querySelector('.rating-'+action.slice(5)+':not(:disabled)')?.click();
   return true;
  }
- const keydown=event=>{if(!isCurrent()){stop();return;}if(!stage())return;if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.('input,select,textarea,[contenteditable],details[open],.anki-hud-lookup,.select-popup'))return;
+ const keydown=event=>{if(!isCurrent()){stop();return;}if(!stage()||event.repeat)return;if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.('input,select,textarea,[contenteditable],details[open],.anki-hud-lookup,.select-popup'))return;
   if(event.key!=='Escape'&&event.target.closest?.('button')&&(event.key===' '||event.key==='Enter'))return;if(key(event.key))event.preventDefault();};
  document.addEventListener('keydown',keydown);
  const messages=event=>{if(!isCurrent()){stop();return;}
   if(!currentFrame||event.source!==currentFrame.contentWindow||event.data?.nonce!==currentFrame.dataset.nonce)return;const d=event.data;
   if(d.type==='tome-anki-replay')replay(currentCard,target.querySelector('[data-replay]'));
   else if(d.type==='tome-anki-hud-move'&&Object.hasOwn(M.LAYOUT,d.id)){hud.layout[d.id]=H.normRect(d.rect,M.LAYOUT[d.id]);saveHud();}
+  else if(d.type==='tome-anki-hud-drag')moving(!!d.on);
   else if(d.type==='tome-anki-hud-frames'&&d.frames&&typeof d.frames==='object'){cardFrames=Object.fromEntries(Object.entries(d.frames).filter(([k])=>Object.hasOwn(M.LAYOUT,k)).map(([k,r])=>[k,H.normRect(r,M.LAYOUT[k],{w:.3,h:.3})]));}
   else if(d.type==='tome-anki-shot'){shotSrc=/^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(String(d.src||''))?d.src:'';paintBg();}
   else if(d.type==='tome-anki-key')key(String(d.key||''));
@@ -308,11 +369,11 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   s.querySelector('[data-fit]').onclick=event=>{fit=!fit;event.currentTarget.textContent=fit?copy.fit:copy.original;event.currentTarget.setAttribute('aria-pressed',
    String(fit));currentFrame.contentWindow.postMessage({type:'tome-anki-fit',nonce:currentFrame.dataset.nonce,fit},'*');};
   const controls=s.querySelector('[data-controls]');controls.replaceChildren();requestAnimationFrame(placeBlocks);
-  if(!card.answerShown){const button=document.createElement('button');button.className='primary';button.textContent=text.showAnswer;button.onclick=async()=>{button.disabled=true;
+  if(!card.answerShown){const button=document.createElement('button');button.className='hud-primary';button.innerHTML='<strong>'+esc(text.showAnswer)+'</strong><kbd>'+esc(hc.space)+'</kbd>';button.onclick=async()=>{button.disabled=true;
    try{drawCard(await api('anki_show_answer',{cardId:card.cardId}));}catch(error){button.disabled=false;failed(error);}};controls.append(button);}
   else for(const[ease,index]of card.buttons.map((ease,index)=>[ease,index])){
    const button=document.createElement('button');button.className='anki-rating rating-'+ease;button.dataset.ease=String(ease);button.innerHTML='<strong>'+esc([null,text.ankiAgain,text.ankiHard,
-    text.ankiGood,text.ankiEasy][ease])+'</strong><small>'+esc(card.intervals[index]||'')+'</small>';
+    text.ankiGood,text.ankiEasy][ease])+'</strong><small>'+esc(card.intervals[index]||'')+'</small><kbd>'+ease+'</kbd>';
    button.onclick=async()=>{controls.querySelectorAll('button').forEach(b=>b.disabled=true);try{const next=await api('anki_grade',{cardId:card.cardId,ease,operationId:crypto.randomUUID()});reviewed++;drawCard(next);
     }catch(error){failed(error);target.querySelector('[data-reload]')?.focus();}};controls.append(button);
   }

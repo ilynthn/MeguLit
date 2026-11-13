@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('../services/original-engines/kit.cjs');/* E580 shared engine kit */
 // E237 Japanese restore: a game that ships its Japanese text can be switched back to it, per engine adapter.
 // Only an explicit user action from the Tools page writes game files; every write keeps a backup and a manifest
 // (original and patched SHA-256), and restore only puts back files that still hold our patched bytes.
@@ -18,14 +19,10 @@ const BACKUP_DIR='.megulit-japanese',KANA=/[぀-ヿ]/,HAN_ONLY_CN=/[一-鿿]/;
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 function xorKey(buf,offset){const out=Buffer.alloc(buf.length-offset);for(let i=0;i<out.length;i++)out[i]=buf[i+offset]^DBS_KEY[i%4];return out;}
 function route(data){const out=Buffer.alloc(data.length);for(let i=0;i<data.length;i++)out[i]=data[i]^D3_KEYS[D3_ROUTE[(i>>2)%D3_ROUTE.length]][i%4];return out;}
+/* E580 the distance-back LZ shared with Siglus scenes and Interheart (kit.lzDistance) */
 function lzss(src){
  const end=src.readUInt32LE(0),size=src.readUInt32LE(4);if(end<8||end>src.length||size<=0)throw Error('DBS_COMPRESSION');
- const out=Buffer.alloc(size);let o=0,s=8;
- while(o<size){if(s>=end)throw Error('DBS_TRUNCATED');const flags=src[s++];
-  for(let bit=0;bit<8&&o<size;bit++){
-   if(flags&(1<<bit))out[o++]=src[s++];
-   else{const v=src[s]|(src[s+1]<<8);s+=2;const len=(v&15)+2,dist=v>>4;if(!dist||dist>o)throw Error('DBS_LZ');for(let k=0;k<len&&o<size;k++){out[o]=out[o-dist];o++;}}}}
- return out;}
+ try{return kit.lzDistance(src.subarray(0,end),size,{at:8,strict:true});}catch(e){throw Error(e.message==='LZ_SHORT'?'DBS_TRUNCATED':'DBS_LZ');}}
 function literal(data){ // stored as literal runs; the engine reads it with the same decoder
  const flagBytes=Math.ceil(data.length/8),out=Buffer.alloc(8+data.length+flagBytes);out.writeUInt32LE(out.length,0);out.writeUInt32LE(data.length,4);
  let s=0,d=8;while(s<data.length){const n=Math.min(8,data.length-s);out[d++]=(1<<n)-1;data.copy(out,d,s,s+n);s+=n;d+=n;}return out;}

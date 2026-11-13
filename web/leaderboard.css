@@ -274,7 +274,7 @@
 
 /* E402 empty state: emblem, line, hint, centred */
 .lb-empty-state{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:30px 16px 22px}
-.lb-empty-emblem{display:grid;place-items:center;width:64px;height:64px;margin-bottom:6px;border-radius:18px;color:var(--lb-gold);background:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lb-gold) 28%,transparent)}
+.lb-empty-emblem{display:grid;place-items:center;width:64px;height:64px;margin-bottom:6px;border-radius:2px;color:var(--lb-gold);background:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lb-gold) 28%,transparent)}
 .lb-empty-emblem svg{width:34px;height:34px}
 .lb-empty-title{margin:0;font-family:var(--g-serif,serif);font-size:15px;color:var(--lb-ink)}
 .lb-empty-hint{margin:0;max-width:46ch;font-size:12.5px;line-height:1.7;color:var(--lb-ink-3);text-wrap:pretty}
@@ -513,6 +513,8 @@ button.lb-mychip:active{transform:scale(.98)}
 .forum-more{display:block;margin:14px auto 0}
 .forum-center{text-align:center}
 .forum-back{margin:0 0 12px}
+/* the back link is only as wide as its words (lb-body is a flex column and stretched it, so the hover underline ran across the card) */
+.leaderboard-page .lb-body>.forum-back{align-self:flex-start;width:max-content;max-width:100%}
 .forum-thread,.forum-replies,.forum-form{margin-bottom:18px}
 .forum-title{margin:12px 0 4px;font-family:var(--g-serif,serif);font-size:24px;font-weight:600;line-height:1.35;color:var(--lb-ink);text-wrap:balance}
 .forum-text{margin-top:14px;font-size:14px;line-height:1.85;color:var(--lb-ink);overflow-wrap:anywhere}
@@ -584,3 +586,6 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body [data-lb-group=period]
 html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body [data-lb-group=period] button{height:28px!important;padding:0 12px!important;font-size:12.5px!important;border:0!important;border-radius:1px!important;box-shadow:none!important;color:var(--t-text-2)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body [data-lb-group=period] button::after{display:none!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body [data-lb-group=period] button[aria-pressed=true]{background:color-mix(in srgb,var(--t-text) 10%,transparent)!important;color:var(--t-text)!important}
+
+/* 2026-11-13 关注 has no sub-row controls (its caption is hidden in unify.css), so the empty row with its rule and 52px gap goes */
+.main[data-lb-tab=follow] .leaderboard-page>.lb-subrow{display:none}

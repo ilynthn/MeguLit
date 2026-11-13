@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');
 /* E449 RealLive (Key / Visual Arts: リトルバスターズ！ and EX, Little Busters! English Edition, CLANNAD full voice,
    クドわふたー ...). Format and keys from rlvm's libreallive (archive.cc, scenario.cc, compression.cc),
    Copyright (c) 2006, 2007 Peter Jolly, MIT licence (see THIRD-PARTY.md):
@@ -11,7 +12,7 @@
    Text: Shift-JIS runs of the bytecode (textout, selection strings); commands and expressions are ASCII and dropped.
    A Chinese patch that ships its own Seen.txt (GBK) is read the same way and pairs by scenario number. */
 const fs=require('node:fs'),path=require('node:path');
-const sj=new TextDecoder('shift_jis'),gbk=new TextDecoder('gbk');
+const sj=kit.SJIS,gbk=new TextDecoder('gbk');
 const MASK=Buffer.from([
  0x8b,0xe5,0x5d,0xc3,0xa1,0xe0,0x30,0x44,0x00,0x85,0xc0,0x74,0x09,0x5f,0x5e,0x33,0xc0,0x5b,0x8b,0xe5,0x5d,0xc3,0x8b,0x45,
  0x0c,0x85,0xc0,0x75,0x14,0x8b,0x55,0xec,0x83,0xc2,0x20,0x52,0x6a,0x00,0xe8,0xf5,0x28,0x01,0x00,0x83,0xc4,0x08,0x89,0x45,

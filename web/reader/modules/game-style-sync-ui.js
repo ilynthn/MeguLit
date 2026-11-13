@@ -53,7 +53,7 @@
  function values(){const p=pick(b.galPreferences());if(window.__tomeTextPosition?.state?.().following){p.x=session.base.prefs.x;p.y=session.base.prefs.y;}return p;
   }
  const dirty=()=>session.dirty(values(),getMap());
- const apply=(prefs,map,preview=true)=>{if(map!==undefined)window.__tomeTextPosition?.setMap?.(map);return b.applyGalPreferences(pick(prefs),{preview,persist:!preview});
+ const apply=(prefs,map,preview=true)=>{if(map!==undefined)window.__tomeTextPosition?.setMap?.(map);return b.applyGalPreferences(tools.followFont?tools.followFont(pick(prefs)):pick(prefs),{preview,persist:!preview});
   };
  const isBusy=()=>['revealing','measuring','sampling','waitingOriginal','waitingSource'].includes(last.gameStyleState);
  // Shared measurement and ink-alignment routines are inserted here by the build script.
@@ -64,7 +64,7 @@
  // Measurement (game client pixels) -> MeguLit settings (japaneseSize and spacing in px of a 1280-wide game).
  function convert(r){
   const s=r.style||{},cw=Number(r.width),ch=Number(r.height);if(!(cw>0&&ch>0))return null;const k=1280/cw,f=metrics(),out={autoScale:true,paddingX:0,paddingY:0};
-  for(const key of ['textColor','readTextColor','textGradient','textGradientTop','textGradientBottom','readTextGradient','readTextGradientTop','readTextGradientBottom'])if(s[key]!==undefined)out[key]=s[key];
+  for(const key of ['textColor','readTextColor','speechTextColor','narrationTextColor','textGradient','textGradientTop','textGradientBottom','readTextGradient','readTextGradientTop','readTextGradientBottom'])if(s[key]!==undefined)out[key]=s[key];
   const size=r.inkHeight>0?r.inkHeight*k/f.ink:Number(s.japaneseSize);if(Number.isFinite(size)&&size>4){out.japaneseSize=Math.round(size*10)/10;out.translationSize=Math.round(Math.max(12,
    Math.min(60,out.japaneseSize))*10)/10;}
   if(out.japaneseSize&&r.advance>0)out.japaneseSpacingPx=Math.round(clamp(r.advance*k-out.japaneseSize*f.adv,-out.japaneseSize*.45,out.japaneseSize)*10)/10;
@@ -166,11 +166,11 @@
    const changed=(m.gameStyleKey||'')!==session.key||!!m.gameStyleIdentity&&m.gameStyleIdentity!==gameIdentity;
    if(changed||!dirty()&&!saving){if(changed){measurementSerial++;clearInterval(correctionTimer);saving=null;aligning=false;gameIdentity=m.gameStyleIdentity||'';
     window.__tomeTextPosition?.resetSession?.(gameIdentity);}
-    const p={...pick(b.galPreferences()),...m.gameStyleEffectivePrefs};session.load(m.gameStyleKey,m.gameStyleGameName,p,m.gameStylePositionMap,m.gameStyleSavedAt||Math.max(m.gameStyleTextSavedAt||0,
+    const p={...pick(b.galPreferences()),...(tools.followFont?tools.followFont(m.gameStyleEffectivePrefs):m.gameStyleEffectivePrefs)};session.load(m.gameStyleKey,m.gameStyleGameName,p,m.gameStylePositionMap,m.gameStyleSavedAt||Math.max(m.gameStyleTextSavedAt||0,
      m.gameStylePositionSavedAt||0),m.gameStyleHistory||[]);apply(p,m.gameStylePositionMap||null,false);message='';}
   }else if(m.gameStyleState==='saved'){
    if(saving&&m.gameStyleSaveId&&m.gameStyleSaveId!==saving.id)return;
-   const prefs={...pick(b.galPreferences()),...(m.gameStyleEffectivePrefs||m.gameStyleProfile||saving?.prefs||values())},map=m.gameStylePositionMap===undefined?saving?.map||getMap():m.gameStylePositionMap;
+   const prefs={...pick(b.galPreferences()),...tools.followFont(m.gameStyleEffectivePrefs||m.gameStyleProfile||saving?.prefs||values())},map=m.gameStylePositionMap===undefined?saving?.map||getMap():m.gameStylePositionMap;
    session.saved(m.gameStyleKey||session.key,prefs,map,m.gameStyleSavedAt,m.gameStyleHistory||[]);saving=null;apply(prefs,map,false);message='';
   }else if(m.gameStyleState==='saveFailed'){if(saving&&m.gameStyleSaveId&&m.gameStyleSaveId!==saving.id)return;saving=null;message=t('failed');}
   else if(m.gameStyleState==='measured'&&m.gameStyle)receivedMeasurement(m);

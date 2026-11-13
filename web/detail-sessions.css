@@ -1,0 +1,47 @@
+/* 2026-11-13 阅读记录 (detail-sessions.js): house panels, serif day titles, small grey labels, gold volume, red only for today */
+.game-detail-content .ds{display:flex;flex-direction:column;gap:28px;padding-top:20px}
+.game-detail-content .ds-summary{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:36px;align-items:end;padding:24px 28px 30px!important}
+.ds-figs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.ds-fig{display:flex;flex-direction:column;gap:8px;padding:0 20px;border-left:1px solid var(--g-rule)}
+.ds-fig:first-child{padding-left:0;border-left:0}
+.ds-fig>span{font-size:12px;letter-spacing:.12em;color:var(--g-t3)}
+.ds-fig>strong{font:400 28px/1.1 var(--g-serif);color:var(--g-t1);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ds-fig>strong small{font:14px/1 var(--g-serif);color:var(--g-t2);margin-left:4px}
+.ds-chart{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ds-chart-k{font-size:12px;letter-spacing:.12em;color:var(--g-t3)}
+.ds-bars{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:6px;height:60px;align-items:end;border-bottom:1px solid var(--g-rule-strong)}
+.ds-bar{position:relative;display:block;height:var(--h);background:color-mix(in srgb,var(--g-gold) 72%,transparent);border-radius:2px 2px 0 0;transform-origin:bottom;animation:ds-grow .55s var(--g-ease) both;animation-delay:calc(var(--i,0) * 24ms)}
+.ds-bar.is-zero{height:2px;background:var(--g-rule-strong);animation:none}
+.ds-bar.is-today{background:var(--t-red-2,#e0404a)}
+.ds-bar b{position:absolute;top:calc(100% + 7px);left:0;font:400 12px/1 var(--g-serif);color:var(--g-t3);white-space:nowrap}
+.ds-bar.is-today b{left:auto;right:0;color:var(--g-t2)}
+.ds-day{display:flex;flex-direction:column;gap:12px}
+.ds-day-head{display:flex;align-items:baseline;gap:12px;padding:0 4px}
+.ds-day-head h3{margin:0;font:500 21px/1.2 var(--g-serif);color:var(--g-t1)}
+.ds-day.is-today .ds-day-head h3::after{content:"";display:inline-block;width:6px;height:6px;margin:0 0 4px 9px;border-radius:50%;background:var(--t-red-2,#e0404a);vertical-align:middle}
+.ds-date{font-size:13px;color:var(--g-t3)}
+.ds-day-sum{margin-left:auto;font-size:13px;color:var(--g-t2);font-variant-numeric:tabular-nums}
+.game-detail-content .ds-rows{list-style:none;margin:0;padding:4px 26px!important}
+.ds-row{display:grid;grid-template-columns:128px 112px repeat(3,minmax(84px,108px)) minmax(80px,1fr);align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--g-rule)}
+.ds-row:last-child{border-bottom:0}
+.ds-time{font:400 15px/1 var(--g-serif);color:var(--g-t1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ds-time em{font-style:normal;color:var(--g-t3);margin:0 5px}
+.ds-dur{font-size:14px;color:var(--g-t1);white-space:nowrap}
+.ds-num{font:400 15px/1 var(--g-serif);color:var(--g-t2);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.ds-num small{font:12px/1 var(--g-serif);color:var(--g-t3);margin-left:3px}
+.ds-vol{position:relative;height:4px;margin-left:10px;border-radius:2px;background:var(--g-rule);overflow:hidden}
+.ds-vol i{position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--g-gold);border-radius:2px;transform-origin:left;animation:ds-fill .6s var(--g-ease) both}
+.ds-empty{padding:44px 28px!important;text-align:center}
+.ds-empty h3{margin:0 0 8px;font:500 20px/1.3 var(--g-serif);color:var(--g-t1)}
+.ds-empty p{margin:0;font-size:13px;color:var(--g-t3)}
+@keyframes ds-grow{from{transform:scaleY(0)}}
+@keyframes ds-fill{from{transform:scaleX(0)}}
+@media(max-width:1180px){.game-detail-content .ds-summary{grid-template-columns:1fr}.ds-row{grid-template-columns:116px 96px repeat(3,minmax(64px,1fr)) 60px}}
+@media(prefers-reduced-motion:reduce){.ds-bar,.ds-vol i{animation:none}}
+.main .detail-statistics .stat-card strong small{font-size:.5em;margin:0 .15em 0 .1em;color:var(--g-t2);font-weight:400}
+html body .game-detail-content ol.ds-rows.panel{padding-top:2px!important;padding-bottom:2px!important}
+.ds-na{color:var(--g-t3)}
+html:not(#u):not(#v):not(#w):not(#x) body .main .detail-statistics .stat-card strong{white-space:nowrap!important}
+html:not(#u):not(#v):not(#w):not(#x) body .game-detail-content ol.ds-rows{padding-top:2px!important;padding-bottom:2px!important}
+.dur-nw{font:inherit;color:inherit;white-space:nowrap}
+.ds-fig .dur-nw{font-weight:400}

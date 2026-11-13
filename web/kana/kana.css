@@ -823,13 +823,12 @@ td.none{color:var(--t3)}
 
 /* 判定文字 */
 .pts.judge{font-family:var(--serif);font-size:12px;letter-spacing:.08em;margin-left:8px}
-.j-critical-perfect{color:var(--gold)}.j-perfect{color:#e8b86d}.j-great{color:#e0647e}.j-good{color:#7fae8a}.j-miss{color:var(--paper-3)}
+.j-critical-perfect{color:#f5d36b!important;text-shadow:0 0 8px rgba(245,211,107,.45)}.j-perfect{color:#e8b86d}.j-great{color:#e0647e}.j-good{color:#7fae8a}.j-miss{color:var(--paper-3)}
 
 /* 结算：达成率 + 评级（不用印章） */
 .v-results .h-score .n{font-size:64px}
-.v-results .h-score .rank{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:.04em;color:var(--gold);padding-bottom:8px}
 .v-results .ledger .judge{font-family:var(--serif);font-size:12px;letter-spacing:.06em}
-.v-results .qc.q-critical-perfect i{background:var(--gold)}.v-results .qc.q-perfect i{background:#e8b86d;opacity:.75}.v-results .qc.q-great i{background:#e0647e;opacity:.7}.v-results .qc.q-good i{background:#7fae8a}.v-results .qc.q-miss i{background:var(--rule-strong)}
+.v-results .qc.q-critical-perfect i{background:#f5d36b}.v-results .qc.q-perfect i{background:#e8b86d;opacity:.75}.v-results .qc.q-great i{background:#e0647e;opacity:.7}.v-results .qc.q-good i{background:#7fae8a}.v-results .qc.q-miss i{background:var(--rule-strong)}
 .v-results .qc.q-miss span{color:var(--ink-accent)}
 @container kana (max-width:600px){.v-results .h-score .n{font-size:44px}}
 
@@ -1144,3 +1143,159 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 .kn-voice-seg button[aria-checked="true"]{background:color-mix(in srgb,#c8323c 14%,transparent)!important;color:var(--t1)!important;box-shadow:inset 0 -2px 0 #c8323c}
 .v-index.mg .mg-diffs button{font-size:12px!important}
 .v-index.mg .mg-game em{display:none}
+
+/* 2026-11-13 familiarity redesign (user: the solid mustard cells looked awful). Dark cells stay dark; the level is told by
+   the hairline, the glyph colour and a faint gold wash: 未学 faint line, grey glyph / 见过 brighter line / 熟悉 gold line,
+   gold glyph / 掌握 gold glyph, ~12% gold wash and a gold base line. The current lesson and the selected cell get a thin
+   red frame. Lines mix from --t1 so the same rules read on the light theme. */
+.v-index.mg{--fm-line:color-mix(in srgb,var(--t1) 10%,transparent);--fm-line-2:color-mix(in srgb,var(--t1) 24%,transparent);--fm-gold:var(--t-gold,#d1a000);--fm-red:var(--t-red,#c8323c)}
+.v-index.mg .mastery button.m0,.v-index.mg .mg-legend i.m0{background:transparent!important;color:var(--t3)!important;box-shadow:inset 0 0 0 1px var(--fm-line)!important}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1{background:color-mix(in srgb,var(--t1) 3%,transparent)!important;color:var(--t2)!important;box-shadow:inset 0 0 0 1px var(--fm-line-2)!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2{background:transparent!important;color:var(--fm-gold)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 50%,transparent)!important}
+.v-index.mg .mastery button.m3,.v-index.mg .mg-legend i.m3{background:color-mix(in srgb,var(--fm-gold) 12%,transparent)!important;color:var(--fm-gold)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 22%,transparent),inset 0 -2px 0 var(--fm-gold)!important}
+.v-index.mg .mastery button{font-weight:500}
+.v-index.mg .mastery button.row{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-red) 70%,transparent)!important}
+.v-index.mg .mastery button.m3.row{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-red) 70%,transparent),inset 0 -2px 0 var(--fm-gold)!important}
+.v-index.mg .mastery button.sel,.v-index.mg .mastery button.sel.row{box-shadow:inset 0 0 0 2px var(--fm-red)!important;z-index:1}
+.v-index.mg .mastery button:hover{transform:none;filter:brightness(1.15)}
+.v-index.mg .mastery.d{grid-template-columns:repeat(5,minmax(0,1fr));max-width:400px}
+.v-index.mg .mg-legend{align-items:center;color:var(--t3)}
+.v-index.mg .mg-legend i{width:12px;height:12px;border-radius:1px}
+.v-index.mg .mg-legend .m4{box-shadow:inset 0 0 0 1.5px var(--fm-red)}
+/* board header: script switch on the left, legend on the right */
+.mg-seg{display:inline-flex;box-shadow:inset 0 0 0 1px var(--fm-line-2)}
+.mg-seg button{height:28px;padding:0 14px;font:500 12px/1 var(--sans);color:var(--t3);background:none;border:0;cursor:pointer;transition:color .15s,background .15s}
+.mg-seg button:hover{color:var(--t1)}
+.mg-seg button[aria-checked="true"]{color:var(--t1);background:color-mix(in srgb,var(--fm-red) 12%,transparent);box-shadow:inset 0 -2px 0 var(--fm-red)}
+/* HUD: name left, four stats truly centred, a quiet Beta mark right; numbers in the site serif, lining + tabular */
+.v-index.mg .mg-hud{display:grid!important;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px 20px}
+.v-index.mg .mg-hud-stats{justify-content:center;gap:40px!important}
+.v-index.mg .mg-hud-stats>span{display:inline-flex;align-items:baseline;gap:8px}
+.v-index.mg .mg-hud-stats b{font:500 18px/1 var(--t-serif,var(--serif))!important;font-variant-numeric:lining-nums tabular-nums;letter-spacing:0!important;color:var(--t1)!important;margin:0!important}
+.v-index.mg .mg-hud-note{justify-self:end;font:500 10px/1 var(--sans);letter-spacing:.12em;color:var(--t3);padding:4px 7px;box-shadow:inset 0 0 0 1px var(--fm-line-2)}
+/* lesson block: title + switcher, note, then the button and the progress on one line */
+.v-index.mg .mg-stage-copy{gap:10px}
+.v-index.mg .mg-stage h1{align-items:center!important}
+.v-index.mg .mg-pick{display:inline-flex;align-items:center;gap:2px;margin-left:auto;font-size:0}
+.v-index.mg .mg-pick button{width:28px;height:28px;display:grid;place-items:center;background:none;border:0;color:var(--t2);font:400 20px/1 var(--sans);cursor:pointer;box-shadow:inset 0 0 0 1px var(--fm-line)}
+.v-index.mg .mg-pick button:hover:not(:disabled){color:var(--t1);box-shadow:inset 0 0 0 1px var(--fm-line-2)}
+.v-index.mg .mg-pick button:disabled{opacity:.3;cursor:default}
+.v-index.mg .mg-pick .mg-num{font:500 12px/1 var(--t-serif,var(--serif));font-variant-numeric:tabular-nums;color:var(--t3);min-width:42px;text-align:center}
+.v-index.mg .mg-row{display:flex;align-items:center;gap:24px;margin-top:14px;flex-wrap:nowrap}
+.v-index.mg .mg-cta{height:40px!important;padding:0 40px 0 18px!important;font:500 14px/1 var(--sans)!important;letter-spacing:.04em!important;flex:none;gap:12px!important}
+.v-index.mg .mg-cta::after{right:16px}
+.v-index.mg .mg-cta kbd{font:500 10px/1 var(--sans);letter-spacing:.04em;color:rgba(246,236,224,.5);padding:3px 5px;box-shadow:inset 0 0 0 1px rgba(246,236,224,.2)}
+.v-index.mg .mg-prog{flex:1;min-width:120px;max-width:300px;display:flex;align-items:center;gap:12px}
+.v-index.mg .mg-prog .mg-barcode{display:block!important;flex:1;width:auto;height:2px!important;background:var(--t-bar-track,rgba(255,255,255,.08))}
+.v-index.mg .mg-prog .mg-barcode i{display:block;height:100%;background:var(--t-bar-fill,var(--fm-gold))!important;transition:width .3s}
+.v-index.mg .mg-prog .mg-num{font:500 13px/1 var(--t-serif,var(--serif))!important;font-variant-numeric:lining-nums tabular-nums;color:var(--t1);letter-spacing:0}
+.v-index.mg .mg-prog .mg-num em{color:var(--t3);font-size:12px;margin-left:1px}
+/* 2026-11-13 practice sheets sit on the site panel, not a black grid */
+:is(.v-play,.v-results,.v-games) .sheet{background:var(--t-panel,linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54)))!important;background-image:none!important;box-shadow:var(--t-ring,inset 0 0 0 1px rgba(255,255,255,.09))!important;border-top:0!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2{color:color-mix(in srgb,var(--fm-gold) 80%,var(--t1))!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 38%,transparent)!important}
+.v-index.mg .mastery button.m3,.v-index.mg .mg-legend i.m3{background:color-mix(in srgb,var(--fm-gold) 8%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 16%,transparent),inset 0 -1.5px 0 var(--fm-gold)!important}
+.v-index.mg .mastery button.m3.row{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-red) 70%,transparent),inset 0 -1.5px 0 var(--fm-gold)!important}
+/* light theme: the megu-edit index was written for dark only (white text); read the theme ink instead */
+:host-context(:root[data-theme=light]) .v-index.mg :is(.mg-stage h1,.mg-game,.mg-tile,.mg-sample,.mg-game b,.mg-tile b,.mg-hud-stats b){color:var(--t1)!important}
+:host-context(:root[data-theme=light]) .v-index.mg :is(.mg-sub,.mg-game small,.mg-tile small,.mg-tile em,.mg-board-empty,.mg-board-empty p,.mg-link,.mg-diffs button,.mg-hud-stats){color:var(--t2)!important}
+:host-context(:root[data-theme=light]) .v-index.mg :is(.mg-ghost,.mg-board-empty b){color:var(--t1)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mg-diffs button{border-color:var(--fm-line-2)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mg-cta kbd{color:rgba(246,236,224,.6)}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3{background:color-mix(in srgb,var(--fm-gold) 10%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mk-card{background:var(--t-panel-solid,#fbf7f1)!important;color:var(--t1)!important;box-shadow:inset 0 0 0 1px var(--fm-line-2)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mk-card :is(.mk-kana,.mk-roma){color:var(--t1)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mk-card small{color:var(--t3)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mk-lv{color:var(--t2)!important;border-color:var(--fm-line-2)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mk-say{color:var(--t1)!important;border-color:var(--fm-line-2)!important;background:none!important}
+.v-index.mg .mk-card{background:var(--t-panel,transparent)!important;color:var(--t1)!important;box-shadow:var(--t-ring,inset 0 0 0 1px var(--fm-line-2))!important;border-left:0!important}
+.v-index.mg .mk-card :is(.mk-kana,.mk-roma){color:var(--t1)!important}
+.v-index.mg .mk-card small{color:var(--t3)!important}
+.v-index.mg .mk-say{color:var(--t1)!important;border-color:var(--fm-line-2)!important;background:none!important}
+.v-index.mg .mk-say:hover{border-color:var(--t2)!important}
+/* judge round 2: wider steps, no wash on 掌握, a short gold mark instead of a full base line, current lesson as a red corner */
+.v-index.mg .mastery button{position:relative}
+.v-index.mg .mastery button.m0,.v-index.mg .mg-legend i.m0{color:color-mix(in srgb,var(--t3) 75%,transparent)!important;box-shadow:inset 0 0 0 1px var(--fm-line)!important;background:transparent!important}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1{color:var(--t2)!important;box-shadow:inset 0 0 0 1px var(--fm-line-2)!important;background:color-mix(in srgb,var(--t1) 4%,transparent)!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2{color:var(--t1)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 40%,transparent)!important;background:transparent!important}
+.v-index.mg .mastery button.m3,.v-index.mg .mg-legend i.m3,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3{color:var(--fm-gold)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 28%,transparent)!important;background:color-mix(in srgb,var(--fm-gold) 4%,transparent)!important}
+.v-index.mg .mastery button.m3::after{content:"";position:absolute;left:35%;right:35%;bottom:9%;height:2px;background:var(--fm-gold)}
+.v-index.mg .mg-legend i.m3{box-shadow:inset 0 -2px 0 var(--fm-gold),inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 28%,transparent)!important}
+.v-index.mg .mastery button.row::before{content:"";position:absolute;left:0;top:0;width:9px;height:9px;background:var(--fm-red);clip-path:polygon(0 0,100% 0,0 100%)}
+.v-index.mg .mastery button.row,.v-index.mg .mastery button.m3.row{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-red) 45%,transparent)!important}
+.v-index.mg .mastery button.sel,.v-index.mg .mastery button.sel.row{box-shadow:inset 0 0 0 2px var(--fm-red),0 0 0 3px color-mix(in srgb,var(--fm-red) 16%,transparent)!important}
+.v-index.mg .mg-legend .m4{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-red) 45%,transparent)!important;background:linear-gradient(135deg,var(--fm-red) 0 38%,transparent 38%)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m0{color:#9a8f87!important}
+/* stats: bigger lining numbers, small labels, hairline separators */
+.v-index.mg .mg-hud-stats{gap:0!important}
+.v-index.mg .mg-hud-stats>span{padding:0 26px;font-size:11.5px;color:var(--t3)}
+.v-index.mg .mg-hud-stats>span+span{box-shadow:inset 1px 0 0 var(--fm-line-2)}
+.v-index.mg .mg-hud-stats b{font-size:20px!important;min-width:1.4em;text-align:right}
+.v-index.mg .mg-board-empty b{color:color-mix(in srgb,var(--t1) 18%,transparent)!important}
+/* judge round 3: one cue per step, quieter 掌握 */
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1{box-shadow:inset 0 0 0 1px var(--fm-line)!important;background:color-mix(in srgb,var(--t1) 6%,transparent)!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2{font-weight:600;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 50%,transparent)!important}
+.v-index.mg .mastery button.m3,.v-index.mg .mg-legend i.m3,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3{color:color-mix(in srgb,var(--fm-gold) 78%,var(--t1))!important;box-shadow:inset 0 0 0 1px var(--fm-line)!important;background:color-mix(in srgb,var(--fm-gold) 3%,transparent)!important}
+.v-index.mg .mastery button.m3::after{left:50%;right:auto;width:14px;margin-left:-7px;opacity:.6}
+.v-index.mg .mg-legend i.m3{box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--fm-gold) 60%,transparent),inset 0 0 0 1px var(--fm-line)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m0{color:#8f8680!important}
+.v-index.mg .mg-hud-stats>span+span{box-shadow:none;position:relative}
+.v-index.mg .mg-hud-stats>span+span::before{content:"";position:absolute;left:0;top:50%;height:12px;margin-top:-6px;width:1px;background:var(--fm-line-2);opacity:.6}
+.v-index.mg .mg-pick .mg-num{font-size:13px;font-variant-numeric:lining-nums tabular-nums}
+/* judge round 4: 掌握 is the brightest step, 熟悉 a gold hairline only, one gold for marks and the bar */
+.v-index.mg .mastery button.m0,.v-index.mg .mg-legend i.m0{color:var(--t3)!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2{font-weight:500;color:color-mix(in srgb,var(--t1) 78%,transparent)!important}
+.v-index.mg .mastery button.m3,.v-index.mg .mg-legend i.m3,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3{color:var(--fm-gold)!important;background:transparent!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m1{background:color-mix(in srgb,#8a6a50 10%,transparent)!important}
+.v-index.mg .mg-prog .mg-barcode i{background:var(--fm-gold)!important;opacity:.85}
+/* judge round 5 */
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 30%,transparent)!important}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1{background:color-mix(in srgb,var(--t1) 9%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m1,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m1{background:color-mix(in srgb,#8a6a50 10%,transparent)!important}
+.v-index.mg .mastery button.m3::after{width:10px;margin-left:-5px;height:1.5px;opacity:.45}
+.v-index.mg .mastery button.row:not(.sel){box-shadow:inset 0 0 0 1px var(--fm-line)!important}
+.v-index.mg .mastery button.m2.row:not(.sel){box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 30%,transparent)!important}
+.v-index.mg .mg-legend .m4{box-shadow:inset 0 0 0 1px var(--fm-line-2)!important}
+/* judge round 6 */
+.v-index.mg .mastery button.m0,.v-index.mg .mg-legend i.m0{color:color-mix(in srgb,var(--t2) 70%,var(--t3))!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m2,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m2{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 45%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m1,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m1{background:color-mix(in srgb,#8a6a50 14%,transparent)!important}
+.v-index.mg .mastery button.m3::after{opacity:.4}
+/* judge round 7: gold belongs to 掌握 only; 熟悉 is a brighter neutral hairline; no repeated marks */
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m2,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m2{color:var(--t1)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 34%,transparent)!important}
+.v-index.mg .mastery button.m3,.v-index.mg .mg-legend i.m3,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 42%,transparent)!important}
+.v-index.mg .mastery button.m3::after{display:none}
+.v-index.mg .mg-legend i.m3{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 70%,transparent)!important;background:color-mix(in srgb,var(--fm-gold) 20%,transparent)!important}
+.v-index.mg .mastery button.m2.row:not(.sel){box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 34%,transparent)!important}
+.v-index.mg .mastery button.m3.row:not(.sel){box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 42%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m0{color:#7f746c!important}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1{background:color-mix(in srgb,var(--t1) 5%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 16%,transparent)!important}
+/* judge round 8: champagne gold on dark, near-invisible 见过 wash */
+.v-index.mg{--fm-gold:#c9a85a}
+:host-context(:root[data-theme=light]) .v-index.mg{--fm-gold:var(--t-gold,#8a6400)}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1{background:color-mix(in srgb,var(--t1) 3%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 15%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m1,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m1{background:color-mix(in srgb,#5a3a2a 3%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 18%,transparent)!important}
+.v-index.mg .mastery button.m3,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3,.v-index.mg .mastery button.m3.row:not(.sel){box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 28%,transparent)!important}
+/* judge round 9: no fills below 掌握; three clear neutral steps by line + glyph */
+.v-index.mg .mastery button.m0,.v-index.mg .mg-legend i.m0{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 7%,transparent)!important}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m1,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m1{background:transparent!important;color:var(--t2)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 16%,transparent)!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m2,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m2,.v-index.mg .mastery button.m2.row:not(.sel){color:var(--t1)!important;font-weight:600;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 46%,transparent)!important}
+.v-index.mg .mastery button.sel.sel.sel,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.sel.sel.sel{box-shadow:inset 0 0 0 2px var(--fm-red),0 0 0 3px color-mix(in srgb,var(--fm-red) 16%,transparent)!important}
+/* judge round 10: monotonic weight, 掌握 strongest */
+.v-index.mg .mastery button.m0,.v-index.mg .mg-legend i.m0{color:var(--t3)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 6%,transparent)!important}
+.v-index.mg .mastery button.m1,.v-index.mg .mg-legend i.m1,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m1,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m1{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 20%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--t1) 30%,transparent)!important}
+.v-index.mg .mastery button.m2,.v-index.mg .mg-legend i.m2,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m2,:host-context(:root[data-theme=light]) .v-index.mg .mg-legend i.m2,.v-index.mg .mastery button.m2.row:not(.sel){font-weight:500;color:color-mix(in srgb,var(--t1) 88%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 32%,transparent)!important}
+.v-index.mg .mastery button.m3,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3,.v-index.mg .mastery button.m3.row:not(.sel){font-weight:600;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 50%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m0{color:#8a7f77!important}
+.v-index.mg .mastery button.sel.sel.sel,:host-context(:root[data-theme=light]) .v-index.mg .mastery button.sel.sel.sel{box-shadow:inset 0 0 0 2px var(--fm-red),0 0 0 3px color-mix(in srgb,var(--fm-red) 16%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m3{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fm-gold) 38%,transparent)!important}
+:host-context(:root[data-theme=light]) .v-index.mg .mastery button.m0{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t1) 10%,transparent)!important}
+/* 2026-11-13 AP seal: 惠惠's hanko slammed onto the score (same red as the grammar 通关盖章) */
+.v-results .ap-stamp{position:absolute;right:26px;top:14px;width:150px;height:150px;color:var(--mg-red,#c8323c);pointer-events:none;z-index:2;transform:rotate(-13deg);mix-blend-mode:normal;animation:ap-slam .48s cubic-bezier(.3,1.4,.5,1) .55s both}
+.v-results .ap-seal{width:100%;height:100%;display:block;overflow:visible;opacity:.92;filter:drop-shadow(0 0 .5px currentColor)}
+.v-results .ap-ink{position:absolute;inset:8px;border-radius:50%;border:3px solid currentColor;opacity:0;animation:ap-ink .7s ease-out .86s both}
+.v-results .hero.ap-hit{animation:ap-shake .26s linear .86s both}
+@keyframes ap-slam{0%{opacity:0;transform:rotate(-2deg) scale(2.8)}55%{opacity:1;transform:rotate(-14deg) scale(.9)}75%{transform:rotate(-12deg) scale(1.03)}100%{opacity:1;transform:rotate(-13deg) scale(1)}}
+@keyframes ap-ink{0%{opacity:.55;transform:scale(.85)}100%{opacity:0;transform:scale(1.7)}}
+@keyframes ap-shake{0%,100%{transform:none}20%{transform:translate(3px,2px)}40%{transform:translate(-3px,-1px)}60%{transform:translate(2px,-2px)}80%{transform:translate(-1px,1px)}}
+@container kana (max-width:600px){.v-results .ap-stamp{width:104px;height:104px;right:12px;top:10px}}
+@media (prefers-reduced-motion:reduce){.v-results .ap-stamp,.v-results .hero.ap-hit{animation:none}.v-results .ap-ink{display:none}}

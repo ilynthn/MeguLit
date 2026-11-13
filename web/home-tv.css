@@ -1,6 +1,6 @@
 .tv-home{--tv-a:#d05b34;--tv-b:#edb56e;--tv-c:#3b4a8c;--tv-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;position:relative;height:calc(100vh - var(--titlebar-height,44px));min-height:520px;overflow:hidden;perspective:1400px;outline:none;color:var(--g-t1);font-family:var(--g-serif)}
 .tv-home button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-.tv-canvas{position:absolute;inset:-6%;z-index:0;transform-style:preserve-3d;transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
+.tv-canvas{position:absolute;inset:-6%;z-index:0;transform-style:preserve-3d}
 .tv-plane{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
 .tv-card,.tv-heat i{pointer-events:auto}
 .tv-kana{position:absolute;right:3%;top:2%;font-family:var(--g-serif-ja);font-size:46vmin;line-height:1;color:transparent;-webkit-text-stroke:1.2px color-mix(in srgb,var(--g-t1) 26%,transparent);writing-mode:vertical-rl;user-select:none;transition:opacity .6s}
@@ -72,34 +72,12 @@
 @keyframes tv-prog{to{width:100%}}
 .tv-edit{width:46px;height:62px;border:1px dashed color-mix(in srgb,var(--g-t1) 32%,transparent)!important;color:var(--g-t2)!important;font-size:20px!important}
 .tv-edit:hover{border-color:var(--g-gold)!important;color:var(--g-gold)!important}
-.tv-drawer{position:absolute;left:0;right:0;bottom:0;z-index:9;padding:22px 5vw 30px;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);transform:translateY(100%);transition:transform .6s cubic-bezier(.2,.9,.1,1)}
-.tv-drawer.open{transform:none}
-.tv-drawer h2{margin:0;display:flex;align-items:baseline;gap:16px;font-weight:400;font-size:20px}
-.tv-drawer h2 small{font-family:var(--tv-mono);font-size:11px;letter-spacing:.15em;color:var(--g-t3)}
 .tv-close{position:absolute;right:5vw;top:20px;font-family:var(--tv-mono);font-size:11px!important;letter-spacing:.3em;color:var(--g-t2)!important}
-.tv-mode{display:flex;gap:6px;margin:14px 0}
-.tv-mode button{padding:6px 12px;font-size:12px!important;letter-spacing:.1em;border:1px solid color-mix(in srgb,var(--g-t1) 20%,transparent)!important}
-.tv-mode button.on{background:var(--g-t1)!important;color:var(--bg)!important}
-.tv-list{display:grid;grid-template-columns:repeat(auto-fill,120px);gap:16px 14px;max-height:46vh;overflow-y:auto;padding:10px 4px 6px 0}
-.tv-item{width:120px;min-width:0;cursor:grab;transition:opacity .2s}
-.tv-item.hidden{opacity:.3}.tv-item.dragging{opacity:.4}
-.tv-item .cv{position:relative;width:120px;height:160px;overflow:hidden;background:var(--surface);outline:1px solid color-mix(in srgb,var(--g-t1) 14%,transparent)}
-.tv-item.pinned .cv{outline:2px solid var(--g-gold)}
-.tv-item .n{position:absolute;left:6px;top:4px;z-index:1;font-family:var(--tv-mono);font-size:11px;color:#fff;text-shadow:0 1px 3px #000}
-.tv-item p{margin:6px 0 4px;font-family:var(--g-serif-ja);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tv-item .ops{display:flex;gap:4px}
-.tv-item .ops button{flex:1;padding:6px 8px;font-size:11px!important;color:var(--g-t2)!important;border:1px solid color-mix(in srgb,var(--g-t1) 16%,transparent)!important}
-.tv-item .ops button.on{background:var(--g-gold)!important;color:var(--bg)!important;border-color:var(--g-gold)!important}
-.tv-hint{font-family:var(--tv-mono);font-size:11px;letter-spacing:.1em;color:var(--g-t3)}
 :root[data-theme=light] .tv-h1{margin:.1em 0 0;font-family:var(--g-serif-ja);font-weight:400;font-size:120px;line-height:1.12;letter-spacing:-.01em;text-shadow:0 4px 30px #0008;max-height:3.5em}
 @media (prefers-reduced-motion:reduce){.tv-home *{transition:none!important;animation:none!important}}
 
 .tv-old{position:absolute;inset:0;border-radius:10px;pointer-events:none;z-index:4;box-shadow:0 40px 80px -30px #000;background-size:cover!important;background-position:center!important}
 .tv-sheen{position:absolute;inset:0;pointer-events:none;z-index:5;background:linear-gradient(var(--sa,115deg),transparent 35%,rgba(255,255,255,.55) 48%,rgba(255,240,210,.2) 53%,transparent 65%);background-size:250% 100%;mix-blend-mode:overlay}
-.tv-item[hidden]{display:none}
-.tv-mode{align-items:center}
-.tv-search{margin-left:auto;width:min(280px,40vw);padding:7px 12px;font:12px var(--g-serif);color:var(--g-t1);background:transparent;border:1px solid color-mix(in srgb,var(--g-t1) 22%,transparent);outline:none}
-.tv-search:focus{border-color:var(--g-gold)}
 .tv-script{position:absolute;left:41%;top:9%;height:58%;display:flex;flex-direction:row-reverse;gap:0;pointer-events:auto;z-index:2;padding:18px 6px;border-top:1px solid color-mix(in srgb,var(--g-t1) 18%,transparent);border-bottom:1px solid color-mix(in srgb,var(--g-t1) 18%,transparent)}
 .tv-script p{margin:0;writing-mode:vertical-rl;white-space:nowrap;text-overflow:ellipsis;max-height:100%;font-family:var(--g-serif-ja);font-size:clamp(15px,1.25vw,20px);line-height:1.8;letter-spacing:.12em;color:color-mix(in srgb,var(--g-t1) 45%,transparent);padding:0 3px;border-left:1px solid color-mix(in srgb,var(--g-t1) 8%,transparent);overflow:hidden;cursor:default;transition:color .3s,background .3s}
 .tv-script p:first-child{border-left:0}
@@ -145,7 +123,6 @@
 .main[data-kids~="tv-home"]{padding:0!important;overflow:hidden!important;display:block!important}
 .main>.tv-home{max-width:none;margin:0;height:100%;min-height:0}
 .tv-fig b,.tv-heatsum b{font-weight:400!important}
-.tv-play{padding:10px 22px!important;letter-spacing:.2em}
 
 .tv-ring svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .tv-ring .etch{stroke-linecap:round}
@@ -224,3 +201,115 @@
 .tv-hot-news.is-compact .tv-hot-meta{padding-top:18px}
 
 .tv-art-name{position:absolute;inset:auto 8% 12% 8%;font:400 clamp(22px,2.4vw,40px)/1.35 var(--g-serif-ja,serif);color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55);letter-spacing:.04em;text-wrap:balance;word-break:keep-all;overflow-wrap:anywhere}
+
+
+/* 2026-11-13 (user) depth: far layers carry a fixed blur (never animated), near ones stay sharp; the instant class paints cached blocks without entrances */
+.tv-home.tv-instant *{transition:none!important;animation:none!important}
+.tv-plane[data-z="-200"]{filter:blur(1.6px)}.tv-plane[data-z="-80"]{filter:blur(.7px)}
+.tv-scene,.tv-index{display:none!important}
+/* 2026-11-13 (user) hand of cards along the bottom-right arc */
+.tv-hand{position:absolute;left:40vw;right:0;bottom:0;height:31vh;z-index:7;pointer-events:none}
+.tv-hc{position:absolute;left:0;top:0;width:var(--cw,88px);aspect-ratio:3/4;margin:0;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;pointer-events:auto;cursor:pointer;transform-origin:50% 62%;outline:none}
+/* (user: the returning cover flickered) a hand card is shown or hidden in the same frame the flying copy leaves or arrives, never faded */
+.tv-hc-face{position:absolute;inset:0;border-radius:inherit;background-size:cover!important;background-position:center!important;box-shadow:0 16px 28px -14px rgba(0,0,0,.75),0 0 0 1px color-mix(in srgb,var(--g-t1) 16%,transparent)}
+.tv-hc::after{content:"";position:absolute;inset:-1px;border-radius:9px;border:1px solid var(--g-gold);box-shadow:0 0 18px -2px color-mix(in srgb,var(--g-gold) 60%,transparent);opacity:0;transition:opacity .25s}
+.tv-hc:hover::after,.tv-hc:focus-visible::after{opacity:1}
+.tv-hc.pinned::before{content:"";position:absolute;top:-5px;right:-5px;z-index:1;width:9px;height:9px;border-radius:50%;background:var(--g-gold);box-shadow:0 0 0 2px var(--bg)}
+.tv-hc.is-out,.tv-hc.is-wait{opacity:0;pointer-events:none}
+.tv-ghosts{position:absolute;inset:0;pointer-events:none}
+.tv-ghost{position:absolute;left:0;top:0;z-index:8;transform-style:preserve-3d;will-change:transform}
+.tv-ghost.is-trail{will-change:transform,opacity}
+.tv-ghost-face,.tv-ghost-back{position:absolute;inset:0;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden;background-size:cover!important;background-position:center!important;box-shadow:0 40px 80px -30px #000}
+.tv-ghost-back{transform:rotateY(180deg);display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#3a2418,#140c0a 70%)!important;border:1px solid color-mix(in srgb,var(--g-gold) 45%,transparent)}
+.tv-ghost-back img{width:42%;opacity:.85}
+.tv-home.tv-fly .tv-cover{opacity:0;transition:none}
+.tv-home.empty .tv-hand{display:none}
+@media (prefers-reduced-motion:reduce){.tv-hc{transition:opacity .2s!important}}
+/* 2026-11-13 the field card's soft shadow sits on the table and slides against the pointer (fixed blur, moved with translate only) */
+.tv-cshadow{position:absolute;left:8%;right:2%;top:10%;bottom:-6%;border-radius:14px;background:radial-gradient(closest-side,rgba(0,0,0,.72),rgba(0,0,0,.36) 60%,transparent);transform:translateZ(-40px) scale(1.18);pointer-events:none}
+:root[data-theme="light"] .tv-cshadow{background:radial-gradient(closest-side,rgba(60,40,30,.3),transparent)}
+.tv-home.tv-fly .tv-cshadow{opacity:0}
+
+/* 2026-11-13 (user: "左侧热力图卡片下面有第四张尺寸更大的第一头条", "左下角不要字") no background picture and no text bottom-left: the game name
+   steps back while there are games, the left column may run down to the bottom bar (fitLeft keeps it above), and the day's top story is a
+   larger picture under the activity card, picture only */
+.tv-home:not(.empty) .tv-title{display:none}
+.tv-left{max-height:none}
+.tv-hot-news{margin-top:10px}
+.tv-hot-news .tv-hot-img{aspect-ratio:16/9}
+/* (user: "把卡牌往下放 不是要一定显示完的") the hand sits lower and may run off the bottom edge */
+.tv-hand{bottom:-9vh}
+/* activity card without any reading yet: this week as hairline squares (today in gold) and one honest line, no grey year grid */
+.tv-heat-none[hidden],.tv-heat-card.is-empty .tv-heat,.tv-heat-card.is-empty .tv-heatsum{display:none}
+.tv-heat-empty{display:grid;gap:12px;width:297px;max-width:100%;padding:2px 0 6px}
+.tv-heat-week{display:flex;gap:3px}
+.tv-heat-week i{width:12px;height:12px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-t1) 24%,transparent)}
+.tv-heat-week i.today{box-shadow:inset 0 0 0 1px var(--g-gold);background:color-mix(in srgb,var(--g-gold) 16%,transparent)}
+.tv-heat-week i.later{opacity:.45}
+.tv-heat-empty p{display:grid;gap:4px;margin:0;white-space:normal}
+.tv-heat-empty b{font:400 15px/1.4 var(--g-serif);color:var(--g-t1)}
+.tv-heat-empty span{font-size:12.5px;line-height:1.55;color:var(--g-t2)}
+
+/* 2026-11-13 (user: "把＋卡移到最右边 不要是卡牌了 鼠标放上去再出来 … 圆角的") the hand editor is a rounded tab docked on the right edge:
+   only a sliver with a gold grip shows, it slides out under the pointer and tucks back after it leaves (home-picker.js) */
+.tv-dock{position:absolute;right:0;bottom:22vh;z-index:12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:62px;min-height:112px;height:auto;margin:0;padding:18px 0!important;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--g-gold) 40%,transparent)!important;border-radius:12px!important;background:linear-gradient(160deg,color-mix(in srgb,var(--g-gold) 14%,var(--bg)),color-mix(in srgb,var(--bg) 92%,#000))!important;color:var(--g-t1)!important;box-shadow:-14px 16px 32px -20px #000;transform:translateX(calc(100% - 12px));transition:transform .5s cubic-bezier(.22,1.25,.36,1),box-shadow .25s;cursor:pointer}
+/* (user: "做成竖着的卡牌形状侧拉栏", "这个字显示有问题") a whole portrait card (four rounded corners) peeking from the right edge; it slides fully into view
+   flush with the edge (no gap the pointer could fall into) and is never rotated, so the vertical label stays sharp and nothing is cut at the screen edge */
+.tv-dock::before{content:"";position:absolute;left:4px;top:22%;bottom:22%;width:3px;border-radius:3px;background:var(--g-gold);opacity:.8;transition:opacity .2s}
+.tv-dock::after{content:"";position:absolute;inset:5px;border:1px solid color-mix(in srgb,var(--g-gold) 20%,transparent);border-radius:8px;pointer-events:none}
+.tv-dock.out{transform:translateX(-2px);box-shadow:-18px 22px 40px -22px #000,0 0 22px -8px color-mix(in srgb,var(--g-gold) 45%,transparent)}.tv-dock.out::before{opacity:0}
+/* the plus is drawn, not a glyph: a font's ＋ sits high or low in its box, a drawn one is exactly centred */
+.tv-dock b{display:block;flex:none;width:15px;height:15px;font-size:0;background:linear-gradient(var(--g-gold),var(--g-gold)) center/1.5px 100% no-repeat,linear-gradient(var(--g-gold),var(--g-gold)) center/100% 1.5px no-repeat}
+/* the label: vertical, its trailing letter-space taken back so the plus and the text centre as one group */
+.tv-dock span{display:block;flex:none;writing-mode:vertical-rl;text-orientation:upright;font-size:12px;line-height:1;letter-spacing:.16em;margin-bottom:-.16em;white-space:nowrap;color:color-mix(in srgb,var(--g-t1) 88%,transparent)}
+:root:lang(en) .tv-dock span,.tv-dock span:lang(en){text-orientation:mixed;letter-spacing:.06em;margin-bottom:-.06em}
+.tv-dock:active{scale:.97}
+.tv-dock:focus-visible{outline:1px solid var(--g-gold);outline-offset:-5px}
+/* the window: the library as covers, ticked ones go into the hand */
+.tv-pick{position:absolute;inset:0;z-index:30;display:grid;place-items:center;opacity:0;transition:opacity .2s}
+.tv-pick.in{opacity:1}
+.tv-pick-scrim{position:absolute;inset:0;background:rgba(6,4,6,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.tv-pick-win{position:relative;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;width:min(900px,calc(100% - 48px));max-height:calc(100% - 64px);border:1px solid color-mix(in srgb,var(--g-t1) 16%,transparent);border-radius:16px;background:color-mix(in srgb,var(--bg) 96%,#000);box-shadow:0 40px 90px -30px #000;overflow:hidden;transform:translateY(10px) scale(.98);transition:transform .32s cubic-bezier(.22,1,.36,1)}
+.tv-pick.in .tv-pick-win{transform:none}
+.tv-pick-win header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 24px 6px}
+.tv-pick-win h2{margin:0;font:400 22px/1.3 var(--g-serif);color:var(--g-t1)}
+.tv-pick-win header p{margin:6px 0 0;font-size:13px;color:var(--g-t2)}
+.tv-pick-x{width:34px;height:34px;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:var(--g-t2)!important;font-size:15px!important}
+.tv-pick-x:hover{background:color-mix(in srgb,var(--g-t1) 10%,transparent)!important;color:var(--g-t1)!important}
+.tv-pick-bar{display:flex;align-items:center;gap:14px;padding:12px 24px}
+.tv-pick-q{flex:1;max-width:320px;height:36px;margin:0;padding:0 14px!important;border:1px solid color-mix(in srgb,var(--g-t1) 18%,transparent)!important;border-radius:10px!important;background:transparent!important;box-shadow:none!important;color:var(--g-t1);font:13px var(--g-serif);outline:none!important}
+.tv-pick-q:focus{border-color:var(--g-gold)!important}
+.tv-pick-n{margin-left:auto;font:500 12px/1 var(--tv-mono);letter-spacing:.08em;color:var(--g-gold);font-variant-numeric:tabular-nums}
+.tv-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:18px 14px;padding:6px 24px 20px;overflow-y:auto;align-content:start}
+.tv-pick-it{display:grid;gap:7px;min-width:0;margin:0;padding:0!important;border:0!important;background:none!important;color:var(--g-t2)!important;text-align:left;cursor:pointer}
+.tv-pick-it .cv{position:relative;display:block;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:color-mix(in srgb,var(--g-t1) 8%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--g-t1) 12%,transparent);filter:grayscale(.75) brightness(.55);transition:filter .2s,box-shadow .2s,transform .2s cubic-bezier(.2,1.4,.4,1)}
+.tv-pick-it .cv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tv-pick-it .cv em{position:absolute;inset:auto 8px 10px;font:400 12px/1.35 var(--g-serif-ja,serif);font-style:normal;color:var(--g-t1)}
+.tv-pick-it .tick{position:absolute;top:7px;right:7px;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7);background:rgba(0,0,0,.35)}
+.tv-pick-it.on .cv{filter:none;box-shadow:0 0 0 2px var(--g-gold)}
+.tv-pick-it.on .tick{background:var(--g-gold);box-shadow:none}
+.tv-pick-it.on .tick::after{content:"";position:absolute;left:8px;top:4px;width:5px;height:10px;border:solid #140c0a;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.tv-pick-it:hover .cv{transform:translateY(-3px)}
+.tv-pick-it.blocked{cursor:not-allowed}.tv-pick-it.blocked:hover .cv{transform:none}
+.tv-pick-it .nm{font:400 12px/1.4 var(--g-serif-ja,serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-pick-it.on .nm{color:var(--g-t1)}
+.tv-pick-it[hidden]{display:none}
+.tv-pick-none{grid-column:1/-1;margin:20px 0;text-align:center;color:var(--g-t3)}
+.tv-pick-win footer{display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid color-mix(in srgb,var(--g-t1) 10%,transparent)}
+.tv-pick-win footer span{flex:1}
+.tv-pick-win footer button{height:36px;padding:0 18px!important;border-radius:10px!important;font-size:13px!important}
+.tv-pick-auto{border:0!important;background:none!important;color:var(--g-t2)!important;padding:0 4px!important}
+.tv-pick-auto:hover{color:var(--g-gold)!important}
+.tv-pick-cancel{border:1px solid color-mix(in srgb,var(--g-t1) 18%,transparent)!important;background:transparent!important;color:var(--g-t1)!important}
+.tv-pick-save{border:0!important;background:var(--g-gold)!important;color:#140c0a!important}
+.tv-pick-save:active,.tv-pick-cancel:active{scale:.97}
+@media (prefers-reduced-motion:reduce){.tv-dock,.tv-pick,.tv-pick-win,.tv-pick-it .cv{transition:none!important}}
+/* 2026-11-13 (user: "左下角显示小字作品名 … 放左下角最下面 点缀一下") the bottom bar: small game name rising in letter by letter, then a typed line;
+   it stays left of the hand of cards */
+.tv-dialog .tv-who{flex:none;max-width:min(24vw,360px);font-size:12px!important;letter-spacing:.12em!important;color:color-mix(in srgb,var(--g-gold) 88%,transparent)}
+.tv-who i{display:inline-block;font-style:normal;white-space:pre;opacity:0;transform:translateY(7px);transition:opacity .45s var(--g-ease,ease),transform .6s cubic-bezier(.2,1.3,.4,1)}
+.tv-who.in i{opacity:1;transform:none}
+.tv-dialog .tv-line{flex:0 1 auto;max-width:calc(40vw - 5vw - min(24vw,360px) - 30px);font-size:13px;color:color-mix(in srgb,var(--g-t1) 62%,transparent);letter-spacing:.04em}
+.tv-line.typing::after{content:"";display:inline-block;width:1px;height:1em;margin-left:3px;vertical-align:-2px;background:var(--g-gold);animation:tv-caret .9s steps(1) infinite}
+@keyframes tv-caret{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.tv-who i{transition:none}.tv-line.typing::after{animation:none}}

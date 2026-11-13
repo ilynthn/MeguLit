@@ -115,6 +115,52 @@ public sealed class GameAudio:IDisposable{
      var codec=Array.Find(ImageCodecInfo.GetImageEncoders(),c=>c.MimeType=="image/jpeg");var ps=new EncoderParameters(1);ps.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,86L);
      using(var m=new MemoryStream()){crop.Save(m,codec,ps);return Convert.ToBase64String(m.ToArray());}}}}}
 
+ /* 2026-11-13 (user: each collected sentence keeps the game's picture without the dialogue box, never a frame with
+    the box). SceneFrame: one clean capture of the game window alone, taken by MeguLit only while the box is hidden,
+    as a full-frame JPEG (long side at most 1600) with its looks score and a difference hash of the TOP 62% of the
+    frame only. SceneProbe: the same top hash of the frame on screen now (box back or not: dialogue boxes sit in the
+    bottom part the hash never sees), no JPEG. A sentence takes the remembered clean frame only when both top hashes
+    agree, so it is always the same scene. A flat top (fade, black, one colour) gives no hash: it would match anything. */
+ const double TopShare=.62;
+ static double Looks(Bitmap source,Rectangle from,double[] lum){
+  using(var probe=new Bitmap(96,54,PixelFormat.Format24bppRgb)){using(var g=Graphics.FromImage(probe)){g.InterpolationMode=InterpolationMode.HighQualityBilinear;g.PixelOffsetMode=PixelOffsetMode.Half;g.DrawImage(source,new Rectangle(0,0,96,54),from,GraphicsUnit.Pixel);}
+   var data=probe.LockBits(new Rectangle(0,0,96,54),ImageLockMode.ReadOnly,PixelFormat.Format24bppRgb);var px=new byte[data.Stride*54];Marshal.Copy(data.Scan0,px,0,px.Length);probe.UnlockBits(data);
+   double n=0,sl=0,sl2=0,srg=0,srg2=0,syb=0,syb2=0,edge=0;
+   for(int y=0;y<54;y++)for(int x=0;x<96;x++){int o=y*data.Stride+x*3;double b=px[o],gg=px[o+1],r=px[o+2],l=.299*r+.587*gg+.114*b,rg=r-gg,yb=.5*(r+gg)-b;lum[y*96+x]=l;n++;sl+=l;sl2+=l*l;srg+=rg;srg2+=rg*rg;syb+=yb;syb2+=yb*yb;}
+   for(int y=0;y<54;y++)for(int x=1;x<96;x++)edge+=Math.Abs(lum[y*96+x]-lum[y*96+x-1]);edge/=54*95;
+   double ml=sl/n,sd=Math.Sqrt(Math.Max(0,sl2/n-ml*ml)),mrg=srg/n,myb=syb/n,colour=Math.Sqrt(Math.Max(0,srg2/n-mrg*mrg)+Math.Max(0,syb2/n-myb*myb))+.3*Math.Sqrt(mrg*mrg+myb*myb);
+   return (ml<22||ml>238||sd<16||edge<2.5)?0:Math.Round(colour*.55+sd*.35+Math.Min(edge,30)*1.2,1);}}
+ public static string TopHashOf(Bitmap image){int w=image.Width,h=image.Height;if(w<64||h<64)return "";var lum=new double[96*54];Looks(image,new Rectangle(0,0,w,Math.Max(1,(int)(h*TopShare))),lum);
+  double s=0,s2=0;foreach(double l in lum){s+=l;s2+=l*l;}double m=s/lum.Length,sd=Math.Sqrt(Math.Max(0,s2/lum.Length-m*m));if(sd<6)return "";
+  ulong bits=0;int bit=0;for(int y=0;y<8;y++)for(int x=0;x<8;x++){double a=0,c=0;for(int yy=0;yy<6;yy++)for(int xx=0;xx<10;xx++){a+=lum[(y*6+yy+3)*96+x*10+xx];c+=lum[(y*6+yy+3)*96+x*10+xx+10];}if(a<c)bits|=1UL<<bit;bit++;}
+  return bits.ToString("x16");}
+ public static string SceneFrameOf(Bitmap image,out double score,out string topHash){int w=image.Width,h=image.Height;score=0;topHash="";if(w<64||h<64)return "";
+  score=Looks(image,new Rectangle(0,0,w,h),new double[96*54]);topHash=TopHashOf(image);if(score<=0||topHash=="")return "";
+  double k=Math.Min(1,1600.0/Math.Max(w,h));int ow=Math.Max(1,(int)Math.Round(w*k)),oh=Math.Max(1,(int)Math.Round(h*k));
+  using(var small=new Bitmap(ow,oh,PixelFormat.Format24bppRgb)){using(var g=Graphics.FromImage(small)){g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.PixelOffsetMode=PixelOffsetMode.Half;g.DrawImage(image,new Rectangle(0,0,ow,oh),new Rectangle(0,0,w,h),GraphicsUnit.Pixel);}
+   var codec=Array.Find(ImageCodecInfo.GetImageEncoders(),c=>c.MimeType=="image/jpeg");var ps=new EncoderParameters(1);ps.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
+   using(var m=new MemoryStream()){small.Save(m,codec,ps);return Convert.ToBase64String(m.ToArray());}}}
+ public static string SceneFrame(IntPtr target,int width,int height,out double score,out string topHash){score=0;topHash="";if(target==IntPtr.Zero||width<64||height<64)return "";
+  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Into(target,image,2))return "";return SceneFrameOf(image,out score,out topHash);}}
+ public static string SceneProbe(IntPtr target,int width,int height){if(target==IntPtr.Zero||width<64||height<64)return "";
+  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Into(target,image,2))return "";return TopHashOf(image);}}
+ static int Distance(string a,string b){if(a.Length!=16||b.Length!=16)return 64;ulong x=Convert.ToUInt64(a,16)^Convert.ToUInt64(b,16);int n=0;while(x!=0){n+=(int)(x&1);x>>=1;}return n;}
+ /* --scene-frame-self-test, offline (no window): a drawn scene and the same scene with a dialogue box over its bottom
+    third give the same top hash; another scene does not; a flat (fade) frame gives no hash and no JPEG; the JPEG is
+    the whole frame with its long side at most 1600. Returns "0" or the failed check. */
+ public static string SceneFrameSelfTest(){
+  Func<int,int,int,Bitmap> scene=(w,h,seed)=>{var b=new Bitmap(w,h,PixelFormat.Format32bppRgb);var rnd=new Random(seed);using(var g=Graphics.FromImage(b)){g.Clear(Color.FromArgb(70,110,170));
+    for(int i=0;i<40;i++){using(var br=new SolidBrush(Color.FromArgb(rnd.Next(256),rnd.Next(256),rnd.Next(256))))g.FillEllipse(br,rnd.Next(w),rnd.Next(h),w/6+rnd.Next(w/4),h/6+rnd.Next(h/4));}}return b;};
+  using(var a=scene(1920,1080,1))using(var boxed=(Bitmap)a.Clone())using(var other=scene(1920,1080,2))using(var flat=new Bitmap(1280,720,PixelFormat.Format32bppRgb)){
+   using(var g=Graphics.FromImage(boxed)){using(var br=new SolidBrush(Color.FromArgb(230,20,20,40)))g.FillRectangle(br,60,(int)(1080*.66),1800,330);using(var f=new Font("Arial",40))g.DrawString("dialogue text over the scene",f,Brushes.White,120,(int)(1080*.70));}
+   using(var g=Graphics.FromImage(flat))g.Clear(Color.Black);
+   double score;string hash;string jpeg=SceneFrameOf(a,out score,out hash);if(jpeg==""||hash.Length!=16||score<=0)return "frame";
+   using(var m=new MemoryStream(Convert.FromBase64String(jpeg)))using(var img=Image.FromStream(m)){if(img.Width!=1600||img.Height!=900)return "size "+img.Width+"x"+img.Height;}
+   if(TopHashOf(boxed)!=hash)return "boxed "+Distance(TopHashOf(boxed),hash);
+   if(Distance(TopHashOf(other),hash)<=12)return "other";
+   string flatHash;if(SceneFrameOf(flat,out score,out flatHash)!=""||flatHash!=""||TopHashOf(flat)!="")return "flat";
+   return "0";}}
+
  // Offline check used by --audio-self-test: speech-like bursts over a steady tone are detected and trimmed, a steady
  // tone alone is not speech, and the WAV header is valid.
  public static bool SelfTest(){var rnd=new Random(1);var bgm=new short[Rate*4];for(int i=0;i<bgm.Length;i++)bgm[i]=(short)(1500*Math.Sin(i*2*Math.PI*110/Rate));

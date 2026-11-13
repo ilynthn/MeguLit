@@ -20,7 +20,11 @@ async function handle(line){
 }
 setTimeout(()=>{if(!closing)runtime.ankiProcess().auto().catch(()=>{});},1500).unref();
 /* E361 read library games' scripts in a worker thread, a while after start */
-try{require('./script-prewarm.cjs').start(root,{onDone:()=>{if(!closing)reply({event:'library-updated',data:{}});}});}catch{}
+try{require('./script-prewarm.cjs').start(root,{onDone:()=>{/* E545 scripts read by the prewarm reach a running game */try{runtime.reader?.refreshTextSource?.({force:false});}catch{}if(!closing)reply({event:'library-updated',data:{}});}});}catch{}
+/* E562 adapter packs between releases (feed sync in a worker thread, 3 min after start, then every 6 h); E560 a library
+   probe the app was closed in the middle of goes on later */
+try{require('./adapter-feed.cjs').start(root);}catch{}
+try{require('./adapter-probe.cjs').resumeLater(root,()=>require('./store.cjs').openStore(root));}catch{}
 input.on('line',line=>{handle(line).catch(()=>{});});
 /* E426 the host is gone once stdin closes: a stop that never settles must not leave node.exe and its bridges behind */
 input.on('close',()=>{closing=true;setTimeout(()=>process.exit(0),6000).unref();runtime.stop().finally(()=>process.exit(0));});

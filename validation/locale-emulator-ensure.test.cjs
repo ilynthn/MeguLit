@@ -11,8 +11,9 @@ test('when every source fails, ensure() reports a download failure and logs each
  le.status=async()=>({installed:false,job:le.job});
  try{
   await assert.rejects(le.ensure(),/LOCALE_EMULATOR_DOWNLOAD_FAILED/);
-  assert.deepEqual(hosts,['github.com','gh-proxy.com','ghproxy.net']);
-  assert.equal(fs.readFileSync(path.join(root,'logs','locale-emulator.log'),'utf8').match(/download /g).length,3);
+  /* 2026-11-13: MeguLit's own R2 mirror is a source as well (outside mainland China after GitHub, inside it first) */
+  assert.deepEqual(hosts,['github.com','dl.megulit.com','cn-dl.megulit.com','gh-proxy.com','ghproxy.net']);
+  assert.equal(fs.readFileSync(path.join(root,'logs','locale-emulator.log'),'utf8').match(/download /g).length,5);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 

@@ -16,5 +16,6 @@ export function embedStatus(game,locale){
  const support=String(game?.hookSupport||''),kind=support==='verified'?'verified':support==='readonly'?'readonly':['supported','available'].includes(support)?'supported':['unsupported','unavailable','none'].includes(support)?'unsupported':game?.engine?'pending':'unknown';
  const names=NAMES[locale]||NAMES.en,t=TEXT[locale]||TEXT.en,engine=game?.engine||'—',hook=HOOKS[game?.engine];
  const tooltip=[`${names[kind]} — ${t.status[kind]}`,`${t.engine}：${engine}${hook?' · LunaHook '+hook:''}`,t.how,t.check].join('\n');
- return {kind,label:names[kind],tooltip};
+ const strip=s=>String(s).replace(/^[^：:]{1,8}[：:]s*/,'');
+ return {kind,label:names[kind],tooltip,parts:{status:t.status[kind],engineLabel:t.engine,engine:engine+(hook?' · LunaHook '+hook:''),howLabel:t.how.split(/[：:]/)[0],how:strip(t.how),checkLabel:t.check.split(/[：:]/)[0],check:strip(t.check)}};
 }

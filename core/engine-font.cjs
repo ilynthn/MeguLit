@@ -25,4 +25,8 @@ const UI_FACE=/^(segoe ui.*|tahoma|ms shell dlg.*|system|ms sans serif|marlett|m
 function uiFace(face){return UI_FACE.test(String(face||'').trim());}
 /* E503 a scan of the game's files (Unity / MAGES / Ren'Py) sits between the probe and an engine's live report */
 function rank(message){return message&&message.probe?1:message&&message.scanned?1.5:2;}
-module.exports={pick,familyClass,rank,uiFace};
+/* E550 (ファタモルガーナの館, a MeguLitKrkr DLL built before E475): KiriKiri reported a layer whose font was never set, i.e. the
+   engine's own Font defaults (ＭＳ Ｐゴシック, height 12). That says nothing about the dialogue font, yet as an engine report it
+   outranked every other source and the reader drew MS Gothic. Such a report is ignored; any other face or size still counts. */
+function engineDefault(m){return !!m&&!m.probe&&!m.scanned&&String(m.engine||'').toLowerCase()==='krkr'&&!m.prerendered&&Number(m.size)===12&&flat(m.face)===flat('ＭＳ Ｐゴシック');}
+module.exports={pick,familyClass,rank,uiFace,engineDefault};

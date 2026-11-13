@@ -297,7 +297,7 @@ class Account{
   const rotated=response.headers?.get?.('x-megulit-token');if(auth&&rotated&&/^mgl_[A-Za-z0-9_-]{43}$/.test(rotated))this.setToken(rotated);
   let data={};try{data=await response.json();}catch{}
   if(response.status===401&&auth){this.forget();throw Object.assign(Error('UNAUTHORIZED'),{code:'UNAUTHORIZED'});}
-  if(!response.ok||data.ok===false){const code=typeof data.error==='string'?data.error:'HTTP_'+response.status;throw Object.assign(Error(code),{code,status:response.status,detail:data});}
+  if(!response.ok||data.ok===false){const code=typeof data.error==='string'?data.error:'HTTP_'+response.status;throw Object.assign(Error(code),{code,status:response.status,detail:data,...(response.status===429?{retryAfter:require('./relay-gate.cjs').retryAfterSeconds(response)}:{})});}
   return data;
  }
  /* local logout: token, sync state and cursors go; deviceId and kind choices stay */

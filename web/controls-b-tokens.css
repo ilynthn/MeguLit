@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 2026-11-13 (user): control system B「红魔魔导书·进阶」, chosen from three judged options (art 9.1 / UI 9.1).
+   One language for every control in the launcher and the in-game reader:
+   - one radius (2px); hover is a whisper, press settles, selection is solid;
+   - red means only "commit" and "you are here"; gold is reserved for the keyboard focus ring;
+   - the diamond sigil marks the current item (tabs, side nav, menus), the switch knob, the radio core and the launch seal;
+   - motion is short expo-out and stops entirely under prefers-reduced-motion; in-game controls never move.
+   Tokens only. Launcher rules live in controls-b.css, reader rules in reader/modules/controls-b.js. */
+:root{
+ --mgc-r:2px;--mgc-h:36px;--mgc-h-sm:28px;
+ --mgc-ground:#0f0b0d;--mgc-plate:#191315;--mgc-plate-2:#1f181a;--mgc-plate-hi:#2a2023;--mgc-well:#130e10;
+ --mgc-ink:#f0e5da;--mgc-ink-2:#b8a69a;--mgc-ink-3:#8f8178;
+ --mgc-line:rgba(240,229,218,.2);--mgc-line-soft:rgba(240,229,218,.07);
+ --mgc-red:#c8323c;--mgc-red-hi:#d94550;--mgc-red-lo:#8f1f28;--mgc-red-ink:#ff8a90;--mgc-red-deep:#5e1219;
+ --mgc-gold:#d6a434;--mgc-green:#5fb98a;
+ --mgc-tint:color-mix(in srgb,var(--mgc-ink) 10%,transparent);--mgc-tint-2:color-mix(in srgb,var(--mgc-ink) 22%,transparent);
+ --mgc-shadow:0 18px 40px rgba(0,0,0,.5);
+ --mgc-ui:"Microsoft YaHei UI","Yu Gothic UI","Segoe UI",sans-serif;
+ --mgc-mono:"Cascadia Mono","Consolas","Microsoft YaHei UI",monospace;
+ --mgc-serif:"Noto Serif SC","Noto Serif JP","Microsoft YaHei UI",serif;
+ --mgc-ease:cubic-bezier(.19,1,.22,1);--mgc-t:.24s;
+ --mgc-focus:2px solid var(--mgc-gold);--mgc-focus-halo:0 0 0 6px color-mix(in srgb,var(--mgc-ground) 85%,transparent);
+}
+:root[data-theme=light]{
+ --mgc-ground:#f4ede6;--mgc-plate:#fffaf5;--mgc-plate-2:#fbf4ee;--mgc-plate-hi:#f0e5dc;--mgc-well:#fffdfa;
+ --mgc-ink:#2a1a1a;--mgc-ink-2:#5a4640;--mgc-ink-3:#76655d;
+ --mgc-line:rgba(60,30,30,.24);--mgc-line-soft:rgba(60,30,30,.08);
+ --mgc-red:#a8232f;--mgc-red-hi:#bd2b38;--mgc-red-lo:#7d1820;--mgc-red-ink:#a8232f;--mgc-red-deep:#5e1219;
+ --mgc-gold:#7a5800;--mgc-green:#2b7a52;--mgc-shadow:0 14px 34px rgba(60,30,20,.18);
+}
+@media (prefers-reduced-motion:reduce){:root{--mgc-t:0s}}

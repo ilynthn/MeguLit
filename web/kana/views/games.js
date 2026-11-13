@@ -67,9 +67,9 @@ const SCORE={
  intro:["满分 101.0000%：基础 100% + BREAK 奖励 1%","2 秒内答对是 CRITICAL PERFECT，4 秒内 PERFECT，再慢 GREAT","用提示算 GOOD，答错或超时 MISS；易混假名是 BREAK，占 5 倍，并决定最后的 1%"],
  std:["满分 101.0000%：基础 100% + BREAK 奖励 1%","在限时的 35% 内答对 CRITICAL PERFECT，60% 内 PERFECT，再慢 GREAT","用提示算 GOOD（BREAK 的 GOOD 更低），答错或超时 MISS"],
  adv:["满分 101.0000%：基础 100% + BREAK 奖励 1%","限时更短：35% 内 CRITICAL PERFECT，60% 内 PERFECT","易混假名出现得更多，BREAK 越多，最后 1% 越难拿满"],
- chal:["满分 101.0000%：基础 100% + BREAK 奖励 1%","2 秒内 CRITICAL PERFECT，4 秒内 PERFECT，再慢 GREAT","总计 90 秒，错满 3 次结束；评级 SSS+ 需要 100.5000% 以上"]
+ chal:["满分 101.0000%：基础 100% + BREAK 奖励 1%","2 秒内 CRITICAL PERFECT，4 秒内 PERFECT，再慢 GREAT","总计 90 秒，错满 3 次结束"]
 };
-const KD=ctx.data,BEST={},BESTV={};for(const r of ctx.store.get(ctx.store.KEY.r,[])){if(r.only&&r.only.length||!r.log.length)continue;const key=r.G+"-"+r.D,A=KD.achievement(r.log);if(BESTV[key]===undefined||BESTV[key]<A.pct){BESTV[key]=A.pct;BEST[key]=KD.fmtPct(A.pct)+" · "+A.rank;}}
+const KD=ctx.data,BEST={},BESTV={};for(const r of ctx.store.get(ctx.store.KEY.r,[])){if(r.only&&r.only.length||!r.log.length)continue;const key=r.G+"-"+r.D,A=KD.achievement(r.log);if(BESTV[key]===undefined||BESTV[key]<A.pct){BESTV[key]=A.pct;BEST[key]=KD.fmtPct(A.pct);}}
 
 function poolOf(p){
   const has=x=>p.includes(x)||p==="all";

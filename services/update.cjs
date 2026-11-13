@@ -14,20 +14,33 @@ const HOSTS=new Set(['github.com','objects.githubusercontent.com','release-asset
    relay is used. China-looking systems (time zone / language) try the relays first. */
 /* E289 (user report 2026-11-10, Henan: the download failed right at the end): ghfast.top added as a third relay; relays
    get the package digest as a query so a cached copy from before a same-version hotfix is never served. */
+/* E??? (user report 2026-11-13: "更新显示下载失败"): the site's own R2 mirror (dl.megulit.com, what the
+   download buttons on megulit.com use) is tried as well. It serves GitHub's own package by file name, supports Range
+   requests and is reachable in mainland China when GitHub and the gh proxies are not; the sha256 digest still decides. */
 const MIRRORS=['https://gh-proxy.com/{url}','https://ghproxy.net/{url}','https://ghfast.top/{url}'];
-const MIRROR_HOSTS=new Set(MIRRORS.map(m=>new URL(m.replace('{url}','')).hostname));
+const DL_MIRRORS=['https://dl.megulit.com/','https://cn-dl.megulit.com/'];
+const MIRROR_HOSTS=new Set([...MIRRORS.map(m=>new URL(m.replace('{url}','')).hostname),...DL_MIRRORS.map(u=>new URL(u).hostname)]);
 const inChina=()=>{try{const o=Intl.DateTimeFormat().resolvedOptions();return o.timeZone==='Asia/Shanghai'||o.timeZone==='Asia/Urumqi'||/^zh-CN/i.test(o.locale||'');}catch{return false;}};
-function sources(rel,china=inChina()){const direct=[rel.url];if(!rel.digest)return direct;const fresh=rel.url+(rel.url.includes('?')?'&':'?')+'v='+String(rel.digest).slice(0,12);const relayed=MIRRORS.map(m=>m.replace('{url}',fresh));return china?[...relayed,...direct]:[...direct,...relayed];}
+function sources(rel,china=inChina()){const direct=[rel.url];if(!rel.digest)return direct;const fresh=rel.url+(rel.url.includes('?')?'&':'?')+'v='+String(rel.digest).slice(0,12);const relayed=MIRRORS.map(m=>m.replace('{url}',fresh));
+ /* the R2 mirror only holds the full packages (MeguLit-v*-win-x64.zip), never the small hot-update ones */
+ /* content-addressed (files/<sha256>/<name>): exactly this package, never the mirror's "latest" (a by-name request is
+    redirected to whatever the mirror synced last), and cn-dl serves it itself instead of redirecting to dl */
+ /* mainland China: the China entry (cn-dl) first, Cloudflare's dl second */
+ const dl=ASSET.test(String(rel.name||''))&&/^[a-f0-9]{64}$/.test(String(rel.digest))?(china?[...DL_MIRRORS].reverse():DL_MIRRORS).map(m=>m+'files/'+rel.digest+'/'+rel.name):[];
+ return china?[...dl,...relayed,...direct]:[...direct,...dl,...relayed];}
 const updateLog=(root,line)=>{try{fs.mkdirSync(path.join(root,'logs'),{recursive:true});fs.appendFileSync(path.join(root,'logs','update.log'),new Date().toISOString()+' '+line+'\n');}catch{}};
 const HEADERS={'User-Agent':'MeguLit-Updater','Accept':'application/vnd.github+json'};
 /* E461 (user: players in mainland China, update_check "fetch failed"): api.github.com is often unreachable there, so the
    release JSON also comes from MeguLit's relay (api.megulit.com/api/release/..., GitHub's own answer cached 5 minutes);
    China-looking systems ask the relay first. The package itself is still checked against GitHub's sha256 digest. */
 const RELAY_RELEASE='https://api.megulit.com/api/release/';
+const CN_RELAY_RELEASE='https://cn-api.megulit.com/api/release/';
 /* the relay host that answered fastest (api.megulit.com or its EdgeOne copy cn-api.megulit.com, see relay-config.cjs) */
 function relayReleaseBase(){try{const base=require('./relay-config.cjs').relayBase(null);return base?base+'/api/release/':RELAY_RELEASE;}catch{return RELAY_RELEASE;}}
 async function releaseFetch(fetcher,which,timeout,china=inChina()){
- const relayed=[...new Set([relayReleaseBase(),RELAY_RELEASE])].map(u=>u+which);const urls=china?[...relayed,REPO+'/'+which]:[REPO+'/'+which,...relayed];let last;
+ /* 2026-11-13 fake-mainland test: with api.megulit.com (Cloudflare) unreachable the check failed, because the race for
+    the fastest relay had not finished and only api.megulit.com was asked. The China entry cn-api is always on the list. */
+ const relayed=[...new Set(china?[CN_RELAY_RELEASE,relayReleaseBase(),RELAY_RELEASE]:[relayReleaseBase(),RELAY_RELEASE,CN_RELAY_RELEASE])].map(u=>u+which);const urls=china?[...relayed,REPO+'/'+which]:[REPO+'/'+which,...relayed];let last;
  for(const url of urls){try{const r=await fetcher(url,{headers:HEADERS,signal:AbortSignal.timeout(timeout)});if(r.ok||r.status===404)return r;last=r;}catch(e){last=e;}}
  if(last instanceof Error)throw last;return last;}
 /* Hotfix letters (user 2026-11-10: 1.2.8a, 1.2.8b ...) are a display label only: the GitHub tag and the package name stay

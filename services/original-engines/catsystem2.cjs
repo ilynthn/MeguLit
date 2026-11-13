@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');
 /* E356 CatSystem2 (ISLAND): scene.int is an encrypted KIF archive of CatScene (.cst) scripts. Decryption as in GARbro
    (ArcINT.cs, KifOpener.OpenEncrypted): the size field of the first entry (__key__.dat) seeds the CatSystem2 Mersenne
    Twister (the old sgenrand seeding with 69069), its first output is a 4-byte Blowfish key; each entry's (offset + index,
@@ -11,7 +12,7 @@
    In the text, [base/reading] is ruby (a reading of only "・" is emphasis dots) and \n \@ \pc ... are layout codes. */
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
 const {Blowfish}=require('./blowfish.cjs');
-const sjis=new TextDecoder('shift_jis'),gbk=new TextDecoder('gbk');
+const sjis=kit.SJIS,gbk=new TextDecoder('gbk');
 const memo=new Map();
 const {stat}=require('./file-key.cjs');
 

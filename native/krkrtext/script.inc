@@ -9,7 +9,7 @@
 // Field names follow the KAG3 MessageLayer (lineLayer, lineLayerPos, lineLayerOriginY, lineLayerBase, fontSize,
 // marginR, vertical); a layer without lineLayer is measured with its x / y cursor. Vertical text is not reported.
 // The end text keeps the game's own line breaks: a character drawn on a new row starts with a newline.
-// E321: the end line also carries color=rrggbb, the layer's chColor for the sentence's last character: games draw read and
+// E321/E550: begin and end lines carry color=rrggbb, the layer's chColor for the sentence's last character: games draw read and
 // unread text in different colours, and the reader paints each page line in the colour the game used.
 LR"MGLT((function(){
  try {
@@ -33,7 +33,7 @@ LR"MGLT((function(){
    } incontextof st;
    st.send=function(kind,rec,x0,x1){
     var s='ToMe_KRKR '+kind+' line='+rec.line+' same='+rec.same+' nvl='+rec.nvl+' x0='+int(x0)+' y0='+int(rec.y0)+' x1='+int(x1)+' y1='+int(rec.y1)+' size='+int(rec.size)+' sw='+int(rec.sw)+' sh='+int(rec.sh)+' n='+rec.n;
-    if(kind=='end' && rec.color>=0) {var h='',v=rec.color;for(var i=0;i<6;i++) {h='0123456789abcdef'.charAt(v&15)+h;v=v>>4;} s+=' color='+h;}
+    if(rec.color>=0) {var h='',v=rec.color;for(var i=0;i<6;i++) {h='0123456789abcdef'.charAt(v&15)+h;v=v>>4;} s+=' color='+h;}
     if(kind=='end') s+=' text='+rec.text;
     this.report(s);
    } incontextof st;
@@ -60,6 +60,7 @@ LR"MGLT((function(){
      this.fontReport(L);
      rec.line=++this.line;this.active=rec;rec.x0=cx;rec.y0=cy;rec.x1=cx;rec.y1=cy;rec.size=size;rec.text='';rec.sw=sw;rec.sh=sh;
      rec.nvl=L.height>=sh*0.45?1:0;rec.same=rec.cleared?0:1;rec.cleared=false;
+     if(typeof L.chColor=='Integer') rec.color=L.chColor&0xffffff; /* E550: begin carries the colour too (narration grey / speech white), before the line is shown */
      var right=a[0]+L.width-(+L.marginR)-size;
      if(!(right>cx)) right=cx;
      this.send('begin',rec,cx,right);

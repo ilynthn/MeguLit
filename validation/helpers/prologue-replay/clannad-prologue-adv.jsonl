@@ -1,0 +1,43 @@
+{"t": 1794553671998, "m": {"type": "hookMemory", "name": "EmbedSiglus", "code": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe"}}
+{"t": 1794553672761, "m": {"type": "hookStatus", "hookMessage": "进程已附加，等待对话流与实际文本", "hookActive": false, "processAttached": true, "streamSelected": false, "receivedText": false, "replacementState": "disabled"}}
+{"t": 1794553673424, "m": {"type": "hookEmbedPending", "code": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe"}}
+{"t": 1794553673436, "m": {"type": "hookStatus", "hookMessage": "文本流已选择；等待内嵌替换回调", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": false, "replacementState": "clear-requested"}}
+{"t": 1794553675349, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553675511, "m": {"type": "hookAuxText", "text": "プロローグ", "sourceName": "SiglusEngine4", "role": 0}}
+{"t": 1794553675670, "m": {"type": "hookAuxText", "text": "一面、白い世界…", "sourceName": "SiglusEngine3", "role": 0}}
+{"t": 1794553675677, "m": {"type": "hookSource", "text": "一面、白い世界…", "sourceName": "EmbedSiglus", "sourceCode": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe", "hookActive": true}}
+{"t": 1794553675784, "m": {"type": "hookAuxText", "text": "プロローグ一面、白い世界…", "sourceName": "SiglusEngine4", "role": 0}}
+{"t": 1794553677934, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553678458, "m": {"type": "hookSource", "text": "…", "sourceName": "EmbedSiglus", "sourceCode": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe", "hookActive": true}}
+{"t": 1794553679606, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553679811, "m": {"type": "hookAuxText", "text": "雪…", "sourceName": "SiglusEngine4", "role": 0}}
+{"t": 1794553680062, "m": {"type": "hookAuxText", "text": "雪…", "sourceName": "SiglusEngine3", "role": 0}}
+{"t": 1794553680064, "m": {"type": "hookSource", "text": "雪…", "sourceName": "EmbedSiglus", "sourceCode": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe", "hookActive": true}}
+{"t": 1794553683159, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683159, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683160, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683160, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683160, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683160, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683160, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683160, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553683743, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553688155, "m": {"type": "hookAuxText", "text": "そう、雪だ。今なお、それは降り続け、僕の体を白く覆っていく。ああ…僕はこんなところで何をしているのだろう…。いつからこんなところに、ひとりぼっちで居るのだろう…。………。雪に埋もれた…僕の手。それが、何かを掴んでいた。引き上げる。", "sourceName": "SiglusEngine4", "role": 0}}
+{"t": 1794553688166, "m": {"type": "hookAuxText", "text": "そう、雪だ。今なお、それは降り続け、僕の体を白く覆っていく。ああ…僕はこんなところで何をしているのだろう…。いつからこんなところに、ひとりぼっちで居るのだろう…。………。雪に埋もれた…僕の手。それが、何かを掴んでいた。引き上げる。", "sourceName": "SiglusEngine3", "role": 0}}
+{"t": 1794553688177, "m": {"type": "hookSource", "text": "そう、雪だ。今なお、それは降り続け、僕の体を白く覆っていく。ああ…僕はこんなところで何をしているのだろう…。いつからこんなところに、ひとりぼっちで居るのだろう…。………。雪に埋もれた…僕の手。それが、何かを掴んでいた。引き上げる。", "sourceName": "EmbedSiglus", "sourceCode": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe", "hookActive": true, "parts": ["そう、雪だ。", "今なお、それは降り続け、僕の体を白く覆っていく。", "ああ…", "僕はこんなところで何をしているのだろう…。", "いつからこんなところに、ひとりぼっちで居るのだろう…。", "………。", "雪に埋もれた…僕の手。", "それが、何かを掴んでいた。", "引き上げる。"], "partsAgeMs": 5170}}
+{"t": 1794553691177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553694177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553697177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553700177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553703177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553706177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553709177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553712177, "m": {"type": "readerInput", "complete": true, "skipHeld": false}}
+{"t": 1794553717571, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553717782, "m": {"type": "hookAuxText", "text": "真っ白な手。", "sourceName": "SiglusEngine3", "role": 0}}
+{"t": 1794553717892, "m": {"type": "hookSource", "text": "真っ白な手。", "sourceName": "EmbedSiglus", "sourceCode": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe", "hookActive": true}}
+{"t": 1794553717908, "m": {"type": "hookAuxText", "text": "真っ白な手。", "sourceName": "SiglusEngine4", "role": 0}}
+{"t": 1794553746835, "m": {"type": "hookStatus", "hookMessage": "已收到内嵌原文并应答替换；画面效果待验证", "hookActive": true, "processAttached": true, "streamSelected": true, "receivedText": true, "replacementState": "callback-acknowledged"}}
+{"t": 1794553747031, "m": {"type": "hookAuxText", "text": "女の子の手だった。", "sourceName": "SiglusEngine4", "role": 0}}
+{"t": 1794553747138, "m": {"type": "hookAuxText", "text": "女の子の手だった。", "sourceName": "SiglusEngine3", "role": 0}}
+{"t": 1794553747140, "m": {"type": "hookSource", "text": "女の子の手だった。", "sourceName": "EmbedSiglus", "sourceCode": "EXHWXN0@1DDAA0:SiglusEngine_Steam.exe", "hookActive": true}}

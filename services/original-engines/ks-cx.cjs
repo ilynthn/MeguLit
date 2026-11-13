@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');
 // E296 (user, 2026-11-10: 魔法使いの夜): KiriKiri 2 archives whose entries are XORed with one byte up to a per-file
 // boundary and another byte after it (the cx family, here on .ks / .tjs text). The keys and the boundary are recovered
 // from the text itself, without the game's plug-in:
@@ -37,7 +38,7 @@ function sjis(raw){
  const k1=keyFor(0,Math.min(400,raw.length)),k2=keyFor(Math.max(0,raw.length-400),raw.length);
  const s=split(raw.length,i=>score8(raw[i]^k1),i=>score8(raw[i]^k2));s.bad=0;for(let i=0;i<raw.length;i++)if(!plausible8(raw[i]^(i<s.at?k1:k2)))s.bad++;
  const out=Buffer.from(raw);for(let i=0;i<out.length;i++)out[i]^=i<s.at?k1:k2;
- const text=new TextDecoder('shift_jis').decode(out),broken=(text.match(/�/g)||[]).length;
+ const text=kit.SJIS.decode(out),broken=(text.match(/�/g)||[]).length;
  return {text,encoding:'shift_jis',keys:[k1,k2],boundary:s.at,bad:s.bad+broken,units:raw.length};
 }
 // The decrypted text, or null when neither reading looks like a script.

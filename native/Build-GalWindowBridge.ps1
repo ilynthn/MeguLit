@@ -57,6 +57,8 @@ if ($LASTEXITCODE -ne 0) { throw "Self-test failed (exit $LASTEXITCODE); the ins
 if ($LASTEXITCODE -ne 0) { throw "Page locator self-test failed (exit $LASTEXITCODE); the installed exe was left unchanged." }
 & $out --audio-self-test | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Audio self-test failed (exit $LASTEXITCODE); the installed exe was left unchanged." }
+& $out --scene-frame-self-test | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Scene frame self-test failed (exit $LASTEXITCODE); the installed exe was left unchanged." }
 
 $target = Join-Path $native 'GalWindowBridge.exe'
 $running = Get-Process -Name GalWindowBridge -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $target }

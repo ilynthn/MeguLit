@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E331 NScripter / ONScripter (月姫). The script is 0.txt ... 99.txt (or 00.txt ...) read in number order, else
    nscript.dat (every byte XOR 0x84). It is split into blocks at its labels (*f20, *s20 ...); a block is one scene,
    named by its label, so a translated script lines up block by block even where a block was rewritten.
@@ -8,11 +9,8 @@
    command lines are anchors. Shift-JIS or GBK (Chinese builds) is chosen per file by which reads with fewer errors. */
 const fs=require('node:fs'),path=require('node:path');
 const KANA=/[ぁ-ゖァ-ヺ]/g;
-function decode(buf){
- if(buf[0]===0xef&&buf[1]===0xbb&&buf[2]===0xbf)return buf.toString('utf8',3);
- try{return new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch{}
- const score=enc=>{const t=new TextDecoder(enc).decode(buf);return {t,bad:(t.match(/�/g)||[]).length,kana:(t.match(KANA)||[]).length};};
- const sj=score('shift_jis'),gbk=score('gbk');return sj.bad<gbk.bad||sj.bad===gbk.bad&&sj.kana>=gbk.kana?sj.t:gbk.t;}
+/* E577 kit.decodeText */
+const decode=kit.decodeText;
 const {stat}=require('./file-key.cjs');
 const TXT=n=>/^\d{1,2}\.txt$/i.test(n);
 function scriptFiles(dir){let names;try{names=fs.readdirSync(dir);}catch{return [];}

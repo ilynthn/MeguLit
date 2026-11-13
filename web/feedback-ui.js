@@ -73,6 +73,9 @@ async function report({ api, reason, contact, locale, version }) {
   return text?.ok ? 'text' : '';
 }
 
+/* E563 after a problem report: check the library on this PC; anything found is uploaded only after the user confirms it */
+const probeAfterReport = ({ api, locale, esc, toast }) => import('./adapter-probe-ui.js').then(m => m.openProbeUpload({ api, locale, esc, toast, reason: 'feedback' })).catch(() => {});
+
 export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
   const t = words(locale), dialog = document.createElement('dialog');
   dialog.className = 'game-dialog feedback-dialog';
@@ -94,7 +97,7 @@ export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
     const outcome = await report({ api, reason, contact: contact.value.trim(), locale, version });
     if (!dialog.isConnected) return;
     send.textContent = t.send;
-    if (outcome) { toast && toast(outcome === 'full' ? t.sent : t.sentTextOnly); dialog.close(); return; }
+    if (outcome) { toast && toast(outcome === 'full' ? t.sent : t.sentTextOnly); dialog.close(); probeAfterReport({ api, locale, esc, toast }); return; }
     send.disabled = false; status.textContent = t.failed; status.dataset.state = 'bad';
   };
   text.focus();
@@ -102,25 +105,44 @@ export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
 
 /* E416 every start (once per launch), with the website's recent adaptations (megulit.com/assets/updates.json) */
 let shownThisLaunch = false;
+/* (user 2026-11-13: the list appeared only after a while and opening the notice stuttered) the last list is kept in
+   localStorage and drawn in the first frame; the service answer (its own cache, then the site) replaces it only when it differs.
+   Only the first rows are built at once, the rest when the browser is idle, so opening never builds 300 rows in one go */
+const UPDATES_KEY = "megulit.siteUpdates", FIRST_ROWS = 12;
+export function cachedUpdates(store = globalThis.localStorage) { try { const v = JSON.parse(store?.getItem(UPDATES_KEY) || "null"); return Array.isArray(v) ? v : null; } catch { return null; } }
+function updateRow(it, locale, t) {
+  const [y, m, d] = String(it.date || "").split("-").map(Number), li = document.createElement("li");
+  const line = ((locale !== "zh" && it["text_" + locale]) || it.text) || t.upd(y, m, d, (locale !== "zh" && it["title_" + locale]) || it.title || "");
+  /* 2026-11-12 a ledger line: the date in its own column, then what changed */
+  if (y && m && d) { const when = document.createElement("time"), what = document.createElement("span"); when.textContent = `${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")}`; what.textContent = line.replace(/^d{4}年d{1,2}月d{1,2}日s*|^[A-Z][a-z]{2} d{1,2}, d{4} · /, ""); li.append(when, what); } else li.textContent = line;
+  return li;
+}
+export function drawUpdates(dialog, locale, items) {
+  const t = words(locale), list = dialog.querySelector(".dev-notice-updates"), note = dialog.querySelector(".dev-notice-updates-note");
+  const rows = (Array.isArray(items) ? items : []).slice(0, 300); /* E425 keep every update; the list scrolls */
+  const token = list.dataset.draw = String((Number(list.dataset.draw) || 0) + 1);
+  list.replaceChildren(...rows.slice(0, FIRST_ROWS).map(it => updateRow(it, locale, t)));
+  const idle = globalThis.requestIdleCallback || (fn => setTimeout(fn, 32));
+  const more = from => { if (from >= rows.length || list.dataset.draw !== token || !list.isConnected) return; idle(() => { if (list.dataset.draw !== token) return; const part = document.createDocumentFragment(); rows.slice(from, from + 40).forEach(it => part.append(updateRow(it, locale, t))); list.append(part); more(from + 40); }); };
+  more(FIRST_ROWS);
+  note.textContent = t.updNote;
+  list.hidden = note.hidden = !rows.length;
+  return rows.length;
+}
 async function fillUpdates(dialog, locale, api) {
-  const t = words(locale), list = dialog.querySelector('.dev-notice-updates'), note = dialog.querySelector('.dev-notice-updates-note');
+  const cached = cachedUpdates(), first = cached ? JSON.stringify(cached.slice(0, 300)) : "";
+  if (cached) drawUpdates(dialog, locale, cached);
   try {
     const items = await api('site_updates', {});
-    const rows = (Array.isArray(items) ? items : []).slice(0, 300); /* E425 keep every update; the list scrolls */
-    list.replaceChildren(...rows.map(it => {
-      const [y, m, d] = String(it.date || '').split('-').map(Number), li = document.createElement('li');
-      const line = ((locale !== 'zh' && it['text_' + locale]) || it.text) || t.upd(y, m, d, (locale !== 'zh' && it['title_' + locale]) || it.title || '');
-      /* 2026-11-12 a ledger line: the date in its own column, then what changed */
-      if (y && m && d) { const when = document.createElement('time'), what = document.createElement('span'); when.textContent = `${String(m).padStart(2, '0')}.${String(d).padStart(2, '0')}`; what.textContent = line.replace(/^\d{4}年\d{1,2}月\d{1,2}日\s*|^[A-Z][a-z]{2} \d{1,2}, \d{4} · /, ''); li.append(when, what); } else li.textContent = line;
-      return li;
-    }));
-    note.textContent = t.updNote;
-    list.hidden = note.hidden = !rows.length;
-  } catch { /* offline: the notice still shows without the list */ }
+    if (!Array.isArray(items) || !items.length || !dialog.isConnected) return;
+    const fresh = JSON.stringify(items.slice(0, 300));
+    try { globalThis.localStorage?.setItem(UPDATES_KEY, fresh); } catch { /* storage full or blocked: fine */ }
+    if (fresh !== first) drawUpdates(dialog, locale, items);
+  } catch { /* offline: the cached list (or none) stays */ }
 }
 
-export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '' }) {
-  if (shownThisLaunch || document.querySelector('.dev-notice')) return;
+export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', force = false }) {
+  if ((shownThisLaunch && !force) || document.querySelector('.dev-notice')) return;
   shownThisLaunch = true;
   const t = words(locale), dialog = document.createElement('dialog');
   dialog.className = 'game-dialog dev-notice';
@@ -205,7 +227,7 @@ export function openGuide({ api, locale = 'zh', esc, toast, version = '', tab = 
     const outcome = await report({ api, reason: value, contact: reach.value.trim(), locale, version });
     if (!dialog.isConnected) return;
     send.disabled = false; send.textContent = t.send;
-    if (outcome) { said.dataset.state = 'ok'; said.textContent = outcome === 'full' ? t.sent : t.sentTextOnly; reason.value = ''; toast && toast(said.textContent); return; }
+    if (outcome) { said.dataset.state = 'ok'; said.textContent = outcome === 'full' ? t.sent : t.sentTextOnly; reason.value = ''; toast && toast(said.textContent); probeAfterReport({ api, locale, esc, toast }); return; }
     said.textContent = t.failed; said.dataset.state = 'bad';
   };
   dialog.showModal();

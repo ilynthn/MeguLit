@@ -20,7 +20,8 @@ const dump=()=>require('./original-engines/scenes.cjs').ENGINES['kirikiri-dump']
 function hxArchives(dir){let names=[];try{names=fs.readdirSync(dir).filter(f=>/\.xp3$/i.test(f)&&!media(f));}catch{return [];}const scn=names.filter(f=>/^scn/i.test(f));return (scn.length?scn:names).filter(f=>xp3.indexTags(path.join(dir,f)).includes('Hxv4'));}
 // Already read: the DLL leaves hx-done-<archive>.txt for every archive it went through.
 function prepared(dir,archives=hxArchives(dir)){const d=dump().captureDir(dir);return archives.length>0&&archives.every(a=>fs.existsSync(path.join(d,'hx-done-'+a.toLowerCase()+'.txt')));}
-function bitness(exe){try{const fd=fs.openSync(exe,'r');try{const b=Buffer.alloc(4096);fs.readSync(fd,b,0,4096,0);const pe=b.readUInt32LE(0x3c);return b.readUInt16LE(pe+4)===0x14c?'32':'64';}finally{fs.closeSync(fd);}}catch{return '';}}
+/* E580 kit.peInfo */
+function bitness(exe){const i=require('./original-engines/kit.cjs').peInfo(exe);return i?(i.machine===0x14c?'32':'64'):'';}
 function running(exe){try{const out=execFileSync('tasklist',['/FI','IMAGENAME eq '+path.basename(exe),'/FO','CSV','/NH'],{windowsHide:true,encoding:'utf8',timeout:8000});return out.toLowerCase().includes('"'+path.basename(exe).toLowerCase()+'"');}catch{return false;}}
 const queue=[],active=new Set();let busy=false;const listeners=new Set();
 // What the game detail / text source dialog shows: 'preparing' while this game's cold run is queued or running.

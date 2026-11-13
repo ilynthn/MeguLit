@@ -6,7 +6,7 @@ const T={
   syncNow:'立即同步',syncing:'同步中…',synced:'同步完成',pending:'待上传 {n} 条',kinds:'同步内容',words:'单词与例句',sentences:'收藏的句子',reading:'阅读记录（每日汇总）',settings:'按游戏设置（不含路径）',devices:'已登录的设备',
   thisDevice:'本机',revoke:'移除',logout:'退出登录',remove:'删除账号（含云端数据）',removeTitle:'删除账号和云端数据？',removeBody:'会删除服务器上的账号、所有设备的登录和已同步的数据，无法恢复。本机数据保留不变',confirm:'删除',cancel:'取消',
   removed:'账号已删除',loggedOut:'已退出登录',err:{EMAIL_INVALID:'邮箱格式不对',RATE_LIMITED:'操作太频繁，请稍后再试',WRONG_CODE:'验证码不对',CODE_EXPIRED:'验证码已过期，请重新发送',TOO_MANY_TRIES:'错误次数太多，请重新发送验证码',
-  NO_CODE:'请先发送验证码',EMAIL_NOT_CONFIGURED:'邮件服务还在准备中，暂时不能登录',EMAIL_SEND_FAILED:'邮件发送失败，请稍后再试',NETWORK:'连不上联网服务，请检查网络',UNAUTHORIZED:'登录已失效，请重新登录',SYNC_QUOTA_EXCEEDED:'云端空间已满，可以关掉部分同步内容',
+  NO_CODE:'请先发送验证码',EMAIL_NOT_CONFIGURED:'邮件服务还在准备中，暂时不能登录',EMAIL_SEND_FAILED:'邮件发送失败，请稍后再试',RATE_LIMITED:'请求太频繁，请稍等一会儿再试',NETWORK:'连不上联网服务，请检查网络',UNAUTHORIZED:'登录已失效，请重新登录',SYNC_QUOTA_EXCEEDED:'云端空间已满，可以关掉部分同步内容',
   RELAY_NOT_CONFIGURED:'联网服务还在准备中',VAULT_UNAVAILABLE:'Windows 加密存储不可用，无法保存登录',other:'操作失败，请稍后再试'}},
  ja:{title:'アカウント',notReady:'オンラインサービスは準備中です。アカウントとクラウド同期はまだ使えません。ほかの機能はこれまでどおり使えます',intro:'ログインすると、単語・保存した文・読書記録・作品別の設定を複数の PC で同期できます。ログインしなくてもすべての機能を使えます',privacy:'オンにした項目だけを同期します。ゲームのパスやログは送信しません。メールアドレスはログインにのみ使います',
   email:'メールアドレス',emailPh:'you@example.com',send:'確認コードを送信',resend:'再送信',code:'確認コード',codePh:'6 桁の数字',login:'ログイン',sentTo:'{email} に確認コードを送りました（10 分間有効）',loggedAs:'ログイン中',
@@ -14,7 +14,7 @@ const T={
   settings:'作品別の設定（パスを除く）',devices:'ログイン中のデバイス',thisDevice:'この PC',revoke:'削除',logout:'ログアウト',remove:'アカウントを削除（クラウドのデータも）',removeTitle:'アカウントとクラウドのデータを削除しますか？',
   removeBody:'サーバー上のアカウント、全デバイスのログイン、同期したデータを削除します。元に戻せません。この PC のデータはそのまま残ります',confirm:'削除',cancel:'キャンセル',removed:'アカウントを削除しました',loggedOut:'ログアウトしました',err:{EMAIL_INVALID:'メールアドレスの形式が正しくありません',
   RATE_LIMITED:'操作が多すぎます。しばらくしてからお試しください',WRONG_CODE:'確認コードが違います',CODE_EXPIRED:'確認コードの期限が切れました。再送信してください',TOO_MANY_TRIES:'入力ミスが多すぎます。確認コードを再送信してください',NO_CODE:'先に確認コードを送信してください',
-  EMAIL_NOT_CONFIGURED:'メール送信は準備中のため、まだログインできません',EMAIL_SEND_FAILED:'メールを送信できませんでした。しばらくしてからお試しください',NETWORK:'オンラインサービスに接続できません。ネットワークを確認してください',UNAUTHORIZED:'ログインが切れました。もう一度ログインしてください',
+  EMAIL_NOT_CONFIGURED:'メール送信は準備中のため、まだログインできません',EMAIL_SEND_FAILED:'メールを送信できませんでした。しばらくしてからお試しください',RATE_LIMITED:'リクエストが多すぎます。少し待ってからお試しください',NETWORK:'オンラインサービスに接続できません。ネットワークを確認してください',UNAUTHORIZED:'ログインが切れました。もう一度ログインしてください',
   SYNC_QUOTA_EXCEEDED:'クラウドの容量が上限です。同期する内容を減らしてください',RELAY_NOT_CONFIGURED:'オンラインサービスは準備中です',VAULT_UNAVAILABLE:'Windows の暗号化ストアが使えないため、ログインを保存できません',other:'操作に失敗しました。しばらくしてからお試しください'}},
  en:{title:'Account',notReady:'Online services are not ready yet, so accounts and cloud sync are unavailable. Everything else works locally as usual',intro:'Sign in to sync words, saved sentences, reading records and per-game settings between your PCs. Everything works without an account too',
   privacy:'Only what you turn on below is synced. Game paths and logs are never uploaded. Your email is used only to sign in',email:'Email',emailPh:'you@example.com',
@@ -24,7 +24,7 @@ const T={
   remove:'Delete account (and cloud data)',removeTitle:'Delete your account and cloud data?',removeBody:'This deletes the account on the server, every device sign-in and all synced data. It cannot be undone. Data on this PC stays as it is',
   confirm:'Delete',cancel:'Cancel',removed:'Account deleted',loggedOut:'Signed out',err:{EMAIL_INVALID:'That email address does not look right',RATE_LIMITED:'Too many attempts, try again later',
   WRONG_CODE:'Wrong code',CODE_EXPIRED:'The code expired, send a new one',TOO_MANY_TRIES:'Too many wrong codes, send a new one',NO_CODE:'Send a code first',EMAIL_NOT_CONFIGURED:'Email delivery is not ready yet, so sign-in is unavailable',
-  EMAIL_SEND_FAILED:'Could not send the email, try again later',NETWORK:'Cannot reach the online service, check your connection',UNAUTHORIZED:'Your sign-in expired, sign in again',
+  EMAIL_SEND_FAILED:'Could not send the email, try again later',RATE_LIMITED:'Too many requests, please wait a moment',NETWORK:'Cannot reach the online service, check your connection',UNAUTHORIZED:'Your sign-in expired, sign in again',
   SYNC_QUOTA_EXCEEDED:'Cloud storage is full, turn off some sync items',RELAY_NOT_CONFIGURED:'Online services are not ready yet',VAULT_UNAVAILABLE:'Windows protected storage is unavailable, cannot keep you signed in',
   other:'Something went wrong, try again later'}}
 };

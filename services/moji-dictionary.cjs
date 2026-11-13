@@ -147,6 +147,39 @@ async function lookupMoji(query,fetcher=fetch,options={}){
  return results.slice(0,12);
 }
 
+// Word-card facts from MOJi: class, JLPT level and MOJi lookup count for one word (2026-11-13: the card shows MOJi's own
+// labels instead of tokenizer classes). Only an entry whose spelling or reading matches is used; no match means no facts.
+const kana=text=>String(text||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+function jlpt(tags){const levels=String(tags||'').split('#').map(t=>t.trim().match(/^N([1-5])$/i)).filter(Boolean).map(m=>Number(m[1]));
+ return levels.length?{jlpt:'N'+Math.max(...levels),jlptAll:[...new Set(levels)].sort((a,b)=>b-a).map(n=>'N'+n)}:{jlpt:'',jlptAll:[]};}
+function facts(word,details){
+ const excerpt=clean(word?.excerpt,200),codes=array(details).map(d=>({partOfSpeech:d?.partOfSpeech}));
+ const own=grammar(excerpt),coded=grammar(...codes);let pos=own.partOfSpeech.length?own.partOfSpeech:coded.partOfSpeech;
+ if(pos.some(p=>/.动$/.test(p)&&p!=='形动'))pos=pos.filter(p=>p!=='动');
+ const viewed=Number(word?.viewedNum);
+ return {id:clean(word?.objectId,40),spelling:clean(word?.spell,100),pron:clean(word?.pron,100),partOfSpeech:pos,verbType:own.verbType||coded.verbType,verbGroup:own.verbGroup||coded.verbGroup,
+  ...jlpt(word?.tags),views:Number.isFinite(viewed)&&viewed>=0?Math.round(viewed):null};
+}
+async function wordFacts(spelling,reading='',options={}){
+ const word=typeof spelling==='string'?spelling.trim().slice(0,100):'',pron=kana(typeof reading==='string'?reading.trim().slice(0,100):'');
+ if(!word)return null;
+ const {parse}=client({root:options.root,fetcher:options.fetcher||fetch,vault:options.vault});
+ const result=(await parse('word-clickSearchV2',{searchText:word,langEnv:'zh-CN_ja'})).result||{};
+ const list=array(result.word).filter(w=>clean(w?.spell));
+ const pick=list.find(w=>w.spell===word&&(!pron||kana(w.pron)===pron))||(pron?null:list.find(w=>w.spell===word));
+ if(pick)return facts(pick,array(result.details).filter(d=>!d?.wordId||d.wordId===pick.objectId));
+ if(!pron)return null;
+ /* Same spelling, other reading (今日 こんにち): find that entry in the full search, then read its detail. */
+ const {app}=client({root:options.root,fetcher:options.fetcher||fetch,vault:options.vault});
+ const found=await parse('union-api',{functions:[{name:'search-all',params:{text:word,types:[102]}}]});
+ const hit=array(found.results?.['search-all']?.result?.word?.searchResult).slice(0,12).find(item=>{const [head,rest='']=clean(item?.title,200).split(/\s*\|\s*/);
+  return head.trim()===word&&kana(rest.replace(/[◎①-⑳⓪]+/g,'').trim())===pron;});
+ const id=clean(hit?.targetId||hit?.objectId,40);if(!validId(id))return null;
+ const data=await app('GET','/api/v1/word/detailInfo?wordId='+encodeURIComponent(id));const entry=array(data.word).length?data.word[0]:data.word;
+ return entry&&!data.code?facts(entry,data.details):null;
+}
+const cachedFacts=(spelling,reading,options={})=>cached('f:'+String(spelling||'').slice(0,100)+'|'+String(reading||'').slice(0,100),()=>wordFacts(spelling,reading,options));
+
 async function wordDetail(id,options={}){
  const wordId=typeof id==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(id)?id:'';if(!wordId)throw Error('INVALID_MOJI_WORD');
  const {app}=client(options);
@@ -246,4 +279,4 @@ async function wordComments(id,page=1,options={}){
 }
 const clearWarm=()=>warm.clear();
 
-module.exports={cachedDetail,cachedAudio,prefetch,wordComments,clearWarm,lookupMoji,wordDetail,wordAudio,notes,comments,loginStart,loginPoll,status,logout,grammar,meanings};
+module.exports={cachedFacts,wordFacts,facts,jlpt,cachedDetail,cachedAudio,prefetch,wordComments,clearWarm,lookupMoji,wordDetail,wordAudio,notes,comments,loginStart,loginPoll,status,logout,grammar,meanings};

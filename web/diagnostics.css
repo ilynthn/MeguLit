@@ -1,38 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* E362 adaptation overview + diagnostic package dialogs, on the game-dialog palette (dark wine glass, gold-rose accents). */
-dialog.adapt-dialog{width:min(1040px,calc(100vw - 32px));max-height:min(860px,calc(100vh - 48px));display:flex;flex-direction:column}
-dialog.adapt-dialog:not([open]){display:none}
-dialog.adapt-dialog .adapt-tools{display:flex;gap:12px;align-items:center;padding:16px 28px 0}
-dialog.adapt-dialog .adapt-search{flex:1;min-width:0;box-sizing:border-box;height:38px;padding:0 14px!important;border:1px solid rgba(255,236,214,.1)!important;border-radius:10px!important;background:rgba(0,0,0,.24)!important;color:inherit;font-size:14px}
-dialog.adapt-dialog .adapt-search:focus{border-color:rgba(217,139,132,.7)!important;outline:none}
-dialog.adapt-dialog .adapt-sort{display:flex;align-items:center;gap:8px;font-size:12px;color:#bfae9f;white-space:nowrap}
-dialog.adapt-dialog .adapt-sort select{height:38px;padding:0 10px;border-radius:10px;border:1px solid rgba(255,236,214,.1);background:rgba(0,0,0,.24);color:inherit;font-size:13px}
-dialog.adapt-dialog .adapt-filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:12px 28px 4px}
-dialog.adapt-dialog .adapt-filters button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid rgba(255,236,214,.12);background:transparent;color:#d9c8ba;font-size:12px;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .12s ease}
-dialog.adapt-dialog .adapt-filters button:hover{border-color:rgba(217,139,132,.45)}
-dialog.adapt-dialog .adapt-filters button:active{transform:scale(.96)}
-dialog.adapt-dialog .adapt-filters button[aria-pressed=true]{background:rgba(200,48,60,.2);border-color:rgba(217,139,132,.6);color:#f6e6da}
-dialog.adapt-dialog .adapt-filters button span{font-variant-numeric:tabular-nums;font-size:11px;opacity:.7}
-dialog.adapt-dialog .adapt-hidden{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#bfae9f;cursor:pointer}
-dialog.adapt-dialog :is(.adapt-head,.adapt-row){display:grid;grid-template-columns:minmax(180px,1.6fr) 118px 132px 118px 96px 64px;gap:10px;align-items:center}
-dialog.adapt-dialog .adapt-head{padding:10px 40px 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a8978a}
-dialog.adapt-dialog .adapt-list{flex:1;min-height:160px;overflow:auto;padding:0 28px 12px;scrollbar-width:thin}
-dialog.adapt-dialog .adapt-row{padding:6px 12px;border-radius:12px;border:1px solid transparent;transition:background-color .16s ease,border-color .16s ease}
-dialog.adapt-dialog .adapt-row:hover{background:rgba(200,48,60,.07);border-color:rgba(255,236,214,.07)}
-dialog.adapt-dialog .adapt-open{display:flex;flex-direction:column;gap:2px;min-width:0;padding:4px 0;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
-dialog.adapt-dialog .adapt-open strong{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-dialog.adapt-dialog .adapt-open small{font-size:12px;color:#a8978a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-dialog.adapt-dialog .adapt-open:hover strong{color:#f3c9bf}
-dialog.adapt-dialog .adapt-open:focus-visible,dialog.adapt-dialog .adapt-diag:focus-visible{outline:2px solid #d98b84;outline-offset:2px;border-radius:6px}
-dialog.adapt-dialog .adapt-pill{justify-self:start;max-width:100%;padding:3px 9px;border-radius:999px;font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid transparent}
-.adapt-pill[data-tone=ok]{color:#bfe3c4;background:rgba(92,170,108,.14);border-color:rgba(130,200,144,.22)}
-.adapt-pill[data-tone=wait]{color:#e9d3a6;background:rgba(214,170,90,.11);border-color:rgba(214,170,90,.2)}
-.adapt-pill[data-tone=bad]{color:#f2b6ae;background:rgba(200,48,60,.15);border-color:rgba(217,110,110,.26)}
-dialog.adapt-dialog .adapt-seen{font-size:12px;color:#bfae9f;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-dialog.adapt-dialog .adapt-diag{justify-self:end;font-size:12px;padding:4px 6px}
-dialog.adapt-dialog .adapt-empty{padding:36px 0;text-align:center;color:#a8978a}
-dialog.adapt-dialog .dialog-actions{display:flex;justify-content:flex-end;gap:10px;padding:14px 28px;border-top:1px solid rgba(255,236,214,.07);background:rgba(0,0,0,.18)}
-@media (max-width:820px){dialog.adapt-dialog .adapt-head{display:none}dialog.adapt-dialog .adapt-row{grid-template-columns:1fr auto auto;row-gap:4px}dialog.adapt-dialog .adapt-open{grid-column:1/-1}}
 
 dialog.diag-dialog{width:min(620px,calc(100vw - 32px))}
 dialog.diag-dialog .diag-body{padding:18px 28px 4px}
@@ -57,15 +24,6 @@ dialog.diag-dialog .diag-link{padding:0 2px;font-size:13px;text-decoration:under
 .detail-aside .detail-diag{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 @media (prefers-reduced-motion:reduce){dialog.diag-dialog .diag-progress{animation:none;background-position:30% 0}dialog.adapt-dialog :is(.adapt-filters button,.adapt-row){transition:none}}
 
-:root[data-theme=light] dialog.adapt-dialog :is(.adapt-search,.adapt-sort select){background:rgba(255,255,255,.7)!important;border-color:rgba(120,60,50,.18)!important;color:#2a1e1a}
-:root[data-theme=light] dialog.adapt-dialog :is(.adapt-sort,.adapt-hidden,.adapt-seen,.adapt-head,.adapt-open small,.adapt-empty){color:#6e4f47}
-:root[data-theme=light] dialog.adapt-dialog .adapt-filters button{border-color:rgba(120,60,50,.2);color:#4a2f28}
-:root[data-theme=light] dialog.adapt-dialog .adapt-filters button[aria-pressed=true]{background:rgba(168,50,63,.12);border-color:rgba(168,50,63,.45);color:#301919}
-:root[data-theme=light] dialog.adapt-dialog .adapt-row:hover{background:rgba(168,50,63,.06);border-color:rgba(120,60,50,.1)}
-:root[data-theme=light] dialog.adapt-dialog .adapt-open:hover strong{color:#a8323f}
-:root[data-theme=light] .adapt-pill[data-tone=ok]{color:#2f6b3a;background:rgba(92,170,108,.14)}
-:root[data-theme=light] .adapt-pill[data-tone=wait]{color:#7a5a17;background:rgba(214,170,90,.18)}
-:root[data-theme=light] .adapt-pill[data-tone=bad]{color:#9e1b32;background:rgba(200,48,60,.1)}
 :root[data-theme=light] :is(dialog.adapt-dialog,dialog.diag-dialog) .dialog-actions{background:rgba(120,60,50,.04);border-color:rgba(60,30,20,.08)}
 :root[data-theme=light] dialog.diag-dialog .diag-entries{background:rgba(255,255,255,.6);border-color:rgba(120,60,50,.15)}
 :root[data-theme=light] dialog.diag-dialog .diag-entries code{color:#2a1e1a}
@@ -74,3 +32,93 @@ dialog.diag-dialog .diag-link{padding:0 2px;font-size:13px;text-decoration:under
 :root[data-theme=light] dialog.diag-dialog .diag-status[data-state=ok]{color:#2f6b3a}
 :root[data-theme=light] dialog.diag-dialog .diag-status[data-state=manual]{color:#7a5a17}
 :root[data-theme=light] dialog.diag-dialog .diag-status[data-state=bad]{color:#9e1b32}
+/* 2026-11-13 adaptation overview, option C 魔导书目录 (user pick; judges 8.6 / 8.5). Grimoire contents page: serif titles,
+   one tally line per column (gold counts, bar segments ordered normal → red → gold → grey), a red count block with a
+   barcode, dashed blueprint rules, two-digit running numbers. Colour is state only: grey works, gold is a fallback or
+   unverified (hollow gold = fallback), red needs work, hollow grey = not tested. Rows that need work sort first. */
+dialog.adapt-dialog{--a-gold:var(--g-gold,var(--gold-accent,#edb56e));--a-t2:#c3ab9c;--a-t3:#a08a7f;--a-ok:#5d7c67;--a-part:#e0b86a;--a-wait:#8f8780;--a-bad:#e47c72;--a-red:#c8303c;--a-serif:"Adapt Digits",var(--g-serif,"Sitka Display","Noto Serif SC","Noto Serif JP","Yu Mincho",serif);--a-ease:cubic-bezier(.2,.7,.2,1);
+ width:min(1140px,calc(100vw - 32px));height:min(860px,calc(100vh - 48px));max-height:none;display:grid;grid-template-rows:auto auto auto 1fr;padding:0;overflow:hidden;border-radius:2px!important;border:1px solid rgba(237,181,110,.18)!important;background:linear-gradient(#1a1213,#161012 40%)!important;color:#f1e0d2;font-variant-numeric:lining-nums}
+/* Sitka draws old-style digits (STEINS;GATE 0 read as "o"): digits come from Cambria */
+@font-face{font-family:"Adapt Digits";src:local("Cambria"),local("Cambria Math");unicode-range:U+0030-0039}
+dialog.adapt-dialog:not([open]){display:none}
+dialog.adapt-dialog .adapt-top{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:20px;padding:26px 36px 0}
+dialog.adapt-dialog .adapt-top h2{margin:0;font:600 30px/1.1 var(--a-serif);letter-spacing:.04em;color:#f3e3d4}
+dialog.adapt-dialog .adapt-meta{font-size:12px;color:var(--a-t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+dialog.adapt-dialog .adapt-close{width:36px;height:36px;display:grid;place-items:center;padding:0;border:1px solid rgba(237,181,110,.28);border-radius:0;background:none;color:var(--a-t2);cursor:pointer;transition:border-color .16s var(--a-ease),background-color .16s var(--a-ease),color .16s var(--a-ease)}
+dialog.adapt-dialog .adapt-close svg{width:14px;height:14px;stroke:currentColor;stroke-width:1.5;fill:none}
+dialog.adapt-dialog .adapt-close:hover{background:rgba(200,48,60,.16);border-color:rgba(200,48,60,.8);color:#fff}
+dialog.adapt-dialog .adapt-close:active{transform:scale(.96)}
+dialog.adapt-dialog .adapt-tally{display:grid;grid-template-columns:.75fr 1.15fr 1.4fr;gap:28px;padding:22px 36px 18px;border-bottom:1px dashed rgba(237,181,110,.24)}
+dialog.adapt-dialog .adapt-tl{min-width:0}
+dialog.adapt-dialog .adapt-tl h3{display:flex;align-items:baseline;gap:12px;margin:0 0 9px;font:600 13px/1 var(--a-serif);letter-spacing:.08em;color:var(--a-t2)}
+dialog.adapt-dialog .adapt-tl h3 span{font:12px/1 inherit;font-family:var(--a-serif);letter-spacing:0;color:var(--a-t3)}
+dialog.adapt-dialog .adapt-tl h3 b{font:600 18px/1 var(--a-serif);color:var(--a-gold);margin-right:3px;font-variant-numeric:tabular-nums}
+dialog.adapt-dialog .adapt-segs{display:flex;gap:3px;height:12px}
+dialog.adapt-dialog .adapt-seg{flex:var(--n);min-width:8px;padding:0;border:0;border-radius:0;cursor:pointer;transform-origin:left center;transition:filter .16s var(--a-ease)}
+dialog.adapt-dialog .adapt-seg[data-t=ok]{background:#4f6b58}dialog.adapt-dialog .adapt-seg[data-t=part]{background:#c99d4f}dialog.adapt-dialog .adapt-seg[data-t=wait]{background:#6b605a}dialog.adapt-dialog .adapt-seg[data-t=bad]{background:#c84450}
+dialog.adapt-dialog .adapt-seg:hover{filter:brightness(1.25)}
+dialog.adapt-dialog .adapt-seg[aria-pressed=true]{outline:1px solid #f3e3d4;outline-offset:2px}
+dialog.adapt-dialog .adapt-keys{display:grid;gap:5px;margin-top:10px;font-size:12px;line-height:1.5;color:var(--a-t2)}
+dialog.adapt-dialog .adapt-keys>span{display:flex;gap:12px;min-height:18px;white-space:nowrap;overflow:hidden}
+dialog.adapt-dialog .adapt-keys button{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+dialog.adapt-dialog .adapt-keys button b{font:600 14px/1 var(--a-serif);color:var(--a-gold);font-variant-numeric:tabular-nums}
+dialog.adapt-dialog .adapt-keys button:hover{color:#f1e0d2}
+dialog.adapt-dialog .adapt-keys button[aria-pressed=true]{color:#fff;text-decoration:underline;text-decoration-color:var(--a-red);text-decoration-thickness:2px;text-underline-offset:4px}
+dialog.adapt-dialog .adapt-keys i,dialog.adapt-dialog .adapt-s::before{flex:none;width:7px;height:7px;background:var(--a-ok)}
+dialog.adapt-dialog .adapt-keys i[data-t=bad]{background:var(--a-bad)}dialog.adapt-dialog .adapt-keys i[data-t=part]{background:var(--a-part)}
+dialog.adapt-dialog .adapt-keys i[data-t=wait]{background:transparent;box-shadow:inset 0 0 0 1px var(--a-wait)}
+dialog.adapt-dialog .adapt-keys i[data-t=part][data-hollow]{background:transparent;box-shadow:inset 0 0 0 1.5px var(--a-part)}
+dialog.adapt-dialog .adapt-tools{display:grid;grid-template-columns:auto auto 1fr auto auto auto;gap:16px;align-items:center;padding:16px 36px 14px;border-bottom:1px solid rgba(237,181,110,.16)}
+dialog.adapt-dialog .adapt-need{position:relative;display:flex;align-items:center;gap:12px;height:44px;padding:0 16px 0 26px;border:0;border-radius:0;background:#a8232f;color:#fff;font-size:13px;letter-spacing:.12em;cursor:pointer;transition:background-color .16s var(--a-ease),transform .12s var(--a-ease)}
+dialog.adapt-dialog .adapt-need::before{content:"";position:absolute;left:6px;top:9px;bottom:9px;width:12px;background:linear-gradient(90deg,rgba(255,255,255,.8) 0 1px,transparent 1px 2px,rgba(255,255,255,.8) 2px 5px,transparent 5px 6px,rgba(255,255,255,.8) 6px 7px,transparent 7px 9px,rgba(255,255,255,.8) 9px 10px,transparent 10px 11px,rgba(255,255,255,.8) 11px 12px)}
+dialog.adapt-dialog .adapt-need b{display:inline-block;letter-spacing:0;font:700 30px/1 var(--a-serif);font-variant-numeric:tabular-nums}
+dialog.adapt-dialog .adapt-need:hover{background:#bd2b38}
+dialog.adapt-dialog .adapt-need:active{transform:scale(.97)}
+dialog.adapt-dialog .adapt-need[aria-pressed=true]{background:var(--a-red);box-shadow:inset 0 -2px 0 #fff}
+dialog.adapt-dialog :is(.adapt-scan,.adapt-probe){height:32px;padding:0 12px;border:1px solid rgba(237,181,110,.28);border-radius:0;background:none;color:var(--a-t2);font-size:12px;white-space:nowrap;cursor:pointer;transition:border-color .16s var(--a-ease),color .16s var(--a-ease),opacity .16s var(--a-ease)}
+dialog.adapt-dialog :is(.adapt-scan,.adapt-probe):hover{border-color:rgba(200,48,60,.75);color:#fff}
+dialog.adapt-dialog .adapt-scan[hidden],dialog.adapt-dialog .adapt-clear[hidden]{display:none}
+dialog.adapt-dialog .adapt-search{height:36px;min-width:0;box-sizing:border-box;padding:0 2px!important;border:0!important;border-bottom:1px solid rgba(237,181,110,.3)!important;border-radius:0!important;background:transparent!important;color:#f1e0d2;font-size:14px}
+dialog.adapt-dialog .adapt-search::placeholder{color:var(--a-t3)}
+dialog.adapt-dialog .adapt-search:focus{outline:none;border-bottom-color:var(--a-red)!important}
+dialog.adapt-dialog .adapt-clear{padding:0;border:0;background:none;color:#e88b9e;font-size:12px;cursor:pointer}
+dialog.adapt-dialog :is(.adapt-sort,.adapt-hidden){display:flex;align-items:center;gap:8px;font-size:12px;color:var(--a-t2);white-space:nowrap;cursor:pointer}
+dialog.adapt-dialog .adapt-sort select{height:32px;padding:0 8px;border:1px solid rgba(237,181,110,.24);border-radius:0;background:transparent;color:#f1e0d2}
+dialog.adapt-dialog .adapt-hidden input{accent-color:var(--a-red)}
+dialog.adapt-dialog .adapt-scroll{min-height:0;overflow:auto;padding:0 24px 40px 36px;scrollbar-gutter:stable;scrollbar-width:thin;mask-image:linear-gradient(#000 calc(100% - 64px),transparent)}
+dialog.adapt-dialog .adapt-grid{display:grid;grid-template-columns:36px minmax(240px,1fr) 118px 118px 118px 76px 84px;gap:0 16px;align-items:center}
+dialog.adapt-dialog .adapt-head{position:sticky;top:0;z-index:2;padding:12px 0 9px;background:#171012;border-bottom:1px dotted rgba(237,181,110,.3);font-size:12px;color:var(--a-t3)}
+dialog.adapt-dialog .adapt-row{position:relative;min-height:48px;padding:5px 0;border-bottom:1px dotted rgba(237,181,110,.14);transition:background-color .16s var(--a-ease)}
+dialog.adapt-dialog .adapt-row:hover{background:rgba(255,236,214,.03)}
+dialog.adapt-dialog .adapt-row.need{background:linear-gradient(90deg,rgba(200,48,60,.11),rgba(200,48,60,0) 65%);box-shadow:inset 1px 0 0 #d6505a}
+dialog.adapt-dialog .adapt-n{padding-left:10px;font:italic 600 15px/1 var(--a-serif);color:var(--a-t3);font-variant-numeric:tabular-nums}
+dialog.adapt-dialog .adapt-row.need .adapt-n{color:var(--a-bad)}
+dialog.adapt-dialog .adapt-open{display:flex;flex-direction:column;gap:3px;min-width:0;padding:0;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
+dialog.adapt-dialog .adapt-open>span{display:flex;align-items:baseline;gap:12px;min-width:0}
+dialog.adapt-dialog .adapt-open strong{font:600 16px/1.3 var(--a-serif);color:#f3e3d4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+dialog.adapt-dialog .adapt-open small{flex:none;font-size:12px;color:var(--a-t3)}
+dialog.adapt-dialog .adapt-open em{font-style:normal;font-size:12px;line-height:1.3;color:#d7a59e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+dialog.adapt-dialog .adapt-open:hover strong{color:#fff;text-decoration:underline;text-decoration-color:rgba(237,181,110,.5);text-underline-offset:4px}
+dialog.adapt-dialog .adapt-s{display:inline-flex;align-items:center;gap:8px;min-width:0;font-size:13px;line-height:1.3;color:var(--a-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+dialog.adapt-dialog .adapt-s::before{content:""}
+dialog.adapt-dialog .adapt-s[data-t=part]{color:var(--a-part)}dialog.adapt-dialog .adapt-s[data-t=part]::before{background:var(--a-part)}
+dialog.adapt-dialog .adapt-s[data-t=part][data-hollow]{color:#cfa65e}dialog.adapt-dialog .adapt-s[data-t=part][data-hollow]::before{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}
+dialog.adapt-dialog .adapt-s[data-t=bad]{color:var(--a-bad);font-weight:600}dialog.adapt-dialog .adapt-s[data-t=bad]::before{background:var(--a-bad)}
+dialog.adapt-dialog .adapt-s[data-t=wait]{color:var(--a-wait)}dialog.adapt-dialog .adapt-s[data-t=wait]::before{background:transparent;box-shadow:inset 0 0 0 1px currentColor}
+/* inside a row that needs work only the blocking cells keep colour; the rest keep readable text, their mark fades */
+dialog.adapt-dialog .adapt-row.need .adapt-s:not([data-t=bad]){color:var(--a-t3);font-weight:400}
+dialog.adapt-dialog .adapt-row.need .adapt-s:not([data-t=bad])::before{opacity:.45}
+dialog.adapt-dialog .adapt-seen{font-size:12px;color:var(--a-t3);white-space:nowrap;font-variant-numeric:tabular-nums}
+dialog.adapt-dialog .adapt-probe{justify-self:end;opacity:0}
+dialog.adapt-dialog :is(.adapt-row:hover,.adapt-row:focus-within,.adapt-row.need) .adapt-probe{opacity:1}
+dialog.adapt-dialog :is(.adapt-open,.adapt-probe,.adapt-scan,.adapt-need,.adapt-seg,.adapt-keys button,.adapt-close):focus-visible{outline:2px solid var(--a-gold);outline-offset:2px}
+dialog.adapt-dialog .adapt-empty{padding:60px 0;text-align:center;color:var(--a-t2)}
+@media (max-width:900px){dialog.adapt-dialog .adapt-tally{grid-template-columns:1fr}dialog.adapt-dialog .adapt-head{display:none}dialog.adapt-dialog .adapt-grid{grid-template-columns:32px 1fr 1fr 1fr;row-gap:6px}dialog.adapt-dialog .adapt-open{grid-column:2/-1}dialog.adapt-dialog :is(.adapt-seen,.adapt-probe){display:none}dialog.adapt-dialog .adapt-tools{grid-template-columns:auto 1fr;}}
+@media (prefers-reduced-motion:reduce){dialog.adapt-dialog :is(.adapt-close,.adapt-seg,.adapt-need,.adapt-row,.adapt-probe,.adapt-scan){transition:none}}
+:root[data-theme=light] dialog.adapt-dialog{--a-t2:#6e4f47;--a-t3:#7a5d52;--a-wait:#7d716a;--a-bad:#b0323d;--a-part:#9a6b12;--a-gold:#9a6b12;background:#f7f1ea!important;border-color:rgba(120,60,50,.2)!important;color:#2a1e1a}
+:root[data-theme=light] dialog.adapt-dialog :is(.adapt-top h2,.adapt-open strong){color:#2a1e1a}
+:root[data-theme=light] dialog.adapt-dialog .adapt-head{background:#f7f1ea}
+:root[data-theme=light] dialog.adapt-dialog .adapt-search{color:#2a1e1a}
+:root[data-theme=light] dialog.adapt-dialog .adapt-sort select{color:#2a1e1a;border-color:rgba(120,60,50,.25)}
+:root[data-theme=light] dialog.adapt-dialog .adapt-open em{color:#9c4a43}
+:root[data-theme=light] dialog.adapt-dialog .adapt-row:hover{background:rgba(168,50,63,.05)}

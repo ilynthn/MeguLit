@@ -1,0 +1,22 @@
+{
+ "schema": "megulit.adapter-pack",
+ "format": 1,
+ "id": "fixture-mgpk",
+ "version": 1,
+ "minApp": "1.0.0",
+ "requires": ["container:table", "grammar:lines", "match:files", "transform:xor", "transform:zlib"],
+ "title": "Frozen format-1 fixture: every app version must keep reading this pack (validation/adapter-packs.test.cjs)",
+ "engine": "mgpk",
+ "match": {"files": [{"path": "data/script.mgp", "minSize": 16, "magic": {"offset": 0, "hex": "4d47504b"}}]},
+ "source": {
+  "container": "table",
+  "archives": ["data/script.mgp"],
+  "entries": "*.scn",
+  "table": {"count": {"at": 4, "type": "u32le"}, "entriesAt": 8, "nameEncoding": "shift_jis",
+   "fields": [{"name": "name", "type": "cstr", "size": 32}, {"name": "offset", "type": "u32le"}, {"name": "size", "type": "u32le"}],
+   "offsetBase": "file"}
+ },
+ "transforms": [{"op": "xor", "key": "5a"}, {"op": "zlib"}],
+ "grammar": {"mode": "lines", "encoding": "shift_jis", "skip": "^[@;*]", "anchor": "^[@*]", "strip": ["\\[[^\\]]*\\]"], "name": "^【[^】]+】$"},
+ "pairing": {"by": "order", "dropNames": true, "minChars": 1}
+}

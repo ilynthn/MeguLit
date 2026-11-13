@@ -370,7 +370,10 @@ async fn window_action(action: String, window: tauri::WebviewWindow, state: Stat
         "resize_nw"|"resize_ne"|"resize_sw"|"resize_se" => {if window.label()!="main"{return Err("INVALID_HOME_WINDOW".into());}if !window.is_maximized().unwrap_or(false){let name=match action.as_str(){"resize_nw"=>"NorthWest","resize_ne"=>"NorthEast","resize_sw"=>"SouthWest",_=>"SouthEast"};let direction=serde_json::from_value(json!(name)).map_err(|e|e.to_string())?;let native:&tauri::Webview<tauri::Wry>=window.as_ref();native.window().start_resize_dragging(direction).map_err(|e|e.to_string())?;}},
         "minimize" => window.minimize().map_err(|e| e.to_string())?,
         // 2026-11-13 Anki review: immersive full screen (Esc in the page leaves it)
-        "fullscreen_on"|"fullscreen_off" => {if window.label()!="main"{return Err("INVALID_HOME_WINDOW".into());}window.set_fullscreen(action=="fullscreen_on").map_err(|e|e.to_string())?;},
+        // (user 2026-11-13: F made the whole MeguLit vanish) Tao's set_fullscreen on this borderless window whose HWND the
+        // StartupIsland showed outside Tao applied a hide with the change. Instead: make Tao see the window as visible, then
+        // cover the current monitor by hand and put back the saved rect on leave. Never hides; errors go to page full screen.
+        "fullscreen_on"|"fullscreen_off" => {if window.label()!="main"{return Err("INVALID_HOME_WINDOW".into());}fill_monitor(&window,action=="fullscreen_on")?;},
         // StartupIsland shows the HWND outside Tao. Synchronize Tao's VISIBLE flag
         // before changing MAXIMIZED; otherwise apply_diff maximizes then hides the
         // window, and a subsequent show exposes only the final rectangle.
@@ -385,6 +388,30 @@ async fn window_action(action: String, window: tauri::WebviewWindow, state: Stat
         _ => return Err("Unknown window action".into()),
     }
     Ok(())
+}
+
+static FULL_RESTORE:std::sync::Mutex<Option<(tauri::PhysicalPosition<i32>,tauri::PhysicalSize<u32>,bool)>>=std::sync::Mutex::new(None);
+fn fill_monitor(window:&tauri::WebviewWindow,on:bool)->Result<(),String>{
+    window_policy::restore_home_surface(window);window.show().map_err(|e|e.to_string())?;
+    if window.is_minimized().unwrap_or(false){window.unminimize().map_err(|e|e.to_string())?;}
+    let mut saved=FULL_RESTORE.lock().map_err(|_|"FULLSCREEN_LOCK".to_string())?;
+    let result=(||->Result<(),String>{
+        if on {
+            if saved.is_none(){*saved=Some((window.outer_position().map_err(|e|e.to_string())?,window.outer_size().map_err(|e|e.to_string())?,window.is_maximized().unwrap_or(false)));}
+            let monitor=match window.current_monitor().map_err(|e|e.to_string())?{Some(m)=>m,None=>window.primary_monitor().map_err(|e|e.to_string())?.ok_or("NO_MONITOR")?};
+            if window.is_maximized().unwrap_or(false){window.unmaximize().map_err(|e|e.to_string())?;}
+            window.set_position(tauri::Position::Physical(*monitor.position())).map_err(|e|e.to_string())?;
+            window.set_size(tauri::Size::Physical(*monitor.size())).map_err(|e|e.to_string())?;
+        } else if let Some((pos,size,max))=saved.take(){
+            window.set_size(tauri::Size::Physical(size)).map_err(|e|e.to_string())?;window.set_position(tauri::Position::Physical(pos)).map_err(|e|e.to_string())?;
+            if max{window.maximize().map_err(|e|e.to_string())?;}
+        }
+        Ok(())
+    })();
+    /* whatever happened, the window stays on screen and focused */
+    let _=window.show();let _=window.set_focus();
+    if result.is_err()&&on{if let Some((pos,size,max))=saved.take(){let _=window.set_size(tauri::Size::Physical(size));let _=window.set_position(tauri::Position::Physical(pos));if max{let _=window.maximize();}}}
+    result
 }
 
 // Closing a game asks for the home window several times within a few hundred milliseconds; each call used to restart

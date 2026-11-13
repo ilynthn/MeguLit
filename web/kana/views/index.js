@@ -36,6 +36,10 @@ const ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
 const hira=D.LESSONS.filter(l=>l.id.startsWith('h'));
 const grid='あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもや　ゆ　よらりるれろわ　　　をん';
 const GAMES=t.games;
+/* 2026-11-13 (user: the lesson rail was useless and jumped straight into practice): the board switches 平假名 / 片假名 / 浊音,
+   the title arrows and a click on the board only move the current lesson; only the 继续 button (or Enter) starts one */
+const SETS=[[t.hira,grid,'h'],[t.kata,D.toKata(grid),'k'],[t.daku,D.DAKU_LIST.join(''),'d']];
+const lessonOf=k=>D.LESSONS.find(l=>l.kana.includes(k));
 const DIFFS=t.diffs;
 
 el.className='v-index mg';
@@ -43,27 +47,15 @@ el.innerHTML=`<main class="mg-page">
  <header class="mg-hud">
   <span class="mg-tag">${esc(t.hira)}</span>
   <span class="mg-hud-stats"><span><b>${streak}</b>${t.streak}</span><span><b>${qWeek}</b>${t.week}</span><span><b>${avg?avg.toFixed(1)+'s':'—'}</b>${t.avg}</span><span><b>${bestStreak}</b>${t.best}</span></span>
-  <span class="mg-hud-note">${t.beta}</span>
+  <span class="mg-hud-note" title="${t.beta}">Beta</span>
  </header>
 
- <section class="mg-stage" aria-label="${t.cont}">
-  <div class="mg-stage-kana" aria-hidden="true"><span class="mg-ghost">${esc(nextUnknown)}</span><b>${esc(nextUnknown)}</b></div>
-  <div class="mg-stage-copy">
-   
-   <h1>${esc(next.title)}<small class="mg-script">${esc(next.script==='k'?t.kata:next.id.startsWith('d')?t.daku:t.hira)}</small></h1>
-   <p class="mg-sub">${started?t.left(next.kana.filter(k=>lv(k)<2).length):t.steps}${confuseIn&&confuseIn.tip?` · ${esc(confuseIn.g.join(' / '))} ${t.confuse}`:''}</p>
-   <div class="mg-row"><button class="mg-cta" data-go="lesson.html?id=${next.id}">${started?t.go:t.start} <span aria-hidden="true">→</span></button>
-    <div class="mg-barcode" aria-label="${known} / ${seionH.length} ${t.familiar}">${seionH.map(k=>`<i class="${lv(k)>=3?'m3':lv(k)>=2?'m2':''}"></i>`).join('')}</div><small class="mg-num">${String(known).padStart(2,'0')}<em>/${seionH.length}</em></small></div>
-  </div>
-  <span class="mg-corner tl"></span><span class="mg-corner br"></span>
- </section>
-
- <nav class="mg-rail" aria-label="${t.lessons}">${hira.map((l,i)=>{const done=!!lessons[l.id],cur=l.id===next.id;return `<button class="mg-lesson${done?' done':''}${cur?' cur':''}" data-go="lesson.html?id=${l.id}" style="--i:${i}"><b>${esc(l.kana[0])}</b><small>${esc(l.title)}</small></button>`;}).join('')}<button class="mg-lesson more" data-go="gojuon.html"><b>カ</b><small>${t.more}</small></button></nav>
+ <section class="mg-stage" aria-label="${t.cont}" data-stage></section>
 
  <section class="mg-board">
   <div class="mg-board-grid">
-   <header><span class="mg-tag">${t.board}</span><span class="mg-legend">${LV.map((t,i)=>`<span><i class="m${i}"></i>${t}</span>`).join('')}</span></header>
-   <div class="mastery" role="grid" aria-label="${t.boardAria}">${[...grid].map(c=>c==='　'?'<span class="gap"></span>':`<button type="button" class="m${lv(c)}" data-mk="${c}" title="${c} · ${LV[lv(c)]}" aria-label="${c} ${D.romaOf(c)} ${LV[lv(c)]}">${c}</button>`).join('')}</div>
+   <header><span class="mg-seg" role="radiogroup" aria-label="${t.board}">${SETS.map((x,i)=>`<button type="button" role="radio" data-set="${i}" aria-checked="${i===0}">${x[0]}</button>`).join('')}</span><span class="mg-legend">${LV.map((t,i)=>`<span><i class="m${i}"></i>${t}</span>`).join('')}<span><i class="m4"></i>${({zh:'当前课',ja:'現在の課',en:'Current'})[KL()]||'当前课'}</span></span></header>
+   <div class="mastery" role="grid" aria-label="${t.boardAria}" data-board></div>
   </div>
   <aside class="mg-board-side">
    <div class="mk-card" data-mk-card hidden></div>
@@ -85,6 +77,24 @@ el.innerHTML=`<main class="mg-page">
   <button class="mg-tile" data-go="kanji.html"><em>${t.kanji}</em><b lang="ja">漢</b><small>${t.kanjiSub}</small></button>
  </section>
 </main>`;
+let cur=next,set=0;
+const stage=el.querySelector('[data-stage]'),board=el.querySelector('[data-board]');
+function drawStage(L){cur=L;const nu=L.kana.find(k=>lv(k)<2)||L.kana[0],cf=L.kana.map(k=>D.confusables(k)).find(Boolean),ks=SETS.find(x=>x[2]===L.id[0])[1].replace(/　/g,'').split(''),kn=ks.filter(k=>lv(k)>=2).length,i=D.LESSONS.indexOf(L);
+ stage.innerHTML=`<div class="mg-stage-kana" aria-hidden="true"><span class="mg-ghost">${esc(nu)}</span><b>${esc(nu)}</b></div>
+  <div class="mg-stage-copy">
+   <h1><span class="mg-title">${esc(L.title)}</span><small class="mg-script">${esc(L.script==='k'?t.kata:L.id.startsWith('d')?t.daku:t.hira)}</small><span class="mg-pick"><button type="button" data-step="-1" aria-label="prev"${i?'':' disabled'}>‹</button><small class="mg-num">${i+1}/${D.LESSONS.length}</small><button type="button" data-step="1" aria-label="next"${i<D.LESSONS.length-1?'':' disabled'}>›</button></span></h1>
+   <p class="mg-sub">${started?t.left(L.kana.filter(k=>lv(k)<2).length):t.steps}${cf&&cf.tip?` · ${esc(cf.g.join(' / '))} ${t.confuse}`:''}</p>
+   <div class="mg-row"><button class="mg-cta" data-go="lesson.html?id=${L.id}">${started?t.go:t.start}<kbd>Enter</kbd></button>
+    <div class="mg-prog"><div class="mg-barcode" aria-label="${kn} / ${ks.length} ${t.familiar}"><i style="width:${ks.length?kn/ks.length*100:0}%"></i></div><small class="mg-num">${String(kn).padStart(2,'0')}<em>/${ks.length}</em></small></div></div>
+  </div>`;
+ stage.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const n=D.LESSONS[i+ +b.dataset.step];if(!n)return;const s2=SETS.findIndex(x=>x[2]===n.id[0]);drawStage(n);if(s2!==set)drawBoard(s2);else markRow();});}
+function markRow(){board.querySelectorAll('[data-mk]').forEach(x=>x.classList.toggle('row',lessonOf(x.dataset.mk)===cur));}
+function drawBoard(n){set=n;const g=SETS[n][1];board.classList.toggle('d',n===2);
+ el.querySelectorAll('[data-set]').forEach(b=>b.setAttribute('aria-checked',String(+b.dataset.set===n)));
+ board.innerHTML=[...g].map(c=>c==='　'?'<span class="gap"></span>':`<button type="button" class="m${lv(c)}" data-mk="${c}" title="${c} · ${LV[lv(c)]}" aria-label="${c} ${D.romaOf(c)} ${LV[lv(c)]}">${c}</button>`).join('');markRow();}
+drawStage(next);drawBoard(Math.max(0,SETS.findIndex(x=>x[2]===next.id[0])));
+el.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const n=+b.dataset.set;const L=D.LESSONS.find(l=>l.id[0]===SETS[n][2]&&!lessons[l.id])||D.LESSONS.find(l=>l.id[0]===SETS[n][2]);drawStage(L);drawBoard(n);open='';card.hidden=true;empty.hidden=false;});
+ctx.onKey?.(e=>{const tg=e.target;if(e.key==='Enter'&&!e.isComposing&&!(tg&&tg.closest&&tg.closest('button,input,select,textarea,a'))){e.preventDefault();stage.querySelector('.mg-cta')?.click();}});
 el.querySelector('.mg-voice')?.append(ctx.voicePicker({note:false}));
 
 /* practice: pick a difficulty, then a game starts right here (the old 假名游戏 tab) */
@@ -116,5 +126,5 @@ const drawCard=k=>{const l=lv(k),w=D.wordOf?D.wordOf(k):null;card.hidden=false;e
  card.querySelector('[data-mk-say]').onclick=()=>ctx.speech.say(k);
  card.querySelectorAll('[data-mk-lv]').forEach(b=>b.onclick=()=>{m[k]=+b.dataset.mkLv;S.put(KEY.m,m);const cell=el.querySelector(`[data-mk="${k}"]`);if(cell){cell.className='m'+m[k]+' sel';cell.title=k+' · '+LV[m[k]];beat(cell);}drawCard(k);});
  if(!calm)card.animate([{opacity:0,filter:'blur(6px)',transform:'translateX(12px)'},{opacity:1,filter:'none',transform:'none'}],{duration:360,easing:EXPO});};
-el.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const k=b.dataset.mk;beat(b);el.querySelectorAll('[data-mk]').forEach(x=>x.classList.toggle('sel',x===b&&open!==k));if(open===k){open='';card.hidden=true;empty.hidden=false;return;}open=k;drawCard(k);ctx.speech.say(k);});
+board.addEventListener('click',e=>{const b=e.target.closest('[data-mk]');if(!b)return;const k=b.dataset.mk;const L=lessonOf(k);if(L&&L!==cur){drawStage(L);markRow();}beat(b);board.querySelectorAll('[data-mk]').forEach(x=>x.classList.toggle('sel',x===b&&open!==k));if(open===k){open='';card.hidden=true;empty.hidden=false;return;}open=k;drawCard(k);ctx.speech.say(k);});
 }

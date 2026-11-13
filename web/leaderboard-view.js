@@ -6,6 +6,7 @@
    view 每周热词: 词汇 / 短语 / 短句, podium for 1–3, cards with the AI guess for 4–10, a plain list for 11–50. */
 import {mountEmailLogin} from './account-ui.js';
 import {changeAvatar} from './avatar-crop.js';
+import {busyText,isRateLimited,retrySeconds,autoRetry} from './rate-limit.js';
 import {personButton,socialHTML,bindSocial} from './leaderboard-social.js';
 import {openProfilePanel} from './profile-panel.js';
 import {rankTitle,SCHOOLS,elementName} from './reader-class.js';
@@ -25,7 +26,7 @@ const W={
   me:'我的排名',rank:'第 {n} 名',empty:'还没有人上榜',offline:'暂时连不上联网服务',retry:'重试',readers:'{n} 人在读',top:'榜首',back:'返回游戏列表',
   report:'举报头像',reported:'已举报，谢谢',reportHidden:'已举报，这个头像已隐藏',
   board:'阅读榜',hot:'每周热词',word:'词汇',phrase:'短语',sentence:'短句',weekOf:'{week} 周',pastWeeks:'往期',
-  hotPending:'本周热词会在周一 00:00（北京时间）揭晓',hotEmpty:'这一周还没有达到上榜门槛的词',hotRule:'至少 3 位读者查过才会上榜，只统计参加排行榜的读者',
+  hotPending:'本周热词会在周一 00:00（北京时间）揭晓',hotEmpty:'这一周还没有达到上榜门槛的词',hotEmptyOf:'这一周还没有足够的{cat}',hotRule:'至少 3 位读者查过才会上榜，只统计参加排行榜的读者',
   lookedUp:'{users} 人查过 · {n} 次',times:'{n} 次',aiGuess:'AI 推测',participants:'{n} 位读者参与',
   NAME_REQUIRED:'请填写昵称',NAME_LENGTH:'昵称需要 2–16 个字',NAME_INVALID:'昵称不能包含网址、引号或特殊字符',NAME_BLOCKED:'这个昵称不能使用，换一个吧',NAME_TAKEN:'这个昵称已经有人在用了，换一个吧',CONSENT_REQUIRED:'请先勾选同意',BIO_LENGTH:'签名最多 60 字',BIO_INVALID:'签名不能包含网址或特殊字符',BIO_BLOCKED:'签名里有不能使用的内容',NOT_JOINED:'请先参加排行榜',INVALID_FAVORITES:'最喜欢的游戏有误'},
  ja:{title:'ランキング',week:'今週',month:'今月',all:'全期間',characters:'読んだ文字数',seconds:'読書時間',words:'新しく登録した単語',reviews:'復習回数',kana:'かな練習',streak:'連続日数',games:'ゲーム別',
@@ -37,7 +38,7 @@ const W={
   me:'自分の順位',rank:'{n} 位',empty:'まだ誰も載っていません',offline:'オンラインサービスに接続できません',retry:'再試行',readers:'{n} 人が読書中',top:'1 位',back:'ゲーム一覧に戻る',
   report:'アイコンを通報',reported:'通報しました',reportHidden:'通報しました。このアイコンは非表示になりました',
   board:'読書ランキング',hot:'今週の注目語',word:'単語',phrase:'フレーズ',sentence:'短文',weekOf:'{week} 週',pastWeeks:'過去の週',
-  hotPending:'今週の注目語は月曜 0:00（UTC+8）に発表されます',hotEmpty:'この週は掲載基準に達した語がありません',hotRule:'3 人以上が調べた語だけを掲載します。ランキング参加者のみ集計',
+  hotPending:'今週の注目語は月曜 0:00（UTC+8）に発表されます',hotEmpty:'この週は掲載基準に達した語がありません',hotEmptyOf:'この週は掲載基準に達した{cat}がありません',hotRule:'3 人以上が調べた語だけを掲載します。ランキング参加者のみ集計',
   lookedUp:'{users} 人が {n} 回調べました',times:'{n} 回',aiGuess:'AI の推測',participants:'{n} 人が参加',
   NAME_REQUIRED:'ニックネームを入力してください',NAME_LENGTH:'ニックネームは 2〜16 文字です',NAME_INVALID:'URL・引用符・特殊文字は使えません',NAME_BLOCKED:'このニックネームは使えません',NAME_TAKEN:'このニックネームはすでに使われています。別の名前にしてください',CONSENT_REQUIRED:'同意にチェックしてください',BIO_LENGTH:'ひとことは 60 文字までです',BIO_INVALID:'URL や特殊文字は使えません',BIO_BLOCKED:'使えない内容が含まれています',NOT_JOINED:'先にランキングに参加してください',INVALID_FAVORITES:'好きなゲームの指定が正しくありません'},
  en:{title:'Leaderboard',week:'This week',month:'This month',all:'All time',characters:'Characters read',seconds:'Reading time',words:'New words saved',reviews:'Reviews',kana:'Kana practice',streak:'Streak days',games:'By game',
@@ -49,7 +50,7 @@ const W={
   me:'My rank',rank:'#{n}',empty:'Nobody here yet',offline:'Cannot reach the online service right now',retry:'Retry',readers:'{n} readers',top:'Top',back:'Back to games',
   report:'Report picture',reported:'Reported, thank you',reportHidden:'Reported; this picture is now hidden',
   board:'Reading',hot:'Weekly hot words',word:'Words',phrase:'Phrases',sentence:'Sentences',weekOf:'Week {week}',pastWeeks:'Past weeks',
-  hotPending:'This week\'s hot words are announced Monday 00:00 (UTC+8)',hotEmpty:'No term reached the threshold this week',hotRule:'A term needs at least 3 different readers; only people who joined the leaderboard count',
+  hotPending:'This week\'s hot words are announced Monday 00:00 (UTC+8)',hotEmpty:'No term reached the threshold this week',hotEmptyOf:'Not enough {cat} this week',hotRule:'A term needs at least 3 different readers; only people who joined the leaderboard count',
   lookedUp:'{users} readers · {n} lookups',times:'{n}×',aiGuess:'AI guess',participants:'{n} readers took part',
   NAME_REQUIRED:'Enter a nickname',NAME_LENGTH:'Nicknames are 2–16 characters',NAME_INVALID:'No links, quotes or special characters',NAME_BLOCKED:'That nickname is not allowed',NAME_TAKEN:'Someone already uses this name; pick another',CONSENT_REQUIRED:'Please tick the agreement first',BIO_LENGTH:'Signatures are up to 60 characters',BIO_INVALID:'No links or special characters',BIO_BLOCKED:'That signature is not allowed',NOT_JOINED:'Join the leaderboard first',INVALID_FAVORITES:'Those favourite games are not valid'}
 };
@@ -125,7 +126,7 @@ function circleHTML(entries,metric,w,locale,esc,images,board){
 export function boardHTML(data,w,locale,esc){
  w={...words(locale),...w};
  const board=data.board||{},images=data.avatars||{};
- if(board.state==='error')return `<div class="leaderboard-offline"><p>${w.offline}</p><button type="button" class="primary" data-lb-retry>${w.retry}</button></div>`;
+ if(board.state==='error')return `<div class="leaderboard-offline"${isRateLimited(board)?` data-rate-wait="${retrySeconds(board)}"`:''}><p>${busyText(board,locale)||w.offline}</p><button type="button" class="secondary" data-lb-retry>${w.retry}</button></div>`;
  if(view.metric==='games'&&!view.game){const games=board.games||[];if(!games.length)return `<p class="lb-empty">${w.empty}</p>`;
   return `<ol class="leaderboard-list leaderboard-games lb-rows">${games.map(g=>`<li><button type="button" data-lb-game="${esc(g.title)}"><span class="leaderboard-name">${esc(g.title)}</span><small>${esc(fill(w.readers,{n:g.readers}))}${g.top?` · ${w.top} ${esc(g.top.name)}`:''}</small></button></li>`).join('')}</ol>`;}
  const metric=view.metric==='games'?'characters':view.metric,entries=board.entries||[];
@@ -138,9 +139,10 @@ export function boardHTML(data,w,locale,esc){
 export function splitAwards(awards){const sorted=[...(awards||[])].sort((a,b)=>a.rank-b.rank);return {podium:sorted.filter(a=>a.rank<=3),cards:sorted.filter(a=>a.rank>=4&&a.rank<=10),list:sorted.filter(a=>a.rank>=11&&a.rank<=50)};}
 export function hotHTML(hot,w,locale,esc){
  w={...words(locale),...w};
- if(!hot||hot.state==='error')return `<div class="leaderboard-offline"><p>${w.offline}</p><button type="button" class="primary" data-lb-retry>${w.retry}</button></div>`;
+ if(hot?.state==='not-configured')return emptyState('pending',w.notReady||w.hotPending);
+ if(!hot||hot.state==='error')return `<div class="leaderboard-offline"${isRateLimited(hot)?` data-rate-wait="${retrySeconds(hot)}"`:''}><p>${busyText(hot,locale)||w.offline}</p><button type="button" class="secondary" data-lb-retry>${w.retry}</button></div>`;
  const n=v=>nf(locale).format(v||0);
- if(!hot.settled||!hot.awards?.length)return emptyState(hot.settled?'empty':'pending',hot.settled?w.hotEmpty:w.hotPending,w.hotRule);
+ if(!hot.settled||!hot.awards?.length)return emptyState(hot.settled?'empty':'pending',hot.settled?(w[hot.category]?fill(w.hotEmptyOf,{cat:w[hot.category]}):w.hotEmpty):w.hotPending,w.hotRule);
  const {podium,cards,list}=splitAwards(hot.awards);
  const order=[2,1,3].map(r=>podium.find(a=>a.rank===r)||{rank:r,vacant:true});
  const reason=a=>a.reason?`<p class="leaderboard-reason">${a.ai?`<span class="leaderboard-ai">${w.aiGuess}</span>`:''}${esc(a.reason)}</p>`:'';
@@ -286,6 +288,7 @@ export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>
    const r=await changeAvatar({api,locale,toast,onBusy:busy=>{buttons.forEach(x=>{x.disabled=busy;x.classList.toggle('is-busy',busy);});if(busy)toast(words(locale).uploading);}});if(r&&isCurrent())render();});
   main.querySelector('[data-lb-back]')?.addEventListener('click',()=>{view.game='';render();});
   main.querySelector('[data-lb-retry]')?.addEventListener('click',()=>render());
+  {const wait=main.querySelector('[data-rate-wait]');if(wait)autoRetry(wait,Number(wait.dataset.rateWait),()=>render());}
   const login=main.querySelector('[data-lb-login]');if(login)mountEmailLogin(login,{api,locale,esc,toast,onDone:()=>render()});
   main.querySelector('[data-lb-join]')?.addEventListener('click',()=>{const box=main.querySelector('[data-lb-error]');box.hidden=true;
    if(!main.querySelector('[data-lb-consent]').checked){box.textContent=w.CONSENT_REQUIRED;box.hidden=false;return;}

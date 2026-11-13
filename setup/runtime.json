@@ -25,7 +25,8 @@
                                              "https://github.com/ilynthn/MeguLit/releases/download/runtime-v1.0.0/MeguLit-runtime-voice-v1.0.0.zip"
                                          ]
                             },
-                  "archives":  {"size":  9767775, "unpacked":  33133381, "sha256":  "C0E64B881F967E0A1473127B1D181C0808068A47E99D8B5F1FBE2D99A6B2ED53", "onDemand":  true, "dest":  "runtime/garbro", "license":  "GARbro 1.5.44 (morkt, MIT)", "urls":  ["https://github.com/morkt/GARbro/releases/download/v1.5.44/GARbro-v1.5.44.2904.rar"]}
+                  "archives":  {"size":  9767775, "unpacked":  33133381, "sha256":  "C0E64B881F967E0A1473127B1D181C0808068A47E99D8B5F1FBE2D99A6B2ED53", "onDemand":  true, "dest":  "runtime/garbro", "license":  "GARbro 1.5.44 (morkt, MIT)", "urls":  ["https://github.com/morkt/GARbro/releases/download/v1.5.44/GARbro-v1.5.44.2904.rar"]},
+                  "runtime-dump":  {"size":224916,"unpacked":448585,"sha256":"B732652EEC2018D8D2504643ED65B78880F7B8B2231548F1474135D49612343F","onDemand":true,"hidden":true,"dest":"runtime/runtime-dump","files":["MeguLitDump32.dll","MeguLitDump64.dll","pack.json"],"license":"MeguLit (GPL-3.0-or-later), MinHook (BSD-2-Clause)","urls":["https://github.com/ilynthn/MeguLit/releases/download/runtime-dump-v1.0.0/MeguLit-runtime-dump-v1.0.0.zip"]}
               },
     "mirrors":  [
                     "https://dl.megulit.com/files/{tag}/{file}",

@@ -1,0 +1,73 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://megulit.com/schema/adapter-pack-1.json",
+ "title": "MeguLit adapter pack, format 1",
+ "description": "Reference schema (docs/ADAPTER-PACKS.md). services/adapter-packs.cjs validate() is the authority and adds the checks a schema cannot express: safe regular expressions, requires covering what the pack uses, size limits.",
+ "type": "object",
+ "required": ["schema", "format", "id", "version", "minApp", "requires", "match"],
+ "patternProperties": {"^x-": {}},
+ "additionalProperties": false,
+ "properties": {
+  "schema": {"const": "megulit.adapter-pack"},
+  "format": {"const": 1},
+  "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+  "version": {"type": "integer", "minimum": 1},
+  "minApp": {"$ref": "#/$defs/semver"},
+  "maxApp": {"$ref": "#/$defs/semver"},
+  "requires": {"type": "array", "items": {"type": "string", "enum": [
+   "container:loose", "container:table", "container:xp3", "container:pfs",
+   "transform:xor", "transform:xor-index", "transform:add", "transform:sub", "transform:not", "transform:rol", "transform:ror",
+   "transform:zlib", "transform:deflate-raw", "transform:lzss", "transform:skip", "transform:take",
+   "grammar:lines", "grammar:strings", "params:cx-scheme", "params:paz-scheme", "match:exe", "match:files", "params:malie-scheme", "params:qlie-key", "params:entis-key", "params:marble-key", "params:warc-scheme",
+   "container:index", "transform:blowfish", "transform:tea", "transform:xtea", "transform:camellia", "transform:xor-file"]}},
+  "title": {"type": "string", "maxLength": 200},
+  "engine": {"type": "string", "maxLength": 200},
+  "note": {"type": "string", "maxLength": 200},
+  "createdAt": {"type": "string"},
+  "match": {"type": "object", "additionalProperties": false, "properties": {
+   "files": {"type": "array", "maxItems": 16, "items": {"type": "object", "required": ["path"], "additionalProperties": false, "properties": {
+    "path": {"$ref": "#/$defs/glob"}, "minSize": {"type": "integer", "minimum": 0},
+    "magic": {"type": "object", "required": ["hex"], "properties": {"offset": {"type": "integer", "minimum": 0}, "hex": {"type": "string", "pattern": "^([0-9a-fA-F]{2}){1,32}$"}}}}}},
+   "exe": {"type": "object", "additionalProperties": false, "properties": {
+    "name": {"type": "string", "pattern": "^[^\\\\/:]{1,120}\\.exe$"}, "size": {"type": "integer", "minimum": 1}, "head": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}}},
+  "source": {"type": "object", "required": ["container"], "properties": {
+   "container": {"enum": ["loose", "table", "xp3", "pfs", "index"]},
+   "index": {"type": "object", "required": ["size", "count", "words", "entries"], "description": "E596: an archive index recovered from the running game (runtime findings)", "properties": {
+    "size": {"type": "integer", "minimum": 1}, "count": {"type": "integer", "minimum": 1, "maximum": 65536}, "words": {"const": 3},
+    "entries": {"type": "string", "description": "base64 of u32le offset, size, unpacked per entry"}, "select": {"type": "string", "description": "base64 of u32le entry numbers to read"}, "trim": {"const": "unpacked"}}},
+   "files": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/glob"}},
+   "archives": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/glob"}},
+   "entries": {"type": "string", "maxLength": 120},
+   "maxFiles": {"type": "integer", "minimum": 1, "maximum": 20000},
+   "table": {"type": "object", "required": ["entriesAt", "fields"], "properties": {
+    "count": {"type": "object", "properties": {"at": {"type": "integer"}, "type": {"enum": ["u8", "u16le", "u32le", "u32be"]}}},
+    "entriesAt": {"type": "integer", "minimum": 0},
+    "fields": {"type": "array", "minItems": 3, "maxItems": 16, "items": {"type": "object", "properties": {
+     "name": {"enum": ["name", "offset", "size", "packed", "flags"]}, "type": {"enum": ["u8", "u16le", "u16be", "u32le", "u32be", "cstr", "pstr8", "pstr16", "skip"]}, "size": {"type": "integer", "minimum": 1, "maximum": 1024}}}},
+    "offsetBase": {"enum": ["file", "after-index"]},
+    "nameEncoding": {"$ref": "#/$defs/encoding"},
+    "indexTransforms": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/transform"}}}}}},
+  "transforms": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/transform"}},
+  "grammar": {"type": "object", "required": ["mode"], "properties": {
+   "mode": {"enum": ["lines", "strings"]}, "encoding": {"anyOf": [{"$ref": "#/$defs/encoding"}, {"const": "auto"}]}, "flags": {"type": "string", "pattern": "^[imsu]{0,4}$"},
+   "text": {"$ref": "#/$defs/regex"}, "skip": {"$ref": "#/$defs/regex"}, "anchor": {"$ref": "#/$defs/regex"}, "name": {"$ref": "#/$defs/regex"}, "join": {"$ref": "#/$defs/regex"},
+   "strip": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/regex"}},
+   "opcode": {"type": "string", "pattern": "^([0-9a-fA-F]{2}){1,8}$"}, "length": {"enum": ["u8", "u16le", "u32le", "zero"]},
+   "minChars": {"type": "integer", "minimum": 1, "maximum": 64}}},
+  "pairing": {"type": "object", "properties": {"by": {"enum": ["order", "text"]}, "dropNames": {"type": "boolean"}, "minChars": {"type": "integer", "minimum": 1, "maximum": 64}}},
+  "params": {"type": "array", "maxItems": 16, "items": {"type": "object", "required": ["target", "value"], "properties": {"target": {"enum": ["cx-scheme", "paz-scheme", "malie-scheme", "qlie-key", "entis-key", "marble-key", "warc-scheme"]}, "value": {"type": "object"}}}},
+  "signature": {"type": "object", "required": ["alg", "keyId", "value"], "properties": {"alg": {"const": "ed25519"}, "keyId": {"type": "string"}, "value": {"type": "string"}}}
+ },
+ "$defs": {
+  "semver": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"},
+  "glob": {"type": "string", "minLength": 1, "maxLength": 120, "not": {"pattern": "(^|[\\\\/])\\.\\.([\\\\/]|$)|^[\\\\/]|:"}},
+  "encoding": {"enum": ["shift_jis", "utf-8", "utf-16le", "gbk", "euc-jp", "big5"]},
+  "regex": {"type": "string", "minLength": 1, "maxLength": 300},
+  "transform": {"type": "object", "required": ["op"], "properties": {
+   "op": {"enum": ["xor", "xor-index", "add", "sub", "not", "rol", "ror", "zlib", "deflate-raw", "lzss", "skip", "take", "blowfish", "tea", "xtea", "camellia"]},
+   "key": {"type": "string", "pattern": "^([0-9a-fA-F]{2}){1,256}$"}, "start": {"type": "integer"}, "phase": {"enum": ["entry", "file"]},
+   "state": {"type": "string", "description": "blowfish: base64 of the 4168-byte key schedule (P then S, little-endian words)"}, "words": {"enum": ["le", "be"]}, "rounds": {"enum": [16, 32, 64]}, "base": {"type": "integer", "minimum": 0, "maximum": 255},
+   "step": {"type": "integer", "minimum": 0, "maximum": 255}, "mult": {"type": "integer", "minimum": 0, "maximum": 255}, "value": {"type": "integer", "minimum": 0, "maximum": 255},
+   "bits": {"type": "integer", "minimum": 1, "maximum": 7}, "bytes": {"type": "integer", "minimum": 0}, "window": {"const": 4096}}}
+ }
+}

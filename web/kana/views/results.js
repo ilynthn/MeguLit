@@ -10,9 +10,19 @@ const all=S.get(S.KEY.r,[]);let run=all.find(r=>String(r.id)===String(params.run
 let demo=false;
 if(!run){el.innerHTML=`<div class="wrap"><a class="back" href="games.html">← 练习</a><p class="empty" style="margin-top:24px">还没有练习成绩，先去玩一局吧</p><a class="btn" href="games.html" style="margin-top:12px">去练习 →</a></div>`;return;}
 const st=S.stats(run),prevBest=S.bestOf(run.G,run.D,run.id),changes=S.applyRun(run,demo);
+const KD=ctx.data,A=KD.achievement(run.log),P=KD.fmtPct; /* before newRecord reads A */
 const isRetry=run.only&&run.only.length;
-const newRecord=!isRetry&&(!prevBest||A.pct>prevBest.score);const diff=prevBest?Math.abs(A.pct-prevBest.score).toFixed(4):"";
-const KD=ctx.data,A=KD.achievement(run.log),P=KD.fmtPct;
+const newRecord=!isRetry&&(!prevBest||A.pct>prevBest.score);const diff=prevBest?Math.abs(A.pct-prevBest.score).toFixed(1):"";
+/* 2026-11-13 user: AP 是惠惠盖章，不是字体 — a red hanko slammed onto the score: explosion burst + magic ring, inked by SVG noise */
+const apSeal=()=>`<div class="ap-stamp" role="img" aria-label="All Perfect 全完璧"><i class="ap-ink"></i><svg class="ap-seal" viewBox="0 0 160 160" aria-hidden="true">
+<defs><filter id="apk-ink" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="7" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="3.2" result="d"/><feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 5.1" result="s"/><feComposite in="d" in2="s" operator="in"/></filter>
+<path id="apk-arc" d="M80 80 m-55 0 a55 55 0 1 1 110 0 a55 55 0 1 1 -110 0"/>
+<mask id="apk-cut"><rect width="160" height="160" fill="#fff"/><text x="80" y="92" text-anchor="middle" font-size="44" font-weight="900" font-family="Georgia,'Noto Serif JP','Yu Mincho',serif" letter-spacing="1" fill="#000">AP</text><text x="80" y="113" text-anchor="middle" font-size="12" font-weight="900" font-family="'Noto Serif JP','Yu Mincho',serif" letter-spacing="3" fill="#000">全完璧</text></mask></defs>
+<g filter="url(#apk-ink)" fill="currentColor" stroke="currentColor">
+<circle cx="80" cy="80" r="73" fill="none" stroke-width="5.5"/><circle cx="80" cy="80" r="64" fill="none" stroke-width="1.4"/><circle cx="80" cy="80" r="47" fill="none" stroke-width="1.2" stroke-dasharray="2 3"/>
+<text font-size="9.5" font-weight="800" letter-spacing="2.2" stroke="none" font-family="'IBM Plex Mono',Consolas,'Yu Mincho',monospace"><textPath href="#apk-arc">EXPLOSION · 爆裂魔法 · 紅魔族 · EXPLOSION ·</textPath></text>
+<polygon stroke="none" mask="url(#apk-cut)" points="${Array.from({length:24},(_,i)=>{const a=i/24*Math.PI*2-Math.PI/2,r=i%2?32:47+(i%4?0:4);return `${(80+Math.cos(a)*r).toFixed(1)},${(80+Math.sin(a)*r).toFixed(1)}`;}).join(' ')}"/>
+<path d="M80 2v8M80 150v8M2 80h8M150 80h8" stroke-width="2"/></g></svg></div>`;
 const fmt=n=>(Math.round(n*10)/10).toString();
 
 /* 错误类型 → 解释与建议 */
@@ -40,11 +50,11 @@ const weakURL=`play.html?g=conv&d=intro&only=${encodeURIComponent(weak.join(",")
 const L=run.log,maxT=Math.max(...L.map(l=>l.t),1);
 el.querySelector("#app").innerHTML=`
  <a class="back" href="games.html">← 练习</a>
- <section class="hero">
+ <section class="hero${A.ap?" ap-hit":""}">
   <div class="ribbon"></div>
   <div class="h-main">
    <div class="h-meta"><b>${S.GAME[run.G]}</b> · ${S.DIFF[run.D]}${isRetry?" · 错题再挑战":""} · ${run.ended}</div>
-   <div class="h-score"><span class="n num">${P(A.pct)}</span><span class="rank">${A.rank}</span></div>
+   <div class="h-score"><span class="n num">${P(A.pct)}</span></div>${A.ap?apSeal():""}
    <div class="record ${newRecord?"new":""}">${isRetry?"错题练习不计入个人最佳":newRecord?(prevBest?`新纪录 · 比之前的 ${P(prevBest.score)} 高 ${diff}%`:"这个难度的第一份成绩"):`个人最佳 ${P(prevBest.score)} · 还差 ${diff}%`}</div>
    <div class="h-stats">
     <div><b class="num">${st.ok}/${st.total}</b>答对</div>
@@ -59,7 +69,7 @@ el.querySelector("#app").innerHTML=`
     ${KD.JUDGES.map(j=>`<div><span class="judge j-${j.split(" ").join("-").toLowerCase()}">${j}</span><b class="num">${A.counts[j]}</b></div>`).join("")}
     <div><span>基础<small>按判定计分，BREAK（易混假名）占 5 倍</small></span><b class="num">${P(A.basePct)}</b></div>
     <div><span>BREAK 奖励<small>${A.breaks?`${A.breaks} 个 BREAK 的平均判定 × 1%`:"本局没有 BREAK，按全部题目计算"}</small></span><b class="num">+${P(A.bonusPct)}</b></div>
-    <div class="sum"><span>达成率 · ${A.rank}</span><b class="num">${P(A.pct)}</b></div>
+    <div class="sum"><span>达成率</span><b class="num">${P(A.pct)}</b></div>
    </div>
   </div>
  </section>

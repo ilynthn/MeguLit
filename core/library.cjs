@@ -6,61 +6,8 @@
 const {LocaleEmulator,recommended}=require('./locale-emulator.cjs');
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{execFile}=require('node:child_process');
 
-// Engine signatures, checked in the game folder (and one level of data folders). hook: LunaHook reads the text.
-const ENGINES=[
- {name:'BGI / Ethornell',hook:true,test:f=>f.has(/^BGI.*\.exe$/i)||f.has(/^sysgrp\.arc$/i)||(f.has(/\.arc$/i)&&f.has(/^bgi\.gdb$/i))},
- {name:'YU-RIS',hook:true,test:f=>f.has(/\.ypf$/i)||f.sub('pac',/\.ypf$/i)||f.has(/^yscfg\.dat$/i)},
- {name:'KiriKiri',hook:true,test:f=>f.has(/\.xp3$/i)},
- {name:'SiglusEngine',hook:true,test:f=>f.has(/^scene\.pck$/i)||f.has(/^siglusengine.*\.exe$/i)},
- {name:'RealLive',hook:true,test:f=>f.has(/^seen\.txt$/i)||f.has(/^reallive.*\.exe$/i)},
- {name:'CatSystem2',hook:true,test:f=>f.has(/^cs2conf\.dll$/i)||(f.has(/\.int$/i)&&f.has(/^cs2.*\.exe$/i))},
- {name:'Artemis',hook:true,test:f=>f.has(/\.pfs(\.\d+)?$/i)},
- {name:'Malie',hook:true,test:f=>f.has(/^malie\.ini$/i)||f.has(/\.lib$/i)&&f.has(/^malie.*\.exe$/i)},
- {name:'AdvHD / WillPlus',hook:true,test:f=>f.has(/^rio\.arc$/i)||f.has(/^advhd\.exe$/i)},
- {name:'Majiro',hook:true,test:f=>f.has(/^scenario\.arc$/i)&&f.has(/\.arc$/i)},
- {name:'QLIE',hook:true,test:f=>f.sub('GameData',/\.pack$/i)},
- {name:'SoftPal',hook:true,test:f=>f.has(/^pal\.dll$/i)||(f.has(/^data\.pac$/i)&&f.has(/^script\.src$/i))},
- {name:'NeXAS',hook:true,test:f=>f.has(/^thumbnail\.pac$/i)||f.has(/^update\.pac$/i)},
- {name:'System4 (AliceSoft)',hook:true,test:f=>f.has(/\.ain$/i)||f.has(/\.ald$/i)},
- {name:'ShiinaRio',hook:true,test:f=>f.has(/\.war$/i)},
- {name:'Entis / Cotopha',hook:true,test:f=>f.has(/\.noa$/i)},
- {name:'NScripter',hook:true,test:f=>f.has(/^(arc\.nsa|nscript\.dat|00\.txt|0\.txt)$/i)},
- {name:'LiveMaker',hook:true,test:f=>f.has(/\.lsb$/i)||f.has(/^live\.dll$/i)},
- {name:'MAGES',hook:true,test:f=>f.has(/.mpk$/i)||f.sub('languagebarrier',/./)},
- /* Spike Chunsoft SDL2 ports (Steam ダンガンロンパ 1・2): AGAR .wad archives */
- {name:'Spike Chunsoft (WAD)',hook:null,test:f=>f.magic(/\.wad$/i,'AGAR')},
- {name:'Light.vn',hook:true,test:f=>f.has(/\.vndat$/i)},
- {name:'minori (PAZ)',hook:true,test:f=>f.has(/^(scr|sys)\.paz$/i)},
- {name:'Nitroplus (NPK)',hook:true,test:f=>f.has(/^(script|system)\.npk$/i)},
- // Older Nitroplus titles (装甲悪鬼村正, 沙耶の唄, スマガ…) pack scripts as nss.npa / system.npa (user report 2026-11-09).
- {name:'Nitroplus (NPA)',hook:true,test:f=>f.has(/^(nss|system|cg|sound)\.npa$/i)||f.names.filter(n=>/\.npa$/i.test(n)).length>=2},
- {name:"Ren'Py",hook:true,test:f=>f.has(/^renpy$/i)||f.sub('game',/\.rp[ay]c?$/i)},
- {name:'TyranoScript',hook:true,test:f=>f.sub('data',/^scenario$/i)||f.sub('resources',/^app\.asar$/i)&&f.has(/^tyrano/i)},
- {name:'Leaf / AQUAPLUS',hook:true,test:f=>f.has(/^grp\.pak$/i)&&f.has(/^char\.pak$/i)&&f.has(/^(voice|bgm|se)\.pak$/i)},
- // More engines (user, 2026-11-09). Signatures are files only these engines ship; text reading goes through the
- // general hook and is confirmed on first play (hook:null) until a game of that engine is verified.
- {name:'Escude',hook:true,test:f=>f.magic(/^script\.bin$/i,'ESC-ARC')||f.has(/^script\.bin$/i)&&f.has(/^(gpr|evt|st)\.bin$/i)},
- {name:'PJADV',hook:null,test:f=>f.magic(/^archive\.dat$/i,'GAMEDAT PAC')||f.has(/^textdata\.bin$/i)&&f.has(/^scenario\.dat$/i)},
- {name:'Valkyria',hook:true,test:f=>f.has(/\.odn$/i)},
- {name:'Cyberworks (C,system)',hook:null,test:f=>f.names.filter(n=>/^Arc0\d\.dat$/i.test(n)).length>=3},
- {name:'LC-ScriptEngine',hook:true,test:f=>f.has(/^lcsebody.*\.exe$/i)||f.has(/^lcscr.*\.lst$/i)},
- /* E375 WOLF RPG Editor: Game.exe or GamePro.exe (Pro, encrypted data) with Data.wolf, Data/*.wolf or a loose Data/BasicData. */
- {name:'Wolf RPG',hook:true,generic:true,test:f=>f.has(/\.wolf$/i)||f.sub('Data',/\.wolf$/i)||f.sub('Data',/^BasicData$/i)||f.has(/^gamepro\.exe$/i)&&f.has(/^data$/i)},
- /* E375 RPG Maker MV (www/js, www/data) and MZ (js/rmmz_core.js, data/System.json) run in NW.js. hook:null: LunaHook has no
-    reliable hook for Chromium's V8 strings; the script (data JSON) is still read for zero-latency translation. */
- {name:'RPG Maker MV/MZ',hook:null,generic:true,test:f=>f.sub('js',/^(rpg_core|rmmz_core)\.js$/i)||f.sub('www',/^js$/i)&&f.has(/^package\.json$/i)||f.sub('data',/^MapInfos\.json$/i)&&f.sub('data',/^System\.json$/i)&&f.has(/^(game|nw)\.exe$/i)},
- {name:'RPG Maker VX/XP',hook:true,generic:true,test:f=>f.has(/\.rgss(3a|2a|ad)$/i)},
- // Visual-novel frameworks inside Unity, named so the library and the hook choice can tell them apart.
- {name:'Unity (Utage)',hook:null,test:f=>f.managed(/^Utage/i)},
- {name:'Unity (Naninovel)',hook:null,test:f=>f.managed(/^Naninovel/i)},
- {name:'Unity (Yarn Spinner)',hook:null,test:f=>f.managed(/^YarnSpinner/i)},
- {name:'Unity (Adventure Creator)',hook:null,test:f=>f.managed(/^AC(\.|Runtime)|AdventureCreator/i)},
- {name:'DxLib',hook:true,generic:true,test:f=>f.has(/\.dxa$/i)},
- // Unity games read through LunaHook's Mono/IL2CPP hooks for many, not all, titles: verified on first play.
- // A Unity build keeps <Name>_Data beside <Name>.exe. A folder that only holds something named *_Data (a library
- // folder, or the folder a game was unpacked into) is not a Unity game by itself.
- {name:'Unity',hook:null,generic:true,test:f=>f.has(/^unityplayer\.dll$/i)||f.names.some(n=>/_Data$/i.test(n)&&f.names.some(e=>e.toLowerCase()===n.slice(0,-5).toLowerCase()+'.exe'))},
-];
+/* E601 engine fingerprints and their readers live in one registry (services/original-engines/registry.cjs) */
+const registry=require('../services/original-engines/registry.cjs'),ENGINES=registry.ENGINES;
 const SKIP_EXE_ANY=/(卸载|卸載|アンインストール|uninst|設定|设置|设定|config|setting|register|update|installer|fontinst)/i;
 // Reject recognisable Chinese and English editions both while scanning and before launch: ToMe reads the Japanese text.
 // They are still reported by the scan, with the patch's own restore tool when one is found (user, 2026-11-02).
@@ -82,16 +29,12 @@ const ENGINE_EXE=/^(BGI|SiglusEngine|RealLive|AdvHD|cs2|malie|Game|nscr|LiveMake
 /* A Steam folder ships the steam_api DLL of the bitness its game is built for; an exe of the other bitness there (Summer
    Pockets: a stray x64 SummerPocketsRB.exe beside SiglusEngine_Steam.exe and a 32-bit steam_api.dll) cannot start, so the
    hook would attach to nothing and embedding fell back to read only. */
-function peBits(file){try{const fd=fs.openSync(file,'r'),b=Buffer.alloc(0x400);try{fs.readSync(fd,b,0,b.length,0);}finally{fs.closeSync(fd);}const o=b.readUInt32LE(0x3c);if(o+6>b.length||b.toString('latin1',o,o+4)!=='PE\0\0')return 0;const m=b.readUInt16LE(o+4);return m===0x14c?32:m===0x8664||m===0xaa64?64:0;}catch{return 0;}}
+/* E580 kit.peInfo */
+function peBits(file){const i=require('../services/original-engines/kit.cjs').peInfo(file);return i&&i.pe?i.bits:0;}
 function steamBits(names){const has=re=>names.some(n=>re.test(n)),a32=has(/^steam_api\.dll$/i),a64=has(/^steam_api64\.dll$/i);return a32&&!a64?32:a64&&!a32?64:0;}
 const SKIP_EXE=/^(unins|uninstall|setup|install|config|settings?|launcher_?config|crashpad|crash|unitycrashhandler|dxsetup|vcredist|dotnet|redist|notification_helper|steamerrorreporter|easyanticheat|ue4prereq|update|patch|register|cefsharp|7z|reg|eosbootstrapper|vc_redist)/i;
 
-function listing(dir){let names=[];try{names=fs.readdirSync(dir);}catch{}const cache={};
- // magic: the first file matching re starts with these bytes (archives that share a common extension).
- const magic=(re,head)=>{const n=names.find(x=>re.test(x));if(!n)return false;try{const fd=fs.openSync(path.join(dir,n),'r'),b=Buffer.alloc(head.length);try{fs.readSync(fd,b,0,b.length,0);}finally{fs.closeSync(fd);}return b.toString('latin1')===head;}catch{return false;}};
- // managed: a Unity build's <Name>_Data/Managed holds an assembly matching re (the VN framework inside Unity).
- const managed=re=>{const data=names.find(n=>/_Data$/i.test(n));if(!data)return false;if(!('\0managed' in cache))try{cache['\0managed']=fs.readdirSync(path.join(dir,data,'Managed'));}catch{cache['\0managed']=[];}return cache['\0managed'].some(n=>re.test(n));};
- return {names,magic,managed,has:re=>names.some(n=>re.test(n)),sub:(name,re)=>{const real=names.find(n=>n.toLowerCase()===name.toLowerCase());if(!real)return false;if(!(real in cache))try{cache[real]=fs.readdirSync(path.join(dir,real));}catch{cache[real]=[];}return cache[real].some(n=>re.test(n));}};}
+const listing=registry.listing;
 function engineOf(dir){const f=listing(dir);for(const e of ENGINES)if(e.test(f))return e;return null;}
 /* A Steam emulator's launcher names the program it starts (SmartSteamEmu: SmartSteamEmu\launcher.ini Target, UTF-16);
    the original exe beside it quits without Steam (サノバウィッチ: SabbatOfTheWitch.exe vs SabbatOfTheWitch_crack.exe). */

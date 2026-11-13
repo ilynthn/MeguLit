@@ -1,0 +1,6 @@
+{
+ "note": "E561 public keys that may sign adapter packs (docs/ADAPTER-PACKS.md). Private keys never go in this repository. To rotate: add the new key, ship an app with both, sign with the new one, later mark the old one \"revoked\": true.",
+ "keys": [
+  {"id": "k1", "alg": "ed25519", "publicKey": "MCowBQYDK2VwAyEA3Kk+A6exqvJGMi2dHNs9h4PHNNzJBeMrWN1SxTpFXfA=", "added": "2026-11-13"}
+ ]
+}

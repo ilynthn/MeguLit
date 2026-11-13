@@ -120,7 +120,7 @@ test('nickname rules match the relay; fetch output is sanitized',async t=>{
  const {root}=fixture(t);lb.join(root,{name:'Kazuma',consent:true});
  const res=await lb.fetch('all','streak',{root,env:BASE_ENV,fetch:async()=>new Response(JSON.stringify({entries:[{rank:'1',name:'x'.repeat(50),value:-5,me:'yes',extra:1}],total:3}))});
  assert.deepEqual(res.entries,[{rank:1,name:'x'.repeat(32),value:0,me:false,avatar:null,pid:null,element:'',level:0}]);
- assert.deepEqual(await lb.fetch('week','characters',{root,env:BASE_ENV,fetch:async()=>new Response('{"ok":false,"error":"RATE_LIMITED"}',{status:429})}),{state:'error',error:'RATE_LIMITED'});
+ assert.deepEqual(await lb.fetch('week','characters',{root,env:BASE_ENV,fetch:async()=>new Response('{"ok":false,"error":"RATE_LIMITED"}',{status:429})}),{state:'error',error:'RATE_LIMITED',retryAfter:60});
  await assert.rejects(()=>lb.fetch('year','characters',{root,env:BASE_ENV}),/LEADERBOARD_INVALID_QUERY/);
 });
 

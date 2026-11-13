@@ -122,6 +122,7 @@
     .sentence-text .megulit-ruby-base:has(> .tome-typewriter-pending:first-child)::before { opacity:0;transition:none; }
     @media (prefers-reduced-motion:reduce) { .sentence-text .megulit-ruby-base::before { transition:none; } }
     body.tome-line-read .sentence-window:not(.tome-island-page) { --tomoyo-gal-color:var(--tomoyo-gal-read-color); --tomoyo-gal-gradient:var(--tomoyo-gal-read-gradient); --tomoyo-gal-fill:var(--tomoyo-gal-read-fill); --tomoyo-gal-jp-stroke:var(--tomoyo-gal-read-jp-stroke); --tomoyo-gal-cn-stroke:var(--tomoyo-gal-read-cn-stroke); --tomoyo-gal-jp-filter:var(--tomoyo-gal-read-jp-filter); --tomoyo-gal-cn-filter:var(--tomoyo-gal-read-cn-filter); }
+    body.tome-line-color .sentence-window:not(.tome-island-page) { --tomoyo-gal-color:var(--tomoyo-gal-line-color); --tomoyo-gal-gradient:none; --tomoyo-gal-fill:currentColor; } /* E550 per-line colour (text-position.js paintLine) */
     body.tome-surface-pending .sentence-window, body.tome-surface-pending .tomoyo-native-mask, body.tome-surface-pending .tome-inline-wait { visibility:hidden!important; }
     body.tome-box-dragging .sentence-window { outline:2px dashed var(--theme-primary,#e0495a)!important; outline-offset:2px; cursor:move!important; }
     body.tome-box-dragging .sentence-window * { cursor:move!important; pointer-events:none!important; }

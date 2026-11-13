@@ -1,0 +1,9 @@
+{
+  "_comment": "E593 Lucifen LPK1 encryption schemes (hex strings): GARbro ArcFormats/Lucifen/ArcLPK.cs DefaultScheme (morkt, MIT) and UBTL/Lucifen-Tools LPK-Keys.json (MIT), which list these two for all 19 titles they know. SCRIPT.LPK needs only the scheme (no per-file key). The reader tries them in order; a new title's scheme can be added here or sent as an adapter pack's params (same shape).",
+  "schemes": [
+    {"name": "Default", "key1": "A5B9AC6B", "key2": "9A639DE5", "contentXor": "5D", "rotatePattern": "31746285",
+     "titles": ["Gangsta Republica", "Happening Love!!", "Koi no Honey Trap", "Love-Bride Eve", "Nekonade Distortion", "Nekonade Distortion Exodus", "Niizuma wa Mahou Shoujo", "Niizuma-san to Kozukuri", "Ore-tachi ni Tsubasa wa Nai", "Prism Princess", "Ren'ai Harem", "Sakura Synchronicity", "Shinsetsu Ryouki no Ori Dai 2 Shou", "Shuffle! Essence+", "Shuffle! Love Rainbow", "Yasashii Mahou no Tonaekata"]},
+    {"name": "Kanan", "key1": "39A5B67D", "key2": "D63AB5E9", "contentXor": "A6", "rotatePattern": "36147352",
+     "titles": ["Magical Kanan - RISEA", "Rikorisu ~Lycoris Radiata~"]}
+  ]
+}

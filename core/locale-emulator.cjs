@@ -7,7 +7,13 @@ const RELEASE='2.5.0.1',URL='https://github.com/xupefei/Locale-Emulator/releases
 // Pinned official package (size + sha256), so the same file may also come through a relay when GitHub is slow or
 // unreachable (user report 2026-11-09, mainland China); a relay only passes GitHub's own file along.
 const SHA256='808ff584426d52cc775ad6406da00622f454be95bd4c8fbca42eef4b7235ad5c',SIZE=154135;
-const SOURCES=[URL,'https://gh-proxy.com/'+URL,'https://ghproxy.net/'+URL];
+/* E??? (user, 2026-11-13): MeguLit's own mirror first in mainland China (dl.megulit.com/gh/..., GitHub's own file
+   cached in R2), then the gh relays, then GitHub itself. The size and sha256 above still decide. */
+const GH_PATH=URL.replace('https://github.com/','');
+const DL=['https://dl.megulit.com/gh/'+GH_PATH,'https://cn-dl.megulit.com/gh/'+GH_PATH];
+const RELAYS=['https://gh-proxy.com/'+URL,'https://ghproxy.net/'+URL];
+const inChina=()=>{try{const o=Intl.DateTimeFormat().resolvedOptions();return o.timeZone==='Asia/Shanghai'||o.timeZone==='Asia/Urumqi'||/^zh-CN/i.test(o.locale||'');}catch{return false;}};
+const SOURCES=inChina()?[...[...DL].reverse(),...RELAYS,URL]:[URL,...DL,...RELAYS];
 const REQUIRED=['LEProc.exe','LECommonLibrary.dll','LoaderDll.dll','LocaleEmulator.dll'];
 const GUID='b56f4ea1-f9ac-418a-add7-653dc2302e91';
 const XML=`<?xml version="1.0" encoding="utf-8"?><LEConfig><Profiles><Profile Name="Run in Japanese" Guid="${GUID}" MainMenu="false"><Parameter></Parameter><Location>ja-JP</Location><Timezone>Tokyo Standard Time</Timezone><RunAsAdmin>false</RunAsAdmin><RedirectRegistry>true</RedirectRegistry><IsAdvancedRedirection>false</IsAdvancedRedirection><RunWithSuspend>false</RunWithSuspend></Profile></Profiles></LEConfig>`;

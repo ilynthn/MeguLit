@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');/* E577 shared engine kit */
 /* E340 Unity ports that keep their scenario as TextAssets with every language on one line (Steam 月に寄りそう乙女の作法:
    <name>_Data/resources.assets). A text line reads  日本語※简体中文※繁體中文 ; command lines start with ^ \ or //.
    In the text, [rb,漢字,よみ] is the game's ruby (漢字 is drawn) and [n] a line break; other [..] tags are dropped.
@@ -30,7 +31,7 @@ const memo=new Map();
 function assetsIndex(file){const key=file+'|'+stat(file);if(memo.has(key))return memo.get(key);let list=[];
  try{if(fs.statSync(file).size<=512*1024*1024){const buf=fs.readFileSync(file);if(buf.indexOf(MARK)>=0)list=scan(buf);}}catch{list=[];}
  memo.set(key,list);if(memo.size>16)memo.delete(memo.keys().next().value);return list;}
-function readPart(file,e){const fd=fs.openSync(file,'r');try{const b=Buffer.alloc(e.size);fs.readSync(fd,b,0,e.size,e.offset);return b;}finally{fs.closeSync(fd);}}
+const readPart=(file,e)=>kit.readAt(file,e.offset,e.size);
 const RB=/\[rb,([^,\]]*),([^\]]*)\]/g;
 function clean(t){return t.replace(RB,'$1').replace(/\[n\]/g,'\n').replace(/\[[^\]]*\]/g,'').trim();}
 // Which part after the Japanese is Simplified Chinese (else Traditional), found by its characters.

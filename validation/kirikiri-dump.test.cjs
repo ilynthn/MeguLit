@@ -129,7 +129,7 @@ test('the hook loads the capture DLL only through the bound-game injector, and o
  const read=f=>fs.readFileSync(path.join(__dirname,'..','native',f),'utf8');
  const inj=read('HookInjector.cs'),bridge=read('HookBridge.cs'),dll=read(path.join('scncapture','ScnCapture.cpp'));
  assert.match(inj,/"MeguLitScn32\.dll"/);assert.match(inj,/"MeguLitScn64\.dll"/);
- assert.match(bridge,/ScnCapture\(bit,loader,args\);\r?\n\s*new Thread\(Input\)/);
+ assert.match(bridge,/ScnCapture\(bit,loader,args\);\r?\n(\s*RuntimeDump\(bit,loader,args\);\r?\n)?\s*new Thread\(Input\)/);
  assert.match(bridge,/GetFiles\(Path\.GetDirectoryName\(exe\),"\*\.xp3"\)\.Length==0\)return;/);
  // Read-only on the game: only streams opened for reading are copied, and only into MeguLit's cache.
  assert.match(dll,/\(flags & 0x0f\) == 0/);

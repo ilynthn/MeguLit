@@ -11,18 +11,8 @@ function hash(file){
  try{for(let n;(n=fs.readSync(fd,buffer,0,buffer.length,null));)h.update(buffer.subarray(0,n));return h.digest('hex');}
  finally{fs.closeSync(fd);}
 }
-function programType(file){
- try{
-  const fd=fs.openSync(file,'r');
-  try{
-   const dos=Buffer.alloc(64),pe=Buffer.alloc(24);
-   if(fs.readSync(fd,dos,0,dos.length,0)!==dos.length||dos.readUInt16LE()!==0x5a4d)return 0;
-   if(fs.readSync(fd,pe,0,pe.length,dos.readUInt32LE(60))!==pe.length||pe.readUInt32LE()!==0x4550)return 0;
-   const attributes=pe.readUInt16LE(22);
-   return (attributes&2)&&!(attributes&0x2000)?pe.readUInt16LE(4):0;
-  }finally{fs.closeSync(fd);}
- }catch{return 0;}
-}
+/* E580 kit.peInfo */
+function programType(file){const i=require('./original-engines/kit.cjs').peInfo(file);return i&&i.pe&&i.program?i.machine:0;}
 function resolveIn(dir,rel){
  let cur=dir;
  for(const part of rel.split(/[\\/]/)){

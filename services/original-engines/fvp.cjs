@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
+const kit=require('./kit.cjs');
 /* E449 FVP (FAVORITE View Point: いろとりどりのセカイ / ヒカリ and the other FAVORITE titles). The whole scenario is
    one <name>.hcb next to the exe: a u32 at 0 is the offset of the system description, the bytecode runs from 4 up to it.
    Text is pushed with opcode 0x0E: one length byte (the NUL included), then the bytes (Shift-JIS). Every push that ends
@@ -8,7 +9,7 @@
    rewrite each string in place in GBK, padded with NULs to the original length, so the push at the same offset in the
    other file is the translation of each Japanese line (checked on the HD release: same header, same code). */
 const fs=require('node:fs'),path=require('node:path');
-const sj=new TextDecoder('shift_jis'),gbk=new TextDecoder('gbk');
+const sj=kit.SJIS,gbk=new TextDecoder('gbk');
 const PROSE=/[ぁ-ゖァ-ヺ]/,HAN=/[一-鿿]/;
 const MAGIC=Buffer.from('FVP+ZH\0\0','latin1');
 // Each 0x0E push of the code: {at, n} (n counts the NUL).

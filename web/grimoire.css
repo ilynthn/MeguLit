@@ -400,6 +400,13 @@ img{-webkit-user-drag:none}
 .library-wall-toggle::before{content:"";position:absolute;left:3px;top:3px;width:10px;height:10px;border-radius:50%;background:currentColor;transition:transform 180ms var(--g-ease)}
 .library-wall-toggle[aria-checked=true]{color:var(--g-gold);border-color:color-mix(in srgb,var(--gold-accent,#edb56e) 55%,transparent);background:color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent)}
 .library-wall-toggle[aria-checked=true]::before{transform:translateX(12px)}
+/* 2026-11-13 (user): three LEDs instead of the knob; lit count = view (1 tracks, 2 wall, 3 grid) */
+.field-search .library-wall-toggle.library-view-leds{width:42px;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.library-view-leds::before{content:none}
+.library-view-leds i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.28;transform:scale(.8);transition:opacity 260ms var(--g-ease),transform 420ms linear(0,.25 8%,.7 18%,1.08 30%,1.14 40%,1.05 55%,.99 70%,1),box-shadow 260ms var(--g-ease)}
+.library-view-leds[data-lit="1"] i:nth-child(-n+1),.library-view-leds[data-lit="2"] i:nth-child(-n+2),.library-view-leds[data-lit="3"] i{opacity:1;transform:scale(1);box-shadow:0 0 6px color-mix(in srgb,var(--accent,#ad1539) 70%,transparent)}
+.field-search .library-wall-toggle.library-view-leds{color:var(--accent,#ad1539);border-color:var(--g-rule-strong);background:var(--g-raise)}
+@media(prefers-reduced-motion:reduce){.library-view-leds i{transition:none}}
 .field-search .library-wall-toggle:focus-visible{outline:2px solid var(--g-gold);outline-offset:3px}
 .field-search .icon-button{width:34px;height:34px;border-radius:17px;border:0;background:none;color:var(--g-t2);display:grid;place-items:center}
 .field-search .icon-button:hover{color:var(--g-t1);background:color-mix(in srgb,var(--gold-accent,#edb56e) 10%,transparent)}
@@ -502,7 +509,8 @@ img{-webkit-user-drag:none}
 .lib-list .library-grid{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;align-content:start;margin:0;padding:18px var(--selection-inset) 28px!important}
 .lib-list .library-grid,.lib-list .library-grid *{user-select:none;-webkit-user-select:none}
 .lib-list .library-grid img{-webkit-user-drag:none}
-.lib-selecting .library-card :is(.game-hover,.edit-button){display:none!important}
+/* hidden without leaving layout: display:none here re-laid out every card on entering multi-select */
+.lib-selecting .library-card :is(.game-hover,.edit-button){opacity:0!important;pointer-events:none!important}
 .main.field-list>.field-search{top:calc(var(--selection-header)/2);left:auto;right:var(--selection-inset);transform:translateY(-50%)}
 .main.field-list.searching>.field-search{transform:translateY(-50%) scale(1.025)}
 .main.field-list:not(.field-selecting)>.field-search{left:50%;right:auto;transform:translate(-50%,-50%)}
@@ -621,3 +629,15 @@ img{-webkit-user-drag:none}
 @media (max-width:980px){.top-me{padding:0 4px;gap:0}.top-me-name{display:none}.titlebar-end .top-tabs-util::after{margin:0 10px 0 6px}}
 @media (max-width:760px){.top-sep{margin:0 4px}.top-tabs-util .top-tab{min-width:0}}
 @media (max-width:600px){.titlebar>.nav-history{display:none}}
+
+/* 2026-11-13 perf: list cards below the fold skip style/layout/paint until scrolled near (view switch built ~1000 objects at once) */
+.lib-list .library-grid>*{content-visibility:auto;contain-intrinsic-size:auto 180px auto 400px}
+/* 2026-11-13 multi-track drift (library-drift.js): rails are hairline rings in the accent, drawn behind the covers */
+.lib-field .field-plane>.drift-rails{position:absolute!important;inset:0;width:100%!important;height:100%;pointer-events:none;overflow:visible;z-index:0}
+.drift-rails ellipse{fill:none;stroke:color-mix(in srgb,var(--accent,#ad1539) 55%,transparent);stroke-width:1;stroke-dasharray:2 7;vector-effect:non-scaling-stroke}
+.drift-rails ellipse:first-child{stroke-dasharray:none;stroke:color-mix(in srgb,var(--accent,#ad1539) 40%,transparent)}
+
+.lib-field.field-drift .field-plane>mg-cell{will-change:transform,opacity}
+.lib-field.field-drift{cursor:grab}
+.lib-field.field-drift.drift-dragging{cursor:grabbing}
+.lib-field.field-drift.drift-dragging .field-plane>mg-cell{pointer-events:none!important}

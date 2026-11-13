@@ -733,9 +733,8 @@ html:not(#u):not(#v) body .leaderboard-page .leaderboard-podium.is-terms .lb-cro
 html:not(#u):not(#v) body .leaderboard-page .leaderboard-podium.is-terms .leaderboard-reason{text-align:left!important}
 
 /* ---- follow, editorial: no boxes; the two lists as ruled columns with serif headings ---- */
-html:not(#u):not(#v) body .leaderboard-page .lb-card:has(.lb-people,.lb-empty-action){background:none!important;box-shadow:none!important;padding:28px 0 8px!important;border-top:1px solid var(--u-line-2);-webkit-backdrop-filter:none;backdrop-filter:none}
-html:not(#u):not(#v) body .leaderboard-page .lb-card:has(.lb-people,.lb-empty-action)::before{display:none!important}
-html:not(#u):not(#v) body .leaderboard-page .lb-card:has(.lb-people,.lb-empty-action) .lb-h2{font-size:clamp(26px,2.2vw,34px)!important;font-family:var(--g-serif,serif)!important}
+/* 2026-11-13 关注: the frameless :has() variant (padding 0 at the sides, a bigger title) hit only the card that had a list or
+   an empty-state button, so 我关注的人 and 同好 drew differently and the rows touched the frame. Both are plain lb-cards now. */
 html:not(#u):not(#v) body .leaderboard-page .lb-people li{padding:16px 0!important}
 html:not(#u):not(#v) body .leaderboard-page .lb-people .leaderboard-avatar{width:40px!important;height:40px!important}
 html:not(#u):not(#v) body .leaderboard-page .lb-people .leaderboard-name{font-family:var(--g-serif,serif);font-size:17px}
@@ -916,16 +915,16 @@ html:not(#u):not(#v):not(#w) body #learning-content .moji-account .text-button{h
    dated ledger; no boxes, no callout frame ---- */
 html:not(#u):not(#v):not(#w) body dialog.game-dialog.dev-notice[open]{width:min(1040px,94vw)!important;height:auto!important;max-height:calc(100vh - var(--titlebar-height,56px) - 40px)!important;padding:40px 48px 34px!important;overflow-y:auto!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]:not([hidden]){display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);column-gap:56px;
- grid-template-areas:"top top" "title text" "title form" "sub rule" "sub status" "succ upd" "succ note" "succ more" "succ act";align-items:start}
+ grid-template-areas:"top top" "title text" "title form" "sub rule" "sub status" "succ upd" "more upd" ". note" ". act";align-items:start}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-top{grid-area:top;margin-bottom:22px}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>h2:not(.dev-notice-title2){grid-area:title;margin:0!important;font-size:clamp(40px,4vw,58px)!important;line-height:1.08!important;letter-spacing:.01em}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-title2{grid-area:sub;margin:14px 0 0!important;font-size:17px!important;font-weight:400!important;line-height:1.7;color:var(--g-t2,#c3ab9c)!important}
-html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success{grid-area:succ;margin:34px 0 0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important}
+html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success{grid-area:succ;margin:34px 0 0!important;padding:16px 20px 14px!important;box-shadow:none!important} /* the framed box comes from quiet.css; the steps keep off its edge */
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success h3{margin:0 0 14px!important;font-family:var(--u-mono)!important;font-size:11px!important;font-weight:400!important;letter-spacing:.24em!important;color:var(--g-gold)!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success ol{counter-reset:step;list-style:none;margin:0!important;padding:0!important;border-top:1px solid var(--u-line-2)}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success li{counter-increment:step;grid-template-columns:44px 1fr;align-items:baseline;padding:12px 0!important;border-bottom:1px solid var(--u-line);font-size:14px!important;font-weight:400!important;line-height:1.7}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success li::before{content:counter(step,decimal-leading-zero);font:400 24px/1 var(--g-serif,serif);color:var(--g-gold)}
-html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success p{margin:12px 0 0!important;font-size:12.5px!important;color:var(--g-t3,#a08a80)!important}
+html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success p{margin:12px 0 0!important;font-size:12.5px!important;color:var(--g-t2,#c3ab9c)!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-text{grid-area:text;margin:4px 0 18px!important;font-size:14.5px!important;font-weight:400!important;line-height:1.85;color:var(--g-t1,#f1e0d2)}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-form{grid-area:form}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.feedback-status{grid-area:status}
@@ -1006,7 +1005,7 @@ html:not(#u):not(#v):not(#w) body .profile-hero-fav{margin-top:22px}
 html:not(#u):not(#v):not(#w) body .profile-hero-fav h4{margin:0 0 10px;font-family:var(--u-mono);font-size:10.5px;font-weight:400;letter-spacing:.2em;color:var(--g-gold)}
 html:not(#u):not(#v):not(#w) body .profile-hero-fav ol{display:flex;flex-wrap:wrap;gap:8px 22px;margin:0;padding:0;list-style:none;counter-reset:fav}
 html:not(#u):not(#v):not(#w) body .profile-hero-fav li{counter-increment:fav;font:500 17px/1.4 var(--g-serif,serif);color:var(--g-t1,#f1e0d2)}
-html:not(#u):not(#v):not(#w) body .profile-hero-fav li::before{content:counter(fav,decimal-leading-zero) " ";font-family:var(--u-mono);font-size:11px;color:var(--g-t3,#a08a80)}
+html:not(#u):not(#v):not(#w) body .profile-hero-fav li::before{content:none}
 html:not(#u):not(#v):not(#w) body dialog.profile-panel .profile-panel-editor{margin-top:18px;border-top:1px solid var(--u-line-2)}
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-id h3{margin:0!important;font:600 clamp(28px,2.6vw,36px)/1.1 var(--g-serif,serif)!important;letter-spacing:.01em!important;text-transform:none!important;color:var(--g-t1,#f1e0d2)!important;padding:0!important}
 /* JLPT level on each word */
@@ -1623,7 +1622,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .history-dialogue header .dlg-speaker[
 html:not(#u):not(#v):not(#w):not(#x) body .history-dialogue header .dlg-speaker:hover{box-shadow:inset 0 -1px 0 currentColor;color:#fff4ea}
 html:not(#u):not(#v):not(#w):not(#x) body .history-dialogue header .dlg-speaker-input{margin:0 12px 0 auto;width:150px;height:24px;padding:0 8px;border:0;border-radius:2px;background:#120d10;box-shadow:inset 0 0 0 1px var(--g-gold,#edb56e);color:#fff4ea;font-size:12px}
 
- background:linear-gradient(160deg,rgba(255,255,255,.045),rgba(255,255,255,.012))!important;box-shadow:inset 0 0 0 1px rgba(255,236,220,.14)!important;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s,background .18s;cursor:pointer}
 /* the game-name rule (1.4.4) sits right under the name field, in the field's column */
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-rule{grid-area:rule;margin:10px 0 0!important}
 
@@ -1818,20 +1816,19 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-hero-ja:is([data-len=l],[data-len=
    a blank band under the buttons: it now fits its content. The columns are balanced: the left takes the problem-report
    line under the steps, the right keeps the ledger and the buttons */
 html:not(#u):not(#v):not(#w):not(#x) body dialog.game-dialog.dev-notice[open]:not(.guide-panel){height:fit-content!important;margin:auto!important}
-html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]:not([hidden]){grid-template-areas:"top top" "title text" "title form" "sub rule" "sub status" "succ upd" "more upd" ". note" ". act"!important;}
 html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.dev-notice-more{margin:22px 0 0!important}
 html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.dev-notice-actions{align-self:start;margin-top:22px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.dev-notice-updates:not([hidden]){align-self:start;height:auto!important;min-height:0!important;max-height:min(330px,34vh)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.dev-notice-updates-note{align-self:end;margin-top:14px!important}
-@media (max-width:900px){html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]:not([hidden]){grid-template-areas:"top" "title" "sub" "text" "form" "rule" "status" "succ" "upd" "note" "more" "act"!important;grid-template-rows:none}html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.dev-notice-updates:not([hidden]){height:auto!important;min-height:0!important;max-height:min(240px,26vh)!important}}
+@media (max-width:900px){html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]:not([hidden]){grid-template-rows:none}html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.dev-notice-updates:not([hidden]){height:auto!important;min-height:0!important;max-height:min(240px,26vh)!important}}
 /* (user 2026-11-12: "别让框被选中") a dialog takes focus when it opens; its own frame never shows a focus ring */
 html:not(#u):not(#v):not(#w):not(#x) body :is(dialog,.lv-dialog):is(:focus,:focus-visible){outline:none!important}
 /* 2026-11-12 (user) the plan for the chosen level: in the guide and right after picking a level */
 html:not(#u):not(#v):not(#w):not(#x) body .guide-level-note{margin:8px 0 0;font-size:12.5px;color:var(--g-t3,#a08a80)}
 html:not(#u):not(#v):not(#w):not(#x) body .lv-dialog.lv-tips{width:min(560px,94vw)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .lv-tips-list{counter-reset:tip;list-style:none;margin:6px 0 0;padding:0;border-top:1px solid var(--u-line-2,rgba(255,255,255,.12))}
-html:not(#u):not(#v):not(#w):not(#x) body .lv-tips-list li{counter-increment:tip;position:relative;padding:12px 0 12px 40px;border-bottom:1px solid var(--u-line,rgba(255,255,255,.07));font-size:14px;line-height:1.75;color:var(--g-t1,#f1e0d2)}
-html:not(#u):not(#v):not(#w):not(#x) body .lv-tips-list li::before{content:counter(tip,decimal-leading-zero);position:absolute;left:0;top:12px;font:400 20px/1.2 var(--g-serif,serif);color:var(--g-gold,#edb56e)}
+html:not(#u):not(#v):not(#w):not(#x) body .lv-tips-list li{counter-increment:tip;position:relative;padding:12px 0 12px 0;border-bottom:1px solid var(--u-line,rgba(255,255,255,.07));font-size:14px;line-height:1.75;color:var(--g-t1,#f1e0d2)}
+html:not(#u):not(#v):not(#w):not(#x) body .lv-tips-list li::before{content:none}
 html:not(#u):not(#v):not(#w):not(#x) body .lv-tips .lv-note{margin:12px 0 0;font-size:12.5px}
 html:not(#u):not(#v):not(#w):not(#x) body .lv-tips footer{display:flex;justify-content:flex-end;margin-top:16px}
 /* 2026-11-12 (user: every settings page left a band empty on the right when maximised) the column, the search bar and the

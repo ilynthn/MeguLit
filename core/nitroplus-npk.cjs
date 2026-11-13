@@ -21,15 +21,18 @@ function readNpk(buf,key=KEYS.saya){
  const iv=Buffer.from(buf.subarray(8,24)),count=buf.readInt32LE(0x18),size=buf.readUInt32LE(0x1c);
  if(count<0||count>100000||0x20+size>buf.length)throw Error('NPK_HEADER');
  let idx;try{idx=aes(true,key,iv,buf.subarray(0x20,0x20+size));}catch{throw Error('NPK_KEY');}
- let o=0;const entries=[];
+ const entries=npkIndex(idx,count,buf.length);
+ return {buf,key,iv,version:buf.readUInt32LE(4),entries};}
+/* E580 the decrypted index -> entries; shared with the script reader (services/original-engines/npk.cjs) */
+function npkIndex(idx,count,fileSize=Infinity){let o=0;const entries=[];
  for(let i=0;i<count;i++){
   const flag=idx[o++],nl=idx.readUInt16LE(o);o+=2;if(!nl||o+nl>idx.length)throw Error('NPK_INDEX');
   const name=idx.toString('utf8',o,o+nl);o+=nl;const length=idx.readUInt32LE(o);o+=4;const hash=Buffer.from(idx.subarray(o,o+32));o+=32;
   const n=idx.readInt32LE(o);o+=4;const segments=[];
   for(let j=0;j<n;j++){segments.push({offset:Number(idx.readBigInt64LE(o)),stored:idx.readUInt32LE(o+8),size:idx.readUInt32LE(o+12),unpacked:idx.readUInt32LE(o+16)});o+=20;}
-  for(const s of segments)if(s.offset+s.stored>buf.length)throw Error('NPK_INDEX');
+  for(const s of segments)if(s.offset+s.stored>fileSize)throw Error('NPK_INDEX');
   entries.push({flag,name,length,hash,segments});}
- return {buf,key,iv,version:buf.readUInt32LE(4),entries};}
+ return entries;}
 function npkData(arc,entry){
  return Buffer.concat(entry.segments.map(s=>{const plain=aes(true,arc.key,arc.iv,arc.buf.subarray(s.offset,s.offset+s.stored)).subarray(0,s.size);return s.size<s.unpacked?zlib.inflateRawSync(plain):plain;}));}
 
@@ -76,4 +79,4 @@ function createPak(files,tag='SAYA'){
  const raw=Buffer.concat(rows),idx=zlib.deflateSync(raw),head=Buffer.alloc(0x114);
  head.writeUInt32LE(2,0);head.writeUInt32LE(rows.length,4);head.writeUInt32LE(raw.length,8);head.writeUInt32LE(idx.length,12);head.write(tag,0x14,'latin1');
  return Buffer.concat([head,idx,...bodies]);}
-module.exports={KEYS,isNpk2,readNpk,npkData,writeNpk,createNpk,isPak,readPak,createPak};
+module.exports={npkIndex,KEYS,isNpk2,readNpk,npkData,writeNpk,createNpk,isPak,readPak,createPak};

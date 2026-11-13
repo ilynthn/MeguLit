@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import {imageHasTextBox} from './textbox-detect.js';
 /* 2026-11-12 (user: the detail page's card turns over on a click, with a fine card-flip animation; the back shows a
    random CG this computer has already unlocked). The unlock state comes from the game's own saves (services/game-cg);
    a game whose saves cannot be read yet shows the card's own back: a crest with the title's first character.
@@ -30,6 +31,8 @@ export function flipCard(card,{api,id,esc,game,locale='zh'}){
   const items=await cgs();if(!items.length){crest();return;}
   const pool=items.length>1?items.filter(n=>n.name!==last):items,pick=pool[Math.floor(Math.random()*pool.length)];
   try{const r=pick.kind==='cg'?await api('game_cg',{id,name:pick.name}):await api('game_shot',{id,file:pick.name});if(!r?.data)throw 0;const img=new Image();img.src='data:'+r.mime+';base64,'+r.data;await img.decode().catch(()=>{});
+   /* 2026-11-13 (user) a scene shot that still shows a dialogue box is never a card: drop it and draw again */
+   if(pick.kind==='shot'&&imageHasTextBox(img)){list=list.filter(n=>n!==pick);return prepareBack();}
    last=pick.name;art.className='dtv-back-art is-cg';art.replaceChildren(img);const same=items.filter(n=>n.kind===pick.kind),tag=document.createElement('span');tag.className='dtv-cg-tag';tag.textContent=`${pick.kind==='cg'?w.cg:w.shot} · ${same.indexOf(pick)+1} / ${same.length}`;art.append(tag);
    img.animate([{objectPosition:'0% 50%'},{objectPosition:'100% 50%'}],{duration:16000,iterations:Infinity,direction:'alternate',easing:'ease-in-out'});
   }catch{crest();}

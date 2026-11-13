@@ -1,0 +1,107 @@
+/* Library multi-select, "Blueprint" (2026-11-13).
+   A picked cover gets one crisp 1.5px accent frame 3px outside the cover (concentric radius), dashed registration ticks
+   and a running number on a black tag. Marks live in every card's template; entering the mode only toggles .lib-selecting.
+   Motion is transform/opacity only; choreography lives in library-select-motion.js. */
+.lib-list{--bp-r:2px;--bp-ink:#0b0a0b;--bp-paper:#f4f4f2;--bp-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI",monospace;--bp-expo:cubic-bezier(.16,1,.3,1)}
+
+/* room for marks outside the cover: content-visibility clips paint at the border box, so the box grows 14px without moving anything */
+.lib-list .library-grid>.series-game{width:auto;padding:14px;margin:-14px}
+
+/* both modes live in one grid: members of a collection show only while picking, collection cards only outside it; collections sort first */
+.lib-list:not(.lib-selecting) .library-grid>.bp-sel-only,.lib-list.lib-selecting .library-grid>.bp-norm-only{display:none}
+.lib-list .library-grid>.series-collection{order:-1}
+
+/* the old 2px card ring and corner chip are replaced */
+.lib-list .series-game.is-selected .game-card{box-shadow:none}
+.lib-list .series-selection-mark{display:none!important}
+
+.bp-sel{position:absolute;opacity:0;z-index:4;left:14px;right:14px;top:14px;aspect-ratio:3/4;pointer-events:none}
+.lib-selecting .bp-sel{opacity:1}
+/* the marks live on their own layers while picking (and a moment after), so entering, the wave and leaving never re-raster
+   the grid underneath; the layers are dropped when nothing is moving */
+.lib-list.bp-layers .bp-sel{will-change:opacity}
+.bp-sel>*{position:absolute;display:block}
+
+/* dashed registration ticks bracket every selectable cover; accent once picked. Two thin strips (top and bottom corners)
+   instead of one full-size masked box, so a composited tick layer stays small */
+.bp-ticks{inset:-9px;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 42%,transparent);transition:transform 220ms var(--bp-expo)}
+.bp-ticks::before,.bp-ticks::after{content:"";position:absolute;left:0;right:0;height:14px;background:currentColor}
+.bp-ticks::before{top:0;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M.75 .75H14M.75 .75V14' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") left top/14px 14px no-repeat,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M13.25 .75H0M13.25 .75V14' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") right top/14px 14px no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M.75 .75H14M.75 .75V14' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") left top/14px 14px no-repeat,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M13.25 .75H0M13.25 .75V14' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") right top/14px 14px no-repeat}
+.bp-ticks::after{bottom:0;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M.75 13.25H14M.75 13.25V0' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") left bottom/14px 14px no-repeat,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M13.25 13.25H0M13.25 13.25V0' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") right bottom/14px 14px no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M.75 13.25H14M.75 13.25V0' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") left bottom/14px 14px no-repeat,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M13.25 13.25H0M13.25 13.25V0' stroke='%23000' stroke-width='1.5' stroke-dasharray='3 2' fill='none'/%3E%3C/svg%3E") right bottom/14px 14px no-repeat}
+.series-game.is-selected .bp-ticks{color:var(--accent);transform:scale(1.03)}
+
+/* the frame: drawn as two strokes from the centre outward (top+bottom, then left+right), 160ms expo-out */
+.bp-frame{inset:-4.5px;opacity:0;transition:opacity 100ms linear}
+.bp-frame::before,.bp-frame::after{content:"";position:absolute;inset:0;border:0 solid var(--accent);border-radius:calc(var(--bp-r) + 4.5px);transition:transform 0s linear 110ms}
+.bp-frame::before{border-width:1.5px 0;transform:scaleX(0)}
+.bp-frame::after{border-width:0 1.5px;transform:scaleY(0)}
+.series-game.is-selected .bp-frame{opacity:1;transition:none}
+.series-game.is-selected .bp-frame::before,.series-game.is-selected .bp-frame::after{transform:none;transition:transform 160ms var(--bp-expo)}
+.series-game.is-selected .bp-frame::after{transition-delay:30ms}
+
+/* empty check: only under the pointer (the card's hit box reaches 14px past the cover), never as a grid of boxes */
+.bp-box{top:8px;right:8px;width:18px;height:18px;display:grid!important;place-items:center;border-radius:2px;background:rgba(11,10,11,.42);
+ box-shadow:inset 0 0 0 1.5px var(--bp-paper),0 0 0 1px rgba(0,0,0,.28),0 2px 8px rgba(0,0,0,.35);opacity:0;transform:scale(.7);transition:opacity 110ms linear,transform 180ms var(--bp-expo)}
+.bp-box svg{width:12px;height:12px;color:#fff;stroke-width:3;opacity:0}
+.lib-selecting .series-game:hover .bp-box,.lib-selecting .series-game:focus-within .bp-box{opacity:1;transform:none}
+.series-game.is-selected .bp-box{background:var(--accent);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 2px 8px rgba(0,0,0,.35)}
+.series-game.is-selected .bp-box svg{opacity:1}
+
+/* focus pull: once something is picked, the rest steps back to 72%. A cut, not a fade (a fade would composite every cover) */
+.lib-selecting.bp-has .series-game .cover-frame{opacity:.72}
+.lib-selecting.bp-has .series-game.is-selected .cover-frame{opacity:1}
+
+/* the header strip stays exactly as in the normal list (the bar floats instead); the frozen capsule does not move */
+html:not(#u):not(#v) body .lib-list.lib-selecting::before{content:"";flex:0 0 var(--selection-header);border-bottom:1px solid var(--u-line,var(--g-rule))!important;background:none!important}
+
+/* site-wide font rule (grimoire-controls.css) forces the CJK face on b/span with !important; the marks need mono and the numeral the display serif */
+.lib-list .bp-label{font-family:var(--bp-mono)!important}
+.lib-list .bp-count>span{font-family:var(--g-serif,serif)!important}
+
+/* the bar: a two-pole black strip floating over the grid */
+.bp-bar{position:absolute;z-index:20;left:0;right:0;bottom:26px;width:max-content;max-width:calc(100% - 32px);margin:0 auto;height:60px;display:flex;align-items:center;padding:0 10px 0 0;
+ background:var(--bp-ink);color:var(--bp-paper);border-radius:3px;box-shadow:0 0 0 1px rgba(244,244,242,.08),0 26px 50px -18px rgba(0,0,0,.9),0 6px 14px -8px rgba(0,0,0,.7);overflow:hidden;white-space:nowrap;font-family:var(--g-serif-ja,serif)}
+.bp-rule{position:absolute;left:0;right:0;top:0;height:1px;background:var(--accent)}
+.bp-tagline{display:grid;align-content:center;gap:6px;height:100%;padding:0 16px 0 18px;border-right:1px dashed rgba(244,244,242,.16)}
+.bp-code{display:block;width:34px;height:14px;overflow:hidden}
+.bp-code i{display:block;width:200%;height:100%;background:repeating-linear-gradient(90deg,rgba(244,244,242,.62) 0 1px,transparent 1px 3px,rgba(244,244,242,.62) 3px 5px,transparent 5px 6px,var(--accent) 6px 7px,transparent 7px 9px,rgba(244,244,242,.35) 9px 10px,transparent 10px 13px);
+ animation:bp-drift 7s linear infinite}
+@keyframes bp-drift{to{transform:translateX(-50%)}}
+.bp-label{font:500 8px/1 var(--bp-mono);letter-spacing:.32em;text-transform:lowercase;color:var(--g-gold,#edb56e);opacity:.85}
+.bp-count-wrap{display:flex;align-items:center;gap:9px;padding:0 22px 0 20px;font-size:12px;letter-spacing:.12em;color:rgba(244,244,242,.56)}
+.bp-count{display:inline-grid;overflow:hidden;height:40px;line-height:40px;font:400 40px/40px var(--g-serif,serif);letter-spacing:0;color:var(--bp-paper);font-variant-numeric:tabular-nums lining-nums;align-self:center}
+.bp-count>span{grid-area:1/1;display:block}
+.bp-create{display:inline-flex;align-items:center;gap:9px;height:40px;padding:0 20px 0 15px;margin-left:6px;border:0;border-radius:2px;background:var(--accent);color:#fff;font:600 13px/1 inherit;letter-spacing:.16em;cursor:pointer;
+ transition:transform 140ms var(--bp-expo),background-color 120ms linear}
+.bp-create svg{width:16px;height:16px}
+.bp-create:hover{background:color-mix(in srgb,var(--accent) 84%,#fff)}
+.bp-create:active{transform:scale(.97)}
+.bp-create:disabled{background:transparent;color:rgba(244,244,242,.34);box-shadow:inset 0 0 0 1px rgba(244,244,242,.16);cursor:default;transform:none}
+.bp-create:focus-visible,.bp-cancel:focus-visible{outline:1px solid var(--g-gold,#edb56e);outline-offset:3px}
+.bp-cancel{height:40px;padding:0 14px 0 16px;border:0;background:none;color:rgba(244,244,242,.5);font:400 12px/1 inherit;letter-spacing:.12em;cursor:pointer;transition:color 120ms linear}
+.bp-cancel:hover{color:var(--bp-paper)}
+.bp-actions,.bp-name{display:flex;align-items:center}
+.bp-name[hidden],.bp-bar.is-naming .bp-actions{display:none}
+.bp-input{width:min(240px,40vw);height:36px;margin:0 4px 0 10px;padding:0 2px;border:0;border-bottom:1px dashed rgba(244,244,242,.32);border-radius:0;background:none;color:var(--bp-paper);caret-color:var(--accent);font:400 15px/1 var(--g-serif-ja,serif);letter-spacing:.04em;outline:none}
+.bp-bar .bp-input,.bp-bar .bp-input:focus{border:0!important;border-bottom:1px dashed rgba(244,244,242,.32)!important;border-radius:0!important;background:none!important;box-shadow:none!important;outline:none!important;padding:0 2px!important;height:36px!important}
+.bp-bar .bp-input:focus{border-bottom:1px solid var(--accent)!important}
+.bp-input::placeholder{color:rgba(244,244,242,.34)}
+.bp-input:focus{border-bottom:1px solid var(--accent)}
+.bp-input::selection{background:var(--accent);color:#fff}
+
+/* create collection: covers fly into a tilted paper stack at the bar, one accent beat, the stack becomes the new card */
+.bp-fly-layer{position:fixed;z-index:30;overflow:hidden;pointer-events:none}
+.bp-stack{position:absolute;will-change:transform}
+.bp-fly{position:absolute;inset:0;will-change:transform}
+.bp-fly>img,.bp-fly>.bp-blank{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:1px;background:#2a1e1c}
+.bp-paper{position:absolute;inset:-12px -12px -40px;background:var(--bp-paper);border-radius:3px;box-shadow:0 22px 40px -18px rgba(0,0,0,.8),0 0 0 1px rgba(0,0,0,.08)}
+.bp-flash{position:absolute;background:var(--accent);opacity:0;border-radius:2px}
+.bp-line{position:absolute;height:1.5px;background:var(--accent);opacity:0}
+.bp-line.paper{background:var(--bp-paper);height:1px}
+/* every piece that fades or stretches during the flight is its own layer, so no frame re-rasters a flying cover */
+.bp-paper,.bp-flash,.bp-line{will-change:opacity,transform}
+
+@media(prefers-reduced-motion:reduce){
+ .bp-ticks,.bp-frame,.bp-frame::before,.bp-frame::after,.bp-box{transition:none!important}
+ .bp-code i{animation:none}
+}

@@ -63,19 +63,24 @@ export function groupUnlocked(items){
  for(const it of Array.isArray(items)?items:[]){if(!it||!it.src)continue;const kind=it.kind==='shot'||it.source==='shot'?'shot':it.kind==='cover'||it.source==='cover'?'cover':it.kind==='cg'?'cg':null;if(kind)groups[kind].push(it);}
  return ['cg','shot','cover'].map(kind=>({kind,items:groups[kind]})).filter(g=>g.items.length);
 }
+/* an insert the service refused, said plainly; a stale wall (full toploader, card gone) also asks the wall to refresh */
+export function insertProblem(err,w){const code=String(err?.message||err||'');
+ if(/TOPLOADER_FULL/.test(code))return {text:w.full,refresh:true};
+ if(/CARD_NOT_FOUND|TOPLOADER_NOT_FOUND/.test(code))return {text:w.gone,refresh:true};
+ return {text:w.insertFail.replace('{e}',code||'?'),refresh:false};}
 const list=r=>Array.isArray(r)?r:Array.isArray(r?.items)?r.items:Array.isArray(r?.games)?r.games:[];
 
 /* ---------- words ---------- */
 const WORDS={
  zh:{title:'制作收藏卡',games:'选择作品',search:'搜索作品名（中文 / 日文 / 英文）',noGames:'还没有可以做卡的作品。玩一会儿游戏，或在游戏库添加带封面的作品后再来',noMatch:'没有匹配的作品',
   count:'{n} 张可用',cgEmpty:'还没有解锁的 CG，玩到后会出现在这里；也可以用封面或截图做卡',groups:{cg:'游戏 CG',shot:'我的截图',cover:'封面'},src:{save:'存档已解锁',seen:'游戏中见过',shot:'MeguLit 截图',cover:'作品封面'},
-  hover:'悬停预览：卡在卡套里静止显示这个取景，鼠标悬停时从这里开始缓慢移动',hoverShort:'悬停试试',frame:'取景',hint:'拖动平移 · 滚轮或双指缩放 · 双击复原',front:'正面',back:'卡背',make:'生成并放入卡套',only:'只做卡，放进「我的卡」',makeOnly:'生成卡',printing:'正在印卡…',fail:'没能生成这张卡：{e}',back_:'返回',close:'关闭',loading:'正在读取…',pendingNote:'还有 {n} 张存档 CG 正在解码，好了会自动出现',reset:'复原'},
+  hover:'悬停预览：卡在卡套里静止显示这个取景，鼠标悬停时从这里开始缓慢移动',hoverShort:'悬停试试',frame:'取景',hint:'拖动平移 · 滚轮或双指缩放 · 双击复原',front:'正面',back:'卡背',make:'生成并放入卡套',only:'只做卡，放进「我的卡」',makeOnly:'生成卡',printing:'正在印卡…',fail:'没能生成这张卡：{e}',back_:'返回',close:'关闭',loading:'正在读取…',pendingNote:'还有 {n} 张存档 CG 正在解码，好了会自动出现',reset:'复原',finish:'卡面',finishes:{plain:'普通',shine:'闪卡',holo:'镭射'},mine:'我的卡',full:'这个卡套里已经有卡了（卡面墙刚刚变过），已经刷新，请换一个空卡套',gone:'这张卡已经不在了，「我的卡」已刷新',madeLoose:'卡做好了，但没能放进卡套（{e}），它在「我的卡」里',insertFail:'没能放进卡套：{e}',mineHint:'取出来的卡在这里，点一下放进这个卡套'},
  ja:{title:'コレクションカードを作る',games:'作品を選ぶ',search:'作品名で検索（日本語 / 中国語 / 英語）',noGames:'カードにできる作品がまだありません。少し遊ぶか、カバー付きの作品をライブラリに追加してください',noMatch:'一致する作品がありません',
   count:'{n} 枚使えます',cgEmpty:'解放済みの CG はまだありません。プレイすると出てきます。カバーやスクリーンショットでも作れます',groups:{cg:'ゲーム CG',shot:'スクリーンショット',cover:'カバー'},src:{save:'セーブで解放済み',seen:'ゲーム中に表示',shot:'MeguLit の撮影',cover:'作品カバー'},
-  hover:'ホバーで動きを確認：スリーブ内ではこの構図で止まり、ホバーするとここからゆっくり動きます',hoverShort:'ホバー',frame:'構図',hint:'ドラッグで移動 · ホイール／ピンチで拡大 · ダブルクリックで戻す',front:'表',back:'裏',make:'作ってスリーブに入れる',only:'作るだけ（マイカードへ）',makeOnly:'カードを作る',printing:'印刷中…',fail:'カードを作れませんでした：{e}',back_:'戻る',close:'閉じる',loading:'読み込み中…',pendingNote:'セーブの CG を {n} 枚デコード中です。終わると自動で表示されます',reset:'戻す'},
+  hover:'ホバーで動きを確認：スリーブ内ではこの構図で止まり、ホバーするとここからゆっくり動きます',hoverShort:'ホバー',frame:'構図',hint:'ドラッグで移動 · ホイール／ピンチで拡大 · ダブルクリックで戻す',front:'表',back:'裏',make:'作ってスリーブに入れる',only:'作るだけ（マイカードへ）',makeOnly:'カードを作る',printing:'印刷中…',fail:'カードを作れませんでした：{e}',back_:'戻る',close:'閉じる',loading:'読み込み中…',pendingNote:'セーブの CG を {n} 枚デコード中です。終わると自動で表示されます',reset:'戻す',finish:'カード面',finishes:{plain:'ノーマル',shine:'キラ',holo:'ホロ'},mine:'マイカード',full:'このトップローダーにはもうカードがあります（ウォールが更新されました）。空のトップローダーを選んでください',gone:'このカードはもうありません。マイカードを更新しました',madeLoose:'カードはできましたが、トップローダーに入れられませんでした（{e}）。マイカードにあります',insertFail:'トップローダーに入れられませんでした：{e}',mineHint:'取り出したカードはここ。クリックでこのトップローダーに入れます'},
  en:{title:'Make a collector card',games:'Choose a work',search:'Search titles (Chinese / Japanese / English)',noGames:'No work has pictures for a card yet. Play for a while, or add a work with a cover to the library',noMatch:'No matching work',
   count:'{n} available',cgEmpty:'No unlocked CGs yet; they appear here once you reach them. You can also use the cover or a screenshot',groups:{cg:'Game CGs',shot:'My screenshots',cover:'Cover'},src:{save:'Unlocked in saves',seen:'Seen in game',shot:'MeguLit shot',cover:'Cover'},
-  hover:'Hover to preview: in the Toploader the card rests on this framing and drifts from here on hover',hoverShort:'hover',frame:'Framing',hint:'Drag to pan · wheel or pinch to zoom · double-click to reset',front:'Front',back:'Back',make:'Make and sleeve it',only:'Just make it (My cards)',makeOnly:'Make card',printing:'Printing…',fail:'Could not make this card: {e}',back_:'Back',close:'Close',loading:'Loading…',pendingNote:'{n} CGs from your saves are still being decoded; they appear here when ready',reset:'Reset'}};
+  hover:'Hover to preview: in the Toploader the card rests on this framing and drifts from here on hover',hoverShort:'hover',frame:'Framing',hint:'Drag to pan · wheel or pinch to zoom · double-click to reset',front:'Front',back:'Back',make:'Make and sleeve it',only:'Just make it (My cards)',makeOnly:'Make card',printing:'Printing…',fail:'Could not make this card: {e}',back_:'Back',close:'Close',loading:'Loading…',pendingNote:'{n} CGs from your saves are still being decoded; they appear here when ready',reset:'Reset',finish:'Finish',finishes:{plain:'Plain',shine:'Sparkle',holo:'Holo'},mine:'My cards',full:'That toploader already holds a card (the wall changed); it has been refreshed, pick an empty one',gone:'That card is gone; My cards has been refreshed',madeLoose:'The card is made but could not go into the toploader ({e}); it is in My cards',insertFail:'Could not put it in the toploader: {e}',mineHint:'Cards you took out wait here; click one to sleeve it here'}};
 const lang=()=>{const l=(document.documentElement.lang||'zh').toLowerCase();return l.startsWith('ja')?'ja':l.startsWith('en')?'en':'zh';};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const reduced=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -100,7 +105,7 @@ async function mockApi(action,p={}){
  if(action==='cards_unlocked'){if(!game)return [];const [id,title,,a,b]=game;if(id==='g9')return [{id:id+'-cover',kind:'cover',src:mockSvg(a,b,title.slice(0,8),600,800),w:600,h:800,source:'cover'}];
   const out=[];for(let i=0;i<4+(id.charCodeAt(1)%3);i++)out.push({id:`${id}-cg${i}`,kind:'cg',src:mockSvg(i%2?b:a,i%2?a:b,'CG '+(i+1)),w:1600,h:900,source:i%3?'save':'seen'});
   out.push({id:id+'-shot0',kind:'shot',src:mockSvg('#222',a,'SHOT'),w:1600,h:900,source:'shot'},{id:id+'-cover',kind:'cover',src:mockSvg(a,b,title.slice(0,8),600,800),w:600,h:800,source:'cover'});return out;}
- if(action==='cards_create'){const card={id:'c'+Date.now(),gameId:p.gameId,title:game?.[1]||'',initial:game?.[2]||'M',kind:p.kind,src:p.__src||'',w:p.__w||1600,h:p.__h||900,still:p.still,createdAt:Date.now()};mockState.cards.push(card);return card;}
+ if(action==='cards_create'){const card={id:'c'+Date.now(),gameId:p.gameId,title:game?.[1]||'',initial:game?.[2]||'M',kind:p.kind,finish:p.finish||'plain',src:p.__src||'',w:p.__w||1600,h:p.__h||900,still:p.still,createdAt:Date.now()};mockState.cards.push(card);return card;}
  if(action==='cards_insert'){return mockState;}
  if(action==='cards_pending')return {pending:0};
  if(action==='cards_image'){const it=(await mockApi('cards_unlocked',{gameId:p.gameId})).find(x=>x.id===p.srcId);return it?{id:it.id,src:it.src,w:it.w,h:it.h}:null;}
@@ -153,10 +158,13 @@ export function openCardMaker({toploaderId=null,from=null,api=null}={}){
  const root=document.createElement('div');root.className='cm-root';root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.setAttribute('aria-label',w.title);
  root.innerHTML=`<div class="cm-scrim" data-cm-close></div><section class="cm-sheet"><div class="cm-sheet-bg" aria-hidden="true"></div><div class="cm-content">
   <header class="cm-head"><button type="button" class="cm-icon cm-back" aria-label="${w.back_}" title="${w.back_}" hidden>${ICON.back}</button><div class="cm-heading"><span class="cm-eyebrow">${w.title}</span><h2 class="cm-title">${w.games}</h2></div><button type="button" class="cm-icon cm-x" aria-label="${w.close}" title="${w.close}" data-cm-close>${ICON.close}</button></header>
-  <div class="cm-stage"></div><p class="cm-live" role="status" aria-live="polite"></p></div></section>`;
+  <div class="cm-stage"></div><p class="cm-live" role="status" aria-live="polite"></p><p class="cm-error" role="alert" hidden></p></div></section>`;
  document.body.append(root);
  const sheet=root.querySelector('.cm-sheet'),bg=root.querySelector('.cm-sheet-bg'),content=root.querySelector('.cm-content'),stage=root.querySelector('.cm-stage'),title=root.querySelector('.cm-title'),backBtn=root.querySelector('.cm-back'),scrim=root.querySelector('.cm-scrim'),live=root.querySelector('.cm-live');
- let level=0,layers=[],closing=false,printing=false,game=null,item=null,viewer=null,resolveDone;
+ const errorEl=root.querySelector('.cm-error');let errorT=0;
+ const showError=text=>{errorEl.textContent=text;errorEl.hidden=false;live.textContent=text;if(!reduced())errorEl.animate([{opacity:0,transform:'translate(-50%,8px)'},{opacity:1,transform:'translate(-50%,0)'}],{duration:320,easing:'cubic-bezier(.22,1,.36,1)'});clearTimeout(errorT);errorT=setTimeout(()=>{errorEl.hidden=true;},7000);};
+ const wallChanged=detail=>window.dispatchEvent(new CustomEvent('megulit:cards-changed',{detail:detail||{}}));
+ let level=0,layers=[],closing=false,printing=false,game=null,item=null,viewer=null,resolveDone,finish='plain';
  const finished=new Promise(r=>{resolveDone=r;});
 
  /* open: the sheet grows out of the Toploader; content follows a beat later */
@@ -216,6 +224,22 @@ export function openCardMaker({toploaderId=null,from=null,api=null}={}){
  const gamesLayer=document.createElement('div');gamesLayer.className='cm-layer cm-games';gamesLayer.dataset.title=w.games;
  gamesLayer.innerHTML=`<label class="cm-search">${ICON.search}<input type="search" placeholder="${esc(w.search)}" aria-label="${esc(w.search)}" autocomplete="off" spellcheck="false"></label><div class="cm-scroll"><div class="cm-grid cm-game-grid" role="list"></div><p class="cm-empty" hidden></p><div class="cm-skel" aria-hidden="true">${'<i></i>'.repeat(10)}</div></div>`;
  push(gamesLayer);
+ /* 我的卡: cards that are in no Toploader (taken out on the wall, or made without sleeving) go back in with one click */
+ if(toploaderId!=null)Promise.resolve(call('cards_state')).then(st=>{
+  const used=new Set((st?.toploaders||[]).map(t=>t.cardId).filter(Boolean)),spare=(st?.cards||[]).filter(c=>c&&!used.has(c.id)&&c.src);
+  if(!spare.length||closing)return;
+  const box=document.createElement('section');box.className='cm-mine';
+  box.innerHTML=`<h4>${esc(w.mine)}<span>${spare.length}</span></h4><p class="cm-muted">${esc(w.mineHint)}</p><div class="cm-mine-row">${spare.map((c,i)=>`<button type="button" class="cm-mine-card" data-id="${esc(c.id)}" style="--i:${Math.min(i,12)}" aria-label="${esc(c.title||'')}" title="${esc(c.title||'')}"><img src="${esc(c.src)}" alt="" decoding="async"></button>`).join('')}</div>`;
+  gamesLayer.querySelector('.cm-scroll').prepend(box);
+  if(!reduced())box.querySelectorAll('.cm-mine-card').forEach((el,i)=>el.animate([{opacity:0,transform:'translateY(10px) scale(.96)'},{opacity:1,transform:'none'}],{...springEasing(SPRING.smooth),delay:Math.min(i,12)*24,fill:'backwards'}));
+  box.addEventListener('click',async e=>{const b=e.target.closest('.cm-mine-card');if(!b||printing||closing)return;printing=true;b.classList.add('is-picked');
+   const card=spare.find(c=>String(c.id)===b.dataset.id);
+   try{const r=await call('cards_insert',{toploaderId,cardId:card.id});if(!r)throw Error('NO_STATE');}
+   catch(err){printing=false;b.classList.remove('is-picked');const p=insertProblem(err,w);showError(p.text);
+    if(p.refresh){wallChanged();if(/CARD_NOT_FOUND/.test(String(err?.message||err))){b.remove();const n=box.querySelectorAll('.cm-mine-card').length;if(!n)box.remove();else box.querySelector('h4 span').textContent=n;}}return;}
+   window.dispatchEvent(new CustomEvent('megulit:cards-changed',{detail:{toploaderId,cardId:card.id,card}}));
+   printing=false;close(false,card,true);});
+ }).catch(()=>{});
  const input=gamesLayer.querySelector('input'),grid=gamesLayer.querySelector('.cm-game-grid'),empty=gamesLayer.querySelector('.cm-empty');
  const unfit=fitLibraryGrid(grid);
  let allGames=[];
@@ -263,18 +287,25 @@ export function openCardMaker({toploaderId=null,from=null,api=null}={}){
   if(!it)return;item=it;btn.closest('.cm-layer').querySelector('.is-picked')?.classList.remove('is-picked');btn.classList.add('is-picked');
   const glyph=game.initial||crestGlyph(game.title);
   const layer=document.createElement('div');layer.className='cm-layer cm-view';layer.dataset.title=w.frame;
-  const insert=toploaderId!=null;
+  const insert=toploaderId!=null;finish='plain';
   layer.innerHTML=`<div class="cm-view-main"><div class="cm-viewport"><img class="cm-ghost" alt="" src="${esc(it.src)}"><div class="cm-frame"><div class="cm-print"><div class="cm-face cm-front"><img class="cm-pic" alt="" src="${esc(it.src)}" draggable="false"><i class="cm-foil"></i><i class="cm-sweep"></i></div><div class="cm-face cm-backface">${backHTML(glyph,game.title)}</div></div><i class="cm-corner"></i></div></div>
    <p class="cm-hint">${w.hint}</p></div>
    <aside class="cm-side"><div class="cm-previews"><figure><div class="cm-mini cm-mini-front" title="${esc(w.hover)}"><span class="cm-drift"><img alt="" src="${esc(it.src)}"></span></div><figcaption>${w.front} / ${w.back} · ${w.hoverShort}</figcaption></figure><figure><div class="cm-mini cm-mini-back">${backHTML(glyph,game.title)}</div><figcaption>${w.back}</figcaption></figure></div>
    <div class="cm-info"><b lang="ja">${esc(game.title)}</b><span>${esc(w.groups[it.kind]||'')}${it.w&&it.h?` · ${it.w}×${it.h}`:''}</span></div><div class="cm-meta"><span class="cm-tag is-static">${esc(w.src[it.source]||w.groups[it.kind]||'')}</span><span class="cm-zoom" aria-live="off">100%</span></div>
-   <div class="cm-actions"><button type="button" class="primary cm-make">${insert?w.make:w.makeOnly}</button>${insert?`<button type="button" class="cm-quiet cm-only">${w.only}</button>`:''}</div></aside>`;
+   <div class="cm-finish-row"><span>${esc(w.finish)}</span><div class="cm-finish" role="radiogroup" aria-label="${esc(w.finish)}">${['plain','shine','holo'].map(f=>`<button type="button" role="radio" data-finish="${f}" aria-checked="${f==='plain'}">${esc(w.finishes[f])}</button>`).join('')}</div></div>
+   <div class="cm-actions"><button type="button" class="primary cm-make">${insert?w.make:w.makeOnly}</button>${insert?`<button type="button" class="cm-quiet secondary cm-only">${w.only}</button>`:''}</div></aside>`;
   const frame=layer.querySelector('.cm-frame');
   push(layer,{fly:()=>{const img=btn.querySelector('img');const from=rectOf(img);frame.style.opacity='0';
    requestAnimationFrame(()=>{flight(from,rectOf(frame),{src:it.src,spring:SPRING.smooth,radius:8}).then(()=>{frame.style.opacity='';});});}});
   viewer=createViewer(layer,it);
   /* the grid holds thumbnails; the viewfinder swaps in the large picture (cards_image) once it is decoded, same box, no flash */
   call('cards_image',{gameId:game.gameId,srcId:it.id}).then(async r=>{if(!r?.src||viewer?.item!==it)return;const im=new Image();im.src=r.src;await im.decode().catch(()=>{});if(viewer?.item!==it)return;for(const el of layer.querySelectorAll('.cm-pic,.cm-ghost,.cm-mini-front img'))el.src=r.src;},()=>{});
+  layer.querySelector('.cm-finish').addEventListener('click',e=>{const b=e.target.closest('[data-finish]');if(!b)return;finish=b.dataset.finish;
+   for(const x of layer.querySelectorAll('.cm-finish [data-finish]'))x.setAttribute('aria-checked',String(x===b));
+   if(finish==='plain')delete frame.dataset.finish;else frame.dataset.finish=finish;
+   if(finish!=='plain'&&!reduced())frame.animate([{'--gl':0},{'--gl':.7,offset:.4},{'--gl':.25}],{duration:900,easing:'cubic-bezier(.22,1,.36,1)'});});
+  /* the pointer is the light: the finish catches it where it falls on the card */
+  const port=layer.querySelector('.cm-viewport');port.addEventListener('pointermove',e=>{if(finish==='plain')return;const r=frame.getBoundingClientRect();frame.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');frame.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');frame.style.setProperty('--px',(((e.clientX-r.left)/r.width-.5)*3).toFixed(3));frame.style.setProperty('--py',(((e.clientY-r.top)/r.height-.5)*3).toFixed(3));},{passive:true});
   layer.querySelector('.cm-make').addEventListener('click',()=>make(insert));
   layer.querySelector('.cm-only')?.addEventListener('click',()=>make(false));
  }
@@ -356,8 +387,8 @@ export function openCardMaker({toploaderId=null,from=null,api=null}={}){
   if(printing||!viewer)return;printing=true;const layer=layers[layers.length-1];layer.classList.add('is-printing');
   const still=viewer.still(),{w:iw,h:ih}=viewer.size();
   live.textContent=w.printing;
-  const work=(async()=>{const card=await call('cards_create',{gameId:game.gameId,kind:item.kind,srcId:item.id,still,...(call===mockApi?{__src:item.src,__w:iw,__h:ih}:{})});
-   if(insert&&card?.id!=null)await call('cards_insert',{toploaderId,cardId:card.id});return card;})();
+  const work=(async()=>{const card=await call('cards_create',{gameId:game.gameId,kind:item.kind,srcId:item.id,still,finish,...(call===mockApi?{__src:item.src,__w:iw,__h:ih}:{})});
+   if(insert&&card?.id!=null){try{const r=await call('cards_insert',{toploaderId,cardId:card.id});if(!r)throw Error('NO_STATE');}catch(err){err.card=card;err.made=true;throw err;}}return card;})();
   const print=layer.querySelector('.cm-print'),frame=layer.querySelector('.cm-frame'),ghost=layer.querySelector('.cm-ghost'),sweep=layer.querySelector('.cm-sweep');
   const quiet=[layer.querySelector('.cm-side'),layer.querySelector('.cm-hint'),ghost];
   let ok=true,card=null,error=null;
@@ -379,12 +410,16 @@ export function openCardMaker({toploaderId=null,from=null,api=null}={}){
    lift.cancel();
   }
   if(!ok){printing=false;layer.classList.remove('is-printing');frame.classList.remove('is-card');stopAnims(print);print.style.transform='';
-   for(const el of quiet){stopAnims(el);el.style.opacity='';}live.textContent=w.fail.replace('{e}',String(error?.message||error||''));
+   for(const el of quiet){stopAnims(el);el.style.opacity='';}
+   if(error?.made){const p=insertProblem(error,w);showError(p.refresh?p.text:w.madeLoose.replace('{e}',String(error?.message||error)));wallChanged({cardId:error.card?.id});}
+   else showError(w.fail.replace('{e}',String(error?.message||error||'')));
    layer.querySelector('.cm-make')?.focus();return;}
   live.textContent='';
-  window.dispatchEvent(new CustomEvent('megulit:cards-changed',{detail:{toploaderId:insert?toploaderId:null,cardId:card?.id??null,card}}));
+  const flightMs=reduced()?0:springCurve(SPRING.smooth).duration,handoffAt=performance.now()+flightMs;
+  const tlEl=insert?document.querySelector('.cw-tl[data-tl="'+CSS.escape(String(toploaderId))+'"]'):null,tr=tlEl?.getBoundingClientRect(),overMouth=tr&&tr.width?{left:tr.left+tr.width*11/168,top:tr.top+tr.height*(-200/226),width:tr.width*146/168,height:tr.height*204/226}:null;
+  window.dispatchEvent(new CustomEvent('megulit:cards-changed',{detail:{toploaderId:insert?toploaderId:null,cardId:card?.id??null,card,handoffAt:overMouth?handoffAt:0}}));
   /* 3 the finished card heads for its Toploader (the wall takes over and plays the insert), the sheet folds away */
-  if(!reduced()){const from=rectOf(frame),to=insert&&origin?{left:origin.left+origin.width*.09,top:origin.top+origin.height*.07,width:origin.width*.82,height:origin.height*.82}:{left:from.left+from.width*.3,top:innerHeight-from.height*.4,width:from.width*.4,height:from.height*.4};
+  if(!reduced()){const from=rectOf(frame),to=overMouth||(insert&&origin?{left:origin.left+origin.width*.09,top:origin.top+origin.height*.07,width:origin.width*.82,height:origin.height*.82}:null)||{left:from.left+from.width*.3,top:innerHeight-from.height*.4,width:from.width*.4,height:from.height*.4};
    const fl=document.createElement('div');fl.className='cm-flight is-card';Object.assign(fl.style,{left:to.left+'px',top:to.top+'px',width:to.width+'px',height:to.height+'px'});
    const face=layer.querySelector('.cm-front').cloneNode(true);face.querySelector('.cm-sweep')?.remove();
    const fw=from.width,fh=from.height;face.style.cssText=`position:absolute;left:0;top:0;width:${fw}px;height:${fh}px;transform-origin:0 0;transform:scale(${to.width/fw},${to.height/fh})`;fl.append(face);document.body.append(fl);
@@ -395,7 +430,13 @@ export function openCardMaker({toploaderId=null,from=null,api=null}={}){
    fl.animate(f,{duration,fill:'forwards'});
    fl.animate([{opacity:1},{opacity:1,offset:.8},{opacity:insert&&origin?1:0}],{duration,fill:'forwards'});
    const sh=document.createElement('i');sh.className='cm-flight-shadow';fl.prepend(sh);sh.animate([{opacity:1},{opacity:0}],{duration,easing:'cubic-bezier(.3,0,.2,1)',fill:'forwards'});
-   setTimeout(()=>{fl.animate([{opacity:1},{opacity:0}],{duration:200,fill:'forwards'}).finished.then(()=>fl.remove(),()=>fl.remove());},duration+(insert?140:0));
+   /* handed over: the wall's own card is in this very place now, the flight just goes */
+   /* it waits on the mouth until the wall's own card is in its place (the wall has to read its state first, which can
+      take longer than the flight), then goes in the same frame; if the wall never says so it goes after 3 s */
+   if(overMouth){let gone=false;const go=()=>{if(gone)return;gone=true;removeEventListener('megulit:cards-handoff',onHand);fl.remove();};
+    const onHand=e=>{if(String(e.detail?.toploaderId)===String(toploaderId))requestAnimationFrame(go);};
+    addEventListener('megulit:cards-handoff',onHand);setTimeout(go,Math.max(3000,duration+1500));}
+   else setTimeout(()=>{fl.animate([{opacity:1},{opacity:0}],{duration:200,fill:'forwards'}).finished.then(()=>fl.remove(),()=>fl.remove());},duration+(insert?140:0));
   }
   printing=false;close(false,card,true);
  }

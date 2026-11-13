@@ -9,12 +9,14 @@
     'shot'  MeguLit's own scene shots (services/scene-shots): taken from the game window while it was read
     'save'  the game's own save marks the CG unlocked (services/game-cg: KiriKiri, HuneX, Siglus, YU-RIS readers)
     'seen'  an engine reported the picture on screen (noteSeen), resolved to a loose file of that exact name
+    'memory' the runtime dump DLL watched the game window show it (services/runtime-cg, native/runtimedump/modules/Cg.cpp)
     'cover' the game's cover
    Anything else (gallery tables, archive listings, images merely loaded) is never offered, and cards_create only
    accepts a source id the unlocked list gives right now. With the R18 filter on, 'save' CGs follow the local rating
-   model like the detail card and 'seen' pictures (never rated) are left out. */
+   model like the detail card and 'seen'/'memory' pictures (never rated) are left out. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{spawnSync}=require('node:child_process');
-const DEFAULT_TOPLOADERS=50,MAX_TOPLOADERS=500,FACE_W=600,FACE_H=800,THUMB=480,FULL=1280,VIEW=1600;
+/* the face is drawn at up to ~3x on the inspect stage and the whole CG is toured at that size: keep both sharp there */
+const DEFAULT_TOPLOADERS=50,MAX_TOPLOADERS=500,FACE_W=750,FACE_H=1000,THUMB=480,FULL=2048,VIEW=1600;
 const sha=v=>crypto.createHash('sha1').update(String(v)).digest('hex');
 const dirOf=root=>path.join(root,'data','cards');
 const stateFile=root=>path.join(dirOf(root),'cards.json');
@@ -91,7 +93,8 @@ function sources(root,game,opts={}){
    if(safe&&names.length){const rating=require('./cg-rating.cjs'),known=rating.ratings(path.join(root,'data','cg-cache',sha(path.dirname(String(exe)).toLowerCase()).slice(0,16)));names=names.filter(n=>rating.isSafe(known[n]));}
    for(const n of names){saved.add(n);out.push({id:'save:'+n,kind:'cg',source:'save',name:n});}}catch{}}
   if(!safe){const want=new Set(readSeen(root,exe).filter(n=>!saved.has(n)));const found=looseByName(path.dirname(exe),want);
-   for(const [n,f] of found)out.push({id:'seen:'+n,kind:'cg',source:'seen',file:f});}
+   for(const [n,f] of found)out.push({id:'seen:'+n,kind:'cg',source:'seen',file:f});
+   try{out.push(...require('./runtime-cg.cjs').sources(exe,{settle:opts.settle}));}catch{}}
  }
  return out;}
 function fileOf(root,game,s){if(s.file)return s.file;try{return require('./game-cg.cjs').pictureFile(root,game.executable,s.name)||null;}catch{return null;}}
@@ -123,14 +126,14 @@ function image(db,root,gameId,srcId){
 
 function games(db,root){
  const store=require('./store.cjs'),out=[];
- for(const g of store.games(db,root)){if(g.hidden)continue;const row=db.prepare('SELECT id,title,executable,cover FROM games WHERE id=?').get(g.id);let n=0;try{n=sources(root,row).length;}catch{}
+ for(const g of store.games(db,root)){if(g.hidden)continue;const row=db.prepare('SELECT id,title,executable,cover FROM games WHERE id=?').get(g.id);let n=0;try{n=sources(root,row,{settle:false}).length;}catch{}
   if(n)out.push({gameId:g.id,title:g.title,cover:g.cover||'',unlockedCount:n});}
  return out;}
 
 /* ---- cards ---- */
 const initialOf=t=>{const c=[...String(t||'').trim()][0]||'?';return c.toUpperCase();};
 const num=(v,d,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):d;};
-function publicCard(root,c){const img=path.join(dirOf(root),'img');return {id:c.id,gameId:c.gameId,title:c.title,initial:c.initial,kind:c.kind,source:c.source,srcId:c.srcId,src:dataUrl(path.join(img,c.face)),full:dataUrl(path.join(img,c.full)),w:c.w,h:c.h,fullW:c.fullW,fullH:c.fullH,still:c.still,createdAt:c.createdAt};}
+function publicCard(root,c){const img=path.join(dirOf(root),'img');return {id:c.id,gameId:c.gameId,title:c.title,initial:c.initial,kind:c.kind,source:c.source,srcId:c.srcId,src:dataUrl(path.join(img,c.face)),w:c.w,h:c.h,fullW:c.fullW,fullH:c.fullH,still:c.still,finish:c.finish||'plain',createdAt:c.createdAt};}
 function state(root){const s=readState(root);return {toploaders:s.toploaders,cards:s.cards.map(c=>publicCard(root,c)),mode:s.mode};}
 function create(db,root,req){
  const g=gameRow(db,req.gameId),srcId=String(req.srcId||'');
@@ -138,19 +141,24 @@ function create(db,root,req){
  if(req.kind&&req.kind!==s.kind)throw Error('CARD_KIND_MISMATCH');
  const file=fileOf(root,g,s);if(!file)throw Error('CARD_SOURCE_UNREADABLE');
  const st=req.still||{},still={x:num(st.x,0.5,0,1),y:num(st.y,0.5,0,1),scale:num(st.scale,1,1,8)};
+ /* the card's finish: plain, 'shine' (闪卡) or 'holo' (镭射); drawn by the page, nothing is baked into the picture */
+ const finish=req.finish==='shine'||req.finish==='holo'?req.finish:'plain';
  const id=newId('c'),img=path.join(dirOf(root),'img');fs.mkdirSync(img,{recursive:true});
  const face=id+'-face.jpg',full=id+'-full.jpg';
  const res=runner([{mode:'crop',in:file,out:path.join(img,face),x:still.x,y:still.y,scale:still.scale,w:FACE_W,h:FACE_H},{mode:'thumb',in:file,out:path.join(img,full),max:FULL}]);
  if(!res[0]?.ok||!res[1]?.ok){for(const f of [face,full])try{fs.rmSync(path.join(img,f),{force:true});}catch{}throw Error('CARD_IMAGE_FAILED');}
  const k=Math.min(1,FULL/Math.max(res[1].w,res[1].h));
- const card={id,gameId:g.id,title:g.title,initial:initialOf(g.title),kind:s.kind,source:s.source,srcId,face,full,w:FACE_W,h:FACE_H,fullW:Math.round(res[1].w*k),fullH:Math.round(res[1].h*k),still,createdAt:Date.now()};
+ const card={id,gameId:g.id,title:g.title,initial:initialOf(g.title),kind:s.kind,source:s.source,srcId,face,full,w:FACE_W,h:FACE_H,fullW:Math.round(res[1].w*k),fullH:Math.round(res[1].h*k),still,finish,createdAt:Date.now()};
  mutate(root,x=>{x.cards.push(card);});return publicCard(root,card);}
+function full(root,cardId){const s=readState(root),c=s.cards.find(x=>x.id===cardId);if(!c)throw Error('CARD_NOT_FOUND');return {id:c.id,full:dataUrl(path.join(dirOf(root),'img',path.basename(c.full))),w:c.fullW,h:c.fullH};}
 function remove(root,cardId){
  const c=mutate(root,s=>{const c=s.cards.find(x=>x.id===cardId);if(!c)throw Error('CARD_NOT_FOUND');s.cards=s.cards.filter(x=>x!==c);for(const t of s.toploaders)if(t.cardId===cardId)t.cardId=null;return c;});
  for(const f of [c.face,c.full])try{fs.rmSync(path.join(dirOf(root),'img',path.basename(f)),{force:true});}catch{}return state(root);}
 function insert(root,toploaderId,cardId){mutate(root,s=>{const t=s.toploaders.find(x=>x.id===toploaderId);if(!t)throw Error('TOPLOADER_NOT_FOUND');if(!s.cards.some(c=>c.id===cardId))throw Error('CARD_NOT_FOUND');if(t.cardId&&t.cardId!==cardId)throw Error('TOPLOADER_FULL');
  for(const o of s.toploaders)if(o.cardId===cardId)o.cardId=null;t.cardId=cardId;});return state(root);}
 function eject(root,toploaderId){mutate(root,s=>{const t=s.toploaders.find(x=>x.id===toploaderId);if(!t)throw Error('TOPLOADER_NOT_FOUND');t.cardId=null;});return state(root);}
+/* a made card's finish can be changed later: plain, shine (闪卡) or holo (镭射) */
+function setFinish(root,cardId,finish){const f=finish==='shine'||finish==='holo'?finish:'plain';mutate(root,s=>{const c=s.cards.find(x=>x.id===cardId);if(!c)throw Error('CARD_NOT_FOUND');c.finish=f;});return state(root);}
 function addToploaders(root,count){const n=Math.floor(num(count,1,1,100));mutate(root,s=>{if(s.toploaders.length+n>MAX_TOPLOADERS)throw Error('TOPLOADER_LIMIT');for(let i=0;i<n;i++)s.toploaders.push({id:newId('t'),cardId:null,order:s.toploaders.length});});return state(root);}
 function setMode(root,mode){if(mode!=='a'&&mode!=='b')throw Error('INVALID_MODE');mutate(root,s=>{s.mode=mode;});return state(root);}
 
@@ -162,10 +170,12 @@ function handle(db,root,r){
   case 'cards_pending':return pending(db,root,r.gameId);
   case 'cards_image':return image(db,root,r.gameId,r.srcId);
   case 'cards_create':return create(db,root,r);
+  case 'cards_full':return full(root,String(r.cardId||''));
   case 'cards_delete':return remove(root,String(r.cardId||''));
   case 'cards_insert':return insert(root,String(r.toploaderId||''),String(r.cardId||''));
   case 'cards_eject':return eject(root,String(r.toploaderId||''));
   case 'cards_add_toploaders':return addToploaders(root,r.count);
+  case 'cards_set_finish':return setFinish(root,String(r.cardId||''),r.finish);
   case 'cards_set_mode':return setMode(root,r.mode);
  }
  throw Error('UNKNOWN_ACTION');}

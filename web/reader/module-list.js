@@ -1,8 +1,8 @@
 // Generated from the original ToMe overlay snapshot
 export const modules=["ui-state","native-transport","taskbar-sync","interface-mode-host","game-style","game-profile","typewriter","ruby-layout","furigana","inject",
- "settings","learning","learning-layout","gal","game-fonts-ui","menu-layout","lookup-layout","selection","island-source","island-page","hook-reader","choice-overlay",
+ "settings","learning","learning-layout","gal","game-fonts-ui","menu-layout","lookup-layout","selection","island-source","island-page","hook-reader","choice-overlay","game-fit",
  "wait-marker","art-text","hook-panel","v4","voice-layout","interaction","backlog","box-preview","polish","i18n","about","background","settings-tabs","anki-sync",
- "difficulty","color-picker","ui-behavior","game-style-sync-ui","text-position","local-font","save-sentence","settings-reset"];
+ "difficulty","color-picker","ui-behavior","game-style-sync-ui","text-position","local-font","save-sentence","settings-reset","reader-panels","controls-b"];
 export const legacyStorageKeys=["tomoyo-about","tomoyo-ai-result","tomoyo-alternative","tomoyo-anki-button","tomoyo-anki-note","tomoyo-backlog-session","tomoyo-card-bar",
  "tomoyo-card-meta","tomoyo-chinese-enabled","tomoyo-chinese-settings","tomoyo-chunk","tomoyo-chunk-open","tomoyo-chunk-role","tomoyo-chunk-text","tomoyo-chunk-title",
  "tomoyo-chunk-toggle","tomoyo-chunks","tomoyo-cn-active","tomoyo-cn-dialog","tomoyo-cn-gpt","tomoyo-cn-grid","tomoyo-cn-output","tomoyo-cn-row","tomoyo-cn-status",

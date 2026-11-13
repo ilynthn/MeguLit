@@ -68,6 +68,9 @@ const $=s=>el.querySelector(s),stage=$("#stage");
 function say(t){ctx.speech.say(t)}
 const rnd=a=>a[Math.random()*a.length|0];
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+/* 2026-11-13 (user: some questions had 3 choices, some 4): always 4 distinct choices; a short pool is topped up from the nearest kana in the chart */
+const nearOf=k=>{const i=ORDER.indexOf(toHira(k));return i<0?ORDER.slice():ORDER.slice().sort((a,b)=>Math.abs(ORDER.indexOf(a)-i)-Math.abs(ORDER.indexOf(b)-i))};
+const fill4=(t,pri,...fb)=>KD.pickChoices(t,shuffle(pri.slice()),...fb);
 const show=k=>script==="k"?toKata(k):script==="m"?(Math.random()<.5?toKata(k):k):k;
 
 /* ================= HUD 与计时 ================= */
@@ -187,7 +190,7 @@ function rowStr(k){for(const [r,s] of ROWS)if(s.includes(k))return s;return "ん
 function seqOptions(){
   const w=q.need[q.slot],target=q[w],i=ORDER.indexOf(target);
   const near=[ORDER[i-1],ORDER[i+1],ORDER[i+5],ORDER[i-5],ORDER[i+2],ORDER[i-2]].filter(x=>x&&x!==target&&x!==q.k);
-  const opts=shuffle([target,...shuffle(near).slice(0,3)]);q.opts=opts;
+  const opts=fill4(target,near,nearOf(target).filter(x=>x!==q.k));q.opts=opts;
   const lab=x=>q.kk?toKata(x):x;
   $("#opts").innerHTML=opts.map((o,j)=>`<button class="ch" data-o="${j}"><kbd>${j+1}</kbd>${lab(o)}</button>`).join("");
   $("#opts").querySelectorAll(".ch").forEach(b=>b.onclick=()=>submitSeq(opts[+b.dataset.o],b));
@@ -214,7 +217,7 @@ function askConv(){
   const askTxt=toK?"写出对应的<b style='color:var(--paper-ink)'>片假名</b>":"写出对应的<b style='color:var(--paper-ink)'>平假名</b>";
   let ans;
   if(C.input)ans=inputBox(toK?"输入片假名":"输入平假名");
-  else{const pool=C.pool().filter(x=>x!==k&&!CONFUSE.has(toKata(x))&&!CONFUSE.has(x));const opts=shuffle([k,...shuffle(pool).slice(0,3)]);q.opts=opts;
+  else{const pool=C.pool().filter(x=>x!==k&&!CONFUSE.has(toKata(x))&&!CONFUSE.has(x));const opts=fill4(k,pool,nearOf(k).filter(x=>!CONFUSE.has(toKata(x))&&!CONFUSE.has(x)),nearOf(k));q.opts=opts;
     ans=`<div class="choices c4" id="opts">${opts.map((o,j)=>`<button class="ch" data-o="${j}"><kbd>${j+1}</kbd>${toK?toKata(o):o}</button>`).join("")}</div>`}
   frame(`<div class="ask">${askTxt}</div><div class="prompt enter">${s}</div>${ans}`);
   if(C.input)bindInput(submitConv);

@@ -12,14 +12,17 @@ const ROOT=()=>process.env.MEGULIT_GARBRO_ROOT||path.join(__dirname,'..','..');
 const HOST=path.join(__dirname,'..','garbro-host.ps1');
 const PACK='archives',DIR=()=>path.join(ROOT(),'runtime','garbro'),CACHE=()=>process.env.MEGULIT_GARBRO_CACHE||path.join(ROOT(),'cache','garbro');
 /* Archive extensions that are visual-novel containers in GARbro's list; generic game formats (.pak/.cpk of Unreal, Unity
-   .assets/.bundle) are left out so a non-VN game in the library never pulls the pack in. */
-const ARCHIVE=/\.(npk|iga|arc|pac|pak|dat|xp3|ypf|int|pfs|pf8|mpk|nsa|sar|ns2|gpk|ykc|lpk|mrg|fpk|afs|vfs|dxa|bin|cpz|hxp|lib|lac|pck|epk|vff|isa|nnk|ar2|psb|ttd|ifl|aos|tac|cmp|wag|fcb|cab)$/i;
+   .assets/.bundle) are left out so a non-VN game in the library never pulls the pack in.
+   E569 (engine survey): QLIE GameData/*.pack, ShiinaRio .war, Entis GLS .noa, AliceSoft .ald/.afa, Marble .mbl and rUGP
+   .rio are containers GARbro opens that were missing here, so those engines never reached even this fallback. */
+const ARCHIVE=/\.(npk|iga|arc|pac|pak|dat|xp3|ypf|int|pfs|pf8|mpk|nsa|sar|ns2|gpk|ykc|lpk|mrg|fpk|afs|vfs|dxa|bin|cpz|hxp|lib|lac|pck|epk|vff|isa|nnk|ar2|psb|ttd|ifl|aos|tac|cmp|wag|fcb|cab|pack|war|noa|ald|afa|mbl|rio|box|snn|bdt|alf|gsp|med)$/i;
+/* E665 F4b engines whose archives GARbro opens but this list missed: SystemAoi .box, BlueGale .snn, Fairytale
+   .bdt, Eushully .alf, GSD .gsp, Triangle .med */
 const SCRIPTY=/script|scenario|scene|scn|story|text|txt|data|system|sys|main|game|msg/i;
 /* media entries never hold dialogue: skip them so a 4 GB CG archive is not written to disk */
 const MEDIA='png|bmp|jpe?g|gif|tga|dds|webp|psd|tlg\\d?|pna|bmx|g00|pic|ani|eri|mio|cps|hg[23]|ogg|wav|mp3|m4a|opus|flac|ahx|hca|at3|wma|mp4|wmv|avi|mpe?g|webm|ogv|mov|ttf|otf|ttc|fnt|pmx|x|fbx';
 const MATCH='^(?!.*\\.('+MEDIA+')$).+';
 const LIMIT_BYTES=512*1048576,LIMIT_FILES=20000,MAX_ARCHIVES=12,MIN_SIZE=16384;
-const KANA=/[ぁ-ゖァ-ヺ]/g,JP_RUN=/[ぁ-ゖァ-ヺー一-龯々〆〜～！？。、「」『』（）…―・　Ａ-Ｚａ-ｚ０-９]{2,}/g;
 
 const jobs=new Map();/* archive path → {state,startedAt,error} for archives being unpacked in this process */
 let packsRef=null;
@@ -32,9 +35,11 @@ function readJson(file){try{return JSON.parse(fs.readFileSync(file,'utf8'));}cat
 
 // Archives in the game folder (and one level down) worth handing to GARbro, script-looking names first.
 function archives(dir){
+ /* E583 a System4 folder (its script is the .ain) keeps only CG / sound in .afa / .ald: never worth unpacking */
+ const sys4=(()=>{try{return require('./alicesoft.cjs').system4(dir);}catch{return false;}})();
  const out=[];const scan=(d,depth)=>{let list;try{list=fs.readdirSync(d,{withFileTypes:true});}catch{return;}
   for(const e of list){const p=path.join(d,e.name);if(e.isDirectory()){if(depth<1&&!/^(save|savedata|movie|movies|video|bgm|sound|voice|se|cg|image|images|logs?)$/i.test(e.name))scan(p,depth+1);continue;}
-   if(!ARCHIVE.test(e.name))continue;if(/^(unins\d*|setup|config|savedata|save\d*|global|sysdata)\./i.test(e.name))continue;
+   if(!ARCHIVE.test(e.name))continue;if(sys4&&/\.(afa|ald)$/i.test(e.name))continue;if(/^(unins\d*|setup|config|savedata|save\d*|global|sysdata)\./i.test(e.name))continue;
    let size=0;try{size=fs.statSync(p).size;}catch{}if(size>=MIN_SIZE)out.push({file:p,size,scripty:SCRIPTY.test(e.name)});}};
  scan(dir,0);
  return out.sort((a,b)=>b.scripty-a.scripty||a.size-b.size).slice(0,MAX_ARCHIVES).map(a=>a.file);
@@ -72,15 +77,8 @@ function schedule(file){if(jobs.has(file))return;jobs.set(file,{state:'queued',s
 async function pump(){if(busy)return;busy=true;try{while(queue.length){const file=queue.shift(),job=jobs.get(file);job.state='running';
   try{await unpack(file);job.state='done';}catch(error){job.state='error';job.error=error.message;}}}finally{busy=false;}}
 
-function decodeRuns(buf){
- const pick=[];for(const enc of ['shift_jis','utf-8','utf-16le']){let t;try{t=new TextDecoder(enc).decode(buf);}catch{continue;}pick.push({enc,t,kana:(t.match(KANA)||[]).length});}
- const best=pick.sort((a,b)=>b.kana-a.kana)[0];if(!best||best.kana<4)return [];
- const lines=[];let last='';
- for(const raw of best.t.split(/[\r\n\0]+/)){
-  for(const m of raw.matchAll(JP_RUN)){const s=m[0].replace(/^[　\s]+|[　\s]+$/g,'');if(s.length<2||!(s.match(KANA)||[]).length)continue;if(/^[ァ-ヺー]+$/.test(s)&&s.length<3)continue;if(s!==last)lines.push(s);last=s;}
- }
- return lines;
-}
+/* E573 the generic kana scan is shared with every reader whose grammar is unknown (kit.cjs) */
+const decodeRuns=require('./kit.cjs').decodeRuns;
 // Engine interface used by scenes.cjs.
 const engine={id:'garbro',
  sources:dir=>archives(dir),
@@ -99,4 +97,4 @@ const engine={id:'garbro',
   const startedAt=Math.min(...files.map(f=>jobs.get(f).startedAt)),pj=installed()?null:packs().status().packs.find(p=>p.id===PACK)?.job;
   return pj?{kind:'garbro',stage:'download',startedAt,received:pj.received,total:pj.total}:{kind:'garbro',stage:'unpack',startedAt};},
 };
-module.exports={engine,archives,unpack,run,decodeRuns,cacheDir,MATCH,PACK,jobs};
+module.exports={engine,archives,unpack,run,decodeRuns,cacheDir,schedule,installed,version,readJson,MATCH,PACK,jobs};

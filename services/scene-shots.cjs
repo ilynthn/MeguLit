@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
 /* 2026-11-12 (user: MeguLit quietly captures the game's good-looking scenes, adult scenes included, for the back of the
-   detail card). While a game is read, a clean capture of the game window alone (never MeguLit's own layer) is taken at
-   most every 30 s on a new line, and at once (5 s apart) when the dialogue box leaves the screen, where CGs and cut-ins
+   detail card). While a game is read, a clean capture of the game window alone (never MeguLit's own layer) is taken only
+   when the dialogue box has left the screen (at most every 5 s), where CGs and cut-ins
    usually are. The native side scores its looks (colour, contrast, detail; fades, menus and loading screens score 0)
    and gives a difference hash; only the card's 3:4 face is stored (the upright window with the most detail, where the
    characters usually are, at most 720x960), the rest of the frame is never written. Only scenes that look different are kept, a near-duplicate replaces the weaker one, and
@@ -24,18 +24,22 @@ function keep(root,exe,shot,now=Date.now()){
  {const others=list.filter(it=>it!==near);if(others.length>=KEEP&&others.every(it=>it.score>=shot.score))return 'skipped';}
  const file=now.toString(36)+'-'+shot.hash.slice(0,6)+'.jpg';fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,file),Buffer.from(shot.jpeg,'base64'));
  let next=list.filter(it=>it!==near);if(near)try{fs.rmSync(path.join(dir,near.file),{force:true});}catch{}
- next.push({file,score:shot.score,hash:shot.hash,at:now});next.sort((a,b)=>b.score-a.score);
+ next.push({file,score:shot.score,hash:shot.hash,at:now,clean:shot.clean!==false});next.sort((a,b)=>b.score-a.score);
  for(const drop of next.slice(KEEP))try{fs.rmSync(path.join(dir,drop.file),{force:true});}catch{}
  writeIndex(dir,next.slice(0,KEEP));return near?'replaced':'kept';
 }
-/* called by the reader on every new line (hidden=false) and when the dialogue box leaves the screen (hidden=true) */
+/* 2026-11-13 (user: "不要截图有对话框的时候", "以后只要有对话框 除非用户主动截图 否则不要拿来当卡牌") a capture is only ever taken while
+   no dialogue box is on screen: a new line (hidden=false) or a box coming back only marks the box as shown, and the capture
+   after the box leaves is dropped when a line arrived during the wait. Shots stored before this rule carry no clean mark and
+   are never offered as cards. Shared by every engine: the reader calls it for every line and every box visibility change. */
 async function maybe(reader,{hidden=false}={}){
+ if(!hidden){if(reader)reader.sceneDialogHidden=false;return;}reader.sceneDialogHidden=true;
  try{const exe=reader.gameExe,gal=reader.gal;if(!exe||!gal?.sceneShot)return;let lib={};try{lib=JSON.parse(fs.readFileSync(path.join(reader.root,'data','config','library.json'),'utf8'));}catch{}if(lib.sceneShots===false)return;
   const now=Date.now(),state=reader.sceneShotState||(reader.sceneShotState={at:0,busy:false});
   if(state.busy||now-state.at<(hidden?HIDE_GAP:LINE_GAP))return;state.busy=true;state.at=now;
-  try{if(hidden)await new Promise(r=>setTimeout(r,700));const shot=await gal.sceneShot();if(shot)keep(reader.root,exe,shot);}finally{state.busy=false;}
+  try{await new Promise(r=>setTimeout(r,700));if(reader.sceneDialogHidden!==true)return;const shot=await gal.sceneShot();if(shot&&reader.sceneDialogHidden===true)keep(reader.root,exe,{...shot,clean:true});}finally{state.busy=false;}
  }catch{}
 }
-function list(root,exe){return readIndex(dirOf(root,exe)).map(it=>({file:it.file,score:it.score,at:it.at}));}
+function list(root,exe){return readIndex(dirOf(root,exe)).filter(it=>it.clean===true).map(it=>({file:it.file,score:it.score,at:it.at}));}
 function read(root,exe,file){if(!/^[0-9a-z]+-[0-9a-f]{6}\.jpg$/.test(String(file)))throw Error('SHOT_NOT_FOUND');const f=path.join(dirOf(root,exe),file);if(!fs.existsSync(f))throw Error('SHOT_NOT_FOUND');return {mime:'image/jpeg',data:fs.readFileSync(f).toString('base64')};}
 module.exports={maybe,keep,list,read,hamming,KEEP,MIN_SCORE};

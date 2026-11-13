@@ -31,7 +31,8 @@ function outDirs(dir){const out=[];for(const h of Object.values(HOOKS)){if(h.kin
 const stateFile=root=>path.join(root,'data','voice-cache','cold.json');
 function readState(root){try{return JSON.parse(fs.readFileSync(stateFile(root),'utf8'))||{};}catch{return {};}}
 function writeState(root,key,value){const all=readState(root);all[key]={...value,at:Date.now()};try{fs.mkdirSync(path.dirname(stateFile(root)),{recursive:true});fs.writeFileSync(stateFile(root)+'.tmp',JSON.stringify(all,null,1));fs.renameSync(stateFile(root)+'.tmp',stateFile(root));}catch{}}
-function bitness(exe){try{const fd=fs.openSync(exe,'r');try{const b=Buffer.alloc(4096);fs.readSync(fd,b,0,4096,0);const pe=b.readUInt32LE(0x3c);return b.readUInt16LE(pe+4)===0x14c?'32':'64';}finally{fs.closeSync(fd);}}catch{return '';}}
+/* E580 kit.peInfo */
+function bitness(exe){const i=require('./original-engines/kit.cjs').peInfo(exe);return i?(i.machine===0x14c?'32':'64'):'';}
 const queue=[],listeners=new Set();let busy=false;
 // Seconds the helper waits: about 50 voices a message tick, with room for start-up.
 const secondsFor=n=>Math.min(1200,60+Math.ceil(n/40));

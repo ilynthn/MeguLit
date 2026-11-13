@@ -22,7 +22,7 @@ const days=new Set(runs.map(r=>new Date(r.id).toDateString()));let streak=0;for(
 const wk={};week.forEach(r=>r.log.filter(l=>!l.ok).forEach(l=>wk[l.show]=(wk[l.show]||0)+1));
 const weak=Object.entries(wk).sort((a,b)=>b[1]-a[1]).slice(0,6),wmax=weak[0]?.[1]||1;
 const cS=count(SEION),known=cS[2]+cS[3];
-const KD=ctx.data,best=(G,D)=>{const rs=runs.filter(r=>r.G===G&&r.D===D&&!(r.only&&r.only.length)&&r.log.length);if(!rs.length)return null;const As=rs.map(r=>KD.achievement(r.log)),b=As.reduce((a,x)=>x.pct>a.pct?x:a);return {score:KD.fmtPct(b.pct),acc:b.rank,n:rs.length}};
+const KD=ctx.data,best=(G,D)=>{const rs=runs.filter(r=>r.G===G&&r.D===D&&!(r.only&&r.only.length)&&r.log.length);if(!rs.length)return null;const As=rs.map(r=>KD.achievement(r.log)),b=As.reduce((a,x)=>x.pct>a.pct?x:a);return {score:KD.fmtPct(b.pct),n:rs.length}};
 function nextStep(){
   if(due.length)return {seal:"復",text:`先清掉今天到期的 ${due.length} 个复习，大约 2 分钟`,href:`play.html?g=conv&d=intro&only=${encodeURIComponent(due.join(","))}`,go:"开始复习"};
   const lessons=S.get(S.KEY.l,{}),nextL=ctx.data.LESSONS.find(l=>!lessons[l.id]);
@@ -61,7 +61,7 @@ function render(){
 
    <section>
     <div class="sec-title"><h2>练习记录</h2><span>最近 ${Math.min(12,runs.length)} 局</span></div>
-    <div class="log">${runs.slice().reverse().slice(0,12).map(r=>{const ok=r.log.filter(l=>l.ok).length,acc=KD.fmtPct(KD.achievement(r.log).pct),d=new Date(r.id);return `<div class="logrow"><time>${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</time><span class="g">${S.GAME[r.G]}<small>${S.DIFF[r.D]}</small>${r.only&&r.only.length?`<span class="tag">错题</span>`:""}</span><span class="a num">${acc}</span><span class="s num">${KD.achievement(r.log).rank}</span></div>`}).join("")}</div>
+    <div class="log">${runs.slice().reverse().slice(0,12).map(r=>{const ok=r.log.filter(l=>l.ok).length,acc=KD.fmtPct(KD.achievement(r.log).pct),d=new Date(r.id);return `<div class="logrow"><time>${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</time><span class="g">${S.GAME[r.G]}<small>${S.DIFF[r.D]}</small>${r.only&&r.only.length?`<span class="tag">错题</span>`:""}</span><span class="a num">${acc}</span></div>`}).join("")}</div>
    </section>
   </div>
 

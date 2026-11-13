@@ -23,3 +23,12 @@ test('card maker: never reads game files itself and only animates transform/opac
  for(const a of ['cards_games','cards_unlocked','cards_create','cards_insert','megulit:cards-changed','openCardMaker'])assert(js.includes(a),a);
  for(const m of js.matchAll(/\{(\w+):[^{}]*?\}/g))assert(!/^(width|height|left|top|filter|clipPath|borderRadius)$/.test(m[1])||!/animate\(\[\{/.test(js.slice(Math.max(0,m.index-30),m.index)),'animated '+m[1]);
  assert(js.includes('prefers-reduced-motion'));});
+test('card maker: a refused insert is said plainly and a stale wall refreshes; the old status line was screen-reader only',async()=>{const {insertProblem}=await import('../web/card-maker.js');
+ const w={full:'FULL',gone:'GONE',insertFail:'FAIL {e}'};
+ assert.deepEqual(insertProblem(Error('TOPLOADER_FULL'),w),{text:'FULL',refresh:true});
+ assert.deepEqual(insertProblem(Error('CARD_NOT_FOUND'),w),{text:'GONE',refresh:true});
+ assert.deepEqual(insertProblem(Error('CARDS_BUSY'),w),{text:'FAIL CARDS_BUSY',refresh:false});
+ const js=fs.readFileSync(path.join(__dirname,'..','web','card-maker.js'),'utf8'),css=fs.readFileSync(path.join(__dirname,'..','web','card-maker.css'),'utf8');
+ assert.match(js,/<p class="cm-error" role="alert" hidden><\/p>/);assert.match(css,/\.cm-error\{position:absolute/);
+ assert.doesNotMatch(js,/catch\(err\)\{printing=false;b\.classList\.remove\('is-picked'\);live\.textContent=/,'我的卡 failures are not silent');
+ assert.match(js,/if\(insert&&card\?\.id!=null\)\{try\{const r=await call\('cards_insert'/,'make-and-sleeve checks the insert');});
