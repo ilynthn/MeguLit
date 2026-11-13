@@ -52,51 +52,19 @@
   else{let seen=0;try{seen=Number(localStorage.getItem('megulit-autospeak-hint'))||0;}catch{}if(seen<3){try{localStorage.setItem('megulit-autospeak-hint',String(seen+1));
    }catch{}const hint=el('small','Alt+T → 语音 可开启自动朗读');hint.className='megulit-autospeak-hint';card.querySelector('.tomoyo-card-meta')?.append(hint);}}
   /* #115 (user: + Anki made the lookup card flash): the picture is taken as the card opens, before it is drawn, so + Anki
-     needs no hide-and-capture later. selection.js keeps the card hidden until this picture is taken (0.3 s at most). */
-  b.precaptureReader=()=>{if(config.ankiGameMedia===false)return null;const at=Date.now();return captureReader(null).then(id=>id?{id,at}:null).catch(()=>null);};
-  async function captureReader(card){
+     needs no capture later. The card is never hidden for it (the picture is the game window alone). */
+  b.precaptureReader=()=>{if(config.ankiGameMedia===false)return null;const at=Date.now();return captureReader().then(id=>id?{id,at}:null).catch(()=>null);};
+  async function captureReader(){
+   /* 2026-11-14 (user: an Anki picture held MeguLit's own lookup card and furigana): the picture is the game window's own
+      surface (GalWindowBridge mediaClip -> GameCapture.Picture), never a copy of the screen, so nothing is hidden or measured here. */
    if(config.ankiGameMedia===false)return;
-   const scale=devicePixelRatio||1,boxes=[];
-   for(const node of document.querySelectorAll('.sentence-text,.tomoyo-cn-output')){
-    if(!node.textContent.trim()||node.checkVisibility?.({opacityProperty:true,visibilityProperty:true})===false)continue;
-    const range=document.createRange();range.selectNodeContents(node);
-    const margin=4;for(const rect of range.getClientRects())if(rect.width&&rect.height)boxes.push([rect.left-margin,rect.top-margin,rect.right+margin,rect.bottom+margin]);
-    for(const base of node.querySelectorAll('.megulit-ruby-base[data-tomoyo-reading]')){
-     if(base.firstElementChild?.classList.contains('tome-typewriter-pending'))continue;
-     const rect=base.getBoundingClientRect(),ruby=getComputedStyle(base,'::before');
-     const w=parseFloat(ruby.width)||0,h=parseFloat(ruby.height)||0;
-     const x=rect.left+(parseFloat(ruby.left)||0),y=rect.top+(parseFloat(ruby.top)||0);
-     if(w&&h)boxes.push([x-w/2-margin,y-h-margin,x+w/2+margin,y+margin]);
-    }
-   }
-   let bounds={};
-   if(boxes.length){
-    const x=Math.floor(Math.max(0,Math.min(...boxes.map(b=>b[0])))*scale);
-    const y=Math.floor(Math.max(0,Math.min(...boxes.map(b=>b[1])))*scale);
-    const right=Math.ceil(Math.min(innerWidth,Math.max(...boxes.map(b=>b[2])))*scale);
-    const bottom=Math.ceil(Math.min(innerHeight,Math.max(...boxes.map(b=>b[3])))*scale);
-    if(right>x&&bottom>y)bounds={readerX:x,readerY:y,readerWidth:right-x,readerHeight:bottom-y};
-   }
-   // E215.6 (user): the picture holds only the game and MeguLit's text box: menus, Alt+T and other panels hide too.
-   /* E270 (user: clicking + Anki made the lookup card flicker): the picture only takes the text-box region from the
-      overlay, so panels are hidden only when one actually covers that region. */
-   const covered=(()=>{if(!boxes.length)return true;const l=Math.min(...boxes.map(b=>b[0])),t=Math.min(...boxes.map(b=>b[1])),r=Math.max(...boxes.map(b=>b[2])),
-    btm=Math.max(...boxes.map(b=>b[3]));
-    const text=document.querySelector('.sentence-text');for(let ix=0;ix<=6;ix++)for(let iy=0;iy<=3;iy++){const x=l+(r-l)*ix/6,y=t+(btm-t)*iy/3;
-     for(const e of document.elementsFromPoint(Math.max(0,Math.min(innerWidth-1,x)),Math.max(0,Math.min(innerHeight-1,y)))){if(e===document.body||e===document.documentElement||e.closest('.tome-island-pair,.sentence-window,.sentence-text,.tomoyo-cn-output')||(text&&e.contains(text)))continue;
-      return true;}}return false;})();
-   if(!covered||!card)try{return (await request('ankiScreenshot',bounds,5000)).id;}catch{return;}
-   card.classList.add('megulit-mining-capture');document.body.classList.add('megulit-capturing');
-   try{
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    return (await request('ankiScreenshot',bounds,5000)).id;
-   }catch{}finally{card.classList.remove('megulit-mining-capture');document.body.classList.remove('megulit-capturing');}
+   try{return (await request('ankiScreenshot',{},5000)).id;}catch{return;}
   }
   async function act(action){if(action==='anki'){if(ankiBusy)return;ankiBusy=true;anki.dataset.state='busy';}audio.disabled=anki.disabled=true;status.textContent=action==='speak'?'合成读音中…':'同步 Anki 中…';
    const started=Date.now(),ticker=action==='speak'?setInterval(()=>{if(!alive())return;const s=Math.round((Date.now()-started)/1000);status.textContent='合成读音中… '+s+' 秒'+(s>=5?'（语音引擎首次启动或加载模型会慢一些）':'');
    },1000):0;try{const value=await request(action,{...scope,pitchChoice:pitch.hidden?undefined:pitchValue,...(action==='anki'?{aiNote:card.__megulitAi||undefined,
    translation:currentTranslation(scope.text),screenshotId:(await(card.__megulitShot||Promise.resolve(null)).then(v=>v&&Date.now()-v.at<170000?v.id:null).catch(()=>null).finally(()=>{
-   card.__megulitShot=null;}))||await captureReader(card)}:{})});if(!alive())return;if(action==='speak'){currentAudio?.pause();const bytes=Uint8Array.from(atob(value.data),
+   card.__megulitShot=null;}))||await captureReader()}:{})});if(!alive())return;if(action==='speak'){currentAudio?.pause();const bytes=Uint8Array.from(atob(value.data),
    c=>c.charCodeAt(0)),url=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'})),player=currentAudio=new Audio(url);player.volume=Number.isFinite(config.aivisVolume)?config.aivisVolume:.9;
    player.onended=()=>URL.revokeObjectURL(url);player.onerror=()=>URL.revokeObjectURL(url);await player.play();status.textContent=(value.cached?'已播放缓存读音':'正在播放');
    }else{minedKeys.add(minedKey());status.textContent=value.updated?'已更新 Anki 词条':'已加入 Anki';/* the service keeps every Anki card's line in 学习 → 句子 (auto) */if(value.sentenceSaved&&keep){

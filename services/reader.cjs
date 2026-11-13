@@ -336,8 +336,8 @@ class Reader{
   if(action==='gameFrame'){const image=await this.gal?.gameFrame();return {image:image?'data:image/jpeg;base64,'+image:''};}
   if(action==='ankiScreenshot'){
    if(config.ankiGameMedia===false)return {};
-   const bounds={};for(const key of ['readerX','readerY','readerWidth','readerHeight'])if(Number.isInteger(args[key])&&args[key]>=0&&args[key]<=16384)bounds[key]=args[key];
-   const image=await this.gal?.gameFrame(bounds);
+   /* 2026-11-14: the card picture is the game window's own surface only, never MeguLit's text box or lookup card */
+   const image=await this.gal?.gameFrame();
    if(!image)return {};
    const id=require('node:crypto').randomUUID();
    /* #115: a picture taken when the lookup card opens is used when + Anki is clicked later, so keep a few for 3 min */

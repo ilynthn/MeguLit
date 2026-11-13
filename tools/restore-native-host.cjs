@@ -51,11 +51,9 @@ rep('bool menuPinned=TranslationMode&&Target!=IntPtr.Zero&&MenuOpen&&MenuRegionR
 // The percentage width and height are relative to the game, independent of the origin.
 rep('w=Math.Max(5,Math.Min(100-x,w));h=Math.Max(5,Math.Min(100-y,h));',
     'w=Math.Max(5,Math.Min(100,w));h=Math.Max(5,Math.Min(100,h));');
-// A missing/failed game-audio range must not skip an otherwise valid screenshot.
+// A missing/failed game-audio range must not skip an otherwise valid screenshot. The picture is the game window alone (2026-11-14).
 rep('Rect rect;if(shot&&target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=GameAudio.Screenshot(target,rect.Right,rect.Bottom);}catch{}',
-    '}catch{}\n                try{Rect rect;if(shot&&target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=readerShot?ReaderScreenshot.Capture(target,readerWindow,readerArea):GameAudio.Screenshot(target,rect.Right,rect.Bottom);}catch{}');
-rep('bool shot=Bool(d,"screenshot");IntPtr target=Target;',
-    'bool shot=Bool(d,"screenshot"),readerShot=Bool(d,"readerScreenshot");IntPtr target=Target,readerWindow=Overlay;\n            var readerArea=new System.Drawing.Rectangle((int)Num(d,"readerX",0),(int)Num(d,"readerY",0),(int)Num(d,"readerWidth",0),(int)Num(d,"readerHeight",0));');
+    '}catch{}\n                try{Rect rect;if(shot&&target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=GameAudio.Screenshot(target,rect.Right,rect.Bottom);}catch{}');
 rep('if(args.Length>0&&args[0]=="--diagnose")',`if(args.Length>0&&args[0]=="--host-frame-self-test"){
             int original=0x16cf0000,hosted=HostedStyle(original);
             if((hosted&0x00c40000)!=0||(hosted&unchecked((int)0x80000000))==0||HostedStyle(hosted)!=hosted)return 8;

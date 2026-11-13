@@ -81,7 +81,7 @@ public sealed class GameAudio:IDisposable{
 
  // Game window picture for the card's answer side: JPEG, at most 1280 px wide.
  public static string Screenshot(IntPtr target,int width,int height){if(target==IntPtr.Zero||width<16||height<16)return "";
-  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Into(target,image,2))return "";double k=Math.Min(1,1280.0/width);int w=Math.Max(1,(int)(width*k)),h=Math.Max(1,(int)(height*k));
+  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Picture(target,image))return "";double k=Math.Min(1,1280.0/width);int w=Math.Max(1,(int)(width*k)),h=Math.Max(1,(int)(height*k));
    using(var small=new Bitmap(w,h,PixelFormat.Format24bppRgb)){using(var g=Graphics.FromImage(small)){g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.DrawImage(image,0,0,w,h);}
     var codec=Array.Find(ImageCodecInfo.GetImageEncoders(),c=>c.MimeType=="image/jpeg");var ps=new EncoderParameters(1);ps.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
     using(var m=new MemoryStream()){small.Save(m,codec,ps);return Convert.ToBase64String(m.ToArray());}}}}
@@ -91,7 +91,7 @@ public sealed class GameAudio:IDisposable{
     (Hasler-Suesstrunk), contrast and detail; near-black, near-white or flat frames (fades, menus, loading) score 0.
     The 64-bit difference hash lets the caller keep only scenes that differ. */
  public static string SceneShot(IntPtr target,int width,int height,out double score,out string hash){score=0;hash="";if(target==IntPtr.Zero||width<64||height<64)return "";
-  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Into(target,image,2))return "";double k=Math.Min(1,1280.0/width);int w=Math.Max(1,(int)(width*k)),h=Math.Max(1,(int)(height*k));
+  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Picture(target,image))return "";double k=Math.Min(1,1280.0/width);int w=Math.Max(1,(int)(width*k)),h=Math.Max(1,(int)(height*k));
    using(var small=new Bitmap(w,h,PixelFormat.Format24bppRgb)){using(var g=Graphics.FromImage(small)){g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.DrawImage(image,0,0,w,h);}
     var lum=new double[96*54];Func<int,int,double> lumAt=(x,y)=>lum[y*96+x];
     using(var probe=new Bitmap(96,54,PixelFormat.Format24bppRgb)){using(var g=Graphics.FromImage(probe)){g.InterpolationMode=InterpolationMode.HighQualityBilinear;g.DrawImage(small,0,0,96,54);}
@@ -141,9 +141,9 @@ public sealed class GameAudio:IDisposable{
    var codec=Array.Find(ImageCodecInfo.GetImageEncoders(),c=>c.MimeType=="image/jpeg");var ps=new EncoderParameters(1);ps.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
    using(var m=new MemoryStream()){small.Save(m,codec,ps);return Convert.ToBase64String(m.ToArray());}}}
  public static string SceneFrame(IntPtr target,int width,int height,out double score,out string topHash){score=0;topHash="";if(target==IntPtr.Zero||width<64||height<64)return "";
-  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Into(target,image,2))return "";return SceneFrameOf(image,out score,out topHash);}}
+  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Picture(target,image))return "";return SceneFrameOf(image,out score,out topHash);}}
  public static string SceneProbe(IntPtr target,int width,int height){if(target==IntPtr.Zero||width<64||height<64)return "";
-  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Into(target,image,2))return "";return TopHashOf(image);}}
+  using(var image=new Bitmap(width,height,PixelFormat.Format32bppRgb)){if(!GameCapture.Picture(target,image))return "";return TopHashOf(image);}}
  static int Distance(string a,string b){if(a.Length!=16||b.Length!=16)return 64;ulong x=Convert.ToUInt64(a,16)^Convert.ToUInt64(b,16);int n=0;while(x!=0){n+=(int)(x&1);x>>=1;}return n;}
  /* --scene-frame-self-test, offline (no window): a drawn scene and the same scene with a dialogue box over its bottom
     third give the same top hash; another scene does not; a flat (fade) frame gives no hash and no JPEG; the JPEG is

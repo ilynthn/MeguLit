@@ -2,7 +2,7 @@ param()
 $ErrorActionPreference='Stop'
 $bridgeRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\native'))
 $frameworkRoot=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
-$bridgeSources=@('GalWindowBridge.cs','ReaderPointerGate.cs','GameTextMask.cs','PageLocator.cs','DialogBoxProbe.cs','GameWaitMarker.cs','NativeMaskLayer.cs','DialogDetector.cs','GameHookVerifier.cs','GameCapture.cs','GameAudio.cs','ReaderScreenshot.cs','GlassLayer.cs','GameSceneProbe.cs','GameUiLayer.cs','WaitPageMarker.cs') | ForEach-Object {Join-Path $bridgeRoot $_}
+$bridgeSources=@('GalWindowBridge.cs','ReaderPointerGate.cs','GameTextMask.cs','PageLocator.cs','DialogBoxProbe.cs','GameWaitMarker.cs','NativeMaskLayer.cs','DialogDetector.cs','GameHookVerifier.cs','GameCapture.cs','GameAudio.cs','GlassLayer.cs','GameSceneProbe.cs','GameUiLayer.cs','WaitPageMarker.cs') | ForEach-Object {Join-Path $bridgeRoot $_}
 $bridgeReferences=@('System.dll','System.Core.dll','System.Drawing.dll','System.Web.Extensions.dll','System.Windows.Forms.dll')+@('System.Runtime.dll','System.Runtime.WindowsRuntime.dll','System.Runtime.InteropServices.WindowsRuntime.dll' | ForEach-Object {Join-Path $frameworkRoot $_} | Where-Object {Test-Path -LiteralPath $_})+@(Get-ChildItem -LiteralPath (Join-Path $env:WINDIR 'System32\WinMetadata') -Filter *.winmd -File | ForEach-Object {$_.FullName})
 # Use the Windows .NET Framework compiler directly; this build needs no Visual Studio process or telemetry service.
 $bridgeCompiler=Join-Path $frameworkRoot 'csc.exe'

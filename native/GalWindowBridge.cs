@@ -407,11 +407,10 @@ public class GalWindowBridge {
         else if(type=="sceneProbe"){string id=Str(d,"id");IntPtr target=Target;
             ThreadPool.QueueUserWorkItem(delegate{string hash="";try{Rect rect;if(target!=IntPtr.Zero&&GetClientRect(target,out rect))hash=GameAudio.SceneProbe(target,rect.Right,rect.Bottom);}catch{}
                 try{Emit(new{type="sceneProbe",id=id,topHash=hash});}catch{}});}
-        else if(type=="mediaClip"){string id=Str(d,"id");long from=(long)Num(d,"from",0),to=(long)Num(d,"to",0);bool shot=Bool(d,"screenshot"),readerShot=Bool(d,"readerScreenshot");IntPtr target=Target,readerWindow=Overlay;
-            var readerArea=new System.Drawing.Rectangle((int)Num(d,"readerX",0),(int)Num(d,"readerY",0),(int)Num(d,"readerWidth",0),(int)Num(d,"readerHeight",0));
+        else if(type=="mediaClip"){string id=Str(d,"id");long from=(long)Num(d,"from",0),to=(long)Num(d,"to",0);bool shot=Bool(d,"screenshot");IntPtr target=Target;
             ThreadPool.QueueUserWorkItem(delegate{string wav="",jpeg="";bool voiced=false;try{var voice=GameAudio.Voice(Audio.Range(from,to));if(voice!=null){voiced=true;wav=Convert.ToBase64String(GameAudio.Wav(voice));}
                 }catch{}
-                try{Rect rect;if(shot&&target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=readerShot?ReaderScreenshot.Capture(target,readerWindow,readerArea):GameAudio.Screenshot(target,rect.Right,rect.Bottom);}catch{}
+                try{Rect rect;if(shot&&target!=IntPtr.Zero&&GetClientRect(target,out rect))jpeg=GameAudio.Screenshot(target,rect.Right,rect.Bottom);/* game window only, never MeguLit's layer (GameCapture.Picture) */}catch{}
                 try{Emit(new{type="mediaClip",id=id,voiced=voiced,wav=wav,jpeg=jpeg,recording=Audio.Active,audioError=Audio.Error});}catch{}});}
         else if(type=="markerSource"){if(WaitMarker!=null)WaitMarker.SetSource(Str(d,"text"));}
         else if(type=="markerHookDrawn"){if(WaitMarker!=null)WaitMarker.HookDrawn();}

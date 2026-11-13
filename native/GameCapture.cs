@@ -33,6 +33,14 @@ public static class GameCapture{
  // True when the last Into() on this thread did not read the window only for the moment (dragged, minimised, one
  // blank frame): callers keep what they have and try again, without reporting an error.
  [ThreadStatic]public static bool Skipped;
+ // True when the last Into() on this thread filled the picture from the screen (style measurement only): such a picture
+ // holds whatever lies over the game, MeguLit's own reader, lookup card and furigana included.
+ [ThreadStatic]public static bool FromScreen;
+ // Saved pictures (Anki card, collected sentence, scene shots, card wall). 2026-11-14 (user: an Anki picture held MeguLit's
+ // lookup card and furigana): only the game window's own surface is used, read through its window DC or PrintWindow, which
+ // DWM keeps apart from every other window, so MeguLit's overlays never reach it whatever the engine draws with. The
+ // screen is never read here, and a picture that came from it anyway is dropped rather than saved.
+ public static bool Picture(IntPtr hwnd,Bitmap image){if(!Into(hwnd,image,2,false))return false;if(FromScreen){FromScreen=false;return false;}return true;}
  // The window is being moved or resized (its thread runs the system move/size loop) or is minimised.
  public static bool Busy(IntPtr hwnd){
   if(hwnd==IntPtr.Zero||IsIconic(hwnd))return true;uint pid,thread=GetWindowThreadProcessId(hwnd,out pid);if(thread==0)return false;
@@ -45,15 +53,15 @@ public static class GameCapture{
  // "ocrLines=0"). Only callers that hide MeguLit's own text first (style measurement) may read the screen instead: it
  // includes overlays, so marker and mask detection never use it.
  public static bool Into(IntPtr hwnd,Bitmap image,uint printFlags,bool screenFallback){
-  Skipped=false;if(Busy(hwnd)){Skipped=true;return false;}
+  Skipped=false;FromScreen=false;if(Busy(hwnd)){Skipped=true;return false;}
   Choice c;lock(Gate){if(!Choices.TryGetValue(hwnd,out c)){if(Choices.Count>16)Choices.Clear();c=new Choice();Choices[hwnd]=c;}}
   if(Blt(hwnd,image)&&!Blank(image)){lock(Gate){c.Proven=true;c.Blind=false;c.Votes=0;}return true;}
   if(!c.Proven&&!c.Blind){int vote=BlindVote(hwnd,image);lock(Gate){if(vote>0){if(++c.Votes>=3)c.Blind=true;}else if(vote<0)c.Votes=0;}}
   bool print=false;if(c.Blind)lock(Gate){if((DateTime.UtcNow-c.Printed).TotalMilliseconds>=PrintGapMs){c.Printed=DateTime.UtcNow;print=true;}}
-  if(!print){if(screenFallback&&!c.Proven&&ScreenInto(hwnd,image))return true;Skipped=true;return false;}
+  if(!print){if(screenFallback&&!c.Proven&&ScreenInto(hwnd,image)){FromScreen=true;return true;}Skipped=true;return false;}
   bool printed;using(var g=Graphics.FromImage(image)){IntPtr dc=g.GetHdc();try{printed=PrintWindow(hwnd,dc,printFlags);}finally{g.ReleaseHdc(dc);}}
   if(printed&&!Blank(image))return true;if(!screenFallback)return printed;
-  return ScreenInto(hwnd,image);
+  FromScreen=true;return ScreenInto(hwnd,image);
  }
  // +1: the window is in front and the screen over its client area shows a non-blank picture that differs from the
  // blank one BitBlt gave on most sampled points (BitBlt cannot see it). -1: the screen is blank or matches (the game
