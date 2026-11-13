@@ -53,7 +53,7 @@ export function debris(x,y,{n=10,spread=1,up=.6,tint='glass'}={}){
 
 /* 爆裂魔法, refined (user: too rough). Beats: 0–650 ms a seal charges — three rings and a star draw themselves while
    embers are drawn in from all around and the glow grows; 600 ms a thin pillar of light drops from the top of the
-   window onto the point; 700 ms impact — a white flash, the fireball, a sharp shock ring and a slower dust ring, a
+   window onto the point; 700 ms impact — a soft warm glow, the fireball, a sharp shock ring and a slower dust ring, a
    spray of sparks under gravity, the frame shakes; then smoke climbs into a faint mushroom and embers drift up. The
    promise resolves at the impact so the caller can cut the pit and throw the chips. */
 function sparkField(){let c=document.querySelector('body>.fx-layer>canvas.fx-sparks');if(!c){c=document.createElement('canvas');c.className='fx-sparks';layer().append(c);}const dpr=Math.min(2,devicePixelRatio||1);if(c.width!==innerWidth*dpr||c.height!==innerHeight*dpr){c.width=innerWidth*dpr;c.height=innerHeight*dpr;}return {c,ctx:c.getContext('2d'),dpr};}
@@ -103,7 +103,7 @@ export function explosion(x,y,{shake,bar,k=1}={}){
  anim($('.fx-fire.is-inner'),[{transform:'translate(-50%,-50%) scale(0)',opacity:0},{transform:'translate(-50%,-50%) scale(0)',opacity:0,offset:.37},{transform:'translate(-50%,-50%) scale(.7)',opacity:1,offset:.42},{transform:'translate(-50%,-60%) scale(.9)',opacity:0,offset:.62},{opacity:0}],{duration:T});
  anim($('.fx-ring'),[{transform:'translate(-50%,-50%) scale(.1)',opacity:0},{transform:'translate(-50%,-50%) scale(.1)',opacity:1,offset:.37},{transform:'translate(-50%,-50%) scale(5)',opacity:0,offset:.62},{opacity:0}],{duration:T,easing:'cubic-bezier(.1,.7,.3,1)'});
  anim($('.fx-ring.is-dust'),[{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:'translate(-50%,-50%) scale(.2)',opacity:.7,offset:.38},{transform:'translate(-50%,-50%) scale(3.2)',opacity:0,offset:.85},{opacity:0}],{duration:T,easing:'cubic-bezier(.2,.6,.3,1)'});
- anim(flash,[{opacity:0},{opacity:0,offset:.36},{opacity:(jolt?.25:0)*k,offset:.385},{opacity:(jolt?.22:0)*k,offset:.43},{opacity:0,offset:.64},{opacity:0}],{duration:T});w.style.scale=String(.6+.4*k);
+ /* 2026-11-13 user (photosensitive epilepsy): no white flash at the hit; a small warm glow fades in ~250 ms and out ~500 ms */anim(flash,[{opacity:0,transform:'scale(.7)'},{opacity:0,transform:'scale(.7)',offset:.36},{opacity:.5*k,transform:'scale(1)',offset:.49},{opacity:0,transform:'scale(1.15)',offset:.76},{opacity:0}],{duration:T,easing:'ease-in-out'});w.style.scale=String(.6+.4*k);
 
  /* embers drawn in during the charge */
  for(let i=0;i<0;i++){const a=Math.random()*Math.PI*2,r=140+Math.random()*260;live.push({kind:'in',x0:x+Math.cos(a)*r,y0:y+Math.sin(a)*r,tx:x,ty:y,x:0,y:0,t:-Math.random()*.25,life:.62,s:.8+Math.random()*1.6,color:'rgb(255,120,70)'});}

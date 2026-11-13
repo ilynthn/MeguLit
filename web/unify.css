@@ -1260,7 +1260,6 @@ html body .fx-fire{width:340px!important;height:340px!important;background:radia
 html body .fx-fire.is-inner{width:200px!important;height:200px!important;background:radial-gradient(closest-side,#fff,#fff0c0 40%,rgba(255,170,80,.5) 70%,transparent)!important}
 html body .fx-ring{width:90px!important;height:90px!important;box-shadow:0 0 0 2px rgba(255,244,230,.95),0 0 18px 4px rgba(255,150,80,.7),inset 0 0 18px 2px rgba(255,150,80,.5)!important}
 html body .fx-ring.is-dust{width:120px!important;height:120px!important;box-shadow:0 0 0 14px rgba(160,120,100,.18),0 0 40px 20px rgba(120,90,80,.15)!important;filter:blur(3px)}
-html body .fx-flash{position:fixed!important;inset:0;background:radial-gradient(circle at var(--x) var(--y),rgba(255,250,235,.95),rgba(255,220,180,.55) 18%,rgba(255,200,150,.12) 45%,transparent 70%);pointer-events:none;opacity:0}
 html body .fx-spark{display:none}
 html body svg.fx-scars g.fx-scar.is-hot path.fx-pit-lip{animation:pit-hot 2.6s ease-out both}
 html body svg.fx-scars g.fx-scar.is-hot path.fx-rim{animation:rim-hot 2.6s ease-out both}
@@ -1304,7 +1303,6 @@ html body dialog.class-rite .class-rite-glyph{text-shadow:0 0 18px var(--c),0 0 
 /* 爆裂魔法 (judge r-fx1): the flash takes the whole window and lifts the page for a beat; the pit is 90–120px with
    cracks tapering outward; the answer that was wrong stays readable above it with its red edge; the right answer is
    outlined in gold; healing floods the pit with water from its centre */
-html body .fx-flash{background:radial-gradient(circle at var(--x) var(--y),rgba(255,252,240,1),rgba(255,226,190,.75) 22%,rgba(255,200,150,.35) 55%,rgba(255,190,140,.12) 100%)!important;mix-blend-mode:screen}
 html body svg.fx-scars{z-index:4!important}
 html body :is(.gm-jd-opt.miss,.gm-choice.wrong,.gm-blank.bad,.kana-host){position:relative;z-index:5}
 html body svg.fx-scars path.fx-crack{stroke-linecap:round}
@@ -1400,7 +1398,6 @@ html body .dict-hit{width:720px!important;height:56px!important;overflow:hidden}
 html body .dict-hit>i{left:360px!important}
 html body .dict-hit-flash{width:300px!important;height:90px!important;background:radial-gradient(closest-side,rgba(255,246,220,.95),rgba(255,214,140,.6) 40%,rgba(237,181,110,.15) 70%,transparent)!important}
 html body .dict-hit-ring{-webkit-mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent)}
-html body .fx-flash{background:radial-gradient(circle at var(--x) var(--y),rgba(255,248,226,1),rgba(255,214,150,.85) 16%,rgba(255,150,80,.45) 42%,rgba(200,70,40,.18) 75%,rgba(120,30,20,.08) 100%)!important;mix-blend-mode:screen!important}
 html body .fx-core{background:radial-gradient(closest-side,#fffdf6,rgba(255,240,200,.85) 35%,rgba(255,200,130,.35) 65%,transparent)!important}
 html body svg.fx-scars path.fx-crack{stroke:rgba(255,196,150,.55)!important}
 html body svg.fx-scars g.fx-scar.is-hot path.fx-crack{stroke:#ffb35a!important;filter:drop-shadow(0 0 4px rgba(255,120,50,.8))}
@@ -1888,3 +1885,7 @@ html:not(#u):not(#v) body .dict-field{opacity:.24!important}
 html:not(#u):not(#v) body .lg-bar.empty{background:color-mix(in srgb,var(--g-t1,#f1e0d2) 4%,transparent)}
 html:not(#u):not(#v) body .tv-script:not(:has(p)){border-color:transparent}
 html:not(#u):not(#v) body .lib-field{-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+
+/* 2026-11-13 user (photosensitive epilepsy): the Explosion hit is a small warm glow at the point, never a window-wide white flash */
+html body .fx-flash{position:fixed;left:var(--x);top:var(--y);width:240px;height:240px;margin:-120px 0 0 -120px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,196,130,.6),rgba(255,140,80,.22) 60%,transparent);pointer-events:none;opacity:0}
+@media (prefers-reduced-motion:reduce){html body .fx-flash{display:none}}

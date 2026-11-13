@@ -2,10 +2,10 @@
    stripe strength and blur, adjustable in Settings → Appearance and home. A new page in the same style only needs
    a row here and in services/store.cjs PAGE_VEILS. */
 export const PAGE_VEILS=[
- {key:'home',route:'home',a:.35,s:.14,b:14,label:{zh:'首页',en:'Home',ja:'ホーム'}},
- {key:'detail',route:'game',a:.25,s:.14,b:8,label:{zh:'作品详情',en:'Game detail',ja:'作品詳細'}},
- {key:'leaderboard',route:'leaderboard',a:.3,s:.14,b:10,label:{zh:'排行榜',en:'Leaderboard',ja:'ランキング'}},
- {key:'history',route:'history',a:.3,s:.14,b:10,label:{zh:'历史',en:'History',ja:'履歴'}}
+ {key:'home',route:'home',a:.35,s:0,b:14,label:{zh:'首页',en:'Home',ja:'ホーム'}},
+ {key:'detail',route:'game',a:.25,s:0,b:8,label:{zh:'作品详情',en:'Game detail',ja:'作品詳細'}},
+ {key:'leaderboard',route:'leaderboard',a:.3,s:0,b:10,label:{zh:'排行榜',en:'Leaderboard',ja:'ランキング'}},
+ {key:'history',route:'history',a:.3,s:0,b:10,label:{zh:'历史',en:'History',ja:'履歴'}}
 ];
 const PARTS=[['a',1],['s',1],['b',40]];
 /* 2026-11-11 every other page (library, learning, daily, tools, settings, about) stands on the same glass at its default strength */

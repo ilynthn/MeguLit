@@ -14,7 +14,7 @@ test('home showcase order: pinned first, picks, recent fallback, hidden never',a
 });
 test('page veil defaults and clamping',()=>{
  const fs=require('fs'),os=require('os'),path=require('path'),root=fs.mkdtempSync(path.join(os.tmpdir(),'veil-'));fs.mkdirSync(path.join(root,'data'),{recursive:true});
- let p=store.publicPreferences(root);assert.deepEqual(p.pageVeils,{home:{a:.35,s:.14,b:14},detail:{a:.25,s:.14,b:8},leaderboard:{a:.3,s:.14,b:10},history:{a:.3,s:.14,b:10}});
+ let p=store.publicPreferences(root);assert.deepEqual(p.pageVeils,{home:{a:.35,s:0,b:14},detail:{a:.25,s:0,b:8},leaderboard:{a:.3,s:0,b:10},history:{a:.3,s:0,b:10}});
  fs.writeFileSync(path.join(root,'data','preferences.json'),JSON.stringify({pageVeils:{home:{a:3,s:2,b:-5},history:{a:.4,s:.5,b:99}}}));
- p=store.publicPreferences(root);assert.deepEqual(p.pageVeils.home,{a:1,s:1,b:0});assert.deepEqual(p.pageVeils.history,{a:.4,s:.5,b:40});assert.deepEqual(p.pageVeils.detail,{a:.25,s:.14,b:8});
+ p=store.publicPreferences(root);assert.deepEqual(p.pageVeils.home,{a:1,s:1,b:0});assert.deepEqual(p.pageVeils.history,{a:.4,s:.5,b:40});assert.deepEqual(p.pageVeils.detail,{a:.25,s:0,b:8});
 });

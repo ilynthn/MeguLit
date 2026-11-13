@@ -1262,3 +1262,5 @@ document.addEventListener('click',e=>{const input=e.target.closest?.('label.sett
 (()=>{let pending=0;const repaint=()=>{if(document.visibilityState!=='visible'||pending)return;pending=requestAnimationFrame(()=>{const root=document.documentElement;
  root.style.opacity='0.999';pending=requestAnimationFrame(()=>{root.style.opacity='';pending=0;});});};
  document.addEventListener('visibilitychange',repaint);addEventListener('focus',repaint);addEventListener('pageshow',repaint);})();
+/* contrast check (validation/contrast-check.cjs): only the headless test transport gets page navigation and the start notice */
+if(window.__TOME_TEST_TRANSPORT__)window.__megulitTest={navigate:(next,tab)=>{if(next==='game')selectedGameId=model.games[0]?.id||'';return navigate(next,tab||'');},notice:()=>mountDevNotice({api,locale,esc,toast,version:VERSION})};

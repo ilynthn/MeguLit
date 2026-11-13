@@ -183,7 +183,7 @@ function activeOnDay(session, start, end) {
 /* E-home: games the user picked for the home screen; ids only, bounded */
 function cleanHomeShowcase(value){const v=value&&typeof value==='object'?value:{},ids=list=>Array.isArray(list)?[...new Set(list.filter(x=>typeof x==='string'&&x.length<200))].slice(0,500):[];return {mode:v.mode==='pick'?'pick':'auto',order:ids(v.order),pinned:ids(v.pinned),hidden:ids(v.hidden)};}
 /* defaults for each page's veil (web/page-veils.js lists the same pages) */
-const PAGE_VEILS={home:{a:.35,s:.14,b:14},detail:{a:.25,s:.14,b:8},leaderboard:{a:.3,s:.14,b:10},history:{a:.3,s:.14,b:10}};
+const PAGE_VEILS={home:{a:.35,s:0,b:14},detail:{a:.25,s:0,b:8},leaderboard:{a:.3,s:0,b:10},history:{a:.3,s:0,b:10}};
 function publicPreferences(root) {
   const p=readJSON(path.join(root,'data','preferences.json'));
   const veil=(v,d,max)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):d;

@@ -2,7 +2,7 @@
 .main[data-kids~="dtv-bg"]{--dtv-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;position:relative;isolation:isolate}
 .dtv-bg{position:fixed;inset:var(--titlebar-height,64px) 0 0 0;z-index:0;pointer-events:none;overflow:hidden;max-width:none!important;margin:0!important}
 .dtv-bg::before{content:"";position:absolute;inset:-12%;background:var(--dtv-cover) center/cover no-repeat;filter:blur(40px) saturate(1.35) brightness(.8);opacity:.9;transform:scale(1.1)}
-.dtv-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 100% at 25% 10%,transparent 0,color-mix(in srgb,var(--bg) 35%,transparent) 60%,color-mix(in srgb,var(--bg) 70%,transparent) 100%),repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.14) 3px 4px)}
+.dtv-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(130% 100% at 25% 10%,transparent 0,color-mix(in srgb,var(--bg) 35%,transparent) 60%,color-mix(in srgb,var(--bg) 70%,transparent) 100%),repeating-linear-gradient(0deg,transparent 0 3px,rgb(0 0 0/var(--glass-s,0)) 3px 4px)}
 .dtv-glyph{position:absolute;right:3%;top:2%;z-index:1;font-family:var(--g-serif-ja);font-style:normal;font-size:52vmin;line-height:1;color:transparent;-webkit-text-stroke:1.2px color-mix(in srgb,var(--g-t1) 16%,transparent);writing-mode:vertical-rl;user-select:none}
 .dtv-marks{position:fixed;inset:calc(var(--titlebar-height,64px) + 22px) 24px 22px 24px;z-index:0;pointer-events:none;max-width:none!important;margin:0!important}
 .dtv-marks i{position:absolute;width:22px;height:22px;border:1px solid color-mix(in srgb,var(--g-t1) 38%,transparent)}

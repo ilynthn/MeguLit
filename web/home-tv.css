@@ -25,7 +25,7 @@
 .tv-marks i{position:absolute;width:22px;height:22px;border:1px solid color-mix(in srgb,var(--g-t1) 40%,transparent);z-index:4;pointer-events:none}.tv-marks i:nth-child(1){left:2.4vw;top:2.4vh;border-right:0;border-bottom:0}.tv-marks i:nth-child(2){right:2.4vw;top:2.4vh;border-left:0;border-bottom:0}.tv-marks i:nth-child(3){left:2.4vw;bottom:2.4vh;border-right:0;border-top:0}.tv-marks i:nth-child(4){right:2.4vw;bottom:2.4vh;border-left:0;border-top:0}
 .tv-scene{position:absolute;right:4vw;bottom:calc(15vh + 100px);z-index:6;font-family:var(--tv-mono);font-size:11px;letter-spacing:.35em;color:var(--g-t2)}.tv-scene b{color:var(--g-gold);font-weight:400}
 .tv-index{position:absolute;left:4%;bottom:4%;font-family:var(--g-serif);font-size:34vmin;line-height:.8;color:transparent;-webkit-text-stroke:1px color-mix(in srgb,var(--g-t1) 12%,transparent);user-select:none}
-.tv-scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.18) 3px 4px);opacity:.35;z-index:1}
+.tv-scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,rgb(0 0 0/var(--glass-s,0)) 3px 4px);opacity:.35;z-index:1}
 .tv-heat-card{position:relative;width:max-content;max-width:100%}
 .tv-heat-card .tv-face{padding:16px 16px 14px;background:color-mix(in srgb,var(--bg) 55%,transparent);outline:1px solid color-mix(in srgb,var(--g-t1) 10%,transparent)}
 .tv-heat{position:relative;display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,12px);gap:3px}
@@ -181,7 +181,7 @@
 .tv-heat-tip::after{content:"";position:absolute;left:50%;bottom:-5px;width:8px;height:8px;background:inherit;border-right:1px solid rgba(200,50,60,.55);border-bottom:1px solid rgba(200,50,60,.55);transform:translateX(-50%) rotate(45deg)}
 /* the striped glass layer: one per window, its opacity, stripes and blur follow the page (web/page-veils.js); the wallpaper underneath is the user's own */
 .workspace>.stage-cover{position:fixed;inset:var(--titlebar-height,64px) 0 0 0;z-index:0;pointer-events:none;overflow:hidden;background:color-mix(in srgb,var(--bg) calc(var(--glass-a,.3)*100%),transparent);-webkit-backdrop-filter:blur(var(--glass-b,10px));backdrop-filter:blur(var(--glass-b,10px));transition:background .45s cubic-bezier(.4,0,.2,1),backdrop-filter .45s cubic-bezier(.4,0,.2,1)}
-.workspace>.stage-cover::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgb(0 0 0/var(--glass-s,.14)) 3px 4px);pointer-events:none}
+.workspace>.stage-cover::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgb(0 0 0/var(--glass-s,0)) 3px 4px);pointer-events:none}
 .workspace>.stage-cover::after{content:none!important;display:none!important}
 .workspace>.stage-cover[hidden]{display:none}
 .workspace>.stage-cover .dtv-glyph{position:absolute;right:3%;top:2%;font-family:var(--g-serif-ja);font-style:normal;font-size:52vmin;line-height:1;color:transparent;-webkit-text-stroke:1.2px color-mix(in srgb,var(--g-t1) 16%,transparent);writing-mode:vertical-rl;user-select:none}

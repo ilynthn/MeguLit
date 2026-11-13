@@ -4,7 +4,7 @@
    corner tick, hairline separators. Fluid width. Scoped to the page that carries .history-backdrop. */
 .main[data-kids~="history-backdrop"]{--htv-mono:"IBM Plex Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;position:relative;isolation:isolate}
 .history-backdrop::before{filter:blur(70px) saturate(1.2) brightness(.5)}
-.history-backdrop::after{background:radial-gradient(130% 100% at 30% 0,transparent 0,color-mix(in srgb,var(--bg) 35%,transparent) 60%,color-mix(in srgb,var(--bg) 70%,transparent) 100%),repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.14) 3px 4px)}
+.history-backdrop::after{background:radial-gradient(130% 100% at 30% 0,transparent 0,color-mix(in srgb,var(--bg) 35%,transparent) 60%,color-mix(in srgb,var(--bg) 70%,transparent) 100%),repeating-linear-gradient(0deg,transparent 0 3px,rgb(0 0 0/var(--glass-s,0)) 3px 4px)}
 .history-backdrop .dtv-glyph{right:4%;top:6%;font-size:46vmin}
 .main[data-kids~="history-backdrop"]>:not(.dtv-bg):not(.dtv-marks){position:relative;z-index:1}
 
