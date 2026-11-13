@@ -182,7 +182,9 @@ sealed class StartupIsland : Form {
   try{var pos=new Point(Left,Top);var size=new LayerSize(Width,Height);var zero=new Point();var blend=new Blend{Alpha=255,Format=1};if(!UpdateLayeredWindow(Handle,screen,ref pos,ref size,memory,ref zero,0,ref blend,2))throw new System.ComponentModel.Win32Exception();}
   finally{SelectObject(memory,old);DeleteObject(bitmap);DeleteDC(memory);ReleaseDC(IntPtr.Zero,screen);}
  }
+ [DllImport("user32.dll")]static extern void DisableProcessWindowsGhosting();
  [STAThread] static int Main(string[] args){
+  try{DisableProcessWindowsGhosting();}catch{}
   if(args.Length==1&&args[0]=="--surface-self-test"){
    return MainSurface("MeguLit",800,600)&&MainSurface("MeguLit.V3",800,600)&&!MainSurface("Default IME",800,600)&&!MainSurface("MSCTFIME UI",800,600)&&!MainSurface("",800,600)&&!MainSurface("MeguLit",16,16)?0:3;
   }

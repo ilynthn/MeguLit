@@ -6,7 +6,8 @@ mod runtime_setup;
 mod single_instance;
 mod clipboard;
 #[tauri::command]
-fn read_clipboard()->Result<String,String>{clipboard::read()}
+/* Off the UI thread: GetClipboardData waits on the owner when it renders lazily, and a stalled owner froze every window. */
+async fn read_clipboard()->Result<String,String>{tauri::async_runtime::spawn_blocking(clipboard::read).await.map_err(|e|e.to_string())?}
 mod window_policy;
 mod window_memory;
 mod home_transition;
@@ -452,6 +453,7 @@ fn prepare_profile(root:&std::path::Path,profile:&std::path::Path) {
 
 fn main() {
     STARTED.get_or_init(std::time::Instant::now);
+    window_policy::no_ghost_windows();
     let root = root_directory();
     if std::env::args().any(|arg|arg=="--home-window-self-test"){
         let result=window_policy::native_hide_self_test();let _=std::fs::create_dir_all(root.join("validation"));
