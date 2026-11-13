@@ -51,6 +51,23 @@ jobs:
           & $csc /nologo /target:exe /optimize+ /platform:x64 /out:native\HookInjector64.exe native\HookInjector.cs native\HookTarget.cs; if ($LASTEXITCODE) { throw 'HookInjector64' }
           & $csc /nologo /target:exe /optimize+ /reference:System.Security.dll /out:native\KeyVault.exe native\KeyVault.cs; if ($LASTEXITCODE) { throw 'KeyVault' }
 
+      - name: DirectPlay decline DLLs (MSVC)
+        shell: pwsh
+        run: |
+          # validation/directplay.test.cjs reads native/MeguLitDpDecline{32,64}.dll, which native/ does not carry.
+          # build.cmd defaults MEGULIT_VS to a developer machine path, so point it at the runner's own VS.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "vswhere not found at $vswhere" }
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'No Visual Studio with the C++ toolset on this runner' }
+          $env:MEGULIT_VS = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          if (-not (Test-Path $env:MEGULIT_VS)) { throw "VsDevCmd.bat not found at $env:MEGULIT_VS" }
+          & cmd /c native\dpdecline\build.cmd
+          if ($LASTEXITCODE) { throw 'dpdecline build failed' }
+          foreach ($n in 'MeguLitDpDecline32.dll', 'MeguLitDpDecline64.dll') {
+            if (-not (Test-Path "native\$n")) { throw "build.cmd did not produce native\$n" }
+          }
+
       - name: Hook bridge (Roslyn) with self-test
         shell: pwsh
         run: ./native/Build-HookBridge.ps1 -OutputPath native/HookBridge.exe
