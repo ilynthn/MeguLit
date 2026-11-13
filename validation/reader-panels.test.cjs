@@ -9,7 +9,10 @@ test('reader-panels loads before controls-b in both module lists',()=>{
 test('panel opacity, radius and border come from the user settings, not fixed values',()=>{
  const js=read('web/reader/modules/reader-panels.js');
  assert.match(js,/border-radius:var\(--tome-p-radius,18px\)/);assert.match(js,/rgba\(243,239,232,var\(--tome-p-border,\.08\)\)/);
- assert.match(js,/\.tome-menu-bg\{background-color:#0a090a!important\}/);assert.doesNotMatch(js,/\.tome-menu-bg\{[^}]*opacity/);
+ assert.match(js,/\.tome-menu-bg\{background-color:#0a090a!important\}/);/* the only opacity rules on the tint layer: the 点读卡's readability floor over the user's own value (2026-11-14),
+    and the glass layer, which is transparent itself and tints in ::after */
+ for(const m of js.matchAll(/\.tome-menu-bg(::after)?\{[^}]*opacity:([^;!}]*)/g))assert.ok(/var\(--tome-p-alpha/.test(m[2])||m[2]==='1',m[0]);
+ assert.match(js,/selection-card>\.tome-menu-bg\{opacity:max\(var\(--tome-p-alpha,\.62\),\.88\)/);
 });
 test('no ordinal numbering and motion that never keeps running',()=>{
  const js=read('web/reader/modules/reader-panels.js');

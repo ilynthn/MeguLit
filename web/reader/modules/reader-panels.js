@@ -9,6 +9,7 @@
  if(window.__megulitPanels)return;window.__megulitPanels=true;
  const R='html:not(#mgp1):not(#mgp2):not(#mgp3):not(#mgp4):not(#mgp5):not(#mgp6):not(#mgp7):not(#mgp8):not(#mgp9) body';
  const P=':is(.tomoyo-cn-dialog,.tomoyo-selection-card,.tome-backlog)';
+ const G=R.replace('html','html:is([data-tome-card-surface=glass],[data-tome-card-surface=both])');
  const css=String.raw`
 ${R} ${P}{--ink:#f3efe8;--ink2:#cfc8bd;--ink3:#b0aaa0;--line:rgba(243,239,232,.13);--red:#d8343e;--redi:#ff7880;
  color:var(--ink)!important;border:1px solid rgba(243,239,232,var(--tome-p-border,.08))!important;border-radius:var(--tome-p-radius,18px)!important;
@@ -121,6 +122,28 @@ ${R} .tomoyo-selection-card .tomoyo-word-pos{align-self:center!important}
 
 ${R} .tomoyo-cn-dialog .tomoyo-menu-content [class*=tome-bg] details>summary{padding:0 14px!important}
 ${R} .tomoyo-cn-dialog .tomoyo-menu-content [class*=tome-bg] details>:not(summary){padding-inline:14px!important}
+
+/* ---------- 外观 → 危险区 (settings-reset.js): the menu's own h4 and button rules gave the heading a 22 px top margin and
+   white 15 px type, and the button a 10 px top / 8 px right margin, so the zone looked loose and lopsided (2026-11-14). ---------- */
+${R} .tomoyo-cn-dialog .tome-reset-zone{margin:24px 0 8px!important;padding:14px 16px!important;border:1px solid rgba(216,52,62,.38)!important;border-radius:2px!important;background:rgba(216,52,62,.04)!important}
+${R} .tomoyo-cn-dialog .tomoyo-menu-content .tome-reset-zone h4{margin:0 0 10px!important;padding:0!important;font:600 12.5px/1.4 "Microsoft YaHei UI",sans-serif!important;letter-spacing:.04em!important;color:var(--redi)!important}
+${R} .tomoyo-cn-dialog .tome-reset-zone .tome-reset-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important}
+${R} .tomoyo-cn-dialog .tome-reset-zone .tome-reset-row>span{min-width:0;font:500 14px/1.45 "Microsoft YaHei UI",sans-serif!important;color:var(--ink)!important}
+${R} .tomoyo-cn-dialog .tomoyo-menu-content .tome-reset-zone small{display:block!important;margin-top:4px!important;font-size:12px!important;line-height:1.6!important;color:var(--ink3)!important}
+${R} .tomoyo-cn-dialog .tome-reset-zone [data-reset-open]{flex:none!important;margin:0!important;height:32px!important;padding:0 14px!important;border-radius:2px!important;border:1px solid rgba(216,52,62,.55)!important;background:transparent!important;color:var(--redi)!important;font:500 13px/1 "Microsoft YaHei UI",sans-serif!important;white-space:nowrap}
+${R} .tomoyo-cn-dialog .tome-reset-zone [data-reset-open]:hover{background:rgba(216,52,62,.12)!important}
+
+/* ---------- 点读卡 over a bright frame (user, 2026-11-14, ダストマニア): with 纯色 at the saved opacity the ink tint let a
+   white game through, the card turned pale grey and the light chips / × / reading vanished. The tint behind the card never
+   drops below 88% (glass: the tint over the blurred frame below 80%), whatever the background type or saved opacity. ---------- */
+${R} .tomoyo-selection-card>.tome-menu-bg{opacity:max(var(--tome-p-alpha,.62),.88)!important}
+/* 对话记录 the same (user's beta38 shot: at 81% the game's own line read straight through the log rows) */
+${R} .tome-backlog>.tome-menu-bg{opacity:max(var(--tome-p-alpha,.62),.9)!important}
+${G} .tomoyo-selection-card>.tome-menu-bg{opacity:1!important}
+${G} .tomoyo-selection-card>.tome-menu-bg::after{opacity:max(calc(var(--tome-p-alpha,.62) * .6),.8)!important;background:#0a090a!important}
+${R} .tomoyo-selection-card .tomoyo-sense{grid-template-columns:minmax(0,1fr)!important}
+${R} .tomoyo-selection-card>header button:not(.tomoyo-anki-button),${R} .tomoyo-selection-card>footer button{color:var(--ink2)!important;border-color:rgba(243,239,232,.24)!important}
+${R} .tomoyo-selection-card>header button:not(.tomoyo-anki-button):hover,${R} .tomoyo-selection-card>footer button:hover{color:var(--ink)!important;background:rgba(243,239,232,.08)!important}
 `;
  const style=document.createElement('style');style.id='megulit-reader-panels';style.textContent=css;document.head.appendChild(style);
  let gsap=window.gsap||null,reduce=matchMedia('(prefers-reduced-motion: reduce)');
@@ -128,13 +151,15 @@ ${R} .tomoyo-cn-dialog .tomoyo-menu-content [class*=tome-bg] details>:not(summar
   s.onload=()=>{gsap=window.gsap||null;};s.onerror=()=>{load.p=0;};document.head.append(s);};
  (window.requestIdleCallback||setTimeout)(load,{timeout:4000});
  const once=(parent,cls)=>{let n=parent.querySelector(':scope>.'+cls);if(!n){n=document.createElement('i');n.className=cls;n.setAttribute('aria-hidden','true');parent.appendChild(n);}return n;};
- const E='expo.out',PUSH=.22,LINE=.22;
+ const E='expo.out',LINE=.22;
  const play=(el,head,lineHost,extra)=>{
   if(!gsap||reduce.matches||!el.isConnected)return;
   const line=lineHost?once(lineHost,'mgp-line'):null;
   if(line&&head&&lineHost!==head){line.style.top=(head.offsetTop+head.offsetHeight-1)+'px';line.style.bottom='auto';}
   const tl=gsap.timeline({defaults:{ease:E},onComplete:()=>tl.kill()});
-  tl.fromTo(el,{scale:.97},{scale:1,duration:PUSH,clearProps:'transform'});
+  /* The panel's own push (97% to 100%) is its CSS open animation (backlog.js / menu-layout.js keyframes). GSAP never
+     tweens the panel itself: it read the running keyframe scale, baked it into an inline transform, and the log stayed
+     a squashed 70 px strip (user, 2026-11-14). Only the red line and the headword move here. */
   if(line)tl.fromTo(line,{scaleX:0},{scaleX:1,duration:LINE,clearProps:'transform'},0);
   if(extra)extra(tl);
  };
