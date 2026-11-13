@@ -144,7 +144,13 @@ export async function cleanupAvatars(env,now=new Date()){
 /* Statements that replace this user's counts for the week (called from the leaderboard POST batch). */
 export function hotStatements(env,subject,hot,now=new Date()){
  if(!hot)return [];const t=sec(now);
- return [env.DB.prepare('DELETE FROM hot_lookups WHERE week_key=? AND id_hash=?').bind(hot.week,subject),...[...hot.terms].slice(0,HOT.terms).map(([term,count])=>env.DB.prepare('INSERT INTO hot_lookups(week_key,id_hash,term,count,updated_at) VALUES(?,?,?,?,?)').bind(hot.week,subject,term,count,t))];
+ /* 2026-11-13 this used to delete the week's rows and re-insert all of them (up to 100 terms) on every submit, which
+    the app repeats every 10 minutes: ~200 D1 rows_written for counts that rarely move. Now only what changed. */
+ const terms=[...hot.terms].slice(0,HOT.terms),keys=terms.map(([term])=>term);
+ return [keys.length
+   ?env.DB.prepare(`DELETE FROM hot_lookups WHERE week_key=? AND id_hash=? AND term NOT IN (${keys.map(()=>'?').join(',')})`).bind(hot.week,subject,...keys)
+   :env.DB.prepare('DELETE FROM hot_lookups WHERE week_key=? AND id_hash=?').bind(hot.week,subject),
+  ...terms.map(([term,count])=>env.DB.prepare('INSERT INTO hot_lookups(week_key,id_hash,term,count,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(week_key,id_hash,term) DO UPDATE SET count=excluded.count,updated_at=excluded.updated_at WHERE hot_lookups.count<>excluded.count').bind(hot.week,subject,term,count,t))];
 }
 
 /* ---- hot words: weekly settlement ------------------------------------------------------------------------------ */

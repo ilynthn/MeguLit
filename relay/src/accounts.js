@@ -169,7 +169,9 @@ export async function authenticate(request, env, now = new Date()) {
     rotated = newToken();
     await env.DB.prepare('UPDATE account_sessions SET token_hash=?,prev_hash=?,prev_until=?,rotated_at=?,last_used_at=?,expires_at=? WHERE id=?')
       .bind(await sha256(rotated), hash, t + ROTATE_GRACE, t, t, t + SESSION_DAYS * 86400, session.id).run();
-  } else if (t - session.last_used_at > 300) {
+  /* 2026-11-13 was 300s: a row per signed-in device every 5 minutes is ~288 D1 writes a day each. The session lives
+       30 days, so refreshing last_used_at / expires_at once an hour keeps it alive just as well. */
+  } else if (t - session.last_used_at > 3600) {
     await env.DB.prepare('UPDATE account_sessions SET last_used_at=?,expires_at=? WHERE id=?').bind(t, t + SESSION_DAYS * 86400, session.id).run();
   }
   if (rotated) ROTATED.set(request, rotated);

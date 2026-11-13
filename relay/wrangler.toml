@@ -50,3 +50,60 @@ bucket_name = "megulit-diagnostics"
 
 [observability]
 enabled = true
+
+# 2026-11-13 Cloudflare rate limiting bindings: the short, high-traffic windows no longer write a D1 row per request
+# (D1 free tier is 100,000 rows_written a day). Limits must match RATE in src/worker.js; period is 10 or 60 only.
+# namespace_id is any number unique within this Worker; changing one resets its counters.
+[[unsafe.bindings]]
+name = "RL_IP"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_LB_GET"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_AVATAR_GET"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 600, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_HOT"
+type = "ratelimit"
+namespace_id = "1004"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_DAILY"
+type = "ratelimit"
+namespace_id = "1005"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_DAILY_IMG"
+type = "ratelimit"
+namespace_id = "1006"
+simple = { limit = 240, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_RELEASE"
+type = "ratelimit"
+namespace_id = "1007"
+simple = { limit = 30, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_SOCIAL_GET"
+type = "ratelimit"
+namespace_id = "1008"
+simple = { limit = 120, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_FORUM_GET"
+type = "ratelimit"
+namespace_id = "1009"
+simple = { limit = 120, period = 60 }

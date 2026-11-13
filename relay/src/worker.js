@@ -51,7 +51,13 @@ async function refreshRelease(env,which){
  await env.DB.prepare('INSERT INTO release_cache(which,body,fetched_at) VALUES(?,?,?) ON CONFLICT(which) DO UPDATE SET body=excluded.body,fetched_at=excluded.fetched_at').bind(which,body,Math.floor(Date.now()/1000)).run();
  return body;
 }
+/* 2026-11-13 D1 daily rows_written was at 94% of the free tier: every request wrote a rate_limits row (the global ip
+   bucket plus the route's own). The short, high-traffic windows now use Cloudflare's own rate limiting bindings
+   (no D1 write at all); the rare long windows (hourly / daily caps) stay in D1, where a row per hit is nothing. */
+export const NATIVE={ip:'RL_IP','lb-get':'RL_LB_GET','avatar-get':'RL_AVATAR_GET',hot:'RL_HOT',daily:'RL_DAILY','daily-img':'RL_DAILY_IMG',release:'RL_RELEASE','social-get':'RL_SOCIAL_GET','forum-get':'RL_FORUM_GET'};
 export async function hit(env,kind,subject,now=Date.now()){
+ const limiter=env[NATIVE[kind]||''];
+ if(limiter?.limit){try{return (await limiter.limit({key:`${kind}:${subject}`})).success;}catch{/* fall through to D1 */}}
  const [limit,seconds]=RATE[kind],windowStart=Math.floor(now/1000/seconds)*seconds,bucket=`${kind}:${subject}:${windowStart}`;
  const row=await env.DB.prepare('INSERT INTO rate_limits(bucket,count,reset_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 RETURNING count').bind(bucket,windowStart+seconds).first();
  if(Math.random()<.02)await env.DB.prepare('DELETE FROM rate_limits WHERE reset_at<?').bind(Math.floor(now/1000)).run();
@@ -66,7 +72,7 @@ export async function subjects(request,env,installId,now){
     signed in is linked to that account, and counts for it from then on, signed in or not. */
  let linked='';
  if(env.DB&&install){try{
-  if(account)await env.DB.prepare('INSERT INTO install_links(install_hash,account_hash,linked_at) VALUES(?,?,?) ON CONFLICT(install_hash) DO UPDATE SET account_hash=excluded.account_hash,linked_at=excluded.linked_at').bind(install,account,Math.floor((now?.getTime?.()||Date.now())/1000)).run();
+  if(account)await env.DB.prepare('INSERT INTO install_links(install_hash,account_hash,linked_at) VALUES(?,?,?) ON CONFLICT(install_hash) DO UPDATE SET account_hash=excluded.account_hash,linked_at=excluded.linked_at WHERE install_links.account_hash<>excluded.account_hash').bind(install,account,Math.floor((now?.getTime?.()||Date.now())/1000)).run();
   else linked=(await env.DB.prepare('SELECT account_hash FROM install_links WHERE install_hash=?').bind(install).first())?.account_hash||'';
  }catch{}}
  return {primary:account||linked||install,account,install,auth,linked};
@@ -91,10 +97,16 @@ export async function leaderboardPost(request,env,ip,now=new Date()){
  if(who.install&&idHash!==who.install){try{await env.DB.batch(['leaderboard_stats','leaderboard_games','leaderboard_users'].map(t=>env.DB.prepare(`DELETE FROM ${t} WHERE id_hash=?`).bind(who.install)));}catch{}}
  /* 2026-11-12 (user: two players named the same mixed the board up) a name another player already uses is refused */
  {const taken=await env.DB.prepare('SELECT 1 FROM leaderboard_users WHERE lower(trim(name))=lower(trim(?)) AND id_hash<>? LIMIT 1').bind(name,idHash).first();if(taken)return fail('NAME_TAKEN',409);}
- const statements=[env.DB.prepare('INSERT INTO leaderboard_users(id_hash,name,share_games,element,level,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id_hash) DO UPDATE SET name=excluded.name,share_games=excluded.share_games,element=excluded.element,level=excluded.level,updated_at=excluded.updated_at').bind(idHash,name,games?1:0,element,level,t,t)];
- for(const period of ['week','month','all']){const s=stats[period];statements.push(env.DB.prepare('INSERT INTO leaderboard_stats(id_hash,period,period_key,characters,seconds,words,streak,reviews,kana,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id_hash,period,period_key) DO UPDATE SET characters=excluded.characters,seconds=excluded.seconds,words=excluded.words,streak=excluded.streak,reviews=excluded.reviews,kana=excluded.kana,updated_at=excluded.updated_at').bind(idHash,period,keys[period],s.characters,s.seconds,s.words,s.streak,s.reviews,s.kana,t));}
- statements.push(env.DB.prepare('DELETE FROM leaderboard_games WHERE id_hash=?').bind(idHash));
- for(const g of games||[])statements.push(env.DB.prepare('INSERT INTO leaderboard_games(id_hash,game_key,title,characters,seconds,updated_at,last_at) VALUES(?,?,?,?,?,?,?)').bind(idHash,g.key,g.title,g.characters,g.seconds,t,g.last||0));
+ /* 2026-11-13 every upsert below skips the write when nothing actually changed (D1 counts rows_written, and the app
+    re-posts the same totals every 10 minutes while the board is open). updated_at alone is not worth a row. */
+ const statements=[env.DB.prepare('INSERT INTO leaderboard_users(id_hash,name,share_games,element,level,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id_hash) DO UPDATE SET name=excluded.name,share_games=excluded.share_games,element=excluded.element,level=excluded.level,updated_at=excluded.updated_at WHERE leaderboard_users.name<>excluded.name OR leaderboard_users.share_games<>excluded.share_games OR leaderboard_users.element<>excluded.element OR leaderboard_users.level<>excluded.level').bind(idHash,name,games?1:0,element,level,t,t)];
+ for(const period of ['week','month','all']){const s=stats[period];statements.push(env.DB.prepare('INSERT INTO leaderboard_stats(id_hash,period,period_key,characters,seconds,words,streak,reviews,kana,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id_hash,period,period_key) DO UPDATE SET characters=excluded.characters,seconds=excluded.seconds,words=excluded.words,streak=excluded.streak,reviews=excluded.reviews,kana=excluded.kana,updated_at=excluded.updated_at WHERE leaderboard_stats.characters<>excluded.characters OR leaderboard_stats.seconds<>excluded.seconds OR leaderboard_stats.words<>excluded.words OR leaderboard_stats.streak<>excluded.streak OR leaderboard_stats.reviews<>excluded.reviews OR leaderboard_stats.kana<>excluded.kana').bind(idHash,period,keys[period],s.characters,s.seconds,s.words,s.streak,s.reviews,s.kana,t));}
+  /* the games were deleted and re-inserted wholesale before: 60 rows a post for a 30-game list, nearly all identical */
+ {const keys=(games||[]).map(g=>g.key);
+  statements.push(keys.length
+   ?env.DB.prepare(`DELETE FROM leaderboard_games WHERE id_hash=? AND game_key NOT IN (${keys.map(()=>'?').join(',')})`).bind(idHash,...keys)
+   :env.DB.prepare('DELETE FROM leaderboard_games WHERE id_hash=?').bind(idHash));
+  for(const g of games||[])statements.push(env.DB.prepare('INSERT INTO leaderboard_games(id_hash,game_key,title,characters,seconds,updated_at,last_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id_hash,game_key) DO UPDATE SET title=excluded.title,characters=excluded.characters,seconds=excluded.seconds,updated_at=excluded.updated_at,last_at=excluded.last_at WHERE leaderboard_games.title<>excluded.title OR leaderboard_games.characters<>excluded.characters OR leaderboard_games.seconds<>excluded.seconds OR leaderboard_games.last_at<>excluded.last_at').bind(idHash,g.key,g.title,g.characters,g.seconds,t,g.last||0));}
  statements.push(...hotStatements(env,idHash,hot.value,now));
  /* a PC that just logged in: fold its old install-id row into the account row */
  if(who.account&&who.install&&who.install!==who.account)for(const table of ['leaderboard_stats','leaderboard_games','leaderboard_users','hot_lookups'])statements.push(env.DB.prepare(`DELETE FROM ${table} WHERE id_hash=?`).bind(who.install));
