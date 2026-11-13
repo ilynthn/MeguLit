@@ -260,6 +260,8 @@ class HookNative{
   if(this.engineDialog===false&&typeof m.text==='string'&&m.text.trim()){this.trace('art text (text window hidden) '+JSON.stringify(m.text.slice(0,40)));this.artSeen?.delete(HookNative.flat(m.text.trim()));this.artCandidate(m.text);return;}
   // The game's own ruby readings ride after the line as \x1d base \x1c reading pairs (ISLAND hook): split them off
   // before anything else sees the text, and attach them when this line is delivered (user, 2026-11-03).
+  /* 2026-11-14 (ダストマニア・グロテスク, Chinese patch): Shift-JIS read as GBK becomes the Japanese it was (core/text-sanity.cjs) */
+  if(typeof m.text==='string'){const fixed=require('./text-sanity.cjs').repairShiftJisAsGbk(m.text);if(fixed){this.trace('source repaired Shift-JIS read as GBK '+JSON.stringify(fixed.slice(0,20)));m={...m,text:fixed};}}
   const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:extracted.text};this.languageCheck(m.text);
   // Multilingual containers keep only the Japanese track (E243); streams that deliver every line several times (or every character doubled) are learned and undone per stream (E215).
   this.repeats=this.repeats||new (require('./repeat-normalizer.cjs').RepeatNormalizer)();
