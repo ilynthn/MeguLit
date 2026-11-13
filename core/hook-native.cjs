@@ -102,6 +102,8 @@ class HookNative{
    /* E531: an embed-capable hook is inserted; its stream appears with the first dialogue line, so a title menu is not "unsupported" */
    if(m.type==='hookEmbedPending'){this.trace('embed hook pending '+String(m.code||'').slice(0,200));this.notify({hookEmbedPending:true});return;}
    /* E520: the bridge found this game's remembered dialogue stream (it embedded before): no warm-up, replace from the first line */
+   /* signature memory: the remembered hook was relocated by its byte signature (game updated/other build) and inserted before the first line, or not found (automatic search, re-learned) */
+   if(m.type==='hookSignature'){this.state.hookSignature={found:!!m.found,moved:!!m.moved,module:String(m.module||'').slice(0,100)};this.trace('stream signature '+(m.found?(m.moved?'relocated ':'same place ')+String(m.code||'').slice(0,200):'not found in '+String(m.module||'')));if(!m.found&&this.remembered){this.remembered=null;}return;}
    if(m.type==='hookMemory'){this.remembered={name:String(m.name||'').slice(0,100),code:String(m.code||'').slice(0,1000)};this.trace('stream memory '+this.remembered.name+' '+this.remembered.code);this.notify({hookRemembered:true});try{this.onRemembered?.(this.remembered);}catch(e){this.trace('remembered error '+(e?.message||e));}return;}
    if(m.type==='hookEngineLine'&&PAGE_ENGINES.has(m.engine)){this.pageLine(m);return;}
    if(m.type==='hookTextPos'&&m.engine==='pal_sprite_v1'){this.palPosition(m);return;}
