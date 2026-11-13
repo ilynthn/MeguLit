@@ -26,13 +26,19 @@ const sjLead=c=>(c>=0x81&&c<=0x9f)||(c>=0xe0&&c<=0xfc),gbLead=c=>c>=0x81&&c<=0xf
 const sjDec=new TextDecoder('shift_jis'),gbDec=new TextDecoder('gbk');
 // Text: runs of double-byte Shift-JIS characters (the engine stores dialogue full-width); a run must carry kana or kanji.
 function runs(data,lead,dec){const lines=[];let i=0;
- while(i<data.length){let j=i;while(j+1<data.length&&lead(data[j])&&data[j+1]>=0x40&&data[j+1]!==0x7f)j+=2;
+ while(i<data.length){let j=i;for(;;){if(j+1<data.length&&lead(data[j])&&data[j+1]>=0x40&&data[j+1]!==0x7f)j+=2;else if(j>i&&data[j]>=0x21&&data[j]<0x7f&&/[!?]/.test(String.fromCharCode(data[j])))j++;else break;}
   if(j-i>=4){const t=dec.decode(data.subarray(i,j)).replace(/[\s　]+$/,'');if(/[ぁ-ゖァ-ヺ一-龯]/.test(t)&&!t.includes('�'))lines.push(t);i=j;}else i++;}
  return lines;}
 /* #104 Chinese builds rewrite the strings in GBK (AIR air_cn.exe). Read both ways and keep the one whose text looks like
    dialogue: brackets and full stops in that code page (「 is 81 75 in Shift-JIS, A1 B8 in GBK), kana for Japanese. */
 const dialogue=lines=>{let n=0;for(const t of lines)n+=(t.match(/[「」『』。、，！？ぁ-ゖァ-ヺ]/g)||[]).length;return n;};
-function parse(data){const sj=runs(data,sjLead,sjDec),gb=runs(data,gbLead,gbDec);return {lines:dialogue(gb)>dialogue(sj)*1.5?gb:sj,anchors:[]};}
+/* 2026-11-13 (涙, live hook 「…んぐぅッ!!」): half-width text inside a line is its own command, 00 FE <ASCII> 00 FF, between
+   the full-width parts; it is put back in place so the line keeps its end and meets the hooked text. */
+function inlineHalf(data){const parts=[];let last=0;
+ for(let i=0;i+3<data.length;i++){if(data[i]!==0||data[i+1]!==0xfe)continue;let j=i+2;while(j<data.length&&data[j]>=0x20&&data[j]<0x7f)j++;
+  if(j>i+2&&j+1<data.length&&data[j]===0&&data[j+1]===0xff){parts.push(data.subarray(last,i),data.subarray(i+2,j));last=j+2;i=j+1;}}
+ if(!parts.length)return data;parts.push(data.subarray(last));return Buffer.concat(parts);}
+function parse(data){data=inlineHalf(Buffer.from(data));const sj=runs(data,sjLead,sjDec),gb=runs(data,gbLead,gbDec);return {lines:dialogue(gb)>dialogue(sj)*1.5?gb:sj,anchors:[]};}
 function defaultNames(dir){const out=new Map();for(const ini of iniFiles(dir)){
  const s=ini.toString('latin1');for(const m of s.matchAll(/#NAME\.([A-Z])="([^"]*)"/g))if(!out.has(m[1].charCodeAt(0)-65))out.set(m[1].charCodeAt(0)-65,Buffer.from(m[2],'latin1'));}return out;}
 // ＊Ａ is 81 96 82 60 in Shift-JIS and A3 AA A3 C1 in GBK.
@@ -49,6 +55,6 @@ const avg32={
  archives:()=>[],
  sources:dir=>{const f=seenFile(dir);return f?[f]:[];},
  parse,test:n=>/^SEEN\d+\.TXT$/i.test(n),
- _internal:{lz,list,seenFile},
+ _internal:{lz,list,seenFile,inlineHalf},
 };
 module.exports=avg32;

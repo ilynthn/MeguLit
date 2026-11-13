@@ -14,6 +14,7 @@ const SPEAKER=/^[^「『（(\s。、…―]{1,16}(?=[「『（(])/u;
 /* KiriKiri scripts keep inline text commands the game never shows: font and pitch for a dash (%p-1;%fＭＳ ゴシック;――%p;%fuser;,
    9-nine, 351 lines) and voice sync (%D$vl1;). Lines match, and pair, without them. */
 const inlineTags=s=>String(s||'').replace(/%[A-Za-z][^;%\n「」]{0,24};/g,'');
+const plainKey=s=>norm(inlineTags(s)).replace(/≪([^≪≫／]*)／[^≪≫]*≫/g,'$1').replace(/[●○◯〇＊*■□]/g,'●');
 const matchKey=s=>norm(inlineTags(s)).replace(/≪([^≪≫／]*)／[^≪≫]*≫/g,'$1').replace(SPEAKER,'').replace(/[●○◯〇＊*■□]/g,'●');
 const japaneseLine=t=>{const k=(t.match(KANA)||[]).length,h=(t.match(HAN)||[]).length;return k>=2&&k>=h*.2;};
 // Lines that carry language at all (not file names, labels or numbers): what the Japanese / translated share is measured on.
@@ -350,7 +351,9 @@ class Matcher{
   for(let i=from;i<to;i++){const t=this.normalized[i];if(!t||t.length<s.length*.6||s.length<t.length*.6&&t.length-s.length>12)continue;const d=dice(t.slice(0,s.length+2));if(d>score){score=d;best=i;}}
   if(best<0||score<.8||s.length<this.normalized[best].length*.6)return -1;this.last=best;return best;}
  constructor(runtimeLines,originalLines){this.rt=runtimeLines;this.og=originalLines;this.normalized=runtimeLines.map(matchKey);this.heads=new Map();this.normalized.forEach((t,i)=>{if(!t)return;const k=t.slice(0,4);if(!this.heads.has(k))this.heads.set(k,[]);this.heads.get(k).push(i);});this.last=-1;}
- cover(start,s){let at=0,i=start;const used=[];while(at<s.length&&i<this.normalized.length){const t=this.normalized[i];if(!t){i++;continue;}if(!s.startsWith(t,at))return null;used.push(i);at+=t.length;i++;}return at===s.length?used:null;}
+ /* 2026-11-13 (涙 name screen: 「あなたの現在の名前は『春日　光一』、」 lost its head as if it were a speaker): a line after the
+    first of a joined text is also tried whole, without the speaker cut */
+ cover(start,s){let at=0,i=start;const used=[];while(at<s.length&&i<this.normalized.length){let t=this.normalized[i];if(!t){i++;continue;}if(!s.startsWith(t,at)){const whole=i>start?plainKey(this.rt[i]):'';if(!whole||!s.startsWith(whole,at))return null;t=whole;}used.push(i);at+=t.length;i++;}return at===s.length?used:null;}
  match(text){
   const s=matchKey(text);if(!s)return {status:'none',method:'empty'};const starts=new Set();for(let k=Math.min(4,s.length);k>=1;k--)for(const i of this.heads.get(s.slice(0,k))||[])if(s.startsWith(this.normalized[i]))starts.add(i);
   const found=[...starts].map(i=>this.cover(i,s)).filter(Boolean);if(!found.length)return {status:'none',method:'no-cover'};
