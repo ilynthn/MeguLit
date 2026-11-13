@@ -194,7 +194,7 @@ html.anki-immersive :is(.app-frame,.workspace,.main,#learning-content,#learning-
 .anki-hud-edit :focus-visible{outline:1px solid var(--dk-accent);outline-offset:1px}
 @media (prefers-reduced-motion:reduce){.anki-hud-edit,.hud-dock-panel,.hud-dock-pill,.hud-dock-tip,.hud-dock-preset::after,.hud-dock-menu summary svg{transition:none!important}}
 /* ---- (user 2026-11-13) review buttons: one quiet glass capsule of text buttons with their keys, the underline grows on hover ---- */
-.anki-hud-block[data-hud=controls] .review-controls{gap:0;padding:3px;border:1px solid rgba(255,255,255,.26);border-radius:999px;background:rgba(14,10,12,.36);backdrop-filter:blur(10px) saturate(1.2);box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.anki-hud-block[data-hud=controls] .review-controls{gap:12px;padding:0;border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none/* owner 2026-11-14: no pill frame behind the review buttons */}
 .review-page .anki-hud .review-controls :is(button.hud-primary,button.anki-rating){--u:var(--hud-accent,#f0883e);position:relative;display:inline-flex;align-items:baseline;justify-content:center;gap:.5em;min-width:0;min-height:0;height:auto;
  flex-direction:row!important;flex-wrap:nowrap;padding:.62em 1.35em;border:0!important;border-radius:999px;background:transparent!important;box-shadow:none!important;color:var(--hud-text,#ece4dc)!important;font-size:var(--hud-size-controls,16px);font-family:var(--hud-zh-font,inherit);letter-spacing:.06em;cursor:pointer;transition:color .18s ease,background-color .18s ease;backdrop-filter:none}
 .review-page .anki-hud .review-controls button+button::before{content:"";position:absolute;left:0;top:28%;bottom:28%;width:1px;background:rgba(255,255,255,.12)}
