@@ -31,6 +31,14 @@ const hudCopy={
   nudged:'重ならないよう移動',space:'Space',reviewed:'{n} 枚復習',noResult:'辞書に見つかりません',close:'閉じる',
   keys:'Space 裏返す/普通 · 1–4 評価 · F 全画面 · L レイアウト · Esc 終了',fontsFailed:'フォント一覧を読めませんでした。名前を直接入力できます'}
 };
+/* (user 2026-11-14) say why Anki could not do it, instead of the catch-all 「暂时无法完成此操作」 */
+const ankiReasons={
+ zh:{ANKI_REVIEW_INACTIVE:'Anki 现在不在复习界面，这一步只能在 Anki 复习中进行',ANKI_MEDIA_MISSING:'这张卡没有找到音频文件（MeguLit 和 Anki 媒体库里都没有）',ANKI_TIMEOUT:'AnkiConnect 超时：Anki 可能卡在弹窗或同步中',
+  ANKI_UNAVAILABLE:'连接 AnkiConnect 失败，请确认 Anki 已打开',ANKI_INVALID_RESPONSE:'AnkiConnect 返回了无法识别的结果，请更新插件',ANKI_INVALID_CARD:'卡片编号无效，请刷新',ANKI_FAILED:'Anki 拒绝了这个操作（AnkiConnect 返回错误）'},
+ ja:{ANKI_REVIEW_INACTIVE:'Anki が復習画面ではありません。この操作は Anki の復習中だけ使えます',ANKI_MEDIA_MISSING:'このカードの音声ファイルが見つかりません（MeguLit にも Anki のメディアにもありません）',ANKI_TIMEOUT:'AnkiConnect がタイムアウトしました。Anki がダイアログや同期で止まっている可能性があります',
+  ANKI_UNAVAILABLE:'AnkiConnect に接続できません。Anki が起動しているか確認してください',ANKI_INVALID_RESPONSE:'AnkiConnect の応答を読めません。プラグインを更新してください',ANKI_INVALID_CARD:'カード番号が無効です。再読み込みしてください',ANKI_FAILED:'Anki がこの操作を拒否しました（AnkiConnect のエラー）'},
+ en:{ANKI_REVIEW_INACTIVE:'Anki is not in review, and this only works during an Anki review',ANKI_MEDIA_MISSING:'No audio file was found for this card (neither in MeguLit nor in Anki media)',ANKI_TIMEOUT:'AnkiConnect timed out; Anki may be stuck on a dialog or syncing',
+  ANKI_UNAVAILABLE:'Could not reach AnkiConnect; make sure Anki is open',ANKI_INVALID_RESPONSE:'AnkiConnect sent a reply MeguLit cannot read; update the add-on',ANKI_INVALID_CARD:'Invalid card id; refresh the page',ANKI_FAILED:'Anki refused this action (AnkiConnect error)'}};
 const mixKey='tome-anki-audio-mix',mixChannels=['master','word','sentence','game'];
 const mixLabels={
  zh:['音量混音器','总音量','单词读音','合成例句','游戏原声','控制 MeguLit 卡片内播放的声音'],
@@ -56,7 +64,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  let status=await api('anki_status');if(!isCurrent())return;
  const reason=error=>({ANKI_CARD_CHANGED:text.ankiChanged,ANKI_ANSWER_REQUIRED:text.ankiRequiresAnswer,ANKI_UNSUPPORTED:text.ankiUnsupported,ANKI_AUTH:text.ankiAuth,
   ANKI_PORT_TAKEN:({zh:'AnkiConnect 端口被其他程序占用，请关闭占用 8765 端口的程序后重启 Anki',ja:'AnkiConnect のポートが他のプログラムに使われています',en:'Another program is using the AnkiConnect port'})[document.documentElement.lang.slice(0,
-  2)]||'AnkiConnect port is taken',ANKI_OFFLINE:text.ankiOfflineHint,ANKI_RATING_UNCERTAIN:text.ankiChanged,ANKI_ACTION_PENDING:text.ankiChanged})[typeof error==='string'?error:error?.message]||text.ankiFailed;
+  2)]||'AnkiConnect port is taken',ANKI_OFFLINE:text.ankiOfflineHint,ANKI_RATING_UNCERTAIN:text.ankiChanged,ANKI_ACTION_PENDING:text.ankiChanged,...ankiReasons[document.documentElement.lang.slice(0,2)]||ankiReasons.zh})[typeof error==='string'?error:error?.message]||
+  text.ankiFailed+'（'+String((typeof error==='string'?error:error?.message)||'?').slice(0,80)+'）';
  async function reload(){try{drawCard(await api('anki_current'));}catch(error){failed(error);}}
  const locale=document.documentElement.lang.startsWith('ja')?'ja':document.documentElement.lang.startsWith('en')?'en':'zh';
  const copy={zh:{hideAnki:'隐藏 Anki',hidden:'Anki 已隐藏，制卡和复习照常可用；点「在 Anki 中打开」可再显示',hideNone:'没有找到可隐藏的 Anki 窗口',launch:'启动 Anki 并连接',launching:'正在启动 Anki…',repairing:'正在关闭占用端口的程序并重启 Anki…',
@@ -135,8 +144,14 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   return;}toast(reason(error));if(code==='ANKI_OFFLINE'&&isCurrent()){status={connected:false,reason:code};drawDecks();}}
  const poll=setInterval(async()=>{if(!isCurrent()){clearInterval(poll);return;}if(currentCard)return;try{const next=await api('anki_status');if(!isCurrent()||currentCard)return;
   if(next.connected!==status.connected){status=next;drawDecks();}}catch{}},4000);
- async function replay(card,button){if(!isCurrent()||currentCard!==card||button?.disabled)return;if(button)button.disabled=true;try{await api('anki_play_audio',
-  {cardId:card.cardId});}catch(error){if(isCurrent())failed(error);}finally{if(button)button.disabled=false;}}
+ /* (user 2026-11-14) the service sends the card's own clips (MeguLit's copy first); they play here, Anki's player only when none came back */
+ let replaying=null;
+ function playClips(clips){replaying?.pause();const channel=name=>/^tomoyo_g_/i.test(name)?'game':/^tomoyo_s_/i.test(name)?'sentence':/^tomoyo_/i.test(name)?'word':'';
+  const level=key=>Number.isFinite(mix[key])?Math.min(1,Math.max(0,mix[key]/100)):1;const next=i=>{const clip=clips[i];if(!clip||!isCurrent())return;
+   const audio=new Audio(clip.src);replaying=audio;audio.volume=level('master')*level(channel(clip.name));audio.onended=()=>{if(replaying===audio)next(i+1);};
+   audio.play().catch(()=>{if(replaying===audio&&isCurrent())toast(copy.failed);});};next(0);}
+ async function replay(card,button){if(!isCurrent()||currentCard!==card||button?.disabled)return;if(button)button.disabled=true;try{const r=await api('anki_play_audio',
+  {cardId:card.cardId});if(isCurrent()&&currentCard===card&&Array.isArray(r?.clips)&&r.clips.length)playClips(r.clips);}catch(error){if(isCurrent())failed(error);}finally{if(button)button.disabled=false;}}
  function playCardAudio(card){
   if(!currentFrame||currentCard!==card)return;
   currentFrame.contentWindow.postMessage({type:'tome-anki-play-all',nonce:currentFrame.dataset.nonce},'*');
