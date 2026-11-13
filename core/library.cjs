@@ -30,6 +30,8 @@ const ENGINES=[
  /* Spike Chunsoft SDL2 ports (Steam ダンガンロンパ 1・2): AGAR .wad archives */
  {name:'Spike Chunsoft (WAD)',hook:null,test:f=>f.magic(/\.wad$/i,'AGAR')},
  {name:'Light.vn',hook:true,test:f=>f.has(/\.vndat$/i)},
+ /* Purple software CMVS (アオイトリ / Aoi Tori, アマツツミ, 星メモ HD …): cmvs32.exe / cmvs64.exe with cmvs.cfg, scripts PS2A .ps3, archives .cpz */
+ {name:'Purple software (CMVS)',hook:true,test:f=>f.has(/^cmvs(32|64)\.exe$/i)||f.has(/^cmvs\.cfg$/i)&&f.has(/\.exe$/i)},
  {name:'minori (PAZ)',hook:true,test:f=>f.has(/^(scr|sys)\.paz$/i)},
  {name:'Nitroplus (NPK)',hook:true,test:f=>f.has(/^(script|system)\.npk$/i)},
  // Older Nitroplus titles (装甲悪鬼村正, 沙耶の唄, スマガ…) pack scripts as nss.npa / system.npa (user report 2026-11-09).
