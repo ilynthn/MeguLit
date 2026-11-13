@@ -34,7 +34,7 @@ test('one item read again keeps its line; the reader drops foreign items with no
  const src=read('services/reader.cjs');assert.match(src,/message\.foreign===true/);assert.match(src,/shown=text;text=ja/);assert.match(src,/\.\.\.\(shown&&\{shown\}\)/);
 });
 test('the art layer takes the drawn line look and the bridge reads foreign rows with the Chinese OCR',()=>{
- const js=read('web/reader/modules/art-text.js');assert.match(js,/r\.color/);assert.match(js,/r\.glow/);assert.match(js,/megulit-art-ja/);assert.match(js,/'text-align','center'/);assert.match(js,/cx=gameW\/2/);
+ const js=read('web/reader/modules/art-text.js');assert.match(js,/r\.color/);assert.match(js,/r\.glow/);assert.match(js,/megulit-art-ja/);assert.match(js,/'text-align','center'/);assert.match(js,/cx=g\.left\+gameW\/2/,'centred on the game window, not the screen origin (E578)');
  const cs=read('native/PageLocator.cs');assert.match(cs,/zh-Hans-CN/);assert.match(cs,/static void Paint\(Bitmap image, Row r\)/);assert.match(cs,/foreign = it\.Foreign/);
  assert.match(read('native/GalWindowBridge.cs'),/Bool\(d,"foreign"\)\)/);
  assert.match(read('services/original-engines/scenes.cjs'),/out\.seq=seq/);
