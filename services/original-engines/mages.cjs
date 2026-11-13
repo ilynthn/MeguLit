@@ -13,8 +13,26 @@ const kit=require('./kit.cjs');/* E577 shared engine kit */
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
 const KANA=/[ぁ-ゖァ-ヺ]/;
 const {stat}=require('./file-key.cjs');
-let charsetMemo=null;
-const charset=()=>charsetMemo||(charsetMemo=fs.readFileSync(path.join(__dirname,'mages-charset-sghd.txt'),'utf8').replace(/[\r\n]/g,''));
+/* 2026-11-13 the MAGES games index their font sheets differently. LunaHook's lists for the Steam releases: sghd
+   (STEINS;GATE), default (STEINS;GATE 0, CHAOS;CHILD), sglbp (Linear Bounded Phenogram), sgmde (My Darling's Embrace).
+   Each script is decoded with every list and the one giving the most common Japanese words wins (a wrong list still
+   gives kana, which sit at the same indexes, but scrambles the kanji). */
+const CHARSETS=['sghd','default','sglbp','sgmde'],charsetMemo=new Map();
+const charset=(id='sghd')=>{if(!charsetMemo.has(id))charsetMemo.set(id,fs.readFileSync(path.join(__dirname,'mages-charset-'+id+'.txt'),'utf8').replace(/[\r\n]/g,''));return charsetMemo.get(id);};
+const COMMON=/言|思|見|自分|何|今|人|私|俺|時間|気|前|手|目|声|顔|設定|変更|保存|出|来|行|事|話|分|中|大|上|下/g;
+/* hits of common words per list for one script */
+function charsetScores(buf){const out={};if(buf.length<12||buf.toString('latin1',0,4)!=='SC3\0')return out;const so=buf.readUInt32LE(4),ro=buf.readUInt32LE(8);if(so<12||ro<so||ro>buf.length)return out;
+ for(const id of CHARSETS){const cs=charset(id);let hit=0;for(let q=so;q+4<=ro;q+=4){const at=buf.readUInt32LE(q);if(at<buf.length)hit+=(decodeString(buf,at,cs).text.match(COMMON)||[]).length;}out[id]=hit;}
+ return out;}
+/* another list must clearly beat the default sghd: a few common characters also turn up by chance in scrambled text */
+const bestOf=sc=>{const base=sc.sghd||0;let best='sghd',score=base;for(const id of CHARSETS)if(id!=='sghd'&&(sc[id]||0)>score&&(sc[id]||0)>=base*1.2+3){score=sc[id];best=id;}return best;};
+/* a game uses one list: decided once per script.mpk over a sample of scenes (a short menu scene alone can mislead) */
+const gameMemo=new Map();
+function gameCharset(file){const key=file+'|'+stat(file);if(gameMemo.has(key))return gameMemo.get(key);const sum={};
+ try{const list=mpkList(file).filter(e=>SCX(e.name)&&e.size>4000);for(const e of list.filter((_,k)=>k%Math.max(1,Math.floor(list.length/12))===0).slice(0,12)){const sc=charsetScores(mpkRead(file,e));for(const id in sc)sum[id]=(sum[id]||0)+sc[id];}}catch{}
+ const id=bestOf(sum);gameMemo.set(key,id);return id;}
+const tagged=(file,e)=>{const b=mpkRead(file,e);b.magesCharset=gameCharset(file);return b;};
+function pickCharset(buf){return charset(buf&&CHARSETS.includes(buf.magesCharset)?buf.magesCharset:bestOf(charsetScores(buf)));}
 // MPK v2: "MPK\0", version 2.0, entry count (u64), index at 0x40 of 256-byte entries (compression, id, offset, size,
 // unpacked size, 224-byte name).
 const listMemo=new Map();
@@ -59,7 +77,7 @@ function mesVoices(b,so,nstr){const out=new Map();if(so<16)return out;const code
  return out;}
 function parse(buf){const lines=[],ruby=[],anchors=[],voices=[];let miss=0,glyphs=0;
  if(buf.length<12||buf.toString('latin1',0,4)!=='SC3\0')return {lines,anchors,ruby,miss};
- const so=buf.readUInt32LE(4),ro=buf.readUInt32LE(8),cs=charset();if(so<12||ro<so||ro>buf.length)return {lines,anchors,ruby,miss};
+ const so=buf.readUInt32LE(4),ro=buf.readUInt32LE(8),cs=pickCharset(buf);if(so<12||ro<so||ro>buf.length)return {lines,anchors,ruby,miss};
  let vm=new Map();try{vm=mesVoices(buf,so,(ro-so)>>2);}catch{}
  for(let s=so;s+4<=ro;s+=4){const at=buf.readUInt32LE(s);if(at>=buf.length)continue;const d=decodeString(buf,at,cs);miss+=d.miss;glyphs+=d.name.length+d.text.length;
   if(d.name){lines.push('【'+d.name+'】');ruby.push(null);}
@@ -75,13 +93,13 @@ const SCX=n=>/\.scx$/i.test(n);
 const jpMemo=new Map();
 function japanese(file){const key=file+'|'+stat(file);if(jpMemo.has(key))return jpMemo.get(key);let ok=false;
  try{const list=mpkList(file).filter(e=>SCX(e.name)&&e.size>4000);let lines=0,kana=0,miss=0,glyphs=0;
-  for(const e of list.filter((_,i)=>i%Math.max(1,Math.floor(list.length/12))===0).slice(0,12)){const p=parse(mpkRead(file,e));lines+=p.lines.length;kana+=p.lines.filter(t=>KANA.test(t)).length;miss+=p.miss;glyphs+=p.glyphs||0;}
+  for(const e of list.filter((_,i)=>i%Math.max(1,Math.floor(list.length/12))===0).slice(0,12)){const p=parse(tagged(file,e));lines+=p.lines.length;kana+=p.lines.filter(t=>KANA.test(t)).length;miss+=p.miss;glyphs+=p.glyphs||0;}
   ok=lines>0&&kana>=lines*.5&&miss<=glyphs*.01;}catch{ok=false;}
  jpMemo.set(key,ok);return ok;}
 const mages={
  id:'mages',hint:'USRDIR\\script.mpk',
  scenes(dir){const f=scriptMpk(dir);if(!f||!japanese(f))return [];
-  return mpkList(f).filter(e=>SCX(e.name)).map(e=>({name:e.name,read:()=>mpkRead(f,e)})).sort((a,b)=>a.name.localeCompare(b.name));},
+  return mpkList(f).filter(e=>SCX(e.name)).map(e=>({name:e.name,read:()=>tagged(f,e)})).sort((a,b)=>a.name.localeCompare(b.name));},
  archives:()=>[],
  sources:dir=>{const f=scriptMpk(dir);return f?[f]:[];},
  parse:buf=>{const p=parse(buf),o={lines:p.lines,anchors:p.anchors,ruby:p.ruby};if(p.voices)o.voices=p.voices;return o;},
@@ -89,6 +107,6 @@ const mages={
  test:()=>false,
  // No Chinese in these releases (zero-latency translation translates ahead).
  patchLines:()=>null,
- _internal:{mpkList,mpkRead,decodeString,parseSc3:parse,charset,expr,mesVoices},
+ _internal:{mpkList,mpkRead,decodeString,parseSc3:parse,charset,pickCharset,charsetScores,gameCharset,CHARSETS,expr,mesVoices},
 };
 module.exports=mages;
