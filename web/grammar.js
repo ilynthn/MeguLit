@@ -232,6 +232,12 @@ const glyphOf=(g,items)=>{const ps=picksOf(g,items);return ps?ps.map(headOf).joi
 const meanOf=(g,G,locale,items)=>{const m=STAGE_MEAN[g],li=locale==='ja'?1:locale==='en'?2:0,ps=picksOf(g,items),name=loc(G[g],locale);
  const tails=ps?[...new Set(ps.map(p=>(loc(p.title,locale).split(/\s*——\s*/)[1]||'').split(/\s+\/\s+/)[0].trim().replace(/\s*\/\s*/g,'／').replace(/\s*[（(][^）)]*[）)]\s*$/,'').replace(/……/g,'～').replace(/～$/,'')).filter(Boolean))]:[];
  if(!tails.length)return m?m[li]:name;return name+(locale==='en'?': ':'：')+tails.join(locale==='en'?'; ':'／');};
+/* the level's stages in goal order and its lessons in that same order: the list, the hero and 「下一课」 after a lesson
+   all walk this one order */
+export function stageOrder(level,goal){const pts=pointsOf(level),G={...GROUPS,...LEVEL_GROUPS,...ANKI_GROUPS},
+ keys=orderByGoal(Object.keys(G).filter(g=>pts.some(p=>p.group===g)),goal?.plan);return {G,keys,order:keys.flatMap(g=>pts.filter(p=>p.group===g))};}
+/* after finishing a lesson: the next unlearned one in its own stage, else the next in stage order */
+export function nextAfter(prog,point,level,goal){const {order}=stageOrder(level,goal);return nextPoint(prog,order.filter(p=>p.group===point.group))||nextPoint(prog,order);}
 export function listHTML(data,opts){const {locale,esc,level='N5',userLevel=null}=opts;
  const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=pointsOf(level),comp=level==='N5'&&data?.completion||completion(prog,pts);
  const levels=`<div class="gm-levels" role="tablist">${LEVELS.map(l=>`<button type="button" role="tab" class="gm-level${l===level?' active':''}" data-level="${l}" aria-selected="${l===level}">${l}</button>`).join('')}</div>`;
@@ -239,21 +245,25 @@ export function listHTML(data,opts){const {locale,esc,level='N5',userLevel=null}
  if(!pts.length)return `${hud}<section class="gm-soon"><p>${esc(w.soon)}</p></section>`;
  const overview=`<button type="button" class="gm-overview" data-map><span class="gm-overview-kicker">${esc(w.map)}</span>${sentenceHTML(scenesOf(data)[0],esc,{mini:true})}<span class="gm-cap">${esc(locale==='zh'?'一句你读过的台词，拆成九种零件——点开，一块一块戳着玩 →':w.mapLead)}</span></button>`;
  let no=0;
- const G={...GROUPS,...LEVEL_GROUPS,...ANKI_GROUPS};const goalFirst=new Set(opts.goal?.plan?.groups||[]),keys=orderByGoal(Object.keys(G).filter(g=>pts.some(p=>p.group===g)),
-  opts.goal?.plan);
+ const goalFirst=new Set(opts.goal?.plan?.groups||[]),{G,keys,order}=stageOrder(level,opts.goal);
  /* E500 (live check 2026-11-13: the hero said 「下一课 01 / 186」 while NEXT sat on stage 02): stages follow the goal order, so the
     next lesson and its number are taken from that same order, never from the raw level list */
- const order=keys.flatMap(g=>pts.filter(p=>p.group===g)),nextId=nextPoint(prog,order)?.id,nextGroup=order.find(p=>p.id===nextId)?.group,
+ const nextId=nextPoint(prog,order)?.id,nextGroup=order.find(p=>p.id===nextId)?.group,
   cur=keys.includes(opts.group)?opts.group:keys.includes(nextGroup)?nextGroup:keys[0];
+ /* 2026-11-14 (recording: clicking stage 05, 15, 18 … changed nothing in view, nothing started): a stage the reader picked
+    is where 下一课 / 开始这一课 point — its first unlearned lesson, or the overall next one once that stage is clear */
+ const focusId=keys.includes(opts.group)&&nextPoint(prog,order.filter(p=>p.group===cur))?.id||nextId;
  const starts={};{let k=0;for(const g of keys){starts[g]=k;k+=pts.filter(p=>p.group===g).length;}}
  /* 2026-11-11 (user: the category list read like a syllabus, nobody wants to click it): categories are stages — a
     nickname, the grammar of its first lesson huge, a segment per lesson filling as you learn; the strip scrolls sideways */
- const gtabs=`<nav class="gm-stgs" role="tablist">${keys.map((g,gi)=>{const items=pts.filter(p=>p.group===g),done=items.filter(p=>prog[p.id]?.learned).length,nick=nickOf(g,locale)||loc(G[g],locale),glyph=glyphOf(g,items),gl=[...glyph].length;return `<button type="button" role="tab" class="gm-stg${g===cur?' on':''}${items.some(p=>p.id===nextId)?' has-next':''}${done===items.length?' clear':''}${goalFirst.has(g)?' goal':''}" data-gtab="${g}" aria-selected="${g===cur}" style="--i:${gi}"><span class="gm-stg-no">stage ${String(gi+1).padStart(2,'0')}</span><b class="gm-stg-glyph${gl>7?' xlong':gl>4?' long':''}" lang="ja">${esc(glyph)}</b><span class="gm-stg-nick">${esc(nick)}</span><span class="gm-stg-mean">${esc(meanOf(g,G,locale,items))}</span><span class="gm-stg-sub">${done} / ${items.length}</span><span class="gm-stg-bar">${items.slice(0,24).map(p=>`<i class="${prog[p.id]?.learned?'on':p.id===nextId?'cur':''}"></i>`).join('')}</span>${items.some(p=>p.id===nextId)?'<span class="gm-stg-flag">next</span>':done===items.length?'<span class="gm-stg-flag">clear</span>':''}</button>`;}).join('')}</nav>`;
- const groups=keys.filter(g=>g===cur).map(g=>{const gi=keys.indexOf(g),items=pts.filter(p=>p.group===g);no=starts[g];return `<section class="gm-group"><h3><em>${ROMAN[gi]}</em>${esc(loc(G[g],locale))}<small>${items.filter(p=>prog[p.id]?.learned).length}/${items.length}</small></h3><div class="gm-cards${items.length>FOLD?' folded':''}" data-group="${g}">${items.map((p,k)=>{no++;const r=prog[p.id]||{},n=data?.examples?.[p.id]?.length||0,node=MAP.find(m=>m.id===nodeFor(p)),[head,tail]=loc(p.title,locale).split(/\s*——\s*/);return `<button type="button" class="gm-card${r.learned?' learned':''}${p.id===nextId?' next':''}${k>=FOLD&&p.id!==nextId?' extra':''}" data-point="${p.id}"><span class="gm-card-no">${String(no).padStart(2,'0')}</span><span class="gm-card-title${[...head].length>7?' long':''}" lang="ja">${esc(head)}</span><span class="gm-card-gist"><small class="gm-card-lbl">${esc(locale==='en'?'Means':locale==='ja'?'意味':'意思')}</small>${esc((tail||loc(p.gist,locale)).split(/\s+\/\s+/)[0].replace(/\s*[（(][^）)]*[）)]\s*$/,''))}</span><span class="gm-card-node">${p.era?`${esc(p.era)} · ${esc(p.who)}`:`<small class="gm-card-lbl">${esc(locale==='en'?'Use':locale==='ja'?'使い方':'用法')}</small>${esc(loc(p.gist,locale))}`}</span><span class="gm-card-meta">${r.learned?`<b>${esc(w.done)}</b>`:p.id===nextId?`<b>${esc(w.nextLesson)}</b>`:''}${r.attempts?`<span>${pct(r.correct/r.attempts)}</span>`:''}${n?`<span>${n} ${locale==='en'?'lines':'句'}</span>`:''}</span></button>`;}).join('')}</div>${items.length>FOLD?`<button type="button" class="gm-more" data-more="${g}">展开全部 ${items.length} 课 ↓</button>`:''}</section>`;
+ const gtabs=`<nav class="gm-stgs">${keys.map((g,gi)=>{const items=pts.filter(p=>p.group===g),done=items.filter(p=>prog[p.id]?.learned).length,nick=nickOf(g,locale)||loc(G[g],locale),glyph=glyphOf(g,items),gl=[...glyph].length;return `<button type="button" class="gm-stg${g===cur?' on':''}${items.some(p=>p.id===nextId)?' has-next':''}${done===items.length?' clear':''}${goalFirst.has(g)?' goal':''}" data-gtab="${g}" aria-expanded="${g===cur}" aria-controls="gm-stage-panel" style="--i:${gi}"><span class="gm-stg-no">stage ${String(gi+1).padStart(2,'0')}</span><b class="gm-stg-glyph${gl>7?' xlong':gl>4?' long':''}" lang="ja">${esc(glyph)}</b><span class="gm-stg-nick">${esc(nick)}</span><span class="gm-stg-mean">${esc(meanOf(g,G,locale,items))}</span><span class="gm-stg-sub">${done} / ${items.length}</span><span class="gm-stg-bar">${items.slice(0,24).map(p=>`<i class="${prog[p.id]?.learned?'on':p.id===nextId?'cur':''}"></i>`).join('')}</span>${items.some(p=>p.id===nextId)?'<span class="gm-stg-flag">next</span>':done===items.length?'<span class="gm-stg-flag">clear</span>':''}</button>`;}).join('')}`;
+ const groups=keys.filter(g=>g===cur).map(g=>{const gi=keys.indexOf(g),items=pts.filter(p=>p.group===g);no=starts[g];return `<section class="gm-group"><h3><em>${ROMAN[gi]}</em>${esc(loc(G[g],locale))}<small>${items.filter(p=>prog[p.id]?.learned).length}/${items.length}</small></h3><div class="gm-cards${items.length>FOLD?' folded':''}" data-group="${g}">${items.map((p,k)=>{no++;const r=prog[p.id]||{},n=data?.examples?.[p.id]?.length||0,node=MAP.find(m=>m.id===nodeFor(p)),[head,tail]=loc(p.title,locale).split(/\s*——\s*/);return `<button type="button" class="gm-card${r.learned?' learned':''}${p.id===focusId?' next':''}${k>=FOLD&&p.id!==focusId?' extra':''}" data-point="${p.id}"><span class="gm-card-no">${String(no).padStart(2,'0')}</span><span class="gm-card-title${[...head].length>7?' long':''}" lang="ja">${esc(head)}</span><span class="gm-card-gist"><small class="gm-card-lbl">${esc(locale==='en'?'Means':locale==='ja'?'意味':'意思')}</small>${esc((tail||loc(p.gist,locale)).split(/\s+\/\s+/)[0].replace(/\s*[（(][^）)]*[）)]\s*$/,''))}</span><span class="gm-card-node">${p.era?`${esc(p.era)} · ${esc(p.who)}`:`<small class="gm-card-lbl">${esc(locale==='en'?'Use':locale==='ja'?'使い方':'用法')}</small>${esc(loc(p.gist,locale))}`}</span><span class="gm-card-meta">${r.learned?`<b>${esc(w.done)}</b>`:p.id===focusId?`<b>${esc(w.nextLesson)}</b>`:''}${r.attempts?`<span>${pct(r.correct/r.attempts)}</span>`:''}${n?`<span>${n} ${locale==='en'?'lines':'句'}</span>`:''}</span></button>`;}).join('')}</div>${items.length>FOLD?`<button type="button" class="gm-more" data-more="${g}">展开全部 ${items.length} 课 ↓</button>`:''}</section>`;
   }).join('');
  const n0note=level==='N0'?`<p class="gm-n0note"><i></i>N0 词库还在收集中：JLPT 官方只有 N5–N1，N0 是 MeguLit 自己整理的「考级不考、生活和 gal 里天天用」的说法，会持续补充（最新收录：JC・JK 流行语大赏 2025 / 2026 上半期、渋谷トレンドリサーチ 2026 秋）。遇到想加的词，欢迎在反馈里告诉我们。</p>`:'';
- const tracks=`${n0note}${gtabs}<div class="gm-tracks one">${groups}</div>`;
- return `${hud}${goalBarHTML(opts.goal,{locale,esc})}${manaHTML(opts.rewards,esc)}${opts.anki?ankiBannerHTML(opts.anki,{esc}):''}${data?.pending&&data?.counting?`<p class="gm-cap gm-status">${esc(w.counting)}</p>`:''}${heroHTML(data,{locale,esc,userLevel,level,order})}${overview}${tracks}`;
+ /* the chosen stage's lessons open inside the stage map, right under that stage's row (mountGrammar places it): before
+    2026-11-14 the map grew to five columns and the list sat a screen below every card */
+ const tracks=`${n0note}${gtabs}<div class="gm-tracks one" id="gm-stage-panel">${groups}</div></nav>`;
+ return `${hud}${goalBarHTML(opts.goal,{locale,esc})}${manaHTML(opts.rewards,esc)}${opts.anki?ankiBannerHTML(opts.anki,{esc}):''}${data?.pending&&data?.counting?`<p class="gm-cap gm-status">${esc(w.counting)}</p>`:''}${heroHTML(data,{locale,esc,userLevel,level,order,pick:focusId})}${overview}${tracks}`;
 }
 /* ---- widgets ---- */
 export function conjHTML(pointId,{locale,esc,wordIndex=null,form=null}){
@@ -340,8 +350,8 @@ export function quizHTML(point,q,{locale,esc,answered=null,index=0,total=1,retry
 export function completion(prog,points=N5){let learned=0,attempts=0,correct=0;for(const p of points){const r=prog?.[p.id];if(r?.learned)learned++;attempts+=r?.attempts||0;
  correct+=r?.correct||0;}return {learned,total:points.length,share:points.length?learned/points.length:0,accuracy:attempts?correct/attempts:null};}
 /* The hero on top of the list: the lesson to take next, and your level (changeable here). */
-export function heroHTML(data,{locale,esc,userLevel=null,level='N5',order=null}){
- const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=order?.length?order:pointsOf(level),p=nextPoint(prog,pts),i=p?pts.indexOf(p):pts.length;
+export function heroHTML(data,{locale,esc,userLevel=null,level='N5',order=null,pick=''}){
+ const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},pts=order?.length?order:pointsOf(level),p=pick&&pts.find(x=>x.id===pick&&!prog[x.id]?.learned)||nextPoint(prog,pts),i=p?pts.indexOf(p):pts.length;
  const [head,rawTail]=p?loc(p.title,locale).split(/\s*——\s*/):[w.allDone,''],gist=p?loc(p.gist,locale):'';
  /* 2026-11-13 (user: 易读性非常差 找不到重点): some titles carry the first half of the gist as their subtitle, so the
     card said the same sentence three times; a subtitle the gist already starts with is dropped */
@@ -372,7 +382,14 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   if(isCurrent())load(true);},2000);}catch(error){if(isCurrent()&&!data){data={};render();toast?.(String(error?.message||error));}}};
  const enter=()=>{if(!motion())return;root.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:220,easing:'cubic-bezier(.2,.7,.2,1)'});
   };
- let switching=false;
+ let switching=false,panelWatch=null;
+ /* the chosen stage's lessons go right after the last card of its row in the stage map (5 or 3 columns), and move again
+    when the column count changes */
+ const placePanel=()=>{const nav=root.querySelector('.gm-stgs'),panel=nav?.querySelector(':scope>#gm-stage-panel'),on=nav?.querySelector(':scope>.gm-stg.on');
+  if(!panel||!on)return;let last=on;for(const c of nav.querySelectorAll(':scope>.gm-stg'))if(Math.abs(c.offsetTop-on.offsetTop)<4)last=c;
+  if(panel.previousElementSibling!==last)last.after(panel);};
+ const watchPanel=()=>{panelWatch?.disconnect();panelWatch=null;const nav=root.querySelector('.gm-stgs');if(!nav||typeof ResizeObserver!=='function')return;
+  let w=nav.clientWidth;panelWatch=new ResizeObserver(()=>{if(nav.clientWidth===w)return;w=nav.clientWidth;placePanel();});panelWatch.observe(nav);};
  const go=next=>{view=next;root.style.minHeight='';save();render();enter();root.scrollIntoView?.({block:'start'});};
  const openPoint=id=>{point=pointById(id);step=0;go('lesson');};
  async function changeLevel(){const {openLevelPicker}=await import('./learning-level.js');const r=await openLevelPicker({api,esc,toast,current:memo.userLevel||null});
@@ -380,29 +397,22 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
  function render(){save();if(view==='lesson'&&point)return renderLesson();if(view==='map')return renderMap();if(view==='album')return renderAlbum();
   root.innerHTML=listHTML(data||{},{locale,esc,level,userLevel:memo.userLevel,anki:memo.anki,group:(memo.groupOf||{})[level],rewards:memo.rewards,goal:memo.goal});
   root.querySelector('[data-album]')?.addEventListener('click',()=>go('album'));
+  placePanel();watchPanel();
   root.querySelectorAll('[data-gtab]').forEach(b=>b.onclick=()=>{
-   /* 2026-11-11 (user: a shorter category made the page jump up): the strip stays put on screen, and the list keeps its
-      old height while it morphs to the new one, so nothing is yanked from under the reader */
-   memo.groupOf={...(memo.groupOf||{}),[level]:b.dataset.gtab};const strip=root.querySelector('.gm-stgs'),x=strip?.scrollLeft||0,top=strip?.getBoundingClientRect().top,
-    oldH=root.querySelector('.gm-tracks')?.offsetHeight||0;
-   const sc=root.closest('.main')||document.scrollingElement,y=sc?.scrollTop||0;root.style.minHeight=root.offsetHeight+'px';switching=true;render();switching=false;
-    if(sc)sc.scrollTop=y;
-   {const s3=root.querySelector('.gm-stgs');if(s3&&top!=null){const need=s3.getBoundingClientRect().top-root.getBoundingClientRect().top+Math.max(0,innerHeight-top);
-    root.style.minHeight=Math.max(root.offsetHeight,need)+'px';}}
-   const s2=root.querySelector('.gm-stgs'),list=root.querySelector('.gm-tracks');if(s2){s2.scrollLeft=x;const on=s2.querySelector('.gm-stg.on');if(on){const r=on.getBoundingClientRect(),
-    sr=s2.getBoundingClientRect();if(r.left<sr.left||r.right>sr.right)s2.scrollBy({left:r.left-sr.left-(sr.width-r.width)/2,behavior:motion()?'smooth':'auto'});
-    }fx.push(s2.querySelector('.gm-stg.on'));
-    const until=performance.now()+700,hold=()=>{if(sc&&sc.scrollTop!==y)sc.scrollTop=y;if(performance.now()<until)requestAnimationFrame(hold);};requestAnimationFrame(hold);
-     }
-   if(list&&motion()){const newH=list.offsetHeight;list.style.overflow='hidden';const a=list.animate([{height:oldH+'px'},{height:newH+'px'}],{duration:420,easing:'cubic-bezier(.16,1,.3,1)'});
-    list.querySelectorAll('.gm-card:not(.extra)').forEach((c,i)=>c.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:320,
-    delay:60+Math.min(i,16)*22,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'}));a.finished.then(()=>{list.style.overflow='';},()=>{});}});
-  {const on=root.querySelector('.gm-stg.on'),strip=root.querySelector('.gm-stgs');if(on&&strip)strip.scrollLeft=Math.max(0,on.offsetLeft-strip.offsetLeft-(strip.clientWidth-on.offsetWidth)/2);
-   }
+   /* 2026-11-14 (recording: the stage map grew to five columns, so the chosen stage's lessons sat a screen below the card
+      and every click looked dead; a 700 ms loop then forced the old scroll back against the wheel, the page jumping):
+      the clicked card stays where it was on screen, its lessons open right under its row, and only when their first
+      row would start below the window does the page glide down just enough to show it. Nothing holds the scroll after */
+   const g=b.dataset.gtab,sc=root.closest('.main')||document.scrollingElement,before=b.getBoundingClientRect().top;
+   memo.groupOf={...(memo.groupOf||{}),[level]:g};root.style.minHeight=root.offsetHeight+'px';switching=true;render();switching=false;
+   const card=[...root.querySelectorAll('[data-gtab]')].find(x=>x.dataset.gtab===g),panel=root.querySelector('#gm-stage-panel');
+   if(sc&&card)sc.scrollTop+=card.getBoundingClientRect().top-before;fx.push(card);
+   if(sc&&panel){const box=sc===document.scrollingElement?{bottom:innerHeight}:sc.getBoundingClientRect(),r=panel.getBoundingClientRect(),
+    over=r.top+Math.min(r.height,260)-box.bottom+16;if(over>0)sc.scrollBy({top:over,behavior:motion()?'smooth':'auto'});}});
   root.querySelector('[data-anki-get]')?.addEventListener('click',e=>{e.currentTarget.disabled=true;api('open_source',{url:ANKI_DECK}).catch(()=>toast?.('无法打开浏览器'));
    watchDownload();});
   root.querySelector('[data-anki-reload]')?.addEventListener('click',e=>{e.currentTarget.disabled=true;memo.anki=undefined;loadAnki(true);});
-  root.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;memo.levelPicked=true;render();fx.focus(root.querySelector('.gm-hero'));
+  root.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;memo.levelPicked=true;root.style.minHeight='';render();fx.focus(root.querySelector('.gm-hero'));
    });
   root.querySelector('[data-map]')?.addEventListener('click',()=>{openNode='';scene=null;piece=-1;go('map');});
   root.querySelector('[data-change-level]')?.addEventListener('click',changeLevel);
@@ -497,12 +507,11 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
    else{b.classList.add('miss');b.disabled=true;const f=b.dataset.form;why.hidden=false;why.innerHTML=`<b class="gm-jd-no">${f?`「${esc(f)}」放在这里不自然`:'不是这个哦'}</b><span>再看看另外的选项——${esc(loc(point.gist,locale))}</span>`;
     fx.glitch(b);}}));
   root.querySelector('[data-learned]').onclick=async event=>{const on=event.currentTarget.dataset.learned==='1';try{const r=await api('grammar_learned',{point:point.id,
-   learned:on});data={...(data||{}),progress:{...(data?.progress||{}),[point.id]:r}};data.completion=completion(data.progress);const lv=levelOf(point),n=on?nextPoint(data.progress,
-   pointsOf(lv)):null;
+   learned:on});data={...(data||{}),progress:{...(data?.progress||{}),[point.id]:r}};data.completion=completion(data.progress);const lv=levelOf(point),n=on?nextAfter(data.progress,point,lv,memo.goal):null;
    if(on){const same=pointsOf(lv).filter(p=>p.group===point.group),cleared=same.every(p=>data.progress?.[p.id]?.learned);const rr=await reward(cleared?'clear':'learned',
     {ref:point.id});const name=loc(point.title,locale).split(/\s*——\s*/)[0];stamp({kind:cleared?'clear':'praise',title:cleared?`${lv} · ${same.length} / ${same.length}`:`${name} · 掌握`,
     sub:n?`下一课：${loc(n.title,locale).split(/\s*——\s*/)[0]}`:'',r:rr,esc});}
-   if(n)openPoint(n.id);else renderLesson();}catch(error){toast?.(String(error?.message||error));}};
+   if(n){memo.groupOf={...(memo.groupOf||{}),[lv]:n.group};openPoint(n.id);}else renderLesson();}catch(error){toast?.(String(error?.message||error));}};
   root.querySelectorAll('[data-anki]').forEach(b=>b.onclick=async()=>{const e=real[Number(b.dataset.anki)];b.disabled=true;try{await api('grammar_anki',{point:point.id,
    title:loc(point.title,'zh'),gist:loc(point.gist,'zh'),example:e});b.textContent=w.ankiDone;}catch{b.disabled=false;toast?.(w.ankiFail);}});
   root.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak,b));
