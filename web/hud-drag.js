@@ -27,23 +27,33 @@
   const out={};for(const key of Object.keys(defaults))out[key]=normRect(saved&&saved[key],defaults[key]);return out;
  }
  function applyRect(el,r){el.style.left=r.x+'%';el.style.top=r.y+'%';el.style.width=r.w+'%';el.style.height=r.h+'%';}
- /* The frame a block shows for content of natural size nw x nh px on a SW x SH px stage.
-    (user 2026-11-14: the example dropped under 下一张 after 显示答案) The saved box is the single source of truth: the
-    frame is always exactly that box, on every card and in both the question and answer state. The content keeps its
-    scale (r.s) and is shrunk to fit when it is taller or wider than the box (furigana + translation after the reveal);
-    it sits at the top of the box, centred across (ox/oy: px offsets inside the frame). A fresh box (just resized, or a
-    preset) starts at scale 1, the size set in 外观, so a size never depends on which card was on screen. */
- function hugRect(r,nw,nh,SW,SH,max=6,room){
-  const box=normRect(r,r,{w:.3,h:.3});
-  if(!(nw>0&&nh>0&&SW>0&&SH>0))return {rect:box,scale:1,fresh:false,ox:0,oy:0};
-  const bw=box.w*SW/100,fresh=!Number.isFinite(r.s);
-  let s=fresh?1:r.s;s=Math.min(max,Math.max(.12,s));box.s=Math.round(s*1000)/1000;
-  /* room: how far (percent of the stage) the content may run below the box top before it has to shrink: the free
-     space down to the next block or the buttons, so a long definition wraps at the same size instead of shrinking */
-  const roomH=Math.max(box.h,Math.min(100-box.y,Number.isFinite(room)?room:box.h))*SH/100;
-  const shown=Math.max(.05,Math.min(s,bw/nw,roomH/nh));
-  return {rect:box,scale:shown,fresh,ox:Math.round(Math.max(0,(bw-nw*shown)/2)),oy:0};
+ /* (user 2026-11-14: every block like the screenshot) The frame is the saved box and the content fills it: the
+    largest scale at which it fits, centred both ways. Text that may wrap (wrap:true) also tries narrower line widths,
+    so a long meaning grows into a tall box instead of staying one tiny line. A font never drops under minPx unless
+    even that cannot fit. fitContent measures (DOM); hugRect is the pure maths. */
+ function hugRect(r,nw,nh,SW,SH,max=6,min=.1){
+  const box=normRect(r,r,{w:.3,h:.3});if(!(nw>0&&nh>0&&SW>0&&SH>0))return {rect:box,frame:box,scale:1,fresh:false,ox:0,oy:0};
+  const bw=box.w*SW/100,bh=box.h*SH/100,scale=Math.min(max,Math.max(min,Math.min(bw/nw,bh/nh)));
+  return {rect:box,frame:box,scale,fresh:false,ox:Math.round((bw-nw*scale)/2),oy:Math.round((bh-nh*scale)/2)};
  }
+ function fitContent(el,bw,bh,opt={}){
+  const st=el.style;st.transform='none';st.left='0px';st.top='0px';st.height='auto';st.maxWidth='none';st.width='max-content';
+  let nw=el.offsetWidth,nh=el.offsetHeight;if(!nw||!nh||!(bw>0)||!(bh>0))return null;
+  const cs=getComputedStyle(el.firstElementChild||el),fs=parseFloat(cs.fontSize)||16,min=Math.min(1,(opt.minPx||9)/fs),max=opt.max||6;
+  const s1=Math.min(bw/nw,bh/nh);
+  if(opt.wrap&&bh/nh>s1*1.05){let lo=s1,hi=Math.min(max,bh/nh);
+   for(let i=0;i<11;i++){const mid=(lo+hi)/2;st.width=Math.max(8,Math.floor(bw/mid))+'px';if(el.offsetHeight*mid<=bh+.5&&el.scrollWidth<=el.offsetWidth+1)lo=mid;else hi=mid;}
+   if(lo>s1*1.05){st.width=Math.max(8,Math.floor(bw/lo))+'px';nw=el.offsetWidth;nh=el.offsetHeight;
+    /* wrapped lines rarely fill the width: narrow to the longest line so it centres truly */
+    const rg=el.ownerDocument.createRange();rg.selectNodeContents(el);let L=Infinity,R=-Infinity;for(const q of rg.getClientRects()){if(q.width<1)continue;L=Math.min(L,q.left);R=Math.max(R,q.right);}
+    const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);if(R>L){const tw=Math.ceil(R-L+pad)+1;if(tw<nw-2){st.width=tw+'px';if(el.offsetHeight===nh)nw=el.offsetWidth;else st.width=nw+'px';}}}
+   else{st.width='max-content';nw=el.offsetWidth;nh=el.offsetHeight;}}
+  return {nw,nh,min,max};
+ }
+ /* (user 2026-11-14) A drag or resize of the frame (the content's box) moves / resizes the saved slot by the same
+    amount, so the slot never collapses onto one card's content; the scale comes from the frame (a corner sets it). */
+ function carry(saved,from,to){const s=saved||to,f=from||s,out={x:s.x+(to.x-f.x),y:s.y+(to.y-f.y),w:Math.max(1,s.w+(to.w-f.w)),h:Math.max(1,s.h+(to.h-f.h))};
+  if(Number.isFinite(to.s))out.s=to.s;else if(Number.isFinite(s.s))out.s=s.s;for(const k of ['fx','fy','z'])if(s[k]!==undefined)out[k]=s[k];return normRect(out,s,{w:.3,h:.3});}
  /* Free space under a box: the top of the nearest rect below it that shares some of its width, else the stage
     bottom (percent). Used as hugRect's room. */
  function roomBelow(r,others,gap=1){let bottom=100;for(const o of others||[]){if(!o||o===r)continue;
@@ -130,13 +140,13 @@
     if(next.x!==start.x||next.y!==start.y||next.w!==start.w||next.h!==start.h){const r={x:next.x,y:next.y,w:next.w,h:next.h};for(const k of ['fx','fy','z'])if(start[k]!==undefined)r[k]=start[k];
      /* (user 2026-11-14) the scale is the block's text size, set by the user and never derived from a card's content:
         a move or a side edge keeps it (a side only re-wraps), a corner scales it with the box */
-     const s0=Number.isFinite(start.s)?start.s:1;r.s=edge.length===2?Math.round(Math.min(6,Math.max(.12,s0*next.h/start.h))*1000)/1000:s0;onCommit(r);}};
+     const s0=Number.isFinite(start.s)?start.s:1;r.s=edge.length===2?Math.round(Math.min(6,Math.max(.12,s0*next.h/start.h))*1000)/1000:s0;onCommit(r,start);}};
    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   });
   /* Keyboard: arrows move by 1% (Shift: resize, Alt: by .25%) while the block has focus in edit mode */
-  el.addEventListener('keydown',e=>{if(!editing()||!/^Arrow/.test(e.key))return;e.preventDefault();const r={...rect()},d=e.altKey?.25:1;
+  el.addEventListener('keydown',e=>{if(!editing()||!/^Arrow/.test(e.key))return;e.preventDefault();const r={...rect()},from={...r},d=e.altKey?.25:1;
    const dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
-   if(e.shiftKey){r.w+=dx;r.h+=dy;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n);});
+   if(e.shiftKey){r.w+=dx;r.h+=dy;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n,from);});
  }
  /* Cover framing: how far (px) the picture overflows its frame on each axis, so a drag of d px moves the focus by d/over */
  function coverOverflow(nw,nh,bw,bh,z){const k=Math.max(bw/nw,bh/nh)*(z||1);return {x:Math.max(0,nw*k-bw),y:Math.max(0,nh*k-bh)};}
@@ -162,6 +172,6 @@
   for(const k of Object.keys(out))out[k]=normRect(out[k],out[k],{w:.3,h:.3});
   return {rects:out,nudged:[...nudged]};
  }
- const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,roomBelow,rubyReading,snapRect,drawGuides,attach,EDGES};
+ const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,fitContent,carry,roomBelow,rubyReading,snapRect,drawGuides,attach,EDGES};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.MeguHud=api;
 })(globalThis);
