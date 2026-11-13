@@ -15,6 +15,17 @@ $taskHookFinal = Join-Path $taskRoot 'native/HookBridge.exe'
 & (Join-Path $taskRoot 'native/Build-HookBridge.ps1') -OutputPath $taskHookPending
 try { Copy-Item -LiteralPath $taskHookPending -Destination $taskHookFinal -Force; Remove-Item -LiteralPath $taskHookPending -Force }
 catch [System.IO.IOException] { Write-Output 'Hook bridge update staged for the next attach' }
+# E667 glyph hide: MeguLitFont32/64.dll (native/fontprobe) are not tracked (*.dll is ignored) and Release.ps1 packages whatever
+# sits in native/, so a stale DLL once shipped without the hide side. They are rebuilt here every time, and their self-tests
+# (decisions; DLL exports MeguLitFontVersion >= 2 and hides off screen, both bitnesses) fail the build.
+$taskVsDev = Resolve-First (@($env:MEGULIT_VS, (Join-Path $taskTools 'vs2022\Common7\Tools\VsDevCmd.bat')) + @(if (Test-Path -LiteralPath $vswhere) { & $vswhere -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | ForEach-Object { Join-Path $_ 'Common7\Tools\VsDevCmd.bat' } }))
+if (-not $taskVsDev) { throw 'VsDevCmd.bat not found: the MSVC C++ toolset is needed for native/fontprobe (set MEGULIT_VS)' }
+$env:MEGULIT_VS = $taskVsDev; Remove-Item Env:MEGULIT_FONT_OUT -ErrorAction SilentlyContinue
+# stderr is merged inside cmd: VsDevCmd's harmless "vswhere.exe is not recognized" must not stop the build under ErrorAction Stop.
+function Invoke-TaskCmd([string]$Script) { & cmd /c ('""' + $Script + '" 2>&1"') | Out-Host; return $LASTEXITCODE }
+if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\fontprobe\build.cmd')) -ne 0) { throw 'MeguLitFont DLL build failed' }
+if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\fontprobe\selftest\run-match.cmd')) -ne 0) { throw 'Glyph hide decision self-test failed' }
+if ((Invoke-TaskCmd (Join-Path $taskRoot 'native\fontprobe\selftest\run-hide.cmd')) -ne 0) { throw 'MeguLitFont DLL self-test failed (old DLL or glyph hide broken)' }
 & (Join-Path $taskRoot 'native/Build-GameStyleProbe.ps1')
 & (Join-Path $taskRoot 'native/Build-StartupIsland.ps1') -OutputPath (Join-Path $taskRoot 'native/StartupIsland.exe')
 & $taskCsc /nologo /target:exe /optimize+ ("/out:" + (Join-Path $taskRoot 'native\GameProcess.exe')) (Join-Path $taskRoot 'native\GameProcess.cs')

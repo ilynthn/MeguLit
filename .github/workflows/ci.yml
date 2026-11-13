@@ -68,6 +68,28 @@ jobs:
             if (-not (Test-Path "native\$n")) { throw "build.cmd did not produce native\$n" }
           }
 
+      - name: Font probe / glyph hide DLLs (MSVC) with self-tests
+        shell: pwsh
+        run: |
+          # E667: MeguLitFont{32,64}.dll are untracked like the DirectPlay DLLs; a stale one once shipped without the glyph hide.
+          # Build them, run the decision self-test and the DLL self-test (version export >= 2; the drawing checks print SKIP
+          # when the runner has no Japanese font), and fail on any error.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "vswhere not found at $vswhere" }
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'No Visual Studio with the C++ toolset on this runner' }
+          $env:MEGULIT_VS = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
+          $env:MEGULIT_VS_X86 = 'none'
+          & cmd /c native\fontprobe\build.cmd
+          if ($LASTEXITCODE) { throw 'fontprobe build failed' }
+          foreach ($n in 'MeguLitFont32.dll', 'MeguLitFont64.dll') {
+            if (-not (Test-Path "native\$n")) { throw "build.cmd did not produce native\$n" }
+          }
+          & cmd /c native\fontprobe\selftest\run-match.cmd
+          if ($LASTEXITCODE) { throw 'glyph hide decision self-test failed' }
+          & cmd /c native\fontprobe\selftest\run-hide.cmd
+          if ($LASTEXITCODE) { throw 'MeguLitFont DLL self-test failed' }
+
       - name: Hook bridge (Roslyn) with self-test
         shell: pwsh
         run: ./native/Build-HookBridge.ps1 -OutputPath native/HookBridge.exe

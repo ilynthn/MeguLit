@@ -590,7 +590,7 @@
     if(message.hookThreads)bridge.hookThreads=message.hookThreads;
     if(dialogFields?.hookState&&message.hookMessage)dialogFields.hookState.textContent=message.hookMessage;
     if(dialogFields?.hookThreads&&message.hookThreads){const select=dialogFields.hookThreads,previous=select.value;select.replaceChildren(new Option('选择对话文本流',''));
-     for(const item of message.hookThreads)select.add(new Option(item.name+(item.embeddable?' [可清空]':' [仅读取]')+' · '+(item.sample||'推进一句以查看内容'),item.id));select.value=message.hookThreads.find(t=>t.selected)?.id||previous;
+     for(const item of message.hookThreads)select.add(new Option(item.name+/* glyph hide: 仅读取 -> trying while the DLL has not hidden a draw yet -> 隐藏原文 once it did */(item.hideOnly?' [隐藏原文]':item.embeddable?' [可清空]':item.hideTrying?' [仅读取 · 尝试隐藏原文]':' [仅读取]')+' · '+(item.sample||'推进一句以查看内容'),item.id));select.value=message.hookThreads.find(t=>t.selected)?.id||previous;
      }
     if(['normal','translation'].includes(message.interfaceMode)){
       preferences.interfaceMode=message.interfaceMode;
