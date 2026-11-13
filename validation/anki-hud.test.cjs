@@ -118,7 +118,7 @@ test('blocks never overlap: a long example pushes the screenshot, which gives up
 test('the layout tools are a compact floating dock that moves, folds and keeps out of the way',()=>{
  const src=read('anki-review.js'),css=read('anki-layout.css');
  for(const s of ['data-dock-grip','data-dock-collapse','data-dock-expand','hud-dock-presets','hud-dock-seg','hud-dock-menu','hud-dock-tip','function placeDock','megulit-anki-hud-dock',"'tome-anki-hud-drag'"])assert.ok(src.includes(s),s);
- assert.match(css,/\.anki-hud\.hud-moving \.anki-hud-edit\{opacity:\.08;pointer-events:none\}/);assert.match(css,/\.anki-hud-edit\.collapsed \.hud-dock-panel\{/);
+ assert.match(css,/\.anki-hud\.hud-moving \.anki-hud-edit,\.anki-hud-edit\.hud-moving\{opacity:\.08;pointer-events:none\}/);assert.match(css,/\.anki-hud-edit\.collapsed \.hud-dock-panel\{/);
  assert.match(css,/@media \(prefers-reduced-motion:reduce\)\{\.anki-hud-edit,/);assert.doesNotMatch(css,/transition:all/);
  /* Done is the dock's own quiet button, never the site's red sweep (unify.css button.primary) */
  assert.match(src,/class="hud-dock-done" data-hud-done/);assert.doesNotMatch(src,/class="primary" data-hud-done/);
@@ -132,4 +132,18 @@ test('full screen covers the window and the top bar, never hides the window, and
  assert.match(read('anki-layout.css'),/\.anki-hud\.immersive:fullscreen,\.anki-hud\.immersive:popover-open\{position:fixed;inset:0/);
  const rs=fs.readFileSync(path.join(__dirname,'..','desktop','src','main.rs'),'utf8');
  assert.match(rs,/fn fill_monitor\(/);assert.doesNotMatch(rs,/set_fullscreen\(action/);assert.match(rs,/restore_home_surface\(window\);window\.show\(\)/);assert.match(rs,/current_monitor\(\)/);
+});
+test('the layout dock has its own remembered opacity and lives in a top-level layer clamped only to the window',()=>{
+ /* user 2026-11-14: the panel covered the blocks and could not leave the HUD */
+ const src=read('anki-review.js'),css=read('anki-layout.css');
+ assert.match(src,/opacity:'透明度',place:'摆放'/);assert.match(src,/opacity:'Opacity',place:'Placement'/);assert.match(src,/opacity:'透明度',place:'配置'/);
+ assert.match(src,/type="range" min="30" max="100" step="5" data-dock-op/);assert.match(src,/op:Number\.isFinite\(d\.op\)\?Math\.min\(100,Math\.max\(30,d\.op\)\):100/);
+ assert.match(css,/\.anki-hud-edit \.hud-dock-panel\{opacity:var\(--dk-op,1\)\}/);
+ assert.match(css,/\.anki-hud-edit:is\(:hover,:focus-within,\.dragging\) \.hud-dock-panel\{opacity:1\}/);
+ /* out of the HUD: fixed, appended to <body> (or the full-screen element), clamped to innerWidth/innerHeight, not the canvas */
+ assert.match(css,/\.anki-hud-edit\{[^}]*position:fixed;/);assert.match(src,/home=fs&&fs!==document\.documentElement\?fs:document\.body/);
+ assert.match(src,/const dockClamp=\(box,x,y\)=>\{[^}]*innerWidth-W-m[^}]*innerHeight-Hh-m/);
+ const paint=src.slice(src.indexOf('const paint=()=>'),src.indexOf('const move=e=>'));assert.ok(paint.includes('dockClamp('));assert.ok(!/c\.width-W/.test(paint),'drag must not clamp to the HUD canvas');
+ /* the old canvas-relative fx/fy are not read any more, so an old saved spot cannot place it oddly */
+ assert.ok(!/dock\.fx/.test(src));
 });
