@@ -1551,6 +1551,9 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-lesson .gm-stepnav{position:static
 html:not(#u):not(#v):not(#w):not(#x) body .gm-page .gm-stgs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px!important;overflow:visible!important;-webkit-mask:none!important;mask:none!important;padding-bottom:0!important}
 html:not(#u):not(#v):not(#w):not(#x) body .gm-page .gm-stgs>.gm-stg{flex:none!important;min-width:0}
 @media (max-width:1100px){html:not(#u):not(#v):not(#w):not(#x) body .gm-page .gm-stgs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* the chosen stage's lessons open inside the map, a full-width row right under that stage's row (2026-11-14: they sat a
+   screen below the map, so clicking a stage looked like nothing happened) */
+html:not(#u):not(#v):not(#w):not(#x) body .gm-page .gm-stgs>#gm-stage-panel{grid-column:1/-1;min-width:0;margin:6px 0 14px}
 /* the landing line (judge fx8: grey-pink, cut off hard at one end): gold, feathered over its outer quarters, never
    clipped by its box */
 html body .dict-hit{overflow:visible!important}
