@@ -91,7 +91,10 @@ function steamRoot(value){
  if(path.basename(p).toLowerCase()==='steamapps')return parent;
  return p;
 }
-function steamFromRegistry(){return new Promise(resolve=>{execFile('reg',['query','HKCU\\Software\\Valve\\Steam','/v','SteamPath'],{windowsHide:true,timeout:5000,encoding:'utf8'},(error,out)=>{const m=!error&&/SteamPath\s+REG_SZ\s+(.+)/i.exec(String(out||''));resolve(m?path.normalize(m[1].trim()):'');});});}
+// reg.exe prints in the console code page (GBK on Chinese Windows), but the output was read as UTF-8, so a Steam folder
+// with Chinese or Japanese in its path came back garbled and was not found. PowerShell is told to print UTF-8.
+function registryString(key,name){return new Promise(resolve=>{execFile('powershell.exe',['-NoProfile','-NonInteractive','-Command','[Console]::OutputEncoding=[Text.Encoding]::UTF8;(Get-ItemProperty -LiteralPath ("Registry::"+$env:MEGULIT_REG_KEY) -Name $env:MEGULIT_REG_NAME -ErrorAction Stop).($env:MEGULIT_REG_NAME)'],{windowsHide:true,timeout:10000,encoding:'utf8',env:{...process.env,MEGULIT_REG_KEY:key,MEGULIT_REG_NAME:name}},(error,out)=>resolve(error?'':String(out||'').replace(/^﻿/,'').trim()));});}
+async function steamFromRegistry(){const p=await registryString('HKCU\\Software\\Valve\\Steam','SteamPath');return p?path.normalize(p):'';}
 async function findSteam(){
  const tries=[await steamFromRegistry(),'C:\\Program Files (x86)\\Steam','C:\\Program Files\\Steam','D:\\Steam','E:\\Steam','D:\\SteamLibrary','E:\\SteamLibrary'];
  for(const p of tries)if(p&&fs.existsSync(path.join(p,'steamapps')))return p;return '';
@@ -344,4 +347,4 @@ class Synopses{
    if(!out.zh&&!out.en&&!out.ja&&!a.appid)return Object.keys(old.src||{}).some(l=>require('./synopsis-policy.cjs').approved(old.src[l]))?old:null;if(!fs.existsSync(this.file+'.pre-vndb.json')&&fs.existsSync(this.file))fs.copyFileSync(this.file,this.file+'.pre-vndb.json');this.cache[String(a.mediaId)]=out;this.write();return out;
  }
 }
-module.exports={searchNames,machine,restoreTool,Library,Synopses,engineOf,findGame,steamGames,steamAppidFor,folderGames,findSteam,findVariants,isTranslated,playableGame};
+module.exports={searchNames,machine,restoreTool,Library,Synopses,engineOf,findGame,steamGames,steamAppidFor,folderGames,findSteam,registryString,findVariants,isTranslated,playableGame};
