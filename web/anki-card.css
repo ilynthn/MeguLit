@@ -51,6 +51,10 @@ body.hud.hud-whole #card-content .tm-card{background:transparent!important;borde
 [data-hud=example] .hud-inner{padding:0 .5em .35em!important;box-sizing:border-box}
 [data-hud=example] .tm-ex{font-family:var(--hud-ja-font);font-size:var(--hud-size-example,30px);justify-content:center;line-height:2.05}
 [data-hud=example] .tm-ex .tm-jp{flex:0 1 auto}
+/* (user 2026-11-14) one flow of text: [例] is the start of the sentence, not a column beside it */
+[data-hud=example] .tm-ex{display:block;text-align:center}[data-hud=example] .tm-ex .tm-tag{margin-right:.15em}[data-hud=example] .tm-ex .tm-play{display:inline-block;vertical-align:middle}
+/* edit frames are plain rectangles */
+body.hud-edit .hud-block{border-radius:0}
 [data-hud=example] .tm-dim{color:var(--hud-text,#ece4dc)}
 [data-hud=example] .tm-jp{text-wrap:pretty}[data-hud=example] .tm-tr{text-wrap:balance}
 [data-hud=example] .tm-tr{font-family:var(--hud-zh-font);font-size:calc(var(--hud-size-example,30px)*.7);color:var(--hud-dim,#a99e97);margin:0}

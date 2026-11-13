@@ -42,8 +42,15 @@
      space down to the next block or the buttons, so a long definition wraps at the same size instead of shrinking */
   const roomH=Math.max(box.h,Math.min(100-box.y,Number.isFinite(room)?room:box.h))*SH/100;
   const shown=Math.max(.05,Math.min(s,bw/nw,roomH/nh));
-  return {rect:box,scale:shown,fresh,ox:Math.round(Math.max(0,(bw-nw*shown)/2)),oy:0};
+  const ox=Math.round(Math.max(0,(bw-nw*shown)/2));
+  /* frame: the content's real box (what the edit outline shows and what is dragged); rect stays the saved slot */
+  const frame={x:Math.round((box.x+ox/SW*100)*100)/100,y:box.y,w:Math.round(nw*shown/SW*10000)/100,h:Math.round(nh*shown/SH*10000)/100,s:box.s};
+  return {rect:box,frame,scale:shown,fresh,ox,oy:0};
  }
+ /* (user 2026-11-14) A drag or resize of the frame (the content's box) moves / resizes the saved slot by the same
+    amount, so the slot never collapses onto one card's content; the scale comes from the frame (a corner sets it). */
+ function carry(saved,from,to){const s=saved||to,f=from||s,out={x:s.x+(to.x-f.x),y:s.y+(to.y-f.y),w:Math.max(1,s.w+(to.w-f.w)),h:Math.max(1,s.h+(to.h-f.h))};
+  if(Number.isFinite(to.s))out.s=to.s;else if(Number.isFinite(s.s))out.s=s.s;for(const k of ['fx','fy','z'])if(s[k]!==undefined)out[k]=s[k];return normRect(out,s,{w:.3,h:.3});}
  /* Free space under a box: the top of the nearest rect below it that shares some of its width, else the stage
     bottom (percent). Used as hugRect's room. */
  function roomBelow(r,others,gap=1){let bottom=100;for(const o of others||[]){if(!o||o===r)continue;
@@ -130,13 +137,13 @@
     if(next.x!==start.x||next.y!==start.y||next.w!==start.w||next.h!==start.h){const r={x:next.x,y:next.y,w:next.w,h:next.h};for(const k of ['fx','fy','z'])if(start[k]!==undefined)r[k]=start[k];
      /* (user 2026-11-14) the scale is the block's text size, set by the user and never derived from a card's content:
         a move or a side edge keeps it (a side only re-wraps), a corner scales it with the box */
-     const s0=Number.isFinite(start.s)?start.s:1;r.s=edge.length===2?Math.round(Math.min(6,Math.max(.12,s0*next.h/start.h))*1000)/1000:s0;onCommit(r);}};
+     const s0=Number.isFinite(start.s)?start.s:1;r.s=edge.length===2?Math.round(Math.min(6,Math.max(.12,s0*next.h/start.h))*1000)/1000:s0;onCommit(r,start);}};
    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   });
   /* Keyboard: arrows move by 1% (Shift: resize, Alt: by .25%) while the block has focus in edit mode */
-  el.addEventListener('keydown',e=>{if(!editing()||!/^Arrow/.test(e.key))return;e.preventDefault();const r={...rect()},d=e.altKey?.25:1;
+  el.addEventListener('keydown',e=>{if(!editing()||!/^Arrow/.test(e.key))return;e.preventDefault();const r={...rect()},from={...r},d=e.altKey?.25:1;
    const dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
-   if(e.shiftKey){r.w+=dx;r.h+=dy;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n);});
+   if(e.shiftKey){r.w+=dx;r.h+=dy;}else{r.x+=dx;r.y+=dy;}const n=normRect(r,rect(),{w:.3,h:.3});applyRect(el,n);onCommit(n,from);});
  }
  /* Cover framing: how far (px) the picture overflows its frame on each axis, so a drag of d px moves the focus by d/over */
  function coverOverflow(nw,nh,bw,bh,z){const k=Math.max(bw/nw,bh/nh)*(z||1);return {x:Math.max(0,nw*k-bw),y:Math.max(0,nh*k-bh)};}
@@ -162,6 +169,6 @@
   for(const k of Object.keys(out))out[k]=normRect(out[k],out[k],{w:.3,h:.3});
   return {rects:out,nudged:[...nudged]};
  }
- const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,roomBelow,rubyReading,snapRect,drawGuides,attach,EDGES};
+ const api={coverOverflow,settle,normRect,mergeLayout,applyRect,hugRect,carry,roomBelow,rubyReading,snapRect,drawGuides,attach,EDGES};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.MeguHud=api;
 })(globalThis);

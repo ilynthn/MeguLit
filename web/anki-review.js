@@ -261,7 +261,9 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const s=stage();if(!s)return;const main=s.closest('.main');
   const off=el=>{let x=0,y=0;while(el&&el!==main){x+=el.offsetLeft;y+=el.offsetTop;el=el.offsetParent;}return el===main?[x,y]:null;};
   const at=main&&!immersive?off(s):null;if(!at){s.classList.remove('span');return;}
-  const tabs=main.querySelector(':scope>.tabs'),tb=tabs?off(tabs):null,top=tb?tb[1]+tabs.offsetHeight+6:0;
+  const tabs=main.querySelector(':scope>.tabs'),tb=tabs?off(tabs):null,bar=s.querySelector('.anki-hud-bar'),bb=bar?off(bar):null;
+  /* under the sub-nav and under the HUD's own toolbar row, so no block can sit beneath 外观 … 全屏 */
+  const top=Math.max(tb?tb[1]+tabs.offsetHeight+6:0,bb?bb[1]+bar.offsetHeight+2:0);
   const v={'--span-l':-at[0],'--span-t':top-at[1],'--span-w':main.clientWidth,'--span-h':Math.max(200,main.clientHeight-top)};
   for(const [k,n] of Object.entries(v))s.style.setProperty(k,Math.round(n)+'px');s.classList.add('span');
  }
@@ -287,7 +289,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud;el.insertAdjacentHTML('beforeend','<span class="hud-label">'+esc(hc.labels[id]||id)+'</span>');
    H.attach(el,{stage:canvas,rect:()=>hostShown[id]||hud.layout[id],editing:()=>editing,
     snap:(r,kind,alt)=>{if(alt)return null;const c=canvas().getBoundingClientRect();return H.snapRect(r,Object.entries({...cardFrames,...hostShown}).filter(([k])=>k!==id).map(([,v])=>v),kind,{...hud.snap,SW:c.width,SH:c.height});},
-    guides:g=>H.drawGuides(s.querySelector('.anki-hud-guides'),g),onActive:moving,onCommit:r=>{hud.layout[id]=r;saveHud();placeBlocks();}});}
+    guides:g=>H.drawGuides(s.querySelector('.anki-hud-guides'),g),onActive:moving,onCommit:(r,from)=>{hud.layout[id]=H.carry(hud.layout[id],from,r);saveHud();placeBlocks();}});}
   mountEdit(s);new ResizeObserver(()=>placeBlocks()).observe(s.querySelector('.anki-hud-canvas'));
   spanCanvas();requestAnimationFrame(spanCanvas);new ResizeObserver(()=>spanCanvas()).observe(s);s.closest('.main')&&new ResizeObserver(()=>spanCanvas()).observe(s.closest('.main'));
   applyHud();return s;
@@ -297,7 +299,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   const s=stage();if(!s)return;const c=canvas().getBoundingClientRect();if(!c.width)return;let changed=false;
   for(const el of s.querySelectorAll('.anki-hud-block')){const id=el.dataset.hud,box=el.querySelector('.hud-content'),r=hud.layout[id];if(!box||!r)continue;
    box.style.transform='none';const nw=box.offsetWidth,nh=box.offsetHeight;if(!nw||!nh||!box.textContent.trim()){H.applyRect(el,hostShown[id]||r);continue;}
-   const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.rect;H.applyRect(el,h.rect);box.style.transform='scale('+h.scale+')';box.style.left=h.ox+'px';box.style.top=h.oy+'px';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
+   const h=H.hugRect(r,nw,nh,c.width,c.height,1.6);hostShown[id]=h.frame;H.applyRect(el,h.frame);box.style.transform='scale('+h.scale+')';box.style.left='0px';box.style.top='0px';if(h.fresh){hud.layout[id]=h.rect;changed=true;}}
   if(changed)saveHud();post({type:'tome-anki-hud',frames:{...hostShown}});if(editing&&dock.px===null)placeDock(s,'keep');
  }
  function paintBg(){

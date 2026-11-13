@@ -79,7 +79,7 @@
 .anki-hud .hud-handle{display:none;position:absolute;z-index:3;touch-action:none}
 .anki-hud.editing .anki-hud-block{pointer-events:auto;outline-color:color-mix(in srgb,var(--hud-accent,#f0883e) 75%,transparent);background:rgba(10,7,9,.32);cursor:move;user-select:none}
 .anki-hud.editing .anki-hud-block>:not(.hud-handle,.hud-label){pointer-events:none}
-.anki-hud.editing .anki-hud-block[data-hud=controls]{border-radius:999px}
+.anki-hud.editing .anki-hud-block{border-radius:0}
 .anki-hud.editing .hud-label{display:block;position:absolute;top:-10px;left:8px;white-space:nowrap;z-index:2;padding:1px 7px;border-radius:5px;background:var(--hud-accent,#f0883e);color:#1a1012;font-size:12px;font-weight:600;line-height:1.6;pointer-events:none}
 .anki-hud.editing .hud-handle{display:block}
 .anki-hud .hud-handle[data-edge=n],.anki-hud .hud-handle[data-edge=s]{left:14px;right:14px;height:9px;cursor:ns-resize}

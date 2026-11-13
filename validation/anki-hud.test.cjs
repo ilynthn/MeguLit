@@ -52,7 +52,7 @@ test('the card magnifier looks words up in MOJi first and falls back to the loca
  /* 2026-11-13 English interface asks Jisho instead of MOJi */assert.ok(i>0);assert.match(body,/q\(locale==='en'\?'jisho':'moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("'jisho':'moji')")<body.indexOf("q('local')"));
  assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
 });
-test('a block frame is always its saved box; the text size is the saved scale, wrapped and shrunk only when out of room (user 2026-11-14)',()=>{
+test('the saved slot never moves; the frame is the content box inside it; the text size is the saved scale (user 2026-11-14)',()=>{
  const a=H.hugRect({x:10,y:10,w:80,h:20},400,100,1000,1000);/* no scale yet: 1, the 外观 size, whatever the card */
  assert.equal(a.fresh,true);assert.equal(a.scale,1);assert.deepEqual([a.rect.x,a.rect.y,a.rect.w,a.rect.h,a.rect.s],[10,10,80,20,1]);assert.equal(a.ox,200);
  const b=H.hugRect({x:10,y:10,w:80,h:40,s:2},400,100,1000,1000);/* the frame stays the box, content at its top */
@@ -66,7 +66,16 @@ test('a block frame is always its saved box; the text size is the saved scale, w
  /* free space under a box: down to the next block that shares its width, else the stage bottom */
  assert.equal(H.roomBelow({x:58,y:27,w:39,h:12},[{x:58,y:42,w:39,h:24},{x:2,y:9,w:52,h:74}]),14);assert.equal(H.roomBelow({x:58,y:42,w:39,h:24},[{x:2,y:9,w:52,h:74}]),58);
  /* both sides place content by the offsets; the card wraps text at the saved scale and passes the room */
- for(const f of ['anki-card.js','anki-review.js'])assert.match(read(f),/box\.style\.left=h\.ox\+'px';box\.style\.top=h\.oy\+'px';/,f);
+ /* the frame (edit outline, drag target, snapping) is the content's real box: top of the slot, centred across */
+ assert.deepEqual(a.frame,{x:30,y:10,w:40,h:10,s:1});assert.deepEqual([b.frame.x,b.frame.y,b.frame.w,b.frame.h],[10,10,80,20]);
+ assert.match(read('anki-card.js'),/shown\[id\]=h\.frame;MeguHud\.applyRect\(el,h\.frame\)/);assert.match(read('anki-review.js'),/hostShown\[id\]=h\.frame;H\.applyRect\(el,h\.frame\)/);
+ /* dragging / resizing the frame carries the same change to the saved slot, never replaces it with one card's content */
+ const slot={x:58,y:42,w:39,h:24,s:1};assert.deepEqual(H.carry(slot,{x:70,y:42,w:15,h:5,s:1},{x:60,y:50,w:15,h:5,s:1}),{x:48,y:50,w:39,h:24,s:1});
+ assert.deepEqual(H.carry({...slot,x:40},{x:52,y:42,w:15,h:5,s:1},{x:52,y:42,w:30,h:10,s:2}),{x:40,y:42,w:54,h:29,s:2});assert.equal(H.carry(slot,{x:70,y:42,w:15,h:5,s:1},{x:70,y:42,w:30,h:10,s:2}).x,46,'kept inside the stage');
+ assert.match(read('anki-card.js'),/onCommit:\(r,from\)=>\{r=MeguHud\.carry\(hud\.layout\[id\],from,r\);/);assert.match(read('anki-review.js'),/onCommit:\(r,from\)=>\{hud\.layout\[id\]=H\.carry\(hud\.layout\[id\],from,r\);/);
+ /* wrapped text: the box shrinks to its longest line; edit frames are plain rectangles; [例] flows with the sentence */
+ assert.match(read('anki-card.js'),/rg\.selectNodeContents\(box\)/);assert.match(read('anki-layout.css'),/\.anki-hud\.editing \.anki-hud-block\{border-radius:0\}/);assert.ok(!/anki-hud-block\[data-hud=controls\]\{border-radius:999px\}/.test(read('anki-layout.css')));
+ assert.match(read('anki-card.css'),/body\.hud-edit \.hud-block\{border-radius:0\}/);assert.match(read('anki-card.css'),/\[data-hud=example\] \.tm-ex\{display:block;text-align:center\}/);
  const card=read('anki-card.js');assert.match(card,/const s0=Number\.isFinite\(r\.s\)\?r\.s:1;if\(nw\*s0>r\.w\*SW\/100\+1\)/);assert.match(card,/MeguHud\.roomBelow\(/);
  /* the size is the user's: a move or a side keeps it, a corner scales it with the box */
  const drag=read('hud-drag.js');assert.match(drag,/r\.s=edge\.length===2\?/);assert.ok(!/delete r\.s/.test(drag));
