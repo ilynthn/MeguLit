@@ -62,10 +62,9 @@
 .about-support::before{content:"";position:absolute;top:-1px;left:32px;width:72px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--gold-accent,#edb56e) 90%,transparent),transparent)}
 .about-glyph{position:absolute;right:-10px;bottom:-46px;font:400 230px/1 var(--g-serif,serif);color:color-mix(in srgb,var(--gold-accent,#edb56e) 5%,transparent);pointer-events:none;user-select:none}
 .about-eyebrow{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:#d9a54a}
-.about-eyebrow::before{content:"◆";font-size:8px;margin-right:8px;vertical-align:2px}
 .about-support h2{margin:8px 0 0;font:500 24px var(--g-serif,serif);color:#f3e6da}
 .about-support>p{position:relative;margin:10px 0 0;max-width:40em;color:#cdbfb3;line-height:1.8}
-.about-support-strong{margin-top:12px!important;font-weight:500!important;color:var(--gold-accent,#edb56e)!important;font-family:var(--g-serif,serif)}
+.about-support-strong{margin-top:12px!important;font-weight:500!important;color:var(--text)!important;font-family:var(--g-serif,serif)}
 .about-pay{position:relative;grid-template-columns:auto 1fr;gap:0;margin-top:22px;border-top:1px solid rgba(241,224,210,.08);padding-top:20px}
 .about-cn{padding-right:28px}
 .about-cn h3,.about-intl h3{font-size:11px;letter-spacing:.2em;color:#9a8577;font-weight:500}

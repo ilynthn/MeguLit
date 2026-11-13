@@ -230,8 +230,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   s.querySelector('.anki-hud-canvas').append(box);box.querySelector('[data-close]').focus();
   /* (user 2026-11-13) MOJi first, as the dictionary page's online lookup (anonymous when not signed in); the local dictionary if MOJi fails or finds nothing */
   const q=source=>api('dictionary',{query:word,source,operationId:crypto.randomUUID()});
-  q('moji').then(items=>Array.isArray(items)&&items.length?items:Promise.reject(Error('EMPTY'))).catch(()=>q('local')).then(items=>{if(!box.isConnected)return;const list=(Array.isArray(items)?items:[]).slice(0,4);
-   box.querySelector('.anki-hud-lookup-body').innerHTML=list.length?'<ol>'+list.map(i=>'<li><div><b lang="ja">'+esc(i.spelling||'')+'</b> <span lang="ja">'+esc(i.reading||'')+'</span></div><p>'+esc(i.definition||'')+'</p></li>').join('')+'</ol>':'<p class="muted">'+esc(hc.noResult)+'</p>';
+  /* 2026-11-13 English interface looks up Jisho (English definitions) */q(locale==='en'?'jisho':'moji').then(items=>Array.isArray(items)&&items.length?items:Promise.reject(Error('EMPTY'))).catch(()=>q('local')).then(items=>{if(!box.isConnected)return;const list=(Array.isArray(items)?items:[]).slice(0,4);
+   box.querySelector('.anki-hud-lookup-body').innerHTML=list.length?'<ol>'+list.map(i=>'<li><div><b lang="ja">'+esc(i.spelling||'')+'</b> <span lang="ja">'+esc(i.reading||'')+'</span>'+[i.jlpt?'JLPT '+i.jlpt:'',...(i.partOfSpeech||[]).slice(0,2)].filter(Boolean).map(t=>' <span class="moji-tag">'+esc(t)+'</span>').join('')+'</div><p>'+esc(i.definition||'')+'</p></li>').join('')+'</ol>':'<p class="muted">'+esc(hc.noResult)+'</p>';
   }).catch(()=>{if(box.isConnected)box.querySelector('.anki-hud-lookup-body').innerHTML='<p class="muted">'+esc(hc.noResult)+'</p>';});
  }
  /* Appearance panel: fonts, sizes, colours, background; same pop-over as the volume mixer */

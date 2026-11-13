@@ -84,10 +84,18 @@ try:
 except subprocess.CalledProcessError:
     print('spectrum: the local file could not be decoded, so this song has no spectrum')
 
+# loudness: every song is levelled to -8 LUFS on the site (the player multiplies by 10^(trim/20))
+lufs = None
+try:
+    o = subprocess.run([FFMPEG, '-hide_banner', '-nostats', '-i', str(src), '-af', 'ebur128', '-f', 'null', '-'], capture_output=True, text=True, encoding='utf-8', errors='replace').stderr
+    lufs = float(re.findall(r'I:\s+(-?[\d.]+) LUFS', o)[-1])
+except (IndexError, ValueError): print('loudness: could not be measured, so this song is not levelled')
+
 # playlist
 pl = json.loads(PLAYLIST.read_text('utf8')) if PLAYLIST.exists() else {'tracks': []}
 entry = {'id': slug, 'title': title, 'artist': artist, 'artistUrl': a.artist_url, 'album': album, 'label': a.label, 'albumUrl': a.album_url,
          'license': a.license, 'licenseUrl': a.license_url, 'sc': a.soundcloud, 'ne': a.netease or None, 'lyrics': has_lrc, 'duration': round(dur, 1)}
+if lufs is not None: entry.update(lufs=lufs, trim=round(-8 - lufs, 1))
 pl['tracks'] = [t for t in pl.get('tracks', []) if t.get('id') != slug] + [entry]
 PLAYLIST.write_text(json.dumps(pl, ensure_ascii=False, indent=2) + '\n', 'utf8')
 print(f'{slug}: {"SoundCloud" if a.soundcloud else f"{mp3.stat().st_size / 1e6:.1f} MB"}, {dur:.0f} s, playlist now {len(pl["tracks"])} songs')

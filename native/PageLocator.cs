@@ -206,17 +206,20 @@ public sealed class PageLocator : IDisposable {
     and go out as foreign groups, each row keeping the Japanese reading (Alt) so a real kanji card can still be shown. */
  static List<List<Row>> SplitForeign(PageLocator self, Bitmap image, int w, int h, List<Row> rows, List<List<Row>> groups, string dialog, string speaker, bool band, string active, OcrEngine zhEngine) {
   var outList = new List<List<Row>>();
-  bool any = groups.Exists(g => KanaShare(GroupText(g)) < 0.25) || (groups.Count == 0 && rows.Exists(r => ForeignLike(r.Text)));
+  bool any = groups.Exists(g => KanaShare(GroupText(g)) < 0.4) || (groups.Count == 0 && rows.Exists(r => ForeignLike(r.Text)));
   if (!any) return outList;
   var zh = ScanGroups(self.Read(image, w, h, zhEngine), w, h, dialog, speaker, band, active, ForeignLike);
   foreach (var z in zh) {
    Rectangle u = z[0].Box; foreach (var r in z) u = Rectangle.Union(u, r.Box);
    string alt = null; bool real = false;
-   for (int i = groups.Count - 1; i >= 0; i--) { var g = groups[i]; Rectangle v = g[0].Box; foreach (var r in g) v = Rectangle.Union(v, r.Box); if (!u.IntersectsWith(v)) continue; if (KanaShare(GroupText(g)) >= 0.25) { real = true; break; } alt = GroupText(g); groups.RemoveAt(i); }
+   for (int i = groups.Count - 1; i >= 0; i--) { var g = groups[i]; Rectangle v = g[0].Box; foreach (var r in g) v = Rectangle.Union(v, r.Box); if (!u.IntersectsWith(v)) continue; if (KanaShare(GroupText(g)) >= 0.25 && !Simplified(GroupText(z))) { real = true; break; } alt = GroupText(g); groups.RemoveAt(i); }
    if (real) continue; foreach (var r in z) r.Alt = alt; outList.Add(z);
   }
   return outList;
  }
+ /* Simplified-only characters (common ones): two of them in the Chinese read and the Japanese read's kana are OCR noise */
+ const string SimplifiedOnly = "们这说过时为对会来个还么样让从见现发经开关头问话车长门马鸟东气书学习认识题实与专亲几岁总选择应该刚爷阳广边飞脑间记忆种续钟钱给将无论没虽觉帘许达这里";
+ public static bool Simplified(string s) { int n = 0; foreach (char c in s ?? "") if (SimplifiedOnly.IndexOf(c) >= 0 && ++n >= 2) return true; return false; }
  static double KanaShare(string s) { int k = 0, n = 0; foreach (char c in Tidy(s)) { if (Kana(c)) k++; if (Char.IsLetterOrDigit(c)) n++; } return n == 0 ? 0 : (double)k / n; }
  /* Chinese a localized build draws (no kana, four or more Han characters, mostly CJK) */
  public static bool ForeignLike(string text) {
@@ -330,7 +333,7 @@ public sealed class PageLocator : IDisposable {
    matched.Add(it); it.Misses = 0; it.Seen++;
    bool changed = it.Text != text || it.Rows.Count != g.Count || Math.Abs(it.Rows[0].Box.Top - g[0].Box.Top) > g[0].Box.Height / 2 || Math.Abs(it.Rows[0].Box.Left - g[0].Box.Left) > g[0].Box.Height;
    it.Text = text; it.Rows = g;
-   if (it.Seen >= 2 && (!it.Shown || changed)) { it.Shown = true; ScanEmit(it, w, h, true); }
+   if ((it.Seen >= 2 || it.Foreign) && (!it.Shown || changed)) { it.Shown = true; ScanEmit(it, w, h, true); }
   }
   for (int i = ScanItems.Count - 1; i >= 0; i--) {
    var x = ScanItems[i]; if (matched.Contains(x)) continue;

@@ -49,7 +49,7 @@ test('the review page keeps every tool and adds layout, appearance and full scre
 });
 test('the card magnifier looks words up in MOJi first and falls back to the local dictionary',()=>{
  const src=read('anki-review.js'),i=src.indexOf('function lookup(word)'),body=src.slice(i,src.indexOf('\n }\n',i));
- assert.ok(i>0);assert.match(body,/q\('moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("q('moji')")<body.indexOf("q('local')"));
+ /* 2026-11-13 English interface asks Jisho instead of MOJi */assert.ok(i>0);assert.match(body,/q\(locale==='en'\?'jisho':'moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("'jisho':'moji')")<body.indexOf("q('local')"));
  assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
 });
 test('a block frame hugs its content and keeps its scale once known',()=>{

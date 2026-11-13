@@ -408,7 +408,7 @@ function setSoundLabel() {
   const vol = $('.vol');
   if (vol) vol.hidden = !on;
 }
-// Volume: sound starts at 20% (every song itself plays 32 dB down); the slider sets it from there.
+// Volume: sound starts at 20% (every song itself plays 27 dB down, levelled per song); the slider sets it from there.
 const volInput = $('#hero-volume'), volOut = $('.vol-v');
 const volume = () => (volInput ? Number(volInput.value) : 20) / 100;
 volInput?.style.setProperty('--fill', `${volInput.value}%`);   /* the CSP forbids inline style attributes */

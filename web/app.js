@@ -581,10 +581,25 @@ function showLibraryResults(grid,selecting){
 const JP_SOURCE_SITE='www.shinnku.com、lzacg.cc、www.touchgal.ink';
 const jpSourceNote=()=>JP_SOURCE_SITE?({zh:'。建议去（'+JP_SOURCE_SITE+'）搜索这部作品的日文原版(资源左下角会提示是生肉/熟肉,但有时候熟肉也会被判断成生肉,MeguLit只分享平台,不承担任何法律责任。)',en:'. Suggested place to search for the Japanese release: ('+JP_SOURCE_SITE+')',
  ja:'。日本語版は（'+JP_SOURCE_SITE+'）で探すことをおすすめします'})[locale]||'':'';
+/* E525 language switch (KiriKiri / Unity setting, Steam language) wording for the restore dialog */
+const lsWords={zh:{eng:{kirikiri:'KiriKiri',unity:'Unity'},
+ restorable:n=>n.mode==='steam'?'可以切换：这个游戏的语言跟随 Steam，商店有日语。会把本机 Steam 里这个游戏的语言设为日本語（只改本地设置，先备份，可以还原）':'可以切换：游戏自带日文，'+lsEng(n,'zh')+' 的语言设置是 '+lsVal(n)+'，会改成日文（先备份，可以还原）',
+ steam:n=>'这个游戏的语言跟随 Steam（现在是 '+(n.steamLanguage||'默认')+'），商店有日语。Steam 正在运行时 MeguLit 不能改：请在 Steam 库里右键这个游戏 → 属性 → 通用 → 语言，选「日本語」；或者完全退出 Steam 后回来点「恢复日文」',
+ firstRun:()=>'游戏自带日文，但还没有生成设置文件。请先启动一次游戏到标题画面再退出，然后回来切换',applied:n=>n.engine?'已把游戏语言切换为日文':'已经恢复为日文',open:'打开 Steam 游戏页',done:n=>n.mode==='steam'?'已把 Steam 语言设为日本語，下次启动 Steam 后生效':'已切换为日文，下次启动游戏生效'},
+ en:{eng:{kirikiri:'KiriKiri',unity:'Unity'},
+ restorable:n=>n.mode==='steam'?'Switchable: this game follows the Steam language and the store lists Japanese. The game’s language in your local Steam is set to Japanese (local setting only, backed up, can be undone)':'Switchable: the game ships Japanese; its '+lsEng(n,'en')+' language setting is '+lsVal(n)+' and will be set to Japanese (backed up, can be undone)',
+ steam:n=>'This game follows the Steam language (now '+(n.steamLanguage||'default')+') and the store lists Japanese. MeguLit cannot change it while Steam runs: in the Steam library right-click the game → Properties → General → Language → 日本語, or quit Steam completely and choose Restore Japanese',
+ firstRun:()=>'The game ships Japanese but has not written its settings yet. Start it once to the title screen, quit, then switch here',applied:n=>n.engine?'Game language switched to Japanese':'Restored to Japanese',open:'Open Steam game page',done:n=>n.mode==='steam'?'Steam language set to Japanese; takes effect when Steam starts':'Switched to Japanese; takes effect the next time the game starts'},
+ ja:{eng:{kirikiri:'KiriKiri',unity:'Unity'},
+ restorable:n=>n.mode==='steam'?'切り替えられます：このゲームの言語は Steam に従い、ストアに日本語があります。この PC の Steam でゲームの言語を日本語にします（ローカル設定のみ、バックアップあり、元に戻せます）':'切り替えられます：ゲームに日本語が入っています。'+lsEng(n,'ja')+' の言語設定（'+lsVal(n)+'）を日本語にします（バックアップあり、元に戻せます）',
+ steam:n=>'このゲームの言語は Steam に従います（現在 '+(n.steamLanguage||'既定')+'）。Steam 起動中は変更できません。Steam ライブラリでゲームを右クリック → プロパティ → 一般 → 言語 で「日本語」を選ぶか、Steam を完全に終了してから「日本語に戻す」を押してください',
+ firstRun:()=>'日本語は入っていますが、設定ファイルがまだありません。一度ゲームをタイトル画面まで起動して終了してから切り替えてください',applied:n=>n.engine?'ゲームの言語を日本語に切り替えました':'日本語に戻してあります',open:'Steam のゲームページを開く',done:n=>n.mode==='steam'?'Steam の言語を日本語にしました。次に Steam を起動したとき有効になります':'日本語に切り替えました。次にゲームを起動したとき有効になります'}};
+const lsEng=(n,l)=>(lsWords[l]||lsWords.zh).eng[n.engine]||n.engine||'';
+const lsVal=n=>{const c=(n.changes||[])[0];return c?String(c.key)+' = '+String(c.from):'';};
 function japaneseRestore(){
  const w={zh:{title:'日文原版恢复',search:'搜索游戏',nomatch:'没有匹配的游戏',sub:'游戏自带日文数据时，把显示的文字换回日文。会先备份，可以随时还原。请先关闭游戏',pick:'选择游戏',none:'游戏库里没有找到带日文数据的游戏',check:'检测中…',apply:'恢复日文',
   undo:'还原',close:'关闭',working:'处理中…',
-  st:{restorable:n=>n.adapter==='yuris-update'?'可以恢复：找到汉化补丁 '+n.files+' 个，会移到备份里，游戏改读自带的日文剧本':'可以恢复：'+n.files+' 个文件，'+n.cells.toLocaleString()+' 处文字',applied:()=>'已经恢复为日文',
+  st:{'steam-guide':n=>(lsWords[locale]||lsWords.zh).steam(n),'first-run':n=>(lsWords[locale]||lsWords.zh).firstRun(n),restorable:n=>n.adapter==='language-switch'?(lsWords[locale]||lsWords.zh).restorable(n):n.adapter==='yuris-update'?'可以恢复：找到汉化补丁 '+n.files+' 个，会移到备份里，游戏改读自带的日文剧本':'可以恢复：'+n.files+' 个文件，'+n.cells.toLocaleString()+' 处文字',applied:n=>n?.adapter==='language-switch'?(lsWords[locale]||lsWords.zh).applied(n):'已经恢复为日文',
    already:()=>'已经是日文，不需要恢复',unsupported:()=>'这个游戏按语言分文件存放，暂不支持',none:r=>r?.reason==='NO_JAPANESE_TEXT'?'这份游戏文件里没有日文文本，没有可恢复的内容（Steam 版 CLANNAD 就是这样）。需要自己准备这部作品的日文原版或日文化补丁，然后点「从日文原版导入」选它（压缩包、程序或文件夹都行）'+jpSourceNote():'游戏目录里没有扫描到日文剧本。手上有日文原版的话，可以点「从日文原版导入」手动添加（压缩包、程序或文件夹都行）'+jpSourceNote(),
    missing:()=>'找不到游戏目录','translated-only':()=>'这是纯汉化包，里面没有日文文字，没法恢复。请安装日文原版'+jpSourceNote(),importable:()=>'这是纯汉化包，里面没有日文文字。有日文原版的话，点「从日文原版导入」选择原版的启动程序，会把原版剧本导进来（先备份，可以还原）'+jpSourceNote(),
    imported:()=>'已从日文原版导入剧本'},
@@ -593,8 +608,8 @@ function japaneseRestore(){
    IMPORT_EXE_CONFLICT:'游戏目录里已有同名但内容不同的程序，没有导入',IMPORT_FILE_TOO_LARGE:'剧本文件太大，没有导入',GAME_RUNNING:'游戏正在运行，请先关闭游戏',NOTHING_TO_RESTORE:'没有需要恢复的内容',NOT_APPLIED:'这个游戏还没有恢复过'}},
   en:{title:'Restore Japanese original',search:'Search games',nomatch:'No matching game',sub:'When a game ships its Japanese text, switch the displayed text back to Japanese. Backed up first; undo any time. Close the game first',
    pick:'Game',none:'No game in the library ships Japanese data',check:'Checking…',apply:'Restore Japanese',undo:'Undo',close:'Close',working:'Working…',
-  st:{restorable:n=>n.adapter==='yuris-update'?'Restorable: '+n.files+' Chinese patch archive(s) will be moved to the backup so the game reads its own Japanese scripts':'Restorable: '+n.files+' files, '+n.cells.toLocaleString()+' strings',
-   applied:()=>'Restored to Japanese',already:()=>'Already Japanese',unsupported:()=>'This game stores each language in separate files; not supported yet',none:r=>r?.reason==='NO_JAPANESE_TEXT'?'These game files contain no Japanese text, so there is nothing to restore (the Steam CLANNAD is like this). Get the Japanese release or Japanese patch of this game yourself, then choose Import from Japanese release and pick it (archive, program or folder)'+jpSourceNote():'No Japanese script was found in the game folder. If you have the Japanese release, add it by hand with Import from Japanese release (an archive, the program or a folder all work)'+jpSourceNote(),
+  st:{'steam-guide':n=>(lsWords[locale]||lsWords.zh).steam(n),'first-run':n=>(lsWords[locale]||lsWords.zh).firstRun(n),restorable:n=>n.adapter==='language-switch'?(lsWords[locale]||lsWords.zh).restorable(n):n.adapter==='yuris-update'?'Restorable: '+n.files+' Chinese patch archive(s) will be moved to the backup so the game reads its own Japanese scripts':'Restorable: '+n.files+' files, '+n.cells.toLocaleString()+' strings',
+   applied:n=>n?.adapter==='language-switch'?(lsWords[locale]||lsWords.zh).applied(n):'Restored to Japanese',already:()=>'Already Japanese',unsupported:()=>'This game stores each language in separate files; not supported yet',none:r=>r?.reason==='NO_JAPANESE_TEXT'?'These game files contain no Japanese text, so there is nothing to restore (the Steam CLANNAD is like this). Get the Japanese release or Japanese patch of this game yourself, then choose Import from Japanese release and pick it (archive, program or folder)'+jpSourceNote():'No Japanese script was found in the game folder. If you have the Japanese release, add it by hand with Import from Japanese release (an archive, the program or a folder all work)'+jpSourceNote(),
    missing:()=>'Game folder not found','translated-only':()=>'This is a Chinese-only package with no Japanese text to restore. Install the Japanese release',importable:()=>'This is a Chinese-only package with no Japanese text. If you have the Japanese release, choose Import from Japanese release and pick its game program; its script files are copied in (backed up, can be undone)',
    imported:()=>'Script imported from the Japanese release'},
   done:n=>'Restored '+n.applied+' files',undone:n=>n.skipped.length?'Undid '+n.restored+'; '+n.skipped.length+' files changed by a game update were left alone':'Undid '+n.restored+' files',
@@ -604,8 +619,8 @@ function japaneseRestore(){
    GAME_RUNNING:'The game is running; close it first',NOTHING_TO_RESTORE:'Nothing to restore',NOT_APPLIED:'This game has not been restored'}},
   ja:{title:'日本語原版に戻す',search:'ゲームを検索',nomatch:'一致するゲームがありません',sub:'ゲームに日本語データが入っている場合、表示テキストを日本語に戻します。先にバックアップし、いつでも元に戻せます。先にゲームを閉じてください',pick:'ゲーム',none:'日本語データを含むゲームが見つかりません',
    check:'確認中…',apply:'日本語に戻す',undo:'元に戻す',close:'閉じる',working:'処理中…',
-  st:{restorable:n=>n.adapter==='yuris-update'?'復元できます：中国語パッチ '+n.files+' 個をバックアップへ移し、ゲーム本来の日本語スクリプトを読ませます':'復元できます：'+n.files+' ファイル、'+n.cells.toLocaleString()+' 箇所',
-   applied:()=>'日本語に戻してあります',already:()=>'すでに日本語です',unsupported:()=>'言語ごとにファイルが分かれているため、まだ対応していません',none:r=>r?.reason==='NO_JAPANESE_TEXT'?'このゲームファイルには日本語テキストが入っていないため、復元できる内容がありません（Steam 版 CLANNAD など）。この作品の日本語版か日本語化パッチを用意し、「日本語版から取り込む」で選んでください（圧縮ファイル・実行ファイル・フォルダのいずれも可）'+jpSourceNote():'ゲームフォルダに日本語のスクリプトが見つかりませんでした。日本語版をお持ちなら「日本語版から取り込む」で手動で追加できます（圧縮ファイル・実行ファイル・フォルダのいずれも可）'+jpSourceNote(),
+  st:{'steam-guide':n=>(lsWords[locale]||lsWords.zh).steam(n),'first-run':n=>(lsWords[locale]||lsWords.zh).firstRun(n),restorable:n=>n.adapter==='language-switch'?(lsWords[locale]||lsWords.zh).restorable(n):n.adapter==='yuris-update'?'復元できます：中国語パッチ '+n.files+' 個をバックアップへ移し、ゲーム本来の日本語スクリプトを読ませます':'復元できます：'+n.files+' ファイル、'+n.cells.toLocaleString()+' 箇所',
+   applied:n=>n?.adapter==='language-switch'?(lsWords[locale]||lsWords.zh).applied(n):'日本語に戻してあります',already:()=>'すでに日本語です',unsupported:()=>'言語ごとにファイルが分かれているため、まだ対応していません',none:r=>r?.reason==='NO_JAPANESE_TEXT'?'このゲームファイルには日本語テキストが入っていないため、復元できる内容がありません（Steam 版 CLANNAD など）。この作品の日本語版か日本語化パッチを用意し、「日本語版から取り込む」で選んでください（圧縮ファイル・実行ファイル・フォルダのいずれも可）'+jpSourceNote():'ゲームフォルダに日本語のスクリプトが見つかりませんでした。日本語版をお持ちなら「日本語版から取り込む」で手動で追加できます（圧縮ファイル・実行ファイル・フォルダのいずれも可）'+jpSourceNote(),
    missing:()=>'ゲームフォルダが見つかりません','translated-only':()=>'中国語だけのパッケージで、日本語テキストが入っていません。日本語版をインストールしてください'+jpSourceNote(),importable:()=>'中国語だけのパッケージで、日本語テキストが入っていません。日本語版があれば「日本語版から取り込む」で実行ファイルを選ぶと、シナリオを取り込みます（バックアップあり、元に戻せます）',
    imported:()=>'日本語版からシナリオを取り込みました'},
   done:n=>n.applied+' ファイルを戻しました',undone:n=>n.skipped.length?n.restored+' ファイルを戻しました。更新で変わった '+n.skipped.length+' ファイルはそのままです':n.restored+' ファイルを元に戻しました',import:'日本語版から取り込む',
@@ -613,22 +628,23 @@ function japaneseRestore(){
    IMPORT_SOURCE_NO_SCRIPT:'シナリオファイル（nss.npa）がありません。完全な日本語版を選んでください',IMPORT_EXE_CONFLICT:'同じ名前の別の実行ファイルがあるため取り込みませんでした',IMPORT_FILE_TOO_LARGE:'ファイルが大きすぎるため取り込みませんでした',
    GAME_RUNNING:'ゲームが起動中です。先に閉じてください',NOTHING_TO_RESTORE:'戻す内容がありません',NOT_APPLIED:'まだ戻していません'}}};
  const t=w[locale]||w.zh;
- const d=modal(`<header class="jr-head"><span class="jr-eyebrow">${({zh:'工具',en:'Tool',ja:'ツール'})[locale]||'工具'}</span><h2>${t.title}</h2><p class="settings-help">${t.sub}</p></header><p class="tool-key-note">${({zh:'在 Steam 买的、只显示中文 / 英文的游戏（比如 Key 社的 Summer Pockets），一定要先运行这个工具，否则 MeguLit 读到的是中文或英文，用不了',en:'Games bought on Steam that only show Chinese or English (such as Key’s Summer Pockets) must go through this tool first, otherwise MeguLit only gets the translated text',ja:'Steam 版で中国語・英語しか表示されないゲーム（Key の Summer Pockets など）は、先にこのツールを実行してください。実行しないと翻訳文しか取得できません'})[locale]||''}</p><div data-jr-body><p class="muted">${t.check}</p></div><div class="dialog-actions"><button type="button" class="secondary jr-close" data-jr-close>${t.close}</button><button type="button" class="secondary" data-jr-undo hidden>${t.undo}</button><button type="button" class="primary" data-jr-import hidden>${t.import}</button><button type="button" class="primary" data-jr-apply hidden>${t.apply}</button></div>`);
+ const d=modal(`<header class="jr-head"><span class="jr-eyebrow">${({zh:'工具',en:'Tool',ja:'ツール'})[locale]||'工具'}</span><h2>${t.title}</h2><p class="settings-help">${t.sub}</p></header><p class="tool-key-note">${({zh:'在 Steam 买的、只显示中文 / 英文的游戏（比如 Key 社的 Summer Pockets），一定要先运行这个工具，否则 MeguLit 读到的是中文或英文，用不了',en:'Games bought on Steam that only show Chinese or English (such as Key’s Summer Pockets) must go through this tool first, otherwise MeguLit only gets the translated text',ja:'Steam 版で中国語・英語しか表示されないゲーム（Key の Summer Pockets など）は、先にこのツールを実行してください。実行しないと翻訳文しか取得できません'})[locale]||''}</p><div data-jr-body><p class="muted">${t.check}</p></div><div class="dialog-actions"><button type="button" class="secondary jr-close" data-jr-close>${t.close}</button><button type="button" class="secondary" data-jr-undo hidden>${t.undo}</button><button type="button" class="primary" data-jr-import hidden>${t.import}</button><button type="button" class="secondary" data-jr-steam hidden>${(lsWords[locale]||lsWords.zh).open}</button><button type="button" class="primary" data-jr-apply hidden>${t.apply}</button></div>`);
  d.classList.add('jr-dialog'); /* E271 (user: the window behind the tool card needs the same care) */
  d.showModal();d.querySelector('[data-jr-close]').onclick=()=>d.close();
- let lastState='';const body=d.querySelector('[data-jr-body]'),applyBtn=d.querySelector('[data-jr-apply]'),undoBtn=d.querySelector('[data-jr-undo]'),importBtn=d.querySelector('[data-jr-import]');
+ let lastState='';const body=d.querySelector('[data-jr-body]'),applyBtn=d.querySelector('[data-jr-apply]'),undoBtn=d.querySelector('[data-jr-undo]'),importBtn=d.querySelector('[data-jr-import]'),steamBtn=d.querySelector('[data-jr-steam]');
   let id='';
  const fail=e=>{const c=typeof e==='string'?e:e?.message;toast(t.errs[c]||errorMessage(e));};
  /* E328 the files moved aside were the translation patch: say when zero-latency translation now uses it */
  const zeroNote=r=>r?.patch?({zh:'；被换下的汉化补丁已用作零延迟翻译',en:'; the translation patch that was moved aside now gives zero-latency translation',ja:'。外した中国語パッチをゼロ遅延翻訳に使います'})[locale]||'':'';
- const show=async()=>{applyBtn.hidden=undoBtn.hidden=importBtn.hidden=true;const status=body.querySelector('[data-jr-status]');status.dataset.state='checking';status.textContent=t.check;
-  try{const r=await api('jp_restore_detect',{id});status.dataset.state=t.st[r.state]?r.state:'none';status.textContent=(t.st[r.state]||t.st.none)(r);applyBtn.hidden=r.state!=='restorable';
-   undoBtn.hidden=r.state!=='applied'&&r.state!=='imported';lastState=r.state;importBtn.hidden=['imported','applied'].includes(r.state);}catch(e){status.dataset.state='';
+ const show=async()=>{applyBtn.hidden=undoBtn.hidden=importBtn.hidden=steamBtn.hidden=true;const status=body.querySelector('[data-jr-status]');status.dataset.state='checking';status.textContent=t.check;
+  try{const r=await api('jp_restore_detect',{id});status.dataset.state=t.st[r.state]?r.state:'none';status.textContent=(t.st[r.state]||t.st.none)(r);applyBtn.hidden=r.state!=='restorable';steamBtn.hidden=!(r.adapter==='language-switch'&&r.appid&&(r.state==='steam-guide'||r.mode==='steam'));
+   undoBtn.hidden=r.state!=='applied'&&r.state!=='imported';lastState=r.state;importBtn.hidden=['imported','applied'].includes(r.state)||r.adapter==='language-switch';}catch(e){status.dataset.state='';
    status.textContent='';fail(e);}};
  const run=async(action,button,message)=>{applyBtn.disabled=undoBtn.disabled=true;const label=button.textContent;button.textContent=t.working;
   try{const r=await api(action,{id});toast(message(r)+zeroNote(r));}catch(e){fail(e);}finally{button.textContent=label;applyBtn.disabled=undoBtn.disabled=false;
    show();}};
- applyBtn.onclick=()=>run('jp_restore_apply',applyBtn,t.done);
+ applyBtn.onclick=()=>run('jp_restore_apply',applyBtn,r=>r?.mode?(lsWords[locale]||lsWords.zh).done(r):t.done(r));
+ steamBtn.onclick=()=>api('jp_restore_steam',{id}).catch(fail);
  /* E280: Chinese-only package, the user picks the Japanese original's program and its script archives are copied in */
  /* E327 import from a Japanese original the user already has: an archive (zip/7z/rar), its game program or its folder.
     The files to swap are listed first; nothing is written until the user confirms. Nitroplus Chinese-only packages keep
@@ -926,13 +942,15 @@ function dictionary(target){
   const L={zh:{online:'MOJi 联网查词',local:'本地查词',play:'播放 MOJi 发音',audioFail:'发音暂时无法播放',notes:'MOJi 用户笔记',noNotes:'暂无笔记',likes:'赞',fail:'MOJi 暂时无法查询',login:'扫码登录 MOJi',
    logout:'退出登录',signed:'已登录 MOJi',anon:'未登录 · 匿名查询',scan:'用 MOJi 辞書 App「我的 → 扫一扫」扫码',scanned:'已扫描，请在手机上确认',expired:'二维码已过期',refresh:'刷新二维码',bind:'该账号需先在 MOJi App 绑定手机',
    cancel:'取消',back:'返回结果',examples:'例句',detailFail:'详情暂时无法打开',expiredSession:'MOJi 登录已过期，请重新扫码'},
-    en:{online:'Search MOJi online',local:'Offline dictionary',play:'Play MOJi audio',audioFail:'Audio is unavailable right now',notes:'MOJi user notes',noNotes:'No notes yet',
-     likes:'likes',fail:'MOJi is temporarily unavailable',login:'Sign in to MOJi',logout:'Sign out',signed:'Signed in to MOJi',anon:'Not signed in · anonymous',
+    en:{online:'Search Jisho online',local:'Offline dictionary',play:'Play MOJi audio',audioFail:'Audio is unavailable right now',notes:'MOJi user notes',noNotes:'No notes yet',
+     likes:'likes',fail:'Jisho is temporarily unavailable',login:'Sign in to MOJi',logout:'Sign out',signed:'Signed in to MOJi',anon:'Not signed in · anonymous',
      scan:'Scan with the MOJi app (Me → Scan)',scanned:'Scanned, confirm on your phone',expired:'QR code expired',refresh:'Refresh QR code',bind:'Bind a phone number in the MOJi app first',
      cancel:'Cancel',back:'Back to results',examples:'Examples',detailFail:'Could not open the entry',expiredSession:'MOJi session expired, scan again'},
     ja:{online:'MOJi でオンライン検索',local:'ローカル辞書',play:'MOJi の発音を再生',audioFail:'発音を再生できません',notes:'MOJi ユーザーノート',noNotes:'ノートはありません',likes:'いいね',fail:'MOJi に接続できません',
      login:'MOJi にログイン',logout:'ログアウト',signed:'MOJi にログイン済み',anon:'未ログイン · 匿名検索',scan:'MOJi 辞書アプリ「マイページ → スキャン」で読み取る',scanned:'読み取り済み、スマホで確認してください',expired:'QR コードの期限切れ',
      refresh:'QR コードを更新',bind:'先に MOJi アプリで電話番号を登録してください',cancel:'キャンセル',back:'結果に戻る',examples:'例文',detailFail:'詳細を開けません',expiredSession:'MOJi のログインが切れました'}}[locale];
+  /* 2026-11-13 English interface: online lookups use Jisho (English definitions); Chinese keeps MOJi, Japanese the existing MOJi path */
+  const onlineSource=locale==='en'?'jisho':'moji';
   let ticket=0,poll=0,lastItems=[],lastOnline=false;
   target.innerHTML=`<div class="moji-account" id="moji-account"></div><form class="lookup-form" id="lookup-form"><input type="search" id="lookup-input" autocomplete="off" spellcheck="false" placeholder="${text.lookupHint}" aria-label="${text.dictionary}" maxlength="100"><button type="submit" value="moji" class="primary">${L.online}</button><button type="submit" value="local" class="secondary">${L.local}</button></form><div id="lookup-results"></div>`;
   const account=target.querySelector('#moji-account'),results=target.querySelector('#lookup-results');
@@ -974,9 +992,9 @@ function dictionary(target){
     };
     poll=setTimeout(tick,3000);
   }
-  const tags=w=>[...(w.partOfSpeech||[]),w.verbType,w.verbGroup].filter(Boolean).map(t=>`<span class="moji-tag">${esc(t)}</span>`).join('');
+  const tags=w=>[w.jlpt?'JLPT '+w.jlpt:'',w.common?'common':'',...(w.partOfSpeech||[]),w.verbType,w.verbGroup].filter(Boolean).map(t=>`<span class="moji-tag">${esc(t)}</span>`).join('');
   const renderList=()=>{
-    results.innerHTML=lastItems.length?`${lastOnline?'<small class="muted">MOJi 辞書</small>':''}<div class="record-list">${lastItems.map((w,i)=>{const link=lastOnline&&w.id;return `<article class="record dict-entry${link?' moji-entry':''}"${link?` tabindex="0" role="button" data-moji-index="${i}"`:''}><div class="word-spelling">${esc(w.spelling||w.reading)}</div><div class="word-reading">${esc(w.spelling&&w.spelling!==w.reading?w.reading:"")}</div>${lastOnline&&tags(w)?`<div class="moji-tags">${tags(w)}</div>`:''}${lastOnline?`<div class="word-def">${esc(w.definition)}</div>`:(definitionHtml(w.definition,esc)||`<div class="word-def">${esc(w.definition)}</div>`)}</article>`;}).join('')}</div>`:empty(text.noDefinition,
+    results.innerHTML=lastItems.length?`${lastOnline?'<small class="muted">'+(onlineSource==='jisho'?'Jisho.org':'MOJi 辞書')+'</small>':''}<div class="record-list">${lastItems.map((w,i)=>{const link=lastOnline&&w.id&&w.source!=='jisho';return `<article class="record dict-entry${link?' moji-entry':''}"${link?` tabindex="0" role="button" data-moji-index="${i}"`:''}><div class="word-spelling">${esc(w.spelling||w.reading)}</div><div class="word-reading">${esc(w.spelling&&w.spelling!==w.reading?w.reading:"")}</div>${lastOnline&&tags(w)?`<div class="moji-tags">${tags(w)}</div>`:''}${lastOnline?`<div class="word-def">${esc(w.definition)}</div>`:(definitionHtml(w.definition,esc)||`<div class="word-def">${esc(w.definition)}</div>`)}</article>`;}).join('')}</div>`:empty(text.noDefinition,
      'word');
     results.querySelectorAll('[data-moji-index]').forEach(card=>{const open=()=>openDetail(lastItems[Number(card.dataset.mojiIndex)]);card.onclick=open;card.onkeydown=e=>{
      if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};});
@@ -994,14 +1012,14 @@ function dictionary(target){
      await audio.play();}catch{toast(L.audioFail);}finally{play.disabled=false;}};
     results.querySelector('[data-moji-back]').onclick=()=>{ticket++;renderList();scroller.scrollTop=scroll;};
   }
-  api('moji_status').then(state=>{if(account.isConnected&&!account.querySelector('.moji-qr-panel'))showStatus(state);}).catch(()=>showStatus({}));
+  if(onlineSource==='jisho')account.hidden=true;else api('moji_status').then(state=>{if(account.isConnected&&!account.querySelector('.moji-qr-panel'))showStatus(state);}).catch(()=>showStatus({}));
   target.querySelector('#lookup-form').addEventListener('submit',async event=>{
     event.preventDefault();const query=target.querySelector('#lookup-input').value.trim();if(!query)return;
     const request=++ticket,online=event.submitter?.value!=='local';
     results.innerHTML=loading();
     try{
       let items,used=online;
-      try{items=await api('dictionary',{query,source:online?'moji':'local',operationId:crypto.randomUUID()});}
+      try{items=await api('dictionary',{query,source:online?onlineSource:'local',operationId:crypto.randomUUID()});}
       catch(error){if(!online)throw error;if(request===ticket)toast(L.fail);used=false;items=await api('dictionary',{query,source:'local',operationId:crypto.randomUUID()});
        }
       if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',operationId:crypto.randomUUID()}).catch(()=>[]);if(local.length){

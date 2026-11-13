@@ -17,13 +17,10 @@
 .stg-nav button:hover{border-color:var(--stg-gold);color:var(--stg-t1)}.stg-nav button:active{transform:scale(.94)}
 .stg-rule{border:0;border-top:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 24%,transparent);margin:14px 0 0}
 /* 毛玻璃面板：顶边一道细金光 */
-.stg-glass{position:relative;margin-top:22px;padding:22px 24px;border-radius:14px;background:linear-gradient(160deg,rgba(42,30,28,.62),rgba(20,13,12,.5));-webkit-backdrop-filter:blur(16px) saturate(1.2);backdrop-filter:blur(16px) saturate(1.2);border:1px solid var(--stg-line);box-shadow:0 1px 0 rgba(241,224,210,.06) inset,0 24px 50px -30px rgba(0,0,0,.9);transition:opacity .2s}
-.stg-glass::before{content:"";position:absolute;top:-1px;left:24px;width:52px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--gold-accent,#edb56e) 85%,transparent),transparent)}
-:root[data-theme=light] .stg-glass{background:linear-gradient(160deg,rgba(251,247,241,.78),rgba(234,223,208,.62));border-color:rgba(122,31,43,.16)}
+.stg-glass{position:relative;margin-top:22px;padding:22px 24px}
 .stg-loading{opacity:.55}
 .stg-head{display:flex;align-items:center;gap:14px;padding-bottom:10px;border-bottom:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 24%,transparent)}
 .stg-head h2{margin:0 auto 0 0;font-family:var(--g-serif);font-weight:500;font-size:17px}
-.stg-head h2::before{content:"◆";color:var(--stg-gold);font-size:9px;margin-right:8px;vertical-align:3px}
 .stg-sub{order:3;color:var(--stg-t3);font-size:12px}
 .stg-sub b{font-family:var(--g-serif);font-weight:500;color:var(--stg-t1);font-size:15px}
 .stg-rs{display:inline-flex;gap:2px;padding:2px;border-radius:999px;background:rgba(241,224,210,.04);border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent)}
@@ -150,7 +147,6 @@
 :root[data-theme=light] .g-blank{background:linear-gradient(160deg,rgba(251,247,241,.82),rgba(234,223,208,.66));border-color:rgba(122,31,43,.16)}
 .g-blank .glyph{position:absolute;right:-6px;bottom:-40px;font:400 230px/1 var(--g-serif-ja,serif);color:color-mix(in srgb,var(--gold-accent,#edb56e) 6%,transparent);pointer-events:none;user-select:none}
 .g-blank .eyebrow{font-size:11px;letter-spacing:.24em;color:var(--g-gold,var(--gold-accent,#edb56e))}
-.g-blank .eyebrow::before{content:"◆";font-size:8px;margin-right:8px;vertical-align:2px}
 .g-blank h2{font:500 26px var(--g-serif);margin:10px 0 0}
 .g-blank .lede{color:var(--g-t2,#c3ab9c);font-size:13px;margin:8px 0 0;max-width:36em;line-height:1.7}
 .g-blank .steps{display:grid;grid-template-columns:repeat(3,1fr);margin-top:24px;border-top:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 11%,transparent);border-bottom:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 11%,transparent)}
@@ -178,9 +174,6 @@
    panels become square black glass with a red top rule, headings lose the gold diamond for a red block, labels and
    numbers go tracked mono, switches and nav buttons go square, the accent is the one red. */
 .stg{--stg-red:#c8323c;--stg-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;--accent:var(--stg-red)}
-.stg-glass{border-radius:0;border:0;border-top:1px solid var(--stg-red);background:rgba(0,0,0,.78)}
-.stg-glass::before{display:none}
-:root[data-theme=light] .stg-glass{background:rgba(0,0,0,.78)}
 .stg-head{border-bottom-color:rgba(255,255,255,.12)}
 .stg-head h2::before{content:'';display:inline-block;width:6px;height:6px;background:var(--stg-red);vertical-align:2px;margin-right:10px}
 .stg-keys span,.stg-sub,.stg-note,.stg-legend,.stg-axis{font-family:var(--stg-mono);letter-spacing:.2em}

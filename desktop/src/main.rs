@@ -437,7 +437,7 @@ fn main() {
     }
     let control=if std::env::args().any(|arg|arg=="--stop-instance"){Some("exit")}else{None};
     let isolated=std::env::args().any(|arg|arg=="--headless-check"||arg=="--headless-ui-check");
-    let _instance_lease=if isolated{None}else{match single_instance::acquire(&root,control){Ok(single_instance::Acquisition::Owner(lease))=>{if control.is_none(){single_instance::retire_other_installations(&root);}Some(lease)},Ok(_)=>return,Err(error)=>{let _=std::fs::create_dir_all(root.join("logs"));let _=std::fs::write(root.join("logs/instance-error.log"),error);return;}}};
+    let _instance_lease=if isolated{None}else{match single_instance::acquire(&root,control){Ok(single_instance::Acquisition::Owner(lease))=>{if control.is_none()&&std::env::var("MEGULIT_SIDE_BY_SIDE").map(|v|v!="1").unwrap_or(true){single_instance::retire_other_installations(&root);}Some(lease)},Ok(_)=>return,Err(error)=>{let _=std::fs::create_dir_all(root.join("logs"));let _=std::fs::write(root.join("logs/instance-error.log"),error);return;}}};
     startup_mark(&root,"process-start");
     if !isolated&&!runtime_setup::ensure(&root){return;}
     startup_mark(&root,"runtime-ready");

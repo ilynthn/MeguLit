@@ -37,7 +37,7 @@ test('the reader: user choice only after a change in the settings; @game restore
  assert.match(r,/settings\.japaneseFont!==g\.preferences\.japaneseFont\?'user'/);
  assert.match(r,/japaneseFontSource==='user'\)return;this\.applyEngineFont/);
  assert.match(r,/case 'gameFontFollow'/);assert.match(r,/hookFontFile'\)this\.engineFontFile/);
- const {rank,pick}=require('../core/engine-font.cjs');assert.ok(rank({probe:true})<rank({engine:'krkr'}));
+ const {rank,pick}=require('../core/engine-font.cjs');assert.ok(rank({probe:true})<rank({engine:'krkr'}));const {uiFace}=require('../core/engine-font.cjs');assert.ok(uiFace('Segoe UI'));assert.ok(!uiFace('ＭＳ 明朝'));assert.match(r,/message\.probe&&ef\.uiFace\(message\.face\)\)return;/);
  assert.equal(pick({face:'ＭＳ Ｐ明朝',fonts:[{id:'abc',lang:'ja',family:'MS PMincho',names:['MS PMincho','ＭＳ Ｐ明朝']}]}).key,'game:abc');
  const ui=read('web/reader/modules/game-fonts-ui.js');assert.match(ui,/option\('@game'/);assert.match(ui,/type:'gameFontFollow'/);assert.match(ui,/恢复为游戏原字体/);
 });

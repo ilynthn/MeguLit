@@ -200,7 +200,6 @@ input.switch:checked{background:repeating-linear-gradient(90deg,rgba(255,224,206
 
 /* Key titles need Japanese restore first (user, 2026-11-09): a gold seal note on the card and in the dialog */
 .tool-key-note{position:relative;display:block;margin:2px 0 0;padding:9px 12px 9px 30px;border-radius:9px;font-size:12.5px;line-height:1.6;font-weight:600;color:#ffe3b8;background:linear-gradient(90deg,color-mix(in srgb,var(--gold-accent,#edb56e) 16%,transparent),color-mix(in srgb,var(--gold-accent,#edb56e) 4%,transparent));border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 32%,transparent);text-align:left}
-.tool-key-note::before{content:"◆";position:absolute;left:12px;top:9px;font-size:9px;color:var(--gold-accent,#edb56e)}
 :root[data-theme=light] .tool-key-note{color:#7a2a2a;background:linear-gradient(90deg,rgba(168,50,63,.1),rgba(168,50,63,.02));border-color:rgba(168,50,63,.3)}
 :root[data-theme=light] .tool-key-note::before{color:#a8323f}
 
@@ -431,16 +430,11 @@ dialog.game-dialog.dev-notice{width:min(620px,92vw);height:min(720px,calc(100vh 
 .dev-notice-top span:first-child{color:var(--accent-light,var(--accent))}
 .dev-notice h2{margin:22px 0 12px;font-family:var(--g-serif,serif);font-size:32px;font-weight:700;letter-spacing:.01em;color:var(--text)}
 .dev-notice .dev-notice-text{color:var(--text);font-size:14px;line-height:1.85;margin:0 0 18px}
-.dev-notice-form{display:flex;align-items:stretch}
-.dev-notice-form input{flex:1;min-width:0;border-radius:0;border:1px solid color-mix(in srgb,var(--accent) 70%,transparent);background:#14151a;padding:12px 14px}
-.dev-notice-form .primary{border-radius:0;background:#f2efe9;color:#14151a;min-width:84px}
 .dev-notice-updates{flex:1 1 auto;min-height:72px;overflow-y:auto;overscroll-behavior:contain;padding-right:10px!important;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 60%,transparent) transparent;margin:22px 0 0;padding:16px 0 0 18px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;line-height:1.9;color:var(--text)}
 .dev-notice-updates li::marker{color:var(--accent)}
 .dev-notice-updates-note{margin:10px 0 0;font-size:11.5px;color:var(--muted)}
 .dev-notice-more{margin:18px 0 0;font-size:12.5px;line-height:1.85;color:var(--muted)}
 .dev-notice-actions{display:flex;align-items:center;gap:18px;margin-top:20px}
-.dev-notice-actions .text-button{text-decoration:underline;text-underline-offset:4px;color:var(--text)}
-.dev-notice-actions .secondary{margin-left:auto;border-radius:3px}
 .feedback-privacy{margin:8px 0 0;font-size:11.5px;color:var(--muted)}
 .about-report{font-weight:600}
 
@@ -468,11 +462,6 @@ dialog.game-dialog.dev-notice[open]{display:flex}
 .dev-notice h2.dev-notice-title2{margin:4px 0 12px;color:color-mix(in srgb,var(--accent-light,var(--accent)) 70%,#fff)}
 .dev-notice h2.dev-notice-title2{font-size:17px;font-weight:500;line-height:1.55}
 /* E442 the notice's game box and submit match the website: a square input with a red rule, joined to a flat paper button */
-dialog.dev-notice .dev-notice-form{gap:0}
-dialog.dev-notice .dev-notice-form input{height:56px;border-radius:0!important;border:1px solid #c8323c!important;border-right:0!important;background:#14151a!important;box-shadow:none!important}
-dialog.dev-notice .dev-notice-form button.primary{height:56px;min-width:86px;padding:0 22px;border:0!important;border-radius:0!important;background:#f2efe9!important;background-image:none!important;color:#14151a!important;box-shadow:none!important;font-weight:500;letter-spacing:.08em;text-shadow:none!important;filter:none!important}
-dialog.dev-notice .dev-notice-form button.primary::before,dialog.dev-notice .dev-notice-form button.primary::after{content:none!important;display:none!important}
-dialog.dev-notice .dev-notice-form button.primary:hover{background:#fff!important}
 /* E458 notice page 1 (what success looks like) / page 2 (tutorial), and the top bar 指南 panel */
 .dev-notice-page{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 .dev-notice-page[hidden],.guide-panel [data-pane][hidden],.guide-panel .guide-empty[hidden]{display:none}
@@ -499,21 +488,15 @@ dialog.dev-notice .dev-notice-form button.primary:hover{background:#fff!importan
 .guide-tabs button:hover{color:var(--text)}
 .guide-tabs button[aria-selected=true]{color:#f2efe9;border-bottom-color:#c8323c}
 .guide-panel .dev-notice-updates{margin:0;border-top:0;padding-top:0;overflow:visible}
-.guide-panel .dev-notice-actions .secondary{margin-left:auto}
 .dev-notice h2+.dev-notice-scroll,.guide-panel h2{margin-bottom:12px}
-dialog.dev-notice .dev-notice-actions .secondary{border-radius:0;background:#f2efe9;color:#14151a;border:0;padding:0 22px;height:38px}
-dialog.dev-notice .dev-notice-actions .secondary:hover{background:#fff}
 dialog.game-dialog.dev-notice{height:min(800px,calc(100vh - 32px))}
 .dev-notice-page>.dev-notice-updates{min-height:96px}
-dialog.game-dialog.dev-notice .dev-notice-actions button.secondary.secondary.secondary{border:0!important;border-radius:0!important;background:#f2efe9!important;background-image:none!important;color:#14151a!important;box-shadow:none!important;text-shadow:none!important;height:40px;padding:0 22px}
-dialog.game-dialog.dev-notice .dev-notice-actions button.secondary.secondary.secondary:hover{background:#fff!important}
 @media (max-height:860px){
  dialog.game-dialog.dev-notice{padding:24px 34px 22px}
  .dev-notice h2{margin:14px 0 8px;font-size:28px}
  .dev-notice-page .dev-notice-more{display:none}
  .dev-notice .guide-success{margin-bottom:12px;padding:10px 16px}
  .dev-notice .dev-notice-text{margin-bottom:12px}
- dialog.dev-notice .dev-notice-form input,dialog.dev-notice .dev-notice-form button.primary{height:46px}
  .dev-notice-page>.dev-notice-updates{min-height:64px;margin-top:14px;padding-top:10px}
  .dev-notice-actions{margin-top:14px}
 }
@@ -524,7 +507,7 @@ dialog.feedback-dialog .game-dialog-kicker{font:11px/1 ui-monospace,Consolas,mon
 dialog.feedback-dialog .game-dialog-head h2{margin:16px 0 10px;font-family:var(--g-serif,serif);font-size:30px;font-weight:700;color:var(--text)}
 dialog.feedback-dialog .game-dialog-head p{margin:0;font-size:14px;line-height:1.8;color:var(--muted)}
 dialog.feedback-dialog .feedback-text,dialog.feedback-dialog .feedback-contact{width:100%;box-sizing:border-box;border-radius:0!important;border:1px solid rgba(255,255,255,.14)!important;background:#14151a!important;box-shadow:none!important;padding:12px 14px;font-size:14px;color:var(--text)}
-dialog.feedback-dialog .feedback-text{min-height:150px;resize:vertical;margin-bottom:12px;border-color:#c8323c!important}
+dialog.feedback-dialog .feedback-text{min-height:150px;resize:vertical;margin-bottom:12px}
 dialog.feedback-dialog .feedback-text:focus,dialog.feedback-dialog .feedback-contact:focus{outline:none;border-color:#e0505c!important}
 dialog.feedback-dialog .feedback-privacy{margin:10px 0 0;font-size:12px;color:var(--muted)}
 dialog.feedback-dialog .dialog-actions{display:flex;justify-content:flex-end;align-items:center;gap:18px;margin:22px 0 0;padding:0!important;background:none!important;border:0!important}
@@ -533,14 +516,7 @@ dialog.feedback-dialog .dialog-actions button.primary{height:46px;min-width:110p
 dialog.feedback-dialog .dialog-actions button.primary::before,dialog.feedback-dialog .dialog-actions button.primary::after{content:none!important;display:none!important}
 dialog.feedback-dialog .dialog-actions button.primary:hover{background:#fff!important}
 /* E444 every game-request form (notice and Guide panel) lines the box and the button up at one height */
-.dev-notice-form{display:flex!important;align-items:stretch!important;gap:0!important}
-.dev-notice-form input{height:56px!important;box-sizing:border-box!important;margin:0!important;border-radius:0!important;border:1px solid #c8323c!important;border-right:0!important;background:#14151a!important;box-shadow:none!important}
-.dev-notice-form button.primary{height:56px!important;box-sizing:border-box!important;margin:0!important;min-width:86px;padding:0 22px!important;border:0!important;border-radius:0!important;background:#f2efe9!important;background-image:none!important;color:#14151a!important;box-shadow:none!important;text-shadow:none!important;transform:none!important}
-.dev-notice-form button.primary::before,.dev-notice-form button.primary::after{content:none!important;display:none!important}
 /* E446 the box and the button share one exact height, beating every older control rule */
-html body .dev-notice-form{display:grid!important;grid-template-columns:1fr auto!important;align-items:stretch!important;height:54px!important}
-html body .dev-notice-form>input,html body .dev-notice-form>button{height:54px!important;min-height:54px!important;max-height:54px!important;box-sizing:border-box!important;margin:0!important;align-self:stretch!important;line-height:normal!important;padding-top:0!important;padding-bottom:0!important;transform:none!important;top:auto!important}
-html body .dev-notice-form>button{display:flex!important;align-items:center!important;justify-content:center!important}
 /* E450 the update list gets real room: a taller notice, the list at least ~6 rows, and the dialog scrolls as a whole when the window is short */
 html body dialog.game-dialog.dev-notice{height:min(940px,calc(100vh - 32px))!important;overflow-y:auto!important}
 html body .dev-notice>.dev-notice-updates{flex:1 0 auto!important;min-height:min(300px,34vh)!important}

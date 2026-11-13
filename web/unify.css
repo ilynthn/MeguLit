@@ -43,7 +43,7 @@ html:not(#u):not(#v) body .main[data-kids~="tabs"]>.page-header{z-index:7!import
    (E446 / E450 sizes kept: the 54px request row, the tall notice with room for the update list) ---- */
 html:not(#u):not(#v) body :is(dialog.game-dialog,dialog.game-dialog.feedback-dialog,dialog.game-dialog.dev-notice,.lv-dialog,dialog.profile-panel){
  border:0!important;border-radius:2px!important;color:var(--g-t1,#f1e0d2);
- background:linear-gradient(var(--g-gold),var(--g-gold)) 0 0/14px 2px no-repeat,linear-gradient(var(--g-gold),var(--g-gold)) 0 0/2px 14px no-repeat,var(--u-glass-solid)!important;
+ background:linear-gradient(var(--t-red),var(--t-red)) 0 0/14px 2px no-repeat,linear-gradient(var(--t-red),var(--t-red)) 0 0/2px 14px no-repeat,var(--u-glass-solid)!important;
  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px var(--u-line-2),0 40px 90px -30px #000!important;
  -webkit-backdrop-filter:blur(24px) saturate(1.2);backdrop-filter:blur(24px) saturate(1.2)}
 html:not(#u):not(#v) body dialog.game-dialog[open]{inset:var(--titlebar-height,56px) 0 0 0;margin:auto;max-height:calc(100vh - var(--titlebar-height,56px) - 40px)!important}
@@ -61,7 +61,6 @@ html:not(#u):not(#v) body dialog.game-dialog :is(.dev-notice-form button.primary
  background:radial-gradient(1.2px 1.2px at 78% 28%,rgba(255,226,180,.9),transparent 70%),radial-gradient(1px 1px at 88% 66%,rgba(255,226,180,.7),transparent 70%),radial-gradient(120% 140% at 0% 50%,rgba(196,40,58,.55),transparent 62%),linear-gradient(135deg,#3a1720 0%,#2a1219 45%,#1d1016 100%)!important;
  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 42%,transparent),inset 0 0 0 3px rgba(20,10,12,.55),inset 0 0 0 4px color-mix(in srgb,var(--gold-accent,#edb56e) 14%,transparent),0 6px 18px -6px rgba(150,20,40,.55)!important}
 html:not(#u):not(#v) body dialog.game-dialog .dialog-actions button.primary{height:48px!important;min-width:128px}
-html:not(#u):not(#v) body dialog.game-dialog .dev-notice-form>button.primary{border-radius:0 10px 10px 0!important}
 html:not(#u):not(#v) body dialog.game-dialog :is(.dev-notice-form button.primary,.dialog-actions button.primary):hover{filter:brightness(1.15)}
 html:not(#u):not(#v) body dialog.game-dialog :is(.dev-notice .dev-notice-actions button.secondary.secondary.secondary,.dialog-actions .text-button){
  height:44px!important;min-width:96px;padding:0 22px!important;border:0!important;border-radius:2px!important;background:rgba(255,255,255,.03)!important;background-image:none!important;
@@ -70,8 +69,6 @@ html:not(#u):not(#v) body dialog.game-dialog :is(.dev-notice .dev-notice-actions
 html:not(#u):not(#v) body dialog.game-dialog :is(button,input,textarea):focus-visible{outline:1px solid var(--g-gold)!important;outline-offset:3px!important}
 html:not(#u):not(#v) body dialog.game-dialog :is(button,input,textarea):focus:not(:focus-visible){outline:0!important}
 /* fields: hairline box, gold focus */
-html:not(#u):not(#v) body .dev-notice-form>input{border:1px solid var(--u-line-2)!important;border-right:0!important;border-radius:2px 0 0 2px!important;background:rgba(10,9,12,.55)!important;border-radius:0!important}
-html:not(#u):not(#v) body .dev-notice-form>input:focus{border-color:color-mix(in srgb,var(--g-gold) 60%,transparent)!important;outline:0}
 html:not(#u):not(#v) body dialog.feedback-dialog :is(.feedback-text,.feedback-contact){border:1px solid var(--u-line-2)!important;border-radius:2px!important;background:rgba(10,9,12,.55)!important;resize:none!important}
 html:not(#u):not(#v) body dialog.feedback-dialog :is(.feedback-text,.feedback-contact):focus{border-color:color-mix(in srgb,var(--g-gold) 60%,transparent)!important}
 html:not(#u):not(#v) body dialog.feedback-dialog .feedback-text{border-left:2px solid var(--u-red)!important}
@@ -191,7 +188,6 @@ html:not(#u):not(#v) body .stg .stg-rs button[aria-pressed=true]{background:colo
 html:not(#u):not(#v) body .stg .stg-cal{--accent:#9b2a3a}
 html:not(#u):not(#v) body .stg .stg-cal .cell{border-radius:2px}
 html:not(#u):not(#v) body .stg .stg-cal .cell.blank{border-style:solid;border-color:rgba(255,255,255,.04)}
-html:not(#u):not(#v) body .stg .stg-head h2::before{width:5px;height:5px;background:var(--g-gold);transform:rotate(45deg);margin-right:12px}
 html:not(#u):not(#v) body .stg .stg-tabs button[aria-pressed=true]::after{background:#c82f3b}
 html:not(#u):not(#v) body .stg :is(.stg-foot,.stg-legend,.stg-note,.stg-more,.stg-cal .wd){font-size:12px!important;color:var(--g-t2,#c3ab9c)!important}
 /* read words: the hud on the glass, the status as a note, readable small print */
@@ -277,7 +273,7 @@ html:not(#u):not(#v) body .leaderboard-avatar.is-default{background:radial-gradi
 /* ---- profile panel: slides out below the top bar (window buttons stay reachable), solid glass, serif section titles,
    square buttons, one divider per section ---- */
 html:not(#u):not(#v) body dialog.profile-panel{inset:var(--titlebar-height,56px) 0 0 auto!important;height:calc(100vh - var(--titlebar-height,56px))!important;border-radius:0!important;
- background:linear-gradient(var(--g-gold),var(--g-gold)) 0 0/14px 2px no-repeat,linear-gradient(var(--g-gold),var(--g-gold)) 0 0/2px 14px no-repeat,linear-gradient(160deg,rgba(28,22,26,.97),rgba(14,12,15,.97))!important}
+ background:linear-gradient(var(--t-red),var(--t-red)) 0 0/14px 2px no-repeat,linear-gradient(var(--t-red),var(--t-red)) 0 0/2px 14px no-repeat,linear-gradient(160deg,rgba(28,22,26,.97),rgba(14,12,15,.97))!important}
 html:not(#u):not(#v) body dialog.profile-panel .profile-panel-head h2,html:not(#u):not(#v) body dialog.profile-panel .panel-title{font-family:var(--g-serif,serif)!important;font-weight:600!important;letter-spacing:.02em}
 html:not(#u):not(#v) body dialog.profile-panel .panel-title{font-size:18px!important}
 html:not(#u):not(#v) body dialog.profile-panel .panel{background:none!important;box-shadow:none!important;border:0!important;border-bottom:1px solid var(--u-line)!important;border-radius:0!important}
@@ -327,11 +323,11 @@ html:not(#u):not(#v) body .grimoire-page .tool-key-note{padding-left:30px!import
    the sponsor action at its natural width, payment marks in the brand gold, the watermark kept inside ---- */
 html:not(#u):not(#v) body .about-page .about-link{border:0!important;border-radius:2px!important;background:rgba(255,255,255,.03)!important;box-shadow:inset 0 0 0 1px var(--u-line)!important;min-height:46px}
 html:not(#u):not(#v) body .about-page .about-link:hover{background:rgba(255,255,255,.06)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 55%,transparent)!important}
-html:not(#u):not(#v) body .about-page .about-link span{color:var(--g-gold)!important}
+html:not(#u):not(#v) body .about-page .about-link span{color:var(--t-label-color)!important}
 html:not(#u):not(#v) body .about-page .about-facts{align-content:start}
 html:not(#u):not(#v) body .about-page .about-facts div{align-items:center;min-height:48px;padding:0!important;border-bottom:1px solid var(--u-line)!important}
 html:not(#u):not(#v) body .about-page .about-facts div:last-child{border-bottom:0!important}
-html:not(#u):not(#v) body .about-page :is(.about-links h3,.about-cn h3,.about-intl h3,.about-credits h3){font-family:var(--u-mono);font-size:11px!important;letter-spacing:.28em!important;color:var(--g-gold)!important;text-transform:uppercase}
+html:not(#u):not(#v) body .about-page :is(.about-links h3,.about-cn h3,.about-intl h3,.about-credits h3){font-family:var(--u-mono);font-size:11px!important;letter-spacing:.28em!important;color:var(--t-label-color)!important;text-transform:uppercase}
 html:not(#u):not(#v) body .about-page .about-support{overflow:hidden}
 html:not(#u):not(#v) body .about-page .about-intl{display:flex;flex-direction:column;justify-content:center;gap:18px}
 html:not(#u):not(#v) body .about-page .about-intl :is(button,a.primary){align-self:flex-start;width:auto!important;min-width:0!important;padding:0 28px!important}
@@ -414,7 +410,6 @@ html:not(#u):not(#v) body .main .settings-content .settings-guide .guide-title b
 html:not(#u):not(#v) body .main .settings-content .settings-guide .guide-caret{font-size:0!important;width:14px;height:14px;transform:none!important;background:no-repeat center/14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 3l5 5-5 5' fill='none' stroke='%23edb56e' stroke-width='1.4'/%3E%3C/svg%3E");transition:transform .25s}
 html:not(#u):not(#v) body .main .settings-content .settings-guide.open .guide-caret{transform:rotate(90deg)!important}
 html:not(#u):not(#v) body .main .settings-content .settings-guide:hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 55%,transparent)!important}
-html:not(#u):not(#v) body .main .settings-content>*:not(.settings-search):not(.settings-search-results){max-width:1180px}
 html:not(#u):not(#v) body .main .settings-nav{-webkit-mask:linear-gradient(transparent 0,#000 14px,#000 calc(100% - 22px),transparent);mask:linear-gradient(transparent 0,#000 14px,#000 calc(100% - 22px),transparent)}
 html:not(#u):not(#v) body .main .settings-nav .settings-category-items button{margin-block:2px}
 html:not(#u):not(#v):lang(ja) body .main .settings-nav :is(summary,button){line-break:strict;word-break:keep-all}
@@ -435,7 +430,6 @@ html:not(#u):not(#v) body .main .record .word-source .link-button{box-shadow:non
 html:not(#u):not(#v) body .g-blank .acts{margin-top:22px!important}
 html:not(#u):not(#v) body .g-blank{min-height:0!important}
 /* notice: one 54px line for the request (E446), no ring at rest; focus is shown by the gold hairline only */
-html:not(#u):not(#v) body dialog.game-dialog .dev-notice-form>:is(input,button){height:54px!important;min-height:54px!important;max-height:54px!important}
 html:not(#u):not(#v) body dialog.game-dialog :is(button,input,textarea):focus-visible{outline:0!important}
 html:not(#u):not(#v) body dialog.game-dialog :is(.dev-notice-form>input,.feedback-text,.feedback-contact):focus{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 55%,transparent)!important}
 html:not(#u):not(#v) body dialog.game-dialog .dev-notice-updates li{line-height:1.7;padding-block:2px}
@@ -497,7 +491,7 @@ html:not(#u):not(#v) body .grimoire-page .tools-intro .tools-kicker{font-family:
 html:not(#u):not(#v) body .grimoire-page .tool-card{min-height:clamp(300px,50vh,520px)!important}
 html:not(#u):not(#v) body .grimoire-page .tool-key-note{text-wrap:pretty}
 /* about: every link row has its arrow, the thanks line follows the button's left edge */
-html:not(#u):not(#v) body .about-page .about-link:not(:has(span))::after{content:"↗";color:var(--g-gold);margin-left:auto}
+html:not(#u):not(#v) body .about-page .about-link:not(:has(span))::after{content:"↗";color:var(--t-red);margin-left:auto}
 html:not(#u):not(#v) body .about-page .about-intl{text-align:left!important;align-items:flex-start}
 /* guide: the body never ends mid-line */
 html:not(#u):not(#v) body .guide-panel .dev-notice-scroll{padding-bottom:36px!important}
@@ -542,7 +536,6 @@ html:not(#u):not(#v) body .gm-group .gm-card{grid-template-columns:36px fit-cont
 /* ---- less ornament (AI-feel review): decoration is kept where it carries the brand (home, detail, leaderboard,
    history, dialogs' single tick) and removed from the rest; one primary per view keeps its star, without the
    scattered sparkles and outer glow ---- */
-html:not(#u):not(#v) body .main :is(.gm-hero,.gm-group,.ri-panel,.stg-glass,.review-card,.tool-card,.about-facts,.about-links,.about-support,.about-credits,.settings-layout>.settings-nav,.settings-layout>.settings-content){background:var(--u-glass)!important}
 html:not(#u):not(#v) body :is(.g-blank .glyph,.about-glyph){display:none!important}
 html:not(#u):not(#v) body .grimoire-page .tool-card::after{content:none!important}
 html:not(#u):not(#v) body .main .settings-content .settings-section-title::before,html:not(#u):not(#v) body .main .settings-content>div>.panel:first-child>h2.panel-title:first-child::before{content:none!important}
@@ -558,7 +551,6 @@ html:not(#u):not(#v) body .main .settings-content form{display:flex;flex-directi
 html:not(#u):not(#v) body .main .settings-content form>.settings-section-title{order:-1}
 html:not(#u):not(#v) body .main .settings-content .settings-row:not(:has(input,select,button,textarea,.select-control,.font-control,.setting-slider)){min-height:0!important;padding:26px 0 6px!important;border:0!important}
 html:not(#u):not(#v) body .main .settings-content .settings-row:not(:has(input,select,button,textarea,.select-control,.font-control,.setting-slider)) .settings-label{font-family:var(--u-mono);font-size:11px!important;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--g-gold)!important}
-html:not(#u):not(#v) body .main .settings-content input.settings-search{max-width:1180px}
 html:not(#u):not(#v) body .main .settings-content>.profile-selector{right:max(clamp(20px,2vw,32px),calc(100% - 1180px - clamp(20px,2vw,32px)))!important}
 html:not(#u):not(#v) body .color-swatches .swatch{box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)!important;border-radius:2px!important}
 html:not(#u):not(#v) body .color-swatches .swatch.active{box-shadow:0 0 0 2px #16121a,0 0 0 3px var(--g-gold)!important}
@@ -583,7 +575,7 @@ html:not(#u):not(#v) body .stg :is(.stg-book b,.stg-book strong,.stg-books b){di
 /* dictionary: smaller watermark, readable "frequent" label, the sign-in reads as a link */
 html:not(#u):not(#v) body #lookup-results:empty{min-height:30vh}
 html:not(#u):not(#v) body .g-dict-chips>:first-child{font-size:12.5px!important;color:var(--g-t2,#c3ab9c)!important;align-self:center}
-html:not(#u):not(#v) body .moji-account .text-button{color:var(--g-gold)!important;text-decoration:underline;text-underline-offset:4px}
+html:not(#u):not(#v) body .moji-account .text-button{color:var(--t-label-color)!important;text-decoration:underline;text-underline-offset:4px}
 /* level picker: kickers without tracking in CJK, disabled primary clean */
 html:not(#u):not(#v):lang(zh-CN) body .lv-kicker,html:not(#u):not(#v):lang(ja-JP) body .lv-kicker{letter-spacing:.08em!important}
 html:not(#u):not(#v) body .lv-dialog footer .primary:disabled::before{opacity:.35}
@@ -639,7 +631,7 @@ html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-journal{
 html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day{grid-column:1;display:grid!important;grid-template-rows:auto auto auto;align-content:start;gap:4px;margin:0!important;padding:22px 0 0!important;border-top:1px solid var(--u-line-2);font-family:inherit!important;letter-spacing:0!important}
 html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day::after{display:none!important}
 html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day b{font-family:var(--g-serif,serif);font-size:clamp(52px,4.6vw,76px);font-weight:400;line-height:.9;color:var(--g-t1,#f1e0d2)}
-html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day span{font-family:var(--u-mono);font-size:11.5px;letter-spacing:.18em;color:var(--g-gold)}
+html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day span{font-family:var(--u-mono);font-size:11.5px;letter-spacing:.18em;color:var(--t-label-color)}
 html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day small{font-size:12px;color:var(--g-t3,#a08a80)}
 html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] :is(.history-session,.history-dialogue){grid-column:2;margin:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;border-top:1px solid var(--u-line)!important}
 html:not(#u):not(#v) body .main[data-kids~="history-backdrop"] .history-day+:is(.history-session,.history-dialogue){border-top-color:var(--u-line-2)!important}
@@ -722,7 +714,7 @@ html:not(#u):not(#v) body .review-page .review-card>.anki-tools .text-button:hov
    a ruled line; JLPT coverage as five big figures divided by hairlines ---- */
 html:not(#u):not(#v) body .main .ri-panel.ri-panel.ri-panel{max-width:1080px;margin:0 auto 12px!important;padding:34px 0 26px!important;background:none!important;box-shadow:none!important;border:0!important;border-top:1px solid var(--u-line-2)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
 html:not(#u):not(#v) body .main .ri-panel .ri-head{border-bottom:0!important;padding-bottom:4px!important;align-items:baseline}
-html:not(#u):not(#v) body .main .ri-panel .ri-head em{font:400 clamp(30px,2.6vw,42px)/1 var(--g-serif,serif)!important;letter-spacing:0!important;color:var(--g-gold)!important;min-width:56px}
+html:not(#u):not(#v) body .main .ri-panel .ri-head em{font:400 clamp(30px,2.6vw,42px)/1 var(--g-serif,serif)!important;letter-spacing:0!important;color:var(--t-label-color)!important;min-width:56px}
 html:not(#u):not(#v) body .main .ri-panel .ri-head h2{font-family:var(--g-serif,serif)!important;font-size:clamp(22px,1.8vw,28px)!important;font-weight:600!important}
 html:not(#u):not(#v) body .main :is(.ri-hud,.ri-status){max-width:1080px;margin-left:auto!important;margin-right:auto!important}
 html:not(#u):not(#v) body .main .ri-hud{background:none!important;box-shadow:none!important;padding:0 0 18px!important;-webkit-backdrop-filter:none;backdrop-filter:none}
@@ -773,7 +765,6 @@ html:not(#u):not(#v) body .main .settings-content>form{display:contents!importan
 html:not(#u):not(#v) body .main .settings-content>:is(.settings-search,.settings-search-results){order:-3}
 html:not(#u):not(#v) body .main .settings-content>form>.settings-section-title{order:-2}
 html:not(#u):not(#v) body .main .settings-content>*{flex:none}
-html:not(#u):not(#v) body .main .settings-content>form>*{max-width:1180px;width:100%;box-sizing:border-box}
 html:not(#u):not(#v) body .main .settings-content>form>.settings-section-title{margin:18px 0 28px!important;position:relative}
 html:not(#u):not(#v) body .main .settings-content>:is(.speech-choices,.background-tools){margin-top:0!important;padding-top:0!important}
 html:not(#u):not(#v) body .main .settings-content>:is(.speech-choices,.background-tools)>:first-child{margin-top:0!important}
@@ -815,7 +806,6 @@ html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.dialog-actions button.primary,.dev-notice-form>button.primary):not(.icon-button)::before,
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.dialog-actions button.primary,.dev-notice-form>button.primary):not(.icon-button)::after,
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play) .primary-label::after{content:none!important;display:none!important}
-html:not(#u):not(#v):not(#w) body .dev-notice-form>button.primary{height:54px!important;min-height:54px!important;border-radius:0 3px 3px 0!important}
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary):disabled{opacity:.5!important;transform:none!important}
 /* the same family for secondaries: hairline, square, same height */
 html:not(#u):not(#v):not(#w) body :is(button.secondary,.g-blank .acts button.alt):not(.icon-button):not(.switch):not(.select-trigger):not(.tab):not(.text-button){height:42px;border-radius:3px!important;font-size:14px!important}
@@ -845,7 +835,6 @@ html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.her
 @keyframes u-continue{50%{translate:0 3px}}
 @keyframes u-hit{0%{filter:brightness(2.2) saturate(.3)}100%{filter:none}}
 @media (prefers-reduced-motion:reduce){html body :is(button.primary,.g-btn.primary)::after{animation:none!important}}
-html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-form>button.primary{height:54px!important;min-height:54px!important}
 
 /* level picker: each level glows in its own colour on hover, rising from pale dawn to deep red and, at native, to
    black; the glow eases in and out */
@@ -868,7 +857,7 @@ html:not(#u):not(#v):not(#w) body .main .settings-content .settings-row:has([nam
 /* grouped reading sessions: the span and count under the title, the single sessions folded underneath */
 html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-session.is-group{grid-template-rows:auto auto}
 html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts{grid-column:1/-1;margin:10px 0 0 52px}
-html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary{cursor:pointer;width:max-content;font-family:var(--u-mono);font-size:11.5px;letter-spacing:.14em;color:var(--g-gold);list-style:none}
+html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary{cursor:pointer;width:max-content;font-family:var(--u-mono);font-size:11.5px;letter-spacing:.14em;color:var(--t-label-color);list-style:none}
 html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary::-webkit-details-marker{display:none}
 html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts summary::before{content:"▸ ";display:inline-block;transition:transform .2s}
 html:not(#u):not(#v):not(#w) body .main[data-kids~="history-backdrop"] .history-parts[open] summary::before{transform:rotate(90deg)}
@@ -951,14 +940,11 @@ html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-up
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-more{grid-area:more;margin:14px 0 0!important;font-size:12.5px!important;display:block!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-actions{grid-area:act;margin-top:22px!important}
 /* the request line as a single underlined field */
-html:not(#u):not(#v):not(#w) body .dev-notice-form>input{border:0!important;border-bottom:1px solid color-mix(in srgb,var(--g-gold) 55%,transparent)!important;background:transparent!important;border-radius:0!important;box-shadow:none!important;font-size:16px!important;padding-left:2px!important}
-html:not(#u):not(#v):not(#w) body .dev-notice-form>input:focus{border-bottom-color:var(--g-gold)!important}
 html:not(#u):not(#v):not(#w) body dialog.game-dialog.dev-notice{background:linear-gradient(160deg,rgba(26,20,24,.97),rgba(13,11,14,.97))!important}
 @media (max-width:900px){html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]:not([hidden]){grid-template-columns:1fr;grid-template-areas:"top" "title" "sub" "text" "form" "rule" "status" "succ" "upd" "note" "more" "act"}}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success li{display:block!important;position:relative;padding-left:44px!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.guide-success li::before{position:absolute;left:0;top:12px}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>h2:not(.dev-notice-title2){word-break:keep-all}
-html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-form{align-items:end!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-updates{overflow-y:auto!important;max-height:min(240px,26vh)!important;padding-right:8px!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]:not([hidden]){height:auto!important;max-height:none!important;flex:none!important;overflow:visible!important}
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>*{min-height:auto}
@@ -972,7 +958,6 @@ html:not(#u):not(#v):not(#w) body :is(.guide-panel,.dev-notice-page[data-page="2
 html:not(#u):not(#v):not(#w) body .guide-steps{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 48px}
 html:not(#u):not(#v):not(#w) body .guide-steps .guide-section{margin:0!important;padding:18px 0 14px!important;border:0!important;border-top:1px solid var(--u-line-2)!important;background:none!important}
 html:not(#u):not(#v):not(#w) body .guide-steps .guide-section h3{display:flex;align-items:baseline;gap:14px;margin:0 0 10px!important;font-family:var(--g-serif,serif)!important;font-size:19px!important;font-weight:600!important}
-html:not(#u):not(#v):not(#w) body .guide-steps .guide-no{font:400 30px/1 var(--g-serif,serif)!important;color:var(--g-gold)!important;letter-spacing:0!important}
 html:not(#u):not(#v):not(#w) body .guide-steps ol{margin:0!important;padding:0!important;list-style:none;counter-reset:gs}
 html:not(#u):not(#v):not(#w) body .guide-steps ol li{counter-increment:gs;position:relative;padding:7px 0 7px 26px!important;border-bottom:1px solid var(--u-line);font-size:13.5px!important;font-weight:400!important;line-height:1.7}
 html:not(#u):not(#v):not(#w) body .guide-steps ol li::before{content:counter(gs);position:absolute;left:0;top:7px;font-family:var(--u-mono);font-size:11.5px;color:var(--g-t3,#a08a80)}
@@ -999,7 +984,7 @@ html:not(#u):not(#v):not(#w) body .main .settings-content details.u-advanced .se
 html:not(#u):not(#v):not(#w) body .review-page .review-card .select-control .select-trigger{height:44px!important;padding:0 14px!important;border:0!important;border-radius:2px!important;background:rgba(10,9,12,.55)!important;box-shadow:inset 0 0 0 1px var(--u-line-2)!important;font-family:var(--g-serif,serif);font-size:15px!important}
 html:not(#u):not(#v):not(#w) body .review-page .review-card .select-control .select-trigger:hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 55%,transparent)!important}
 html:not(#u):not(#v):not(#w) body .review-page .review-card .select-control{position:relative}
-html:not(#u):not(#v):not(#w) body .review-page .review-card .select-control::before{content:"DECK";position:absolute;left:0;top:-20px;font-family:var(--u-mono);font-size:10.5px;letter-spacing:.24em;color:var(--g-gold)}
+html:not(#u):not(#v):not(#w) body .review-page .review-card .select-control::before{content:"DECK";position:absolute;left:0;top:-20px;font-family:var(--u-mono);font-size:10.5px;letter-spacing:.24em;color:var(--t-label-color)}
 html:not(#u):not(#v):not(#w) body .review-page #review-content{min-height:calc(100vh - 300px)!important}
 /* detail: the launch action is the page's hero action */
 html:not(#u):not(#v):not(#w):not(#x) body .main .detail-actions>button.primary:not(.icon-button){height:52px!important;min-height:52px!important;padding:0 52px 0 26px!important;font-size:17px!important}
@@ -1056,9 +1041,6 @@ html body .dict-shards b{position:absolute;width:60px;height:60px;border-radius:
 
 /* start-up notice: the request field and its button share one baseline — the field's gold rule runs into the
    button's red foot — and the button keeps the field's height */
-html:not(#u):not(#v):not(#w):not(#x) body dialog.dev-notice .dev-notice-form{display:flex!important;align-items:flex-end!important;gap:0!important}
-html:not(#u):not(#v):not(#w):not(#x) body dialog.dev-notice .dev-notice-form>input{height:46px!important;min-height:46px!important;max-height:46px!important;margin:0!important;box-sizing:border-box}
-html:not(#u):not(#v):not(#w):not(#x) body dialog.dev-notice .dev-notice-form>button.primary.primary{height:46px!important;clip-path:none!important;min-height:46px!important;max-height:46px!important;margin:0!important;align-self:flex-end;flex:none}
 /* the update ledger (notice-ledger.js): no native bar; a thin draggable rail in the gutter; the rows stretch when
    scrolled past an end */
 html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]>.dev-notice-updates[data-ledger]{scrollbar-width:none;padding-right:22px!important;overscroll-behavior:contain}
@@ -1402,7 +1384,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .setting-slider input[type=range]:hove
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .setting-slider input[type=number]{width:56px!important}
 
 /* settings: label and control close together — the content column is at most 960px */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-layout>.settings-content>*{max-width:960px}
 
 /* hard faults: the grammar step bar is solid down to the window edge; the scroller fades at its top edge so headings
    are not cut; the library's floating bar is frosted so it reads above the wall */
@@ -1438,16 +1419,6 @@ html body .class-rite-school.is-on .class-rite-tag{color:var(--c)!important;text
 html body .class-rite-school.is-on .class-rite-tag::before{width:26px;opacity:1}
 html body .class-rite-top h2 i{display:none}
 
-/* irregular glass (user: keep the glass, but irregular — some of it is beautiful): each glass card takes its own
-   asymmetric shape — one sharp corner, one long soft one, a clipped corner on some — so a page of cards stops reading
-   as a uniform grid; a light edge catches only the top-left; cards inside cards lose their frame */
-html:not(#u):not(#v):not(#w):not(#x) body .main :is(.gm-hero,.gm-group,.stg-glass,.review-card,.about-facts,.about-links,.about-support,.about-credits){
- border-radius:2px 26px 4px 18px!important;
- box-shadow:inset 1px 1px 0 rgba(255,244,234,.14),inset -1px -1px 0 rgba(0,0,0,.25),0 28px 60px -34px #000!important;
- background:linear-gradient(135deg,rgba(255,236,220,.075),rgba(255,236,220,.025) 38%,rgba(20,12,16,.28))!important}
-html:not(#u):not(#v):not(#w):not(#x) body .main :is(.gm-group,.stg-glass,.about-links,.about-credits):nth-of-type(3n+2){border-radius:22px 2px 20px 3px!important}
-html:not(#u):not(#v):not(#w):not(#x) body .main :is(.gm-group,.stg-glass,.about-support):nth-of-type(3n){border-radius:3px 3px 30px 3px!important;clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%)}
-html:not(#u):not(#v):not(#w):not(#x) body .main :is(.gm-hero,.gm-group,.stg-glass,.review-card) :is(.gm-group,.stg-glass,.review-card,.gm-stg,.gm-overview){box-shadow:none!important;background:none!important;border-radius:0!important;clip-path:none!important}
 /* the element's glyph is drawn into its own scene (element-forms.js), in its material — the plain text glyph steps aside */
 html body dialog.class-rite .class-rite-glyph{opacity:0!important}
 
@@ -1562,7 +1533,6 @@ html body .class-rite-white{background:#fff;mix-blend-mode:normal!important;z-in
 /* ==== round 11 ==== */
 /* settings width (judge r10: half the pages still ran to 1551 and showed beside the search bar when scrolled): every
    block one level down is capped to the search bar's 960px too, and the per-game selector ends at the same edge */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-layout>.settings-content>*>:not(.settings-search):not(.settings-search-results){max-width:960px;box-sizing:border-box}
 html:not(#u):not(#v):not(#w):not(#x) body .main .settings-content>.profile-selector{right:auto!important;left:calc(28px + 960px);transform:translateX(-100%)}
 /* status line (judge r10: failures were plain grey or bold text): one component — an 8px dot, one 13px sentence, an
    optional text action. Red failed, grey off or empty, gold in progress. Used by the account, voice, review and the
@@ -1624,7 +1594,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .translation-types button:is([aria-sel
    it sits in the column like any block — one hairline frame, no spread, not pinned */
 html:not(#u):not(#v):not(#w):not(#x) body .main .settings-content .sp-preview{position:relative!important;top:auto!important;margin-left:0!important;margin-right:0!important;box-shadow:inset 0 0 0 1px var(--u-line-2)!important}
 /* first notice (judge r11): the flow's own step is the one primary on the page; submitting a wish is secondary */
-html:not(#u):not(#v):not(#w):not(#x) body dialog.dev-notice .dev-notice-form>button.secondary{height:46px!important;min-height:46px!important;padding:0 20px!important;margin:0!important;border-radius:0!important;align-self:flex-end}
 /* dropdowns (judge r10–r11): the chosen value shows its name only; the note stays in the option list */
 html:not(#u):not(#v):not(#w):not(#x) body .select-trigger .select-note{display:none!important}
 /* words page proficiency dropdown: readable, with its frame */
@@ -1884,9 +1853,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .lv-tips .lv-note{margin:12px 0 0;font
 html:not(#u):not(#v):not(#w):not(#x) body .lv-tips footer{display:flex;justify-content:flex-end;margin-top:16px}
 /* 2026-11-12 (user: every settings page left a band empty on the right when maximised) the column, the search bar and the
    blocks one level down grow to 1360px (still never wider than the space beside the side menu) */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-layout>.settings-content>*{max-width:min(1360px,100%)}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-layout>.settings-content>*>:not(.settings-search):not(.settings-search-results){max-width:1360px}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-content input.settings-search{max-width:min(1360px,100%)}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-content>.profile-selector{left:calc(28px + min(1360px,100% - 56px))!important}
 
 /* 2026-11-12 (user) the guide's report tab has its own text box, styled like the report dialog */

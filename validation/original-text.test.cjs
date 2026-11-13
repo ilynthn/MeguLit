@@ -33,7 +33,7 @@ test('matcher covers multi-line captures, refuses ambiguous repeats and resolves
  const m=new ot.Matcher(patched,original);
  const first=m.match('「你终于来了啊」\n　我一直在等你呢');assert.equal(first.status,'exact');assert.deepEqual(first.indices,[0,1]);assert.equal(first.japanese,'「やっと来たね」\n　ずっと待ってたんだから');
  assert.equal(m.match('「是」').status,'high');assert.equal(m.last,2);assert.equal(m.match('「是」').indices[0],3);
- const fresh=new ot.Matcher(patched,original);assert.equal(fresh.match('「是」').status,'uncertain');
+ const fresh=new ot.Matcher(patched,original);{const r=fresh.match('「是」');/* E520: every 「是」 is 「はい」, so the answer is the same wherever it is */assert.equal(r.status,'high');assert.equal(r.method,'same-text');assert.equal(r.japanese,'「はい」');assert.equal(fresh.last,-1);}
  assert.equal(fresh.match('完全不相关的句子').status,'none');assert.equal(fresh.match('').status,'none');
  assert.equal(new ot.Matcher(patched,original).match('くくく……いいザマだな').alreadyJapanese,true);
 });

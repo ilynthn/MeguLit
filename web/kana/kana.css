@@ -1101,3 +1101,46 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 .v-index.mg :is(.mg-diffs button.on,.mg-diffs button.active,.mg-diffs [aria-checked=true]){background:rgba(200,47,59,.14)!important;color:var(--g-t1,#f1e0d2)!important;border-color:rgba(200,47,59,.6)!important;box-shadow:inset 0 -2px 0 #c82f3b!important}
 .v-index.mg .mg-board{align-items:stretch}
 .v-index.mg .mg-board-side{align-self:stretch}
+
+/* 2026-11-13 unify with web/theme.css (user: 五十音也用同一套风格): square panels on the theme glass, red marks only the
+   current item, gold carries progress, labels are plain sans text, primary is the 1.4.8 button (dark, hairline, red
+   underline, red caret). Mono only for numbers. */
+.v-index.mg{--mg-mono:var(--t-mono,"IBM Plex Mono",Consolas,monospace)}
+.v-index.mg :is(.mg-hud,.mg-stage,.mg-lesson,.mg-board-grid,.mg-board-empty,.mg-voice,.mg-practice,.mg-game,.mg-tile){border-radius:var(--t-radius,2px)!important;background:var(--t-panel,linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54)))!important;box-shadow:var(--t-ring,inset 0 0 0 1px rgba(255,255,255,.09))!important}
+.v-index.mg .mg-hud{border-top:0!important}
+.v-index.mg :is(.mg-tag,.mg-kicker,.mg-legend,.mg-hud-stats,.mg-lesson small,.mg-diffs button,.mg-num em){font-family:var(--sans)!important;text-transform:none!important;letter-spacing:.02em!important}
+.kn-voice-label{font-family:var(--sans)!important;letter-spacing:.02em!important}
+.v-index.mg .mg-tag{font-size:13px!important;font-weight:600;color:var(--t1)!important;gap:0}
+.v-index.mg .mg-tag i,.v-index.mg .mg-kicker::before,.v-index.mg .mg-corner{display:none!important}
+.v-index.mg .mg-hud-stats{font-size:12px!important;color:var(--t2)!important;gap:32px}
+.v-index.mg .mg-hud-stats b{font-family:var(--mg-mono);font-variant-numeric:tabular-nums}
+.v-index.mg .mg-hud-note{font-size:12px;color:var(--t3);white-space:nowrap}
+.v-index.mg .mg-stage h1{display:flex;align-items:baseline;gap:14px}
+.v-index.mg .mg-script{font:500 14px/1 var(--sans);color:var(--t3);letter-spacing:.04em}
+/* progress: one thin gold bar, not a striped barcode */
+.v-index.mg .mg-barcode{gap:0!important;height:var(--t-bar-h,3px)!important;align-self:center;background:var(--t-bar-track,rgba(255,255,255,.08))}
+.v-index.mg .mg-barcode i{background:transparent!important;transform:none!important;animation:none!important}
+.v-index.mg .mg-barcode i:is(.m2,.m3){background:var(--t-gold,#d1a000)!important}
+.v-index.mg .mg-barcode i.m2{opacity:.55}
+.v-index.mg .mg-num{color:var(--t2)}
+/* primary: the 1.4.8 button */
+.v-index.mg .mg-cta{position:relative;height:44px!important;padding:0 44px 0 20px!important;gap:10px!important;border:0;border-radius:0!important;background:#140d11!important;color:#f6ece0!important;text-shadow:none!important;filter:none!important;font:600 14px/1 var(--sans)!important;letter-spacing:.08em!important;box-shadow:inset 0 0 0 1px rgba(232,220,200,.34),inset 0 -2px 0 #c8323c!important;transition:background .2s,box-shadow .2s!important}
+.v-index.mg .mg-cta>span{display:none}
+.v-index.mg .mg-cta::after{content:"";position:absolute;right:18px;top:50%;width:6px;height:9px;margin-top:-4.5px;background:#c8323c;clip-path:polygon(0 0,100% 50%,0 100%);transition:transform .2s}
+.v-index.mg .mg-cta:hover{background:#1d1217!important;box-shadow:inset 0 0 0 1px rgba(232,220,200,.5),inset 0 -2px 0 #e0404a!important}
+.v-index.mg .mg-cta:hover::after{transform:translateX(3px)}
+.v-index.mg .mg-cta:focus-visible{outline:1px solid #e0404a;outline-offset:3px}
+/* current lesson: red hairline + underline; done: gold underline */
+.v-index.mg .mg-lesson.cur{background:color-mix(in srgb,#c8323c 12%,transparent)!important;box-shadow:inset 0 0 0 1px rgba(200,50,60,.5),inset 0 -2px 0 #c8323c!important}
+.v-index.mg .mg-lesson.done::after{background:var(--t-gold,#d1a000);height:2px}
+.v-index.mg .mg-lesson:hover{transform:none}
+/* familiarity: gold steps, red is not a level */
+.v-index.mg .mastery .m3,.v-index.mg .mg-legend i.m3{background:color-mix(in srgb,var(--t-gold,#d1a000) 42%,#17120f)!important;color:#fbf1df!important}
+.v-index.mg .mastery .m2,.v-index.mg .mg-legend i.m2{background:color-mix(in srgb,var(--t-gold,#d1a000) 16%,transparent)!important;color:var(--t1)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t-gold,#d1a000) 35%,transparent)}
+.v-index.mg .mastery .m1,.v-index.mg .mg-legend i.m1{background:rgba(255,255,255,.1)!important;color:var(--t1)!important}
+/* segmented choices: square, current item in red */
+.kn-voice-seg{border-radius:0!important;padding:0!important;gap:0;background:none!important;border:0!important;box-shadow:inset 0 0 0 1px var(--t-line-2,rgba(255,255,255,.16))}
+.kn-voice-seg button{border-radius:0!important;height:30px!important}
+.kn-voice-seg button[aria-checked="true"]{background:color-mix(in srgb,#c8323c 14%,transparent)!important;color:var(--t1)!important;box-shadow:inset 0 -2px 0 #c8323c}
+.v-index.mg .mg-diffs button{font-size:12px!important}
+.v-index.mg .mg-game em{display:none}

@@ -16,7 +16,7 @@ class HookControl{
   if(profile==='euphoria474'&&h.state.hookExact474!==true){this.status({hookCheckState:'unsupported',hookCheckMessage:'此游戏版本不匹配，YU-RIS 0.474 隐藏没有启动'});return;}
   if(profile==='embed'&&!h.hooks.state.hookThreads.some(t=>t.embeddable)){this.status({hookCheckState:'unsupported',hookCheckMessage:'还没有支持内嵌的文本流，先启动通用读取并推进一句'});return;}
   if(this.styleCalibration&&this.styleTimer)this.finishStyleSync(false,true);
-  this.running=profile!=='off';this.plan=profile;this.baseline=false;this.baselineMisses=0;this.missSequence=null;this.seq=0;const styleIdentity=String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');this.styleCalibration=!!(force&&h.preferences.autoGameStyle!==false&&h.styleSync&&!h.styleSync.latest&&this.styleCalibrationIdentity!==styleIdentity);if(this.styleCalibration)force=false;h.hooks.preflight=this.running&&profile!=='read'&&!force;
+  this.running=profile!=='off';this.plan=profile;this.baseline=false;this.baselineMisses=0;this.missSequence=null;this.seq=0;const styleIdentity=String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');this.styleCalibration=!!(force&&!h.hooks.remembered/* E520 */&&h.preferences.autoGameStyle!==false&&h.styleSync&&!h.styleSync.latest&&this.styleCalibrationIdentity!==styleIdentity);if(this.styleCalibration)force=false;h.hooks.preflight=this.running&&profile!=='read'&&!force&&!h.hooks.remembered;
   h.send({type:'hookVerifyCancel'});
   this.autoOcr=false;const userOcr=false;/* 2026-11-12 (user) OCR never covers the original */
   h.save({...h.preferences,bindEnabled:true,maskMode:userOcr?'local':'hook',maskModeSource:userOcr?'user':'',hookProfile:profile});
@@ -45,7 +45,7 @@ class HookControl{
   if(!this.running||!text.trim())return;
   /* E351: a flow page (WoH) is laid out on the game's own page grid; the automatic box calibration measured the current
      sentence mid-page (left 56 / top 53 / width 44) and paused hiding while it measured, so it never runs there. */
-  const h=this.host;if(!this.styleCalibration&&!(h.hooks?.flowPage&&h.hooks?.flowGridName)/* E414: only a page with a measured grid skips box calibration */&&this.styleCalibrationIdentity!==String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'')&&this.plan!=='off'&&h.preferences.autoGameStyle!==false&&h.styleSync&&!h.styleSync.latest&&this.now()>=(this.styleRetryAt||0)&&this.styleGiveUp!==String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||''))this.beginStyleSync(false);this.seq++;this.sourceAt=this.now();
+  const h=this.host;if(!this.styleCalibration&&!(h.hooks?.flowPage&&h.hooks?.flowGridName)/* E414: only a page with a measured grid skips box calibration */&&!h.hooks?.remembered/* E520: a game that embedded before is never paused on its first lines to measure the original */&&this.styleCalibrationIdentity!==String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'')&&this.plan!=='off'&&h.preferences.autoGameStyle!==false&&h.styleSync&&!h.styleSync.latest&&this.now()>=(this.styleRetryAt||0)&&this.styleGiveUp!==String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||''))this.beginStyleSync(false);this.seq++;this.sourceAt=this.now();
   const stage=h.hooks.preflight?'baseline':h.hooks.enabled&&this.plan!=='read'?'hidden':'read';
   if(stage==='baseline'&&this.styleCalibration)h.styleSync?.status('measuring');
   this.stage=stage;this.status({hookCapturedAt:this.sourceAt,hookCaptureCharacters:text.length,hookVisualVerified:false,hookCheckState:stage==='baseline'?'baseline':stage==='hidden'?'checking':'captured',hookCheckMessage:stage==='baseline'?'已抓到台词，正在检查游戏中的原文':stage==='hidden'?'台词已捕捉，正在检查游戏原文是否消失':'台词捕捉成功，正在检查游戏画面'});
@@ -117,10 +117,18 @@ class HookControl{
   if(!(this.baselineMisses>=2&&(h.hooks.state.hookThreads||[]).some(t=>t.selected&&t.embeddable)))return false;
   if(this.styleCalibration){this.styleGiveUp=String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');this.finishStyleSync(false,true);}
   h.hooks.preflight=false;this.stage='switching';h.hooks.configure(h.preferences,h.state);this.status({hookBaselineVerified:false,hookCheckState:'switching',hookCheckMessage:'屏幕上未能识别原文，已按可内嵌文本流开启隐藏'});return true;}
+ /* E520 (user: "只要是内嵌成功过的，开场第一句就要实现替换"): the bridge found this game's remembered dialogue stream, written only after a
+    real replacement. The screen baseline (show the first line, find it, then hide) and the automatic style calibration (pause hiding
+    to measure the original) are both warm-ups that let the first lines through; neither runs for such a game. The saved hiding plan
+    is switched on at once; when the remembered stream turns out stale the bridge re-learns it (StaleMemory) as before. */
+ remembered(){const h=this.host;if(!this.running||!['embed','euphoria474'].includes(this.plan)||h.preferences.hookHide===false)return false;
+  this.styleCalibrationIdentity=String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');if(this.styleCalibration)this.finishStyleSync(false,true);
+  if(!h.hooks.preflight&&this.baseline)return true;this.baseline=true;h.hooks.preflight=false;this.stage='switching';h.hooks.configure(h.preferences,h.state);
+  this.status({hookBaselineVerified:true,hookCheckState:'switching',hookCheckMessage:'上次内嵌成功的设置已恢复，从第一句开始替换'});return true;}
  modeChanged(){const h=this.host,active=h.state.bound&&h.state.coverEnabled!==false;if(!active&&this.styleCalibration)this.finishStyleSync(false,true);if(this.running&&this.plan!=='read'&&!active){this.baseline=false;this.status({hookBaselineVerified:false,hookVisualVerified:false,hookCheckState:'reading',hookCheckMessage:'隐藏已关闭，约 3 秒后换下一句恢复原文'});}else if(this.running&&this.plan!=='read'&&active&&!this.baseline){
    // Style sampling already ran (or timed out) for this game process: do not gate hiding on the visual baseline
    // again, or games whose text OCR never matches would stay unhidden after every mode switch.
    const sampled=this.styleCalibrationIdentity===String(h.state.gameProcessId||'')+'|'+String(h.state.gameStarted||'');
-   const fast=h.preferences.hookFast!==false&&(h.preferences.autoGameStyle===false||!h.styleSync||!!h.styleSync.latest||sampled);h.hooks.preflight=!fast;h.hooks.configure(h.preferences,h.state);this.status(fast?{hookCheckState:'switching',hookCheckMessage:'隐藏已恢复，约 3 秒后从下一句开始生效'}:{hookCheckState:'baseline',hookCheckMessage:'准备隐藏，先推进一句检查原文位置'});}}
+   const fast=!!h.hooks.remembered||h.preferences.hookFast!==false&&(h.preferences.autoGameStyle===false||!h.styleSync||!!h.styleSync.latest||sampled);h.hooks.preflight=!fast;h.hooks.configure(h.preferences,h.state);this.status(fast?{hookCheckState:'switching',hookCheckMessage:'隐藏已恢复，约 3 秒后从下一句开始生效'}:{hookCheckState:'baseline',hookCheckMessage:'准备隐藏，先推进一句检查原文位置'});}}
 }
 module.exports={HookControl};

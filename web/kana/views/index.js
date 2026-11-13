@@ -6,11 +6,11 @@
 const KL=()=>{const l=String(globalThis.document?.documentElement?.lang||'zh');return l.startsWith('ja')?'ja':l.startsWith('en')?'en':'zh';};
 const KT={
  zh:{lv:['未学','见过','熟悉','掌握'],games:[['pos','行段识别','き → か行 · い段','看到假名，说出它在哪一行、哪一段'],['seq','前后假名','？き？ → か · く','按五十音顺序，说出前一个和后一个'],['conv','平片转换','か ⇄ カ','平假名和片假名互相认']],diffs:[['intro','入门'],['std','标准'],['adv','进阶'],['chal','挑战']],
-  streak:'连续天数',week:'本周答题',avg:'平均用时',best:'最长连对',beta:'五十音学习还在开发中',cont:'继续学习',kata:'片假名',daku:'浊音',hira:'平假名',left:n=>`这一课还有 ${n} 个假名不熟`,steps:'认识 → 辨认 → 回忆 → 混合，四步学完一行，大约五分钟',confuse:'容易混',go:'继续',start:'开始',familiar:'已熟悉',lessons:'课程',more:'片假名 · 浊音 · 拗音',board:'平假名熟悉度',boardAria:'平假名熟悉度，点格子查看',empty:'点左边任意一个假名：听发音、标熟悉度、看笔顺',practice:'练习',renshu:'练习 · renshū',diffAria:'难度',rules:'看每种玩法的规则和难度 →',review:'复习 · fukushū',dueYes:'个假名到了复习时间，先复习再学新课',dueNo:'今天没有到期的假名',weak:'薄弱假名',weakN:n=>`专项训练这 ${n} 个`,chart:'五十音图 · gojūon',chartSub:'平片对照、浊音、拗音、易混对比',kanji:'汉字读音 · kanji',kanjiSub:'打开《漢字でGO!》官方网页（Micelle · PLiCy，含广告，需联网）',level:'熟悉度',stroke:'看笔顺和例词 →'},
+  streak:'连续天数',week:'本周答题',avg:'平均用时',best:'最长连对',beta:'五十音学习还在开发中',cont:'继续学习',kata:'片假名',daku:'浊音',hira:'平假名',left:n=>`这一课还有 ${n} 个假名不熟`,steps:'认识 → 辨认 → 回忆 → 混合，四步学完一行，大约五分钟',confuse:'容易混',go:'继续',start:'开始',familiar:'已熟悉',lessons:'课程',more:'片假名 · 浊音 · 拗音',board:'平假名熟悉度',boardAria:'平假名熟悉度，点格子查看',empty:'点左边任意一个假名：听发音、标熟悉度、看笔顺',practice:'练习',renshu:'练习',diffAria:'难度',rules:'看每种玩法的规则和难度 →',review:'复习 · fukushū',dueYes:'个假名到了复习时间，先复习再学新课',dueNo:'今天没有到期的假名',weak:'薄弱假名',weakN:n=>`专项训练这 ${n} 个`,chart:'五十音图 · gojūon',chartSub:'平片对照、浊音、拗音、易混对比',kanji:'汉字读音 · kanji',kanjiSub:'打开《漢字でGO!》官方网页（Micelle · PLiCy，含广告，需联网）',level:'熟悉度',stroke:'看笔顺和例词 →'},
  ja:{lv:['未学習','見た','なじみ','習得'],games:[['pos','行と段','き → か行 · い段','仮名を見て、何行・何段かを答える'],['seq','前後の仮名','？き？ → か · く','五十音順で前と後の仮名を答える'],['conv','ひらがな⇄カタカナ','か ⇄ カ','ひらがなとカタカナを相互に読む']],diffs:[['intro','入門'],['std','標準'],['adv','上級'],['chal','挑戦']],
-  streak:'連続日数',week:'今週の解答',avg:'平均時間',best:'最長連続正解',beta:'五十音学習は開発中です',cont:'続きから',kata:'カタカナ',daku:'濁音',hira:'ひらがな',left:n=>`この課はまだ ${n} 文字があやふや`,steps:'覚える → 見分ける → 思い出す → まとめ。4 ステップで 1 行、約 5 分',confuse:'まぎらわしい',go:'続ける',start:'はじめる',familiar:'なじみ済み',lessons:'レッスン',more:'カタカナ · 濁音 · 拗音',board:'ひらがな習熟度',boardAria:'ひらがな習熟度。マスを押して確認',empty:'左の仮名を押すと、発音・習熟度・書き順が見られます',practice:'練習',renshu:'練習 · renshū',diffAria:'難易度',rules:'それぞれの遊び方と難易度 →',review:'復習 · fukushū',dueYes:'文字が復習の時期です。先に復習してから新しい課へ',dueNo:'今日の復習はありません',weak:'苦手な仮名',weakN:n=>`この ${n} 文字を集中練習`,chart:'五十音図 · gojūon',chartSub:'ひらがな・カタカナ対照、濁音、拗音、まぎらわしい字',kanji:'漢字の読み · kanji',kanjiSub:'「漢字でGO!」公式ページを開く（Micelle · PLiCy、広告あり、要ネット接続）',level:'習熟度',stroke:'書き順と例語 →'},
+  streak:'連続日数',week:'今週の解答',avg:'平均時間',best:'最長連続正解',beta:'五十音学習は開発中です',cont:'続きから',kata:'カタカナ',daku:'濁音',hira:'ひらがな',left:n=>`この課はまだ ${n} 文字があやふや`,steps:'覚える → 見分ける → 思い出す → まとめ。4 ステップで 1 行、約 5 分',confuse:'まぎらわしい',go:'続ける',start:'はじめる',familiar:'なじみ済み',lessons:'レッスン',more:'カタカナ · 濁音 · 拗音',board:'ひらがな習熟度',boardAria:'ひらがな習熟度。マスを押して確認',empty:'左の仮名を押すと、発音・習熟度・書き順が見られます',practice:'練習',renshu:'練習',diffAria:'難易度',rules:'それぞれの遊び方と難易度 →',review:'復習 · fukushū',dueYes:'文字が復習の時期です。先に復習してから新しい課へ',dueNo:'今日の復習はありません',weak:'苦手な仮名',weakN:n=>`この ${n} 文字を集中練習`,chart:'五十音図 · gojūon',chartSub:'ひらがな・カタカナ対照、濁音、拗音、まぎらわしい字',kanji:'漢字の読み · kanji',kanjiSub:'「漢字でGO!」公式ページを開く（Micelle · PLiCy、広告あり、要ネット接続）',level:'習熟度',stroke:'書き順と例語 →'},
  en:{lv:['New','Seen','Familiar','Known'],games:[['pos','Row and column','き → か row · い column','See a kana, name its row and column'],['seq','Before and after','？き？ → か · く','Name the kana before and after it in order'],['conv','Hiragana ⇄ katakana','か ⇄ カ','Read each script as the other']],diffs:[['intro','Intro'],['std','Standard'],['adv','Advanced'],['chal','Challenge']],
-  streak:'day streak',week:'answers this week',avg:'average time',best:'best run',beta:'Kana study is still in development',cont:'Continue learning',kata:'Katakana',daku:'Voiced',hira:'Hiragana',left:n=>`${n} kana in this lesson are still shaky`,steps:'Meet → tell apart → recall → mix: one row in four steps, about five minutes',confuse:'easy to confuse',go:'Continue',start:'Start',familiar:'familiar',lessons:'Lessons',more:'Katakana · voiced · contracted',board:'Hiragana familiarity',boardAria:'Hiragana familiarity, click a cell to open it',empty:'Click any kana on the left: hear it, set how well you know it, see the strokes',practice:'Practice',renshu:'Practice · renshū',diffAria:'Difficulty',rules:'Rules and difficulty of each game →',review:'Review · fukushū',dueYes:'kana are due. Review them before a new lesson',dueNo:'Nothing is due today',weak:'Weak kana',weakN:n=>`Drill these ${n}`,chart:'Kana chart · gojūon',chartSub:'Hiragana and katakana side by side, voiced, contracted, look-alikes',kanji:'Kanji readings · kanji',kanjiSub:'Opens the official 漢字でGO! page (Micelle · PLiCy, with ads, needs internet)',level:'Familiarity',stroke:'Strokes and example words →'}
+  streak:'day streak',week:'answers this week',avg:'average time',best:'best run',beta:'Kana study is still in development',cont:'Continue learning',kata:'Katakana',daku:'Voiced',hira:'Hiragana',left:n=>`${n} kana in this lesson are still shaky`,steps:'Meet → tell apart → recall → mix: one row in four steps, about five minutes',confuse:'easy to confuse',go:'Continue',start:'Start',familiar:'familiar',lessons:'Lessons',more:'Katakana · voiced · contracted',board:'Hiragana familiarity',boardAria:'Hiragana familiarity, click a cell to open it',empty:'Click any kana on the left: hear it, set how well you know it, see the strokes',practice:'Practice',renshu:'Practice',diffAria:'Difficulty',rules:'Rules and difficulty of each game →',review:'Review · fukushū',dueYes:'kana are due. Review them before a new lesson',dueNo:'Nothing is due today',weak:'Weak kana',weakN:n=>`Drill these ${n}`,chart:'Kana chart · gojūon',chartSub:'Hiragana and katakana side by side, voiced, contracted, look-alikes',kanji:'Kanji readings · kanji',kanjiSub:'Opens the official 漢字でGO! page (Micelle · PLiCy, with ads, needs internet)',level:'Familiarity',stroke:'Strokes and example words →'}
 };
 const kt=()=>KT[KL()]||KT.zh;
 export function view(el,ctx){
@@ -41,16 +41,16 @@ const DIFFS=t.diffs;
 el.className='v-index mg';
 el.innerHTML=`<main class="mg-page">
  <header class="mg-hud">
-  <span class="mg-tag"><i></i>megulit · kana lab</span>
+  <span class="mg-tag">${esc(t.hira)}</span>
   <span class="mg-hud-stats"><span><b>${streak}</b>${t.streak}</span><span><b>${qWeek}</b>${t.week}</span><span><b>${avg?avg.toFixed(1)+'s':'—'}</b>${t.avg}</span><span><b>${bestStreak}</b>${t.best}</span></span>
-  <span class="mg-tag mg-beta" title="${t.beta}">beta</span>
+  <span class="mg-hud-note">${t.beta}</span>
  </header>
 
  <section class="mg-stage" aria-label="${t.cont}">
   <div class="mg-stage-kana" aria-hidden="true"><span class="mg-ghost">${esc(nextUnknown)}</span><b>${esc(nextUnknown)}</b></div>
   <div class="mg-stage-copy">
-   <p class="mg-kicker">${started?'continue':'first lesson'} · ${esc(next.script==='k'?t.kata:next.id.startsWith('d')?t.daku:t.hira)}</p>
-   <h1 data-type>${esc(next.title)}</h1>
+   
+   <h1>${esc(next.title)}<small class="mg-script">${esc(next.script==='k'?t.kata:next.id.startsWith('d')?t.daku:t.hira)}</small></h1>
    <p class="mg-sub">${started?t.left(next.kana.filter(k=>lv(k)<2).length):t.steps}${confuseIn&&confuseIn.tip?` · ${esc(confuseIn.g.join(' / '))} ${t.confuse}`:''}</p>
    <div class="mg-row"><button class="mg-cta" data-go="lesson.html?id=${next.id}">${started?t.go:t.start} <span aria-hidden="true">→</span></button>
     <div class="mg-barcode" aria-label="${known} / ${seionH.length} ${t.familiar}">${seionH.map(k=>`<i class="${lv(k)>=3?'m3':lv(k)>=2?'m2':''}"></i>`).join('')}</div><small class="mg-num">${String(known).padStart(2,'0')}<em>/${seionH.length}</em></small></div>
@@ -58,11 +58,11 @@ el.innerHTML=`<main class="mg-page">
   <span class="mg-corner tl"></span><span class="mg-corner br"></span>
  </section>
 
- <nav class="mg-rail" aria-label="${t.lessons}">${hira.map((l,i)=>{const done=!!lessons[l.id],cur=l.id===next.id;return `<button class="mg-lesson${done?' done':''}${cur?' cur':''}" data-go="lesson.html?id=${l.id}" style="--i:${i}"><em>${ROMAN[i]||i+1}</em><b>${esc(l.kana[0])}</b><small>${esc(l.title)}</small></button>`;}).join('')}<button class="mg-lesson more" data-go="gojuon.html"><em>+</em><b>カ</b><small>${t.more}</small></button></nav>
+ <nav class="mg-rail" aria-label="${t.lessons}">${hira.map((l,i)=>{const done=!!lessons[l.id],cur=l.id===next.id;return `<button class="mg-lesson${done?' done':''}${cur?' cur':''}" data-go="lesson.html?id=${l.id}" style="--i:${i}"><b>${esc(l.kana[0])}</b><small>${esc(l.title)}</small></button>`;}).join('')}<button class="mg-lesson more" data-go="gojuon.html"><b>カ</b><small>${t.more}</small></button></nav>
 
  <section class="mg-board">
   <div class="mg-board-grid">
-   <header><span class="mg-tag"><i></i>${t.board}</span><span class="mg-legend">${LV.map((t,i)=>`<span><i class="m${i}"></i>${t}</span>`).join('')}</span></header>
+   <header><span class="mg-tag">${t.board}</span><span class="mg-legend">${LV.map((t,i)=>`<span><i class="m${i}"></i>${t}</span>`).join('')}</span></header>
    <div class="mastery" role="grid" aria-label="${t.boardAria}">${[...grid].map(c=>c==='　'?'<span class="gap"></span>':`<button type="button" class="m${lv(c)}" data-mk="${c}" title="${c} · ${LV[lv(c)]}" aria-label="${c} ${D.romaOf(c)} ${LV[lv(c)]}">${c}</button>`).join('')}</div>
   </div>
   <aside class="mg-board-side">
@@ -73,8 +73,8 @@ el.innerHTML=`<main class="mg-page">
  </section>
 
  <section class="mg-practice" id="practice" aria-label="${t.practice}">
-  <header><span class="mg-tag"><i></i>${t.renshu}</span><span class="mg-diffs" role="radiogroup" aria-label="${t.diffAria}">${DIFFS.map(([id,t],i)=>`<button type="button" role="radio" aria-checked="${i===0}" class="${i===0?'on':''}" data-diff="${id}">${t}</button>`).join('')}</span><small class="mg-num">最佳达成率 ${bestAcc?D.fmtPct(bestAcc):'—'}</small></header>
-  <div class="mg-games">${GAMES.map(([id,name,sample,desc],i)=>`<button class="mg-game" data-game="${id}" style="--i:${i}"><em>${ROMAN[i]}</em><span class="mg-sample" lang="ja">${esc(sample)}</span><b>${name}</b><small>${desc}</small><span class="mg-go" aria-hidden="true">play →</span></button>`).join('')}</div>
+  <header><span class="mg-tag">${t.renshu}</span><span class="mg-diffs" role="radiogroup" aria-label="${t.diffAria}">${DIFFS.map(([id,t],i)=>`<button type="button" role="radio" aria-checked="${i===0}" class="${i===0?'on':''}" data-diff="${id}">${t}</button>`).join('')}</span><small class="mg-num">最佳达成率 ${bestAcc?D.fmtPct(bestAcc):'—'}</small></header>
+  <div class="mg-games">${GAMES.map(([id,name,sample,desc],i)=>`<button class="mg-game" data-game="${id}" style="--i:${i}"><span class="mg-sample" lang="ja">${esc(sample)}</span><b>${name}</b><small>${desc}</small></button>`).join('')}</div>
   <button class="mg-link" data-go="games.html">${t.rules}</button>
  </section>
 

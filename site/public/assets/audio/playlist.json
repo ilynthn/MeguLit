@@ -27,6 +27,23 @@
   },
   "tracks": [
     {
+      "id": "blxty-ft-orchid-awful",
+      "title": "awful",
+      "artist": "blxty ft. orchid",
+      "artistUrl": "https://soundcloud.com/blxty",
+      "album": "awful (feat. Orchid)",
+      "label": "",
+      "albumUrl": "",
+      "license": "",
+      "licenseUrl": "",
+      "sc": "https://soundcloud.com/blxty/awful",
+      "lyrics": true,
+      "duration": 123.8,
+      "ne": 1808181016,
+      "lufs": -8.0,
+      "trim": 0.0
+    },
+    {
       "id": "kettenkrad-tell-me-about-the-music-that-makes-up-you",
       "title": "Tell me about the music that makes up you",
       "artist": "Kettenkrad",
@@ -39,7 +56,9 @@
       "sc": "https://soundcloud.com/kettenkrad8901/tell-me-about-the-music-that-makes-up-you",
       "lyrics": true,
       "duration": 226.4,
-      "ne": 2150486811
+      "ne": 2150486811,
+      "lufs": -1.4,
+      "trim": -6.6
     },
     {
       "id": "blxty-prod-akura-it-s-winter",
@@ -54,7 +73,9 @@
       "sc": "https://soundcloud.com/bitekivibes/blxty-its-winter-prod-akura",
       "lyrics": true,
       "duration": 157.1,
-      "ne": 3348298950
+      "ne": 3348298950,
+      "lufs": -6.5,
+      "trim": -1.5
     },
     {
       "id": "blackwinterwells-8485-tmorave-weathered",
@@ -69,7 +90,9 @@
       "sc": "https://soundcloud.com/helixtears/www",
       "lyrics": true,
       "duration": 137.4,
-      "ne": 1818777304
+      "ne": 1818777304,
+      "lufs": -8.7,
+      "trim": 0.7
     },
     {
       "id": "helix-tears-w-blxty-yurms-idku",
@@ -84,7 +107,9 @@
       "sc": "https://soundcloud.com/helixtears/prfct",
       "lyrics": true,
       "duration": 231.3,
-      "ne": 1824472262
+      "ne": 1824472262,
+      "lufs": -9.3,
+      "trim": 1.3
     },
     {
       "id": "miraie-blackwinterwells-facade",
@@ -99,7 +124,9 @@
       "sc": "https://soundcloud.com/miraie/facade",
       "lyrics": true,
       "duration": 133.6,
-      "ne": 1501224698
+      "ne": 1501224698,
+      "lufs": -8.2,
+      "trim": 0.2
     },
     {
       "id": "blxty-funeral-sebii-prod-maple-overseas",
@@ -114,22 +141,9 @@
       "sc": "https://soundcloud.com/careinq/overseas",
       "lyrics": true,
       "duration": 141.2,
-      "ne": 1466617994
-    },
-    {
-      "id": "blxty-ft-orchid-awful",
-      "title": "awful",
-      "artist": "blxty ft. orchid",
-      "artistUrl": "https://soundcloud.com/blxty",
-      "album": "awful (feat. Orchid)",
-      "label": "",
-      "albumUrl": "",
-      "license": "",
-      "licenseUrl": "",
-      "sc": "https://soundcloud.com/blxty/awful",
-      "lyrics": true,
-      "duration": 123.8,
-      "ne": 1808181016
+      "ne": 1466617994,
+      "lufs": -7.3,
+      "trim": -0.7
     },
     {
       "id": "5v-i-rly-hate-it-here",
@@ -144,7 +158,9 @@
       "sc": "https://soundcloud.com/5vexe/hate-it-here",
       "lyrics": true,
       "duration": 144.1,
-      "ne": 1820099153
+      "ne": 1820099153,
+      "lufs": -6.8,
+      "trim": -1.2
     },
     {
       "id": "maple-feat-sebii-kuru-blackjack",
@@ -159,7 +175,9 @@
       "sc": "https://soundcloud.com/careinq/blackjack-feat-sebii-kuru",
       "lyrics": true,
       "duration": 174.7,
-      "ne": 1854529859
+      "ne": 1854529859,
+      "lufs": -10.8,
+      "trim": 2.8
     },
     {
       "id": "d0llywood1-prod-vagex-ihonestlymightjustgiveup",
@@ -174,7 +192,9 @@
       "sc": "https://soundcloud.com/sanriorose/ihonestlymightjustgiveup",
       "lyrics": true,
       "duration": 126.2,
-      "ne": 1467362493
+      "ne": 1467362493,
+      "lufs": -6.8,
+      "trim": -1.2
     }
   ]
 }

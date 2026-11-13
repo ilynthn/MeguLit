@@ -18,5 +18,9 @@ function pick({face,prerendered,fonts}={}){
  return {key:hit?'game:'+hit.id:'engine:'+face,face,reason:hit?'bundled':'face'};}
 /* Which report wins for a game: an engine's own report (KiriKiri lineLayer) over the font probe (GDI/GDI+/DirectWrite draw
    counts); among probe reports the newest leader. */
+/* Windows UI faces: a launcher, title-bar or message box drawn before any dialogue (live: ファタモルガーナの館 / WA2 start-up\r
+   reported Segoe UI); never the dialogue font. */
+const UI_FACE=/^(segoe ui.*|tahoma|ms shell dlg.*|system|ms sans serif|marlett|microsoft sans serif|yu gothic ui|meiryo ui|ms ui gothic|arial|verdana)$/i;
+function uiFace(face){return UI_FACE.test(String(face||'').trim());}
 function rank(message){return message&&message.probe?1:2;}
-module.exports={pick,familyClass,rank};
+module.exports={pick,familyClass,rank,uiFace};

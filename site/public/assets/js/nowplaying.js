@@ -9,7 +9,7 @@ import { neUrl, nePage } from './ne.js';
 
 const pageLang = () => (document.documentElement.lang || 'zh').slice(0, 2);
 const base = new URL('../audio/', import.meta.url);
-const FALLBACK = { id: 'kettenkrad-tell-me-about-the-music-that-makes-up-you', sc: 'https://soundcloud.com/kettenkrad8901/tell-me-about-the-music-that-makes-up-you', ne: 2150486811, lyrics: true };
+const FALLBACK = { id: 'blxty-ft-orchid-awful', sc: 'https://soundcloud.com/blxty/awful', ne: 1808181016, lyrics: true, trim: 0 };
 const a = (href, text) => { const el = document.createElement('a'); el.href = href; el.textContent = text; el.rel = 'noopener'; el.target = '_blank'; return el; };
 const mmss = s => (Number.isFinite(s) ? `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '--:--');
 
@@ -172,13 +172,14 @@ export function nowPlaying(audio, host, { reduce = false, background = null } = 
     if (play && !box.hidden) { clearTimeout(switching); switching = setTimeout(() => { switching = 0; if (audio.paused && !hold) box.hidden = true; }, 6000); }
     idx = (i + pl.tracks.length) % pl.tracks.length;
     paintTrack();
+    audio.trim = current.trim || 0;
     audio.src = srcOf(current);
     loadLyrics(current); lyricsFor = current;
     dispatchEvent(new CustomEvent('megulit:track', { detail: { id: current.id } }));
     if (play) { hold = false; audio.play().catch(() => {}); }
   };
   const player = {
-    ensureSrc() { if (!audio.getAttribute('src')) { const t = pl.tracks[idx] || FALLBACK; audio.src = srcOf(t); audio.dataset.track = t.id; } },
+    ensureSrc() { if (!audio.getAttribute('src')) { const t = pl.tracks[idx] || FALLBACK; audio.trim = t.trim || 0; audio.src = srcOf(t); audio.dataset.track = t.id; } },
     next: () => go(idx + 1),
     // "previous" restarts the song when it is a few seconds in, like any player
     prev: () => { if (audio.currentTime > 3 || pl.tracks.length === 1) jump(0).catch(() => {}); else go(idx - 1); },

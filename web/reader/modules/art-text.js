@@ -48,16 +48,18 @@
      in another language) shows its Japanese line that way instead, readable like the reader's own text. */
   const ink=(rows.find(r=>/^#[0-9a-f]{6}$/i.test(r.color||''))||{}).color||'#ffffff',halo=(rows.find(r=>/^#[0-9a-f]{6}$/i.test(r.glow||''))||{}).glow||'';
   const lum=c=>{const n=parseInt(c.slice(1),16);return ((n>>16&255)*.3+(n>>8&255)*.59+(n&255)*.11)/255;};
-  const shadow=halo&&Math.abs(lum(halo)-lum(ink))>.08?'0 0 4px '+halo+',0 0 10px '+halo+',0 0 18px '+halo:(lum(ink)>.55?'0 0 3px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.5)':'0 0 3px rgba(255,255,255,.85),0 0 8px rgba(255,255,255,.5)');
-  const rowH=(bottom-top)/Math.max(1,rows.length),centred=Math.abs((left+right)/2-innerWidth/2)<innerWidth*.05,low=bottom+rowH*1.6>innerHeight*.97;
-  const place=(el,size,lines)=>{el.style.fontSize=size+'px';el.style.color=ink;el.style.textShadow=shadow;
-   if(centred){el.style.left='5%';el.style.width='90%';el.style.textAlign='center';}else{el.style.left=Math.max(4,left)+'px';el.style.width=Math.max(160,innerWidth-left-16)+'px';el.style.textAlign='left';}
-   el.style.top=(low?top-size*1.4*lines-size*.25:bottom+size*.3)+'px';};
+  /* a halo the colour of the ink (a soft glow) is drawn as that glow; a distinct one (dark outline) a bit tighter */const shadow=halo?(Math.abs(lum(halo)-lum(ink))>.08?'0 0 2px '+halo+',0 0 6px '+halo+',0 0 12px '+halo:'0 0 6px '+halo+',0 0 14px '+halo+',0 0 22px rgba(255,255,255,.6)'):(lum(ink)>.55?'0 0 3px rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.5)':'0 0 3px rgba(255,255,255,.85),0 0 8px rgba(255,255,255,.5)');
+  const rowH=(bottom-top)/Math.max(1,rows.length),gameW=(+m.sw||innerWidth)*k.x,gameRight=gameW,cx=gameW/2,half=gameW*.46,centred=Math.abs((left+right)/2-cx)<gameW*.05,low=bottom+rowH*1.6>innerHeight*.97;
+  /* inline !important: the synced game style paints .sentence-text with its own alignment, colour and stroke */
+  const set=(el,p,v)=>el.style.setProperty(p,v,'important');
+  const place=(el,size,lines)=>{set(el,'font-size',size+'px');set(el,'color',ink);set(el,'text-shadow',shadow);set(el,'-webkit-text-stroke-width','0');set(el,'position','absolute');set(el,'display','block');set(el,'margin','0');set(el,'padding','0');set(el,'background','none');
+   if(centred){set(el,'left',(cx-half)+'px');set(el,'width',(2*half)+'px');set(el,'text-align','center');}else{set(el,'left',Math.max(4,left)+'px');set(el,'width',Math.max(160,gameRight-left-8)+'px');set(el,'text-align','left');}
+   set(el,'top',(low?top-size*1.4*lines-size*.25:bottom+size*.3)+'px');};
   const shown=String(m.shown||'').trim();
   if(shown){
    for(const row of [...item.querySelectorAll('.megulit-art-row')])row.remove();
    const ja=document.createElement('div');ja.className='sentence-text megulit-art-ja';ja.dataset.noI18n='';
-   for(const ch of [...String(m.text||'')]){const s=document.createElement('span');s.className='char-token';s.textContent=ch;s.style.setProperty('color',ink,'important');s.style.setProperty('-webkit-text-fill-color',ink,'important');s.style.setProperty('text-shadow',shadow,'important');ja.append(s);}
+   for(const ch of [...String(m.text||'')]){const s=document.createElement('span');s.className='char-token';s.textContent=ch;s.style.setProperty('color',ink,'important');s.style.setProperty('-webkit-text-fill-color',ink,'important');s.style.setProperty('text-shadow',shadow,'important');s.style.setProperty('-webkit-text-stroke-width','0','important');s.style.setProperty('filter','none','important');s.style.setProperty('background','none','important');ja.append(s);}
    place(ja,Math.max(12,rowH*.92),1);item.append(ja);
   }
   const translation=String(m.translation||'').trim();

@@ -4,10 +4,10 @@
 // part of the HTMLAudioElement interface the player uses (src, play/pause, currentTime, duration, volume, events), so
 // the lyrics, the beats and the controls work unchanged. The widget stays visible inside the player label (SoundCloud's
 // own mini player, with its link), as SoundCloud asks.
-// Every song plays 32 dB down: the slider's volume is multiplied by 10^(-32/20).
+// Every song plays 27 dB down: the slider's volume is multiplied by 10^(-27/20) and by the song's trim (playlist.json).
 
 const API = 'https://w.soundcloud.com/player/api.js';
-const GAIN = Math.pow(10, -32 / 20);
+const GAIN = Math.pow(10, -27 / 20);
 let apiPromise = null;
 const loadApi = () => apiPromise || (apiPromise = new Promise((res, rej) => {
   if (window.SC?.Widget) { res(window.SC); return; }
@@ -33,7 +33,7 @@ export class ScAudio extends EventTarget {
     super();
     this.frame = ScAudio._makeFrame();
     this.dataset = {};
-    this._src = ''; this._paused = true; this._time = 0; this._duration = NaN; this._volume = 1; this.loop = false;
+    this._src = ''; this._paused = true; this._time = 0; this._duration = NaN; this._volume = 1; this._trim = 0; this.loop = false;
     this._widget = null; this._ready = null; this._wantPlay = false; this._asleep = false; this._resume = 0; this._nap = 0;
   }
   // Memory: SoundCloud's player is a whole page in its own process (about 90 MB). Paused for a while (sound off, the
@@ -62,11 +62,15 @@ export class ScAudio extends EventTarget {
   set currentTime(t) { this._time = t; if (this._asleep) { this._resume = t; return; } this._ready?.then(w => { w.seekTo(Math.max(0, t) * 1000); this.dispatchEvent(new Event('seeked')); }); }
   get duration() { return this._duration; }
   get seekable() { const d = this._duration; return Number.isFinite(d) ? { length: 1, start: () => 0, end: () => d } : { length: 0, start: () => 0, end: () => 0 }; }
+  // SoundCloud's volume is 0-100; at -27 dB the levels are around 1, so whole numbers would be far too coarse
+  _level() { return Math.round(this._volume * GAIN * Math.pow(10, this._trim / 20) * 10000) / 100; }
+  get trim() { return this._trim; }
+  set trim(x) { this._trim = Number(x) || 0; this._ready?.then(w => w.setVolume(this._level())); }
   get volume() { return this._volume; }
-  set volume(v) { this._volume = v; this._ready?.then(w => w.setVolume(Math.round(v * GAIN * 100))); }
+  set volume(v) { this._volume = v; this._ready?.then(w => w.setVolume(this._level())); }
   play() {
     this._wantPlay = true; clearTimeout(this._nap); this._wake();
-    this._ready?.then(w => w.setVolume(Math.round(this._volume * GAIN * 100)));
+    this._ready?.then(w => w.setVolume(this._level()));
     if (!this._ready) return Promise.reject(new Error('no source'));
     return this._ready.then(w => new Promise((res, rej) => {
       // the widget reports PLAY when it really starts; a browser that wants a click first never does
@@ -91,7 +95,7 @@ export class ScAudio extends EventTarget {
       if (resume > 1) { let once = true; w.bind(E.PLAY, () => { if (once) { once = false; w.seekTo(resume * 1000); } }); }
       w.bind(E.PLAY, () => {
         // SoundCloud resets its volume to 100% on a reload or a new song: ours goes back on at every start
-        w.setVolume(Math.round(this._volume * GAIN * 100));
+        w.setVolume(this._level());
         // the length is only reliable once a sound plays
         w.getDuration(ms => { if (ms > 0 && ms / 1000 !== this._duration) { this._duration = ms / 1000; this.dispatchEvent(new Event('loadedmetadata')); } });
         if (this._paused) { this._paused = false; this.dispatchEvent(new Event('play')); }
@@ -113,7 +117,7 @@ export class ScAudio extends EventTarget {
     }
     const w = this._widget;
     this._duration = await new Promise(res => w.getDuration(ms => res(ms > 0 ? ms / 1000 : NaN)));
-    w.setVolume(Math.round(this._volume * GAIN * 100));
+    w.setVolume(this._level());
     this.dispatchEvent(new Event('loadedmetadata'));
     return w;
   }

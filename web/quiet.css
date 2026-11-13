@@ -1,0 +1,66 @@
+/* 2026-11-13 (user: 全站给 AI 感评委打分，减少 AI 设计感). Loaded after theme.css. Removes the template habits the review
+   found, keeping the brand (dark, square panels, red current item, gold progress, serif titles) and the 1.4.8 primary:
+   - eyebrows over headings (lowercase mono tags, spaced caps NOTICE / Support / guide·megulit) go; headings carry the page
+   - coloured side bars on callouts become a hairline box with a faint tint
+   - gradient-filled text becomes solid gold or ink
+   - decorative frame corners and the diagonal hairline on the stages go
+   - monospace stays for numbers and keys only, not for readings, status words or badges
+   Plain selectors, no ancestor :has(). */
+
+/* eyebrows */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.gm-tag,.ri-tag,.about-eyebrow,.dev-notice-top){display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .about-tag{text-transform:none!important;letter-spacing:.02em!important;font:italic 400 15px/1.5 var(--t-serif)!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 72%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .game-dialog-kicker{font-family:inherit!important;letter-spacing:.02em!important;text-transform:none!important;font-size:13px!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 60%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.u-status,.word-reading,.word-jlpt,.tool-card em,.settings-content em){font-family:inherit!important;letter-spacing:.02em!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .word-jlpt{border:0!important;background:none!important;padding:0!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 45%,transparent)!important}
+
+/* side bars -> hairline box */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.gm-overview,.gm-anki-offer,.gm-lesson .gm-verdict,.gm-done,.gm-n0note,.lg-bar,.tool-key-note,.dev-notice .guide-success,.dev-notice .dev-notice-rule,.moji-detail .moji-note.mine,.main .cn-guide){border-left-width:1px!important;border-left-style:solid!important;border-left-color:var(--t-line-2,rgba(255,255,255,.16))!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.gm-anki-offer,.gm-n0note,.lg-bar,.tool-key-note,.dev-notice .guide-success,.dev-notice .dev-notice-rule){border:1px solid color-mix(in srgb,var(--t-red,#c8323c) 32%,transparent)!important;background:color-mix(in srgb,var(--t-red,#c8323c) 7%,transparent)!important;border-radius:var(--t-radius,2px)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .tool-key-note{padding-left:12px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .tool-key-note::before{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .gm-lesson .gm-uses li{border-left:0!important;padding-left:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .cn-guide{box-shadow:inset 0 0 0 1px var(--t-line,rgba(255,255,255,.09))!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .gm-group .gm-card.next{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t-red,#c8323c) 55%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .lb-rows li.is-me{background:color-mix(in srgb,var(--lb-gold,#d1a000) 10%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lb-gold,#d1a000) 35%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .lb-tile{box-shadow:inset 0 0 0 1px var(--lb-rule,rgba(255,255,255,.09))!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .lv-dialog .lv-opt.active{background:color-mix(in srgb,#c82f3b 12%,transparent)!important;box-shadow:inset 0 0 0 1px rgba(200,47,59,.5)!important}
+
+/* gradient text -> solid */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .today .greet .greet-name{background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;color:#e9c98a!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .lv-dialog.lg-dialog .lg-goal .lv-seal{background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;-webkit-text-fill-color:currentColor!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 9%,transparent)!important;filter:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .lv-dialog.lg-dialog .lg-goal.active .lv-seal{color:color-mix(in srgb,#e2b878 30%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .dtv-back-art.is-crest b{background:none!important;color:#d6a560!important;filter:none!important}
+
+/* frame corners and the diagonal hairline */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.tv-marks,.dtv-marks,.stage-marks,.gm-corner,.ri-corner,.tv-tl){display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.about-qcard,.lb-grimoire,.lb-cover)::before,html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body :is(.about-qcard,.lb-grimoire,.lb-cover)::after{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .tv-back i{display:none!important}
+
+/* empty pages: no eyebrow, no ornamental numerals or diamond rail; a compact note that sits near the top */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank{min-height:0!important;max-width:760px;margin:56px auto 0!important;padding:40px 44px 36px!important;justify-content:flex-start!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank :is(.eyebrow,.glyph){display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank h2{font-size:30px!important;line-height:1.25!important;margin:0 0 12px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .lede{max-width:56ch;margin:0 0 26px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps{margin:0 0 28px!important;padding:16px 0 0!important;border-top:1px solid var(--t-line,rgba(255,255,255,.09))!important;background:none!important;gap:28px!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps::before,html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps>div::before,html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps>div::after{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps>div{padding:0!important;border:0!important;background:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps i{display:inline!important;margin:0 8px 0 0!important;font:400 13px/1.4 var(--t-serif)!important;color:color-mix(in srgb,var(--g-t1,#f1e0d2) 45%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .steps b{display:inline!important;font-size:14px!important;margin-right:10px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main .g-blank .acts{margin-top:0!important}
+
+/* load error: icon, message and retry read as one block */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main>#retry{display:flex!important;width:max-content;margin:20px auto 0!important;position:static!important;justify-self:center;grid-column:1/-1}
+
+/* dialogs: no corner notch, no eyebrow over the question */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body dialog.game-dialog:not(.dev-notice)::before{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .game-dialog-kicker{display:none!important}
+
+/* home: the etched dial behind the cover is decoration */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .tv-ring{display:none!important}
+
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .word-jlpt.is-off{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .guide-no{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 45%,transparent)!important;letter-spacing:.04em!important}
+
+/* dot bullets in front of panel titles */
+html:not(#u):not(#v):not(#w):not(#x):not(#y):not(#z) body .main h3::before{display:none!important}

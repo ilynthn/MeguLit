@@ -5,7 +5,7 @@ const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 test('the desktop host retires other installations once it owns its own folder',()=>{
  const rs=read('desktop/src/single_instance.rs'),main=read('desktop/src/main.rs');
  assert.match(rs,/pub fn retire_other_installations/);assert.match(rs,/name!="megulit\.exe"/);assert.match(rs,/send\(dir,"exit"\)/);
- assert.match(main,/Owner\(lease\)\)=>\{if control\.is_none\(\)\{single_instance::retire_other_installations\(&root\);\}/);
+ assert.match(main,/Owner\(lease\)\)=>\{if control\.is_none\(\)&&std::env::var\("MEGULIT_SIDE_BY_SIDE"\)[^{]*\{single_instance::retire_other_installations\(&root\);\}/);
 });
 test('the bridge ends foreign bridges, retries the keys and reports them',()=>{
  const cs=read('native/GalWindowBridge.cs'),js=read('core/gal-native.cjs');

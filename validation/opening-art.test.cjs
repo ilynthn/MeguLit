@@ -24,6 +24,7 @@ test('a poem follows its table: OCR slips and the picture own wording keep their
  let now=0;const f=ot.foreignSeq(table([...prologue,...poem]),()=>now);
  const said=['很久以前','小的时候','曾经畅游在亻方永．1亘的夏日、一中','和家人一起','和朋友一起','阳每天都一会把耀眼的光芒洒向一地。','不知不觉间，这份回忆也飞向了脑海的彼岸'].map(t=>{now+=4000;return f(t);});
  assert.deepEqual(said,poem.map(r=>r[1]));
+ now+=1000;assert.equal(f('为了寻找那份光芒，我飞了起来'),'','a line with nothing alike after the last find is not guessed');
  now+=60000;assert.equal(f('一句毫无关系的长长的中文文字'),'','long after the last find nothing is guessed');
 });
 test('one item read again keeps its line; the reader drops foreign items with no table line and keeps the drawn line',()=>{
@@ -33,7 +34,7 @@ test('one item read again keeps its line; the reader drops foreign items with no
  const src=read('services/reader.cjs');assert.match(src,/message\.foreign===true/);assert.match(src,/shown=text;text=ja/);assert.match(src,/\.\.\.\(shown&&\{shown\}\)/);
 });
 test('the art layer takes the drawn line look and the bridge reads foreign rows with the Chinese OCR',()=>{
- const js=read('web/reader/modules/art-text.js');assert.match(js,/r\.color/);assert.match(js,/r\.glow/);assert.match(js,/megulit-art-ja/);assert.match(js,/textAlign='center'/);
+ const js=read('web/reader/modules/art-text.js');assert.match(js,/r\.color/);assert.match(js,/r\.glow/);assert.match(js,/megulit-art-ja/);assert.match(js,/'text-align','center'/);assert.match(js,/cx=gameW\/2/);
  const cs=read('native/PageLocator.cs');assert.match(cs,/zh-Hans-CN/);assert.match(cs,/static void Paint\(Bitmap image, Row r\)/);assert.match(cs,/foreign = it\.Foreign/);
  assert.match(read('native/GalWindowBridge.cs'),/Bool\(d,"foreign"\)\)/);
  assert.match(read('services/original-engines/scenes.cjs'),/out\.seq=seq/);

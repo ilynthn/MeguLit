@@ -121,9 +121,12 @@ function yurisRestore(gameDir,manifest){
 function manifestPath(gameDir){return path.join(gameDir,BACKUP_DIR,'manifest.json');}
 function readManifest(gameDir){try{return JSON.parse(fs.readFileSync(manifestPath(gameDir),'utf8'));}catch{return null;}}
 
-function detect(gameDir){
+/* E525 multi-language releases (KiriKiri / Unity / Steam language): switch the game's own language setting */
+const langSwitch=()=>require('./game-language-switch.cjs');
+function detect(gameDir,options={}){
  gameDir=path.resolve(String(gameDir||''));if(!fs.existsSync(gameDir))return {state:'missing'};
  const manifest=readManifest(gameDir);
+ if(manifest?.adapter==='language-switch')return langSwitch().detect(gameDir,options);
  if(manifest?.adapter==='yuris-update')return {state:'applied',adapter:'yuris-update',files:manifest.files.length,cells:0,pending:0,manifest:{at:manifest.at,files:manifest.files.length}};
  const yuris=yurisPlan(gameDir);if(yuris&&yuris.updates.length)return {state:'restorable',adapter:'yuris-update',files:yuris.updates.length,cells:0,pending:yuris.updates.length,manifest:null};
  const siglus=siglusPlan(gameDir);
@@ -136,6 +139,7 @@ function detect(gameDir){
     there is nothing to restore, not "already Japanese". */
  if(siglus&&!siglus.japaneseTables)return {state:'none',adapter:'siglus-dbs',reason:'NO_JAPANESE_TEXT'};
  if(siglus)return {state:'already',adapter:'siglus-dbs'};
+ {const ls=langSwitch().detect(gameDir,options);if(ls.state!=='none')return ls;}
  const names=fs.readdirSync(gameDir);
  const localeSets=names.filter(n=>/^(scene|gameexe)(jp|ja|en|zh|cn|tw)?\.(pck|dat)$/i.test(n)||/_(jp|ja)\.(xp3|pck|arc|dat)$/i.test(n));
  if(localeSets.length)return {state:'unsupported',reason:'LOCALE_FILE_SET',files:localeSets};
@@ -156,10 +160,10 @@ function gameRunning(gameDir){
 }
 function writeAtomic(file,data){const tmp=file+'.megulit-tmp';fs.writeFileSync(tmp,data);fs.renameSync(tmp,file);}
 
-function apply(gameDir){
+function apply(gameDir,options={}){
  gameDir=path.resolve(String(gameDir||''));if(gameRunning(gameDir))throw Error('GAME_RUNNING');
  {const y=readManifest(gameDir)?null:yurisPlan(gameDir);if(y&&y.updates.length)return yurisApply(gameDir,y);}
- const plan=siglusPlan(gameDir);if(!plan||!plan.changes.length)throw Error('NOTHING_TO_RESTORE');
+ const plan=siglusPlan(gameDir);if(!plan||!plan.changes.length){if(!readManifest(gameDir)&&langSwitch().detect(gameDir,options).state==='restorable')return langSwitch().apply(gameDir,options);throw Error('NOTHING_TO_RESTORE');}
  const backup=path.join(gameDir,BACKUP_DIR,'dat');fs.mkdirSync(backup,{recursive:true});
  const prior=readManifest(gameDir),entries=prior?prior.files:[],built=[];
  for(const c of plan.changes){ // build and verify every file before any write
@@ -177,9 +181,9 @@ function apply(gameDir){
  return {applied:built.length,cells:plan.cells};
 }
 
-function restore(gameDir){
+function restore(gameDir,options={}){
  gameDir=path.resolve(String(gameDir||''));if(gameRunning(gameDir))throw Error('GAME_RUNNING');
- const manifest=readManifest(gameDir);if(!manifest)throw Error('NOT_APPLIED');if(manifest.adapter==='yuris-update')return yurisRestore(gameDir,manifest);
+ const manifest=readManifest(gameDir);if(!manifest)throw Error('NOT_APPLIED');if(manifest.adapter==='yuris-update')return yurisRestore(gameDir,manifest);if(manifest.adapter==='language-switch')return langSwitch().restore(gameDir,options);
  const dat=path.join(gameDir,'dat'),backup=path.join(gameDir,BACKUP_DIR,'dat'),skipped=[];let restored=0;
  for(const e of manifest.files){const target=path.join(dat,e.file),keep=path.join(backup,e.file);
   if(!fs.existsSync(keep)){skipped.push(e.file);continue;}

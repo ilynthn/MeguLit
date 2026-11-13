@@ -172,7 +172,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .review-page .review-controls button.p
    and long help text folds to two lines, opening in full when the row is hovered or focused. */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .settings-row[hidden]{display:none!important}
 /* a readable measure: the settings column stops at ~1100px instead of pushing controls to the far edge */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-content>*,html:not(#u):not(#v):not(#w):not(#x) body #advanced-settings-form>*{max-width:1120px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-section-title{font-size:38px!important;margin-bottom:8px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-search{margin-top:14px}
 /* the API key row looks like every other row: bold label and note on the left, the field with its button on the right */
@@ -183,10 +182,9 @@ html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group{grid-
 /* one control language: selects, fields and the connection card share the same dark surface, hairline and corner */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .settings-row .select-trigger{background:rgba(10,9,12,.5)!important;border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 16%,transparent)!important;border-radius:2px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content :is(.settings-row,.key-panel) input:not([type=checkbox]):not([type=radio]):not([type=range]){border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 16%,transparent)!important;border-radius:2px!important}
-html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{border-radius:2px!important;border:0!important;border-left:2px solid color-mix(in srgb,var(--g-gold,#edb56e) 60%,transparent)!important;background:color-mix(in srgb,#120d10 70%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{border-radius:var(--t-radius)!important;border:0!important;background:var(--t-panel)!important;box-shadow:var(--t-ring)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content :is(.tr-conn-head,.tr-shared-head){font-size:13px!important;letter-spacing:.06em!important;color:color-mix(in srgb,var(--g-gold,#edb56e) 92%,#fff)!important}
 /* the current page in the side list has a soft block behind it, not only a thin bar */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-nav .settings-category-items>button.active{background:color-mix(in srgb,var(--g-gold,#edb56e) 10%,transparent)!important;color:var(--g-t1,#f1e0d2)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-nav .settings-category-items>button:not(.active){color:color-mix(in srgb,var(--g-t1,#f1e0d2) 74%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-row .setting-description>small.settings-help{display:-webkit-box!important;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;max-width:60ch;text-wrap:pretty}
 html:not(#u):not(#v):not(#w):not(#x) body .settings-row:is(:hover,:focus-within) .setting-description>small.settings-help{-webkit-line-clamp:unset}
@@ -238,7 +236,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel{paddin
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-review-panel>[data-card]{width:min(1180px,100%)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .review-page .anki-toolbar button.text-button{border:1px solid color-mix(in srgb,var(--g-t1,#f1e0d2) 26%,transparent)!important;padding:5px 14px!important}
 /* settings: card controls on the same right edge as the rest (the scroller keeps its scrollbar at the window edge) */
-html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{margin-inline:-20px!important;padding-inline:18px!important}
+html:not(#u):not(#v):not(#w):not(#x) body .settings-content .tr-conn{margin-inline:0!important;padding-inline:20px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel{grid-template-columns:minmax(0,1fr) 300px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group{display:flex;gap:8px}
 html:not(#u):not(#v):not(#w):not(#x) body .tr-conn .key-panel>.input-group input{min-width:0;flex:1;height:40px!important}
