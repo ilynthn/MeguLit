@@ -36,12 +36,9 @@
  min-height:34px;margin:0!important;padding:0 12px!important;border-radius:8px!important;background:none!important;box-shadow:none!important;
  font-size:13.5px!important;color:var(--sn-t3)!important;text-align:left;}
 .main .settings-nav .settings-category button::after{content:none!important}
-.main .settings-nav .settings-category button::before{content:""!important;position:absolute!important;left:-11px!important;top:50%!important;width:5px!important;height:5px!important;margin:-2.5px 0 0!important;
- transform:rotate(45deg)!important;background:var(--sn-gold)!important;opacity:0;box-shadow:0 0 6px color-mix(in srgb,var(--gold-accent,#edb56e) 70%,transparent)!important;display:block!important}
 .main .settings-nav .settings-category button:hover{color:var(--sn-t1)!important;background:rgba(241,224,210,.04)!important}
 .main .settings-nav .settings-category button.active{color:#fff3e2!important;padding-left:12px!important;
  background:linear-gradient(90deg,color-mix(in srgb,var(--gold-accent,#edb56e) 13%,transparent),color-mix(in srgb,var(--gold-accent,#edb56e) 2%,transparent) 75%,transparent)!important}
-.main .settings-nav .settings-category button.active::before{opacity:1}
 .main .settings-nav .settings-category button:focus-visible{outline-offset:-1px}
 .main .settings-nav .settings-category button:active{transform:scale(.98)}
 
@@ -50,7 +47,6 @@
  background:linear-gradient(170deg,#fbf3ee,#f3e7df)!important}
 :root[data-theme=light].home-glass .main .settings-nav{background:linear-gradient(170deg,color-mix(in srgb,var(--glass-tint,#fff7f2) var(--home-glass-alpha,70%),transparent),color-mix(in srgb,var(--glass-tint-deep,#f3e5dc) var(--home-glass-alpha,70%),transparent))!important}
 :root[data-theme=light] .main .settings-nav .settings-category button.active{color:#301919!important;background:linear-gradient(90deg,rgba(168,50,63,.1),transparent 75%)!important}
-:root[data-theme=light] .main .settings-nav .settings-category button::before{box-shadow:none!important}
 /* Black theme: deeper page, same structure */
 :root[data-theme=black] .main .settings-nav{background:linear-gradient(170deg,#120c0c,#0a0708)!important}
 @media (prefers-reduced-motion:reduce){.main .settings-nav .settings-category>summary::after,.main .settings-nav .settings-category button{transition:none}}
@@ -86,7 +82,7 @@
 
 /* v1.1.5 fixes: a key press (Shift) made the focused item show a gold box; the active state now switches at once
    (background and diamond used to cross-fade separately, so the diamond seemed to jump ahead of the highlight) */
-.main .settings-nav .settings-category button,.main .settings-nav .settings-category button::before{transition:color .18s!important}
+.main .settings-nav .settings-category button{transition:color .18s!important}
 .main .settings-nav .settings-category button:focus-visible,.main .settings-nav .settings-category>summary:focus-visible{outline:none!important;background:rgba(241,224,210,.05)!important}
 .main .settings-nav .settings-category button:focus:not(:focus-visible){outline:none!important}
 

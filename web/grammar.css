@@ -372,7 +372,7 @@
 .gm-lesson>.gm-steps li{display:block}
 .gm-lesson .gm-step-dot{flex-direction:row;justify-content:flex-start;gap:14px;padding:18px 20px;border-radius:0;border-bottom:1px dashed var(--mg-line);position:relative;font-size:13px}
 .gm-lesson .gm-step-dot b{width:auto;height:auto;border:0;background:none;font:500 12px/1 var(--mg-mono);color:var(--mg-dim);transform:none}
-.gm-lesson .gm-step-dot b::before{content:'0'}
+
 .gm-lesson .gm-step-dot span{font:500 13px/1.2 var(--gm-serif);letter-spacing:.04em}
 .gm-lesson .gm-step-dot::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--mg-red);transform:scaleY(0);transition:transform .35s var(--ease-x)}
 .gm-lesson .gm-step-dot.active{background:#000;color:#fff}
@@ -402,7 +402,7 @@
 .gm-lesson .gm-choice{font-size:22px;min-width:72px;min-height:52px;background:none;border:1px solid rgba(255,255,255,.35);transition:transform .35s var(--ease-x),background .15s}
 .gm-lesson .gm-choice:hover:not(:disabled){background:#fff;color:#0b0b0b;transform:translateY(-3px)}
 .gm-lesson .gm-verdict{border-radius:0}
-@media(max-width:860px){.gm-lesson{grid-template-areas:"head" "rail" "main"}.gm-lesson>.gm-steps{flex-direction:row;overflow-x:auto}.gm-lesson .gm-step-dot span{display:none}.gm-hero{grid-template-columns:1fr}.gm-hero-side{border-left:0;border-top:1px dashed var(--mg-line);padding:20px 46px}.gm-hud-stats{margin-left:0}}
+@media(max-width:860px){.gm-lesson{grid-template-areas:"head" "rail" "main"}.gm-lesson>.gm-steps{flex-direction:row;overflow-x:auto}.gm-lesson .gm-step-dot span{white-space:nowrap}.gm-hero{grid-template-columns:1fr}.gm-hero-side{border-left:0;border-top:1px dashed var(--mg-line);padding:20px 46px}.gm-hud-stats{margin-left:0}}
 @media(prefers-reduced-motion:reduce){.gm-group .gm-card::before,.gm-lesson .gm-step-dot::after,.gm-hero-go,.gm-overview,.gm-lesson .gm-choice{transition:none}}
 .gm-lesson .gm-step-dot b{white-space:nowrap;min-width:2.2em;text-align:left}
 .gm-lesson .gm-actions button{border-radius:0;letter-spacing:.12em}

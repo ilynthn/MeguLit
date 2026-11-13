@@ -5,6 +5,7 @@
    the bridge records every dictionary call that carries one as a look-up, so merely opening 词典 added 1 to each of the
    ten words (水没 52→54→55, chart total 470→480→490). Those fetches now carry no operationId (DICT_HOME_PEEK), and
    the panel frame with its final layout is drawn at once, so the search box no longer jumps when the data arrives. */
+import {exAttr} from './example-ruby.js';
 export const DICT_HOME_PEEK=query=>({query,source:'local'});
 export function mountDictHome(target,results,{api,esc,number,locale,look}){
   const home=document.createElement('div');home.className='dict-home';results.after(home);
@@ -30,7 +31,7 @@ export function mountDictHome(target,results,{api,esc,number,locale,look}){
     const r=b.querySelector('i'),s=b.querySelector('span');if(r)r.textContent=d.reading&&d.reading!==often[i].surface?d.reading:'';if(s){s.textContent=d.definition;s.classList.remove('dh-tap');}});
    function draw(defs){
    const oftenRows=often.map((w,i)=>`<li><button type="button" data-look="${esc(w.surface)}"><b lang="ja">${esc(w.surface)}</b><i lang="ja"></i><span class="dh-tap">${defs?esc(DH.tap):''}</span><small>${number(w.lookups)} ${DH.times}</small></button></li>`).join('');
-   const vocabRows=vocab.map(v=>{const word=v.spelling||v.reading;return `<li><button type="button" data-look="${esc(word)}"><div class="dh-w"><b lang="ja">${esc(word)}</b>${v.spelling&&v.reading&&v.reading!==v.spelling?`<i lang="ja">${esc(v.reading)}</i>`:''}${v.jlpt?`<em>${esc(v.jlpt)}</em>`:''}</div><span>${esc(defsOf(v))}</span><small>${esc(v.example_title||'')}</small>${v.example_text?`<q lang="ja">${esc(v.example_text)}</q>`:''}</button></li>`;}).join('');
+   const vocabRows=vocab.map(v=>{const word=v.spelling||v.reading;return `<li><button type="button" data-look="${esc(word)}"><div class="dh-w"><b lang="ja">${esc(word)}</b>${v.spelling&&v.reading&&v.reading!==v.spelling?`<i lang="ja">${esc(v.reading)}</i>`:''}${v.jlpt?`<em>${esc(v.jlpt)}</em>`:''}</div><span>${esc(defsOf(v))}</span><small>${esc(v.example_title||'')}</small>${v.example_text?`<q lang="ja"${exAttr(v.example_text,null,esc)}>${esc(v.example_text)}</q>`:''}</button></li>`;}).join('');
    const map=new Map((days||[]).map(d=>[d.day,d.lookups||0])),list=[];
    for(let i=13;i>=0;i--){const d=new Date(Date.now()-i*864e5),key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;list.push({key,n:map.get(key)||0,label:`${d.getMonth()+1}/${d.getDate()}`});}
    const max=Math.max(1,...list.map(d=>d.n)),sum=list.reduce((a,d)=>a+d.n,0);

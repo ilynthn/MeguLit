@@ -511,13 +511,17 @@ async function dispatch(request,runtime=null) {
       case 'learning_rewards':return require('./learning-rewards.cjs').state(db);
       case 'learning_reward':return require('./learning-rewards.cjs').add(db,{kind:String(request.kind||''),ref:String(request.ref||''),streak:Number(request.streak)||0,line:request.line&&typeof request.line==='object'?request.line:null});
       case 'learning_album':return require('./learning-rewards.cjs').album(db);
+      /* 学习 › 语法 › 怎么接: furigana for example lines that have none yet (蓝宝书 deck lines, your own lines) */
+      case 'grammar_ruby':return {rubies:await require('../core/grammar-ruby.cjs').rubies(runtime?.learning?.(),request.texts)};
       case 'grammar_learned':return require('./grammar.cjs').setLearned(db,String(request.point||''),request.learned!==false);
       case 'grammar_answer':return require('./grammar.cjs').recordAnswer(db,String(request.point||''),request.correct===true);
+      /* furigana for example sentences on every study page (core/example-ruby.cjs): game ruby → dictionary, names bare */
+      case 'example_ruby':return await require('./example-ruby.cjs').exampleRuby(db,runtime?.learning?.()||null,request.items);
       case 'grammar_anki':{
         const grammar=require('./grammar.cjs'),insights=require('./learning-insights.cjs'),e=request.example||{},text=String(e.text||'').slice(0,1000);if(!text)throw Error('INVALID_READER_TEXT');
         const start=Number(e.start)||0,end=Number(e.end)||0,picked=insights.pickTranslation({human:insights.isHuman(e.translationSource)?{text:e.translation,source:e.translationSource}:null,machine:insights.isHuman(e.translationSource)?'':String(e.translation||'')});
         const extra={translation:picked.translation.slice(0,1000),translationSource:picked.translationSource,gameTitle:String(e.title||'').slice(0,200)};
-        try{const learning=runtime?.learning?.();if(learning?.installed?.())extra.sentenceHtml=require('../core/sentence-html.cjs').furiganaHtml(text,insights.applyGameRuby(learning.readings.resolve(await learning.tokenize(text)),{},Array.isArray(e.ruby)?e.ruby:[]),start,end);}catch{}
+        try{const learning=runtime?.learning?.();if(learning?.installed?.())extra.sentenceHtml=require('../core/example-ruby.cjs').exampleCardHtml(text,learning.readings.resolve(await learning.tokenize(text)),{pairs:Array.isArray(e.ruby)&&e.ruby.length?e.ruby:require('./example-ruby.cjs').gameRubyOf(db,text),start,end});}catch{}
         if(!extra.sentenceHtml){const chars=[...text],h=v=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));extra.sentenceHtml=h(chars.slice(0,start).join(''))+'<b class="tm-hl">'+h(chars.slice(start,end).join(''))+'</b>'+h(chars.slice(end).join(''));}
         const config=runtime?.config?.()||store.readJSON(path.join(root,'data','config','v4-preferences.json'));
         return await new(require('../core/anki.cjs').Anki)().sync(grammar.ankiWord(String(request.point||''),String(request.title||''),String(request.gist||''),{text}),config,null,extra);

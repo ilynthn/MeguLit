@@ -41,10 +41,19 @@
  b.backlogTranslated=translated;const deliver=b.deliver;b.deliver=(id,text,error,message)=>{const src=b.current;deliver?.(id,text,error,message);if(!error&&id===b.serial&&src&&typeof text==='string'&&text.trim())translated(src,text);};
  b.backlogEntries=()=>entries.slice();
  // "司\n「……」" (BGI and many engines put the speaker on its own line) or "司「……」": speaker and line apart.
- function split(src){if(b.splitDialogue)return b.splitDialogue(src);const lines=src.split('\n');
+ // "[千春]……" / "【千春】……" without 「」 (BRUNS): the bracket is the speaker.
+ function split(src){const r=splitRaw(src);if(r.name)return r;const k=/^[\[【]([^\[\]【】\n]{1,12})[\]】]\s*([^]*)$/.exec(String(r.text).trim());return k&&k[2].trim()?{name:k[1],text:k[2].trim()}:r;}
+ function splitRaw(src){if(b.splitDialogue)return b.splitDialogue(src);const lines=src.split('\n');
   if(lines.length>=2&&lines[0].trim().length<=12&&!/[「『（(。、]/.test(lines[0])&&/^[「『（(]/.test(lines[1].trim()))return {name:lines[0].trim(),text:lines.slice(1).join('\n').trim()};
   const m=/^([^\s「『（(]{1,10})([「『].*[」』])$/s.exec(src.trim());if(m)return {name:m[1],text:m[2]};
   return {name:'',text:src};}
+ // One hook delivery can hold several lines (BRUNS pages, fast skipping): "[千春]……っ。[千春]な……" was one row with
+ // the speaker inline (user, 2026-11-14). Such an entry is shown as one row per speaker mark; translations pair up line
+ // by line when the counts match, otherwise the whole translation stays under the last row. The stored entry is unchanged.
+ const MARK=/(?=[\[【][^\[\]【】\n]{1,12}[\]】])/;
+ function pieces(entry){const parts=String(entry.src||'').split(MARK).map(x=>x.trim()).filter(Boolean);if(parts.length<2)return [[entry,true]];
+  const tr=String(entry.tr||'').split('\n').map(x=>x.trim()).filter(Boolean),pair=tr.length===parts.length;
+  return parts.map((src,i)=>{const last=i===parts.length-1,tx=pair?tr[i]:last?entry.tr:'';return [{...entry,src,tr:tx,trElsewhere:!tx&&!!entry.tr},last];});}
 
  // ── Fonts: the dialogue box's own font variables, unless a font is chosen here ──────────────────────────────────
  const rootVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -77,11 +86,11 @@
  .tome-log-src[data-ruby]{padding-top:.42em;line-height:max(var(--log-lh,1.75),2.15)}
  .tome-log-rb{position:relative}
  .tome-log-rb::before{content:attr(data-reading);position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:-.28em;white-space:nowrap;font:400 .55em/1 var(--tomoyo-ruby-font,var(--log-jp-font));letter-spacing:0;color:color-mix(in srgb,var(--theme-text,#eee) 78%,transparent);pointer-events:none;user-select:none}
- .tome-backlog[data-open]{will-change:scale,opacity;animation:tome-log-in .3s cubic-bezier(.16,1,.3,1) both}
+ .tome-backlog[data-open]{will-change:scale,opacity;animation:tome-log-in .22s cubic-bezier(.16,1,.3,1) both} .tome-backlog[data-open][data-shown]{will-change:auto;animation:none}
  .tome-backlog[data-leaving]{pointer-events:none;will-change:scale,opacity;animation:tome-log-out .17s cubic-bezier(.5,0,.75,0) both}
  .tome-backlog[data-open]>*{animation:tome-log-content .3s cubic-bezier(.3,0,.2,1) both}
- @keyframes tome-log-in{from{scale:1 .03;opacity:0}30%{opacity:1}to{scale:1 1;opacity:1}}
- @keyframes tome-log-out{from{scale:1 1;opacity:1}70%{opacity:1}to{scale:1 .03;opacity:0}}
+ @keyframes tome-log-in{from{scale:.97;opacity:0}to{scale:1;opacity:1}}
+ @keyframes tome-log-out{from{scale:1;opacity:1}to{scale:.97;opacity:0}}
  @keyframes tome-log-content{from{opacity:0}35%{opacity:0}to{opacity:1}}
  .tome-backlog header{display:flex;align-items:center;gap:12px;padding:18px 16px 14px 24px;flex:none}
  .tome-log-heading{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -167,7 +176,7 @@
  function item(entry,latest,sample){const s=split(entry.src);if(!s.name&&entry.name)s.name=entry.name;const it=document.createElement('div');it.className='tome-log-item';if(latest)it.dataset.latest='';
   const name=document.createElement('div');name.className='tome-log-name';if(s.name){const n=document.createElement('b');n.textContent=s.name;n.title=s.name;name.append(n);}else{const n=document.createElement('i');n.textContent=t('narration');name.append(n);}
   const body=document.createElement('div');body.className='tome-log-body';const src=document.createElement('div');src.className='tome-log-src';src.lang='ja';src.__logText=s.text;highlight(src,s.text);const tr=document.createElement('div');tr.className='tome-log-tr';
-  if(entry.tr)highlight(tr,entry.tr);else{tr.dataset.missing='';tr.textContent=latest&&!sample&&b.isEnabled?.()?t('pending'):t('none');}body.append(src,tr);
+  if(entry.tr)highlight(tr,entry.tr);else if(entry.trElsewhere)tr.hidden=true;else{tr.dataset.missing='';tr.textContent=latest&&!sample&&b.isEnabled?.()?t('pending'):t('none');}body.append(src,tr);
   const time=document.createElement('div');time.className='tome-log-time';time.textContent=clock(entry.at||Date.now());
   const actions=document.createElement('div');actions.className='tome-log-actions';const btn=(icon,title,text)=>{const x=document.createElement('button');x.type='button';x.title=title;x.innerHTML=svg(ICON[icon]);x.onclick=()=>{try{navigator.clipboard.writeText(text);x.dataset.done='';x.title=t('copied');setTimeout(()=>{delete x.dataset.done;x.title=title;},1200);}catch{}};return x;};
   actions.append(btn('copy',t('copy'),entry.src));if(entry.tr)actions.append(btn('copyTr',t('copyTr'),entry.tr));
@@ -220,7 +229,7 @@
   list.replaceChildren();const q=query.toLowerCase(),matched=entries.map((e,i)=>[e,i]).filter(([e])=>!q||e.src.toLowerCase().includes(q)||String(e.tr).toLowerCase().includes(q)),shown=matched.slice(-pageSize);
   if(matched.length>shown.length){const more=document.createElement('button');more.type='button';more.textContent=earlier();more.onclick=()=>{const previous=list.scrollHeight;pageSize+=40;render();list.scrollTop=Math.max(0,list.scrollHeight-previous);};list.append(more);}
   if(!shown.length){const e=document.createElement('div');e.className='tome-log-empty';e.textContent=entries.length?t('noMatch',{q:query}):t('empty');list.append(e);return;}
-  let prev=0;for(const [entry,i] of shown){if(entry.at&&(!prev||entry.at-prev>10*60*1000)){const br=document.createElement('div');br.className='tome-log-break';const d=new Date(entry.at);br.textContent=(prev?'':(d.getMonth()+1)+'/'+d.getDate()+' ')+clock(entry.at);list.append(br);}prev=entry.at||prev;list.append(item(entry,i===entries.length-1));}
+  let prev=0;for(const [entry,i] of shown){if(entry.at&&(!prev||entry.at-prev>10*60*1000)){const br=document.createElement('div');br.className='tome-log-break';const d=new Date(entry.at);br.textContent=(prev?'':(d.getMonth()+1)+'/'+d.getDate()+' ')+clock(entry.at);list.append(br);}prev=entry.at||prev;for(const [piece,last] of pieces(entry))list.append(item(piece,last&&i===entries.length-1));}
   if(atEnd||!panel.dataset.rendered||query){list.scrollTop=list.scrollHeight;panel.dataset.rendered='1';}
   watchRuby(list);
  }
@@ -234,8 +243,15 @@
   panel.addEventListener('contextmenu',e=>{if(e.target.closest('input'))return;e.preventDefault();close();});
   const list=panel.querySelector('.tome-log-list');
   // The log stays open at either edge; wheel momentum must never fall through to the game.
-  const opening=panel;opening.style.opacity='0';document.body.append(opening);opening.setAttribute('data-open','');opening.style.animation='none';send({type:'galMenu',open:true});render();window.__tomeWaitForSurface(opening,()=>{if(panel!==opening)return;opening.style.removeProperty('opacity');opening.style.removeProperty('animation');opening.focus({preventScroll:true});},220);
+  const opening=panel;opening.style.opacity='0';document.body.append(opening);opening.setAttribute('data-open','');opening.style.animation='none';send({type:'galMenu',open:true});render();window.__tomeWaitForSurface(opening,()=>{if(panel!==opening)return;opening.style.removeProperty('opacity');opening.style.removeProperty('animation');opening.focus({preventScroll:true});settle(opening);},220);
  }
+ // The open animation always ends in the final state (user, 2026-11-14: on beta38 the log stayed a 70 px translucent strip
+ // with squashed rows: the 推镜 GSAP push on the same element read the running keyframe scale, baked it into an inline
+ // transform and left it there). On animationend (or 400 ms) the panel drops the animation and any inline transform.
+ function settle(node){let done=false;const end=()=>{if(done||panel!==node)return;done=true;node.removeEventListener('animationend',onEnd);
+   if(!node.classList.contains('tome-log-dragging'))for(const k of ['transform','scale','translate','rotate'])node.style.removeProperty(k);
+   node.setAttribute('data-shown','');window.__tomoyoHitRegionsRefresh?.(true);};
+  const onEnd=e=>{if(e.target===node)end();};node.addEventListener('animationend',onEnd);setTimeout(end,400);}
  function close(){if(!panel)return;const old=panel;panel=null;rubyObserver?.disconnect();rubyObserver=null;old.removeAttribute('data-open');old.setAttribute('data-leaving','');let gone=false;const finish=()=>{if(gone)return;gone=true;old.remove();if(!panel&&!menuOpen())send({type:'galMenu',open:false});};old.addEventListener('animationend',e=>{if(e.target===old)finish();});setTimeout(finish,320);}
  b.openBacklog=open;b.closeBacklog=close;b.toggleBacklog=()=>panel?close():open();
  // The game window moved or resized (new bridge layout) or the overlay changed size: keep the log on the game.

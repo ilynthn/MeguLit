@@ -97,11 +97,9 @@ input.form-input:focus,.form-input:focus{border-bottom-color:var(--e-red)!import
 .main .settings-nav .settings-category{counter-reset:sec}
 .main .settings-nav .settings-category>summary{font-size:12.5px!important;}
 .main .settings-nav .settings-category button{counter-increment:sec;}
-.main .settings-nav .settings-category button::after{font:italic 13px var(--g-serif);color:rgba(170,164,156,.8);margin-left:12px}
 
 
 
-.main .settings-nav .settings-category button.active::after{color:var(--e-paper)}
 /* 搜索、下拉、数字框、多行文本：同一种底线 */
 .settings-search,.settings-search input{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
 .settings-search{border-bottom:1px solid var(--e-hair)!important;transition:border-color .2s}
@@ -216,10 +214,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb{background:linear-gradient
 .review-card>[data-current]:hover{color:var(--gold-hi,#ffd7a0)!important}
 .review-card>.anki-tools{margin-top:22px!important;padding-top:18px;border-top:1px solid color-mix(in srgb,var(--gold-hi,#ffd7a0) 12%,transparent)}
 .main .anki-tools .text-button+.text-button::before{content:none!important}
-/* 设置左栏选中：去掉长红线，只留左侧金菱形 + 文字微移 */
 
 .main .settings-nav .settings-category button.active{box-shadow:none!important;}
-.main .settings-nav .settings-category button.active::before{content:""!important;background:var(--gold-accent,#edb56e);box-shadow:0 0 6px color-mix(in srgb,var(--gold-accent,#edb56e) 70%,transparent)}
 /* 详情页页签：取消胶囊和红条，金菱形居中在文字下方 */
 .detail-tabs{display:flex!important;padding:0!important;background:none!important;box-shadow:none!important;border-radius:0!important;gap:6px!important;border-bottom:1px solid rgba(242,232,218,.1)!important}
 .detail-tabs .tab,.detail-tabs .tab.active{padding:8px 14px 14px!important;border-radius:0!important;background:none!important;box-shadow:none!important;letter-spacing:0!important}

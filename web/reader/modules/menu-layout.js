@@ -51,8 +51,8 @@
     repaint of the whole panel every frame (about 25 fps). "scale" leaves the drag offset in "transform" alone. */
  .tomoyo-cn-dialog.tome-menu-enter { transform-origin:50% 50%; will-change:scale,opacity; animation:tome-menu-unfold .3s cubic-bezier(.16,1,.3,1) both!important; }
  .tomoyo-cn-dialog[data-leaving] { display:block!important; pointer-events:none!important; transform-origin:50% 50%; will-change:scale,opacity; animation:tome-menu-fold .17s cubic-bezier(.5,0,.75,0) both!important; }
- @keyframes tome-menu-unfold { from { scale:1 .03; opacity:0; } 30% { opacity:1; } to { scale:1 1; opacity:1; } }
- @keyframes tome-menu-fold { from { scale:1 1; opacity:1; } 70% { opacity:1; } to { scale:1 .03; opacity:0; } }
+ @keyframes tome-menu-unfold { from { scale:.97; opacity:0; } to { scale:1; opacity:1; } }
+ @keyframes tome-menu-fold { from { scale:1; opacity:1; } to { scale:.97; opacity:0; } }
  .tomoyo-cn-dialog.tome-menu-enter > * { animation:tome-menu-content .3s cubic-bezier(.3,0,.2,1) both; }
  @keyframes tome-menu-content { from { opacity:0; } 35% { opacity:0; } to { opacity:1; } }
  /* Dragging: the panel follows the pointer with a GPU transform and lifts slightly. */
@@ -233,7 +233,7 @@
    // Over a game the window only paints inside its region, which grows to the menu a little later (page → launcher →
    // GalWindowBridge). Hold the folded, transparent state until the bridge confirms the new region, or the opening
    // panel showed through the dialogue line as a dark bar. 250 ms is the fallback.
-   const start=()=>{if(!this.open||this.hasAttribute('data-leaving'))return;delete this.dataset.surfacePending;fitMenu(this);void this.offsetWidth;this.classList.add('tome-menu-enter');let cleared=false;const done=()=>{if(cleared)return;cleared=true;this.classList.remove('tome-menu-enter');this.style.removeProperty('scale');this.style.removeProperty('opacity');};const end=e=>{if(e.target!==this)return;this.removeEventListener('animationend',end);done();};this.addEventListener('animationend',end);setTimeout(done,450);};
+   const start=()=>{if(!this.open||this.hasAttribute('data-leaving'))return;delete this.dataset.surfacePending;fitMenu(this);void this.offsetWidth;this.classList.add('tome-menu-enter');let cleared=false;const done=()=>{if(cleared)return;cleared=true;this.classList.remove('tome-menu-enter');for(const k of ['scale','opacity','transform','translate','rotate'])this.style.removeProperty(k);};const end=e=>{if(e.target!==this)return;this.removeEventListener('animationend',end);done();};this.addEventListener('animationend',end);setTimeout(done,450);};
    if(document.body.classList.contains('tomoyo-ui-translation')){window.__tomeWaitForSurface(this,start);}
    else start();}return result;};
  bridge.menuLeave=dialog=>{if(!dialog?.isConnected){dialog?.remove();return;}dialog.classList.remove('tome-menu-enter','tome-menu-dragging','tomoyo-menu-resizing');dialog.setAttribute('data-leaving','');let gone=false;const finish=()=>{if(gone)return;gone=true;dialog.remove();};dialog.addEventListener('animationend',finish,{once:true});setTimeout(finish,320);};

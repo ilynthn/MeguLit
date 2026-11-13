@@ -506,7 +506,6 @@ html:not(#u):not(#v) body .main .settings-content .settings-search{box-shadow:in
 
 /* the per-game picker sits on the title line, at the right */
 html:not(#u):not(#v) body .main .settings-content{position:relative}
-html:not(#u):not(#v) body .main .settings-content>.profile-selector{position:absolute;top:86px;z-index:3;margin:0!important}
 /* data / account pages: their first heading is the page title, not a group kicker */
 html:not(#u):not(#v) body .main .settings-content>div>.panel:first-child>h2.panel-title:first-child{font-family:var(--g-serif,serif)!important;font-weight:600!important;letter-spacing:.02em!important;text-transform:none;color:var(--g-t1,#f1e0d2)!important;margin:6px 0 14px!important}
 html:not(#u):not(#v) body .main .settings-content>div>.panel:first-child>h2.panel-title:first-child::before{display:block;margin-bottom:10px;font-family:var(--u-mono);font-size:11px;font-weight:400;letter-spacing:.3em;color:var(--g-gold)}
@@ -548,7 +547,6 @@ html:not(#u):not(#v) body .main .settings-content form{display:flex;flex-directi
 html:not(#u):not(#v) body .main .settings-content form>.settings-section-title{order:-1}
 html:not(#u):not(#v) body .main .settings-content .settings-row:not(:has(input,select,button,textarea,.select-control,.font-control,.setting-slider)){min-height:0!important;padding:26px 0 6px!important;border:0!important}
 html:not(#u):not(#v) body .main .settings-content .settings-row:not(:has(input,select,button,textarea,.select-control,.font-control,.setting-slider)) .settings-label{font-family:var(--u-mono);font-size:11px!important;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--g-gold)!important}
-html:not(#u):not(#v) body .main .settings-content>.profile-selector{right:max(clamp(20px,2vw,32px),calc(100% - 1180px - clamp(20px,2vw,32px)))!important}
 html:not(#u):not(#v) body .color-swatches .swatch{box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)!important;border-radius:2px!important}
 html:not(#u):not(#v) body .color-swatches .swatch.active{box-shadow:0 0 0 2px #16121a,0 0 0 3px var(--g-gold)!important}
 html:not(#u):not(#v) body .main .settings-content .settings-row .settings-label{word-break:keep-all;text-wrap:balance}
@@ -746,7 +744,6 @@ html:not(#u):not(#v) body .main .settings-layout>.settings-nav{border-right:1px 
 html:not(#u):not(#v) body .main .settings-nav summary{font-family:var(--g-serif,serif);font-size:16px!important;padding-left:0!important}
 html:not(#u):not(#v) body .main .settings-nav .settings-category-items button{border-radius:0!important;background:none!important;padding-left:14px!important;box-shadow:none!important}
 html:not(#u):not(#v) body .main .settings-nav .settings-category-items button.active{color:var(--g-t1,#f1e0d2)!important;box-shadow:inset 2px 0 0 #c82f3b!important}
-html:not(#u):not(#v) body .main .settings-nav .settings-category-items button.active::before{display:none!important}
 html:not(#u):not(#v) body .main .settings-content .settings-section-title{font-size:clamp(36px,3.2vw,52px)!important;margin:18px 0 26px!important;line-height:1.1}
 html:not(#u):not(#v) body .main .settings-content>div>.panel:first-child>h2.panel-title:first-child{font-size:clamp(36px,3.2vw,52px)!important}
 html:not(#u):not(#v) body .main .settings-content .settings-row{padding-block:18px!important;border-bottom:1px solid var(--u-line)!important}
@@ -1523,7 +1520,6 @@ html body .class-rite-white{mix-blend-mode:normal!important;}
 /* ==== round 11 ==== */
 /* settings width (judge r10: half the pages still ran to 1551 and showed beside the search bar when scrolled): every
    block one level down is capped to the search bar's 960px too, and the per-game selector ends at the same edge */
-html:not(#u):not(#v):not(#w):not(#x) body .main .settings-content>.profile-selector{right:auto!important;left:calc(28px + 960px);transform:translateX(-100%)}
 /* status line (judge r10: failures were plain grey or bold text): one component — an 8px dot, one 13px sentence, an
    optional text action. Red failed, grey off or empty, gold in progress. Used by the account, voice, review and the
    detail page's ratings (all sources failing collapse into this one line). */
@@ -1836,7 +1832,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .lv-tips .lv-note{margin:12px 0 0;font
 html:not(#u):not(#v):not(#w):not(#x) body .lv-tips footer{display:flex;justify-content:flex-end;margin-top:16px}
 /* 2026-11-12 (user: every settings page left a band empty on the right when maximised) the column, the search bar and the
    blocks one level down grow to 1360px (still never wider than the space beside the side menu) */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-content>.profile-selector{left:calc(28px + min(1360px,100% - 56px))!important}
 
 /* 2026-11-12 (user) the guide's report tab has its own text box, styled like the report dialog */
 html:not(#u):not(#v) body dialog.guide-panel [data-pane="report"] :is(.feedback-text,.feedback-contact){display:block;width:100%;box-sizing:border-box;padding:12px 14px;font:inherit;font-size:14px;line-height:1.7;color:var(--g-t1,var(--text));border:1px solid var(--u-line-2)!important;border-radius:2px!important;background:rgba(10,9,12,.55)!important;box-shadow:none!important;resize:none!important}
