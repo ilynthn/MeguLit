@@ -364,7 +364,7 @@ async function dispatch(request,runtime=null) {
       case 'anki_open':return await runtime.ankiProcess().open(String(request.target||''),String(request.deck||''));
       case 'anki_status':case 'anki_current':case 'anki_start':case 'anki_show_answer':case 'anki_grade':case 'anki_play_audio':case 'anki_stop':case 'anki_practice':case 'anki_deck_config':case 'anki_deck_limits':{
         const {AnkiReviewer}=require('./anki-review.cjs');
-        const reviewConfig=store.readJSON(path.join(root,'data','config','v4-preferences.json'),store.readJSON(path.join(root,'migration','baseline-20261103','config','v4-preferences.json')));const reviewer=new AnkiReviewer({db,config:reviewConfig,speak:runtime?async text=>{const c=runtime.config?.()||reviewConfig;try{await runtime.services().ensureSpeech(c.aivisUrl,c.aivisGpu);}catch{}return runtime.speech().synthesize({surface:text,reading:'',pitch:[]},c);}:null});
+        const reviewConfig=store.readJSON(path.join(root,'data','config','v4-preferences.json'),store.readJSON(path.join(root,'migration','baseline-20261103','config','v4-preferences.json')));const reviewer=new AnkiReviewer({db,config:reviewConfig,mediaDir:require('../core/anki-media-cache.cjs').dirFor(root),speak:runtime?async text=>{const c=runtime.config?.()||reviewConfig;try{await runtime.services().ensureSpeech(c.aivisUrl,c.aivisGpu);}catch{}return runtime.speech().synthesize({surface:text,reading:'',pitch:[]},c);}:null});
         if(request.action==='anki_status')return await reviewer.status();
         if(request.action==='anki_current')return await reviewer.snapshot();
         if(request.action==='anki_stop')return await reviewer.stop();
