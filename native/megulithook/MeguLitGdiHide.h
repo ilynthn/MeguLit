@@ -73,7 +73,7 @@ namespace MeguLitGdiHide
     if (!Attached.exchange(true))
     {
       attachFunction(F_TextOutA | F_TextOutW | F_ExtTextOutA | F_ExtTextOutW | F_DrawTextA | F_DrawTextW | F_DrawTextExA | F_DrawTextExW);
-      Msg::Log("MeguLit_GDIHIDE armed");
+      Msg::Log("MeguLit_GDIHIDE armed version=2"); // version marker: tools/native-stale.cjs checks both hook DLLs carry it
     }
   }
 

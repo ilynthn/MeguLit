@@ -94,6 +94,6 @@ test('no shipped native binary is older than its sources (tools/native-stale.cjs
  const {check}=require('../tools/native-stale.cjs');const r=check({ci:!!process.env.CI});
  assert.deepEqual(r.problems,[],r.problems.join('\n'));
  const names=r.entries.flatMap(e=>e.outputs);
- for(const n of ['native/MeguLitFont32.dll','native/MeguLitFont64.dll','native/megulithook/MeguLitHook32.dll','native/MeguLitScn32.dll','native/MeguLitKrkr64.dll','native/MeguLitRenpy64.dll','native/MeguLitDpDecline32.dll','native/GalWindowBridge.exe'])assert.ok(names.includes(n),n+' listed');
- assert.equal(r.entries.find(e=>e.name==='megulithook').marker,'MeguLit_GDIHIDE');
+ for(const n of ['native/MeguLitFont32.dll','native/MeguLitFont64.dll','native/megulithook/MeguLitHook32.dll','native/megulithook/MeguLitHook64.dll','native/MeguLitScn32.dll','native/MeguLitKrkr64.dll','native/MeguLitRenpy64.dll','native/MeguLitDpDecline32.dll','native/GalWindowBridge.exe'])assert.ok(names.includes(n),n+' listed');
+ assert.equal(r.entries.find(e=>e.name==='megulithook').marker,'MeguLit_GDIHIDE armed version=2');assert.ok(read('native/megulithook/MeguLitGdiHide.h').includes('Msg::Log("MeguLit_GDIHIDE armed version=2")'),'the marker is the string the hook logs');
  const rel=read('Release.ps1');for(const n of names.filter(n=>/\.dll$/.test(n)))assert.ok(rel.includes("'"+n+"'"),n+' is packaged');});
