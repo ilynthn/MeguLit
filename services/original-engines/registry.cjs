@@ -77,7 +77,7 @@ const ENGINES=[
  {name:'Majiro',hook:true,test:f=>f.magicAny(/\.arc$/i,'MajiroArcV')},
  /* E569 engines MeguLit did not know at all: named so the library is not "unknown"; text goes through the general hook and
     is confirmed on first play (hook:null) */
- {name:'CMVS (Purple Software)',hook:true,test:f=>f.magicAny(/\.cpz$/i,'CPZ')},
+ {name:'CMVS (Purple Software)',hook:true,test:f=>f.magicAny(/\.cpz$/i,'CPZ')||f.has(/^cmvs(32|64)\.exe$/i)||f.has(/^cmvs\.cfg$/i)&&f.has(/\.exe$/i)},
  {name:'EAGLS',hook:true,test:f=>f.has(/^eagles\.dll$/i)||f.has(/^scpack\.(pak|idx)$/i)||f.sub('script',/^scpack\.(pak|idx)$/i)},
  {name:'Ikura GDL',hook:null,test:f=>f.magicAny(/^[A-Za-z0-9_]{2,12}$/,'SM2MPX10')},
  {name:"Silky's",hook:null,test:f=>f.magicAny(/\.ifl$/i,'IFLS')||f.has(/^ai[56]win\.exe$/i)},
