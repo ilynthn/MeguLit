@@ -21,6 +21,7 @@ import {levelName} from './learning-level.js';
 import {stamp,floatGain,quote,manaHTML,albumHTML} from './rewards.js';
 import {pointerDrag} from './drag.js';
 import {goalBarHTML,orderByGoal} from './learning-goal.js';
+import {howToHTML,fillRuby} from './grammar-howto.js';
 export const grammarMessages={
  zh:{level:'等级',soon:'这一级的课程还在写，先把 N5 学扎实',done:'已学完',progress:'完成度',accuracy:'练习正确率',noAnswers:'还没做练习',back:'← 课程列表',form:'接法',uses:'常见用法',pitfalls:'容易错的地方',fromGames:'你玩过的游戏里',
   builtin:'通用例句',builtinHelp:'你读过的台词里还没找到这个语法，先看这几句',practice:'练习',check:'选一个填进空里',right:'答对了',wrong:'不对，正确答案是',next:'下一题',retry:'再练一句同类台词',markDone:'标记为已学完',unmark:'取消已学完',
@@ -150,14 +151,14 @@ export function useAnkiCards(cards){
   const base=basePoints(c.level),word=c.word.replace(/^[～~〜]/,'');
   const twin=base.find(p=>(p.hits||[]).some(h=>c.hits.includes(h))||loc(p.title,'zh').split(/\s*——\s*/)[0].split(/\s*[／/]\s*/).some(h=>h&&h===word));
   if(twin){(twin.anki||(twin.anki=[])).push(c);continue;}
-  const builtin=c.examples.filter(e=>e.ja).slice(0,4).map(e=>({ja:e.ja,hl:e.hl||c.hits.find(h=>e.ja.includes(h))||'',zh:e.zh}));
+  const builtin=c.examples.filter(e=>e.ja).slice(0,4).map(e=>({ja:e.ja,hl:e.hl||c.hits.find(h=>e.ja.includes(h))||'',zh:e.zh,rb:e.rb||''}));
   const others=list.filter(o=>o.level===c.level&&o!==c).map(o=>o.hits[0]).filter(h=>h&&!c.hits.includes(h));
   const wrong=[0,7,19].map(k=>others[(c.order+k)%Math.max(1,others.length)]).filter((v,i,a)=>v&&a.indexOf(v)===i);
   const title=`${word} —— ${short(c.explain[0])}`,gist=c.explain[0]||'';
   const kind=kindOf(c);ANKI.push({id:c.id,level:c.level,group:kind,node:{cond:'clauses',link:'clauses',time:'clauses',perm:'auxiliary',guess:'auxiliary',voice:'auxiliary',
    give:'viewpoint',aspect:'aspect',formal:'order',stance:'order',misc:'order'}[kind]||'order',source:'anki',title:{zh:title,ja:word,en:word},gist:{zh:gist,ja:gist,
    en:gist},
-   form:(c.form.length?c.form:[word]).map(f=>[f.replace(/[＋+]/g,' + '),'']),uses:builtin.slice(0,3).map(e=>({t:'',ja:e.ja,zh:e.zh})),pitfalls:c.notes.length?c.notes:c.explain.slice(1),
+   form:(c.form.length?c.form:[word]).map(f=>[f.replace(/[＋+]/g,' + '),'']),uses:builtin.slice(0,3).map((e,i)=>({t:c.explain[Math.min(c.explain.length-1,Math.floor(i*c.explain.length/Math.max(1,c.examples.length)))]||'',ja:e.ja,zh:e.zh,rb:e.rb})),pitfalls:c.notes.length?c.notes:c.explain.slice(1),explain:c.explain,
    builtin,hits:c.hits,wrong:wrong.length?wrong:['のに','ので','ために'],choices:[...c.hits,...wrong]});
  }
  return {merged:list.length-ANKI.length,own:ANKI.length};
@@ -318,7 +319,7 @@ function judgeHTML(point,real,{esc,locale}){
    return `<li class="gm-jd" data-jd><p class="gm-jd-q">「<b lang="ja">${esc(name)}</b>」是什么意思？</p><div class="gm-jd-opts">${opts.map(o=>`<button type="button" class="gm-jd-opt gm-jd-who" data-ok="${o===mine?1:0}">${esc(o)}</button>`).join('')}</div><p class="gm-jd-why" hidden>${esc(loc(point.gist,locale))}</p></li>`;
     })():'';
  if(!rounds.length&&!who)return `<p class="gm-cap">${esc(loc(point.gist,locale))}</p>`;
- return `<p class="gm-play-lead">哪一句是日本人会说的？选对了，惠惠告诉你为什么</p><ol class="gm-jds">${rounds.map((rd,i)=>`<li class="gm-jd" data-jd><p class="gm-jd-q"><em>${String(i+1).padStart(2,'0')}</em>${rd.title?`来自《${esc(rd.title)}》的一句`:'哪句自然？'}</p><div class="gm-jd-opts">${rd.options.map(o=>`<button type="button" class="gm-jd-opt" data-ok="${o.ok?1:0}"${o.form?` data-form="${esc(o.form)}"`:''} lang="ja"><span class="gm-jd-plain">${esc(o.text)}</span><span class="gm-jd-marked" hidden>${mark(o)}</span></button>`).join('')}</div><p class="gm-jd-why" hidden>${rd.translation?`<span class="gm-tr">${esc(rd.translation)}</span>`:''}<span>${esc(loc(point.gist,locale))}</span></p></li>`).join('')}${meanRound}${who}</ol>`;
+ return `<p class="gm-play-lead">哪一句是日本人会说的？选对了，惠惠告诉你为什么</p><ol class="gm-jds">${rounds.map((rd,i)=>`<li class="gm-jd" data-jd><p class="gm-jd-q">${rd.title?`来自《${esc(rd.title)}》的一句`:'哪句自然？'}</p><div class="gm-jd-opts">${rd.options.map(o=>`<button type="button" class="gm-jd-opt" data-ok="${o.ok?1:0}"${o.form?` data-form="${esc(o.form)}"`:''} lang="ja"><span class="gm-jd-plain">${esc(o.text)}</span><span class="gm-jd-marked" hidden>${mark(o)}</span></button>`).join('')}</div><p class="gm-jd-why" hidden>${rd.translation?`<span class="gm-tr">${esc(rd.translation)}</span>`:''}<span>${esc(loc(point.gist,locale))}</span></p></li>`).join('')}${meanRound}${who}</ol>`;
 }
 /* A lesson: six short steps, one shown at a time; every step is in the page so returning to it is instant. */
 export function lessonHTML(point,data,{locale,esc,step=0}){
@@ -326,7 +327,9 @@ export function lessonHTML(point,data,{locale,esc,step=0}){
  const nodes=nodesFor(point).map(id=>MAP.find(n=>n.id===id)).filter(Boolean);
  const lead=real[0]||builtinExamples(point)[0];
  const intro=`<div class="gm-megu"><span class="gm-megu-seal" aria-hidden="true">惠</span><p class="gm-bubble">${esc(meguminIntro(point,real,locale))}</p></div><p class="gm-gist">${esc(loc(point.gist,locale))}</p>${lead?`<div class="gm-lead-line"><p class="gm-ja" lang="ja">${highlight(lead.text,lead.start,lead.end,esc,point.id)}</p>${lead.translation?`<p class="gm-tr">${esc(lead.translation)}</p>`:''}${lead.title?`<p class="gm-cap">${esc(sourceLabel(lead,w,locale))}</p>`:''}<button type="button" class="gm-link" data-speak="${esc(lead.text)}">${esc(w.speak)}</button></div>`:''}`;
- const form=`<ol class="gm-formulas">${point.form.map(([a,b],i)=>`<li style="--row:${i}"><div class="gm-formula">${formulaHTML(a,esc)}</div>${b?`<span class="gm-arrow" aria-hidden="true">→</span><button type="button" class="gm-formula-ex" data-speak="${esc(b)}" lang="ja">${esc(b)}</button>`:''}</li>`).join('')}</ol>`;
+ /* 怎么接 (2026-11-14): the plain-words connection, the verb form on 行く / 食べる, examples with furigana and Chinese, a line
+    from your own reading and one 注意 — built by grammar-howto.js for every lesson, 蓝宝书 cards included */
+ const form=howToHTML(point,real,{esc,locale,source:e=>sourceLabel(e,w,locale)});
  const widget=CONJ_POINTS[point.id]?conjHTML(point.id,{locale,esc}):point.group==='particle'?particleHTML(point,real,{locale,esc}):'';
  const play=widget||judgeHTML(point,real,{esc,locale});
  const ankiMore=(point.anki||[]).map(c=>`<section class="gm-anki"><h4>${esc(ANKI_GROUP.zh)} · ${esc(c.word)}</h4>${c.form.length?`<div class="gm-formula">${formulaHTML(c.form[0].replace(/[＋+]/g,' + '),esc)}</div>`:''}${c.explain.map(x=>`<p>${esc(x)}</p>`).join('')}${c.examples.slice(0,2).map(e=>`<p class="gm-ja" lang="ja">${esc(e.ja)}</p><p class="gm-tr">${esc(e.zh)}</p>`).join('')}</section>`).join('');
@@ -334,10 +337,10 @@ export function lessonHTML(point,data,{locale,esc,step=0}){
  const games=real.length?`<p class="gm-cap">${esc(w.fromGames)}</p><ul class="gm-examples">${real.map((e,i)=>exampleHTML(e,i,{w,esc,locale,pointId:point.id})).join('')}</ul>`:`<p class="gm-cap">${esc(w.builtin)} · ${esc(w.builtinHelp)}</p><ul class="gm-examples">${builtinExamples(point).map((e,i)=>exampleHTML(e,i,{w,esc,locale,pointId:point.id,anki:false})).join('')}</ul>`;
  const practice=`<div data-quiz aria-live="polite"></div><div class="gm-actions"><button type="button" class="${r.learned?'secondary':'primary'}" data-learned="${r.learned?'0':'1'}">${esc(r.learned?w.unmark:w.finishStep)}</button></div>`;
  const bodies={intro,form,play,uses,games,practice},s=Math.max(0,Math.min(STEPS.length-1,step));
- const nav=`<ol class="gm-steps" role="tablist">${STEPS.map((k,i)=>`<li><button type="button" role="tab" class="gm-step-dot${i===s?' active':''}${i<s?' passed':''}" data-step="${i}" aria-selected="${i===s}"><b>${i+1}</b><span>${esc(w.steps[k])}</span></button></li>`).join('')}</ol>`;
+ const nav=`<ol class="gm-steps" role="tablist">${STEPS.map((k,i)=>`<li><button type="button" role="tab" class="gm-step-dot${i===s?' active':''}${i<s?' passed':''}" data-step="${i}" aria-selected="${i===s}"><span>${esc(w.steps[k])}</span></button></li>`).join('')}</ol>`;
  return `<button type="button" class="gm-link gm-back" data-back>${esc(w.back)}</button><article class="gm-lesson"><header class="gm-lesson-head"><span class="gm-tag"><i></i>megulit · ${levelOf(point).toLowerCase()} · lesson ${String(pointsOf(levelOf(point)).indexOf(point)+1).padStart(2,'0')}</span><div class="gm-onmap"><span class="gm-cap">${esc(w.onMap)}</span>${nodes.map(n=>`<button type="button" class="gm-chip" data-map="${n.id}">${esc(n.no)} · ${esc(loc(n.title,locale))}</button>`).join('')}</div>${point.era?`<span class="gm-era"><b>${esc(point.era)}</b> · ${esc(point.who)}</span>`:''}<h2><span lang="ja">${esc(loc(point.title,locale).split(/\s*——\s*/)[0])}</span><small>${esc(loc(point.title,locale).split(/\s*——\s*/)[1]||'')}</small></h2></header>
 ${nav}<div class="gm-lesson-main">${STEPS.map((k,i)=>`<section class="gm-stepbody gm-step-${k}" data-stepbody="${i}"${i===s?'':' hidden'}>${bodies[k]}</section>`).join('')}
-<footer class="gm-stepnav"><button type="button" class="secondary" data-prev${s===0?' disabled':''}>${esc(w.prev)}</button><span class="gm-cap" data-stepof>${esc(w.stepOf.replace('{n}',s+1).replace('{t}',STEPS.length))}</span><button type="button" class="primary" data-nextstep${s===STEPS.length-1?' hidden':''}>${esc(w.nextStep)}</button></footer></div></article>`;
+<footer class="gm-stepnav"><button type="button" class="secondary" data-prev${s===0?' disabled':''}>${esc(w.prev)}</button><button type="button" class="primary" data-nextstep${s===STEPS.length-1?' hidden':''}>${esc(w.nextStep)}</button></footer></div></article>`;
 }
 export function quizHTML(point,q,{locale,esc,answered=null,index=0,total=1,retry=false}){
  const w=grammarMessages[locale]||grammarMessages.zh,c=[...q.text],ok=answered===q.answer,blank=`<span class="gm-blank${answered==null?' gm-drop':ok?' ok':' bad'}"${answered==null?' data-drop':''}>${answered==null?esc(w.dropHere||'＿＿'):esc(q.answer)}</span>`;
@@ -391,7 +394,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
  const watchPanel=()=>{panelWatch?.disconnect();panelWatch=null;const nav=root.querySelector('.gm-stgs');if(!nav||typeof ResizeObserver!=='function')return;
   let w=nav.clientWidth;panelWatch=new ResizeObserver(()=>{if(nav.clientWidth===w)return;w=nav.clientWidth;placePanel();});panelWatch.observe(nav);};
  const go=next=>{view=next;root.style.minHeight='';save();render();enter();root.scrollIntoView?.({block:'start'});};
- const openPoint=id=>{point=pointById(id);step=0;go('lesson');};
+ const openPoint=id=>{point=pointById(id);step=0;memo.mapFrom='';go('lesson');};
  async function changeLevel(){const {openLevelPicker}=await import('./learning-level.js');const r=await openLevelPicker({api,esc,toast,current:memo.userLevel||null});
   if(!r||!isCurrent())return;memo.userLevel=r.level;level=startLevel(r.level);await load(false);render();}
  function render(){save();if(view==='lesson'&&point)return renderLesson();if(view==='map')return renderMap();if(view==='album')return renderAlbum();
@@ -414,7 +417,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   root.querySelector('[data-anki-reload]')?.addEventListener('click',e=>{e.currentTarget.disabled=true;memo.anki=undefined;loadAnki(true);});
   root.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;memo.levelPicked=true;root.style.minHeight='';render();fx.focus(root.querySelector('.gm-hero'));
    });
-  root.querySelector('[data-map]')?.addEventListener('click',()=>{openNode='';scene=null;piece=-1;go('map');});
+  root.querySelector('[data-map]')?.addEventListener('click',()=>{openNode='';scene=null;piece=-1;memo.mapFrom='';go('map');});
   root.querySelector('[data-change-level]')?.addEventListener('click',changeLevel);
   root.querySelector('[data-goal-edit]')?.addEventListener('click',async()=>{const {openGoalPicker}=await import('./learning-goal.js');const g=await openGoalPicker({
    api,esc,toast,locale,current:memo.goal?.goal});if(g&&isCurrent()){memo.goal=g;render();}});
@@ -435,7 +438,11 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   r);if(r.collected)toast?.('收进战利品：'+[...line.text].slice(0,18).join('')+'…');return r;}catch{return null;}}
  function renderMap(anim=''){
   root.innerHTML=mapHTML(data||{},{locale,esc,open:openNode,scene,piece});save();
-  root.querySelector('[data-back]').onclick=()=>go('list');
+  /* 2026-11-14 (user: progress lost when going through the map): opened from a lesson, ← goes back to that lesson at
+     the same step, not to the list */
+  const fromLesson=memo.mapFrom==='lesson'&&point;const back=root.querySelector('[data-back]');
+  if(fromLesson)back.textContent=locale==='en'?'← Back to the lesson':locale==='ja'?'← 講座に戻る':'← 回到这一课';
+  back.onclick=()=>{memo.mapFrom='';go(fromLesson?'lesson':'list');};
   const pop=sel=>{const el=root.querySelector(sel);if(el&&motion())el.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:240,
    easing:'cubic-bezier(.2,.7,.2,1)'});};
   if(anim==='scene'&&motion())root.querySelectorAll('.gm-piece').forEach((b,i)=>b.animate([{opacity:0,transform:'translateY(14px) scale(.9)'},{opacity:1,transform:'none'}],
@@ -486,17 +493,16 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   root.querySelectorAll('[data-stepbody]').forEach(s=>s.hidden=Number(s.dataset.stepbody)!==step);
   root.querySelectorAll('[data-step]').forEach(b=>{const i=Number(b.dataset.step);b.classList.toggle('active',i===step);b.classList.toggle('passed',i<step);b.setAttribute('aria-selected',
    String(i===step));});
-  root.querySelector('[data-prev]').disabled=step===0;root.querySelector('[data-nextstep]').hidden=step===STEPS.length-1;root.querySelector('[data-stepof]').textContent=w.stepOf.replace('{n}',
-   step+1).replace('{t}',STEPS.length);
+  root.querySelector('[data-prev]').disabled=step===0;root.querySelector('[data-nextstep]').hidden=step===STEPS.length-1;/* no step counter: the owner bans numbered steps and page counters */
   const body=root.querySelector(`[data-stepbody="${step}"]`);if(animate&&body){fx.focus(body);fx.push(root.querySelector('.gm-step-dot.active b'));}
   if(animate&&motion()&&STEPS[step]==='form')body.querySelectorAll('.gm-formulas li').forEach((li,i)=>li.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,
    transform:'none'}],{duration:300,delay:60+i*90,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'}));
   root.querySelector('.gm-lesson')?.scrollIntoView?.({block:'nearest'});
  }
  function renderLesson(){
-  root.innerHTML=lessonHTML(point,data||{},{locale,esc,step});const real=data?.examples?.[point.id]||[];
+  root.innerHTML=lessonHTML(point,data||{},{locale,esc,step});fillRuby(root,{api,esc,isCurrent:()=>isCurrent()&&view==='lesson'});const real=data?.examples?.[point.id]||[];
   root.querySelector('[data-back]').onclick=()=>go('list');
-  root.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{openNode=b.dataset.map;scene=null;piece=-1;go('map');});
+  root.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{openNode=b.dataset.map;scene=null;piece=-1;memo.mapFrom='lesson';go('map');});
   root.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>showStep(Number(b.dataset.step)));
   root.querySelector('[data-prev]').onclick=()=>showStep(step-1);root.querySelector('[data-nextstep]').onclick=()=>showStep(step+1);
   root.querySelectorAll('[data-jd]').forEach(li=>li.querySelectorAll('.gm-jd-opt').forEach(b=>b.onclick=()=>{if(li.classList.contains('done'))return;const why=li.querySelector('.gm-jd-why');

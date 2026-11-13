@@ -511,6 +511,8 @@ async function dispatch(request,runtime=null) {
       case 'learning_rewards':return require('./learning-rewards.cjs').state(db);
       case 'learning_reward':return require('./learning-rewards.cjs').add(db,{kind:String(request.kind||''),ref:String(request.ref||''),streak:Number(request.streak)||0,line:request.line&&typeof request.line==='object'?request.line:null});
       case 'learning_album':return require('./learning-rewards.cjs').album(db);
+      /* 学习 › 语法 › 怎么接: furigana for example lines that have none yet (蓝宝书 deck lines, your own lines) */
+      case 'grammar_ruby':return {rubies:await require('../core/grammar-ruby.cjs').rubies(runtime?.learning?.(),request.texts)};
       case 'grammar_learned':return require('./grammar.cjs').setLearned(db,String(request.point||''),request.learned!==false);
       case 'grammar_answer':return require('./grammar.cjs').recordAnswer(db,String(request.point||''),request.correct===true);
       case 'grammar_anki':{

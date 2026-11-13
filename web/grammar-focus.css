@@ -136,3 +136,24 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph,html:not
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph.xlong{font-size:22px!important}
 
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{color:var(--gf-t1)}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{text-transform:none;letter-spacing:0;line-height:1.5;white-space:normal;color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important;font-size:12.5px!important;text-wrap:pretty}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-mean{font-size:14px}html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-gist,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card .gm-card-node{display:grid;grid-template-columns:auto 1fr;align-items:start}
+/* 怎么接 (2026-11-14, user: 怎么做部分太空了): plain-words formula, the verb form on 行く / 食べる, examples with furigana and
+   Chinese, a line from your own reading, one 注意 line */
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how h4{margin:22px 0 10px;font-size:13px;letter-spacing:.08em;color:var(--gf-gold)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how h4:first-child{margin-top:0}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-demo,html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-rule{flex-basis:100%;margin:2px 0 0;color:color-mix(in srgb,var(--gf-t1) 82%,transparent);font-size:14px;line-height:1.7}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-demo{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-demo small{font-size:12px;color:color-mix(in srgb,var(--gf-t1) 60%,transparent);letter-spacing:.06em}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-demo span{font-size:17px;color:var(--gf-t1)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-demo b{color:var(--gf-red);font-weight:600}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-ex{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-ex li{display:grid;grid-template-columns:1fr auto;column-gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--gf-t1) 10%,transparent)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-ex .gm-tr{grid-column:1;margin:2px 0 0}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-ex .gm-link{grid-column:2;grid-row:1/span 2}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-ja{font-size:19px;line-height:2.1;margin:0}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how ruby rt{font-size:.5em;color:color-mix(in srgb,var(--gf-t1) 70%,transparent);letter-spacing:0}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-mine{margin-top:18px;padding:12px 16px;border-left:2px solid var(--gf-red);background:color-mix(in srgb,var(--gf-red) 7%,transparent)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-mine h4{margin:0 0 6px}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-note{margin:18px 0 0;font-size:14px;line-height:1.7;color:var(--gf-t1)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-note b{margin-right:10px;padding:1px 8px;border:1px solid var(--gf-gold);color:var(--gf-gold);font-size:12px}
+/* the step list keeps its names on narrow windows now that the numbers are gone */
+@media(max-width:860px){html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-lesson .gm-step-dot span{display:inline!important}}
