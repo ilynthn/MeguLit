@@ -192,7 +192,9 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   box.innerHTML='<header><strong lang="ja"></strong><button type="button" class="text-button" data-close>'+esc(hc.close)+'</button></header><div class="anki-hud-lookup-body"><span class="spinner"></span></div>';
   box.querySelector('strong').textContent=word;box.querySelector('[data-close]').onclick=()=>box.remove();box.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();box.remove();}});
   s.querySelector('.anki-hud-canvas').append(box);box.querySelector('[data-close]').focus();
-  api('dictionary',{query:word,source:'local',operationId:crypto.randomUUID()}).then(items=>{if(!box.isConnected)return;const list=(Array.isArray(items)?items:[]).slice(0,4);
+  /* (user 2026-11-13) MOJi first, as the dictionary page's online lookup (anonymous when not signed in); the local dictionary if MOJi fails or finds nothing */
+  const q=source=>api('dictionary',{query:word,source,operationId:crypto.randomUUID()});
+  q('moji').then(items=>Array.isArray(items)&&items.length?items:Promise.reject(Error('EMPTY'))).catch(()=>q('local')).then(items=>{if(!box.isConnected)return;const list=(Array.isArray(items)?items:[]).slice(0,4);
    box.querySelector('.anki-hud-lookup-body').innerHTML=list.length?'<ol>'+list.map(i=>'<li><div><b lang="ja">'+esc(i.spelling||'')+'</b> <span lang="ja">'+esc(i.reading||'')+'</span></div><p>'+esc(i.definition||'')+'</p></li>').join('')+'</ol>':'<p class="muted">'+esc(hc.noResult)+'</p>';
   }).catch(()=>{if(box.isConnected)box.querySelector('.anki-hud-lookup-body').innerHTML='<p class="muted">'+esc(hc.noResult)+'</p>';});
  }

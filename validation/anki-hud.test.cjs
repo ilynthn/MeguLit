@@ -47,3 +47,8 @@ test('the review page keeps every tool and adds layout, appearance and full scre
  const css=read('anki-layout.css');assert.match(css,/\.anki-hud\.immersive\{position:fixed;inset:0/);assert.match(css,/prefers-reduced-motion/);assert.doesNotMatch(css.slice(css.indexOf('Review HUD')),/:has\(/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','desktop','src','main.rs'),'utf8'),/"fullscreen_on"\|"fullscreen_off"/);
 });
+test('the card magnifier looks words up in MOJi first and falls back to the local dictionary',()=>{
+ const src=read('anki-review.js'),i=src.indexOf('function lookup(word)'),body=src.slice(i,src.indexOf('\n }\n',i));
+ assert.ok(i>0);assert.match(body,/q\('moji'\)/);assert.match(body,/\.catch\(\(\)=>q\('local'\)\)/);assert.ok(body.indexOf("q('moji')")<body.indexOf("q('local')"));
+ assert.match(body,/api\('dictionary',\{query:word,source,operationId/);
+});
