@@ -266,7 +266,7 @@ if($Hotfix){
  $section="<details>`n<summary><b>🔧 ${LabelPrefix}Hotfix $stamp</b>（点击展开 / click to expand）</summary>`n`n"+(LangBlocks $Zh $En $false)+"`n`n</details>"
  $rel=Api PATCH "/releases/$($rel.id)" @{body=($old+"`n`n---`n`n"+$section)}
 }elseif($Beta){
- $rel=Api POST '/releases' @{tag_name=$Tag;target_commitish=$merged.sha;name="MeguLit v$Label (beta)";body=($DownloadLine+"`n`n## MeguLit v$Label (beta)`n`n"+(LangBlocks $Zh $En $false));prerelease=$true;make_latest='false'}
+ $rel=Api POST '/releases' @{tag_name=$Tag;target_commitish=$merged.sha;name="MeguLit v$Label (beta)";body=($DownloadLine+"`n`n## MeguLit v$Label (beta)`n`n"+(LangBlocks $Zh $En $false));prerelease=$true;draft=$true;make_latest='false'} # user 2026-11-14: betas are drafts, only the owner sees them
 }else{
  $rel=Api POST '/releases' @{tag_name=$Tag;target_commitish=$merged.sha;name="MeguLit v$Label";body=($DownloadLine+"`n`n## MeguLit v$Label`n`n"+(LangBlocks $Zh $En $false));make_latest='true'}
 }
