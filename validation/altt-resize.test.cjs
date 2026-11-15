@@ -18,10 +18,17 @@ function serve(){const server=http.createServer((req,res)=>{const rel=decodeURIC
  let data=fs.readFileSync(file);if(rel==='/reader/index.html')data=Buffer.from(String(data).replace('<head>','<head>'+STUB));
  res.writeHead(200,{'content-type':TYPES[path.extname(file)]||'application/octet-stream'});res.end(data);});
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
-const OPEN=`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const b=window.__tomoyoChinese;
- if(document.querySelector('.tomoyo-cn-dialog[open]')){b.toggleGalMenu();await w(700);}
+/* A slow runner (CI, 8x CPU throttle locally) is still in the unfold animation after any fixed wait, so the panel box is
+   read once the dialog is open, done unfolding and unchanged over several frames. */
+const SETTLED=`const settled=async()=>{const frame=()=>new Promise(r=>requestAnimationFrame(()=>r()));let last='',same=0;
+ for(const end=Date.now()+15000;Date.now()<end;){await frame();const d=document.querySelector('.tomoyo-cn-dialog[open]');
+  if(!d||d.classList.contains('tome-menu-enter')||d.hasAttribute('data-leaving')||d.dataset.surfacePending!==undefined){same=0;continue;}
+  const r=d.getBoundingClientRect(),box=[r.left,r.top,r.right,r.bottom].map(Math.round);if(JSON.stringify(box)===last){if(++same>=5)return box;}else{last=JSON.stringify(box);same=0;}}
+ throw Error('menu did not settle');};`;
+const OPEN=`(async()=>{${SETTLED}const w=ms=>new Promise(r=>setTimeout(r,ms));const b=window.__tomoyoChinese;
+ if(document.querySelector('.tomoyo-cn-dialog[open]')){b.toggleGalMenu();for(const end=Date.now()+15000;document.querySelector('.tomoyo-cn-dialog')&&Date.now()<end;)await w(50);}
  setTimeout(()=>dispatchEvent(new CustomEvent('tome-region-applied',{detail:{surfaceWidth:innerWidth*devicePixelRatio,surfaceHeight:innerHeight*devicePixelRatio}})),0);
- b.toggleGalMenu();await w(1300);const d=document.querySelector('.tomoyo-cn-dialog[open]'),r=d.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom].map(Math.round);})()`;
+ b.toggleGalMenu();return settled();})()`;
 const STATE=`(()=>{const d=document.querySelector('.tomoyo-cn-dialog[open]'),q=n=>{const r=n.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom].map(Math.round);},c=d.querySelector('.tomoyo-menu-content');
  const hits=window.__sent.filter(m=>m.type==='galHitRegions'),glass=window.__sent.filter(m=>m.type==='galGlass'&&m.rects.length);
  return {panel:q(d),footer:q(d.querySelector('form>footer')),content:q(c),scroll:[c.scrollHeight,c.clientHeight,getComputedStyle(c).overflowY],region:hits.at(-1)?.regions,glass:glass.at(-1)?.rects[0],vw:innerWidth,vh:innerHeight,
@@ -38,11 +45,16 @@ test('Alt+T edge resize: whole-layer region and glass during the drag, footer pi
   const mouse=(type,x,y)=>cdp.send('Input.dispatchMouseEvent',{type,x,y,button:'left',buttons:type==='mouseReleased'?0:1,clickCount:1,pointerType:'mouse'});
   const start=await cdp.evaluate(OPEN);
   /* the south-west corner: grows left and down, so the right edge must stay put */
-  let x=start[0]+8,y=start[3]-8;await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await mouse('mousePressed',x,y);
+  const grip=edge=>cdp.evaluate(`(()=>{const r=document.querySelector('.tomoyo-cn-dialog[open] .tomoyo-menu-resize[data-edge=${edge}]').getBoundingClientRect();return [Math.round(r.left+r.width/2),Math.round(r.top+r.height/2)];})()`);
+  const until=async(expr,what)=>{for(const end=Date.now()+15000;Date.now()<end;await sleep(30))if(await cdp.evaluate(expr))return;assert.fail(what);};
+  const RESIZING=`!!document.querySelector('.tomoyo-cn-dialog[open].tomoyo-menu-resizing')`;
+  const press=async(x,y)=>{await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await mouse('mousePressed',x,y);await until(RESIZING,'pointer down on the handle starts the resize');};
+  const release=async(x,y)=>{await mouse('mouseReleased',x,y);await until(`!${RESIZING}`,'release ends the resize');await cdp.evaluate(`(async()=>{${SETTLED}return settled();})()`);};
+  let [x,y]=await grip('sw');await press(x,y);
   const during=[];
   for(let i=1;i<=24;i++){await mouse('mouseMoved',x-i*25,y+i*8);await sleep(20);if(i%4===0)during.push(await cdp.evaluate(STATE));}
   for(let i=1;i<=40;i++){await mouse('mouseMoved',x-600+i*40,y+192-i*30);await sleep(20);if(i%5===0)during.push(await cdp.evaluate(STATE));}
-  await mouse('mouseReleased',x+1000,y-1000);await sleep(400);const after=await cdp.evaluate(STATE);
+  await release(x+1000,y-1000);const after=await cdp.evaluate(STATE);
   for(const s of during){
    assert.ok(s.resizing,'resizing while the pointer is down');
    assert.deepEqual(s.region,[{x:0,y:0,width:s.vw,height:s.vh,menu:true}],'one whole-layer region during the resize: '+JSON.stringify(s.region));
@@ -57,8 +69,8 @@ test('Alt+T edge resize: whole-layer region and glass during the drag, footer pi
   assert.deepEqual(after.region,[{x:after.panel[0],y:after.panel[1],width:after.panel[2]-after.panel[0],height:after.panel[3]-after.panel[1],menu:true}],'release: region is the panel again');
   assert.equal(after.footer[3],after.panel[3]-1);
   /* grow again by the west edge (the panel sits against the right of the layer), release, close and reopen: same box */
-  x=after.panel[0]+3;y=Math.round((after.panel[1]+after.panel[3])/2);await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await mouse('mousePressed',x,y);
-  for(let i=1;i<=10;i++){await mouse('mouseMoved',x-i*20,y);await sleep(20);}await mouse('mouseReleased',x-200,y);await sleep(400);
+  [x,y]=await grip('w');await press(x,y);
+  for(let i=1;i<=10;i++){await mouse('mouseMoved',x-i*20,y);await sleep(20);}await release(x-200,y);
   const grown=await cdp.evaluate(STATE);assert.equal(grown.panel[2]-grown.panel[0],640,'west edge grew the panel by 200 px');assert.equal(grown.panel[2],after.panel[2],'right edge kept');
   const reopened=await cdp.evaluate(OPEN);assert.deepEqual(reopened,grown.panel,'size and position kept after reopening');
  }finally{cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
