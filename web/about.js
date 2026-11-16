@@ -8,7 +8,7 @@ import {checkForUpdates} from './update-notice.js';
 import {openFeedback} from './feedback-ui.js';
 import {fxPref} from './fx-prefs.js';
 import {mountSupportToy} from './about-toy.js';
-export const VERSION='1.4.15';
+export const VERSION='1.4.16-beta.1';
 const REPO='https://github.com/ilynthn/MeguLit';
 const SPONSOR='https://github.com/sponsors/ilynthn';
 export const aboutLabel={zh:'关于',en:'About',ja:'について'};

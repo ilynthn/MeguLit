@@ -1,6 +1,6 @@
 [package]
 name = "megulit"
-version = "1.4.15"
+version = "1.4.16"
 description = "MeguLit desktop"
 edition = "2021"
 license = "GPL-3.0-or-later"
