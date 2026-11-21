@@ -421,6 +421,14 @@ class HookNative{
     game holds it (several lines, the current line among them: TMP set_text of the whole page) is that evidence: the game pages,
     and a page that holds the current line but no longer the one before it was turned before this line. Any engine. */
  auxPage(m){try{const P=this.pageText;if(!P||typeof m?.text!=='string'||!m.text.includes(String.fromCharCode(10)))return;const k=HookNative.flat(m.text.replace(/<[^>]*>/g,'')),R=this.hookRecent||[],cur=R.length?R[R.length-1].key:'';if(cur.length<2||!k.includes(cur))return;
+  /* 2026-11-21 (user, Aokana: 「文字到处乱跳」): text that holds the current line and no other Japanese is no page. Aokana sends
+     the current line alone on several streams: its typewriter sets the whole line once per frame (LunaHook buffers the frames
+     into one output, every row the line again) and its script streams carry the line with its English and Chinese, one of them
+     with 【speaker】 tags. Taken as a page, each line was drawn under the one before it, the reset came up to half a second later,
+     and the layout fitted to the stacked block kept the line moved up. A page game shows its paging as soon as its page holds
+     kana beyond the current line, often before the next line reaches the hook; once it does, a page holding just the current
+     line still turns it. */
+  if(!P.paging&&!/[\u3041-\u309f\u30a1-\u30fa]/.test(k.split(cur).join('').replace(/【[^】]*】/g,'')))return;
   P.paging=true;P.auxPageAt=this.now();const prev=R.length>=2?R[R.length-2].key:'';
   if(prev&&prev!==cur&&!k.includes(prev)&&this.pageSaidSame===true&&P.auxResetFor!==cur){P.auxResetFor=cur;this.pageSaidSame=false;this.trace('page turned before this line (the page text no longer holds the line before it)');this.emit({type:'hookPage',engine:'text',reset:true,at:this.now()});}}catch{}}
  /* share of the character pairs of `flat` found in the hooked lines of the last ten minutes (0 when nothing to compare) */

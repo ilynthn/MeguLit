@@ -77,7 +77,7 @@ test('NVL page: another stream holding the page makes the lines stack, a turned 
     (hookPageText, the shape seen live: lines with <#FFFFFFxx> fade tags, blank padding); the page turns before 「でも…薄々は気付いてる。」 */
  const r=replay(path.join(dir,'higurashi-page.jsonl'),{name:EXE});
  const pages=r.events.filter(e=>e&&e.type==='hookPage');
- assert.ok(pages.filter(p=>p.same===true&&!p.reset).length>=5,'lines join the page: '+JSON.stringify(pages));
+ assert.equal(pages.filter(p=>p.same===true&&!p.reset).length,6,'every line after the first of each page joins it, from the first page on: '+JSON.stringify(pages));
  const reset=pages.findIndex(p=>p.reset===true);assert.ok(reset>0,'the turned page is reported');
  const srcs=shown(r).map(l=>l.text);
  const turnAt=r.events.indexOf(pages[reset]),before=r.events.slice(0,turnAt).filter(e=>typeof e?.hookSource==='string'&&e.hookSource).map(e=>e.hookSource);
