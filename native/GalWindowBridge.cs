@@ -809,6 +809,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         }
         if(args.Length>0&&args[0]=="--mode-self-test"){
             if(!GameSceneProbe.SelfTest())return 6;
+            if(!GameCapture.FreezeSelfTest())return 10;
             if(!GameAudio.ClientShotSelfTest())return 9;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","translation"}});
             if(!TranslationMode)return 4;
@@ -834,7 +835,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         }
         if((args.Length!=1&&args.Length!=2)||!Int32.TryParse(args[0],out OverlayPid))return 2;
         if(args.Length==2){long handle;if(!Int64.TryParse(args[1],out handle))return 2;PreferredOverlay=new IntPtr(handle);uint owner;GetWindowThreadProcessId(PreferredOverlay,out owner);if(owner!=OverlayPid)return 2;}
-        HookVerifier=new GameHookVerifier(Emit);MaskLayer=new NativeMaskLayer();TextMask=new GameTextMask(MaskOutput);PageLocate=new PageLocator(Emit);PageLocate.OwnPids=new uint[]{(uint)OverlayPid,(uint)System.Diagnostics.Process.GetCurrentProcess().Id};
+        HookVerifier=new GameHookVerifier(Emit);MaskLayer=new NativeMaskLayer();TextMask=new GameTextMask(MaskOutput);PageLocate=new PageLocator(Emit);PageLocate.OwnPids=new uint[]{(uint)OverlayPid,(uint)System.Diagnostics.Process.GetCurrentProcess().Id};GameCapture.OwnPids=PageLocate.OwnPids;
         WaitMarker=new GameWaitMarker(Emit);
         try{SetProcessDpiAwarenessContext(new IntPtr(-4));}catch{}
         PointerGate=new ReaderPointerGate(Emit);
