@@ -110,12 +110,19 @@ async function launch(db,id,runtime=null,windowsLaunch=false,{retried=false,redi
       db.prepare('UPDATE games SET executable=?,original=? WHERE id=?').run(plan.executable,JSON.stringify(original),id);
       Object.assign(profile,original.library);trace('drm-corrected',{from:path.basename(before),executable:path.basename(plan.executable),launcher:path.basename(plan.launchVia||'')});}
      launchVia=plan.launchVia||'';}}}
+  const languageTarget=!privateLaunchPolicy&&!steamAppid&&!launchVia&&/^fata_/i.test(path.basename(game.executable))
+   ?require('./original-engines/krkr-lang.cjs').launchTarget(game.executable):'';
+  const gameProcessExe=languageTarget||game.executable;
+  if(languageTarget){
+   launchVia=game.executable;
+   trace('language-launcher-target',{launcher:path.basename(launchVia),executable:path.basename(languageTarget)});
+  }
   const elevation=require('./locale-launch.cjs').requiresAdministrator(game.executable);if(privateLaunchPolicy&&(elevation||windowsLaunch))throw Error(privatePublisherPolicy?'OWNER_PUBLISHER_ELEVATION_UNSUPPORTED':'OWNER_STEAM_ELEVATION_UNSUPPORTED');
   /* 2026-11-16 (user: 启动游戏后很久才自动绑定窗口): the reader entered the game only after the launch wait below said the
      window was ready (4 stable samples, and a launcher started in the Japanese environment waited out 15 s for a launcher
      window that never showed). enterGame is now pending from the start: the bridge binds and enters the moment the game's
      window is shown (EVENT_OBJECT_SHOW), and a failed launch cancels it in the catch below. */
-  if(!privateLaunchPolicy)runtime?.prepareGame(game.executable,{enter:true});
+  if(!privateLaunchPolicy)runtime?.prepareGame(gameProcessExe,{enter:true});
   /* E370: a first launch with nothing saved here starts from a matching shared adaptation record (stream memory before the Hook starts, locale mode for this launch) */
   try{const before=profile.localeMode,shared=require('./shared-adaptation.cjs');shared.importFor(root,{executable:game.executable,engine:profile.engine||'',library:profile,styleSync:runtime?.reader?.gal?.styleSync});if(profile.localeMode!==before){original.library=profile;db.prepare('UPDATE games SET original=? WHERE id=?').run(JSON.stringify(original),id);}}catch{}
   /* E590 automatic Japanese: self-check an earlier automatic switch, then switch a localized build once */
@@ -137,18 +144,18 @@ async function launch(db,id,runtime=null,windowsLaunch=false,{retried=false,redi
    if(dp?.missing?.length){neededFeature.set(id,'DirectPlay');throw Object.assign(Error('DIRECTPLAY_REQUIRED'),{detail:dp.missing.join(',')});}}
   stage='process-check';markLaunch(id,'process-check');
   const {gameProcesses}=require('./game-process.cjs');
-  const rgssPath=require('../core/profiles/index.cjs').engineId(profile.engine)==='rgss',existingRgss=rgssPath?require('../core/text-paths-rgss.cjs').existingShadow({exe:game.executable,shadowRoot:path.join(root,'data','rgss-shadow')}):null;let focusExe=game.executable;
+  const rgssPath=require('../core/profiles/index.cjs').engineId(profile.engine)==='rgss',existingRgss=rgssPath?require('../core/text-paths-rgss.cjs').existingShadow({exe:game.executable,shadowRoot:path.join(root,'data','rgss-shadow')}):null;let focusExe=gameProcessExe;
   const ready=()=>require('./game-readiness.cjs').waitForVisibleGame(()=>gameProcesses(root,focusExe));
   // Paths are passed as literal process arguments, never interpolated into a shell.
   /* If MeguLit cannot query processes here, launch anyway: a single-instance game handles a second start itself (v1.1.0). */
-  let focused='absent';if(privateSteamPolicy){const running=await gameProcesses(root,game.executable);if(running.length)throw Error('RESTART_FROM_OWNER_TEST_ENTRY');}else try{focused=await require('./game-process.cjs').gameProcess(root,game.executable,{focus:true});}catch(error){if(error.message!=='PROCESS_QUERY_FAILED')throw error;trace('process-check-unavailable');}
+  let focused='absent';if(privateSteamPolicy){const running=await gameProcesses(root,game.executable);if(running.length)throw Error('RESTART_FROM_OWNER_TEST_ENTRY');}else try{focused=await require('./game-process.cjs').gameProcess(root,focusExe,{focus:true});}catch(error){if(error.message!=='PROCESS_QUERY_FAILED')throw error;trace('process-check-unavailable');}
   if(focused==='absent'&&existingRgss){focused=await require('./game-process.cjs').gameProcess(root,existingRgss,{focus:true});if(focused==='focused'||focused==='running')focusExe=existingRgss;}
   if(focused==='focused'||focused==='running') {
     // An earlier instance that never showed (or lost) its window blocks single-instance games: say so (E215.2, user:
     // サノバウィッチ 'would not start' while a hidden copy from a Japanese-locale launch kept running).
     let readyState=null;try{const state=await ready();readyState=state;trace('existing-window-ready',state);markLaunch(id,'ready');try{require('../core/japanese-auto.cjs').launchResult(root,id,true);}catch{}}catch(error){trace('existing-window-not-ready',{error:error.message});throw error.message==='GAME_WINDOW_NOT_READY'?Object.assign(Error('GAME_RUNNING_HIDDEN'),{detail:path.basename(game.executable)}):error;}
     db.prepare('UPDATE games SET last_launched_at=? WHERE id=?').run(Math.floor(Date.now()/1000),id);
-    await require('./background-games.cjs').unmute(root,readyState?.pid);if(ownerPublisher){if(!Number.isSafeInteger(readyState?.pid)||readyState.pid<1||readyState.unverified)throw Error('OWNER_PUBLISHER_CHILD_UNCONFIRMED');if(ownerAbort.signal.aborted||!Owner.publisherLaunch(ownerPublisherGrant,{exe:game.executable,engine:ownerEngine}))throw Error('OWNER_PUBLISHER_IDENTITY_UNVERIFIED');}runtime?.prepareGame(game.executable);runtime?.bindLaunched?.(readyState?.pid);return {action:focused,connected:false};
+    await require('./background-games.cjs').unmute(root,readyState?.pid);if(ownerPublisher){if(!Number.isSafeInteger(readyState?.pid)||readyState.pid<1||readyState.unverified)throw Error('OWNER_PUBLISHER_CHILD_UNCONFIRMED');if(ownerAbort.signal.aborted||!Owner.publisherLaunch(ownerPublisherGrant,{exe:game.executable,engine:ownerEngine}))throw Error('OWNER_PUBLISHER_IDENTITY_UNVERIFIED');}runtime?.prepareGame(gameProcessExe);runtime?.bindLaunched?.(readyState?.pid);return {action:focused,connected:false};
   }
   trace('launch-request',{windowsLaunch});markLaunch(id,'request');
   /* a Windows feature install window the game still opens is closed at once (the game goes on as if it was cancelled);
@@ -161,15 +168,28 @@ async function launch(db,id,runtime=null,windowsLaunch=false,{retried=false,redi
   if(launchVia&&!windowsLaunch){
    /* E-DRM: the launcher may first show its own banner (live test: 打开游戏.exe 「Made By 2DJGAME」 waits for OK), so the
       engine program's window is waited for up to 90 s; the launcher's own windows never count as the game. */
-   stage='launcher-start';if(ownerPublisher){if(ownerAbort.signal.aborted||!Owner.publisherLaunch(ownerPublisherGrant,{exe:game.executable,engine:ownerEngine}))throw Error('OWNER_PUBLISHER_IDENTITY_UNVERIFIED');if(require('./locale-launch.cjs').requiresAdministrator(launchVia))throw Error('OWNER_PUBLISHER_ELEVATION_UNSUPPORTED');}else{const lists=exe=>gameProcesses(root,exe);await require('./launcher-cleanup.cjs').endHidden({launchVia,gameExe:game.executable,list:lists,trace});launcherRun={launchVia,since:Date.now()};}const {startProcess,waitForVisibleGame}=require('./game-readiness.cjs');
+   stage='launcher-start';markLaunch(id,'process-start');
+   if(ownerPublisher){
+    if(ownerAbort.signal.aborted||!Owner.publisherLaunch(ownerPublisherGrant,{exe:game.executable,engine:ownerEngine}))throw Error('OWNER_PUBLISHER_IDENTITY_UNVERIFIED');
+    if(require('./locale-launch.cjs').requiresAdministrator(launchVia))throw Error('OWNER_PUBLISHER_ELEVATION_UNSUPPORTED');
+   }else if(!languageTarget){
+    const list=exe=>gameProcesses(root,exe);
+    await require('./launcher-cleanup.cjs').endHidden({launchVia,gameExe:gameProcessExe,list,trace});
+    launcherRun={launchVia,since:Date.now()};
+   }
+   const {startProcess,waitForVisibleGame}=require('./game-readiness.cjs');
    let child={exit:null};
    if(profile.localeMode==='japanese'&&require('../core/locale-emulator.cjs').x86(launchVia)){
     const lib=runtime?.library?.()||new(require('../core/library.cjs').Library)(require('../core/layout.cjs'));
-    try{const result=await lib.locale.launch(launchVia,{trace,alsoExe:game.executable});if(result.needLocaleEmulator){await lib.locale.ensure();const retry=await lib.locale.launch(launchVia,{trace,alsoExe:game.executable});if(ownerPublisher&&retry.needLocaleEmulator)throw Error('LOCALE_EMULATOR_REQUIRED');}}catch(error){if(ownerPublisher)throw error;trace('launcher-locale-wait',{error:error.message});}
+    try{const result=await lib.locale.launch(launchVia,{trace,alsoExe:gameProcessExe});if(result.needLocaleEmulator){await lib.locale.ensure();const retry=await lib.locale.launch(launchVia,{trace,alsoExe:gameProcessExe});if(ownerPublisher&&retry.needLocaleEmulator)throw Error('LOCALE_EMULATOR_REQUIRED');}}catch(error){if(ownerPublisher)throw error;trace('launcher-locale-wait',{error:error.message});}
    }else if(require('./locale-launch.cjs').requiresAdministrator(launchVia))await require('./game-process.cjs').shellOpen(root,launchVia);
    else child=await startProcess(launchVia,[],path.dirname(launchVia),'GAME_LAUNCH_FAILED');
-   trace('launcher-started',{launcher:path.basename(launchVia),pid:child.pid});
-   stage='window-wait';state=await waitForVisibleGame(()=>gameProcesses(root,game.executable),{helper:true,helperError:'GAME_LAUNCH_FAILED',exit:()=>child.exit,trace,attempts:360,timeout:90000});
+   trace('launcher-started',{launcher:path.basename(launchVia),pid:child.pid});markLaunch(id,'started');
+   stage='window-wait';markLaunch(id,'window-wait');
+   state=await waitForVisibleGame(()=>gameProcesses(root,gameProcessExe),{
+    helper:true,helperError:'GAME_LAUNCH_FAILED',exit:()=>child.exit,trace,
+    ...(languageTarget?{}:{attempts:360,timeout:90000})
+   });
   }else if(!elevation&&!windowsLaunch&&profile.localeMode==='japanese'&&!steamAppid&&require('../core/locale-emulator.cjs').x86(game.executable)&&!(require('../core/locale-emulator.cjs').steamApi(game.executable)&&(trace('locale-skipped-steam',{}),true))){
    stage='locale-start';const lib=runtime?.library?.()||new(require('../core/library.cjs').Library)(require('../core/layout.cjs'));
    const localeExe=textPath?.path==='rgss'?textPath.exe:game.executable;let result=await lib.locale.launch(localeExe,{trace});
@@ -276,7 +296,7 @@ async function launch(db,id,runtime=null,windowsLaunch=false,{retried=false,redi
   if(ownerPublisher&&!Owner.publisherLaunch(ownerPublisherGrant,{exe:game.executable,engine:ownerEngine}))throw Error('OWNER_PUBLISHER_IDENTITY_UNVERIFIED');
   if(featureWatch){const watch=featureWatch;featureWatch=null;setTimeout(()=>watch.stop(),30000).unref?.();}
   db.prepare('UPDATE games SET last_launched_at=? WHERE id=?').run(Math.floor(Date.now()/1000),id);
-  runtime?.prepareGame(game.executable);runtime?.bindLaunched?.(state?.pid);return {action:'launched',connected:false};
+  runtime?.prepareGame(gameProcessExe);runtime?.bindLaunched?.(state?.pid);return {action:'launched',connected:false};
   }catch(error){if(ownerPending){await ownerPending.stop();runtime?.forgetTextPath?.(ownerPending);}if(ownerSteam){await ownerSteam.session.stop();runtime?.forgetTextPath?.(ownerSteam.session);}if(textPath?.path==='rgss')textPath.session.stop();if(launcherRun)try{await require('./launcher-cleanup.cjs').endHidden({...launcherRun,gameExe:game.executable,list:exe=>require('./game-process.cjs').gameProcesses(root,exe),trace});}catch{}try{runtime?.reader?.gal?.send({type:'enterGame',cancel:true});}catch{}
    /* a game that quit after asking Windows for a feature: DirectPlay is placed now, so try once more; anything else is
       offered as an install (no restart) */

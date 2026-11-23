@@ -135,6 +135,7 @@ class LocaleEmulator{
    catch(error){trace('locale-early-failed',{error:error.message});if(fontDot)fontDot.canary.exited('fontdot',0);
     /* the game did start through the launcher, its window just took longer than the wait: LEProc would start a second copy */
     if(error.message==='GAME_WINDOW_NOT_READY'){let running=[];try{running=await this.processes(launchExe);if(!running.length&&launchExe!==exe)running=await this.processes(exe);}catch{}
+     running=await withAlso(running);
      if(running.length){trace('locale-early-slow-window',{pid:running[0].pid});throw error;}}}}
   for(let attempt=0;;attempt++){
    const child=await startProcess(s.path,['-runas',s.profile,launchExe],path.dirname(launchExe),'LE_SPAWN_FAILED',spawn);

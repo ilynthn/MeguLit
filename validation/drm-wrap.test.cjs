@@ -175,7 +175,7 @@ test('launch: corrected once and recorded, started through the launcher, engine 
  assert.match(src,/require\('\.\.\/core\/drm-wrap\.cjs'\)\.plan\(game\.executable/);
  assert.match(src,/UPDATE games SET executable=\?,original=\? WHERE id=\?/);
  assert.match(src,/if\(launchVia&&!windowsLaunch\)\{/);
- assert.match(src,/waitForVisibleGame\(\(\)=>gameProcesses\(root,game\.executable\),\{helper:true[^}]*timeout:90000\}/);
+ assert.match(src,/waitForVisibleGame\(\(\)=>gameProcesses\(root,gameProcessExe\),\{\s*helper:true[^\n]*\n\s*\.\.\.\(languageTarget\?\{\}:\{attempts:360,timeout:90000\}\)/);
  assert.match(src,/GAME_DRM_LAUNCHER_FAILED':'GAME_DRM_WRAPPED'/);
  assert.match(src,/case 'launch_hint':/);
  const feedback=fs.readFileSync(path.join(__dirname,'..','web','launch-feedback.js'),'utf8');

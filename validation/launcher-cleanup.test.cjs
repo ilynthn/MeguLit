@@ -31,6 +31,6 @@ test('nothing is ended while the game runs or processes cannot be listed',async(
 
 test('the launch flow ends hidden launchers before a start and after a failed one',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','services','bridge.cjs'),'utf8');
- assert.match(src,/stage='launcher-start';if\(ownerPublisher\)[^\n]+?else\{[^}]*endHidden\(\{launchVia,gameExe:game\.executable/);
+ assert.match(src,/stage='launcher-start';[\s\S]*?else if\(!languageTarget\)\{[^}]*endHidden\(\{launchVia,gameExe:gameProcessExe/);
  assert.match(src,/\}catch\(error\)\{[^\n]*?if\(launcherRun\)try\{await require\('\.\/launcher-cleanup\.cjs'\)\.endHidden\(\{\.\.\.launcherRun/);
 });

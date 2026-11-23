@@ -18,6 +18,19 @@ function stamp(file){try{const s=fs.statSync(file);return s.size+'|'+s.mtimeMs;}
 function list(file){const k=file+'|'+stamp(file);if(listMemo.has(k))return listMemo.get(k);let t=null;try{t=xp3.list(file);}catch{}listMemo.set(k,t);if(listMemo.size>16)listMemo.delete(listMemo.keys().next().value);return t;}
 function archives(dir){let files=[];try{files=fs.readdirSync(dir);}catch{return null;}const find=re=>{const f=files.find(n=>re.test(n));return f?path.join(dir,f):null;};
  const ja=find(JA);if(!ja)return null;return {ja,zh:find(ZH)||find(ZT)};}
+/* Some multilingual Fata releases ship small language launchers that exit after starting the shared KiriKiri engine. */
+function launchTarget(executable){
+ if(!executable||!/^fata_(?:jp|ja|zh|cn|chs|cht|tw|en|ru)\.exe$/i.test(path.basename(executable)))return '';
+ const dir=path.dirname(executable),target=path.join(dir,'fata.exe');
+ try{
+  const launcher=fs.statSync(executable);
+  if(!launcher.isFile()||launcher.size>1024*1024||!fs.statSync(target).isFile()||
+     !fs.statSync(path.join(dir,'data.xp3')).isFile()||!archives(dir))return '';
+  const bytes=fs.readFileSync(executable);
+  if(bytes.toString('ascii',0,2)!=='MZ')return '';
+  return ['latin1','utf16le'].some(encoding=>bytes.includes(Buffer.from('fata.exe\0',encoding)))?target:'';
+ }catch{return '';}
+}
 // Plain text of one entry (UTF-16 or UTF-8 with BOM), else null.
 function entryText(file,entry){try{const t=xp3.decodeText(xp3.read(file,entry));return t&&typeof t.text==='string'?t.text:null;}catch{return null;}}
 function scripts(file){const t=list(file);if(!t)return [];return t.files.filter(e=>KS(e.name)&&e.size>0).map(e=>({name:e.name.replace(/\\/g,'/'),entry:e})).sort((a,b)=>a.name.localeCompare(b.name));}
@@ -62,4 +75,4 @@ function pages(dir){const a=archives(dir);if(!a)return null;const key=a.ja+'|'+s
  const out={starts:new Set(),cont:new Set(),known:new Set()};let base=0;
  for(const s of scenes(dir)){let p;try{p=parse(s.read());}catch{continue;}for(const i of p.starts||[])out.starts.add(base+i);for(const i of p.cont||[])out.cont.add(base+i);for(let i=0;i<p.lines.length;i++)out.known.add(base+i);base+=p.lines.length;}
  const result=out.known.size?out:null;pageMemo.set(key,result);return result;}
-module.exports={archives,scenes,parse,pages,pair,blocks};
+module.exports={archives,launchTarget,scenes,parse,pages,pair,blocks};
