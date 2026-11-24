@@ -59,6 +59,46 @@ test('YU-RIS: the Chinese scenes in an Amano pack next to the game are its trans
  fs.rmSync(base,{recursive:true,force:true});
 });
 
+test('YU-RIS: Amano and rioLoader scenes use their own encodings in one patch search',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yuris-patch-codecs-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const amano=path.join(dir,'amano'),rio=path.join(dir,'rio');
+ const amanoName='yst00100.ybn',rioName='yst00101.ybn';
+ const amanoJa='朝はいい天気ですね。',rioJa='今日はどうしましょう。';
+ const amanoZh='早上好，今天天气真好',rioZh='我们去散步吧。';
+ const amanoPath='ysbin\\'+amanoName,rioPath='ysbin\\'+rioName;
+ put(amano,{'patch.pack':pack('.Amano\0\0',[[amanoPath,ystb([gbk(amanoZh)]),true]])});
+
+ const table=Buffer.alloc(0x20000),font=Buffer.alloc(12+8*16),rioBytes=Buffer.alloc(2*rioZh.length),glyphs=new Map();
+ table.write(" !\"#$%&'()*+,-./0123456789",64,'utf16le');
+ font.writeUInt32BE(0x10000,0);font.writeUInt16BE(8,4);font.writeUInt32BE(font.length,24);
+ for(let i=0;i<rioZh.length;i++){
+  const code=0x8140+i,glyph=0xe000+i;
+  table.writeUInt16LE(glyph,2*code);rioBytes.writeUInt16BE(code,2*i);
+  glyphs.set(String.fromCharCode(glyph),rioZh[i]);
+ }
+ // Keep the loader's byte table real and make the outline match independent of installed fonts.
+ const fontUnmap=require('../services/original-engines/font-unmap.cjs');
+ t.mock.method(fontUnmap,'unmapping',()=>glyphs);
+ put(rio,{'loader.exe':Buffer.concat([table,font]),'update1.ypf':ypf([[rioPath,ystb([rioBytes])]])});
+
+ const base=[[amanoName,amanoJa],[rioName,rioJa]].map(([name,line])=>({name,...yuris.parse(ystb([sjis(line)]))}));
+ const patched=dirs=>yuris.patchLines(base,{dirs}).map(s=>s.lines);
+ assert.deepStrictEqual(patched([amano]),[[amanoZh],[rioJa]]);
+ assert.deepStrictEqual(patched([rio]),[[amanoJa],[rioZh]]);
+ assert.deepStrictEqual(patched([amano,rio]),[[amanoZh],[rioZh]]);
+ assert.deepStrictEqual(patched([rio,amano]),[[amanoZh],[rioZh]]);
+});
+
+test('YU-RIS: a standalone Amano pack still detects the plain script encoding',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yuris-amano-plain-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const name='yst00100.ybn',line='ゆっくりやすみましょう。';
+ put(dir,{'patch.pack':pack('.Amano\0\0',[['ysbin\\'+name,ystb([sjis(line)])]])});
+ const patched=yuris.patchLines([{name,lines:['元の台詞です。'],anchors:[]}],{dirs:[dir]});
+ assert.deepStrictEqual(patched.map(s=>s.lines),[[line]]);
+});
+
 test('YU-RIS: the YSTB key low byte is found when argument ids are not zero',()=>{
  const ja=['きょうはいいてんきですね。','そうだね、さんぽにいこうか。','あのこうえんまであるいていこう。'];
  assert.deepStrictEqual(yuris.parse(ystb(ja.map(sjis),5)).lines,ja);

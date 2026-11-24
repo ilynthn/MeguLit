@@ -66,14 +66,15 @@ function compiledScenes(buf,h,exeKey=null){
  }
  return out;
 }
+const angouFiles=dir=>kit.names(dir).filter(n=>/^暗号\.dat$/i.test(n)).map(n=>path.join(dir,n));
 /* exe_el for an encrypted pack: 暗号.dat (packed source or beside the pck), the engine exe, then known plaintext */
-function sceneKey(file,buf,h){
+function sceneKey(file,buf,h,angou=angouFiles(path.dirname(file))){
  const blobs=[];for(let i=0;i<h.scnDataCnt&&blobs.length<64;i++){try{const c=sceneBlob(buf,h,i);if(c)blobs.push(c);}catch{}}
  if(!blobs.length)return null;
  const fits=k=>{if(!k)return false;let ok=0;for(const c of blobs.slice(0,3)){try{if(isSiglusDat(siglusSource._internal.lzss(kit.xor(c,k))))ok++;else return false;}catch{return false;}}return ok>0;};
  const dir=path.dirname(file),tried=[];
  try{for(const s of siglusSource.sources(file))if(/(^|[\\/])暗号\.dat$/i.test(s.name))tried.push(['angou',siglusKey.angouDatKey(s.raw)]);}catch{}
- try{for(const n of fs.readdirSync(dir))if(/^暗号\.dat$/i.test(n))tried.push(['angou',siglusKey.angouDatKey(fs.readFileSync(path.join(dir,n)))]);}catch{}
+ try{for(const f of angou)tried.push(['angou',siglusKey.angouDatKey(fs.readFileSync(f))]);}catch{}
  for(const [source,k] of tried)if(fits(k))return {key:k,source};
  for(const f of siglusKey.exeCandidates(dir)){try{const k=siglusKey.exeKey(fs.readFileSync(f));if(fits(k))return {key:k,source:'exe'};}catch{}}
  const k=siglusKey.solveKey(blobs,{check:isSiglusDat});
@@ -115,8 +116,8 @@ function parseSs(buf){
  return speakers.some(Boolean)?{lines,anchors:[],speakers}:{lines,anchors:[]};
 }
 
-function namaeMap(dir,exeKey){
- const m=new Map(),f=siglusKey.gameexeFile(dir);if(!f)return m;
+function namaeMap(f,exeKey){
+ const m=new Map();if(!f)return m;
  let t='';try{const b=fs.readFileSync(f);t=siglusKey.gameexeText(b,b.length>=8&&b.readInt32LE(4)===0?null:exeKey);}catch{}
  for(const line of t.split(/\r?\n/)){const r=line.match(/^\s*#NAMAE\s*=\s*"([^"]*)"\s*,\s*"([^"]*)"/);if(r&&r[1]&&r[2]&&!m.has(r[1]))m.set(r[1],r[2]);}
  return m;
@@ -124,21 +125,22 @@ function namaeMap(dir,exeKey){
 function loadPck(dir){
  const file=siglusSource.scenePck(dir);
  if(!file)return null;
- let key;try{key=file+'|'+stat(file);}catch{return null;}
- if(memo.has(key))return memo.get(key);
+ const packDir=path.dirname(file),gameexe=siglusKey.gameexeFile(packDir),angou=angouFiles(packDir);
+ const key=JSON.stringify([stat(file),gameexe&&[gameexe,stat(gameexe)],angou.map(f=>[f,stat(f)])]),cached=memo.get(file);
+ if(cached?.key===key)return cached.val;
  let res={file,hdr:null,scenes:[]};
  try{
   const buf=fs.readFileSync(file),h=parseHeader(buf);
   res.hdr=h;
   if(h){
    if(h.exeAngouMod===0&&h.scnDataCnt>0)res.scenes=compiledScenes(buf,h);
-   else if(h.scnDataCnt>0){const k=sceneKey(file,buf,h);if(k){res.key=k;res.scenes=compiledScenes(buf,h,k.key);}}
+   else if(h.scnDataCnt>0){const k=sceneKey(file,buf,h,angou);if(k){res.key=k;res.scenes=compiledScenes(buf,h,k.key);}}
    /* #NAMAE "tag","shown name": compiled scenes name speakers by tag (吉野＿体験版); the window shows the second column */
-   if(res.scenes.length){const namae=namaeMap(path.dirname(file),res.key?.key||null);if(namae.size)res.scenes=res.scenes.map(sc=>({name:sc.name,read:()=>{const d=sc.read();d.namae=namae;return d;}}));}
+   if(res.scenes.length){const namae=namaeMap(gameexe,res.key?.key||null);if(namae.size)res.scenes=res.scenes.map(sc=>({name:sc.name,read:()=>{const d=sc.read();d.namae=namae;return d;}}));}
    if(!res.scenes.length&&h.osHeaderSize>0)res.scenes=siglusSource.sources(file).filter(s=>/\.ss$/i.test(s.name)).map(s=>({name:s.name,read:()=>s.raw}));
   }
  }catch{}
- memo.set(key,res);if(memo.size>8)memo.delete(memo.keys().next().value);
+ memo.set(file,{key,val:res});if(memo.size>8)memo.delete(memo.keys().next().value);
  return res;
 }
 

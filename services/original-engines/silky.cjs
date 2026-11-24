@@ -117,5 +117,8 @@ function scenes(dir){const out=new Map();
  for(const a of archives(dir)){const {kind,list}=listAny(a);for(const e of list)if(MES.test(e.name)){const n=path.posix.basename(e.name.replace(/\\/g,'/'));out.set(n.toLowerCase(),{name:n,read:()=>readEntry(a,kind,e)});}}
  for(const f of kit.files(dir,{name:MES,subs:['','mes'],max:20000}))out.set(path.basename(f).toLowerCase(),{name:path.basename(f),read:()=>fs.readFileSync(f)});
  return [...out.values()].sort((a,b)=>a.name.localeCompare(b.name));}
-const engine={id:'silky',hint:'mes.arc（*.mes）',scenes,archives:scenes,sources:dir=>[...archives(dir),...kit.files(dir,{name:MES,subs:['','mes'],max:20000})],parse,test:n=>MES.test(n)};
+function archiveEntries(file){const a=listAny(file);if(!a)return null;const out=[];
+ for(const e of a.list)if(MES.test(e.name))out.push({name:path.posix.basename(e.name.replace(/\\/g,'/')),read:()=>readEntry(file,a.kind,e)});
+ return out.length?out:null;}
+const engine={id:'silky',hint:'mes.arc（*.mes）',scenes,archiveEntries,archives:scenes,sources:dir=>[...archives(dir),...kit.files(dir,{name:MES,subs:['','mes'],max:20000})],parse,test:n=>MES.test(n)};
 module.exports={engine,parse,listAny,readEntry,walk,unpackHiragana,TABLES,ai5Walk,ai5Parse,ai5DatList,AI5};

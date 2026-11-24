@@ -302,22 +302,23 @@ const yuris={
  // A patched scene counts when it has as many text lines and the same anchors as the running one.
  patchLines(base,found){
   const byName=new Map(),dirs=[...new Set(found.dirs.flatMap(d=>[d,ownerOf(d)]).filter(Boolean))];
-  // An Amano pack serves its files over every archive, so its scenes come first.
+  // Amano serves its plain GBK scripts over every archive, so its scenes come first.
   for(const pack of dirs.flatMap(packsIn))for(const scene of base){const key=scene.name.toLowerCase();if(byName.has(key))continue;
-   let data=null;try{data=pack.read('ysbin\\'+scene.name);}catch{}if(data)byName.set(key,{name:scene.name,read:()=>data});}
+   let data=null;try{data=pack.read('ysbin\\'+scene.name);}catch{}if(data)byName.set(key,{name:scene.name,read:()=>data,codec:gbk});}
   // So does a MoleBox program's own file system.
   for(const s of dirs.flatMap(moleScenes))if(!byName.has(s.name.toLowerCase()))byName.set(s.name.toLowerCase(),s);
   for(const d of found.dirs)for(const file of updates(d).reverse())for(const s of ypfScenes(file))if(!byName.has(s.name.toLowerCase()))byName.set(s.name.toLowerCase(),s);
   // E449 loose .ybn files a patch carries, also inside an Enigma pack (2030汉化组's 2030.xp), never the running game's own.
   for(const [key,f] of found.files||[]){if(!/\.ybn$/i.test(key)||byName.has(key)||!base.some(s=>s.name.toLowerCase()===key))continue;if(f.path&&base.dir&&path.dirname(f.path).toLowerCase()===String(base.dir).toLowerCase())continue;byName.set(key,{name:f.name,read:f.read});}
   if(!byName.size)return null;
-  const parsed=new Map();for(const scene of base){const s=byName.get(scene.name.toLowerCase());if(!s)continue;try{parsed.set(scene.name.toLowerCase(),words(s.read()));}catch{}}
+  const parsed=new Map();for(const scene of base){const s=byName.get(scene.name.toLowerCase());if(!s)continue;try{parsed.set(scene.name.toLowerCase(),{...words(s.read()),codec:s.codec});}catch{}}
   if(!parsed.size)return null;
-  const codec=codecFor(found.dirs)||plainCodec([...parsed.values()].flatMap(w=>w.raw));let any=false;
+  const loader=codecFor(found.dirs),defaultCodec=loader||plainCodec([...parsed.values()].flatMap(w=>w.raw));let any=false;
   const list=base.map(scene=>{const w=parsed.get(scene.name.toLowerCase());if(!w)return scene;
    if(w.raw.length!==scene.lines.length)return {...scene,skipped:'count'};
    // In order, not by position: a patch may add a few commands of its own (euphoria: extra POSDATA / voice calls).
    if(scene.anchors.length>=5&&(w.anchors.length>scene.anchors.length*1.5||inOrder(scene.anchors,w.anchors)<scene.anchors.length*.9))return {...scene,skipped:'anchors'};
+   const codec=(loader&&w.codec)||defaultCodec;
    any=true;return {...scene,patched:true,lines:w.raw.map(b=>codec.decode(b))};});
   return any?list:null;
  },

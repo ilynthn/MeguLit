@@ -38,11 +38,28 @@ function chineseOnly(lines){let k=0,h=0;for(const t of lines){if(!prose(t)||NAME
 /* #136 older System4 games (戦国ランス, ランス・クエスト and others of that era) store the AIN without the "AI2" zlib
    wrapper: the whole file is XORed with the low byte of each MT19937 output (Knuth 69069 seeding, seed 0x5D3E3) and
    decrypts to "VERS" + version (as libsys4's ain_decrypt). */
-function mtXor(src,seed){const b=Buffer.from(src),N=624,M=397,st=new Uint32Array(N);st[0]=seed>>>0;for(let i=1;i<N;i++)st[i]=Math.imul(69069,st[i-1])>>>0;let k=N;
- for(let i=0;i<b.length;i++){if(k>=N){for(let j=0;j<N;j++){const y=(st[j]&0x80000000)|(st[(j+1)%N]&0x7fffffff);st[j]=st[(j+M)%N]^(y>>>1)^(y&1?0x9908b0df:0);}k=0;}
-  let y=st[k++];y^=y>>>11;y^=(y<<7)&0x9d2c5680;y^=(y<<15)&0xefc60000;y^=y>>>18;b[i]^=y&255;}
- return b;}
 const AIN_SEED=0x5D3E3;
+let ainKey=null,ainKeyTimer=null;
+function mtXorRaw(b,seed){const N=624,st=new Uint32Array(N);st[0]=seed>>>0;for(let i=1;i<N;i++)st[i]=Math.imul(69069,st[i-1])>>>0;
+ const len=b.length;let p=0;
+ while(p<len){
+  for(let j=0;j<227;j++){const y=(st[j]&0x80000000)|(st[j+1]&0x7fffffff);st[j]=st[j+397]^(y>>>1)^(y&1?0x9908b0df:0);}
+  for(let j=227;j<623;j++){const y=(st[j]&0x80000000)|(st[j+1]&0x7fffffff);st[j]=st[j-227]^(y>>>1)^(y&1?0x9908b0df:0);}
+  {const y=(st[623]&0x80000000)|(st[0]&0x7fffffff);st[623]=st[396]^(y>>>1)^(y&1?0x9908b0df:0);}
+  const end=p+624<len?p+624:len;
+  for(let k=0;p<end;p++,k++){let y=st[k];y^=y>>>11;y^=(y<<7)&0x9d2c5680;y^=(y<<15)&0xefc60000;y^=y>>>18;b[p]^=y&255;}
+ }
+ return b;}
+function mtXor(src,seed){const b=Buffer.from(src);
+ if(seed!==AIN_SEED||b.length<64||b.length>(64<<20))return mtXorRaw(b,seed);
+ if(!ainKey||ainKey.length<b.length)ainKey=mtXorRaw(Buffer.alloc(b.length),AIN_SEED);
+ if(ainKeyTimer)clearTimeout(ainKeyTimer);ainKeyTimer=setTimeout(()=>{ainKey=null;ainKeyTimer=null;},5000);ainKeyTimer.unref?.();
+ if(!(b.byteOffset&3)&&!(ainKey.byteOffset&3)){
+  const n4=b.length>>>2,u=new Uint32Array(b.buffer,b.byteOffset,n4),k=new Uint32Array(ainKey.buffer,ainKey.byteOffset,n4);
+  for(let i=0;i<n4;i++)u[i]^=k[i];
+  for(let i=n4<<2;i<b.length;i++)b[i]^=ainKey[i];
+ }else for(let i=0;i<b.length;i++)b[i]^=ainKey[i];
+ return b;}
 function plainAin(b){if(b.length<8)return null;const h=mtXor(b.subarray(0,8),AIN_SEED);if(h.toString('latin1',0,4)!=='VERS'||h[5]||h[6]||h[7])return null;return mtXor(b,AIN_SEED);}
 function inflateAin(file){const b=Buffer.isBuffer(file)?file:fs.readFileSync(file);if(b.subarray(0,4).toString('latin1')==='VERS')return b;if(b.subarray(0,4).toString('latin1')!=='AI2\0'){const p=plainAin(b);if(p)return p;throw Error('UNSUPPORTED_AIN_CONTAINER');}const size=b.readUInt32LE(8),packed=b.readUInt32LE(12),d=zlib.inflateSync(b.subarray(16,16+packed));if(d.length!==size)throw Error('AIN_SIZE_MISMATCH');return d;}
 /* A tag can also occur inside the code or another table: take the first occurrence whose table reads to its end. */
@@ -53,10 +70,36 @@ function codepage(buffers){const sample=buffers.filter(b=>b.length>3).slice(0,40
  if(u8.bad===0&&sample.some(b=>b.some(x=>x>0x7f))&&(u8.kana>sj.kana||sj.bad>0&&gbk.bad>0))return 'utf-8';
  return sj.bad<gbk.bad||sj.bad===gbk.bad&&sj.kana>=gbk.kana?'shift_jis':'gbk';}
 function msg1(d){return section(d,'MSG1',at=>{let p=at+4;const n=d.readUInt32LE(p);p+=8;if(n>4e6)return null;const out=[];for(let i=0;i<n;i++){if(p+4>d.length)throw Error('AIN_TRUNCATED_MSG1');const len=d.readUInt32LE(p);p+=4;if(p+len>d.length)throw Error('AIN_TRUNCATED_MSG1');const b=Buffer.from(d.subarray(p,p+len));for(let k=0;k<len;k++)b[k]=(b[k]-k-0x60)&255;out.push(b);p+=len;}return out;});}
-function readAin(file){
- const d=inflateAin(file),version=d.subarray(0,4).toString('latin1')==='VERS'?d.readUInt32LE(4):0,raw=strings(d,'MSG0')||msg1(d);if(!raw)throw Error('AIN_MESSAGES_MISSING');
- const enc=codepage(raw),dec=new TextDecoder(enc),lines=raw.map(b=>dec.decode(b)),names=(strings(d,'FNAM')||[]).map(b=>b.toString('latin1'));
- return {engine:'system4',version,codepage:enc,lines,structure:{messages:lines.length,functions:names.length,functionHash:crypto.createHash('sha256').update(names.join('\0')).digest('hex').slice(0,16)}};
+const ainCache=new Map();let ainCacheTimer=null;
+function ainStamp(file){const st=fs.statSync(file,{bigint:true});return [st.ino,st.size,st.mtimeNs,st.ctimeNs].join('|');}
+function readAin(file,expect){
+ let key='',stamp='';
+ if(typeof file==='string'){
+  key=path.resolve(file).toLowerCase();
+  try{stamp=ainStamp(file);}catch{}
+  const hit=stamp&&ainCache.get(key);
+  if(hit&&hit.stamp===stamp){
+   const v=hit.value;
+   if(expect&&(!v.structure.functions||v.structure.messages!==expect.messages||v.structure.functionHash!==expect.functionHash))return null;
+   return {...v,lines:v.lines.slice(),structure:{...v.structure}};
+  }
+ }
+ const d=inflateAin(file),version=d.subarray(0,4).toString('latin1')==='VERS'?d.readUInt32LE(4):0;
+ let names=null,functionHash='';
+ if(expect){
+  names=(strings(d,'FNAM')||[]).map(b=>b.toString('latin1'));
+  functionHash=crypto.createHash('sha256').update(names.join('\0')).digest('hex').slice(0,16);
+  if(!names.length||functionHash!==expect.functionHash)return null;
+ }
+ const raw=strings(d,'MSG0')||msg1(d);if(!raw)throw Error('AIN_MESSAGES_MISSING');
+ if(!names){names=(strings(d,'FNAM')||[]).map(b=>b.toString('latin1'));functionHash=crypto.createHash('sha256').update(names.join('\0')).digest('hex').slice(0,16);}
+ const structure={messages:raw.length,functions:names.length,functionHash};
+ if(expect&&structure.messages!==expect.messages)return null;
+ const enc=codepage(raw),dec=new TextDecoder(enc),lines=raw.map(b=>dec.decode(b));
+ const value={engine:'system4',version,codepage:enc,lines,structure};
+ if(key&&stamp){if(ainCache.size>=8)ainCache.delete(ainCache.keys().next().value);ainCache.set(key,{stamp,value});
+  if(ainCacheTimer)clearTimeout(ainCacheTimer);ainCacheTimer=setTimeout(()=>{ainCache.clear();ainCacheTimer=null;},5000);ainCacheTimer.unref?.();}
+ return {...value,lines:value.lines.slice(),structure:{...value.structure}};
 }
 // ---- Paths and state --------------------------------------------------------------------------
 const stateFile=root=>path.join(root,'data/config/original-text.json');
@@ -86,7 +129,31 @@ const runningDirOf=runtime=>ADAPTERS[runtime.engine||'system4']?.folder?runtime.
    group's 16177-line table no longer belonged to it): scene engines are chosen the way scenes.detect chooses them, the readers the engine registry
    names first; the plain registration order (generic readers among the dedicated ones) is no longer used for them */
 function locate(dir,base){for(const adapter of Object.values(ADAPTERS)){if(adapter.scene)continue;const found=adapter.locate(dir,base);if(found)return found;}let id=null;try{id=scenes.detect(dir);}catch{}return id&&ADAPTERS[id]?{engine:id,target:dir}:null;}
-const readScript=loc=>ADAPTERS[loc.engine].read(loc.target),fingerprint=loc=>ADAPTERS[loc.engine].fingerprint(loc.target);
+const ARCHIVE_BAK_ENGINES=new Set(['silky']);
+function readSceneArchive(id,file){
+ if(!ARCHIVE_BAK_ENGINES.has(id))return null;
+ const eng=scenes.ENGINES[id];if(!eng?.archiveEntries)return null;
+ const entries=eng.archiveEntries(file);if(!entries?.length)return null;
+ const byName=new Map();for(const s of entries)byName.set(s.name.toLowerCase(),s);
+ const ordered=[...byName.values()].sort((a,b)=>a.name.localeCompare(b.name));
+ const list=ordered.map(s=>{let parsed={lines:[],anchors:[]};try{parsed=s.parse?s.parse():eng.parse(s.read());}catch{}return fillLines.scene({name:s.name,...parsed,patched:false});});
+ const lines=list.flatMap(x=>x.lines),ruby=list.some(x=>x.ruby)?list.flatMap(x=>x.ruby||x.lines.map(()=>null)):undefined;
+ const roles=list.some(scene=>scene.roles||scene.scope==='interface')?list.map(scene=>scene.roles||(scene.scope==='interface'?'i':'?').repeat(scene.lines.length)).join(''):undefined;
+ return {engine:id,version:0,codepage:'text',lines,ruby,roles,sizes:list.map(x=>x.lines.length),sceneNames:list.map(x=>x.name.toLowerCase()),
+  structure:{messages:lines.length,functions:list.length,functionHash:crypto.createHash('sha256').update(list.map(x=>x.name+':'+x.lines.length).join('\n')).digest('hex').slice(0,16)}};
+}
+function locateBackup(engine,target,base){
+ const st=fs.statSync(target,{throwIfNoEntry:false});if(!st)return null;
+ if(st.isDirectory())return ADAPTERS[engine]?.locate(target,base)||null;
+ if(!st.isFile())return null;
+ if(engine==='system4')return isSystem4Ain(target)?{engine:'system4',target}:null;
+ if(ARCHIVE_BAK_ENGINES.has(engine)&&ADAPTERS[engine]?.scene&&scenes.ENGINES[engine]?.archiveEntries){
+  try{return scenes.ENGINES[engine].archiveEntries(target)?.length?{engine,target,archiveFile:true}:null;}catch{return null;}
+ }
+ return null;
+}
+const readScript=loc=>loc.archiveFile?readSceneArchive(loc.engine,loc.target):ADAPTERS[loc.engine].read(loc.target);
+const fingerprint=loc=>loc.archiveFile?sha256(loc.target):ADAPTERS[loc.engine].fingerprint(loc.target);
 function gameRow(db,id){const row=db.prepare('SELECT * FROM games WHERE id=? AND removed_at IS NULL').get(String(id));if(!row)throw Error('GAME_NOT_FOUND');return row;}
 
 // ---- Running build: what the installed (patched) game still contains ---------------------------
@@ -164,33 +231,72 @@ function importOriginal(root,db,id,dir,{activate=false}={}){
 /* the import itself: the user's folder (importOriginal) or a Japanese release found inside the game folder (auto) */
 function importInto(root,id,state,dir,exeBase,auto){
  {
-  const loc=locate(dir,path.parse(state.runtime.file).name);if(!loc||loc.engine!==(state.runtime.engine||'system4'))throw Error('ORIGINAL_SCRIPT_NOT_FOUND');const file=loc.target;
+  const engineId=state.runtime.engine||'system4';
+  const isFile=auto&&!!fs.statSync(dir,{throwIfNoEntry:false})?.isFile();
+  const loc=isFile?locateBackup(engineId,dir,path.parse(state.runtime.file).name):locate(dir,path.parse(state.runtime.file).name);
+  if(!loc||loc.engine!==engineId)throw Error('ORIGINAL_SCRIPT_NOT_FOUND');
+  const file=loc.target,origDir=isFile?path.dirname(dir):dir;
   const hash=fingerprint(loc);if(hash===state.runtime.sha256)throw Error('ORIGINAL_SAME_AS_RUNNING');
-  const runtime=readIndex(state.runtime.index);let ain=realign(loc,readScript(loc),runtime,runningDirOf(state.runtime));const japanese=ain.lines.filter(t=>prose(t)&&japaneseLine(t)).length;
+  const runtime=readIndex(state.runtime.index);const raw=readScript(loc);if(!raw)throw Error('ORIGINAL_SCRIPT_NOT_FOUND');let ain=realign(loc,raw,runtime,runningDirOf(state.runtime));const japanese=ain.lines.filter(t=>prose(t)&&japaneseLine(t)).length;
   // Never accept a translated file as the original: most of its lines must be Japanese.
   if(japanese<ain.lines.filter(prose).length*.5)throw Error('ORIGINAL_NOT_JAPANESE');
   let alignment=align(runtime,{...ain,structure:ain.structure});
   const pc=pairCheck(runtime.lines,ain.lines,{zhSizes:runtime.sizes,jaSizes:ain.sizes,ruby:ain.ruby,structureOk:alignment.sameStructure});
   if(pc.verdict.lines){ain={...ain,lines:pc.verdict.lines,ruby:pc.verdict.ruby?.some(Boolean)?pc.verdict.ruby:undefined,structure:runtime.structure,sizes:runtime.sizes};alignment=align(runtime,ain);}
   alignment={...alignment,reliable:alignment.reliable&&pc.verdict.ok,pairing:pc.report};
-  const index=writeIndex(root,id,'original-'+hash.slice(0,16)+'.json',{schema:SCHEMA,role:'original',engine:ain.engine,version:ain.version,codepage:ain.codepage,source:{file,sha256:hash,dir},structure:ain.structure,lines:ain.lines,...(Array.isArray(ain.ruby)?{ruby:ain.ruby}:{})});
-  const exe=fs.readdirSync(dir).find(f=>/\.exe$/i.test(f)&&path.parse(f).name.toLowerCase()===String(exeBase).toLowerCase());
-  return writeState(root,id,{original:{dir,file,sha256:hash,index,codepage:ain.codepage,lines:ain.lines.length,executable:exe?path.join(dir,exe):'',...(auto?{auto:true,backup:true}:{})},alignment,status:alignment.reliable?'ready':'unreliable',mode:readState(root)[id]?.mode||(alignment.reliable?'original':'off'),error:''});
+  if(isFile&&!alignment.reliable)return state;
+  const index=writeIndex(root,id,'original-'+hash.slice(0,16)+'.json',{schema:SCHEMA,role:'original',engine:ain.engine,version:ain.version,codepage:ain.codepage,source:{file,sha256:hash,dir:origDir},structure:ain.structure,lines:ain.lines,...(Array.isArray(ain.ruby)?{ruby:ain.ruby}:{})});
+  const exe=isFile?null:fs.readdirSync(origDir).find(f=>/\.exe$/i.test(f)&&path.parse(f).name.toLowerCase()===String(exeBase).toLowerCase());
+  return writeState(root,id,{original:{dir:origDir,file,sha256:hash,index,codepage:ain.codepage,lines:ain.lines.length,executable:exe?path.join(origDir,exe):'',...(auto?{auto:true,backup:true}:{})},alignment,status:alignment.reliable?'ready':'unreliable',mode:readState(root)[id]?.mode||(alignment.reliable?'original':'off'),error:''});
  }
 }
 /* S9 (2026-11-19) a Chinese build that replaced the script archive in place and kept the Japanese one in a subfolder
    (穢翼のユースティア 汉化版: data01000.arc is Chinese, backup/备份/data01000.arc is the 2011 Japanese release). Folders up to
    three levels down that hold a file named like one of the running script's sources are read with the same reader; the
-   one with most Japanese lines, at least half its prose, is the original. → folder or null */
+   one with most Japanese lines, at least half its prose, is the original. Also checks <source>.bak archive backups
+   (same folder and backup subfolders) via single-file reading and System4 sibling .ain / <stem>.bak files. → folder/file or null */
 function sourceNames(engine,dir){if(engine==='bgi')return bgi.arcFiles(dir).map(f=>path.basename(f));const e=scenes.ENGINES[engine];if(!e?.sources)return [];return e.sources(dir).filter(f=>path.dirname(path.resolve(f)).toLowerCase()===path.resolve(dir).toLowerCase()).map(f=>path.basename(f));}
-function backupOriginal(dir,engine,base){if(engine!=='bgi'&&!ADAPTERS[engine]?.scene)return null;
+function japaneseBackupCount(lines){const prose_=lines.filter(prose),ja=prose_.filter(japaneseLine).length;return ja>=prose_.length*.5&&ja>=50?ja:0;}
+function backupSystem4(dir,base){
+ const running=ainOf(dir,base);if(!running)return null;
+ let runAin;try{runAin=readAin(running);}catch{return null;}
+ if(!runAin.structure.functions)return null;
+ const runKey=path.resolve(running).toLowerCase(),runName=path.basename(running).toLowerCase(),runStem=path.parse(running).name.toLowerCase();
+ let best=null,seen=0;
+ const check=full=>{
+  if(path.resolve(full).toLowerCase()===runKey||!isSystem4Ain(full))return;
+  let r;try{r=readAin(full,runAin.structure);}catch{return;}
+  if(!r||!align(runAin,r).sameStructure)return;
+  const ja=japaneseBackupCount(r.lines);if(!ja)return;
+  if(!best||ja>best.ja)best={target:full,ja};
+ };
+ const visit=(d,level)=>{let list;try{list=fs.readdirSync(d,{withFileTypes:true});}catch{return;}
+  for(const e of list){if(!e.isFile())continue;const lower=e.name.toLowerCase(),full=path.join(d,e.name);
+   if(lower===runName||lower===runName+'.bak'||lower===runStem+'.bak'||/\.ain$/i.test(lower))check(full);}
+  if(level<3)for(const e of list)if(e.isDirectory()&&!/^\.megulit/i.test(e.name)&&++seen<400)visit(path.join(d,e.name),level+1);};
+ visit(dir,0);return best?best.target:null;
+}
+function backupOriginal(dir,engine,base){
+ if(engine==='system4')return backupSystem4(dir,base);
+ if(engine!=='bgi'&&!ADAPTERS[engine]?.scene)return null;
  const names=new Set(sourceNames(engine,dir).map(n=>n.toLowerCase()));if(!names.size)return null;
+ const bakNames=new Set([...names].map(n=>n+'.bak'));
+ const canArchiveBak=ARCHIVE_BAK_ENGINES.has(engine)&&!!(ADAPTERS[engine]?.scene&&scenes.ENGINES[engine]?.archiveEntries);
+ let runScenes=null;
+ const scenesMatch=candNames=>{
+  if(!runScenes){try{runScenes=new Set(scenes.ENGINES[engine].scenes(dir).map(s=>s.name.toLowerCase()));}catch{runScenes=new Set();}}
+  if(!runScenes.size||!candNames?.length)return false;
+  let overlap=0;for(const n of candNames)if(runScenes.has(n))overlap++;
+  return overlap>=Math.max(1,Math.ceil(runScenes.size*.5));
+ };
  /* the running archives' own folder (Archive) is not a backup of them */
  const own=engine==='bgi'?path.resolve(path.dirname(bgi.arcFiles(dir)[0]||dir)).toLowerCase():'';
  let best=null,seen=0;const visit=(d,level)=>{let list;try{list=fs.readdirSync(d,{withFileTypes:true});}catch{return;}if(level>0&&path.resolve(d).toLowerCase()===own)return;
-  if(level>0&&list.some(e=>e.isFile()&&names.has(e.name.toLowerCase())))try{const loc=ADAPTERS[engine].locate(d,base);if(loc&&loc.engine===engine){const r=readScript(loc),prose_=r.lines.filter(prose),ja=prose_.filter(japaneseLine).length;if(ja>=prose_.length*.5&&ja>=50&&(!best||ja>best.ja))best={dir:d,ja};}}catch{}
+  if(level>0&&list.some(e=>e.isFile()&&names.has(e.name.toLowerCase())))try{const loc=ADAPTERS[engine].locate(d,base);if(loc&&loc.engine===engine){const r=readScript(loc),ja=japaneseBackupCount(r.lines);if(ja&&(!best||ja>best.ja))best={target:d,ja};}}catch{}
+  if(canArchiveBak)for(const e of list){if(!e.isFile()||!bakNames.has(e.name.toLowerCase()))continue;
+   try{const full=path.join(d,e.name),r=readSceneArchive(engine,full);if(!r)continue;const ja=japaneseBackupCount(r.lines);if(ja&&scenesMatch(r.sceneNames)&&(!best||ja>best.ja))best={target:full,ja};}catch{}}
   if(level<3)for(const e of list)if(e.isDirectory()&&!/^\.megulit/i.test(e.name)&&++seen<400)visit(path.join(d,e.name),level+1);};
- visit(dir,0);return best?best.dir:null;}
+ visit(dir,0);return best?best.target:null;}
 // ---- Chinese patch import (user, 2026-11-09): the game runs in Japanese and a translation group's patch is imported --
 // The patch's script is read with the same engine adapter and lined up with the running Japanese script; the patch's
 // line i then is the translation of Japanese line i (zero-latency bilingual, the group's own wording).
@@ -915,4 +1021,4 @@ function localPairs(root,db,id){
  if(embedded.manifest(dir))return {hasPairs:embedded.provider(dir)?.hasLocalPairs?.()===true,embedded:true};
  return {hasPairs:staticProvider(root,executable,{id:String(id)})?.hasLocalPairs?.()===true,embedded:false};
 }
-module.exports={contributionScript,backupOriginal,_fillStore:fillStore,providerKey,foreignKey,foreignNear,foreignSeq,scriptPairs,brief,autoPatchLater,autoPatch,buildPatch,collect,nearbyPatchSources,patchHint,importPatch,importPatchSource,clearPatch,locate,readScript,ADAPTERS,readAin,_ain:{mtXor,inflateAin},align,Matcher,importOriginal,status,setMode,provider,localPairs,scanRunning,japaneseLine,chineseOnly,norm,discover,findCandidates};
+module.exports={contributionScript,backupOriginal,locateBackup,_fillStore:fillStore,providerKey,foreignKey,foreignNear,foreignSeq,scriptPairs,brief,autoPatchLater,autoPatch,buildPatch,collect,nearbyPatchSources,patchHint,importPatch,importPatchSource,clearPatch,locate,readScript,ADAPTERS,readAin,_ain:{mtXor,inflateAin},align,Matcher,importOriginal,status,setMode,provider,localPairs,scanRunning,japaneseLine,chineseOnly,norm,discover,findCandidates};

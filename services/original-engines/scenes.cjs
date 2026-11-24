@@ -202,21 +202,22 @@ function parseAst(buf){const lines=[],anchors=[],text=decode(buf),re=/"((?:[^"\\
  while((m=re.exec(text))){const s=m[1].replace(/\\(.)/g,'$1');if(ascii(s))anchors.push(s);else lines.push(s);}
  return {lines,anchors};}
 const isPfs=f=>/\.pfs(?:\.\d+)?$/i.test(f);
+const artemisLoose=(dir,pfs)=>{/* loose scenario/*.txt only next to Artemis evidence (a .pfs or an .iet entry script): other engines keep scenario/*.txt too */
+ const txtOk=pfs.length>0||walk(dir,3,n=>/\.iet$/i.test(n)).length>0;
+ return walk(dir,3,(n,f)=>AST(n)||/\.asb$/i.test(n)||txtOk&&ARTEMIS_SCRIPT(n,f));};
 const artemis={
  id:'artemis',hint:'*.ast（或 .pfs）',
  scenes(dir){const out=new Map(),pfs=fs.readdirSync(dir).filter(isPfs).sort();for(const a of pfs)for(const s of pfsScenes(path.join(dir,a)))out.set(s.name.toLowerCase(),s);
-  /* loose scenario/*.txt only next to Artemis evidence (a .pfs or an .iet entry script): other engines keep scenario/*.txt too */
-  const txtOk=pfs.length>0||walk(dir,3,n=>/\.iet$/i.test(n)).length>0;
-  for(const file of walk(dir,3,(n,f)=>AST(n)||/\.asb$/i.test(n)||txtOk&&ARTEMIS_SCRIPT(n,f)))out.set(path.basename(file).toLowerCase(),{name:path.basename(file),read:()=>fs.readFileSync(file)});
+  for(const file of artemisLoose(dir,pfs))out.set(path.basename(file).toLowerCase(),{name:path.basename(file),read:()=>fs.readFileSync(file)});
   return [...out.values()].sort((a,b)=>a.name.localeCompare(b.name));},
  archives:dir=>fs.readdirSync(dir).filter(isPfs).flatMap(a=>pfsScenes(path.join(dir,a))),
- sources:dir=>[...fs.readdirSync(dir).filter(isPfs).map(f=>path.join(dir,f)),...walk(dir,3,AST)],
+ sources(dir){const pfs=fs.readdirSync(dir).filter(isPfs);return [...pfs.map(f=>path.join(dir,f)),...artemisLoose(dir,pfs)];},
  parse:parseArtemis,test:AST,
  // E352: a multilingual release carries its own Chinese; other games fall back to the usual patch overlay.
  patchLines(base){let any=false;const list=base.map(scene=>{const zh=scene.zh||[];if(!zh.some(Boolean))return scene;any=true;return {...scene,patched:true,lines:scene.lines.map((t,k)=>zh[k]||t)};});return any?list:null;},
- /* S9 a Chinese root.pfs.010 (or loose .ast) over the Japanese root.pfs.000: the Japanese scene under each patched one */
- originalLines(dir){const layers=new Map();for(const a of fs.readdirSync(dir).filter(isPfs).sort())for(const s of pfsScenes(path.join(dir,a)))addLayer(layers,s);
-  for(const file of walk(dir,3,AST))addLayer(layers,{name:path.basename(file),read:()=>fs.readFileSync(file)});return layerOriginal(this.scenes(dir),layers,parseAst);},
+ /* S9 a Chinese root.pfs.010 (or loose script) over the Japanese root.pfs.000: the Japanese scene under each patched one */
+ originalLines(dir){const layers=new Map(),pfs=fs.readdirSync(dir).filter(isPfs).sort();for(const a of pfs)for(const s of pfsScenes(path.join(dir,a)))addLayer(layers,s);
+  for(const file of artemisLoose(dir,pfs))addLayer(layers,{name:path.basename(file),read:()=>fs.readFileSync(file)});return layerOriginal(this.scenes(dir),layers,parseArtemis);},
 };
 
 // ---- Ren'Py ---------------------------------------------------------------------------------------------------

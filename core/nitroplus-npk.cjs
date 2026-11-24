@@ -33,7 +33,12 @@ function readNpk(buf,key=KEYS.saya){
  let idx;try{idx=aes(true,key,iv,buf.subarray(0x20,0x20+size));}catch{throw Error('NPK_KEY');}
  const entries=npkIndex(idx,count,buf.length);
  return {buf,key,iv,version:buf.readUInt32LE(4),major:npkMajor(buf),entries};}
-function readNpkAny(buf){let err;for(const k of ALL_KEYS){try{return readNpk(buf,k);}catch(e){err=e;}}throw err||Error('NPK_KEY');}
+/* Key trial: a wrong key still passes the PKCS7 padding about once in 256 tries and leaves a garbage index, so when no
+   key yields sane entries no known key opens the archive (NPK_KEY: an unknown key, or a damaged index under a known
+   one), whichever key happened to be tried last. A bad header does not depend on the key and is reported as it is. */
+function readNpkAny(buf){
+ for(const k of ALL_KEYS){try{return readNpk(buf,k);}catch(e){if(e.message==='NPK_NOT_NPK2'||e.message==='NPK_HEADER')throw e;}}
+ throw Error('NPK_KEY');}
 /* E580 the decrypted index -> entries; shared with the script reader (services/original-engines/npk.cjs) */
 function npkIndex(idx,count,fileSize=Infinity){let o=0;const entries=[];
  for(let i=0;i<count;i++){

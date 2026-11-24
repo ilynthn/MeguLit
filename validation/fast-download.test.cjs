@@ -23,13 +23,16 @@ function source(data,opt={}){
   stats.open++;stats.maxOpen=Math.max(stats.maxOpen,stats.open);let closed=false;const close=()=>{if(!closed){closed=true;stats.open--;}};
   res.on('close',close);
   if(opt.hang)return;
-  let at=start;const tick=20;
+  /* the amount follows the time that really passed (at most 200 ms of it), so a late timer on a busy runner or the
+     15.6 ms Windows timer step does not lower the rate a connection is capped at */
+  let at=start,last=0;const tick=20;
   const pump=()=>{
    if(closed)return;if(at>=end){close();return res.end();}
    if(opt.stallAt!=null&&!stats.stalled&&stats.bytes>=opt.stallAt){stats.stalled=true;return;}
    if(opt.dropAt!=null&&!stats.dropped&&stats.bytes>=opt.dropAt){stats.dropped=true;res.destroy();return;}
    const rate=opt.slowAfter!=null&&stats.bytes>=opt.slowAfter?opt.slowRate:opt.rate||Infinity;
-   const n=Math.min(end-at,rate===Infinity?256*KB:Math.max(1,Math.floor(rate*tick/1000)));
+   const now=Date.now(),dt=last?Math.min(200,Math.max(1,now-last)):tick;last=now;
+   const n=Math.min(end-at,rate===Infinity?256*KB:Math.max(1,Math.floor(rate*dt/1000)));
    const chunk=data.subarray(at,at+n);at+=n;stats.bytes+=n;
    const ok=res.write(chunk);if(rate===Infinity&&ok)return setImmediate(pump);if(rate===Infinity)return res.once('drain',pump);setTimeout(pump,tick);
   };pump();

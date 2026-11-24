@@ -146,11 +146,17 @@ function readIciToc(iciFile){
  return {tocOff:cur.u32(),tocSize:cur.u32()};
 }
 
-function openVolumeSet(basePath){
- const volumes=[];let totalBytes=0;
+function* volumePaths(basePath){
  for(let idx=1;idx<999;idx++){
   const volPath=idx===1?basePath:`${basePath}.${String(idx).padStart(3,'0')}`;
   if(!fs.existsSync(volPath))break;
+  yield volPath;
+ }
+}
+
+function openVolumeSet(basePath){
+ const volumes=[];let totalBytes=0;
+ for(const volPath of volumePaths(basePath)){
   const volSize=fs.statSync(volPath).size;
   volumes.push({path:volPath,fd:fs.openSync(volPath,'r'),start:totalBytes,end:totalBytes+volSize});
   totalBytes+=volSize;
@@ -178,8 +184,9 @@ const cleanLine=text=>kit.trimBoth(String(text||'').replace(/[\x01-\x08\x0b-\x1f
 
 function extractChoices(dec,endAt){
  const out=[],head=dec.subarray(0,endAt);
- for(let pos=0;(pos=head.indexOf(CHOICE_FN,pos))>=0;pos+=CHOICE_FN.length){
-  const win=head.subarray(pos,Math.min(endAt,pos+512)),strs=[];
+ for(let pos=head.indexOf(CHOICE_FN),next;pos>=0;pos=next){
+  next=head.indexOf(CHOICE_FN,pos+CHOICE_FN.length);
+  const win=head.subarray(pos,Math.min(next<0?endAt:next,pos+512)),strs=[];
   for(let p=0;p+4<=win.length;){
    if(win[p]===0xff&&win[p+1]===0xfe&&win[p+2]===0xff){
     let chars=win[p+3],start=p+4;
@@ -279,8 +286,9 @@ function collectTocExtents(tocBuf,encrypted,shift,maxTotal,push){
  if(encrypted&&cur.left()>=8){try{scanObjExtents(decryptBlock(tocBuf,cur.at,DATA_STREAM_SEED),shift,maxTotal,push);}catch{}}
 }
 
+const iciOf=rioPath=>fs.existsSync(rioPath+'.ici')?rioPath+'.ici':rioPath.replace(/\.rio$/i,'.ici');
 function readRioScenes(rioPath){
- const iciPath=fs.existsSync(rioPath+'.ici')?rioPath+'.ici':rioPath.replace(/\.rio$/i,'.ici');
+ const iciPath=iciOf(rioPath);
  const vol=openVolumeSet(rioPath);
  try{
   if(vol.total<32)return null;
@@ -338,9 +346,10 @@ function rioCandidates(dir){
 
 const cache=new Map();
 function loadDir(dir,all=false){
- const cands=rioCandidates(dir);if(!cands.length)return null;
- const key=(all?'all|':'picked|')+cands.map(f=>`${f}|${stat(f)}|${stat(f+'.ici')}`).join('\n');
- if(cache.has(key))return cache.get(key);
+ const id=(all?'all|':'picked|')+dir,cands=rioCandidates(dir);
+ if(!cands.length){cache.delete(id);return null;}
+ const key=JSON.stringify(cands.map(f=>[...volumePaths(f),iciOf(f)].map(p=>[p,stat(p)]))),cached=cache.get(id);
+ if(cached?.key===key)return cached.val;
  let picked=null;const extra=[];
  for(const f of cands){
   let r=null;try{r=readRioScenes(f);}catch{r=null;}
@@ -349,7 +358,7 @@ function loadDir(dir,all=false){
   else extra.push(r);
  }
  const out=picked?{picked,all:[picked,...extra]}:null;
- cache.set(key,out);if(cache.size>8)cache.delete(cache.keys().next().value);
+ cache.set(id,{key,val:out});if(cache.size>8)cache.delete(cache.keys().next().value);
  return out;
 }
 

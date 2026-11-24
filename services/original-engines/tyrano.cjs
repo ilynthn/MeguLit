@@ -99,13 +99,23 @@ function containers(dir){const out=[];
   else if(nw&&gameExe(n))out.push({kind:'zip',file:f,exe:true});}
  return out.concat(legacyExeBundles(dir,files));}
 function archiveList(c){try{return c.entries||(c.kind==='asar'?asarList(c.file):zipList(c.file));}catch{return null;}}
-function scenes(dir){const out=new Map();
+function isTyranoAsar(dir){return tyranoArchive(archiveList({kind:'asar',file:path.join(dir,'resources','app.asar')}));}
+const scenarioName=n=>n.replace(/\\/g,'/').replace(/^.*?data\/scenario\//i,'');
+function scenes(dir,{original=false}={}){const out=new Map();
  for(const c of containers(dir)){
   if(c.kind==='loose'){const sc=path.join(c.root,'data','scenario');for(const f of walk(sc,4)){const rel=path.relative(sc,f).replace(/\\/g,'/');out.set(rel.toLowerCase(),{name:rel,read:()=>fs.readFileSync(f)});}continue;}
   const list=archiveList(c);if(!list)continue;
-  for(const e of list){if(!KS(e.name)||e.encrypted)continue;const rel=e.name.replace(/\\/g,'/').replace(/^.*?data\/scenario\//i,'');if(out.has(rel.toLowerCase()))continue;
-   out.set(rel.toLowerCase(),{name:rel,read:c.kind==='asar'?()=>readAt(c.file,e.offset,e.size):()=>zipRead(c.file,e)});}}
- return [...out.values()].sort((a,b)=>a.name.localeCompare(b.name));}
+  const scripts=list.filter(e=>!e.encrypted&&KS(e.name));
+  // A declared Chinese locale with its own entry script may keep translated versions in ch/.
+  const names=original&&c.kind==='asar'&&list.some(e=>/(?:^|\/)data\/others\/lang\/ch\.json$/i.test(e.name))?
+   new Set(scripts.map(e=>scenarioName(e.name).toLowerCase())):null;
+  const mirror=names?.has('first.ks')&&names.has('ch/first.ks');
+  for(const e of scripts){const rel=scenarioName(e.name),key=rel.toLowerCase();
+   if(mirror&&key.startsWith('ch/')&&names.has(key.slice(3)))continue;
+   if(out.has(key))continue;
+   out.set(key,{name:rel,read:c.kind==='asar'?()=>readAt(c.file,e.offset,e.size):()=>zipRead(c.file,e)});}}
+ return [...out.values()].sort((a,b)=>a.name.localeCompare(b.name));
+}
 /* a Tyrano game: its scenario sits next to the engine (tyrano/ folder, or tyrano/*.js inside the container) */
 function isTyrano(dir){for(const c of containers(dir)){
   if(c.kind==='loose'){if(fs.existsSync(path.join(c.root,'tyrano','tyrano.base.js'))||fs.existsSync(path.join(c.root,'tyrano','libs')))return true;continue;}
@@ -113,9 +123,9 @@ function isTyrano(dir){for(const c of containers(dir)){
  return false;}
 const engine={
  id:'tyrano',hint:'data\\scenario\\*.ks（或 app.asar / package.nw）',
- scenes:dir=>isTyrano(dir)?scenes(dir):[],
+ scenes:dir=>isTyrano(dir)?scenes(dir,{original:true}):[],
  archives:dir=>scenes(dir),
  sources:dir=>containers(dir).map(c=>c.file||path.join(c.root,'data','scenario')),
  parse,test:n=>/\.ks$/i.test(n),
 };
-module.exports={engine,parse,asarList,zipList,zipRead,containers,isTyrano,scenes,legacyExeBundles};
+module.exports={engine,parse,asarList,zipList,zipRead,containers,isTyrano,isTyranoAsar,scenes,legacyExeBundles};

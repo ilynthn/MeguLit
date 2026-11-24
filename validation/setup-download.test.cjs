@@ -15,7 +15,7 @@ function source(file,o={}){
   const r={range:req.headers.range||'',probe,t:Date.now(),start:m?+m[1]:0};reqs.push(r);
   if(o.status){res.writeHead(o.status);return res.end();}
   if(o.html){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});return res.end('<html>login</html>');}
-  if(o.failFirst&&!probe&&(o.failed=(o.failed||0)+1)<=o.failFirst){res.writeHead(503);return res.end();}
+  if(o.failFirst&&!probe&&(o.failed=(o.failed||0)+1)<=o.failFirst){r.failed=true;res.writeHead(503);return res.end();}
   const body=o.body||file;let start=0,end=body.length-1,code=200;
   if(m&&o.range!==false){start=+m[1];end=m[2]?Math.min(+m[2],body.length-1):body.length-1;code=206;}
   if(!probe&&!firstSeg)firstSeg=Date.now();
@@ -24,14 +24,17 @@ function source(file,o={}){
   const tailSlow=o.tailFrom!=null&&start>=o.tailFrom;
   if(code===206)h['Content-Range']=`bytes ${start}-${end}/${body.length}`;
   res.writeHead(code,h);active++;maxActive=Math.max(maxActive,active);
-  let pos=start,closed=false;res.on('close',()=>{closed=true;active--;});
+  /* the amount follows the time that really passed (at most 200 ms of it), not the 50 ms the timer asked for: a late
+     timer on a busy runner or a coarser Windows timer step must not lower the rate a source is set to */
+  let pos=start,closed=false,last=0;res.on('close',()=>{closed=true;active--;});
   const tick=()=>{
    if(closed)return;
    const late=firstSeg&&Date.now()-firstSeg;
    if(o.stallAfterMs&&late>o.stallAfterMs&&!probe)return;   /* stays open, sends nothing */
    if(o.dropAt&&!probe&&!o.dropped&&pos-start>=o.dropAt){o.dropped=true;res.destroy();return;}
    const rate=tailSlow?o.tailRate:o.slowAfterMs&&late>o.slowAfterMs?o.slowRate:o.rate;
-   const n=Math.max(512,Math.round(rate/20));res.write(body.subarray(pos,Math.min(end+1,pos+n)));pos+=n;
+   const now=Date.now(),dt=last?Math.min(200,Math.max(1,now-last)):50;last=now;
+   const n=Math.max(512,Math.round(rate*dt/1000));res.write(body.subarray(pos,Math.min(end+1,pos+n)));pos+=n;
    if(pos>end)res.end();else setTimeout(tick,50);
   };tick();
  });
@@ -200,14 +203,20 @@ test('end game: the slowest last segment is fetched again from another source, t
 
 test('a source answering 503 cools down and is used again, not dropped',{skip,timeout:90000},async()=>{
  const f=fixture(12*MB);
- const flaky=await source(f.file,{rate:1500*1024,failFirst:3}),steady=await source(f.file,{rate:700*1024});
+ /* the steady source alone needs about 10 s (8 connections x 150 KB/s): work is still left when the three 503
+    cool-downs (0.5 + 1 + 2 s, spaced out further on a busy runner) are over, so the flaky source can serve again */
+ const flaky=await source(f.file,{rate:1500*1024,failFirst:3}),steady=await source(f.file,{rate:150*1024}),cool=500;
  try{
-  const j=await run({Urls:[flaky.url,steady.url].join('|'),Part:f.part,Size:String(f.file.length),Sha:f.sha,Options:{SegmentSize:MB,CoolMs:500}});
+  const j=await run({Urls:[flaky.url,steady.url].join('|'),Part:f.part,Size:String(f.file.length),Sha:f.sha,Options:{SegmentSize:MB,CoolMs:cool}});
   console.log(j.log);
   assert.equal(j.phase,'done',j.error);
   assert.ok(j.cooldowns>=1,'cooled down');
   const src=j.sources.find(s=>s.host===flaky.host);
-  assert.equal(src.dead,false,'not dropped');assert.ok(src.bytes>0,'served segments after the cool-down');
+  assert.equal(src.dead,false,'not dropped');
+  /* requests sent together with the failing ones may arrive a few ms after the last 503 and finish on their own, so
+     only a request made once the shortest cool-down has (almost) passed shows the source was taken back */
+  const lastFail=Math.max(...flaky.reqs.filter(r=>r.failed).map(r=>r.t));
+  assert.ok(segReqs(flaky).some(r=>!r.failed&&r.t>lastFail+cool*0.8),'asked for a segment again after the cool-down: '+flaky.reqs.map(r=>(r.failed?'503 ':'')+r.range+' @'+(r.t-lastFail)).join(', '));
   assert.ok(fs.readFileSync(f.part).equals(f.file));
  }finally{flaky.close();steady.close();}
 });

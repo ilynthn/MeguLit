@@ -154,7 +154,22 @@ function parse(buf){const lines=[],anchors=[];
  return {lines,anchors};}
 
 const SCRIPT=/\.s$/i;
+const PACK_SUBS=['GameData','gamedata',''],LOOSE_SUBS=['GameData/scenario','GameData/script'];
+const listWithKey=file=>{const l=list(file);if(l)resolveGameKey(l);return l;};
+function dedupFiles(list){const seen=new Set(),out=[];
+ for(const f of list){let k;try{k=fs.realpathSync.native(f);}catch{k=path.resolve(f);}
+  if(process.platform==='win32')k=k.toLowerCase();
+  if(seen.has(k))continue;seen.add(k);out.push(f);}
+ return out;}
+/* S9 a Chinese overlay pack (GameData/data9.pack, root data6.pack or loose .s) over the Japanese GameData/*.pack:
+   collect every layer in the same load order as scenes() and keep the Japanese scene under each patched one. */
+function originalLines(dir){const running=engine.scenes(dir);if(!running.length)return null;
+ const layers=new Map(),add=s=>{const k=s.name.toLowerCase();if(!layers.has(k))layers.set(k,[]);layers.get(k).push(s);};
+ for(const a of dedupFiles(kit.files(dir,{name:/\.pack$/i,subs:PACK_SUBS}))){let l;try{l=listWithKey(a);}catch{l=null;}
+  for(const e of l||[])if(SCRIPT.test(e.name))add({name:path.posix.basename(String(e.name).replace(/\\/g,'/')),read:()=>decode(e)});}
+ for(const f of dedupFiles(kit.files(dir,{name:SCRIPT,subs:LOOSE_SUBS,max:20000})))add({name:path.basename(f),read:()=>fs.readFileSync(f)});
+ return require('./scenes.cjs').layerOriginal(running,layers,parse);}
 const engine=kit.engine({id:'qlie',hint:'GameData\\*.pack',
- archives:{name:/\.pack$/i,subs:['GameData','gamedata',''],entry:SCRIPT,list:file=>{const l=list(file);if(l)resolveGameKey(l);return l;},read:(file,e)=>decode(e)},
- loose:{name:SCRIPT,subs:['GameData/scenario','GameData/script']},parse});
-module.exports={engine,parse,list,decode,unpack,footer,_internal:{chain,v3KeyDecrypt,v31Decrypt,nameXor,nameXor31,hash30,hash31,Mt,genTable,keyData}};
+ archives:{name:/\.pack$/i,subs:PACK_SUBS,entry:SCRIPT,list:listWithKey,read:(file,e)=>decode(e)},
+ loose:{name:SCRIPT,subs:LOOSE_SUBS},parse,extra:{originalLines}});
+module.exports={engine,parse,list,decode,unpack,footer,_internal:{chain,v3KeyDecrypt,v31Decrypt,nameXor,nameXor31,hash30,hash31,Mt,genTable,keyData,dedupFiles}};

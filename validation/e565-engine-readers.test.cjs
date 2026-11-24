@@ -151,6 +151,72 @@ test('TyranoScript: loose, app.asar, package.nw and exe-appended NW.js builds re
  assert.deepEqual(a.map(s=>s.lines.length),b.map(s=>s.lines.length));assert.equal(b[0].lines[3],'天空很蓝。');assert.deepEqual(a[0].anchors,b[0].anchors);
 });
 
+test('TyranoScript: a large bilingual ASAR routes to the Japanese scripts',t=>{
+ const root=tmp(t),dir=path.join(root,'game'),executable=path.join(dir,'Game.exe');
+ const files={};
+ for(let i=0;i<1100;i++)files['data/bgimage/'+i+'-background-illustration-for-the-scenario-index-padding.png']='x';
+ Object.assign(files,{
+  'index.html':'<html><p>タイトル画面を表示しています。</p></html>',
+  'tyrano/tyrano.base.js':'//',
+  'data/others/lang/ch.json':'{"scenes":{},"charas":{},"tags":{}}',
+  'data/scenario/first.ks':"[lang_set name=\"&sf.lang=='ja'?'default':'ch'\"]\n@call storage=shared.ks",
+  'data/scenario/ch/first.ks':'@jump storage=ch/route.ks',
+  'data/scenario/shared.ks':'[chara_new name="host" jname="店長"]',
+  'data/scenario/route.ks':['@chara_new name=guest jname="旅の人"','#guest:smile','おかげさまで助かりました。[p]',
+   '#host','どうぞゆっくりしていってください。[p]','#声の主','それではまた明日お会いしましょう。[p]'].join('\n'),
+  'data/scenario/ch/route.ks':'[chara_new name=host jname="老板"]\n#host\n这句是另外的文本。[p]\n这是一个翻译场景。[p]',
+  'data/scenario/ch/extra.ks':'もう一つのお話です。[p]',
+ });
+ const asar=F.asar(files);
+ assert.ok(asar.indexOf('"scenario"')>65536);
+ F.writeTree(dir,{'Game.exe':'MZ','resources/app.asar':asar});
+
+ const {probeGame}=require('../services/adapter-probe-core.cjs');
+ const probe=probeGame({dir,executable});
+ const {runtime,status}=require('../services/original-text.cjs').scanRunning(path.join(root,'profile'),'g3',executable);
+ assert.deepEqual({
+  routed:probe.engines.find(e=>e.id==='tyrano')?.routed,step:probe.step,lines:probe.lines,kana:probe.japaneseLines,engine:runtime?.engine,status,
+ },{routed:true,step:'ok',lines:7,kana:5,engine:'tyrano',status:'native-japanese'});
+ assert.deepEqual(JSON.parse(fs.readFileSync(runtime.index,'utf8')).lines,[
+  'もう一つのお話です。','guest','おかげさまで助かりました。','host',
+  'どうぞゆっくりしていってください。','声の主','それではまた明日お会いしましょう。',
+ ]);
+ const translated=tyrano.engine.archives(dir).find(s=>s.name==='ch/route.ks');
+ assert.ok(tyrano.parse(translated.read()).lines.includes('这句是另外的文本。'));
+});
+
+test('TyranoScript: a ch/ chapter stays readable without a declared Chinese language',t=>{
+ const dir=tmp(t);
+ F.writeTree(dir,{'resources/app.asar':F.asar({
+  'tyrano/tyrano.base.js':'//',
+  'data/scenario/first.ks':'おはようございます。[p]',
+  'data/scenario/ch/first.ks':'それから長い旅が始まります。[p]',
+ })});
+ assert.deepEqual(scenes.read('tyrano',dir).flatMap(s=>s.lines),['それから長い旅が始まります。','おはようございます。']);
+});
+
+const firstScripts={'first.ks':'おはようございます。','ch/first.ks':'それから長い旅が始まります。'};
+for(const [label,file,pack,entries] of [
+ ['an NW.js package','package.nw',F.zip,firstScripts],
+ ['an ASAR with only ch/first.ks','resources/app.asar',F.asar,{'ch/first.ks':firstScripts['ch/first.ks']}],
+ ['an ASAR with only first.ks','resources/app.asar',F.asar,{'first.ks':firstScripts['first.ks']}],
+]){
+ test('TyranoScript: '+label+' keeps ch/ scenarios',t=>{
+  const dir=tmp(t),dialogue={...entries,'route.ks':'次の場面に進みましょう。','ch/route.ks':'別の道を歩いていきます。'};
+  const files={'tyrano/tyrano.base.js':'//','data/others/lang/ch.json':'{"scenes":{},"charas":{},"tags":{}}'};
+  for(const [name,line] of Object.entries(dialogue))files['data/scenario/'+name]=line+'[p]';
+  F.writeTree(dir,{[file]:pack(files)});
+  assert.deepEqual(Object.fromEntries(scenes.read('tyrano',dir).map(s=>[s.name,s.lines])),
+   Object.fromEntries(Object.entries(dialogue).map(([name,line])=>[name,[line]])));
+ });
+}
+
+test('TyranoScript: the existing ASAR scenario signature still identifies a release',t=>{
+ const dir=tmp(t);
+ F.writeTree(dir,{'resources/app.asar':F.asar({'data/scenario/first.ks':KS_JA})});
+ assert.equal(library.engineOf(dir)?.name,'TyranoScript');
+});
+
 test('TyranoScript: the probe reads the scenario appended to a legacy NW.js executable',t=>{
  const dir=tmp(t),script='こんにちは。[p]\n次の場面です。[p]\n';
  const archive=F.zip({'tyrano/tyrano.base.js':'//','data/scenario/first.ks':script});

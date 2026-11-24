@@ -182,14 +182,23 @@ function peInfo(file){let b;try{b=readAt(file,0,0x1000);}catch{return null;}if(b
  const machine=h.readUInt16LE(4),attr=h.readUInt16LE(22);return {machine,bits:machine===0x14c?32:machine===0x8664||machine===0xaa64?64:0,program:!!(attr&2)&&!(attr&0x2000),pe:true};}
 function peResource(file,type,name=null){try{const mz=readAt(file,0,0x40);if(mz.toString('latin1',0,2)!=='MZ')return null;const pe=mz.readUInt32LE(0x3c),h=readAt(file,pe,0x200);if(h.toString('latin1',0,4)!=='PE  ')return null;
  const nsec=h.readUInt16LE(6),opt=h.readUInt16LE(20),o=24,magic=h.readUInt16LE(o),dd=o+(magic===0x20b?112:96),rva=h.readUInt32LE(dd+2*8);if(!rva)return null;
- const secs=readAt(file,pe+24+opt,nsec*40);let sec=null;for(let i=0;i<nsec;i++){const va=secs.readUInt32LE(i*40+12),vs=Math.max(secs.readUInt32LE(i*40+8),secs.readUInt32LE(i*40+16));if(rva>=va&&rva<va+vs)sec={va,raw:secs.readUInt32LE(i*40+20),size:vs};}
- if(!sec)return null;const rs=readAt(file,sec.raw,Math.min(sec.size,64<<20)),at=r=>r-sec.va+0;
+ const secs=readAt(file,pe+24+opt,nsec*40),sections=[];
+ for(let i=0;i<nsec;i++){const at=i*40;sections.push({va:secs.readUInt32LE(at+12),size:secs.readUInt32LE(at+16),raw:secs.readUInt32LE(at+20)});}
+ const sectionOf=addr=>sections.findLast(s=>addr>=s.va&&addr-s.va<s.size);
+ const sec=sectionOf(rva);if(!sec)return null;
+ // Directory offsets are relative to the resource root. The leaf data entry holds an image RVA.
+ const root=rva-sec.va,limit=64<<20,rs=readAt(file,sec.raw+root,Math.min(sec.size-root,limit));
  const ustr=p=>rs.toString('utf16le',p+2,p+2+rs.readUInt16LE(p)*2);
  const find=(dir,want)=>{const n=rs.readUInt16LE(dir+12)+rs.readUInt16LE(dir+14);for(let i=0;i<n;i++){const e=dir+16+i*8,id=rs.readUInt32LE(e),off=rs.readUInt32LE(e+4);
   const key=id&0x80000000?ustr(id&0x7fffffff):id;if(want===null||(typeof want==='string'?typeof key==='string'&&key.toUpperCase()===want.toUpperCase():key===want))return off;}return null;};
  let d=find(0,type);if(d===null||!(d&0x80000000))return null;d=find(d&0x7fffffff,name);if(d===null)return null;
  if(d&0x80000000){d=find(d&0x7fffffff,null);if(d===null||d&0x80000000)return null;}
- const drva=rs.readUInt32LE(d),dsz=rs.readUInt32LE(d+4);return Buffer.from(rs.subarray(at(drva),at(drva)+dsz));}catch{return null;}}
+ const drva=rs.readUInt32LE(d),dsz=rs.readUInt32LE(d+4);if(!dsz)return Buffer.alloc(0);
+ const data=sectionOf(drva);if(!data)return null;
+ const relative=drva-rva;
+ if(data===sec&&relative>=0)return Buffer.from(rs.subarray(relative,relative+dsz));
+ const off=drva-data.va;
+ return readAt(file,data.raw+off,Math.min(dsz,data.size-off,limit));}catch{return null;}}
 
 /* ---- text models ------------------------------------------------------------------------------------------------ */
 /* offsets[i] (relative to base) -> the C strings, in table order */
@@ -260,8 +269,19 @@ function asarList(file){let head;try{head=readAt(file,0,16);}catch{return null;}
   for(const [name,v] of Object.entries(node.files)){if(!v||typeof v!=='object')continue;const rel=pre?pre+'/'+name:name;if(v.files&&typeof v.files==='object'&&!Array.isArray(v.files))walkTree(v,rel,depth+1);else if(!v.unpacked&&v.offset!==undefined)out.push({name:rel,offset:base+Number(v.offset),size:Number(v.size)});}};
  try{walkTree(tree,'',0);}catch{return null;}return out;}
 function zipList(file,maxDirectory=Infinity){const sz=size(file);if(sz<22)return null;
- const tailLen=Math.min(sz,65557),t=readAt(file,sz-tailLen,tailLen);let e=-1;for(let i=t.length-22;i>=0;i--)if(t.readUInt32LE(i)===0x06054b50){e=i;break;}if(e<0)return null;
- const count=t.readUInt16LE(e+10),cdSize=t.readUInt32LE(e+12),cdOff=t.readUInt32LE(e+16),cdAt=sz-tailLen+e-cdSize,shift=cdAt-cdOff;if(cdAt<0||cdSize>maxDirectory)return null;
+ const tailLen=Math.min(sz,65557),tailAt=sz-tailLen,t=readAt(file,tailAt,tailLen);let e=-1;
+ for(let i=t.length-22;i>=0;i--){
+  if(t.readUInt32LE(i)!==0x06054b50)continue;
+  // Keep the last marker as a fallback for ZIPs with bytes after the end record.
+  if(e<0)e=i;
+  if(i+22+t.readUInt16LE(i+20)!==t.length)continue;
+  const cdSize=t.readUInt32LE(i+12),start=i-cdSize;
+  if(cdSize<46||cdSize>maxDirectory||tailAt+start<0||!t.readUInt16LE(i+10))continue;
+  const sig=start>=0?t.subarray(start,start+4):readAt(file,tailAt+start,4);
+  if(sig.length===4&&sig.readUInt32LE(0)===0x02014b50){e=i;break;}
+ }
+ if(e<0)return null;
+ const count=t.readUInt16LE(e+10),cdSize=t.readUInt32LE(e+12),cdOff=t.readUInt32LE(e+16),cdAt=tailAt+e-cdSize,shift=cdAt-cdOff;if(cdAt<0||cdSize>maxDirectory)return null;
  const cd=readAt(file,cdAt,cdSize),out=[];let p=0;
  for(let i=0;i<count&&p+46<=cd.length;i++){if(cd.readUInt32LE(p)!==0x02014b50)break;const flags=cd.readUInt16LE(p+8),method=cd.readUInt16LE(p+10),comp=cd.readUInt32LE(p+20),raw=cd.readUInt32LE(p+24),nl=cd.readUInt16LE(p+28),xl=cd.readUInt16LE(p+30),cl=cd.readUInt16LE(p+32),local=cd.readUInt32LE(p+42);
   const nameBuf=cd.subarray(p+46,p+46+nl),name=flags&0x800?nameBuf.toString('utf8'):decodeText(nameBuf);out.push({name:name.replace(/\\/g,'/'),method,comp,raw,local:local+shift,encrypted:!!(flags&1)});p+=46+nl+xl+cl;}

@@ -20,6 +20,64 @@ test('kit: peResource finds RCDATA by name and number, encodeSjis inverts the de
  const key=kit.encodeSjis('秘密の鍵-0101');const c=kit.xorKeyByColumns(kit.xor(plain,key));assert.equal(c[0].period,key.length);assert.deepEqual(c[0].key,key);
 });
 
+// The fixture has one type, one name and one language, each at the first entry of its directory.
+function resourceLeaf(rsrc){
+ const first=dir=>rsrc.readUInt32LE(dir+20)&0x7fffffff;
+ return first(first(first(0)));
+}
+
+test('kit: peResource reads a directory inside a section and data before the directory',t=>{
+ const exe=path.join(tmp(t),'merged-resource.exe'),data=Buffer.from('resource before the directory');
+ const original=F.pe([{type:'TEXT',name:'ABOUT',data}]),opt=0x40+24,sec=opt+224;
+ const raw=0x200,va=0x1000,rootOffset=0x100,dataOffset=0x20;
+ const image=Buffer.concat([original.subarray(0,raw),Buffer.alloc(0x400)]);
+ original.copy(image,raw+rootOffset,raw);
+ image.writeUInt32LE(va+rootOffset,opt+96+16);
+ image.write('.rdata',sec,'latin1');image.writeUInt32LE(0x400,sec+8);image.writeUInt32LE(0x400,sec+16);
+ const rsrc=image.subarray(raw+rootOffset);
+ rsrc.writeUInt32LE(va+dataOffset,resourceLeaf(rsrc));data.copy(image,raw+dataOffset);
+ fs.writeFileSync(exe,image);
+ assert.deepEqual(kit.peResource(exe,'text','about'),data);
+ assert.deepEqual(kit.peResource(exe,'TEXT'),data);
+});
+
+test('kit: peResource maps a payload RVA through the section table',t=>{
+ const exe=path.join(tmp(t),'split-resource.exe'),data=Buffer.from('resource in the data section');
+ const original=F.pe([{type:10,name:7,data}]),opt=0x40+24,sec=opt+224+40;
+ const dataVa=0x3000,dataOffset=0x24,raw=original.length;
+ const image=Buffer.concat([original,Buffer.alloc(0x200)]);
+ image.writeUInt16LE(2,0x40+6);image.writeUInt32LE(0x4000,opt+56);
+ image.write('.data',sec,'latin1');image.writeUInt32LE(dataOffset+data.length,sec+8);
+ image.writeUInt32LE(dataVa,sec+12);image.writeUInt32LE(0x200,sec+16);image.writeUInt32LE(raw,sec+20);
+ image.writeUInt32LE(0x40000040,sec+36);
+ const rsrc=image.subarray(0x200,raw);
+ rsrc.writeUInt32LE(dataVa+dataOffset,resourceLeaf(rsrc));data.copy(image,raw+dataOffset);
+ fs.writeFileSync(exe,image);
+ assert.deepEqual(kit.peResource(exe,10,7),data);
+});
+
+test('kit: peResource keeps the available bytes of a truncated section-start resource',t=>{
+ const exe=path.join(tmp(t),'partial-resource.exe'),data=Buffer.from('partly present');
+ const image=F.pe([{type:10,name:7,data}]),rsrc=image.subarray(0x200);
+ const offset=0x200+rsrc.readUInt32LE(resourceLeaf(rsrc))-0x1000;
+ fs.writeFileSync(exe,image.subarray(0,offset+6));
+ assert.deepEqual(kit.peResource(exe,10,7),data.subarray(0,6));
+});
+
+test('kit: peResource retains the section-start read limit for a large resource section',t=>{
+ const exe=path.join(tmp(t),'large-resource.exe'),data=Buffer.from('before and after the read limit');
+ const image=F.pe([{type:10,name:7,data}]),opt=0x40+24,sec=opt+224;
+ const raw=0x200,va=0x1000,limit=64<<20,offset=limit-6,rawSize=limit+0x200;
+ image.writeUInt32LE(va+limit+0x1000,opt+56);image.writeUInt32LE(rawSize,opt+96+20);
+ image.writeUInt32LE(rawSize,sec+8);image.writeUInt32LE(rawSize,sec+16);
+ const rsrc=image.subarray(raw);
+ rsrc.writeUInt32LE(va+offset,resourceLeaf(rsrc));
+ const fd=fs.openSync(exe,'w');
+ try{fs.writeSync(fd,image);fs.writeSync(fd,data,0,data.length,raw+offset);fs.ftruncateSync(fd,raw+rawSize);}
+ finally{fs.closeSync(fd);}
+ assert.deepEqual(kit.peResource(exe,10,7),data.subarray(0,6));
+});
+
 /* ---- QLIE --------------------------------------------------------------------------------------------------------------- */
 const QS=['@bg,file:bg01','^face,ミナ','【ミナ】','「おはよう、[rb,兄,にい]さん」','％voice,v001','ナレーション行[n]二行目','mina,ミナ,「今日はいい天気だね」','^select,学校へ行く,家に帰る','\\wait'].join('\r\n');
 const QZ=['@bg,file:bg01','^face,米娜','【米娜】','“早上好，[rb,哥,ge]哥”','％voice,v001','旁白行[n]第二行','mina,米娜,“今天天气真好”','^select,去学校,回家','\\wait'].join('\r\n');

@@ -266,6 +266,26 @@ test('client: last writer wins for word status, both directions',async t=>{
  assert.equal(B.run(db=>db.prepare('SELECT status FROM vocabulary WHERE id=7').get().status),4);
 });
 
+test('settings sync repairs already queued fractional timestamps and writes new timestamps as integers',async t=>{
+ const r=relay(),clock={now:T0.getTime()},dev=device(t,r,clock),key='b'.repeat(64);
+ const config=path.join(dev.root,'data','config'),savedAt=clock.now-1000.25,queuedAt=clock.now-2000.75;
+ fs.mkdirSync(config,{recursive:true});
+ fs.writeFileSync(path.join(config,'gal-preferences.json'),JSON.stringify({japaneseSize:30}));
+ fs.writeFileSync(path.join(config,'game-style-profiles.json'),JSON.stringify({version:3,entries:{[key]:{name:'Test game',prefs:{translationSize:20},savedAt}}}));
+ await signIn(dev,r);
+ dev.run(db=>{
+  account.ensureState(db);
+  const entry=account.kinds.settings.collect(db,dev.root).get('global-style');
+  db.prepare('INSERT INTO account_sync VALUES (?,?,?,?,1)').run('settings','global-style',account.hashData(entry),queuedAt);
+ });
+ const result=await dev.a.sync();
+ assert.equal(result.summary.settings.pushed,2);
+ assert.equal(result.pending.settings||0,0);
+ const uploaded=r.env.DB.raw.prepare("SELECT key,updated_at FROM sync_records WHERE kind='settings'").all();
+ assert.deepEqual(Object.fromEntries(uploaded.map(row=>[row.key,row.updated_at])),{[key]:Math.trunc(savedAt),'global-style':Math.trunc(queuedAt)});
+ assert.equal((await dev.a.sync()).summary.settings.pushed,0);
+});
+
 test('privacy: synced per-game settings carry no paths, local paths survive a remote update',async t=>{
  const prefs={japaneseSize:30,gameProcess:'C:\\Games\\ATRI\\atri.exe',executable:'D:\\x\\y.exe',savePath:'C:\\Users\\me\\save',backgroundImage:'C:\\pics\\bg.png',coverUrl:'https://example.com/c.jpg',save_dir:'/home/me/x',japaneseFont:'Yu Gothic',profile:'keep me',nested:{fontFile:'C:\\Windows\\Fonts\\a.ttf',note:'\\\\server\\share\\x',color:'#ffffff',list:['D:\\a\\b.png','ok']},textColor:'#fff'};
  const clean=account.cleanSettings(prefs),text=JSON.stringify(clean);

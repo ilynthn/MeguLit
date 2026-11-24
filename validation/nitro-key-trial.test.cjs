@@ -22,6 +22,25 @@ test('NPK2 with a key nobody knows still reports NPK_KEY',()=>{
  assert.throws(()=>npk.readNpkAny(buf),/NPK_KEY/);
 });
 
+/* CI on main 2026-11-23/24 (three unrelated commits): the random IV above sometimes let a wrong key pass the PKCS7
+   padding; the garbage index then failed as NPK_INDEX, and the trial reported the last key's error. The IV is searched
+   here (about 1 in 256 qualifies) so the case survives new keys and other zlib output. */
+test('NPK2 with an unknown key reports NPK_KEY even when a wrong key passes the padding',()=>{
+ const last=npk.ALL_KEYS[npk.ALL_KEYS.length-1];let buf=null;
+ for(let i=0;i<20000&&!buf;i++){const iv=Buffer.alloc(16);iv.writeUInt32LE(i,0);
+  const b=npk.createNpk({'a.nps':nps(['x'])},{key:Buffer.alloc(32,7),iv});
+  try{npk.readNpk(b,last);}catch(e){if(e.message!=='NPK_KEY')buf=b;}}
+ assert.ok(buf,'an IV whose wrong last key passes the padding');
+ assert.throws(()=>npk.readNpkAny(buf),/^Error: NPK_KEY$/);
+});
+
+test('NPK2 with a broken header still reports NPK_HEADER, and a non-NPK2 buffer NPK_NOT_NPK2, whatever the keys',()=>{
+ const buf=npk.createNpk({'a.nps':nps(['x'])},{key:npk.KEYS.saya});
+ buf.writeUInt32LE(buf.length,0x1c);
+ assert.throws(()=>npk.readNpkAny(buf),/NPK_HEADER/);
+ assert.throws(()=>npk.readNpkAny(Buffer.alloc(64)),/NPK_NOT_NPK2/);
+});
+
 test('probe: a game folder whose script.npk uses the new key reads Japanese lines',t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'necro-npk2-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  fs.writeFileSync(path.join(dir,'game.exe'),'exe');

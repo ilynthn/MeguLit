@@ -9,6 +9,7 @@ const kit=require('./kit.cjs');/* E577 shared engine kit */
 // literal run (symbol + 1 raw bytes) or a back-reference (length = symbol + base, distance = symbol << low | low bits,
 // plus base). Format as described by the community project loicfrance/mahoyo_tools; this is an independent implementation.
 const fs=require('node:fs'),path=require('node:path');
+const {stat}=require('./file-key.cjs');
 const HFA=Buffer.from('HUNEXGGEFA10','latin1'),LENZU=Buffer.from('LenZuCompressor\0','latin1');
 /* E577 the HFA index is a kit table: 0x80-byte entries {UTF-8 name[0x60], u32 offset (after the index), u32 size} */
 const HFA_TABLE={magic:'HUNEXGGEFA10',count:{at:12,type:'u32le'},entries:16,encoding:'utf-8',base:'after-index',
@@ -53,10 +54,12 @@ function lenzu(src){
 const RUBY=/<([^<>|]*)\|([^<>]*)>/g;
 const clean=t=>String(t||'').replace(/^@[a-z]/i,'').replace(RUBY,'$1').replace(/\^/g,'').replace(/@[a-z]/gi,'');
 function rubyOf(t){const out=[];for(const m of String(t||'').matchAll(RUBY)){const reading=m[2];if(/^[ぁ-ゖァ-ヺー]+$/.test(reading)&&m[1])out.push([m[1],reading]);}return out;}
+const hfaFiles=dir=>kit.names(dir).filter(f=>/\.hfa$/i.test(f)).sort().map(f=>path.join(dir,f));
+const hfaStamp=files=>JSON.stringify(files.map(f=>[f,stat(f)]));
 // The text tables of a game folder: {ja, zc, zt, en} → archive and entry.
-function tables(dir){const out={};let files=[];try{files=fs.readdirSync(dir).filter(f=>/\.hfa$/i.test(f)).sort();}catch{return out;}
- for(const f of files){let list=null;try{list=hfaList(path.join(dir,f));}catch{}if(!list)continue;
-  for(const e of list){const m=e.name.match(/^script_text_([a-z]+)\.ctd$/i);if(m)out[m[1].toLowerCase()]={file:path.join(dir,f),entry:e};}}
+function tables(dir){const out={};
+ for(const file of hfaFiles(dir)){let list=null;try{list=hfaList(file);}catch{}if(!list)continue;
+  for(const e of list){const m=e.name.match(/^script_text_([a-z]+)\.ctd$/i);if(m)out[m[1].toLowerCase()]={file,entry:e};}}
  return out;}
 const memo=new Map();
 function tableLines(t){let st;try{st=fs.statSync(t.file);}catch{return null;}const key=t.file+'|'+t.entry.name+'|'+st.size+'|'+st.mtimeMs;
@@ -69,10 +72,12 @@ function tableLines(t){let st;try{st=fs.statSync(t.file);}catch{return null;}con
 const LANGS={ja:'00',en:'01',zc:'02',zt:'03'},glyphMemo=new Map();
 function ccit(buf){const d=lenzu(buf),n=d.readUInt32LE(0),size=d.readUInt32LE(4)||8,out=[];if(size<8||8+n*size>d.length)return out;
  for(let i=0;i<n;i++){const v=d.readUInt32LE(8+i*size),bytes=[v>>>24,(v>>>16)&255,(v>>>8)&255,v&255];while(bytes.length>1&&!bytes[0])bytes.shift();out.push(Buffer.from(bytes).toString('utf8'));}return out;}
-function glyphs(dir,lang='ja'){const code=LANGS[lang];if(!code)return null;const key=String(dir).toLowerCase()+'|'+code;if(glyphMemo.has(key))return glyphMemo.get(key);let set=null;
- try{const want=new Set(['Font'+code+'0000.ccit','Font'+code+'0001.ccit']);for(const f of fs.readdirSync(dir).filter(f=>/\.hfa$/i.test(f)).sort()){const file=path.join(dir,f);let list=null;try{list=hfaList(file);}catch{}if(!list)continue;
+function glyphs(dir,lang='ja'){const code=LANGS[lang];if(!code)return null;
+ const id=String(dir).toLowerCase()+'|'+code,files=hfaFiles(dir),key=hfaStamp(files),cached=glyphMemo.get(id);
+ if(cached?.key===key)return cached.val;let set=null;
+ try{const want=new Set(['Font'+code+'0000.ccit','Font'+code+'0001.ccit']);for(const file of files){let list=null;try{list=hfaList(file);}catch{}if(!list)continue;
   for(const e of list)if(want.has(e.name)){set??=new Set();for(const c of ccit(hfaRead(file,e)))set.add(c);}}}catch{set=null;}
- if(set&&set.size<100)set=null;glyphMemo.set(key,set);return set;}
+ if(set&&set.size<100)set=null;glyphMemo.set(id,{key,val:set});return set;}
 // E410 (user: WoH kept the previous page's lines on the next page). The page breaks are not in the text table but in the
 // compiled scripts (*.chs, "HunexCompiledScriptVer1.00", LenZu): 32-bit words, string pointers are file offsets - 0x30.
 // A text command is 123, 0x12345678, n, ptr, 0, wait, 0,1,0,0,0,0, 3, ptr, 320[, 321]; the string names the table lines it
@@ -85,8 +90,9 @@ function scriptPages(x,out){if(x.length<0x30||x.toString('latin1',0,19)!=='Hunex
  for(let i=0;i+15<n;i++){if(word(i)!==TEXT_OP||word(i+1)!==TEXT_TAG)continue;const s=str(word(i+3));if(!s||s.includes('＆')||!/^(?:@[a-z]\d*|\n)*\$\d{6}/.test(s))continue;
   const ids=[...s.matchAll(/\$(\d{6})/g)].map(m=>+m[1]);for(const id of ids)out.known.add(id);if(first||clear)out.starts.add(ids[0]);if(/^@x/.test(s))out.cont.add(ids[0]);
   first=false;clear=word(i+5)===2&&word(i+15)===CLEAR_OP;}}
-function pages(dir){const key=String(dir).toLowerCase();if(pageMemo.has(key))return pageMemo.get(key);const out={starts:new Set(),cont:new Set(),known:new Set()};
- try{for(const f of fs.readdirSync(dir).filter(f=>/\.hfa$/i.test(f)).sort()){const file=path.join(dir,f);let list=null;try{list=hfaList(file);}catch{}if(!list)continue;
+function pages(dir){const id=String(dir).toLowerCase(),files=hfaFiles(dir),key=hfaStamp(files),cached=pageMemo.get(id);
+ if(cached?.key===key)return cached.val;const out={starts:new Set(),cont:new Set(),known:new Set()};
+ try{for(const file of files){let list=null;try{list=hfaList(file);}catch{}if(!list)continue;
   for(const e of list)if(/\.chs$/i.test(e.name)){try{scriptPages(lenzu(hfaRead(file,e)),out);}catch{}}}}catch{}
- const result=out.known.size?out:null;pageMemo.set(key,result);return result;}
+ const result=out.known.size?out:null;pageMemo.set(id,{key,val:result});return result;}
 module.exports={hfaList,hfaRead,lenzu,clean,rubyOf,tables,tableLines,ccit,glyphs,pages,scriptPages};

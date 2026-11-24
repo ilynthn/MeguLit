@@ -232,11 +232,13 @@ const kinds={
 /* ---- sync state in SQLite ---------------------------------------------------------------------------------------- */
 function ensureState(db){db.exec('CREATE TABLE IF NOT EXISTS account_sync (kind TEXT NOT NULL, key TEXT NOT NULL, hash TEXT NOT NULL, updated_at INTEGER NOT NULL, pending INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(kind,key))');}
 function stateMap(db,kind){return new Map(db.prepare('SELECT key,hash,updated_at,pending FROM account_sync WHERE kind=?').all(kind).map(r=>[r.key,r]));}
-function setState(db,kind,key,hash,updatedAt,pending){db.prepare('INSERT INTO account_sync(kind,key,hash,updated_at,pending) VALUES(?,?,?,?,?) ON CONFLICT(kind,key) DO UPDATE SET hash=excluded.hash,updated_at=excluded.updated_at,pending=excluded.pending').run(kind,key,hash,updatedAt,pending?1:0);}
+function setState(db,kind,key,hash,updatedAt,pending){db.prepare('INSERT INTO account_sync(kind,key,hash,updated_at,pending) VALUES(?,?,?,?,?) ON CONFLICT(kind,key) DO UPDATE SET hash=excluded.hash,updated_at=excluded.updated_at,pending=excluded.pending').run(kind,key,hash,Math.trunc(updatedAt),pending?1:0);}
 
 /* diff local records against the last synced state: changed → pending with a fresh updated_at; vanished → tombstone */
 const EPOCH=Date.UTC(2020,0,2);
 function scan(db,kind,local,now,times){
+ /* File mtimes can have fractional milliseconds. Repair existing queued timestamps before comparing or uploading them. */
+ db.prepare("UPDATE account_sync SET updated_at=CAST(updated_at AS INTEGER) WHERE kind=? AND pending=1 AND typeof(updated_at)='real'").run(kind);
  const state=stateMap(db,kind);let changed=0;
  for(const[key,data]of local){const h=hashData(data),st=state.get(key);if(!st||st.hash!==h){
   /* a kind that knows when a record was saved (settings: savedAt) uses that, so an old local copy never beats a newer cloud one */
