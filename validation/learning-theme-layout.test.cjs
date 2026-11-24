@@ -10,6 +10,7 @@ test('learning map keeps the selected words in place and learning pages follow t
  t.after(async()=>{await edge?.stop();fs.rmSync(profile,{recursive:true,force:true,maxRetries:3,retryDelay:200});});
  try{edge=await startEdge(profile);}catch(error){if(error.message==='EDGE_NOT_FOUND')return t.skip('Edge unavailable');throw error;}
  const {send,evaluate}=edge;
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
  await send('Emulation.setDeviceMetricsOverride',{width:1180,height:690,deviceScaleFactor:1,mobile:false});
  const links=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8').match(/<link rel="stylesheet" href="[^"]+">/g).join('');
  const html='<html lang="zh-CN"><head>'+links+'</head><body><div class="app-frame"><div class="workspace"><main class="main" id="main" data-page="learning"><nav class="tabs"><button class="tab active">Grammar</button><button class="tab">Kana</button></nav><div id="learning-content"></div></main></div></div></body></html>';
@@ -43,7 +44,13 @@ test('learning map keeps the selected words in place and learning pages follow t
    const value=[style('.gm-piece b').color,style('.gm-node').backgroundImage,style('.gm-node .gm-chip').color,style('.gm-scene').color,style('.gm-pop p').color];
    pop.remove();return value;
   };
-  const dark=colors();document.documentElement.dataset.theme='light';const light=colors();
+  const setTheme=async theme=>{
+   document.documentElement.dataset.theme=theme;
+   // Read the final palette once the browser has finished its CSS transitions.
+   await Promise.all(target.getAnimations({subtree:true})
+    .filter(animation=>animation instanceof CSSTransition).map(animation=>animation.finished));
+  };
+  const dark=colors();await setTheme('light');const light=colors();
   q('.gm-node [data-toggle]').click();
   const closed=!q('.gm-node')&&q('.gm-map-hint')&&document.activeElement.matches('.gm-pill');
   const word={key:'house',base:'屋敷',reading:'やしき',meaning:'House',count:4};
@@ -52,7 +59,7 @@ test('learning map keeps the selected words in place and learning pages follow t
   target.innerHTML=readingInsightsHTML(report,opts);
   const ink=el=>getComputedStyle(el).color;
   const reading=()=>['.ri-hud-stats b','.ri-top-reading','.ri-top-def','.ri-top-count b','.ri-head h2','.ri-count b','.ri-known'].map(s=>ink(q(s)));
-  const lightReading=reading();document.documentElement.dataset.theme='black';const blackReading=reading();
+  const lightReading=reading();await setTheme('black');const blackReading=reading();
   const {mountKana}=await import('/kana/kana.js');
   await mountKana(target,{...opts,api:async()=>({mastery:{},boxes:{},runs:[],applied:[],lessons:{},prefs:{volume:0.4}})});
   const shadow=q('.kana-host').shadowRoot;
@@ -60,7 +67,7 @@ test('learning map keeps the selected words in place and learning pages follow t
   for(let i=0;i<30&&!shadow.querySelector('.v-lesson');i++)await new Promise(resolve=>setTimeout(resolve,30));
   const heading=shadow.querySelector('.lesson-head h1'),sheet=shadow.querySelector('.v-lesson .sheet');
   const blackKana=ink(heading);
-  document.documentElement.dataset.theme='light';
+  await setTheme('light');
   const lightKana=ink(heading),lightSheet=getComputedStyle(sheet).backgroundImage;
   const tabs=q('.tabs'),top=tabs.getBoundingClientRect().top;
   frame.scrollTop=100;const sticky=frame.scrollTop>0&&tabs.getBoundingClientRect().top===top;
