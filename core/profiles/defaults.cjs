@@ -45,6 +45,9 @@ module.exports={
   presentation:null,
   /* ms a hook line waits for its place on the page before it is dropped: null = kernel (OCR 5000, engines 1500) */
   holdMs:null,
+  // A message layer may replay its page through the hook after a separate dialogue line has already been drawn.
+  filterHookRedraws:false,
+  hookAnnotationPatterns:[],
   /* a page line takes the held hook line its drawn text shows (equal, inside, or an effect frame's shuffled characters), a clean
      drawn line holding the hook piece and more is the line itself; false = the kernel: the first held hook line, by order */
   pairByDrawn:false,

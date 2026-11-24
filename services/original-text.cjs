@@ -578,6 +578,24 @@ class Matcher{
  /* the reading state, kept and put back by a lookup that tries another form of a line (core/hook-native.cjs resolveSource) */
  save(){return [this.last,this.recent?this.recent.slice():null,this.maybe];}
  load(v){if(Array.isArray(v)){[this.last,this.recent,this.maybe]=v;}}
+ // Identify the original script entries in a hook packet without advancing the translation lookup cursor.
+ pageParts(text){const flat=plainKey(text),key=matchKey(text);if(!flat||!key)return [];
+  // A whole authored row wins over a possible split, even if its translation is ambiguous at this position.
+  const row=this.heads.get(key.slice(0,4))?.find(i=>plainKey(this.rt[i])===flat);
+  if(row!==undefined)return [inlineTags(this.rt[row])];
+  const before=this.save();try{
+  const result=this.match(text);
+  if(!['exact','high'].includes(result.status)||result.method==='guess'||!result.indices?.length)return [];
+  return result.indices.map(i=>inlineTags(this.rt[i]));
+ }finally{this.load(before);}}
+ // Recover a dialogue callback from a secondary stream only when it is the following authored row.
+ pageNext(previous,text){
+  const tail=plainKey(text);if(!tail)return false;
+  const before=this.save();try{
+   const r=this.match(previous);
+   return ['exact','high'].includes(r.status)&&r.method!=='guess'&&r.method!=='same-text'&&r.indices?.length>0&&plainKey(this.rt[r.indices.at(-1)+1])===tail;
+  }finally{this.load(before);}
+ }
  /* sure=false: a guessed place, the other places stay open (maybe) */
  moveTo(i,sure=true){this.last=i;if(sure)this.maybe=null;(this.recent||(this.recent=[])).push(i);if(this.recent.length>8)this.recent.shift();}
  recentPick(found){for(const a of [...(this.recent||[])].reverse()){if(a===this.last)continue;const c=found.filter(c=>c[0]>a&&c[0]-a<=400).sort((x,y)=>x[0]-y[0]);if(c.length)return {c:c[0],method:'recent'};}
@@ -670,6 +688,8 @@ function liveProvider(root,id,executable){
   foreign(text,opt){return inner?.foreign?inner.foreign(text,opt):'';},
   near(text){return inner?.near?inner.near(text):'';},
   ocrSuffix(text){return inner?.ocrSuffix?.(text)===true;},
+  pageParts(text){return inner?.pageParts?.(text)||[];},
+  pageNext(previous,text){return inner?.pageNext?.(previous,text)===true;},
   position(){return inner?.position?inner.position():-1;},
   save(){return inner?.save?{inner,v:inner.save()}:null;},
   load(x){if(x&&x.inner===inner)inner.load(x.v);},
@@ -827,7 +847,7 @@ function staticProvider(root,executable,opts={}){
     return group.length===options.length&&new Set(group).size===group.length&&group.every(text=>live.has(text))?group:null;
    },
    matchedBody:text=>rtIndex.roles?.[m.last]==='b'&&norm(rt[m.last])===norm(text),
-   resolveChoice:require('./script-translation-quality.cjs').choiceLookup(rt,patched?m.og:[],rtIndex.roles),resolve:text=>withRuby(resolveLine(text))};
+   resolveChoice:require('./script-translation-quality.cjs').choiceLookup(rt,patched?m.og:[],rtIndex.roles),pageParts:text=>m.pageParts(text),pageNext:(previous,text)=>m.pageNext(previous,text),resolve:text=>withRuby(resolveLine(text))};
   if(state.runtime.engine==='nitro-pak'&&require('../core/saya-page-ocr.cjs').legacyExe(path.basename(executable))){
    let lookup;
    api.sayaPageLine=(text,mode)=>(lookup??=require('../core/saya-page-ocr.cjs').scriptLookup(rt))(text,mode);

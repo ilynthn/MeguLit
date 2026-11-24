@@ -16,7 +16,9 @@
    "pairByDrawn": true,
    "reportClear": true,
    "engineRows": true,
-   "keepHeld": true
+   "keepHeld": true,
+   "filterHookRedraws": true,
+   "hookAnnotationPatterns": ["(?<=「あなた)死者(?=」)"]
   },
   "choice": {
    "pageFrames": [
@@ -78,5 +80,5 @@
  "sourceLangs": [
   "ja"
  ],
- "rev": 8
+ "rev": 9
 }

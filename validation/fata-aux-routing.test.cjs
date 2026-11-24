@@ -5,17 +5,17 @@ const {HookNative}=require('../core/hook-native.cjs'),P=require('../core/profile
 const fata=()=>P.profileFor({exe:'E:/GAL/海市蜃楼之馆/fata_jp.exe',engine:'KiriKiri'});
 function held({active=false,shown=false,pending=true}={}){
  const h=Object.create(HookNative.prototype),delivered=[],trace=[],text='扉の向こうから声が聞こえた。';
- Object.assign(h,{profile:fata(),now:()=>5000,pageMode:{mode:'nvl',at:4900},pageState:{engine:'krkr',held:[{text,origin:'live',at:0}]},
+ Object.assign(h,{profile:fata(),now:()=>5000,pageMode:{mode:'nvl',at:4900},pageState:{engine:'krkr',lines:new Map(),held:[{text,origin:'live',at:0}]},
   recentSources:[],choice:{active,items:pending?[{key:HookNative.flat(text),at:4900}]:[]},choiceOptions:pending?[text]:null,
   state:{hookChoices:shown?{items:[{text}],at:4900}:null},trace:s=>trace.push(s),deliverSource:(...a)=>delivered.push(a),schedulePageHeld(){}});
  return {h,text,delivered,trace};
 }
 test('pending aux/OCR candidates cannot consume a held ordinary dialogue line',()=>{
- for(const options of [{},{active:true},{shown:true}]){const r=held(options);r.h.expirePageHeld();assert.deepEqual(r.delivered,[[r.text,'live']]);}
+ for(const options of [{},{active:true},{shown:true}]){const r=held(options);r.h.expirePageHeld();assert.deepEqual(r.delivered,[[r.text,'live','krkr']]);}
 });
 test('only confirmed on-screen choice text stays with the choice layer',()=>{
  const r=held({active:true,shown:true});r.h.expirePageHeld();assert.deepEqual(r.delivered,[]);
- const q=held({active:true,shown:true});q.h.state.hookChoices.items=[{text:'違う選択肢'}];q.h.expirePageHeld();assert.deepEqual(q.delivered,[[q.text,'live']]);
+ const q=held({active:true,shown:true});q.h.state.hookChoices.items=[{text:'違う選択肢'}];q.h.expirePageHeld();assert.deepEqual(q.delivered,[[q.text,'live','krkr']]);
 });
 test('a doubled menu label requires a separate recent frame and option, and cannot swallow exact script text',()=>{
  const {h}=held(),label='選択肢',option='……おはよう………………',text=label+label+option;

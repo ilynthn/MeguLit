@@ -22,6 +22,7 @@ function fixture(t){let now=100000;const events=[],traces=[],located=[];
   aux(ms,text,sourceName=DRAW){at(ms);hook.auxText({text,sourceName,role:0});},
   begin(ms,line){at(ms);hook.pageLine({type:'hookEngineLine',engine:'krkr',phase:'begin',line,same:false,nvl:true,...box,text:''});},
   end(ms,line,text){at(ms);hook.pageLine({type:'hookEngineLine',engine:'krkr',phase:'end',line,same:false,nvl:true,...box,count:[...text].length,text});},
+  clear(ms,line){at(ms);hook.charRects(`ToMe_CHARS engine=krkr line=${line} hidden=0 sw=800 sh=600 vx=0 vy=0 vw=0 vh=0 n=0 rects= text=`);},
   sources:()=>events.filter(m=>typeof m.hookSource==='string'&&m.hookSource).map(m=>m.hookSource)};}
 const S=s=>{const [m,r]=s.split(':');return 100000+(Number(m)*60+Number(r))*1000;};/* 22:5m:ss.sss -> fixture ms */
 
@@ -74,9 +75,71 @@ test('ファタ: a hook line no page line draws (its own layer) is delivered fro
  assert.equal(got.filter(g=>g==='…待っていて欲しい…').length,1,JSON.stringify(got));
  assert.ok(!got.some(g=>g.length>60),'the page dump is not read again');
  assert.ok(f.traces.some(s=>/drawn off the page layer, delivered from the hook text/.test(s)));
- assert.ok(f.traces.some(s=>/hook line already read, skipped/.test(s)));
+ assert.ok(f.traces.some(s=>/hook (line already read|redraw with the drawn line at its end), skipped/.test(s)));
  /* 2026-11-21 the self-check gate (core/self-check.cjs) counts the delivered line as redrawn and the read dump as nothing: no drop */
  {const {SelfCheck}=require('../../../../core/self-check.cjs');const sc=new SelfCheck();for(const s of f.traces)sc.trace(s);const r=sc.score();assert.equal(r.drops,0,'no drop: '+JSON.stringify(r));assert.ok(r.redrawn>=1,'the delivered line is a redraw');}
+});
+
+test('Fata: redraws with unseen earlier text cannot replace the drawn dialogue, and hook-only short lines survive',t=>{
+ const f=fixture(t);
+ const first='「あなた」を待つ人がいます。',second='鍵のかかった扉を開けるには、もう少し時間がかかります。';
+ const aside='（……旦那さま……）',another='（……まだ、いますか……）';
+ const redraw='……。（なんて……、静かな部屋だろう……）（……外は暗い……）'+second;
+ f.begin(100100,1);f.hookLine(100250,'「あなた死者」を待つ人がいます。');f.end(100400,1,first);
+ f.hookLine(100900,aside);f.at(102700);
+ f.begin(103000,2);f.hookLine(103030,redraw);f.end(103100,2,second);
+ f.hookLine(103200,redraw.replace(second,second.replace('時間','時\n間')));
+ f.at(105100);
+ f.hookLine(105400,another+'（……ここにいます……）');f.at(107200);
+ f.hookLine(107500,'「あなた死者」の声がする。');f.at(109300);
+ assert.deepEqual(f.sources(),[first,aside,second,another,'（……ここにいます……）','「あなた」の声がする。']);
+ assert.ok(f.traces.some(s=>/hook redraw with the drawn line at its end/.test(s)),JSON.stringify(f.traces));
+});
+
+test('Fata: a late redraw cannot replace the current line, and the next scripted aside survives in the auxiliary stream',t=>{
+ const f=fixture(t),{Matcher}=require('../../../../services/original-text.cjs');
+ const previous='黙ったまま、彼はゆっくりうなずいた。',aside='……わかった……。',next='では参りましょう。',rows=[previous,aside,next];
+ const m=new Matcher(rows,rows);f.hook.originalText={pageParts:s=>m.pageParts(s),pageNext:(a,b)=>m.pageNext(a,b)};
+ f.begin(100100,101);f.end(100180,101,previous);
+ f.hookLine(100200,previous);f.clear(101400,101);
+ f.aux(101455,'……ちがう……。','KiriKiri4');
+ f.aux(101460,aside,'KiriKiri4');f.aux(101463,aside,'KiriKiri4');
+ f.begin(101600,102);
+ f.begin(101700,103);f.end(101770,103,next);
+ f.end(101780,102,'');
+ f.begin(101800,104);f.hookLine(101820,previous);f.end(101840,104,'');
+ assert.deepEqual(f.sources(),[previous,aside,next]);
+ assert.equal(f.hook.lastSource,next);
+ f.begin(102000,105);f.end(102060,105,previous);f.end(102100,105,previous);
+ assert.deepEqual(f.sources(),[previous,aside,next,previous]);
+ assert.ok(f.traces.some(s=>s.includes('next script aside recovered')));
+ assert.ok(f.traces.some(s=>s.includes('replay ignored')));
+});
+
+test('Fata: authored suffixes, fragments, and emphatic repetition pass both source and reader filters',t=>{
+ const f=fixture(t),{Matcher}=require('../../../../services/original-text.cjs');
+ const tail='扉の向こうには静かな部屋があります。',whole='いま見えました。'+tail,short='静かな部屋',cry='なああァァァぁぁああ、分からんのだろうゥゥゥ！！？',repeat='変よ！　すごく変！';
+ const rows=[tail,whole,short,cry,repeat];const m=new Matcher(rows,rows);
+ f.hook.originalText={pageParts:s=>m.pageParts(s)};
+ f.begin(100100,1);f.end(100300,1,tail);
+ f.hookLine(100500,whole);f.at(102100);
+ f.hookLine(102300,short);f.at(103900);
+ f.hookLine(104100,cry);f.at(105700);
+ f.hookLine(105900,repeat);f.at(107500);
+ f.begin(108000,2);f.end(108090,2,cry);
+ assert.deepEqual(f.sources(),[tail,whole,short,cry,repeat,cry]);
+});
+
+test('Fata: the script can divide a hook-only packet without moving the translation cursor or skipping its first short line',t=>{
+ const f=fixture(t),{Matcher}=require('../../../../services/original-text.cjs');
+ const base='窓辺に明かりが残っている。',a='もう夜です。',b='お静かに。',rows=[base,a,b];
+ const matcher=new Matcher(rows,rows);
+ f.hook.originalText={kind:'patch',resolve:text=>matcher.match(text),pageParts:text=>matcher.pageParts(text),save:()=>matcher.save(),load:v=>matcher.load(v),position:()=>matcher.last};
+ f.begin(100100,1);f.end(100300,1,base);
+ const before=matcher.last;
+ assert.deepEqual(matcher.pageParts(a+b),[a,b]);assert.equal(matcher.last,before);
+ f.hookLine(100500,a+b);f.at(102400);
+ assert.deepEqual(f.sources(),[base,a,b]);
 });
 
 test('ファタ 22:52:51-22:52:54: the option 「……おはよう………………」 survives the choice filter, the screen label does not; its hook line is left to the choice layer',t=>{

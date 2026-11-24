@@ -21,6 +21,8 @@ const DOMAINS={
  'page.pairByDrawn':{bool:true},
  'page.reportClear':{bool:true},'page.engineRows':{enum:[null,true,false]},
  'page.keepHeld':{bool:true},
+ 'page.filterHookRedraws':{bool:true},
+ 'page.hookAnnotationPatterns':{regexList:{max:16,chars:100}},
  'choice.contentInterleave':{bool:true},
  'choice.dropEffectFrames':{bool:true},
  'safeMode.effectJudge':{bool:true},

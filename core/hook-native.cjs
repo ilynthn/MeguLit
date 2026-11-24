@@ -283,7 +283,7 @@ class HookNative{
   for(const key of keys)map.set(key,pairs);while(map.size>64)map.delete(map.keys().next().value);
   this.nativeRuby={pid,started:String(this.target?.started||''),engine:rec.engine,line:rec.line,keys,pairs};
  }
- charRects(raw){const tp=require('./text-paths.cjs'),rec=tp.parseChars(raw);if(!rec)return;this.drawLog(raw);/* engine-draw (docs/engine-draw-protocol.md): a UI item (name, choice, button, menu, system) is annotated beside its box, never hidden or replaced; a dialogue line may ask for its in-game replacement */if(require('./engine-draw.cjs').routeOf(rec)==='ui'){this.emit({...rec,type:'hookDrawUi'});return;}this.nativeLineRuby(rec);this.engineDrawLine(rec);if(rec.engine==='krkr'){const pid=this.gamePid();if(this.krkrChars?.pid!==pid)this.krkrChars={pid,n:0};this.krkrChars.n++;}const gate=this.charGates||(this.charGates=new Map());if(!gate.has(rec.engine))gate.set(rec.engine,new tp.HiddenGate());rec.hidden=gate.get(rec.engine).report(rec)&&rec.hidden;rec.at=this.now();if(!this.textPathActive&&(rec.engine==='unity'||rec.engine==='web')){this.textPathActive=true;this.syncGlyphMode?.();}this.emit(rec);}
+ charRects(raw){const tp=require('./text-paths.cjs'),rec=tp.parseChars(raw);if(!rec)return;this.drawLog(raw);/* engine-draw (docs/engine-draw-protocol.md): a UI item (name, choice, button, menu, system) is annotated beside its box, never hidden or replaced; a dialogue line may ask for its in-game replacement */if(require('./engine-draw.cjs').routeOf(rec)==='ui'){this.emit({...rec,type:'hookDrawUi'});return;}this.nativeLineRuby(rec);this.engineDrawLine(rec);if(rec.engine==='krkr'){const pid=this.gamePid();if(this.krkrChars?.pid!==pid)this.krkrChars={pid,n:0};this.krkrChars.n++;const K=this.pageState;if(K&&this.filterHookRedraws(K)&&!rec.text&&rec.line===K.latestLine)K.clear={line:rec.line,at:this.now(),sequence:this.state.hookSequence};}const gate=this.charGates||(this.charGates=new Map());if(!gate.has(rec.engine))gate.set(rec.engine,new tp.HiddenGate());rec.hidden=gate.get(rec.engine).report(rec)&&rec.hidden;rec.at=this.now();if(!this.textPathActive&&(rec.engine==='unity'||rec.engine==='web')){this.textPathActive=true;this.syncGlyphMode?.();}this.emit(rec);}
  glyphHide(m){if(!m||!['ready','hit','key','cached'].includes(m.state))return;const v={hookGlyphHide:m.state==='key'||m.state==='ready'?(this.state.hookGlyphHide||'learning'):m.state};if(m.state==='ready'&&Number.isFinite(m.version))v.hookGlyphVersion=Number(m.version);if(m.state==='hit'&&typeof m.path==='string')v.hookGlyphPath=m.path.slice(0,16);if(m.state==='key'&&typeof m.face==='string'&&Number.isFinite(m.size))v.hookGlyphFont={face:m.face.slice(0,64),size:Number(m.size)};this.trace('glyph hide '+m.state+(m.path?' '+String(m.path).slice(0,16):'')+(m.size?' '+Number(m.size)+'px':''));this.notify(v);}
  markScriptSource(){try{if(this.state&&!this.state.scriptSource)this.notify({scriptSource:true});}catch{}}
  resolveSource(text){const provider=this.originalText;if(!provider||!text||HookNative.nonDialogue(text))return null;const key=String(text).replace(/\s+/g,'');this.sourceCache??=new Map();const from=typeof provider.position==='function'?provider.position():-1,ok=x=>!!x&&(x.status==='exact'||x.status==='high');
@@ -510,10 +510,11 @@ class HookNative{
  static retainedPrevious(page,previous,current){if(!previous||!current)return false;let end=0;for(let at=page.indexOf(current);at>=0;at=page.indexOf(current,at+1)){if(at>end&&page.slice(end,at).includes(previous))return true;end=Math.max(end,at+current.length);}return page.slice(end).includes(previous);}
  /* share of the character pairs of `flat` found in the hooked lines of the last ten minutes (0 when nothing to compare) */
  static hookOverlap(flat,recent,now){const t=String(flat||'');if([...t].length<4||!Array.isArray(recent))return 0;const hay=recent.filter(r=>now-r.at<600000).map(r=>r.key).join(String.fromCharCode(10));if(!hay)return 0;const ch=[...t];let n=0,hit=0;for(let i=0;i+1<ch.length;i++){n++;if(hay.includes(ch[i]+ch[i+1]))hit++;}return n?hit/n:0;}
- auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;this.auxPage(m);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
+ auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(text!==m.text)m={...m,text};this.auxPage(m);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
     came here as aux text, went to the art path and its translation was drawn over the game's own line. A line from the same hook
     as the dialogue stream is dialogue, never art text. */
   if(m.sourceName&&this.dialogueHook&&String(m.sourceName)===this.dialogueHook)return;/* nor choice text (user: 「不是选项」) */
+  if(this.recoverPageAside(m))return;
   /* 2026-11-15 (死に逝く君、館に芽吹く憎悪: the side stream's 「X　X　」 frame came 4-25 ms before the dialogue stream's line, was located
      as art text and drawn translated next to the subtitle): a side-stream text waits until the dialogue line of that moment
      has arrived, then the usual "part of the current line" check drops it */
@@ -642,10 +643,11 @@ class HookNative{
      and 0.3 s before it was shown again; taken as art text, the line was never shown) a line in the first 0.6 s of a hidden text
      window waits: the window back within that time makes it dialogue, otherwise it is art text as before */
   if(this.engineDialog===false&&typeof m.text==='string'&&m.text.trim()&&this.now()-(this.engineDialogAt||0)<600&&!m.boxBlinkTimedOut){const b=this.boxBlink||(this.boxBlink={lines:[],timer:null});if(!b.lines.some(x=>x.m.text===m.text))b.lines.push({m,name});if(!b.timer){const wait=Math.max(1,600-(this.now()-(this.engineDialogAt||0)));b.timer=setTimeout(()=>{if(this.boxBlink!==b)return;this.boxBlink=null;for(const x of b.lines)this.source({...x.m,boxBlinkTimedOut:true},x.name);},wait);b.timer.unref?.();}return;}
-  if(this.engineDialog===false&&typeof m.text==='string'&&m.text.trim()){this.trace('art text (text window hidden) '+JSON.stringify(m.text.slice(0,40)));this.artSeen?.delete(HookNative.flat(m.text.trim()));this.artCandidate(m.text);return;}
+  if(this.engineDialog===false&&typeof m.text==='string'&&m.text.trim()){const text=this.stripHookAnnotations(m.text);this.trace('art text (text window hidden) '+JSON.stringify(text.slice(0,40)));this.artSeen?.delete(HookNative.flat(text.trim()));this.artCandidate(text);return;}
   // The game's own ruby readings ride after the line as \x1d base \x1c reading pairs (ISLAND hook): split them off
   // before anything else sees the text, and attach them when this line is delivered (user, 2026-11-03).
-  const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:extracted.text};
+  const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:this.stripHookAnnotations(extracted.text)};
+  if(this.pageRedraw(this.pageState,m.text)){this.trace('krkr page: hook redraw with the drawn line at its end, skipped chars='+m.text.length);return;}
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
   this.languageCheck(m.text);this.japaneseGuard(m.text);
@@ -659,12 +661,13 @@ class HookNative{
      and code-page mojibake stay unreadable there. */
   /* user: 「按照剧本来上遮罩防止误杀」 - a line the game's own script holds exactly is its text, whatever it looks like */
   let scripted=false;if(typeof m.text==='string'&&this.originalText){try{const r=this.resolveSource(String(m.text).trim());scripted=!!r&&r.status==='exact';}catch{}}
+  const authored=this.filterHookRedraws()&&this.pageScriptParts(m.text).length===1;
   /* A wide hook proves decoding, not that a redraw frame is a sentence. Only this opt-in effect-page
      policy applies, and a line verified exactly in the script remains the game's authored dialogue. */
-  if(this.originalText&&!scripted&&Profiles.get(this.profile,'choice.dropEffectFrames',false)===true&&Profiles.get(this.profile,'page.pairByDrawn',false)===true&&HookNative.interleaved(m.text,Profiles.get(this.profile,'choice.contentInterleave',false)===true)){this.trace('source effect redraw left to the engine');return;}
+  if(this.originalText&&!scripted&&!authored&&Profiles.get(this.profile,'choice.dropEffectFrames',false)===true&&Profiles.get(this.profile,'page.pairByDrawn',false)===true&&HookNative.interleaved(m.text,Profiles.get(this.profile,'choice.contentInterleave',false)===true)){this.trace('source effect redraw left to the engine');return;}
   /* a wide / UTF-8 hook (LunaHook H W|Q|U|V) hands over the engine's own string: never code-page mojibake (EmbedTextPolicy.EngineText) */
   const engineText=/^H[WQUV]/.test(String(m.sourceCode||''))&&typeof m.text==='string'&&!/\ufffd/.test(m.text);
-  const scriptNoise=scripted||engineText||typeof m.text==='string'&&this.codepage?.mode(name||m.sourceCode||m.sourceName||'')==='native'&&/[\u3041-\u309f\u30a1-\u30fa]/.test(m.text)&&!/\ufffd/.test(m.text)&&!require('./text-sanity.cjs').repairShiftJisAsGbk(m.text);
+  const scriptNoise=scripted||authored||engineText||typeof m.text==='string'&&this.codepage?.mode(name||m.sourceCode||m.sourceName||'')==='native'&&/[\u3041-\u309f\u30a1-\u30fa]/.test(m.text)&&!/\ufffd/.test(m.text)&&!require('./text-sanity.cjs').repairShiftJisAsGbk(m.text);
   if(scriptNoise)this.trace('script noise line kept '+JSON.stringify(String(m.text).slice(0,20)));
   if(!scriptNoise&&require('./text-sanity.cjs').garbledSource(m.text,{controls:false})){this.trace('source dropped unreadable '+JSON.stringify(String(m.text).slice(0,20)));if(!this.lineUnreadable){this.lineUnreadable=true;this.notify({hookLineUnreadable:true});}return;}
   // Multilingual containers keep only the Japanese track (E243); streams that deliver every line several times (or every character doubled) are learned and undone per stream (E215).
@@ -672,15 +675,22 @@ class HookNative{
   this.attempt=0;/* 2026-11-13 (user: DDLC Plus set to English showed nothing): a line in another language is first looked up in the
      game's own parallel language tables (foreignJapanese, original-text.cjs), so the reader gets the Japanese line */
   {const raw=scriptSource(cleanSource(m.text,name,String(m.sourceCode||'')));const ja=this.foreignJapanese(raw);if(ja){m={...m,text:ja};}}
-  /* 2026-11-19 (千恋＊万花: 「■自動車（車内／走行）」 in the reader) script stage notes are no dialogue (core/line-once.js) */const frame=require('./language-tracks.cjs').japaneseTrack(LineOnce.stripStageNotes(scriptSource(cleanSource(m.text,name,String(m.sourceCode||'')))));let drawn=this.repeats.normalize(String(m.sourceCode||m.sourceName||name||''),frame);{const rc=require('./ruby-copies.cjs').collapse(drawn);if(rc){this.trace('source ruby copies folded ('+rc.copies+')');/* the readings of the folded copies go to the furigana */for(const pair of LineOnce.collapse(drawn).ruby)if(!ruby.some(q=>q[0]===pair[0]))ruby.push(pair);drawn=rc.text;}} /* 2026-11-19 千恋＊万花: copies of one ruby line, base and reading alternating */
+  /* 2026-11-19 (千恋＊万花: 「■自動車（車内／走行）」 in the reader) script stage notes are no dialogue (core/line-once.js) */
+  const frame=authored?m.text:require('./language-tracks.cjs').japaneseTrack(LineOnce.stripStageNotes(scriptSource(cleanSource(m.text,name,String(m.sourceCode||'')))));
+  const stream=String(m.sourceCode||m.sourceName||name||'');this.sourceStream=stream;
+  let drawn=frame;
+  if(!authored){
+   drawn=this.repeats.normalize(stream,frame);
+   const rc=require('./ruby-copies.cjs').collapse(drawn);if(rc){this.trace('source ruby copies folded ('+rc.copies+')');/* the readings of the folded copies go to the furigana */for(const pair of LineOnce.collapse(drawn).ruby)if(!ruby.some(q=>q[0]===pair[0]))ruby.push(pair);drawn=rc.text;}
   /* E408 one frame holding the line twice (redraw), collapsed only on same-stream evidence.
      2026-11-15 (死に逝く君、館に芽吹く憎悪, Krkr2wcs draws every line twice 「X　X　」): judged on the frame as the stream drew it, before
      the script lookup, with the evidence taken from the frame before repeat-normalizer (core/double-line.cjs). */
-  {const stream=String(m.sourceCode||m.sourceName||name||'');this.sourceStream=stream;if(typeof drawn==='string'){const dbl=(this.doubles||(this.doubles=new DoubleLine(()=>this.now()))).fix(stream,drawn,this.lastSource,typeof frame==='string'?frame:drawn);if(dbl.collapsed){this.trace('source doubled collapsed ('+dbl.reason+') chars='+drawn.length+'->'+dbl.text.length);drawn=dbl.text;}}}
+   if(typeof drawn==='string'){const dbl=(this.doubles||(this.doubles=new DoubleLine(()=>this.now()))).fix(stream,drawn,this.lastSource,typeof frame==='string'?frame:drawn);if(dbl.collapsed){this.trace('source doubled collapsed ('+dbl.reason+') chars='+drawn.length+'->'+dbl.text.length);drawn=dbl.text;}}
    /* 2026-11-19 (user: 「所有游戏都禁止复读」; 千恋＊万花 「志那都荘まで…」 drawn six times, ruby base and reading alternating): the same
       sentence again in one frame (redraw, base/reading variant, whole run repeated) is one sentence; readings go to the ruby */
    if(typeof drawn==='string'){const once=LineOnce.collapse(drawn);if(once.collapsed){this.trace('source repeat collapsed chars='+drawn.length+'->'+once.text.length);drawn=once.text;for(const pair of once.ruby)if(!ruby.some(q=>q[0]===pair[0]))ruby.push(pair);}}
-  /* 2026-11-19 (素晴らしき日々: 「やっぱり……いい女には、」「たばこと」「屋上と」… one sentence the game adds to its box piece by piece) a piece of an open quotation grows the line (core/sentence-pieces.cjs) */if(typeof drawn==='string'&&drawn.trim()){const grown=(this.sentencePieces||(this.sentencePieces=new SentencePieces(()=>this.now()))).take(this.sourceStream||'',drawn,this.speaker&&this.now()-this.speaker.at<2500?this.speaker.text:'',this.speaker?.at??Infinity);if(grown!==drawn){this.trace('sentence piece joined chars='+drawn.length+'->'+grown.length);drawn=grown;}}
+  }
+  /* 2026-11-19 (素晴らしき日々: 「やっぱり……いい女には、」「たばこと」「屋上と」… one sentence the game adds to its box piece by piece) a piece of an open quotation grows the line (core/sentence-pieces.cjs) */if(!this.filterHookRedraws()&&typeof drawn==='string'&&drawn.trim()){const grown=(this.sentencePieces||(this.sentencePieces=new SentencePieces(()=>this.now()))).take(this.sourceStream||'',drawn,this.speaker&&this.now()-this.speaker.at<2500?this.speaker.text:'',this.speaker?.at??Infinity);if(grown!==drawn){this.trace('sentence piece joined chars='+drawn.length+'->'+grown.length);drawn=grown;}}
   let text=String(this.originalTextFor(String(drawn??'').replace(/\n+$/,''))??'').replace(/\n+$/,'');
   if(!text.trim())return;
   /* 2026-11-13 multi-language container (サノバウィッチ 日简繁): the game's own Chinese track is this line's official translation */{const zh=require('./language-tracks.cjs').chineseTrack(scriptSource(cleanSource(m.text,name,String(m.sourceCode||''))),text);if(zh){const k=text.replace(/\s+/g,'');(this.trackPairs||(this.trackPairs=new Map())).set(k,zh);if(this.trackPairs.size>4000)this.trackPairs.delete(this.trackPairs.keys().next().value);}}
@@ -700,7 +710,8 @@ class HookNative{
      the hook delivered; only for a line the script matched, and never twice for one base. */
   if(this.originalText?.kind==='patch'){const r=this.resolveSource(text);if(r&&Array.isArray(r.ruby)&&(r.status==='exact'||r.status==='high'||r.method==='untranslated'))for(const pair of r.ruby)if(!ruby.some(q=>q[0]===pair[0]))ruby.push(pair);}
   // v1.1.5: a line of another language track (Traditional/Simplified Chinese) inside a Japanese stream is not dialogue to read.
-  {const lt=require('./language-tracks.cjs');if(lt.soundCaption(text)||lt.stuttered(text)){this.trace('drop caption/typewriter frame '+JSON.stringify(text.slice(0,40)));return;}if(lt.scriptIdentifier(text)){this.trace('drop script identifier '+JSON.stringify(text.slice(0,40)));return;}if(lt.borrowedCode(text)){this.trace('drop borrowed-code (Chinese patch) line '+JSON.stringify(text.slice(0,40)));if(!this.japaneseStream)this.notify({hookNotice:'这句是汉化补丁的「借码」文字，不是日文原文（常见于汉化版存下的存档）。MeguLit 不会读取它；请从日文原版存的档或新游戏开始',hookNoticeAt:this.now()});return;}if(lt.foreignLine(text)&&this.japaneseStream){this.trace('drop foreign-language line '+JSON.stringify(text.slice(0,40)));return;}if(/[ぁ-ゟァ-ヺ]/u.test(text))this.japaneseStream=true;}
+  if(!authored){const lt=require('./language-tracks.cjs');if(lt.soundCaption(text)||lt.stuttered(text)){this.trace('drop caption/typewriter frame '+JSON.stringify(text.slice(0,40)));return;}if(lt.scriptIdentifier(text)){this.trace('drop script identifier '+JSON.stringify(text.slice(0,40)));return;}if(lt.borrowedCode(text)){this.trace('drop borrowed-code (Chinese patch) line '+JSON.stringify(text.slice(0,40)));if(!this.japaneseStream)this.notify({hookNotice:'这句是汉化补丁的「借码」文字，不是日文原文（常见于汉化版存下的存档）。MeguLit 不会读取它；请从日文原版存的档或新游戏开始',hookNoticeAt:this.now()});return;}if(lt.foreignLine(text)&&this.japaneseStream){this.trace('drop foreign-language line '+JSON.stringify(text.slice(0,40)));return;}}
+  if(/[ぁ-ゟァ-ヺ]/u.test(text))this.japaneseStream=true;
   // The game's own LOG/backlog (E215.2, user: hide MeguLit there and do not read it): opening it replays lines read
   // earlier, several within a second. Two or more earlier lines (other than the current one) inside one second mark the
   // LOG: those lines are neither read nor recorded and the reader hides; it returns after 1.5 s without replays or at
@@ -784,8 +795,9 @@ class HookNative{
     const heard=()=>this.lastSourceAt>=began&&this.lastSourceAt!==this.advOwnAt;if(drawn.trim()&&!heard()){clearTimeout(this.advTextTimer);this.advTextTimer=setTimeout(()=>{if(heard()||HookNative.flat(this.lastSource)===HookNative.flat(drawn))return;this.trace(engine+' adv line '+m.line+' from the engine draw (stream silent)');this.emitSource(this.originalTextFor(drawn),'live');this.advOwnAt=this.lastSourceAt;},400);this.advTextTimer.unref?.();}}}
    return;}
   if(this.pageMode?.mode!=='nvl')this.trace(engine+' page mode on');this.pageMode={mode:'nvl',engine,at:now};
+  const filtered=this.filterHookRedraws(K);
   let e=K.lines.get(m.line);if(!e){e={line:m.line,same:m.same===true,hookText:'',origin:'live',ended:false,at:now};K.lines.set(m.line,e);if(K.lines.size>64)K.lines.delete(K.lines.keys().next().value);
-   if(!e.same)this.emit({type:'hookPage',engine,line:m.line*2-1,same:false,token:0,at:now});}
+   if(!e.same&&!filtered)this.emit({type:'hookPage',engine,line:m.line*2-1,same:false,token:0,at:now});}
   if(!e.hookText){const h=K.held.shift();if(h){e.hookText=h.text;e.origin=h.origin;e.heldAt=h.at;}}
   // OCR reports after the hook line: the first sentence of a page was already delivered as an ordinary line; it is re-read as the page's.
   if(!e.hookText&&engine==='ocr'&&this.lastSource&&HookNative.flat(this.lastSource)===HookNative.flat(String(m.text||'')))e.hookText=this.lastSource;
@@ -794,13 +806,27 @@ class HookNative{
      and the sentence was read twice while the right one was dropped): the hook text is paired by what the line drew, not by order alone.
      A drawn line with kana takes the held hook line whose characters it shows (an effect frame shows them shuffled or repeated); when
      none does, the drawn text is the line and the hook line waits for its own page line (expirePageHeld delivers it if none comes) */
-  const fx=engine!=='ocr'&&Profiles.get(this.profile,'page.pairByDrawn',false)===true&&this.pagePick(K,e,String(m.text||''))===true;
-  const drawn=HookNative.pageText(String(m.text||''),e.hookText),text=e.hookText||!drawn?drawn:this.originalTextFor(drawn);
+  const own=String(m.text||'');
+  const fx=engine!=='ocr'&&Profiles.get(this.profile,'page.pairByDrawn',false)===true&&this.pagePick(K,e,own)===true;
+  const exactDrawn=filtered&&(!/[ぁ-ゟァ-ヺ]/u.test(own)||HookNative.interleaved(own))&&this.pageScriptParts(own).length===1;
+  const useDrawn=exactDrawn||filtered&&/[ぁ-ゟァ-ヺ]/u.test(own)&&!HookNative.interleaved(own);
+  const drawn=useDrawn?this.stripHookAnnotations(own).trim():HookNative.pageText(own,e.hookText);
+  const key=HookNative.flat(drawn);
+  if(filtered&&key){
+   const published=key===HookNative.flat(this.lastSource)||this.hookRecent?.some(line=>line.key===key)||[...K.lines.values()].some(line=>line.sourceText===key);
+   // A line number alone does not make queued hook text new. A clean new draw can repeat authored dialogue.
+   if(K.recovered?.key===key&&m.line===K.recovered.line||published&&(!useDrawn||m.line<=(K.latestLine||0))||!useDrawn&&this.pageRedraw(K,drawn)){
+    this.trace(engine+' page line '+m.line+' replay ignored chars='+key.length);return;
+   }
+  }
+  const text=!drawn||e.hookText&&!useDrawn?drawn:this.originalTextFor(drawn);
   if(!text){this.trace(engine+' page line '+m.line+' had no readable text');return;}
   const token=IslandSource.token(text),line=m.line*2;
   this.emit({type:'hookPage',engine,line,same:e.same,token,at:now});
   this.emit({type:'hookTextPos',engine:engine+'_screen_v1',line,token,x0:m.x0,y0:m.y0,x1:m.x1,y1:m.y1,size:m.size,sw:m.sw,sh:m.sh,count:m.count,...(typeof m.color==='string'&&/^#[0-9a-f]{6}$/i.test(m.color)?{color:m.color}:{}),...HookNative.paintField(m.paint),at:now});
+  const sequence=this.state.hookSequence;
   this.fxNext=fx;try{this.emitSource(text,e.origin==='history'?'live':e.origin,engine,line);}finally{this.fxNext=false;}
+  if(filtered&&sequence!==this.state.hookSequence){e.sourceText=HookNative.flat(this.lastSource);K.latestLine=Math.max(K.latestLine||0,m.line);}
  }
  /* What the game really drew this line with (any engine path may report it): paint=f:rrggbbaa[,e:rrggbbaa:width][,s:rrggbbaa:dx:dy]
     f = glyph fill and its opacity, e = outline, s = drop shadow, a:1 = the opacity is not settled yet (a fade-in may be running). Missing parts were not drawn; a malformed field is dropped. */
@@ -815,9 +841,84 @@ class HookNative{
   if(hook&&flat(hook)!==flat(own)){const rows=own.split('\n').map(r=>[...r].length),chars=[...hook.replace(/\n/g,'')];if(rows.length<2||rows.reduce((a,b)=>a+b,0)!==chars.length)return hook;
    let at=0;return rows.map(n=>{const r=chars.slice(at,at+n).join('');at+=n;return r;}).join('\n');}
   return /[\u3040-\u30ff\u3400-\u9fff]/.test(own)?own:hook||'';}
+ stripHookAnnotations(text){
+  const patterns=Profiles.get(this.profile,'page.hookAnnotationPatterns',[]);
+  if(!patterns.length||typeof text!=='string')return text;
+  return patterns.reduce((value,pattern)=>value.replace(new RegExp(pattern,'gu'),''),text);
+ }
+ filterHookRedraws(page=this.pageState){
+  return Profiles.get(this.profile,'page.filterHookRedraws',false)===true&&(!page||page.engine==='krkr');
+ }
+ pageScriptParts(text){return HookNative.flat(text)?this.originalText?.pageParts?.(text)||[]:[];}
+ recoverPageAside(m){
+  const K=this.pageState,clear=K?.clear,now=this.now(),key=HookNative.flat(m.text);
+  if(!clear||!this.filterHookRedraws(K)||clear.sequence!==this.state.hookSequence||now-clear.at>350||m.role!==0||!/^KiriKiri\d+$/i.test(m.sourceName||''))return false;
+  if(key.length>24||!/^（?[…‥]{2,}[^（）]+[…‥]{2,}。?）?$/u.test(key)||key===HookNative.flat(this.lastSource)||!this.originalText?.pageNext?.(this.lastSource,m.text))return false;
+  if(clear.pending)return clear.pending===key;
+  clear.pending=key;
+  const timer=setTimeout(()=>{
+   if(this.pageState!==K||K.clear!==clear||this.state.hookSequence!==clear.sequence)return;
+   this.originalTextFor(m.text);
+   this.emitSource(m.text,'live',K.engine);
+   if(this.state.hookSequence!==clear.sequence){K.recovered={key,line:clear.line+1};this.trace('krkr page: next script aside recovered from the auxiliary stream chars='+key.length);}
+  },110);timer.unref?.();
+  return true;
+ }
+ pageRedraw(K,text){
+  if(!this.filterHookRedraws(K)||!K)return false;
+  const flat=HookNative.flat(text),bodies=[...K.lines.values()].map(line=>line.sourceText).filter(Boolean);
+  const tails=bodies.filter(body=>flat.length>body.length&&flat.endsWith(body));
+  if(!tails.length)return false;
+  const known=this.pageScriptParts(text);
+  if(known.length===1)return false;
+  const confirmed=new Set(tails);
+  if(known.length>1){
+   let suffix='';
+   for(let i=known.length-1;i>0;i--){suffix=HookNative.flat(known[i])+suffix;if(confirmed.has(suffix))return true;}
+   return false;
+  }
+  // Without a script match, require a whole earlier draw or a complete aside before the confirmed tail.
+  return tails.some(body=>{
+   const prefix=flat.slice(0,-body.length);
+   return bodies.some(earlier=>prefix.endsWith(earlier))||/（[….。][^（）]*）$/u.test(prefix);
+  });
+ }
+ pageFallbackParts(text){
+  const known=this.pageScriptParts(text);
+  if(known.length>1)return known;
+  if(known.length===1)return [text];
+  // Without a script index, only an explicitly closed parenthesized aside supplies a reliable boundary.
+  const parts=[];let rest=text.trim();
+  while(rest){const aside=/^（[….。][^（）]*）/.exec(rest);if(!aside)break;parts.push(aside[0]);rest=rest.slice(aside[0].length).trimStart();}
+  if(rest)parts.push(rest);
+  return parts.length>1?parts:[text];
+ }
+ pageHeldCovered(K,text){
+  if(!this.filterHookRedraws(K))return this.heldCovered(text);
+  const flat=HookNative.flat(text);
+  if(!flat||(this.recentSources||[]).includes(flat))return true;
+  // A standalone script row may also occur inside a different line. Require exact equality to suppress its hook copy.
+  if(this.pageScriptParts(text).length)return false;
+  return this.heldCovered(text);
+ }
+ deliverHeld(K,h){
+  if(this.pageHeldCovered(K,h.text)){this.trace(K.engine+' page: hook line already read, skipped chars='+h.text.length);return;}
+  const choices=this.heldChoiceParts(h.text);
+  if(choices){this.trace(K.engine+' page: hook line is the choice screen ('+choices.length+' candidate(s)), left to the choice layer chars='+h.text.length);return;}
+  const filtered=this.filterHookRedraws(K);
+  if(filtered&&this.pageRedraw(K,h.text)){this.trace(K.engine+' page: hook redraw with the drawn line at its end, skipped chars='+h.text.length);return;}
+  const lines=filtered?this.pageFallbackParts(h.text):[h.text];
+  for(const text of lines){
+   if(filtered&&(this.pageHeldCovered(K,text)||this.heldChoiceParts(text)))continue;
+   if(filtered)this.originalTextFor(text);
+   this.trace(K.engine+' page: hook line drawn off the page layer, delivered from the hook text chars='+text.length);
+   this.fxNext=true;try{this.deliverSource(text,h.origin,filtered?K.engine:'');}finally{this.fxNext=false;}
+  }
+ }
  pageRoute(text,origin){
   if(!this.pageNvl())return false;
   const K=this.pageState,now=this.now(),open=[...K.lines.values()].reverse().find(e=>!e.ended&&!e.hookText&&now-e.at<3000);
+  if(this.pageRedraw(K,text)){this.trace(K.engine+' page: hook redraw with the drawn line at its end, skipped chars='+text.length);return true;}
   if(open){open.hookText=text;open.origin=origin||'live';return true;}
   K.held.push({text,origin:origin||'live',at:now});if(K.held.length>8)K.held.shift();this.schedulePageHeld();return true;
  }
@@ -826,7 +927,17 @@ class HookNative{
     page line took is never dropped. One the reader already has (a piece of a delivered line, or a page dump made of delivered lines) goes
     quietly; any other is the game's line drawn off the message layer (a text effect drawn on its own layer, a choice) and is delivered from
     the hook text, counted as an effect line (textEffectsLine). Choice texts glued in one hook line come as one row each */
- expirePageHeld(){const K=this.pageState;if(!K)return;const now=this.now(),keep=[];for(const h of K.held){if(now-h.at<this.holdFor(K.engine)){keep.push(h);continue;}if(this.pageNvl()&&K.engine!=='ocr'&&Profiles.get(this.profile,'page.keepHeld',false)!==true){this.trace(K.engine+' page: hook line drawn nowhere on the page, dropped chars='+h.text.length);continue;}if(this.pageNvl()&&K.engine!=='ocr'){if(this.heldCovered(h.text)){this.trace(K.engine+' page: hook line already read, skipped chars='+h.text.length);continue;}/* incr11 23:33:41Z: the option itself came on the dialogue stream; read as a line it cleared the choice screen. A held line made of the current choice candidates is the choice screen's: the game draws it (its link text stays visible) and the choice layer adds ruby and translation */const parts=this.heldChoiceParts(h.text);if(parts){this.trace(K.engine+' page: hook line is the choice screen ('+parts.length+' candidate(s)), left to the choice layer chars='+h.text.length);continue;}const text=h.text;this.trace(K.engine+' page: hook line drawn off the page layer, delivered from the hook text chars='+h.text.length);this.fxNext=true;try{this.deliverSource(text,h.origin);}finally{this.fxNext=false;}}else this.deliverSource(h.text,h.origin);}K.held=keep;this.schedulePageHeld();}
+ expirePageHeld(){
+  const K=this.pageState;if(!K)return;
+  const now=this.now(),keep=[],wait=this.holdFor(K.engine),nativePage=this.pageNvl()&&K.engine!=='ocr';
+  for(const h of K.held){
+   if(now-h.at<wait){keep.push(h);continue;}
+   if(!nativePage&&!this.filterHookRedraws(K)){this.deliverSource(h.text,h.origin);continue;}
+   if(!Profiles.get(this.profile,'page.keepHeld',false)){this.trace(K.engine+' page: hook line drawn nowhere on the page, dropped chars='+h.text.length);continue;}
+   this.deliverHeld(K,h);
+  }
+  K.held=keep;this.schedulePageHeld();
+ }
  /* content characters: no spaces, punctuation or symbols (ellipses and brackets say nothing about which line it is) */
  static content(v){return HookNative.flat(v).replace(/[\p{P}\p{S}]/gu,'');}
  /* the drawn text shows the hook line: the same text, one inside the other, or (a text effect: characters shuffled, repeated, fading in) nearly every
@@ -931,7 +1042,7 @@ class HookNative{
  /* profile page.holdMs (engine/game diff) over the kernel's hold */
  holdFor(engine){const o=this.profile?.page?.holdMs;return Number.isFinite(o)&&o>=0?o:HookNative.holdFor(engine);}
  static holdFor(engine){return engine==='ocr'?5000:1500;}
- releasePageHeld(){const K=this.pageState;if(!K)return;const held=K.held;K.held=[];clearTimeout(K.timer);for(const h of held)this.deliverSource(h.text,h.origin);}
+ releasePageHeld(){const K=this.pageState;if(!K)return;const held=K.held;K.held=[];clearTimeout(K.timer);for(const h of held){if(this.filterHookRedraws(K))this.deliverHeld(K,h);else this.deliverSource(h.text,h.origin);}}
  // A render burst can report several sentences before the host flushes their source frames.
  // Join every native line, in draw order; a later token must never overwrite an earlier unmatched line.
  islandPage(m){
@@ -1047,11 +1158,14 @@ class HookNative{
  giveWay(ms){this.send({type:'engineGiveWay',ms:Math.max(0,Math.min(10000,Number(ms)||3000))});}
  emitSource(text,origin,engine='',nativeLine=0,authority){if(require('./danganronpa-pc-source.cjs').shouldBlock(this,authority,origin))return;if(require('./unity-il2cpp-source.cjs').shouldBlock(this.textPath,authority||{origin},this.target))return;if(require('./unity-kemco-source.cjs').shouldBlock(this.textPath,authority,this.target)||require('./artemis-session.cjs').shouldBlock(this.textPath,authority,this.target,origin,this.wanted!==false))return;{const f=HookNative.flat(text);if(f){(this.recentSources||(this.recentSources=[])).push(f);if(this.recentSources.length>24)this.recentSources.shift();}}this.positionsCheck?.();
   try{this.textPath?.want(text);}catch{}
+  const authored=this.filterHookRedraws()&&this.pageScriptParts(text).length===1;
   /* E501 every source path (native line, merged batch, skip burst) meets the same frame-dump filter as the aux entries */
-  if(require('./language-tracks.cjs').stuttered(text)){this.trace('drop typewriter/redraw frame '+JSON.stringify(String(text).slice(0,40)));return;}
+  if(!authored){
+   if(require('./language-tracks.cjs').stuttered(text)){this.trace('drop typewriter/redraw frame '+JSON.stringify(String(text).slice(0,40)));return;}
   /* last guard before the reader: every path (native line, merged batch, skip burst) draws a sentence once and no stage note */
   /* 2026-11-19 names glued while skipping (謎の男謎の男…美亜美亜) are the last name */{const nm=LineOnce.nameStack(text);if(nm){this.speaker={text:nm,at:this.now()};this.noteSpeaker(nm);this.trace('name stack kept last name '+JSON.stringify(nm));return;}}
   {const bare=LineOnce.stripStageNotes(text);if(bare!==text){if(!bare.trim()){this.trace('drop stage note '+JSON.stringify(String(text).slice(0,40)));return;}text=bare;}const once=LineOnce.collapse(text);if(once.collapsed){this.trace('emit repeat collapsed chars='+text.length+'->'+once.text.length);text=once.text;}}
+  }
   /* 2026-11-20 core/page-text.cjs: the page drawn again is nothing new; the page plus a new part is the new part */
   if(origin!=='ocr'&&require('./saya-page-ocr.cjs').legacyExe(this.target?.name)){
    if(/^(?:MS\s*P?ゴシック)+$/iu.test(String(text).normalize('NFKC').replace(/\s/g,'')))return;
@@ -1062,7 +1176,7 @@ class HookNative{
     if(this.windowState?.bound&&!this.originalReplaced())engine='saya-script-read';
    }
   }
-  const paged=!nativeLine&&!this.flowPage&&!['saya-page-ocr','saya-script-read'].includes(engine);if(paged){const r=(this.pageText||(this.pageText=new PageText())).take(text,this.now());if(r.drop){this.trace('page text: '+r.drop+' '+JSON.stringify(String(text).slice(0,40)));return;}if(r.page){this.trace('page text: new part after '+r.page+' shown lines');text=r.text;}}
+  const paged=!nativeLine&&!this.flowPage&&!['saya-page-ocr','saya-script-read'].includes(engine);if(paged){const P=this.pageText||(this.pageText=new PageText());if(!authored){const r=P.take(text,this.now());if(r.drop){this.trace('page text: '+r.drop+' '+JSON.stringify(String(text).slice(0,40)));return;}if(r.page){this.trace('page text: new part after '+r.page+' shown lines');text=r.text;}}}
   {const sp=splitSpeaker(text,this.knownSpeakers);if(sp.name){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);if(!sp.text.trim()){this.trace('speaker name split from the text flow');return;}text=sp.text;}}
   if(!engine&&!nativeLine&&this.flowPage)engine='nvl';
   const takesOverSayaPage=this.state.hookSourceEngine==='saya-page-ocr'&&origin!=='ocr'&&origin!=='history';
@@ -1074,7 +1188,7 @@ class HookNative{
    else{if(L.looping)this.trace('menu loop ended');L.looping=false;L.repeats=[];}
    L.seen.push({text,at:now});if(L.seen.length>12)L.seen.shift();}
   /* 2026-11-20 core/page-text.cjs: the rest of a sentence that the last line left open with a comma is shown with it, as one sentence */
-  const part=text;let continues=0;/* not when the engine named a new speaker after the last line */if(paged&&!(this.speaker&&this.speaker.at>(this.lastSourceAt||0))){const c=this.pageText.continuation(text,this.now());if(c){this.trace('sentence continues the shown line ('+c.continues+' chars before)');text=c.text;continues=c.continues;}}
+  const part=text;let continues=0;/* not when the engine named a new speaker after the last line */if(paged&&!this.filterHookRedraws()&&!(this.speaker&&this.speaker.at>(this.lastSourceAt||0))){const c=this.pageText.continuation(text,this.now());if(c){this.trace('sentence continues the shown line ('+c.continues+' chars before)');text=c.text;continues=c.continues;}}
   this.beforeDialogue?.({hookSequence:(this.state.hookSequence||0)+1,hookSource:text,hookSourceOrigin:origin,hookSourceContinues:continues});
   this.learnBareName(text);
   const speaker=this.speaker&&this.now()-this.speaker.at<2500?this.speaker.text:'';this.speaker=null;/* E416 the choice detector learns every dialogue line and speaker, whatever the engine */(this.choice||(this.choice=this.newChoiceCapture())).noteDialogue(text,speaker);/* E407 a new dialogue line ends the choice screen */if(text.replace(/\s+/g,'')!==String(this.lastSource||'').replace(/\s+/g,''))this.clearChoices('new dialogue line',400,text);this.lastSource=text;this.lastSourceAt=this.now();/* #468 the lines the game's own text gave (never an OCR line): an OCR reading of the same page is refused (ocrLineRefused) */if(origin!=='ocr'){const R=this.hookRecent||(this.hookRecent=[]);R.push({key:HookNative.flat(text),at:this.now()});if(R.length>24)R.shift();}this.palFlush?.();this.lastSourceStream=this.sourceStream||'';this.trace('source chars='+text.length+' sequence='+((this.state.hookSequence||0)+1));this.textEffectsLine(text,this.fxNext===true||origin==='placement');if(paged){/* the reader keeps the page's earlier lines above this one while the page stays (web hook-reader.js) */if(!continues&&this.pageText.pages){const same=this.pageText.samePage(this.now());this.pageSaidSame=same;this.emit({type:'hookPage',engine:'text',line:(this.state.hookSequence||0)+1,same,at:this.now()});}this.pageText.shown(part,text,this.now());}this.notify({...(this.lineUnreadable?(this.lineUnreadable=false,{hookLineUnreadable:false}):{}),hookActive:true,...(origin==='ocr'||engine==='saya-page-ocr'?{}:{processAttached:true,streamSelected:true,hookRecovering:false}),hookSource:text,hookSpeaker:speaker,hookSourceEngine:engine,hookFlowGrid:engine==='nvl'?(this.flowGridName||''):'',...(()=>{const f=engine==='nvl'?this.flowLayout(text):null;/* E410 */return {hookFlowPageStart:f?.pageStart===true,hookFlowRow:f?.row||'',hookSourceIndex:Number.isSafeInteger(f?.index)?f.index:-1};})(),hookSourceContinues:continues,hookSourceLine:nativeLine,hookSourceOrigin:origin||'live',hookSourceRuby:this.sourceRuby?.get(text)||[],hookSequence:(this.state.hookSequence||0)+1,receivedText:!!text.trim(),hookMessage:engine==='saya-page-ocr'?'画面文字已匹配原版剧本':origin==='ocr'?'已读取画面文字':text.trim()?'已收到真实游戏台词':'收到空文本信号'});
