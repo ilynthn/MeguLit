@@ -153,8 +153,8 @@
     body.tomoyo-gal-bound:is(.tome-line-read,.tome-line-color) .sentence-window:not(.tome-island-page) :is(.sentence-text .char-token,.tomoyo-cn-output) { color:var(--tomoyo-gal-color)!important; }
     body.tome-line-edge .sentence-window:not(.tome-island-page) { --tomoyo-jp-stroke-color:var(--tomoyo-gal-line-edge); --tomoyo-ruby-stroke-color:var(--tomoyo-gal-line-edge); --tomoyo-cn-stroke-color:var(--tomoyo-gal-line-edge); } /* the outline the game drew this sentence with; furigana and the translation under it follow the line (they take its colour too) */
     body.tome-surface-pending .sentence-window, body.tome-surface-pending .tomoyo-native-mask, body.tome-surface-pending .tome-inline-wait { visibility:hidden!important; }
-    body.tome-box-dragging .sentence-window { outline:2px dashed var(--theme-primary,#e0495a)!important; outline-offset:2px; cursor:move!important; }
-    body.tome-box-dragging .sentence-window * { cursor:move!important; pointer-events:none!important; }
+    .tome-subtitle-drag-guide { position:fixed;box-sizing:border-box;border:2px dashed var(--theme-primary,#e0495a);background:transparent;pointer-events:auto;touch-action:none;cursor:move;z-index:2147481000; }
+    .tome-subtitle-drag-guide[hidden] { display:none!important; }
     [data-gal-drag].tome-dragging { background:var(--theme-primary,#e0495a)!important; color:#fff!important; border-color:transparent!important; }
     .sentence-text .megulit-ruby-base[data-tomoyo-reading]::before { content:attr(data-tomoyo-reading); position:absolute; left:calc(50% - var(--megulit-ruby-trailing-space,0px)/2 + var(--tomoyo-ruby-offset-x,0px) + var(--megulit-ruby-row-x,0px)); top:calc(var(--megulit-ruby-top,0px) - var(--megulit-ruby-lift,calc(.22em - var(--tomoyo-ruby-offset-y,0px)))); transform:translate(-50%,-100%); font-size:var(--tomoyo-ruby-actual-size,max(6px,var(--tomoyo-ruby-scale,.52em))); line-height:1; font-weight:var(--tomoyo-jp-weight,400); white-space:nowrap; pointer-events:none; letter-spacing:var(--megulit-ruby-letter-spacing,0em); margin-left:calc(var(--megulit-ruby-letter-spacing,0em)/2); text-shadow:var(--tomoyo-gal-shadow,0 1px 2px #000e); }
     body.tomoyo-gal-bound [data-gal-reader-container] > :not([data-gal-reader-container]):not(.sentence-window):not(.tomoyo-cn-dialog):not(.word-image-preview-portal):not(.tomoyo-native-mask):not(.tome-backlog):not(.tome-box-deco):not(.tome-mode-veil):not(.mg-bubble) { display:none!important; }
@@ -296,6 +296,7 @@
     rows.sort((a,b)=>a.center-b.center);
     const rowOf=g=>{const c=(g.top+g.bottom)/2;let best=0;for(let i=1;i<rows.length;i++)if(Math.abs(rows[i].center-c)<Math.abs(rows[best].center-c))best=i;return best;
      };
+    const band=sentence.closest('.megulit-dialogue-band')?.getBoundingClientRect();
     for(const node of bases){
       const first=node.firstElementChild,style=getComputedStyle(first),rect=node.getBoundingClientRect(),glyph=first.getBoundingClientRect();
       const baseFont=parseFloat(style.fontSize)||16;
@@ -323,7 +324,7 @@
       canvas.font=font+'px '+family;
       items.push({node,reading,left:rect.left+(offset+rowX)*scale,right:rect.right+(offset+rowX-trailing)*scale,
         top:glyph.top,font,width:(canvas.measureText(reading).width+([...reading].length-1)*spacing*font)*scale,
-        limitLeft:0,limitRight:window.innerWidth,priority:node.childElementCount});
+        limitLeft:band?.left??0,limitRight:band?.right??window.innerWidth,priority:node.childElementCount});
     }
     // One reading size for the whole sentence (user: 一样大最好): the smallest that fits any of its rows.
     const common=Math.min(...items.map(i=>i.font));for(const i of items){i.width*=common/i.font;i.font=common;}
@@ -1041,18 +1042,67 @@
     const dragButton = group.querySelector('[data-gal-drag]'), dragWords = {zh:['拖动文本框','确定位置'],en:['Drag text box','Confirm position'],ja:['テキスト枠をドラッグ','位置を確定']};
     const dragLabel = on => { const w = dragWords[(window.__tomeI18n?.get?.()||'zh').slice(0,2)] || dragWords.zh; dragButton.dataset.noI18n = ''; dragButton.textContent = w[on?1:0];
      dragButton.classList.toggle('tome-dragging', on); };
-    let dragStart = null, dragFrame = 0;
-    const dragDown = e => { if (e.button !== 0 || e.target.closest('.tomoyo-cn-dialog')) return; e.preventDefault(); e.stopPropagation(); dragStart = { x:e.clientX,
-     y:e.clientY, gx:Number(f('galX').value), gy:Number(f('galY').value) }; try { e.target.setPointerCapture(e.pointerId); } catch {} };
-    const dragMove = e => { if (!dragStart) return; e.preventDefault(); e.stopPropagation(); const dpr = Math.max(.5, Number(window.devicePixelRatio)||1), cw = layoutInfo?.clientWidth||window.innerWidth*dpr,
-     ch = layoutInfo?.clientHeight||window.innerHeight*dpr;
-      const lo = fieldsAreOffset ? -95 : 0; f('galX').value = Math.round(Math.max(lo, Math.min(95, dragStart.gx + (e.clientX-dragStart.x)*dpr*100/cw))*10)/10; f('galY').value = Math.round(Math.max(lo,
-       Math.min(95, dragStart.gy + (e.clientY-dragStart.y)*dpr*100/ch))*10)/10; if (!dragFrame) dragFrame = requestAnimationFrame(() => { dragFrame = 0; preview();
-       }); };
-    const dragUp = e => { if (!dragStart) return; e.stopPropagation(); dragStart = null; };
-    const dragMode = on => { document.body.classList.toggle('tome-box-dragging', on); dragLabel(on); for (const [type, fn] of [['pointerdown',dragDown],['pointermove',
-     dragMove],['pointerup',dragUp]]) { if (on) window.addEventListener(type, fn, true); else window.removeEventListener(type, fn, true); } if (!on) dragStart = null;
+    const guide = document.createElement('div'); guide.className = 'tome-subtitle-drag-guide'; guide.setAttribute('aria-hidden','true');
+    let dragStart = null, dragFrame = 0, guideFrame = 0;
+    const paintGuide = () => {
+     if (!guide.isConnected) return;
+     const game = bridge.gameArea() || {left:0,top:0,width:innerWidth,height:innerHeight};
+     const win = document.querySelector('.sentence-window.tomoyo-hook-reader:not([hidden])') || document.querySelector('.sentence-window');
+     const positioned = win?.classList.contains('megulit-place-window');
+     const visible = positioned ? [...win.querySelectorAll('.char-token:not(.megulit-unplaced),.tomoyo-cn-row')].filter(n=>getComputedStyle(n).visibility==='visible').map(n=>n.getBoundingClientRect()).filter(r=>r.width>0&&r.height>0) : [];
+     const currentBox = visible.length ? {left:Math.min(...visible.map(r=>r.left))-4,top:Math.min(...visible.map(r=>r.top))-4,
+      right:Math.max(...visible.map(r=>r.right))+4,bottom:Math.max(...visible.map(r=>r.bottom))+4} : !positioned ? win?.getBoundingClientRect() : null;
+     const dpr = devicePixelRatio || 1;
+     const l = layoutInfo;
+     const fallback = l?.readerWidth > 0 && l.readerHeight > 0 ? {left:l.readerX/dpr,top:l.readerY/dpr,right:(l.readerX+l.readerWidth)/dpr,bottom:(l.readerY+l.readerHeight)/dpr} :
+      {left:game.left+game.width*.05,top:game.top+game.height*.72,right:game.left+game.width*.95,bottom:game.top+game.height*.93};
+     const visibleBox = box => {
+      if (!box) return null;
+      const left = Math.ceil(Math.max(0,game.left,box.left)), top = Math.ceil(Math.max(0,game.top,box.top));
+      const right = Math.floor(Math.min(innerWidth,game.left+game.width,box.right)), bottom = Math.floor(Math.min(innerHeight,game.top+game.height,box.bottom));
+      return right-left >= 4 && bottom-top >= 4 ? {left,top,right,bottom} : null;
      };
+     const box = visibleBox(currentBox) || visibleBox(fallback) || visibleBox({left:game.left,top:game.top,right:game.left+game.width,bottom:game.top+game.height});
+     guide.hidden = !box;
+     if (box) {
+      const {left,top,right,bottom} = box;
+      const css = `left:${left}px;top:${top}px;width:${right-left}px;height:${bottom-top}px;`;
+      if(guide.dataset.bounds!==css){guide.style.cssText=css;guide.dataset.bounds=css;}
+     }
+     guideFrame=requestAnimationFrame(paintGuide);
+    };
+    const dragDown = e => {
+     if (e.button!==0 || e.target!==guide) return;
+     const game = bridge.gameArea() || {width:innerWidth,height:innerHeight};
+     const offset = fieldsAreOffset ? bridge.textPlaceAppliedOffset?.() : null;
+     dragStart = {pointer:e.pointerId,x:e.screenX,y:e.screenY,game,offsetMode:fieldsAreOffset,gx:offset?.x??Number(f('galX').value),gy:offset?.y??Number(f('galY').value)};
+     guide.dataset.dragging='true';
+     window.__tomoyoHitRegionsRefresh?.(true);
+     e.preventDefault();e.stopPropagation();try{guide.setPointerCapture(e.pointerId);}catch{}
+    };
+    const dragMove = e => {
+     const d=dragStart;if(!d||e.pointerId!==d.pointer)return;
+     e.preventDefault();e.stopPropagation();const lo=d.offsetMode?-95:0;
+     const move=(key,value)=>{const field=f(key);field.value=Math.max(lo,Math.min(95,value));field.dispatchEvent(new Event('input'));};
+     move('galX',d.gx+(e.screenX-d.x)*100/d.game.width);move('galY',d.gy+(e.screenY-d.y)*100/d.game.height);
+     if(!dragFrame)dragFrame=requestAnimationFrame(()=>{dragFrame=0;preview();});
+    };
+    const dragEnd = e => {
+     if(e.pointerId!==dragStart?.pointer)return;
+     if(e.type==='pointerup')dragMove(e);
+     dragStart=null;delete guide.dataset.dragging;
+     window.__tomoyoHitRegionsRefresh?.(true);
+     e.stopPropagation();
+    };
+    const dragMode = on => {
+     document.body.classList.toggle('tome-box-dragging',on);dragLabel(on);
+     for (const [type,handler] of [['pointerdown',dragDown],['pointermove',dragMove],['pointerup',dragEnd],['pointercancel',dragEnd]]) {
+      if(on)window.addEventListener(type,handler,true);else window.removeEventListener(type,handler,true);
+     }
+     if(on){document.body.append(guide);paintGuide();}
+     else{cancelAnimationFrame(guideFrame);cancelAnimationFrame(dragFrame);guideFrame=dragFrame=0;dragStart=null;delete guide.dataset.dragging;guide.remove();}
+     window.__tomoyoHitRegionsRefresh?.(true);
+    };
     dragButton.onclick = () => { const on = !document.body.classList.contains('tome-box-dragging'); dragMode(on); if (!on) save(); };
     dragLabel(false); dialog.addEventListener('close', () => dragMode(false), { once:true });
     bridge.galAnchorOffsetReset = () => { if (anchoredNow()) bridge.applyGalPreferences({ anchorDX: 0, anchorDY: 0 }, { preview: true }); }; /* 校准当前句 / 仅校准位置 put the line back on the game's own place */

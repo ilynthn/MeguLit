@@ -7,6 +7,7 @@
  "mode": "hide",
  "settings": {
   "placement": {
+   "dialogueArea": { "x": 70, "y": 477, "w": 670, "h": 115, "client": [800, 600] },
    "lineOffsetY": 0,
    "drawWhileBlanking": false,
    "translationGrowsDown": false,
@@ -78,5 +79,5 @@
  "sourceLangs": [
   "ja"
  ],
- "rev": 8
+ "rev": 9
 }

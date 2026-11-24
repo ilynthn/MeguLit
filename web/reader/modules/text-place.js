@@ -12,6 +12,7 @@
   if (!b || !document.body) { document.addEventListener('DOMContentLoaded', install, { once: true }); return; }
   if (b.textPlace) return;
   let unmatched = null;
+  let bandWindow = null, bandRetired = null, appliedOffset = null;
   /* 2026-11-21 (owner's recording, windowed 千恋＊万花: dragging the 原文与译文间距 slider made the translation jump between right under
      its Japanese and below the game window, back and forth): one decision per line, with hysteresis. The translation leaves for
      below the window only once it reaches a quarter glyph into the game's button strip, and comes back under its Japanese only
@@ -20,6 +21,11 @@
   let on = false, line = null, frame = 0, lastGeom = '', anchor = null, anchorLine = '', anchorLimit = NaN, anchorMode = true, drawnByGame = '', drawnHiding = false, drawnEmbedded = 0, pageOwn = false, page = null; const clones = new Map();
   const style = document.createElement('style');
   style.textContent = [
+    'html body .sentence-window.megulit-dialogue-band{box-sizing:border-box!important;position:fixed!important;display:block!important;padding:var(--megulit-band-ruby-room,0px) 0 0!important;background:none!important;overflow:hidden!important;text-align:left!important;font-size:calc(var(--tomoyo-gal-jp-size,26px) * var(--megulit-band-fit,1))!important;line-height:var(--megulit-dialogue-pitch,1.6)!important}',
+    'html body .sentence-window.megulit-dialogue-band .sentence-text,html body .sentence-window.megulit-dialogue-band .tomoyo-cn-row:not([hidden]){position:static!important;text-indent:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-break:strict!important}',
+    'html body .sentence-window.megulit-dialogue-band .sentence-text{font-size:inherit!important;line-height:inherit!important}',
+    'html body .sentence-window.megulit-dialogue-band .tomoyo-cn-output{font-size:calc(var(--tomoyo-gal-cn-size,20px) * var(--megulit-band-fit,1))!important}',
+    'html body .megulit-dialogue-band :is(.megulit-old-line,.tome-page-lines){display:none!important}',
     'body.megulit-placed .sentence-window.megulit-place-window{left:0!important;top:0!important;right:auto!important;bottom:auto!important;width:100vw!important;height:100vh!important;max-height:none!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;outline:0!important;backdrop-filter:none!important;overflow:visible!important;transform:none!important;pointer-events:none}',
     'body.megulit-placed .sentence-window.megulit-place-window::before,body.megulit-placed .sentence-window.megulit-place-window::after{display:none!important}',
     'body.megulit-placed .tome-box-deco,body.megulit-placed .sentence-window:not(.megulit-place-window){display:none!important}',
@@ -123,6 +129,7 @@
     /* an offset never takes the first character out of the game client (a stray value must not lose the line for good) */
     const cx0 = info0?.clientWidth ? (info0.clientX || 0) / dpr0 : 0, cy0 = info0?.clientHeight ? (info0.clientY || 0) / dpr0 : 0;
     const offX = Math.max(cx0 - anchor[0], Math.min(cx0 + cwc - 40 - anchor[0], (Number(pr.anchorDX) || 0) / 100 * cwc)), offY = Math.max(cy0 - anchor[1], Math.min(cy0 + chc - 40 - anchor[1], (Number(pr.anchorDY) || 0) / 100 * chc));
+    appliedOffset = {x:offX / cwc * 100, y:offY / chc * 100};
     if (tr && tr.width && anchor.center) { set(win, 'left', (anchor[0] + offX - wr.width / 2) + 'px'); set(win, 'top', (wr.top + anchor[1] + offY - tr.top) + 'px'); set(win, 'right', 'auto'); set(win, 'bottom', 'auto'); set(win, 'margin', '0'); }
     else if (tr && tr.width) { set(win, 'left', (wr.left + anchor[0] + offX - tr.left) + 'px'); set(win, 'top', (wr.top + anchor[1] + offY - tr.top) + 'px'); set(win, 'right', 'auto'); set(win, 'bottom', 'auto'); set(win, 'margin', '0'); }
     /* 2026-11-19 (user, windowed 千恋＊万花: 「不要再挤压我的汉字了 我窗口化呢 只要显示器上还有位置就不要这样」): the translation keeps the
@@ -207,6 +214,7 @@
     }
   }
   function release(fallback = false, repin = true) {
+    clearBand();
     document.querySelector('.megulit-script-history')?.remove();
     document.body.classList.remove('megulit-native-cells');
     if (!page) document.body.classList.remove('megulit-placed');
@@ -243,6 +251,62 @@
     map.bounds = [L, T, R, B];
     return map;
   }
+  const dialogueArea = () => window.MeguLitProfile?.get?.('placement.dialogueArea');
+  b.textPlaceUsesDialogueArea = () => on && anchorMode && !!dialogueArea();
+  function clearBand() {
+    if (!bandWindow) return;
+    bandWindow.classList.remove('megulit-dialogue-band', 'megulit-anchor-window');
+    for (const key of ['left','top','right','bottom','width','max-width','height','max-height','margin','--megulit-dialogue-pitch','--megulit-band-fit','--megulit-band-ruby-room']) bandWindow.style.removeProperty(key);
+    bandWindow = null;
+  }
+  function retireBand(text) {
+    if (!b.textPlaceUsesDialogueArea()) return;
+    const sentence = target()?.querySelector('.sentence-text:not(.megulit-old-line)'), current = readerLine();
+    if (current && text && (current === text || current.includes(text) && text.length / current.length >= .6)) bandRetired = {sentence,sequence:sentence.dataset.sequence,text:current};
+  }
+  function placeBand(win, sentence, region, text) {
+    const client = b.gameArea?.(), ref = region?.client;
+    if (!client || !(ref?.[0] > 0 && ref[1] > 0 && region.w > 0 && region.h > 0)) return false;
+    const scale = Math.min(client.width / ref[0], client.height / ref[1]);
+    const x = client.left + (client.width - ref[0] * scale) / 2, y = client.top + (client.height - ref[1] * scale) / 2;
+    const minX = Math.max(2, client.left + 2), maxX = Math.min(innerWidth - 2, client.left + client.width - 2);
+    const minY = Math.max(2, client.top + 2), maxY = Math.min(innerHeight - 2, client.top + client.height - 2);
+    const left = Math.max(minX, x + region.x * scale), right = Math.min(maxX, x + (region.x + region.w) * scale);
+    const top = Math.max(minY, y + region.y * scale), bottom = Math.min(maxY, y + (region.y + region.h) * scale);
+    if (right - left < 40 || bottom - top < 12) return false;
+    const records = page?.lines || [], cur = records.findLast(l => [...l.text].filter(c => !blank(c)).join('').includes(text));
+    if (bandWindow !== win) { const oldPage = page; page = null; release(true, false); page = oldPage; }
+    bandWindow = win;
+    win.classList.add('megulit-dialogue-band', 'megulit-anchor-window');
+    const body = document.body;
+    body.classList.add('megulit-anchored');
+    body.classList.remove('megulit-place-garbled','megulit-place-asleep');
+    if (pageOwn) { pageOwn = false; briefSync(false); }
+    const native = gameDrawn() || cur && page?.awake && !page.armed;
+    document.body.classList.toggle('megulit-place-game-drawn', !!native);
+    const retired = bandRetired?.sentence === sentence && bandRetired.sequence === sentence.dataset.sequence && bandRetired.text === text;
+    body.classList.toggle('megulit-place-gone', retired);
+    body.classList.remove('megulit-cleared-translation');
+    if (!native && cur) drawn(cur);
+    const prefs = b.galPreferences?.() || {};
+    const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+    const width = right - left, height = bottom - top;
+    const l = clamp(left + (Number(prefs.anchorDX) || 0) * client.width / 100, minX, maxX - width);
+    const t = clamp(top + (Number(prefs.anchorDY) || 0) * client.height / 100, minY, maxY - height);
+    const ruby = prefs.furigana && prefs.display !== 'chinese' ? (Number(prefs.rubyScale) || .55) : 0;
+    const pitch = Math.max(1.18 + ruby, (ruby ? 1.85 : 1.4) + (Number(prefs.lineHeight) || 0));
+    set(win,'--megulit-dialogue-pitch',String(pitch));
+    set(win,'--megulit-band-ruby-room',ruby ? Math.max(.15, ruby + .32 - (pitch - 1) * .5) + 'em' : '0px');
+    for (const [key,value] of Object.entries({left:l+'px',top:t+'px',width:width+'px','max-width':width+'px',height:height+'px','max-height':height+'px',right:'auto',bottom:'auto',margin:'0'})) set(win,key,value);
+    appliedOffset = {x:(l-left)/client.width*100,y:(t-top)/client.height*100};
+    set(win,'--megulit-band-fit','1');
+    for (let fit = 1; fit > .5 && win.scrollHeight > win.clientHeight + 1;) {
+      fit = Math.max(.5, fit * .92);
+      set(win,'--megulit-band-fit',fit.toFixed(3));
+    }
+    document.getElementById('megulit-page-ahead')?.replaceChildren();
+    return true;
+  }
   /* name plate (n) and choices (o) the game drew blank: drawn character by character on their boxes in the reader's own
      text style, click-through (a click on an option reaches the game's own blank button underneath) */
   let extras = { items: [], client: null }, extraKey = '';
@@ -257,7 +321,7 @@
      its boxes. textPlace {gone} (core/overlay-placement.cjs, from an engine that reports its cleared line): that line, the lines
      waiting and the orphans of the page are gone with it; the line stays the anchor for the next one */
   let goneText = '';
-  function pageCleared(text) { goneText = [...String(text || '')].filter(c => !blank(c)).join(''); waits.clear(); orphanWait = null; if (orphans.length) { orphans = []; extraKey = ''; } schedule(); }
+  function pageCleared(text) { goneText = [...String(text || '')].filter(c => !blank(c)).join(''); retireBand(goneText); waits.clear(); orphanWait = null; if (orphans.length) { orphans = []; extraKey = ''; } schedule(); }
   let orphans = [], orphanWait = null;
   /* 2026-11-21 (owner, ファタモルガーナの館 r30: the choice screen showed its frames and nothing in them): the game draws its options one right
      after the other, each a hidden line of its own; only the last one stayed current for ORPHAN_MS, the others never became orphans. Every
@@ -457,7 +521,7 @@
     const text = readerLine(), row = win?.querySelector('.tomoyo-cn-row'); if (!text || !row || !page) return;
     let cur = null; for (let i = page.lines.length - 1; i >= 0; i--) if (page.lines[i].text.includes(text) && page.lines[i].rects.length) { cur = page.lines[i]; break; }
     if (!cur) return;
-    const map = mapper(page.client), at = [...cur.text.slice(0, cur.text.indexOf(text))].length, rs = cur.rects.slice(at, at + [...text].length).filter(Boolean).map(map); if (!rs.length) return;
+    const map = pageMap(), at = [...cur.text.slice(0, cur.text.indexOf(text))].length, rs = cur.rects.slice(at, at + [...text].length).map(map).filter(Boolean); if (!rs.length) return;
     const all = page.lines.flatMap(l => l.rects).map(map), x0 = Math.min(...rs.map(r => r[0])), y1 = Math.max(...rs.map(r => r[1] + r[3])), h = median(rs.map(r => r[3])) || 24;
     const right = Math.max(...all.map(r => r[0] + r[2]), ...rs.map(r => r[0] + r[2]));
     document.body.classList.add('megulit-anchored'); win.classList.add('megulit-anchor-window');
@@ -470,6 +534,19 @@
     const info = b.galLayoutInfo?.(), dpr = devicePixelRatio || 1, limit = (Number.isFinite(info?.workBottom) && info.workBottom > 0 ? info.workBottom / dpr : innerHeight) - 8, rb = row.getBoundingClientRect();
     if (rb.height > 0 && rb.bottom > limit) { const fs0 = parseFloat(getComputedStyle(row).fontSize) || 16, fs = Math.max(Math.ceil(fs0 * .85), Math.floor(fs0 * (limit - rb.top) / rb.height)); for (const o of [row, ...row.querySelectorAll('*')]) set(o, 'font-size', fs + 'px'); place(); }
   }
+  function pageMap() {
+    const map = mapper(page.client), prefs = b.galPreferences?.() || {};
+    if (!anchorMode || !(Number(prefs.anchorDX) || Number(prefs.anchorDY))) return map;
+    const rects = page.lines.flatMap(l => l.rects).map(map).filter(Boolean);
+    if (!rects.length) return map;
+    const [l,t,r,bottom] = map.bounds;
+    const dx = Math.max(l - Math.min(...rects.map(x=>x[0])), Math.min(r - Math.max(...rects.map(x=>x[0]+x[2])), (Number(prefs.anchorDX) || 0) * (r-l) / 100));
+    const dy = Math.max(t - Math.min(...rects.map(x=>x[1])), Math.min(bottom - Math.max(...rects.map(x=>x[1]+x[3])), (Number(prefs.anchorDY) || 0) * (bottom-t) / 100));
+    appliedOffset = {x:dx/(r-l)*100,y:dy/(bottom-t)*100};
+    const move = value => { const p = map(value); return p && [p[0]+dx,p[1]+dy,p[2],p[3]]; };
+    move.bounds = map.bounds;
+    return move;
+  }
   function applyPage() {
     const body = document.body, win = target(), sentence = win?.querySelector('.sentence-text:not(.megulit-old-line)');
     /* E610 (DDLC Plus live: the layer never armed for a Unity write-back stream, said awake=0, and the reader was hidden for good) only an armed layer's "no page" hides the reader */const asleep = on && page.armed === true && page.awake === false, live = on && page.awake && page.armed && page.lines.length > 0;
@@ -479,7 +556,7 @@
     /* 2026-11-21 (ファタ two-row page, page.engineRows): the line model's anchored pin (the window moved to the line's anchor) is undone
        before the page places its lines on their own boxes, or every row sits that far off */
     if (document.querySelector('.megulit-anchor-window')) { const p0 = page; page = null; release(false, false); page = p0; }
-    const map = mapper(page.client), readerText = readerLine(), geom = [];
+    const map = pageMap(), readerText = readerLine(), geom = [];
     let cur = null; if (readerText) for (let i = page.lines.length - 1; i >= 0; i--) if (page.lines[i].text.includes(readerText)) { cur = page.lines[i]; break; }
     /* 2026-11-16 (QQ group, ライムライト・レモネードジャム: ruby and translation only, no Japanese): an armed page means the game's
        own text is hidden by MeguLit, so the reader's Japanese can never be "drawn by the game". A line not found on the page
@@ -512,7 +589,7 @@
         set(row, 'left', x0 + 'px'); set(row, 'top', (only ? y0 : y1 + size * .25) + 'px');
         /* as wide as the page from the start: the row was as wide as what had been typed so far (at least 20 characters),
            so a longer translation was cut off at that edge until the Japanese caught up (2026-11-15, the last flicker) */
-        const pageRight = Math.max(...page.lines.flatMap(l => l.rects).map(map).map(r => r[0] + r[2]));
+        const pageRight = Math.max(...page.lines.flatMap(l => l.rects).map(map).filter(Boolean).map(r => r[0] + r[2]));
         set(row, 'width', Math.max(pageRight - x0, x1 - x0, Math.min(innerWidth - x0 - 8, size * 34)) + 'px');
         /* issue 468 (寒蝉, full-page NVL): the page's translation was always 60 % of the Japanese, whatever the user set. It is the user's
            translation size, as on a single placed line; under a sentence at the bottom of the page it is made smaller once (at most 15 %)
@@ -528,7 +605,7 @@
        after the character: every new character came in cut off on its right. While the newest line is being typed the
        rest of its row and the next row are regions ahead of time (painted, the pointer passes to the game). */
     {
-      const all = page.lines.flatMap(l => l.rects).map(map), last = cur && cur.rects.length ? map(cur.rects[cur.rects.length - 1]) : null;
+      const all = page.lines.flatMap(l => l.rects).map(map).filter(Boolean), last = cur && cur.rects.length ? map(cur.rects[cur.rects.length - 1]) : null;
       let ahead = document.getElementById('megulit-page-ahead'), boxes = [];
       if (cur && last && all.length && cur.rects.length < [...cur.text].length) {
         const x0 = Math.min(...all.map(r => r[0])), x1 = Math.max(Math.max(...all.map(r => r[0] + r[2])), x0 + last[3] * 20), h = last[3], pitch = h * 1.3;
@@ -658,6 +735,7 @@
   }
   function apply() {
     frame = 0;
+    appliedOffset = null;
     if (waits.size) flushWaits();
     drawExtras();
     // A native clear can precede retirement of the reader sentence and its asynchronous translation.
@@ -665,6 +743,11 @@
     const reader = cleared ? readerLine() : null;
     const hideTranslation = !!cleared && (!reader || reader === goneText || reader === page.retiredReader);
     document.body.classList.toggle('megulit-cleared-translation', hideTranslation);
+    if (b.textPlaceUsesDialogueArea()) {
+      const win = target(), text = readerLine(), sentence = win?.querySelector('.sentence-text:not(.megulit-old-line)');
+      if (sentence && text && placeBand(win, sentence, dialogueArea(), text)) return;
+    }
+    clearBand();
     if (page) { document.body.classList.remove('megulit-native-cells'); return applyPage(); }
     if (!on || !line) { document.body.classList.remove('megulit-place-garbled'); release(); gameDrawn(); return; }
     if (line.nativeCells && readerLine() !== line.text.replace(/\s/g, '')) { release(); return; }
@@ -873,6 +956,7 @@
     if (m?.clearedFallback) {
       drawnByGame = '';
       line = { cleared: true, fallback: true, text: [...String(m.text)].filter(c => !blank(c)).join('') };
+      retireBand(line.text);
       schedule(); return;
     }
     if (m?.gone === true) { pageCleared(m.text); return; } if (m && Array.isArray(m.rects) && m.text && [...String(m.text)].filter(c => !blank(c)).join('') !== goneText) goneText = '';
@@ -924,18 +1008,23 @@
   b.textPlaceMode = m => { on = m?.on === true; document.body.classList.toggle('megulit-anchor-mode', on && anchorMode); if (on) bindAdvance(); if (!on) stale.clear(); if (!on) waits.clear(); if (!on) { orphans = []; orphanWait = null; } const g = m && 'game' in m ? String(m.game || '') : modeGame; if (!on || g !== modeGame) { anchor = null; anchorLine = ''; cnBelow = { key: null, below: false }; } modeGame = g; if (!on) { document.body.classList.remove('megulit-place-gone'); if (pageOwn) { pageOwn = false; briefSync(false); } line = null; drawnByGame = ''; if (page) { page = null; pageGone(); } } schedule(); };
   /* 2026-11-21 (owner's recording 08:28, 千恋＊万花): game-fit.js measured the reader on its own place in the gap between two lines and cut the
      next line's translation; while this module anchors lines on the game's place it owns their layout, gaps included */
-  b.textPlaceOwns = () => on && anchorMode && !!anchor;
+  b.textPlaceOwns = () => on && anchorMode && (!!anchor || !!bandWindow);
+  b.textPlaceAppliedOffset = () => appliedOffset;
   // Replacing the tokens can change the first glyph's indent and ascent before
   // a fresh set of boxes arrives. Pin the new text in the same paint as the swap.
   b.textPlaceFirstPaint = (win, sentence) => {
+    const text = readerLine();
+    if (text && b.textPlaceUsesDialogueArea() && placeBand(win, sentence, dialogueArea(), text)) return;
     if (on && anchorMode && anchor && !page && win.classList.contains('megulit-anchor-window')
         && window.MeguLitProfile?.get?.('placement.translationGrowsDown', false) === true) pin(win, sentence);
   };
   b.textPlaceStatus = () => ({ on, line: line ? { text: line.text, n: line.rects?.length || 0, fallback: !!line.fallback, approx: line.approx === true } : null, placed: document.body.classList.contains('megulit-placed'), geom: lastGeom.split(';').length });
   let busy = false;
-  new MutationObserver(records => { if (on && (line || drawnByGame || page) && records.some(r => !(r.target.closest?.('.tomoyo-cn-dialog,#megulit-place-extras,#megulit-page-ahead,.megulit-old-line')) && !r.target.classList?.contains('megulit-old-line'))) { /* page mode: at once, before the next paint, so a line that just stopped being the reader's own never misses a frame */ if (page && !busy) { busy = true; try { apply(); } finally { busy = false; } } else schedule(); } }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+  new MutationObserver(records => { if (on && (line || drawnByGame || page || bandWindow) && records.some(r => !(r.target.closest?.('.tomoyo-cn-dialog,#megulit-place-extras,#megulit-page-ahead,.megulit-old-line')) && !r.target.classList?.contains('megulit-old-line'))) { /* page mode: at once, before the next paint, so a line that just stopped being the reader's own never misses a frame */ if (page && !busy) { busy = true; try { apply(); } finally { busy = false; } } else schedule(); } }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
   const markAll = root => { for (const t of (root.querySelectorAll ? root.querySelectorAll('.sentence-text .char-token:not(.megulit-dash)') : [])) markDash(t); };
   new MutationObserver(records => { for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1) { if (n.matches?.('.char-token') && n.closest('.sentence-text')) markDash(n); else markAll(n); } }).observe(document.documentElement, { subtree: true, childList: true });
   markAll(document);
-  addEventListener('resize', schedule); if (window.MutationObserver) new MutationObserver(() => { if (anchorMode && anchor) schedule(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  addEventListener('resize', schedule);
+  new MutationObserver(() => { if (on && (anchor || page || bandWindow)) schedule(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  addEventListener('megulit-profile', schedule);
 })();

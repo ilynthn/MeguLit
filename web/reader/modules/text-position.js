@@ -153,6 +153,7 @@
   if(!m||![m.x0,m.y0,m.x1,m.y1].every(unit)||m.x1<m.x0||m.y1<m.y0||!Number.isFinite(m.size)||m.size<=0||m.size>256)return;const firstSource=!last;last=m;lastAt=Date.now();
   if(!refresh)lineColor(m);
   if(cal){if(Number.isSafeInteger(m.token)&&m.token>=0)cal.lines.set(m.token,{...m});cal.engine=m.engine;cal.x0=Math.min(cal.x0,m.x0);cal.y0=Math.min(cal.y0,m.y0);cal.x1=Math.max(cal.x1,m.x1);cal.y1=Math.max(cal.y1,m.y1);cal.size=Math.max(cal.size,m.size||0);}
+  if(b.textPlaceUsesDialogueArea?.()||document.body.classList.contains('tome-box-dragging')){following=false;return;}
   if(b.islandPage?.position(m)){repaint();return;}
   /* ADV lines (E550) arrive as the game starts drawing, before their text: no page token to match */
   if(!/_adv_v1$/.test(m.engine)){if(b.pagePositionReady?.()===false)return;const currentToken=b.currentPageToken?.();if(currentToken!=null&&m.token!==currentToken)return;}

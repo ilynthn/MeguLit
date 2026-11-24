@@ -18,6 +18,76 @@ function serve(){const server=http.createServer((req,res)=>{const rel=decodeURIC
  let data=fs.readFileSync(file);if(rel==='/reader/index.html')data=Buffer.from(String(data).replace('<head>','<head>'+STUB));
  res.writeHead(200,{'content-type':TYPES[path.extname(file)]||'application/octet-stream'});res.end(data);});
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
+
+test('Fata keeps the latest sentence in the dialogue box during calibration drags',
+ {skip:!hasEdge&&'Edge not installed',timeout:30000}, async()=>{
+ const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-fata-drag-'));
+ let server,cdp;
+ try{
+  server=await serve();cdp=await startEdge(path.join(temp,'edge'));
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
+  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
+  let ready=false;for(let i=0;i<100&&!ready;i++){await sleep(100);ready=await cdp.evaluate('!!window.__TOME_READER_READY__').catch(()=>false);}
+  assert.ok(ready);
+  await cdp.evaluate(`(()=>{const b=__tomoyoChinese;window.__tomoyoMode.set('translation');
+   const diff=${JSON.stringify(JSON.parse(fs.readFileSync(path.join(ROOT,'The Seed','kirikiri','fata-morgana','game.json'))).settings)};
+   window.MeguLitProfile={get:(key,fallback)=>{let v=diff;for(const k of key.split('.'))v=v?.[k];return v??fallback;}};
+   b.galStatus({bound:true,interfaceMode:'translation'});
+   b.galLayout({clientX:80,clientY:80,clientWidth:800,clientHeight:600,readerX:290,readerY:530,readerWidth:720,readerHeight:130,surfaceWidth:1280,surfaceHeight:800});
+   b.restoreGalSettings({display:'bilingual',furigana:false});
+   const win=document.createElement('div');win.className='sentence-window tomoyo-hook-reader';win.innerHTML='<div class="sentence-text" data-sequence="1" data-megulit-native-breaks>'+[...${JSON.stringify('だって、わたくし、この時を待ちわびていたのですから……。\n'.repeat(2))}].map(c=>'<span class="char-token">'+c+'</span>').join('')+'</div><div class="tomoyo-cn-row"><span class="tomoyo-cn-output" data-state="ready">'+'我一直在等这一刻的到来。'.repeat(7)+'</span></div>';document.body.append(win);
+   b.textPlaceMode({on:true,game:'fata'});b.textPlacePage({engineRows:true,awake:true,armed:true,client:[800,600],lines:[{id:1,text:'前の台詞',rects:[[720,490,20,24]]}]});
+   b.toggleGalMenu();document.querySelector('[data-gal-drag]').click();})()`);
+  await sleep(300);
+  const get=()=>cdp.evaluate(`(()=>{const win=document.querySelector('.megulit-dialogue-band'),guide=document.querySelector('.tome-subtitle-drag-guide');
+   const sentence=win.querySelector('.sentence-text');
+   const first=sentence.querySelector('.char-token').getBoundingClientRect();
+   const tokens=[...sentence.querySelectorAll('.char-token')].filter(n=>n.textContent.trim()).map(n=>n.getBoundingClientRect());
+   const r=guide.getBoundingClientRect(),cn=win.querySelector('.tomoyo-cn-output');
+   return {x:first.left,y:first.top,rows:new Set(tokens.map(p=>Math.round(p.top))).size,
+    textRight:Math.max(...tokens.map(p=>p.right)),right:win.getBoundingClientRect().right,cnMax:Math.max(...[...cn.getClientRects()].map(p=>p.right)),
+    guide:[r.left,r.top,r.width,r.height],
+    region:__sent.findLast(m=>m.type==='galHitRegions')?.regions.some(g=>g.menu&&g.x<=r.left&&g.y<=r.top&&g.x+g.width>=r.right&&g.y+g.height>=r.bottom)};})()`);
+  const before=await get();assert.ok(before.x>=148&&before.x<=155&&before.textRight<=before.right+1&&before.right<880,JSON.stringify(before));
+  assert.ok(before.cnMax<=before.right+1&&before.rows>=2,JSON.stringify(before));
+  assert.equal(before.region,true,'native region covers all four sides');
+  const [l,t,w,h]=before.guide,x=l+Math.min(w/2,18),y=t+Math.min(h/2,15);
+  const mouse=(type,x,y,buttons)=>cdp.send('Input.dispatchMouseEvent',{type,x,y,button:type==='mouseMoved'?'none':'left',buttons,clickCount:1});
+  await mouse('mouseMoved',x,y,0);await mouse('mousePressed',x,y,1);
+  assert.ok(await cdp.evaluate("__sent.findLast(m=>m.type==='galHitRegions')?.regions.some(g=>g.width===1280&&g.height===800)"),'keep the Windows paint region open while the border is moving');
+  await mouse('mouseMoved',x-30,y-35,1);await mouse('mouseReleased',x-30,y-35,0);
+  await sleep(180);
+  const after=await get();assert.ok(Math.abs(after.guide[0]-before.guide[0]+30)<2&&Math.abs(after.guide[1]-before.guide[1]+35)<2,JSON.stringify({before,after}));
+  assert.ok(Math.abs(after.guide[2]-before.guide[2])<=1,'dragging translates the whole box at its current width');
+  assert.equal(after.region,true);
+  await cdp.evaluate('document.querySelector("[data-gal-drag]").click()');await sleep(100);
+  assert.equal(await cdp.evaluate('!!document.querySelector(".tome-subtitle-drag-guide")'),false);
+  await cdp.evaluate(`(()=>{const b=__tomoyoChinese;b.restoreGalSettings({anchorDX:0,anchorDY:0});
+   b.galLayout({clientX:0,clientY:0,clientWidth:1280,clientHeight:720,readerX:90,readerY:480,readerWidth:1152,readerHeight:192});})()`);
+  await sleep(100);
+  const fullscreen=await cdp.evaluate(`(()=>{const r=document.querySelector('.megulit-dialogue-band').getBoundingClientRect();return [r.left,r.right,r.bottom];})()`);
+  assert.ok(Math.abs(fullscreen[0]-244)<2 && Math.abs(fullscreen[1]-1048)<2 && fullscreen[2]<=720,JSON.stringify(fullscreen));
+  const next='わたくしは幸せでございました。';
+  await cdp.evaluate(`(()=>{const b=__tomoyoChinese,s=document.querySelector('.megulit-dialogue-band .sentence-text');
+   b.textPlace({gone:true,text:s.textContent});b.textPlacePage({engineRows:true,armed:true,awake:false,lines:[],client:[800,600]});
+   s.dataset.sequence='2';s.replaceChildren(...[...${JSON.stringify(next)}].map(c=>{const n=document.createElement('span');n.className='char-token';n.textContent=c;return n;}));})()`);
+  await sleep(90);
+  const current=await cdp.evaluate("(()=>{const w=document.querySelector('.megulit-dialogue-band'),s=w.querySelector('.sentence-text');return [s.textContent,getComputedStyle(s).visibility,w.querySelectorAll('.sentence-text').length];})()");
+  assert.deepEqual(current,[next,'visible',1],'a delayed page-clear and old native boxes cannot hide a new recorded sentence');
+  await cdp.evaluate(`(()=>{const b=__tomoyoChinese;b.textPlaceMode({on:false});
+   b.galLayout({clientX:80,clientY:80,clientWidth:800,clientHeight:600,readerX:120,readerY:540,readerWidth:700,readerHeight:130});})()`);
+  await sleep(90);
+  await cdp.evaluate(`(()=>{const w=document.querySelector('.tomoyo-hook-reader');
+   for(const [key,v] of Object.entries({left:'60px',top:'635px',height:'140px',width:'940px'}))w.style.setProperty(key,v,'important');
+   document.querySelector('[data-gal-drag]').click();})()`);
+  await sleep(100);
+  const generic=await cdp.evaluate(`(()=>{const g=document.querySelector('.tome-subtitle-drag-guide'),r=g.getBoundingClientRect();
+   const registered=__sent.findLast(m=>m.type==='galHitRegions')?.regions.some(h=>h.menu&&h.x===r.left&&h.y===r.top&&h.width===r.width&&h.height===r.height);
+   return [r.left,r.top,r.right,r.bottom,registered,getComputedStyle(g).borderBottomStyle];})()`);
+  assert.deepEqual(generic,[80,635,880,680,true,'dashed'],'all four edges remain in the window region when an ordinary game box extends beyond its client');
+ }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
+});
+
 test('Alt+T header drag: no glass message or picture re-placement per frame, one update on release',{skip:!hasEdge&&'Edge not installed',timeout:120000},async()=>{
  const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-altt-drag-'));let server,cdp;const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  try{server=await serve();cdp=await startEdge(path.join(temp,'edge'));

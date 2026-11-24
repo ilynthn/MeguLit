@@ -15,6 +15,8 @@ module.exports={
  placement:{
   /* where the first line of a page is anchored: null = kernel (glyph records, then the text box); 'glyph' | 'box' | 'page' */
   firstLineAnchor:null,
+  /* Dialogue body in reference canvas pixels. It follows the aspect-preserving game viewport. */
+  dialogueArea:null,
   /* extra pixels (game client) added to the Japanese line's top, after the kernel placed it */
   lineOffsetY:0,
   /* while the glyph layer blanks the selected writable stream, a line not yet seen hidden is drawn by the reader (false = the
