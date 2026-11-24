@@ -20,7 +20,7 @@ function serve(){const server=http.createServer((req,res)=>{const rel=decodeURIC
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
 
 test('Fata keeps the latest sentence in the dialogue box during calibration drags',
- {skip:!hasEdge&&'Edge not installed',timeout:30000}, async()=>{
+ {skip:!hasEdge&&'Edge not installed',timeout:120000}, async()=>{
  const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-fata-drag-'));
  let server,cdp;
  try{

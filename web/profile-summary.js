@@ -11,6 +11,7 @@ const settingNames = {
  'source.artemisQuoteSpans':'Artemis 跨片段引号台词合并',
  'source.siglusDbsNameColumn':'Siglus DBS 人名列编号',
  'placement.firstLineAnchor':'首行定位基准',
+ 'placement.dialogueArea':'游戏对话区参考位置',
  'placement.lineOffsetY':'原文行垂直偏移（像素）',
  'placement.drawWhileBlanking':'隐藏过程中由阅读器绘制原文',
  'placement.translationGrowsDown':'译文只向下展开',

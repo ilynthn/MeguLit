@@ -275,6 +275,8 @@
     const top = Math.max(minY, y + region.y * scale), bottom = Math.min(maxY, y + (region.y + region.h) * scale);
     if (right - left < 40 || bottom - top < 12) return false;
     const records = page?.lines || [], cur = records.findLast(l => [...l.text].filter(c => !blank(c)).join('').includes(text));
+    // An armed page can hold several visible native lines at once. Keep their own rows and move the page as a unit.
+    if (cur && page.armed && page.awake && records.filter(l => l.rects.some(Boolean)).length > 1) return false;
     if (bandWindow !== win) { const oldPage = page; page = null; release(true, false); page = oldPage; }
     bandWindow = win;
     win.classList.add('megulit-dialogue-band', 'megulit-anchor-window');

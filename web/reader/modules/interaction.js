@@ -23,7 +23,7 @@
  let queued=false,last='';const watched=new WeakSet(),resize=new ResizeObserver(schedule);
  const NODES='.sentence-text:not(.megulit-art-row) .char-token,.tome-page-lines>div,.tome-inline-wait,.tomoyo-cn-output,.tome-translation-char,.tomoyo-learning-notice,.tome-first-run,.lookup-tooltip,.tomoyo-selection-card,.tomoyo-cn-dialog[open],.tomoyo-cn-dialog[data-leaving],.tome-backlog[data-open],.tome-backlog[data-leaving],.tome-box-deco,.tome-subtitle-drag-guide,.sentence-placeholder,.mg-select-pop,.tome-color-panel,body.tomoyo-ui-translation:not(.tomoyo-gal-bound) .sentence-window';/* 2026-11-13 the choice overlay (E407.2) paints only inside the window region: without its boxes here it was drawn but never seen */
  // The lookup card and its dropdowns need the native pointer gate even when the game polls mouse buttons.
- const MENUS='.tomoyo-cn-dialog,.tome-backlog,.mg-select-pop,.tome-color-panel,.tomoyo-selection-card,.tome-subtitle-drag-guide';
+ const MENUS='.tomoyo-cn-dialog,.tome-backlog,.mg-select-pop,.tome-color-panel,.tome-subtitle-drag-guide,.tomoyo-selection-card';
  window.__megulitResolveWheel=(id,x,y)=>{
   const lookup=document.querySelector('.tomoyo-selection-card');
   const box=lookup&&getComputedStyle(lookup).visibility==='visible'?lookup.getBoundingClientRect():null;
@@ -90,7 +90,8 @@
    // The Windows region clips painting as well as clicks: include the furigana (a ::before above each token, outside its box) and the text outline.
    let top=r.top-(isMenu?0:6),side=isMenu?0:6;const sentence=node.closest('.sentence-text');
    if(sentence?.classList.contains('tomoyo-furigana')){const font=parseFloat(style.fontSize)||16,scale=parseFloat(getComputedStyle(sentence).getPropertyValue('--tomoyo-ruby-scale'))||.55,root=getComputedStyle(document.documentElement),offY=parseFloat(root.getPropertyValue('--tomoyo-ruby-offset-y'))||0,offX=parseFloat(root.getPropertyValue('--tomoyo-ruby-offset-x'))||0;top=r.top-font*(scale*1.3+.2)-Math.max(0,-offY)-4;side=Math.max(6,Math.abs(offX)+font*.6);}
-   const x=Math.max(0,r.left-side,clip?.left??0),y=Math.max(0,top,clip?.top??0),right=Math.min(innerWidth,r.right+side,clip?.right??innerWidth),bottom=Math.min(innerHeight,clip?.bottom??innerHeight,r.bottom+(isMenu?0:6)+Math.max(0,sentence?.classList.contains('tomoyo-furigana')?(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tomoyo-ruby-offset-y'))||0):0));
+   let x=Math.max(0,r.left-side),y=Math.max(0,top),right=Math.min(innerWidth,r.right+side),bottom=Math.min(innerHeight,r.bottom+(isMenu?0:6)+Math.max(0,sentence?.classList.contains('tomoyo-furigana')?(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tomoyo-ruby-offset-y'))||0):0));
+   if(clip){x=Math.max(x,clip.left);y=Math.max(y,clip.top);right=Math.min(right,clip.right);bottom=Math.min(bottom,clip.bottom);}
    const lookup=node.matches('.tomoyo-selection-card')||node.matches('.mg-select-pop')&&document.body.classList.contains('tomoyo-selection-open');
    if(right>x&&bottom>y){const leftPx=Math.floor(x*scale),topPx=Math.floor(y*scale);regions.push({x:leftPx,y:topPx,width:Math.ceil(right*scale)-leftPx,height:Math.ceil(bottom*scale)-topPx,menu:isMenu,...(lookup?{lookup:true}:{})});}}}
   regions.sort((a,b)=>Number(a.menu)-Number(b.menu)||a.y-b.y||a.x-b.x);
