@@ -199,19 +199,22 @@ const sceneOf=(node,list=SCENES)=>Math.max(0,list.findIndex(s=>s.pieces.some(p=>
 function nodeStats(node,prog){const pts=N5.filter(p=>nodeFor(p)===node.id||nodesFor(p).includes(node.id));return {pts,learned:pts.filter(p=>prog?.[p.id]?.learned).length};
  }
 export function sentenceHTML(scene,esc,{open='',piece=-1,mini=false}={}){
- return `<p class="gm-sentence${mini?' mini':''}${open?' focus':''}" lang="ja"${exAttr(scene.pieces.map(p=>p[0]).join(''),scene.ruby,esc)}>${scene.pieces.map(([t,role,n],i)=>t==='、'||t==='。'||!role?`<span class="gm-punct">${esc(t)}</span>`:mini?`<span class="gm-piece n-${n}">${esc(t)}</span>`:`<button type="button" class="gm-piece n-${n}${n===open?' on':''}${i===piece?' picked':''}" data-piece="${i}" data-node="${n}" style="--i:${i}"><i class="gm-piece-no">${romanOf(n)}</i><b>${esc(t)}</b><small>${esc(role)}</small></button>`).join('')}</p>`;
+ return `<p class="gm-sentence${mini?' mini':''}${open?' focus':''}" lang="ja"${exAttr(scene.pieces.map(p=>p[0]).join(''),scene.ruby,esc)}>${scene.pieces.map(([t,role,n],i)=>t==='、'||t==='。'||!role?`<span class="gm-punct">${esc(t)}</span>`:mini?`<span class="gm-piece n-${n}">${esc(t)}</span>`:`<button type="button" class="gm-piece n-${n}${n===open?' on':''}${i===piece?' picked':''}" data-piece="${i}" data-node="${n}" aria-pressed="${i===piece}" style="--i:${i}"><i class="gm-piece-no">${romanOf(n)}</i><b>${esc(t)}</b><small>${esc(role)}</small></button>`).join('')}</p>`;
+}
+function mapPanel(progress,{locale,esc,open,scene,piece}){
+ const w=grammarMessages[locale]||grammarMessages.zh,prog=progress||{};
+ const node=nodeById(open),stats=node&&nodeStats(node,prog),said=piece>=0&&scene.pieces[piece]?.[2]===open?scene.pieces[piece][3]:'';
+ return node?`<div class="gm-node open${stats.learned?' lit':''}" data-node="${node.id}"><div class="gm-node-head"><span class="gm-node-no n-${node.id}">${romanOf(node.id)}</span><b>${esc(loc(node.title,locale))}</b><span class="gm-node-count">${stats.pts.length?`${stats.learned}/${stats.pts.length}`:''}</span><button type="button" class="gm-link" data-toggle="${node.id}" aria-expanded="true">${esc(w.close)}</button></div>
+<div class="gm-megu"><span class="gm-megu-seal" aria-hidden="true">惠</span><p class="gm-bubble">${esc(said||loc(node.line,locale))}</p></div><p class="gm-node-say">${esc(loc(node.body,locale))}</p>
+${stats.pts.length?`<div class="gm-chips">${stats.pts.map(p=>`<button type="button" class="gm-chip${prog[p.id]?.learned?' lit':''}${nodeOf(p.id)===node.id?'':' side'}" data-point="${p.id}">${esc(loc(p.title,locale).split(' —— ')[0])} →</button>`).join('')}</div>`:''}</div>`
+ :`<div class="gm-megu gm-map-hint"><span class="gm-megu-seal" aria-hidden="true">惠</span><p class="gm-bubble">${esc(locale==='zh'?'别背目录！这是一句真台词——点任意一块，我告诉你它是日语的哪根骨头。颜色一样的，就是同一类东西。':loc(MAP[0].line,locale))}</p></div>`;
 }
 export function mapHTML(data,{locale,esc,open='',scene=null,piece=-1}){
  const w=grammarMessages[locale]||grammarMessages.zh,prog=data?.progress||{},list=scenesOf(data),si=Math.min(list.length-1,scene==null?(open?sceneOf(open,list):0):scene),
   s=list[si];
- const node=nodeById(open),stats=node&&nodeStats(node,prog),said=piece>=0&&s.pieces[piece]?.[2]===open?s.pieces[piece][3]:'';
- const panel=node?`<div class="gm-node open${stats.learned?' lit':''}" data-node="${node.id}"><div class="gm-node-head"><span class="gm-node-no n-${node.id}">${romanOf(node.id)}</span><b>${esc(loc(node.title,locale))}</b><span class="gm-node-count">${stats.pts.length?`${stats.learned}/${stats.pts.length}`:''}</span><button type="button" class="gm-link" data-toggle="${node.id}" aria-expanded="true">${esc(w.close)}</button></div>
-<div class="gm-megu"><span class="gm-megu-seal" aria-hidden="true">惠</span><p class="gm-bubble">${esc(said||loc(node.line,locale))}</p></div><p class="gm-node-say">${esc(loc(node.body,locale))}</p>
-${stats.pts.length?`<div class="gm-chips">${stats.pts.map(p=>`<button type="button" class="gm-chip${prog[p.id]?.learned?' lit':''}${nodeOf(p.id)===node.id?'':' side'}" data-point="${p.id}">${esc(loc(p.title,locale).split(' —— ')[0])} →</button>`).join('')}</div>`:''}</div>`
- :`<div class="gm-megu gm-map-hint"><span class="gm-megu-seal" aria-hidden="true">惠</span><p class="gm-bubble">${esc(locale==='zh'?'别背目录！这是一句真台词——点任意一块，我告诉你它是日语的哪根骨头。颜色一样的，就是同一类东西。':loc(MAP[0].line,locale))}</p></div>`;
  const pills=`<div class="gm-pills">${MAP.map(n=>{const st=nodeStats(n,prog);return `<button type="button" class="gm-pill n-${n.id}${n.id===open?' open':''}${st.learned?' lit':''}" data-toggle="${n.id}" aria-expanded="${n.id===open}"><i>${romanOf(n.id)}</i>${esc(loc(n.title,locale).split(/[：:]/)[0])}${st.pts.length?`<small>${st.learned}/${st.pts.length}</small>`:''}</button>`;}).join('')}</div>`;
  return `<button type="button" class="gm-link gm-back" data-back>${esc(w.back)}</button><section class="gm-map"><header><h2>${esc(w.map)}</h2><div class="gm-scenes" role="tablist">${list.map((x,i)=>`<button type="button" role="tab" class="gm-scene${i===si?' active':''}" data-scene="${i}" aria-selected="${i===si}" title="${esc(x.label)}">${esc(x.real?([...x.label].length>10?[...x.label].slice(0,10).join('')+'…':x.label)||'#'+(i+1):x.label)}</button>`).join('')}</div></header>
-<div class="gm-stage"><span class="gm-badge" aria-hidden="true">megulit · grammar lab</span><span class="gm-runno" aria-hidden="true">${String(si+1).padStart(2,'0')} / ${String(list.length).padStart(2,'0')}</span>${sentenceHTML(s,esc,{open,piece})}<p class="gm-tr">${esc(s.zh||'')}${s.real?` <span class="gm-cap">· ${esc(sourceLabel({title:s.label,origin:s.origin,readAt:s.readAt,readBy:s.readBy},w,locale))}</span>`:''}${s.plain?` <span class="gm-cap">· ${esc(s.plain)}</span>`:''}</p></div>${pills}${panel}</section>`;
+<div class="gm-stage"><span class="gm-badge" aria-hidden="true">megulit · grammar lab</span><span class="gm-runno" aria-hidden="true">${String(si+1).padStart(2,'0')} / ${String(list.length).padStart(2,'0')}</span>${sentenceHTML(s,esc,{open,piece})}<p class="gm-tr">${esc(s.zh||'')}${s.real?` <span class="gm-cap">· ${esc(sourceLabel({title:s.label,origin:s.origin,readAt:s.readAt,readBy:s.readBy},w,locale))}</span>`:''}${s.plain?` <span class="gm-cap">· ${esc(s.plain)}</span>`:''}</p></div>${pills}<div class="gm-map-detail">${mapPanel(prog,{locale,esc,open,scene:s,piece})}</div></section>`;
 }
 /* ---- list ---- */
 const FOLD=12;
@@ -467,20 +470,59 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
   const fromLesson=memo.mapFrom==='lesson'&&point;const back=root.querySelector('[data-back]');
   if(fromLesson)back.textContent=locale==='en'?'← Back to the lesson':locale==='ja'?'← 講座に戻る':'← 回到这一课';
   back.onclick=()=>{memo.mapFrom='';go(fromLesson?'lesson':'list');};
-  const pop=sel=>{const el=root.querySelector(sel);if(el&&motion())el.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:240,
-   easing:'cubic-bezier(.2,.7,.2,1)'});};
   if(anim==='scene'&&motion())root.querySelectorAll('.gm-piece').forEach((b,i)=>b.animate([{opacity:0,transform:'translateY(14px) scale(.9)'},{opacity:1,transform:'none'}],
    {duration:320,delay:i*45,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'}));
-  if(anim==='panel'){const card=root.querySelector('.gm-node.open');fx.focus(card);const say=card?.querySelector('.gm-bubble');if(say)fx.type(say,say.textContent);
-   fx.push(root.querySelector('.gm-piece.picked'));fx.glitch(root.querySelector('.gm-piece.picked b'));}
+  const sentence=root.querySelector('.gm-stage .gm-sentence');
+  const detail=root.querySelector('.gm-map-detail');
+  const select=()=>{
+   sentence.classList.toggle('focus',!!openNode);
+   sentence.querySelectorAll('[data-piece]').forEach(button=>{
+    const picked=piece===Number(button.dataset.piece);
+    button.classList.toggle('on',openNode===button.dataset.node);
+    button.classList.toggle('picked',picked);
+    button.setAttribute('aria-pressed',String(picked));
+   });
+   root.querySelectorAll('.gm-pill').forEach(button=>{
+    const selected=openNode===button.dataset.toggle;
+    button.classList.toggle('open',selected);
+    button.setAttribute('aria-expanded',String(selected));
+   });
+   detail.innerHTML=mapPanel(data?.progress,{locale,esc,open:openNode,scene:scenesOf(data)[scene],piece});
+   save();
+  };
   root.querySelectorAll('[data-scene]').forEach(b=>b.onclick=()=>{scene=Number(b.dataset.scene);piece=-1;if(openNode&&!scenesOf(data)[scene].pieces.some(p=>p[2]===openNode))openNode='';
    renderMap('scene');fx.invert(root.querySelector('.gm-stage'));});
-  root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.piece);if(piece===i){piece=-1;openNode='';}else{piece=i;openNode=b.dataset.node;
-   }renderMap('panel');});
-  root.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;if(openNode===id){openNode='';piece=-1;renderMap();return;}openNode=id;
-   piece=-1;const L2=scenesOf(data),cur=scene??0;if(!L2[cur]?.pieces.some(p=>p[2]===id)&&L2.some(x=>x.pieces.some(p=>p[2]===id))){scene=L2.findIndex(s=>s.pieces.some(p=>p[2]===id));
-   renderMap('scene');pop('.gm-node.open');}else renderMap('panel');});
-  root.querySelectorAll('[data-point]').forEach(b=>b.onclick=()=>openPoint(b.dataset.point));
+  sentence.onclick=event=>{
+   const button=event.target.closest('[data-piece]');if(!button)return;
+   scene=Number(root.querySelector('.gm-scene.active').dataset.scene);
+   const index=Number(button.dataset.piece);
+   piece=piece===index?-1:index;
+   openNode=piece<0?'':button.dataset.node;
+   select();
+  };
+  const toggle=id=>{
+   const current=Number(root.querySelector('.gm-scene.active').dataset.scene);
+   openNode=openNode===id?'':id;piece=-1;scene=current;
+   if(openNode){
+    const list=scenesOf(data);
+    if(!list[current].pieces.some(p=>p[2]===id)){
+     const next=list.findIndex(s=>s.pieces.some(p=>p[2]===id));
+     if(next>=0){scene=next;renderMap('scene');return;}
+    }
+   }
+   select();
+  };
+  root.querySelector('.gm-pills').onclick=event=>{
+   const button=event.target.closest('[data-toggle]');if(button)toggle(button.dataset.toggle);
+  };
+  detail.onclick=event=>{
+   const button=event.target.closest('button');if(!button)return;
+   if(button.dataset.toggle){
+    const pill=root.querySelector('.gm-pill.open');
+    toggle(button.dataset.toggle);
+    pill?.focus({preventScroll:true});
+   }else if(button.dataset.point)openPoint(button.dataset.point);
+  };
  }
  /* tap or hover the highlighted grammar → a small explanation */
  function explain(mark){

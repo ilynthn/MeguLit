@@ -1041,6 +1041,17 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 .v-lesson .origin{font-size:44px}
 .v-lesson .dots>*{border-radius:0}
 .v-lesson .learn-foot .btn{min-height:48px;padding:0 30px}
+:host-context(:root[data-theme=light]) .v-lesson{
+  --t1:var(--g-t1,#301919);--t2:var(--g-t2,#6e4f47);--t3:var(--g-t3,#76604f);
+  --paper:var(--g-raise,#fbf7f1);--paper-ink:var(--t1);--paper-2:var(--t2);--paper-3:var(--t3);--paper-label:var(--t2);
+  --paper-rule:var(--t-line);--paper-line:var(--t-line-2);--mg-line:var(--t-line-2);
+  --raise:var(--paper);--raise-2:var(--g-raise-2,#eadfd0);--rule:var(--paper-rule);--rule-strong:var(--paper-line)
+}
+:host-context(:root[data-theme=light]) .v-lesson .sheet{background:var(--t-panel-solid,var(--paper));box-shadow:inset 0 0 0 1px var(--paper-rule)}
+:host-context(:root[data-theme=light]) .v-lesson .sheet::after{border-color:var(--paper-line)}
+:host-context(:root[data-theme=light]) .v-lesson .grid-box{background-color:var(--paper)}
+:host-context(:root[data-theme=light]) .v-lesson .grid-box .st:not(.cur){stroke:var(--paper-ink)}
+
 @media(prefers-reduced-motion:reduce){:is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .sheet,.v-lesson .kana-line .ja{animation:none}:is(.v-lesson,.v-gojuon,.v-games,.v-play,.v-results,.v-records,.v-kanji) .btn{transition:none}}
 
 /* 2026-11-11 the 「← 学习」 back link inside 五十音: same square mono button as the grammar page */

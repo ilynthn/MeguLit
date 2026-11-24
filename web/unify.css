@@ -120,12 +120,13 @@ html:not(#u):not(#v) body :is(.gm-hud .gm-level.active,.gm-gtab.on,.v-index.mg .
 html:not(#u):not(#v) body :is(.gm-barcode i.on,.gm-stg-bar i.on){background:var(--g-gold)!important}
 html:not(#u):not(#v) body .gm-stg.clear .gm-stg-flag{background:var(--g-gold)!important;color:#120d0c!important}
 html:not(#u):not(#v) body .gm-lesson .gm-choice:hover:not(:disabled){background:color-mix(in srgb,var(--g-gold) 16%,rgba(16,13,17,.7))!important;color:var(--g-t1,#f1e0d2)!important}
-html:not(#u):not(#v) body .gm-map .gm-node{background:rgba(16,13,17,.62)!important;color:var(--g-t1,#f1e0d2)!important;box-shadow:inset 0 0 0 1px var(--u-line-2)!important;background-image:none!important}
+html:not(#u):not(#v) body .gm-map .gm-node{background:var(--t-panel)!important;color:var(--g-t1,#f1e0d2)!important;box-shadow:inset 0 0 0 1px var(--u-line-2)!important}
 html:not(#u):not(#v) body .gm-map .gm-node-head b{color:var(--g-t1,#f1e0d2)!important}
 html:not(#u):not(#v) body :is(.gm-map .gm-node-count,.gm-map .gm-node .gm-link){color:var(--g-t2,#bfae9f)!important}
-html:not(#u):not(#v) body .gm-map .gm-node .gm-bubble{background:linear-gradient(90deg,color-mix(in srgb,var(--g-gold) 10%,transparent),transparent 70%),rgba(16,13,17,.62)!important;color:var(--g-t1,#f1e0d2)!important;border:0!important;border-left:2px solid var(--g-gold)!important;box-shadow:inset 0 0 0 1px var(--u-line)!important}
+html:not(#u):not(#v) body .gm-map .gm-node .gm-bubble{background:linear-gradient(90deg,color-mix(in srgb,var(--g-gold) 10%,transparent),transparent 70%),var(--t-panel-solid)!important;color:var(--g-t1,#f1e0d2)!important;border:0!important;border-left:2px solid var(--g-gold)!important;box-shadow:inset 0 0 0 1px var(--u-line)!important}
 html:not(#u):not(#v) body .gm-map .gm-node-say{color:var(--g-t2,#bfae9f)!important}
-html:not(#u):not(#v) body :is(.gm-map .gm-node .gm-chip:hover,.v-index.mg .mk-say:hover){background:var(--g-gold)!important;color:#120d0c!important}
+html:not(#u):not(#v) body .gm-map .gm-node .gm-chip:hover{background:color-mix(in srgb,var(--g-gold) 16%,transparent);color:var(--g-t1)}
+html:not(#u):not(#v) body .v-index.mg .mk-say:hover{background:var(--g-gold)!important;color:#120d0c!important}
 html:not(#u):not(#v) body :is(.mg-legend i.m2,.v-index.mg .mastery .m2){background:var(--g-gold)!important;color:#120d0c!important}
 html:not(#u):not(#v) body :is(.ri-bar-met,.ri-n5){background:var(--g-gold)!important}
 /* the kickers stay mono but readable */
@@ -140,7 +141,7 @@ html:not(#u):not(#v) body #learning-content :is(.gm-lesson,.gm-lesson-head,.gm-p
 html:not(#u):not(#v) body .gm-page :is(.gm-lead-line,.gm-pill,.gm-block,.gm-lesson-head .gm-chip,.gm-lesson .gm-lead-line,.gm-lesson .gm-widget,.gm-find){border-style:solid!important;border-color:var(--u-line)!important;border-radius:2px!important}
 html:not(#u):not(#v) body .gm-page :is(.gm-lesson .gm-step-dot,.gm-lesson .gm-stepnav,.gm-lesson .gm-formulas li,.gm-more){border-style:solid!important;border-color:var(--u-line)!important}
 html:not(#u):not(#v) body .gm-page .gm-hero-side{border-left-style:solid!important;border-color:var(--u-line)!important}
-html:not(#u):not(#v) body .gm-page .gm-stage::before{border-style:solid;border-color:rgba(255,255,255,.06)}
+html:not(#u):not(#v) body .gm-page .gm-stage::before{border-style:solid;border-color:var(--t-line)}
 html:not(#u):not(#v) body .gm-lesson .gm-step-dot{background:none!important}
 html:not(#u):not(#v) body .gm-lesson .gm-step-dot.active{background:linear-gradient(90deg,rgba(200,50,60,.18),transparent)!important;box-shadow:inset 2px 0 0 var(--u-red)!important;color:var(--g-t1,#f1e0d2)!important}
 html:not(#u):not(#v) body .gm-lesson .gm-step-dot span{font-size:12px!important;letter-spacing:.1em!important}
@@ -1378,7 +1379,7 @@ html:not(#u):not(#v):not(#w):not(#x) body .settings-content .setting-slider inpu
 /* hard faults: the grammar step bar is solid down to the window edge; the scroller fades at its top edge so headings
    are not cut; the library's floating bar is frosted so it reads above the wall */
 
-html:not(#u):not(#v):not(#w):not(#x) body .workspace>.main:not(.home-page){-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22px);mask-image:linear-gradient(to bottom,transparent 0,#000 22px)}
+html:not(#u):not(#v):not(#w):not(#x) body .workspace>.main:not(.home-page):not([data-page=learning]){-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22px);mask-image:linear-gradient(to bottom,transparent 0,#000 22px)}
 
 
 /* numbers: lining and tabular everywhere numbers are shown; zero values step back */
@@ -1499,6 +1500,10 @@ html:not(#u):not(#v):not(#w):not(#x) body :is(.about-update,.lb-mychip,.gm-pill,
  border-radius:2px!important;border:0!important;box-shadow:inset 0 0 0 1px rgba(255,236,220,.3)!important;background:transparent!important;color:rgba(255,244,234,.85)!important;transition:box-shadow .18s,color .18s,background .18s!important}
 html:not(#u):not(#v):not(#w):not(#x) body :is(.about-update,.lb-mychip,.gm-pill,.gm-scene,.gm-level,.v-kanji .kg-btn,.pill):hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold,#edb56e) 70%,transparent)!important;color:#fff4ea!important;background:rgba(255,255,255,.04)!important}
 html:not(#u):not(#v):not(#w):not(#x) body :is(.gm-level,.gm-scene,.gm-pill):is(.active,[aria-pressed=true],[aria-current],.on){box-shadow:inset 0 0 0 1px rgba(255,236,220,.3),inset 0 -2px 0 #c82f3b!important;color:#fff4ea!important}
+/* Grammar map controls sit on the current theme's page surface. */
+html:not(#u):not(#v):not(#w):not(#x) body .gm-map :is(.gm-pill,.gm-scene){color:var(--g-t1)!important;box-shadow:inset 0 0 0 1px var(--t-line-2)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-map :is(.gm-pill,.gm-scene):hover{background:color-mix(in srgb,var(--g-t1) 6%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .gm-map :is(.gm-pill.open,.gm-scene.active){box-shadow:inset 0 0 0 1px var(--t-line-2),inset 0 -2px 0 var(--t-red)!important}
 html:not(#u):not(#v):not(#w):not(#x) body .about-update{height:32px!important;padding:0 14px!important;font-size:13px!important}
 html:not(#u):not(#v):not(#w):not(#x) body .about-update.ready{box-shadow:inset 0 0 0 1px rgba(232,220,200,.34),inset 0 -2px 0 #c8323c!important;color:#f6ece0!important}
 html:not(#u):not(#v):not(#w):not(#x) body .kn-voice-seg{border-radius:2px!important}

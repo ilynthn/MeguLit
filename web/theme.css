@@ -161,6 +161,7 @@ html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.g
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.lb-tile,.tv-hot-news){background:var(--t-panel)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.lb-seg,.lb-tabs,.stg-tabs,.tabs)>button:is([aria-pressed=true],[aria-selected=true],.active,.on){color:var(--t-text)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main>.tabs{background:var(--t-panel)!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main[data-page=learning]>.tabs{background:var(--t-panel-solid)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main>.tabs>button{color:var(--t-text-2)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .game-caption .mq{color:var(--t-text)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(.main .text-button,#reader-notice button){color:var(--t-red)!important}
