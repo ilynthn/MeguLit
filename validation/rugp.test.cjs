@@ -199,6 +199,17 @@ function buildToc(items, { encrypted, shift }) {
  return Buffer.concat(parts);
 }
 
+function twoVolumes(line) {
+ const first = Buffer.alloc(0x100), off = first.length;
+ const block = buildCrsaBlock([{ jp: line }]);
+ const tocOff = (off + block.length + 17) & ~1;
+ const toc = buildToc([{ off, sz: block.length }], { encrypted: true, shift: 1 });
+ const second = Buffer.alloc(tocOff - off + toc.length);
+ block.copy(second);
+ toc.copy(second, tocOff - off);
+ return { first, second, ici: buildIci(tocOff / 2, toc.length) };
+}
+
 describe('rUGP (age) engine reader', () => {
  it('detects encrypted (.rio.ici / Ages3ResT.dll) and unencrypted (RioSignature) installs', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rugp-reg-'));
@@ -356,6 +367,78 @@ describe('rUGP (age) engine reader', () => {
    translated: ['接下来怎么办？', '廊下へ行く', '留在教室'],
    reverse: '教室に残る',
   });
+ });
+
+ it('reopens the archive when its selected ICI file is added or replaced', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rugp-ici-cache-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'game.rio'), ici = path.join(dir, 'game.ici');
+  const line = 'あしたは晴れですね。', pack = twoVolumes(line);
+  fs.writeFileSync(file, pack.first);
+  fs.writeFileSync(file + '.002', pack.second);
+  let opens = 0;
+  const open = fs.openSync;
+  t.mock.method(fs, 'openSync', (f, ...args) => {
+   if (f === file) opens++;
+   return open(f, ...args);
+  });
+  const lines = () => rugp.scenes(dir).flatMap(s => rugp.parse(s.read()).lines);
+  assert.deepEqual(lines(), []);
+  const cold = opens;
+  assert.ok(cold > 0);
+  assert.deepEqual(lines(), []);
+  assert.equal(opens, cold);
+
+  const time = new Date('2020-01-01T00:00:00Z');
+  fs.writeFileSync(ici, pack.ici);
+  fs.utimesSync(ici, time, time);
+  assert.deepEqual(lines(), [line]);
+  const added = opens;
+  assert.ok(added > cold);
+  assert.deepEqual(lines(), [line]);
+  assert.equal(opens, added);
+
+  const later = new Date('2020-01-01T00:00:02Z');
+  fs.writeFileSync(ici, Buffer.alloc(pack.ici.length));
+  fs.utimesSync(ici, later, later);
+  assert.deepEqual(lines(), []);
+  assert.ok(opens > added);
+ });
+
+ it('reopens the archive after a same-size rewrite of .rio.002', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rugp-volume-cache-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'game.rio'), part = file + '.002';
+  const firstLine = 'あしたは晴れですね。', secondLine = 'あしたは曇りですね。';
+  const old = twoVolumes(firstLine), next = twoVolumes(secondLine);
+  assert.equal(old.second.length, next.second.length);
+  assert.deepEqual(old.ici, next.ici);
+  fs.writeFileSync(file, old.first);
+  fs.writeFileSync(file + '.ici', old.ici);
+  fs.writeFileSync(part, old.second);
+  const time = new Date('2020-01-01T00:00:00Z');
+  fs.utimesSync(part, time, time);
+  let opens = 0;
+  const open = fs.openSync;
+  t.mock.method(fs, 'openSync', (f, ...args) => {
+   if (f === file) opens++;
+   return open(f, ...args);
+  });
+  const lines = () => rugp.scenes(dir).flatMap(s => rugp.parse(s.read()).lines);
+  assert.deepEqual(lines(), [firstLine]);
+  const cold = opens;
+  assert.ok(cold > 0);
+  assert.deepEqual(lines(), [firstLine]);
+  assert.equal(opens, cold);
+
+  const later = new Date('2020-01-01T00:00:02Z');
+  fs.writeFileSync(part, next.second);
+  fs.utimesSync(part, later, later);
+  assert.deepEqual(lines(), [secondLine]);
+  const replaced = opens;
+  assert.ok(replaced > cold);
+  assert.deepEqual(lines(), [secondLine]);
+  assert.equal(opens, replaced);
  });
 
  it('reads 3-volume trilingual .rio/.rio.002/.rio.003 (.rio.ici) builds like Muv-Luv Alternative', () => {

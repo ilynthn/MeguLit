@@ -194,3 +194,32 @@ test('lookup drags on the first press and routes wheel input at its new position
   assert.deepEqual(await cdp.evaluate(bounds),[moved[0]+27,moved[1]+16],'a fast release commits the final pointer coordinates even if no move was relayed');
  }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });
+
+test('Alt+T switches between stacked and inline Chinese in the current native dialogue', {skip:!hasEdge&&'Edge not installed',timeout:30000}, async()=>{
+ const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-inline-cn-'));
+ let server,cdp;
+ try{
+  server=await serve();cdp=await startEdge(path.join(temp,'edge'));
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
+  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
+  assert.ok(await waitFor(cdp,'!!window.__TOME_READER_READY__'));
+  await cdp.evaluate(`(()=>{const b=__tomoyoChinese;__tomoyoMode.set('translation');
+   b.galStatus({bound:true,interfaceMode:'translation'});
+   b.galLayout({clientX:80,clientY:80,clientWidth:800,clientHeight:600,readerX:120,readerY:500,readerWidth:700,readerHeight:140,surfaceWidth:1280,surfaceHeight:800});
+   b.restoreGalSettings({display:'bilingual',translationInline:false,translationBlur:true,furigana:false});
+   const text='扉を開ける。',win=document.createElement('div');win.className='sentence-window tomoyo-hook-reader';
+   win.innerHTML='<div class="sentence-text">'+[...text].map(c=>'<span class="char-token">'+c+'</span>').join('')+'</div><div class="tomoyo-cn-row"><span class="tomoyo-cn-output" data-state="ready">推开房门。</span></div>';
+   document.body.append(win);b.textPlaceMode({on:true,game:'test'});
+   b.textPlacePage({engineRows:true,awake:true,armed:true,client:[800,600],lines:[{id:1,text,rects:[...text].map((_,i)=>[70+i*26,420,26,26])}]});
+   b.toggleGalMenu();})()`);
+  const geometry=()=>cdp.evaluate(`(()=>{const w=document.querySelector('.tomoyo-hook-reader'),ja=w.querySelector('.char-token:last-child').getBoundingClientRect(),cn=w.querySelector('.tomoyo-cn-output'),r=cn.getClientRects()[0];return {sameRow:r.top<ja.bottom&&r.bottom>ja.top,after:r.left>=ja.right-1,filter:getComputedStyle(cn).filter,mode:w.classList.contains('megulit-place-window')};})()`);
+  await nextFrame(cdp);
+  assert.equal((await geometry()).sameRow,false);
+  await cdp.evaluate("document.querySelector('[name=galTranslationInline]').click()");await nextFrame(cdp);
+  const following=await geometry();assert.equal(following.sameRow,true,JSON.stringify(following));assert.equal(following.after,true,JSON.stringify(following));assert.match(following.filter,/blur\(/);
+  await cdp.evaluate(`(()=>{const menu=document.querySelector('.tomoyo-cn-dialog[open]');menu.dataset.menuTab='text';menu.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()`);
+  assert.equal(await cdp.evaluate("JSON.parse(localStorage.getItem('tomoyo-gal-settings')).translationInline"),true);
+  await cdp.evaluate("document.querySelector('[name=galTranslationInline]').click()");await nextFrame(cdp);
+  const restored=await geometry();assert.equal(restored.sameRow,false,JSON.stringify(restored));assert.equal(restored.mode,true);
+ }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
+});

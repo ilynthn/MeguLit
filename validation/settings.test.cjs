@@ -17,6 +17,17 @@ test('per-game styles and extracted game fonts survive saves without changing gl
  const {settings,put,read}=fixture(t),key='a'.repeat(64);put('gal-preferences.json',{japaneseSize:34});put('game-style-profiles.json',{version:3,entries:{[key]:{name:'Test work',prefs:{japaneseSize:42,japaneseFont:'game:0123456789'},positionMap:{anchor:7},customFlag:true,history:[]}}});
  const before=settings.get(key);assert.equal(before.values.text.japaneseSize,42);settings.save({scope:'text',profile:key,values:{japaneseSize:45,japaneseFont:'game:0123456789'}});assert.equal(settings.get().values.text.japaneseSize,34);assert.equal(settings.get(key).values.text.japaneseSize,45);assert.equal(read('game-style-profiles.json').entries[key].customFlag,true);assert.equal(read('game-style-profiles.json').entries[key].positionMap.anchor,7);assert.equal(read('game-style-profiles.json').entries[key].history.length,1);
 });
+test('inline Chinese defaults off and can be overridden per work',t=>{
+ const {root,settings,put}=fixture(t),profile='a'.repeat(64);
+ put('game-style-profiles.json',{version:3,entries:{[profile]:{name:'Test work',prefs:{}}}});
+ assert.equal(settings.read('text').translationInline,false);
+ settings.save({scope:'text',values:{translationInline:true,translationSize:32}});
+ settings.save({scope:'text',profile,values:{translationInline:false}});
+ const reopened=new Settings(root);
+ assert.equal(reopened.read('text').translationInline,true);
+ assert.equal(reopened.read('text',profile).translationInline,false);
+ assert.equal(reopened.read('text',profile).translationSize,32);
+});
 test('text renderer follows the global setting even when an active profile contains an old renderer value',async t=>{
  const {root,settings,put,read}=fixture(t),key='a'.repeat(64);
  put('gal-preferences.json',{textRenderer:'compositor'});

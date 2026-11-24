@@ -63,6 +63,7 @@ for(const[key,zh,en,ja]of [['textColor','未读文字颜色','Unread text color'
  '译文描边颜色','Translation outline color','翻訳の縁取り色'],['rubyOutlineColor','注音描边颜色','Furigana outline color','ふりがなの縁取り色']])field('text',key,zh,en,ja,'color');
 choice('text','display','显示内容','Displayed text','表示内容',[option('bilingual','日文与译文','Japanese and translation','日本語と翻訳'),option('japanese','仅日文','Japanese only',
  '日本語のみ'),option('chinese','仅译文','Translation only','翻訳のみ')]);
+bool('text','translationInline','中文紧随日文','Continue Chinese after Japanese','中国語訳を日本語の後に続ける');
 choice('text','japaneseFont','日文字体','Japanese font','日本語フォント',['originalGothic','originalMincho','yuMincho','yuGothic','meiryo'].map(v=>option(v,...({originalGothic:['游戏原字体（黑体）',
  'Original game sans','ゲームのゴシック体'],originalMincho:['游戏原字体（明朝）','Original game serif','ゲームの明朝体'],yuMincho:['游明朝','Yu Mincho','游明朝'],yuGothic:['游ゴシック','Yu Gothic',
  '游ゴシック'],meiryo:['メイリオ','Meiryo','メイリオ']}[v]))));

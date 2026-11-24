@@ -68,8 +68,11 @@ module.exports=async ({assert,root,fixture})=>{
   put('6',c&&c.ui==='choice'&&!noise.length,'script on the 選択肢 frame: '+JSON.stringify(c||null)+(noise.length?' | OCR noise shown as the line':''));}
  /* 7: 聖なるかな one bilingual line, no rows of OCR copies */
  {const r=by.art,ss=r.o.samples.filter(s=>norm(s.hookSource)==='聖なるかな');const bad=[];
-  if(!ss.length)bad.push('never the reader line');
-  for(const s of ss.filter(s=>s.at-ss[0].at>=400)){const g=jpGlyphs(s),t=norm(g.map(x=>x.text).join(''));if(t.split('聖なるかな').length-1>1||g.some(x=>x.kind==='art'))bad.push('@'+s.at+' '+t.slice(0,40)+' kinds '+[...new Set(g.map(x=>x.kind))].join('+'));if(!s.cn.length||s.cn.length>1)bad.push('@'+s.at+' Chinese rows '+s.cn.length);if(bad.length>4)break;}
+  /* 2026-11-24: judged from 1 s after the line appears, not 400 ms. Locally the Chinese arrives at about 290 ms; a busy CI
+     runner once missed 400 ms by one sample (run 45360903343). The line stays about 2.5 s, so 15+ samples are still checked */
+  const late=ss.filter(s=>s.at-ss[0].at>=1000);
+  if(!ss.length)bad.push('never the reader line');else if(!late.length)bad.push('shown under 1 s, nothing left to judge');
+  for(const s of late){const g=jpGlyphs(s),t=norm(g.map(x=>x.text).join(''));if(t.split('聖なるかな').length-1>1||g.some(x=>x.kind==='art'))bad.push('@'+s.at+' '+t.slice(0,40)+' kinds '+[...new Set(g.map(x=>x.kind))].join('+'));if(!s.cn.length||s.cn.length>1)bad.push('@'+s.at+' Chinese rows '+s.cn.length);if(bad.length>4)break;}
   put('7',!bad.length,bad.join(' | '));}
  /* 8: calibration: the Japanese stays, the hook is not restarted, switched or released */
  {const c=C.calibration(by.dialogue,t);put('8',!c.bad.length,c.bad.slice(0,6).join(' | '));}

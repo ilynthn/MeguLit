@@ -67,6 +67,47 @@ test('hook text: HuneX <r reading>base</r> ruby becomes the game reading and lea
  assert.deepStrictEqual(r.ruby,[['触','ふ'],['厳','しず']]);
 });
 
+test('HFA page and glyph caches follow additions, same-size rewrites and removals',t=>{
+ const dir=path.join(tmp,'hfa-cache'),file=path.join(dir,'data.hfa');
+ fs.mkdirSync(dir);
+ const archive=(line,firstCode)=>{
+  const script=Buffer.alloc(0xd0),op=0x30,text=0xb0;
+  script.write('HunexCompiledScriptVer1.00',0,'latin1');
+  script.writeUInt32LE(123,op);script.writeUInt32LE(0x12345678,op+4);
+  script.writeUInt32LE(text-0x30,op+12);script.write('$'+String(line).padStart(6,'0'),text,'latin1');
+  const ccit=Buffer.alloc(8+100*8);ccit.writeUInt32LE(100,0);ccit.writeUInt32LE(8,4);
+  for(let i=0;i<100;i++){
+   const bytes=Buffer.from(String.fromCodePoint(firstCode+i),'utf8');
+   ccit.writeUInt32LE(bytes.readUIntBE(0,bytes.length),8+8*i);
+  }
+  return hfa([['scene.chs',lenzu(script)],['Font000001.ccit',lenzu(ccit)]]);
+ };
+ let opens=0;const open=fs.openSync;
+ t.mock.method(fs,'openSync',(f,flags,...args)=>{if(f===file&&flags==='r')opens++;return open(f,flags,...args);});
+ const read=()=>({pages:hunex.pages(dir),glyphs:hunex.glyphs(dir)});
+ assert.deepStrictEqual(read(),{pages:null,glyphs:null});assert.equal(opens,0);
+
+ const first=archive(8,0x4e00),second=archive(9,0x5000);
+ assert.equal(first.length,second.length);
+ const time=new Date('2020-01-01T00:00:00Z');
+ fs.writeFileSync(file,first);fs.utimesSync(file,time,time);
+ const loaded=read(),added=opens;
+ assert.ok(added>0);assert.deepStrictEqual([...loaded.pages.known],[8]);
+ assert.equal(loaded.glyphs.size,100);assert.ok(loaded.glyphs.has('一'));
+ assert.strictEqual(hunex.pages(dir),loaded.pages);assert.strictEqual(hunex.glyphs(dir),loaded.glyphs);
+ assert.equal(opens,added);
+
+ const later=new Date('2020-01-01T00:00:02Z');
+ fs.writeFileSync(file,second);fs.utimesSync(file,later,later);
+ const replaced=read(),afterRewrite=opens;
+ assert.ok(afterRewrite>added);assert.deepStrictEqual([...replaced.pages.known],[9]);
+ assert.ok(replaced.glyphs.has(String.fromCodePoint(0x5000)));assert.ok(!replaced.glyphs.has('一'));
+ assert.strictEqual(hunex.pages(dir),replaced.pages);assert.strictEqual(hunex.glyphs(dir),replaced.glyphs);
+ assert.equal(opens,afterRewrite);
+ fs.unlinkSync(file);
+ assert.deepStrictEqual(read(),{pages:null,glyphs:null});assert.equal(opens,afterRewrite);
+});
+
 test('local WITCH ON THE HOLY NIGHT tables, when installed',{skip:!fs.existsSync('E:/Steam/steamapps/common/WITCH ON THE HOLY NIGHT/data00200.hfa')&&'environment: WITCH ON THE HOLY NIGHT not installed'},()=>{
  const [scene]=scenes.read('hunex','E:/Steam/steamapps/common/WITCH ON THE HOLY NIGHT');
  assert.ok(scene.lines.length>20000);assert.strictEqual(scene.lines.length,scene.zh.length);

@@ -179,3 +179,51 @@ test('kit malformed guard #40: zipRead() rejects encrypted, invalid local header
  assert.equal(kit.zipRead(zRaw8,kit.zipList(zRaw8)[0]).toString(),'hello world');
  assert.equal(kit.zipRead(z64,kit.zipList(z64)[0]).toString(),'hello world');
 });
+function assertZipScript(file,local=0){
+ for(const limit of [Infinity,8<<20]){
+  const entries=kit.zipList(file,limit);
+  assert.deepEqual(entries?.map(e=>[e.name,e.local]),[['script.ks',local]]);
+  assert.equal(kit.zipRead(file,entries[0]).toString(),'[start]');
+ }
+}
+test('zipList skips an end record in the comment whose central directory signature is missing',t=>{
+ const file=path.join(tmp(t),'comment.zip'),zip=F.zip({'script.ks':'[start]'}),comment=Buffer.alloc(0xffff);
+ zip.writeUInt16LE(comment.length,zip.length-2);
+ const fake=comment.subarray(-22);
+ fake.writeUInt32LE(0x06054b50);
+ fake.writeUInt16LE(1,10);
+ fake.writeUInt32LE(46,12);
+ fs.writeFileSync(file,Buffer.concat([zip,comment]));
+ assertZipScript(file);
+});
+test('zipList prefers the end record whose declared comment reaches the end of the file',t=>{
+ const file=path.join(tmp(t),'comment.zip'),zip=F.zip({'script.ks':'[start]'}),end=zip.subarray(-22),comment=Buffer.alloc(25);
+ end.writeUInt16LE(comment.length,20);
+ // The marker points back to the real CD but gives it the wrong size and offset.
+ comment.writeUInt32LE(0x06054b50);
+ comment.writeUInt16LE(1,10);
+ comment.writeUInt32LE(end.readUInt32LE(12)+22,12);
+ comment.writeUInt32LE(end.readUInt32LE(16)+1,16);
+ fs.writeFileSync(file,Buffer.concat([zip,comment]));
+ assertZipScript(file);
+});
+test('zipList keeps a ZIP appended to an EXE readable with a 32-byte trailer',t=>{
+ const file=path.join(tmp(t),'signed.exe'),prefix=Buffer.alloc(64),zip=F.zip({'script.ks':'[start]'}),trailer=Buffer.alloc(32,0xaa);
+ prefix.write('MZ');
+ fs.writeFileSync(file,Buffer.concat([prefix,zip,trailer]));
+ assertZipScript(file,prefix.length);
+ assert.equal(kit.zipList(file,46),null);
+});
+test('zipList preserves empty archives and permissive partial directories',t=>{
+ const dir=tmp(t),empty=path.join(dir,'empty.zip'),partial=path.join(dir,'partial.zip');
+ fs.writeFileSync(empty,F.zip({}));
+ for(const limit of [Infinity,8<<20])assert.deepEqual(kit.zipList(empty,limit),[]);
+ const zip=F.zip({'script.ks':'[start]'});
+ zip.writeUInt16LE(2,zip.length-14);
+ zip.writeUInt16LE(2,zip.length-12);
+ fs.writeFileSync(partial,zip);
+ const entries=kit.zipList(partial);
+ assert.deepEqual(entries.map(e=>e.name),['script.ks']);
+ assert.equal(kit.zipRead(partial,entries[0]).toString(),'[start]');
+ assert.equal(kit.zipList(partial,8<<20),null);
+});

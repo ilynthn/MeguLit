@@ -20,6 +20,7 @@
   let cnBelow = { key: null, below: false }; const UNMATCHED_MS = 400;
   let on = false, line = null, frame = 0, lastGeom = '', anchor = null, anchorLine = '', anchorLimit = NaN, anchorMode = true, drawnByGame = '', drawnHiding = false, drawnEmbedded = 0, pageOwn = false, page = null; const clones = new Map();
   const style = document.createElement('style');
+  const inline = 'html body.megulit-inline-translation:not(.megulit-place-game-drawn):not(.megulit-readonly-hook) .sentence-window.tomoyo-hook-reader:not(.megulit-place-window):not(.tome-island-page)';
   style.textContent = [
     'html body .sentence-window.megulit-dialogue-band{box-sizing:border-box!important;position:fixed!important;display:block!important;padding:var(--megulit-band-ruby-room,0px) 0 0!important;background:none!important;overflow:hidden!important;text-align:left!important;font-size:calc(var(--tomoyo-gal-jp-size,26px) * var(--megulit-band-fit,1))!important;line-height:var(--megulit-dialogue-pitch,1.6)!important}',
     'html body .sentence-window.megulit-dialogue-band .sentence-text,html body .sentence-window.megulit-dialogue-band .tomoyo-cn-row:not([hidden]){position:static!important;text-indent:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-break:strict!important}',
@@ -76,7 +77,11 @@
     '.sentence-text .char-token.megulit-dash{position:relative;-webkit-text-fill-color:transparent!important;text-shadow:none!important;-webkit-text-stroke:0!important;overflow:visible!important}',
     '.sentence-text .char-token.megulit-dash::after{content:"";position:absolute;left:-.03em;right:-.03em;top:50%;height:max(1px,.07em);margin-top:calc(max(1px,.07em) / -2);background:var(--megulit-dash-color,currentColor);pointer-events:none}',
     '#megulit-place-extras{position:fixed;inset:0;pointer-events:none;z-index:2147483000;background:none}',
-    'body.megulit-placed .megulit-place-window .tomoyo-cn-row{position:absolute!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:auto}'
+    'body.megulit-placed .megulit-place-window .tomoyo-cn-row{position:absolute!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:auto}',
+    inline + '{display:block!important}',
+    inline + ' :is(.sentence-text:not(.megulit-old-line),.tomoyo-cn-row,.tomoyo-cn-output):not([hidden]){display:inline!important;position:static!important;width:auto!important;padding:0!important;margin:0!important;text-indent:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-break:strict}',
+    inline + ' .sentence-text:not(.megulit-old-line) br,' + inline + ' .tomoyo-cn-output br.megulit-cn-br{display:none!important}',
+    inline + ' .tomoyo-cn-row:has(.tomoyo-cn-output:not([hidden]):not(:empty))::before{content:" ";white-space:pre;word-spacing:max(0px,var(--tomoyo-gal-gap,0px))}',
   ].join('\n');
   document.head.append(style);
   const blank = c => /^[\s　​﻿]*$/.test(c);
@@ -139,6 +144,11 @@
        (appearance and this game's style profile): 2026-11-19 (user, windowed 千恋＊万花: 「为啥译文一直有投影，很重很烦还关不掉」) the
        automatic heavy shadow over the game's bottom bar is gone. */
     const row = win.querySelector('.tomoyo-cn-row'), parts = row ? [...row.querySelectorAll('*')] : [];
+    if (pr.translationInline && win.matches(inline)) {
+      const limit = Math.min(innerWidth, cx0 + cwc);
+      set(win, 'max-width', Math.max(40, limit - Math.max(cx0, win.getBoundingClientRect().left)) + 'px');
+      return;
+    }
     /* 2026-11-20 (user, CHAOS;CHILD: 「译文咋没对齐」「译文排版同步一下」): the translation takes the Japanese block's width and side,
        centred under a centred page, from the first character of a left-aligned box; never narrower than half the box (a short line keeps a readable translation) */
     if (row) { for (const p of ['max-width', 'margin-left', 'margin-right']) row.style.removeProperty(p);
@@ -221,6 +231,7 @@
     document.body.classList.remove('megulit-anchored');
     for (const br of document.querySelectorAll('br.megulit-row-br,br.megulit-cn-br')) br.remove();
     for (const w of document.querySelectorAll('.megulit-anchor-center,.megulit-page-fresh')) w.classList.remove('megulit-anchor-center', 'megulit-page-fresh');
+    for (const w of document.querySelectorAll('.megulit-anchor-window')) w.style.removeProperty('max-width');
     for (const w of document.querySelectorAll('.megulit-anchor-window')) { w.classList.remove('megulit-anchor-window', 'megulit-game-rows', 'megulit-rows-predicted'); w.style.removeProperty('--megulit-centre-width'); const cr = w.querySelector('.tomoyo-cn-row'); if (cr) for (const p of ['max-width', 'margin-left', 'margin-right', 'max-height', 'overflow-y', 'overscroll-behavior']) cr.style.removeProperty(p); for (const p of ['left', 'top', 'right', 'bottom', 'margin']) w.style.removeProperty(p); w.querySelector('.sentence-text')?.style.removeProperty('line-height'); }
     document.body.classList.toggle('megulit-place-fallback', fallback === true);
     for (const w of document.querySelectorAll('.megulit-place-window')) {
@@ -560,6 +571,22 @@
     if (document.querySelector('.megulit-anchor-window')) { const p0 = page; page = null; release(false, false); page = p0; }
     const map = pageMap(), readerText = readerLine(), geom = [];
     let cur = null; if (readerText) for (let i = page.lines.length - 1; i >= 0; i--) if (page.lines[i].text.includes(readerText)) { cur = page.lines[i]; break; }
+    if (cur && anchorMode && document.body.classList.contains('megulit-inline-translation')) {
+      const canvas = mapper(page.client);
+      const at = [...cur.text.slice(0, cur.text.indexOf(readerText))].length;
+      const boxes = cur.rects.slice(at, at + [...readerText].length).map(canvas).filter(Boolean);
+      if (boxes.length) {
+        const size = median(boxes.map(r => r[3])) || 24;
+        const previousPage = page; page = null; release(true, false); page = previousPage;
+        if (page.lines.length === 1) { dropOld(null); clones.clear(); document.getElementById('megulit-page-ahead')?.replaceChildren(); }
+        body.classList.remove('megulit-place-game-drawn');
+        anchorFrom(boxes, size, canvas, readerText, gameRows(boxes, size, canvas, leftEdge).center);
+        drawn(cur);
+        pin(win, sentence);
+        window.__tomoyoHitRegionsRefresh?.();
+        return;
+      }
+    }
     /* 2026-11-16 (QQ group, ライムライト・レモネードジャム: ruby and translation only, no Japanese): an armed page means the game's
        own text is hidden by MeguLit, so the reader's Japanese can never be "drawn by the game". A line not found on the page
        for longer than its places take to arrive goes back to the reader's own box (every engine): never hidden twice. */
@@ -932,6 +959,7 @@
     if (key !== lastGeom) { lastGeom = key; dispatchEvent(new CustomEvent('megulit-reveal-progress', { detail: { typing: false } })); window.__tomoyoHitRegionsRefresh?.(true); }
   }
   const schedule = () => { if (!frame) frame = requestAnimationFrame(apply); };
+  b.textPlaceLayoutChanged = schedule;
   // The overlay covers the desktop, so moving the game need not resize the WebView or deliver another line.
   let clientArea = b.gameArea?.();
   b.textPlaceClientArea = area => {

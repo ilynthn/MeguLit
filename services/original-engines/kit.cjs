@@ -269,8 +269,19 @@ function asarList(file){let head;try{head=readAt(file,0,16);}catch{return null;}
   for(const [name,v] of Object.entries(node.files)){if(!v||typeof v!=='object')continue;const rel=pre?pre+'/'+name:name;if(v.files&&typeof v.files==='object'&&!Array.isArray(v.files))walkTree(v,rel,depth+1);else if(!v.unpacked&&v.offset!==undefined)out.push({name:rel,offset:base+Number(v.offset),size:Number(v.size)});}};
  try{walkTree(tree,'',0);}catch{return null;}return out;}
 function zipList(file,maxDirectory=Infinity){const sz=size(file);if(sz<22)return null;
- const tailLen=Math.min(sz,65557),t=readAt(file,sz-tailLen,tailLen);let e=-1;for(let i=t.length-22;i>=0;i--)if(t.readUInt32LE(i)===0x06054b50){e=i;break;}if(e<0)return null;
- const count=t.readUInt16LE(e+10),cdSize=t.readUInt32LE(e+12),cdOff=t.readUInt32LE(e+16),cdAt=sz-tailLen+e-cdSize,shift=cdAt-cdOff;if(cdAt<0||cdSize>maxDirectory)return null;
+ const tailLen=Math.min(sz,65557),tailAt=sz-tailLen,t=readAt(file,tailAt,tailLen);let e=-1;
+ for(let i=t.length-22;i>=0;i--){
+  if(t.readUInt32LE(i)!==0x06054b50)continue;
+  // Keep the last marker as a fallback for ZIPs with bytes after the end record.
+  if(e<0)e=i;
+  if(i+22+t.readUInt16LE(i+20)!==t.length)continue;
+  const cdSize=t.readUInt32LE(i+12),start=i-cdSize;
+  if(cdSize<46||cdSize>maxDirectory||tailAt+start<0||!t.readUInt16LE(i+10))continue;
+  const sig=start>=0?t.subarray(start,start+4):readAt(file,tailAt+start,4);
+  if(sig.length===4&&sig.readUInt32LE(0)===0x02014b50){e=i;break;}
+ }
+ if(e<0)return null;
+ const count=t.readUInt16LE(e+10),cdSize=t.readUInt32LE(e+12),cdOff=t.readUInt32LE(e+16),cdAt=tailAt+e-cdSize,shift=cdAt-cdOff;if(cdAt<0||cdSize>maxDirectory)return null;
  const cd=readAt(file,cdAt,cdSize),out=[];let p=0;
  for(let i=0;i<count&&p+46<=cd.length;i++){if(cd.readUInt32LE(p)!==0x02014b50)break;const flags=cd.readUInt16LE(p+8),method=cd.readUInt16LE(p+10),comp=cd.readUInt32LE(p+20),raw=cd.readUInt32LE(p+24),nl=cd.readUInt16LE(p+28),xl=cd.readUInt16LE(p+30),cl=cd.readUInt16LE(p+32),local=cd.readUInt32LE(p+42);
   const nameBuf=cd.subarray(p+46,p+46+nl),name=flags&0x800?nameBuf.toString('utf8'):decodeText(nameBuf);out.push({name:name.replace(/\\/g,'/'),method,comp,raw,local:local+shift,encrypted:!!(flags&1)});p+=46+nl+xl+cl;}

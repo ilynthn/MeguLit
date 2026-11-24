@@ -520,6 +520,11 @@
        回到游戏原字位置) moves the line at once even when nothing else changed */
     root.setProperty('--megulit-anchor-offset', (Number(preferences.anchorDX) || 0) + ' ' + (Number(preferences.anchorDY) || 0));
     root.setProperty('--tomoyo-gal-cn-size', scaled(preferences.translationSize));
+    const inlineTranslation = preferences.display === 'bilingual' && preferences.translationInline;
+    if (document.body.classList.contains('megulit-inline-translation') !== inlineTranslation) {
+      document.body.classList.toggle('megulit-inline-translation', inlineTranslation);
+      bridge.textPlaceLayoutChanged?.();
+    }
     const insets=appearance.insets(preferences);
     root.setProperty('--tomoyo-gal-pad-x', scaled(insets.padX));
     root.setProperty('--tomoyo-gal-pad-y', scaled(insets.padY));
@@ -801,6 +806,7 @@
       <label>速度（字/秒）<input name="galTypewriterSpeed" type="number" min="5" max="120" step="1"></label>
       <small>点游戏或按空格补全当前句；按住 Ctrl 快速显示</small>
       <label>显示内容<select name="galDisplay"><option value="bilingual">日文＋假名／中文</option><option value="japanese">仅日文＋假名</option><option value="chinese">仅中文 · 接近汉化版</option><option value="bilingual-en">日文＋假名／英文</option><option value="english">仅英文</option><option value="none">不显示（只看游戏文本框）</option></select></label>
+      <label><input name="galTranslationInline" type="checkbox"> 中文紧随日文</label>
       <div class="tomoyo-cn-grid tomoyo-type-sizes"><label>中文字号<input name="galChineseSize" type="number" min="12" max="60"></label></div>
       <div class="tomoyo-cn-grid"><label>未读渐变<input name="galTextGradient" type="checkbox"></label><label>已读渐变<input name="galReadTextGradient" type="checkbox"></label><label>未读渐变上色<input name="galTextGradientTop" type="color"></label><label>未读渐变下色<input name="galTextGradientBottom" type="color"></label><label>已读渐变上色<input name="galReadTextGradientTop" type="color"></label><label>已读渐变下色<input name="galReadTextGradientBottom" type="color"></label><label>未读渐变起点（%）<input name="galTextGradientStart" type="number" min="0" max="95" step="1"></label><label>已读渐变起点（%）<input name="galReadTextGradientStart" type="number" min="0" max="95" step="1"></label></div>
       <div class="tomoyo-cn-grid"><label>文字颜色<input name="galTextColor" type="color"></label><label>已读文字颜色<input name="galReadTextColor" type="color"></label><label>文字阴影<select name="galShadow"><option value="outline">细描边 · 适合复杂背景</option><option value="soft">柔和阴影</option><option value="none">无阴影</option></select></label></div>
@@ -892,7 +898,7 @@
      typewriterSpeed:'galTypewriterSpeed', japaneseFont:'galJapaneseFont', chineseFont:'galChineseFont', rubyFont:'galRubyFont', japaneseOutline:'galJapaneseOutline',
      chineseOutline:'galChineseOutline', japaneseOutlineColor:'galJapaneseOutlineColor', chineseOutlineColor:'galChineseOutlineColor', japaneseOutlineWidth:'galJapaneseOutlineWidth',
      rubyOutline:'galRubyOutline', rubyOutlineColor:'galRubyOutlineColor', rubyOutlineWidth:'galRubyOutlineWidth', chineseOutlineWidth:'galChineseOutlineWidth',
-     style:'galStyle', display:'galDisplay', translationSize:'galChineseSize', textColor:'galTextColor', shadow:'galShadow', autoScale:'galAutoScale', lineHeight:'galLineHeight',
+     style:'galStyle', display:'galDisplay', translationInline:'galTranslationInline', translationSize:'galChineseSize', textColor:'galTextColor', shadow:'galShadow', autoScale:'galAutoScale', lineHeight:'galLineHeight',
      translationLineHeight:'galTranslationLineHeight', japaneseSpacingPx:'galJapaneseSpacingPx', chineseSpacingPx:'galChineseSpacingPx', rubyScale:'galRubyScale',
      rubyOffsetX:'galRubyOffsetX',rubyOffsetY:'galRubyOffsetY',rubyRowOffsets:'galRubyRowOffsets',rubyRowOffsetsX:'galRubyRowOffsetsX',embedTranslation:'galEmbedTranslation',
      gap:'galGap', translationWidth:'galTranslationWidth', paddingX:'galPaddingX', paddingY:'galPaddingY', autoGameStyle:'galAutoGameStyle', maskColor:'galMaskColor',

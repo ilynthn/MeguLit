@@ -192,6 +192,87 @@ test('Gameexe.dat with exe angou decrypts with the scene key', () => withDir(dir
  assert.match(e.gameexe(dir), /#GAMENAME = "Synthetic"/);
 }));
 
+test('siglus-pck caches Gameexe speaker mappings until the selected file changes', t => withDir(dir => {
+ const file = path.join(dir, 'Scene.pck'), fallback = path.join(dir, 'Gameexe_alt.dat'), canonical = path.join(dir, 'Gameexe.dat');
+ const dat = buildDat([{ kind: 'name', text: 'TAG1' }, { kind: 'text', text: 'ここから始めましょう。' }]);
+ fs.writeFileSync(file, buildPck([kit.xor(lzssPack(dat), EASY)], 0));
+ const gameexe = name => Buffer.concat([Buffer.alloc(8), kit.xor(lzssPack(Buffer.from('#NAMAE = "TAG1","' + name + '"\r\n', 'utf16le')), sk._internal.GAMEEXE_ANGOU_CODE)]);
+ const originalRead = fs.readFileSync;
+ let reads = 0;
+ t.mock.method(fs, 'readFileSync', (f, ...args) => {
+  if (f === file || f === fallback || f === canonical) reads++;
+  return originalRead(f, ...args);
+ });
+ const engine = scenes.ENGINES['siglus-pck'];
+ const readSpeaker = () => engine.parse(engine.scenes(dir)[0].read()).speakers[0];
+ assert.equal(readSpeaker(), 'TAG1');
+ const cold = reads;
+ assert.ok(cold > 0);
+ assert.equal(readSpeaker(), 'TAG1');
+ assert.equal(reads, cold);
+
+ const first = gameexe('小鳥'), second = gameexe('静流'), third = gameexe('朱音');
+ assert.equal(first.length, second.length);
+ assert.equal(second.length, third.length);
+ const time = new Date('2020-01-01T00:00:00Z');
+ fs.writeFileSync(fallback, first);
+ fs.utimesSync(fallback, time, time);
+ assert.equal(readSpeaker(), '小鳥');
+ const withFallback = reads;
+ assert.ok(withFallback > cold);
+ assert.equal(readSpeaker(), '小鳥');
+ assert.equal(reads, withFallback);
+
+ fs.writeFileSync(canonical, second);
+ fs.utimesSync(canonical, time, time);
+ assert.equal(readSpeaker(), '静流');
+ const withCanonical = reads;
+ assert.ok(withCanonical > withFallback);
+ const later = new Date('2020-01-01T00:00:02Z');
+ fs.writeFileSync(canonical, third);
+ fs.utimesSync(canonical, later, later);
+ assert.equal(readSpeaker(), '朱音');
+ const replaced = reads;
+ assert.ok(replaced > withCanonical);
+ assert.equal(readSpeaker(), '朱音');
+ assert.equal(reads, replaced);
+}));
+
+test('siglus-pck retries an encrypted pack when a same-size 暗号.dat is replaced', t => withDir(dir => {
+ const file = path.join(dir, 'Scene.pck'), angou = path.join(dir, '暗号.DAT');
+ const correct = Buffer.from('MeguLitSyntheticAngou'), wrong = Buffer.from(correct);
+ wrong[0] ^= 1;
+ const { buf, dats } = encryptedPck(sk.angouDatKey(correct));
+ fs.writeFileSync(file, buf);
+ fs.writeFileSync(angou, wrong);
+ const time = new Date('2020-01-01T00:00:00Z');
+ fs.utimesSync(angou, time, time);
+ t.mock.method(sk, 'solveKey', () => null);
+ const originalRead = fs.readFileSync;
+ let reads = 0;
+ t.mock.method(fs, 'readFileSync', (f, ...args) => {
+  if (f === file || f === angou) reads++;
+  return originalRead(f, ...args);
+ });
+ const engine = scenes.ENGINES['siglus-pck'];
+ assert.deepEqual(engine.scenes(dir), []);
+ const cold = reads;
+ assert.ok(cold > 0);
+ assert.deepEqual(engine.scenes(dir), []);
+ assert.equal(reads, cold);
+
+ fs.writeFileSync(angou, correct);
+ const later = new Date('2020-01-01T00:00:02Z');
+ fs.utimesSync(angou, later, later);
+ const reopened = engine.scenes(dir);
+ assert.equal(reopened.length, dats.length);
+ assert.deepEqual(reopened[0].read(), dats[0]);
+ const replaced = reads;
+ assert.ok(replaced > cold);
+ assert.equal(engine.scenes(dir), reopened);
+ assert.equal(reads, replaced);
+}));
+
 test('a partial Scene.pck (zeroed scenes) still reports SIGLUS_EXE_KEY instead of hanging', () => withDir(dir => {
  const { buf } = encryptedPck(KEY);
  const h = pck.parseHeader(buf);

@@ -8,9 +8,8 @@ const kit=require('./kit.cjs');/* E577 shared engine kit */
    uses for this game, copied from preserved/source/lunahoook-adapted/.../resource/mages, GPL like LunaHook). Control bytes follow the hook's reader (native/mages/readString.cpp):
    01 name 02, 09 ruby base 0A reading 0B, 04/15 expression, 0C/11/12/13 one 16-bit argument, 00 line break.
    A speaker name is its own line (【倫太郎】), so a hooked line with or without the name lines up (the matcher joins
-   consecutive lines). Only the Japanese release reads: the English MAGES releases decode to English and are left out.
-   There is no Chinese in these releases; zero-latency translation machine-translates ahead. */
-const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
+   consecutive lines). Localized releases replace script.mpk. The original reader uses the Japanese release. */
+const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib'),{createHash}=require('node:crypto');
 const KANA=/[ぁ-ゖァ-ヺ]/;
 const {stat}=require('./file-key.cjs');
 /* 2026-11-13 the MAGES games index their font sheets differently. LunaHook's lists for the Steam releases: sghd
@@ -89,23 +88,35 @@ function audio(file){if(!voiceMpk(file))return null;const l=mpkList(file);if(!l)
  l.forEach((e,i)=>{if(!/\.(?:ogg|wav|opus)$/i.test(e.name))return;const read=()=>mpkRead(file,e);out.push({name:'mpkvoice_'+i+'.ogg',read},{name:e.name,read});});return out;}
 const scriptMpk=dir=>{for(const f of [path.join(dir,'USRDIR','script.mpk'),path.join(dir,'script.mpk')])if(fs.existsSync(f)&&mpkList(f))return f;return null;};
 const SCX=n=>/\.scx$/i.test(n);
-// Japanese and decodable with this character list: most strings of a sample of scenes have kana, few glyphs unknown.
-const jpMemo=new Map();
-function japanese(file){const key=file+'|'+stat(file);if(jpMemo.has(key))return jpMemo.get(key);let ok=false;
- try{const list=mpkList(file).filter(e=>SCX(e.name)&&e.size>4000);let lines=0,kana=0,miss=0,glyphs=0;
-  for(const e of list.filter((_,i)=>i%Math.max(1,Math.floor(list.length/12))===0).slice(0,12)){const p=parse(tagged(file,e));lines+=p.lines.length;kana+=p.lines.filter(t=>KANA.test(t)).length;miss+=p.miss;glyphs+=p.glyphs||0;}
-  ok=lines>0&&kana>=lines*.5&&miss<=glyphs*.01;}catch{ok=false;}
- jpMemo.set(key,ok);return ok;}
+// Steam build 4434295, Simplified and Traditional Chinese. Their glyph lists differ from the Japanese lists.
+const CHINESE_SCRIPTS=new Map([
+ [4213402,'406f844602c009b378633a26a89120c5ca741cc2dff49b45df484dee3cf11be7'],
+ [4339081,'961cb6d6c7f8932f43aec2432d3e18329afeaef574eecd3accbf621a887be1d2'],
+]);
+const HAN=/\p{Unified_Ideograph}/u,LATIN_PROSE=/[a-z]{2,}\s+[a-z]{2,}/i;
+const languageMemo=new Map();
+function scriptLanguage(file){const stamp=stat(file),key=file+'|'+stamp;if(languageMemo.has(key))return languageMemo.get(key);let language='';
+ try{const list=mpkList(file).filter(e=>SCX(e.name)&&e.size>4000);let lines=0,kana=0,latin=0,miss=0,glyphs=0;
+  for(const e of list.filter((_,i)=>i%Math.max(1,Math.floor(list.length/12))===0).slice(0,12)){
+   const p=parse(tagged(file,e));lines+=p.lines.length;miss+=p.miss;glyphs+=p.glyphs||0;
+   for(const t of p.lines){if(KANA.test(t))kana++;else if(!t.startsWith('【')&&!HAN.test(t)&&LATIN_PROSE.test(t.normalize('NFKC')))latin++;}}
+  if(lines>0&&kana>=lines*.5&&miss<=glyphs*.01)language='ja';
+  else if(latin>=100&&latin>=lines*.6&&kana<lines*.05&&miss<=glyphs*.01)language='other';
+  else{const digest=CHINESE_SCRIPTS.get(Number(stamp.split('|',1)[0]));
+   if(digest&&createHash('sha256').update(fs.readFileSync(file)).digest('hex')===digest)language='other';}
+ }catch{}
+ languageMemo.set(key,language);return language;}
 const mages={
  id:'mages',hint:'USRDIR\\script.mpk',
- scenes(dir){const f=scriptMpk(dir);if(!f||!japanese(f))return [];
+ scenes(dir){const f=scriptMpk(dir);if(!f||scriptLanguage(f)!=='ja')return [];
   return mpkList(f).filter(e=>SCX(e.name)).map(e=>({name:e.name,read:()=>tagged(f,e)})).sort((a,b)=>a.name.localeCompare(b.name));},
+ unsupported(dir){const f=scriptMpk(dir);return f&&scriptLanguage(f)==='other'?'SCRIPT_NOT_JAPANESE':'';},
+ REASONS:{SCRIPT_NOT_JAPANESE:'这个版本的 MAGES 剧本不是日文。Steam 版可在游戏属性中将语言改为日本語。'},
  archives:()=>[],
  sources:dir=>{const f=scriptMpk(dir);return f?[f]:[];},
  parse:buf=>{const p=parse(buf),o={lines:p.lines,anchors:p.anchors,ruby:p.ruby};if(p.voices)o.voices=p.voices;return o;},
  audio,
  test:()=>false,
- // No Chinese in these releases (zero-latency translation translates ahead).
  patchLines:()=>null,
  _internal:{mpkList,mpkRead,decodeString,parseSc3:parse,charset,pickCharset,charsetScores,gameCharset,CHARSETS,expr,mesVoices},
 };

@@ -116,6 +116,7 @@ function classify({engines,inventory:inv,unsupported,preparing,title,garbroNeed=
  const read=readers.find(e=>!GENERIC.has(e.id)&&e.japaneseLines>=DEDICATED_JP)||readers[0];
  if(read){const lang=judgeLanguage({...read,title});if(lang==='chinese-build'||lang==='decode-suspect'||lang==='not-japanese')return {step:lang,detail:read.id,detected:read.id};return {step:'ok',detail:read.id,detected:read.id};}
  if(preparing==='budget')return {step:'preparing',detail:'cx-budget-deferred',detected:null};
+ if(unsupported?.code==='SCRIPT_NOT_JAPANESE')return {step:'not-japanese',detail:unsupported.engine,detected:unsupported.engine};
  if(unsupported)return {step:DECRYPT.test(unsupported.code)?'decrypt-failed':'parse-failed',detail:(unsupported.engine+':'+unsupported.code).slice(0,60),detected:null};
  const failedDecrypt=engines.find(e=>e.error&&!SOFT_ERROR.test(e.error)&&DECRYPT.test(e.error));if(failedDecrypt)return {step:'decrypt-failed',detail:failedDecrypt.id+':'+failedDecrypt.error,detected:null};
  if(preparing==='unpack')return {step:'preparing',detail:'cx-unpack',detected:null};
@@ -198,7 +199,7 @@ function probeInScope({dir,executable,title},{budgetMs=60000,progress=null}={}){
  return {schema:'megulit.probe-result',version:1,reader:reader(),ms:Date.now()-t,fingerprint:fingerprint?{key:fingerprint.key,exe:maskString(fingerprint.exe),size:fingerprint.size}:null,
   inventory:{files:inv.files,bytes:inv.bytes,ext:inv.ext,scripts:inv.scripts,markers:inv.markers,engine:c.step==='unsupported-engine'?c.detail:'',archives:fp.tidy(inv.archives.map(({_path,...a})=>a))},
   engines:engines.map(({sizes,...e})=>e),detected:c.detected,lines:best?.lines||0,japaneseLines:best?.japaneseLines||0,dialogueLines:best?.dialogueLines||0,chineseLines:best?.chineseLines||0,sizes:best?.sizes||[],
-  tried:engines.filter(e=>e.routed||e.scenes!==0).map(e=>e.id).slice(0,24),budgetMs,...garbroNeed?{needs:'garbro'}:{},step:c.step,detail:c.detail,original,restore,unsupported:unsupported?{engine:unsupported.engine,code:unsupported.code}:null,preparing,_archives:inv.archives.map(a=>a._path)};
+  tried:engines.filter(e=>e.routed||e.scenes!==0).map(e=>e.id).slice(0,24),budgetMs,...garbroNeed&&c.step!=='not-japanese'?{needs:'garbro'}:{},step:c.step,detail:c.detail,original,restore,unsupported:unsupported?{engine:unsupported.engine,code:unsupported.code}:null,preparing,_archives:inv.archives.map(a=>a._path)};
 }
 function probeGame(game,options){return require('./original-engines/scenes.cjs').withCxProbe(()=>probeInScope(game,options));}
 module.exports={probeGame,isWindowsDirectory,routedReaders,scaledBudget,classify,judgeLanguage,countLines,inventory,reader,MAGICS};
