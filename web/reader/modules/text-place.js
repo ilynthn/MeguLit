@@ -137,7 +137,7 @@
        (appearance and this game's style profile): 2026-11-19 (user, windowed 千恋＊万花: 「为啥译文一直有投影，很重很烦还关不掉」) the
        automatic heavy shadow over the game's bottom bar is gone. */
     const row = win.querySelector('.tomoyo-cn-row'), parts = row ? [...row.querySelectorAll('*')] : [];
-    if (win.matches(inline)) {
+    if (pr.translationInline && win.matches(inline)) {
       const limit = Math.min(innerWidth, cx0 + cwc);
       set(win, 'max-width', Math.max(40, limit - Math.max(cx0, win.getBoundingClientRect().left)) + 'px');
       return;

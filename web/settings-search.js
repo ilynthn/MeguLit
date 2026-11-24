@@ -19,7 +19,7 @@ for(const [syllable,characters]of Object.entries({qing:'擎',zhi:'址',hu:'户�
  cang:'藏',ji:'击',chen:'沉',jin:'浸',kuang:'框',pai:'牌',bi:'笔',jing:'径',xian:'先',jie:'截',bao:'饱',mao:'毛',bo:'玻',li:'璃',mian:'面',ban:'伴板',cai:'菜',jiao:'角脚',chu:'触',hui:'汇',
  wo:'握',shi:'视',shao:'少',xun:'询',shu:'熟',qian:'嵌'}))for(const character of characters)pinyinMap.set(character,syllable);
 const normalize=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f\s_-]/g,'').toLowerCase();
-pinyinMap.set('引','yin');
+pinyinMap.set('引','yin');pinyinMap.set('紧','jin');
 pinyinMap.set('封','feng');pinyinMap.set('品','pin');pinyinMap.set('介','jie');pinyinMap.set('绍','shao');
 /* E377 联网服务 / 排行榜昵称 */
 pinyinMap.set('闲','xian');pinyinMap.set('帮','bang');pinyinMap.set('桌','zhuo');pinyinMap.set('冷','leng');pinyinMap.set('张','zhang');pinyinMap.set('只','zhi');pinyinMap.set('脱','tuo');pinyinMap.set('敏','min');pinyinMap.set('含','han');pinyinMap.set('榜','bang');pinyinMap.set('昵','ni');pinyinMap.set('联','lian');pinyinMap.set('网','wang');
