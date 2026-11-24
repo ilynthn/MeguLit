@@ -11,6 +11,7 @@
    The parameters of every title GARbro knows are in cx-schemes.json (taken from GARbro's Formats.dat); a game folder
    is matched to a scheme by trying them on one entry and keeping the one whose output is a known file header. */
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib'),crypto=require('node:crypto');
+const {isRiddlePsb}=require('./psb.cjs');
 const OP={NOP:0,RETN:1,MOV_EDI_ARG:2,PUSH_EBX:3,POP_EBX:4,PUSH_ECX:5,POP_ECX:6,MOV_EAX_EBX:7,MOV_EBX_EAX:8,MOV_ECX_EBX:9,MOV_EAX_EDI:11,MOV_EAX_INDIRECT:12,ADD_EAX_EBX:13,SUB_EAX_EBX:14,IMUL_EAX_EBX:15,AND_ECX_0F:16,SHR_EBX_1:17,SHL_EAX_1:18,SHR_EAX_CL:19,SHL_EAX_CL:20,OR_EAX_EBX:21,NOT_EAX:22,NEG_EAX:23,DEC_EAX:24,INC_EAX:25,IMMED:0x100,MOV_EAX_IMMED:0x101,AND_EBX_IMMED:0x102,AND_EAX_IMMED:0x103,XOR_EAX_IMMED:0x104,ADD_EAX_IMMED:0x105,SUB_EAX_IMMED:0x106};
 const LIMIT=0x80,M64=0xffffffffffffffffn,M32=0xffffffffn;
 function lcg(seed){let s=seed>>>0;return ()=>{const old=s;s=(Math.imul(1103515245,old)+12345)>>>0;return (s^(old<<16)^(old>>>16))>>>0;};}
@@ -120,7 +121,7 @@ function controlBlockIn(file){let b;try{b=fs.readFileSync(file);}catch{return nu
 // pre-rendered fonts "TVP pre-rendered font" and OpenType / TrueType fonts; none matched, so the archive got no filter
 // and its fonts could not be read): those heads count too.
 const HEAD=/^(?:\xff\xfe|\xef\xbb\xbf|TJS2|PSB\x00|mdf\x00|TLG[05]|\x89PNG|OggS|RIFF|AMV\d|\xfe\xfe[\x00-\x02]\xff|TVP |OTTO|\x00\x01\x00\x00|ttcf)/;
-const looks=b=>HEAD.test(b.toString('latin1',0,4))||(b.length>=4&&(b[1]^b[3])===0x53&&(b[2]^b[3])===0x42);
+const looks=b=>HEAD.test(b.toString('latin1',0,4))||(b.length>=4&&(b[1]^b[3])===0x53&&(b[2]^b[3])===0x42)||isRiddlePsb(b);
 const rotl32=(x,n)=>((x<<n)|(x>>>(32-n)))>>>0;
 function hxChacha(key1Hex,key2Hex,data){
  const key=Buffer.from(key1Hex,'hex'),nonce=Buffer.from(key2Hex,'hex'),st=Buffer.alloc(64);

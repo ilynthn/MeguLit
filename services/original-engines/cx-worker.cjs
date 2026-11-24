@@ -52,7 +52,7 @@ function build(file,{list=xp3.list(file)}={}){
   if(hasScn?!/\.scn$/i.test(entry.name):NON_SCN.test(entry.name))continue;
   let raw;try{raw=xp3.read(file,entry,cx);}catch{continue;}
   if(raw.length<0x40)continue;
-  const h=raw.toString('latin1',0,4),plain=h==='PSB\0'||h==='mdf\0';
+  const h=raw.toString('latin1',0,4),plain=h==='PSB\0'||h==='mdf\0'||psb.isRiddlePsb(raw);
   if(!plain&&!((raw[1]^raw[3])===0x53&&(raw[2]^raw[3])===0x42||(raw[1]^raw[2])===0x11&&(raw[0]^raw[1])===0x03))continue;tried++;
   let doc=null;if(plain)try{const d=psb.parse(raw,{tolerant:true});if(d?.root&&typeof d.root==='object')doc=d;}catch{}if(!doc)doc=psb.openCx(raw);if(!doc)continue;
   const scenes=textsOf(doc);

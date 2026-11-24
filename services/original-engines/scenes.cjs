@@ -496,22 +496,28 @@ const siglus={
 const os=require('node:os');
 const MEDIA_XP3=/^(?:bg|fg|ev|sd)?image|^(?:bgm|voice|sound|se|movie|video|thum|emote|font|sysse)/i;
 const cxArchives=dir=>{try{return fs.readdirSync(dir).filter(f=>/\.xp3$/i.test(f)&&!MEDIA_XP3.test(f)).map(f=>path.join(dir,f));}catch{return [];}};
-const cxCache=file=>{const st=fs.statSync(file);return path.join(os.tmpdir(),'megulit-cx',crypto.createHash('sha256').update(path.resolve(file).toLowerCase()+'|'+st.size+'|'+st.mtimeMs+'|6').digest('hex').slice(0,24)+'.json');};
+const cxCache=(file,version=7)=>{const st=fs.statSync(file);return path.join(os.tmpdir(),'megulit-cx',crypto.createHash('sha256').update(path.resolve(file).toLowerCase()+'|'+st.size+'|'+st.mtimeMs+'|'+version).digest('hex').slice(0,24)+'.json');};
 const cxBuilds=new Map(),cxMemo=new Map(),cxQueue=[],cxStarted=new Map();let cxRunning=false;
 const finishedCxWorkers=new WeakSet();
 let cxProbe=null;
 function withCxProbe(fn){const previous=cxProbe;cxProbe={deferred:false};try{return fn();}finally{cxProbe=previous;}}
+function cxCachedDocs(out){
+ try{const st=fs.statSync(out),hit=cxMemo.get(out);if(hit&&hit.at===st.mtimeMs)return hit.docs;const docs=JSON.parse(fs.readFileSync(out,'utf8')).docs||[];cxMemo.set(out,{at:st.mtimeMs,docs});return docs;}catch{}
+ return null;
+}
 function cxDocs(file){
  let out;try{out=cxCache(file);}catch{return null;}
- try{const st=fs.statSync(out),hit=cxMemo.get(out);if(hit&&hit.at===st.mtimeMs)return hit.docs;const docs=JSON.parse(fs.readFileSync(out,'utf8')).docs||[];cxMemo.set(out,{at:st.mtimeMs,docs});return docs;}catch{}
- if(cxProbe)return null;
+ const docs=cxCachedDocs(out);if(docs)return docs;
+ // Keep the earlier scenes available while rebuilding caches that omitted Riddle PSB files.
+ let legacy=null;try{legacy=cxCachedDocs(cxCache(file,6));}catch{}
+ if(cxProbe)return legacy;
  if(!cxBuilds.has(out)){
   // Only archives that look like cx KiriKiri (encrypted entries) are worth a worker; one worker at a time.
   /* E595 a translation's patch.xp3 keeps its scene files unencrypted (each byte XOR-ed, which the worker undoes) */
-  let list;try{list=xp3.list(file);}catch{list=null;}if(!list||!list.files.some(e=>e.encrypted||/\.scn$/i.test(e.name)))return [];
+  let list;try{list=xp3.list(file);}catch{list=null;}if(!list||!list.files.some(e=>e.encrypted||/\.scn$/i.test(e.name)))return legacy||[];
   cxBuilds.set(out,null);cxStarted.set(out,Date.now());cxQueue.push({file,out});cxNext();
  }
- return null;
+ return legacy;
 }
 /* 2026-11-16 probe (#184 #194 #275 #276 #291): the probe worker returns before the background cx build ends (the worker is
    unref'd), so a first probe of a cx game always read 0 lines and "decrypt-failed encrypted-archive". cxPrepareSync builds
@@ -562,7 +568,8 @@ const kirikiriCx={
    for(const d of docs){const key=(d.name||d.entry).toLowerCase(),seen=byName.get(key);if(!seen||r>seen.r)byName.set(key,{r,name:d.name||d.entry,d});}}
   return [...byName.values()].map(x=>({name:x.name,read:()=>Buffer.from(JSON.stringify(x.d))})).sort((a,b)=>a.name.localeCompare(b.name));},
  archives:()=>[],
- sources:dir=>cxArchives(dir).flatMap(f=>{let c='';try{c=cxCache(f);}catch{}return c?[f,c]:[f];}),
+ // Keep the previous source fingerprint until the replacement cache is published.
+ sources:dir=>cxArchives(dir).flatMap(f=>{let c='';try{c=cxCache(f);if(!fs.existsSync(c))c=cxCache(f,6);}catch{}return c?[f,c]:[f];}),
  // ruby: the game's own readings for each Japanese line ([base, reading] pairs), used before any dictionary reading.
  parse(buf){const doc=JSON.parse(buf.toString('utf8')),lines=[],zh=[],ruby=[],voices=[];
   /* the Chinese slot is found by its text (ATRI: ja/en/zh-Hans/zh-Hant; PureStation: ja/zh-Hans/zh-Hant; 9-nine-: ja/en/zh-Hant) */

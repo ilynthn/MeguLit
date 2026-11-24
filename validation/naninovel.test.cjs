@@ -616,3 +616,57 @@ test('Naninovel: #947 r4 regressions (primary bundle beats extra ja, ja->ja rank
   assert.deepEqual(nani.sources(root).map(f=>path.basename(f)),['game-localization-zh-scripts-01.bundle','game-localization-jp-scripts-01.bundle']);
  });
 });
+
+test('Naninovel: classic documents fall back per block to Chinese source when zh translation is partial',t=>{
+ const os=require('node:os'),path=require('node:path');
+ const scenes=require('../services/original-engines/scenes.cjs');
+ const {packBundle}=require('../services/original-engines/utage-embedded.cjs')._internal;
+ const {string}=require('./helpers/utage-embedded-fixture.cjs');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'nani-classic-fb-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const aa=path.join(root,'Game_Data','StreamingAssets','aa','StandaloneWindows64');
+ fs.mkdirSync(aa,{recursive:true});
+ const jaZhSrc=
+  '; Chinese (T) <zh-TW> to Japanese <ja-JP> localization document for `Ch01` naninovel script\n\n'+
+  '# L1\n; 繁體第一句。\n日本語の一行目。\n\n'+
+  '# L2\n; 繁體第二句前半。<br>\n; 繁體第二句後半。\n日本語の二行目。\n\n'+
+  '# L3\n; 繁體第三句。\n日本語の三行目。\n\n'+
+  '# L4\n; 繁體第四句。\n日本語の四行目。\n\n'+
+  '# L5\n日本語の五行目。\n';
+ const zhPartial=
+  '; Chinese (T) <zh-TW> to Chinese (S) <zh-Hans> localization document for `Ch01` naninovel script\n\n'+
+  '# L1\n; 繁體第一句。\n简体第一句。\n\n'+
+  '# L3\n; 繁體第三句。\n\n'+
+  '# L4\n; 繁體第四句。\n<br>\n<i> </i>\n';
+ fs.writeFileSync(path.join(aa,'game-localization-ja-scripts-01.bundle'),packBundle('CAB-ja',string(jaZhSrc),'2020.3.7f1'));
+ fs.writeFileSync(path.join(aa,'game-localization-zhhans-scripts-01.bundle'),packBundle('CAB-zh',string(zhPartial),'2020.3.7f1'));
+ const read=scenes.read('naninovel',root);
+ assert.equal(read.length,1);
+ assert.deepEqual(read[0].lines,['日本語の一行目。','日本語の二行目。','日本語の三行目。','日本語の四行目。','日本語の五行目。']);
+ assert.deepEqual(read[0].zh,['简体第一句。','繁體第二句前半。\n繁體第二句後半。','繁體第三句。','繁體第四句。','']);
+ const patched=nani.patchLines(read);
+ assert.deepEqual(patched[0].lines,['简体第一句。','繁體第二句前半。\n繁體第二句後半。','繁體第三句。','繁體第四句。','日本語の五行目。']);
+
+ // Empty zh-Hans document (header only) still falls back to Chinese source for every block
+ const jaOnlyDoc={script:true,name:'Ch02.nani',src:'zh-tw',dst:'ja-jp',text:
+  '; Chinese (T) <zh-TW> to Japanese <ja-JP> localization document for `Ch02` naninovel script\n\n# A\n; 繁體甲。\n日本語甲。\n'};
+ const zhEmptyDoc={script:true,name:'Ch02.nani',src:'zh-tw',dst:'zh-hans',text:
+  '; Chinese (T) <zh-TW> to Chinese (S) <zh-Hans> localization document for `Ch02` naninovel script\n'};
+ const fromEmpty=nani.parse(Buffer.from(nani._internal.combine([jaOnlyDoc,zhEmptyDoc])[0].text));
+ assert.deepEqual(fromEmpty.lines,['日本語甲。']);
+ assert.deepEqual(fromEmpty.zh,['繁體甲。']);
+ const fromNoZh=nani.parse(Buffer.from(nani._internal.combine([jaOnlyDoc])[0].text));
+ assert.deepEqual(fromNoZh.lines,['日本語甲。']);
+ assert.deepEqual(fromNoZh.zh,['繁體甲。']);
+
+ // Non-Chinese source (English) never falls back to English source for missing/empty/tag-only zh blocks
+ const jaEnSrc={script:true,name:'Ch03.nani',src:'en',dst:'ja-jp',text:
+  '; English <en> to Japanese <ja-JP> localization document for `Ch03` naninovel script\n\n'+
+  '# E1\n; First.\n一。\n\n# E2\n; Second.\n二。\n\n# E3\n; Third.\n三。\n\n# E4\n; Fourth.\n四。\n'};
+ const zhEnPartial={script:true,name:'Ch03.nani',src:'en',dst:'zh-hans',text:
+  '; English <en> to Chinese (S) <zh-Hans> localization document for `Ch03` naninovel script\n\n'+
+  '# E1\n; First.\n第一。\n\n# E3\n; Third.\n\n# E4\n; Fourth.\n<br>\n'};
+ const enRes=nani.parse(Buffer.from(nani._internal.combine([jaEnSrc,zhEnPartial])[0].text));
+ assert.deepEqual(enRes.lines,['一。','二。','三。','四。']);
+ assert.deepEqual(enRes.zh,['第一。','','','']);
+});

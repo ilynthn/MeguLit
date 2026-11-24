@@ -184,8 +184,8 @@ function combine(docs){const byName=new Map();for(const d of docs){if(!d.script)
    // Prints that are only whitespace are not lines.
    const parts=ja.prints.map((t,i)=>tidy(t)?fmtBlock('p'+i,t,zhOf(i)):'').filter(Boolean);
    if(parts.length)out.push({name:ja.name,text:parts.join('\n\n')});continue;}
-  const jb=blocks(ja.text),zb=zhDoc?blocks(zhDoc.text):null,useSrc=!zhDoc&&isZh(ja.src);const parts=[];
-  for(const [id,b] of jb){if(!b.dst.length)continue;const z=zb?zb.get(id):null;const zh=z?z.dst:useSrc?b.src:[];
+  const jb=blocks(ja.text),zb=zhDoc?blocks(zhDoc.text):null,useSrc=isZh(ja.src);const parts=[];
+  for(const [id,b] of jb){if(!b.dst.length)continue;const z=zb?zb.get(id):null;const zh=z&&tidy(z.dst.join('\n'))?z.dst:useSrc?b.src:[];
    parts.push('# '+id+'\n'+b.dst.map(l=>'; '+l).join('\n')+(zh.length?'\n'+zh.join('\n'):''));}
   if(parts.length)out.push({name:ja.name,text:parts.join('\n\n')});}
  return out;}

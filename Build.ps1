@@ -25,8 +25,9 @@ function Invoke-TaskTests([switch]$Changed) {
  # MEGULIT_TEST_CONCURRENCY (1-32) overrides the default 2 on a machine that keeps the timing-sensitive tests green at a higher value
  $taskConcurrency = 2; if ($env:MEGULIT_TEST_CONCURRENCY -match '^\d+$' -and [int]$env:MEGULIT_TEST_CONCURRENCY -ge 1 -and [int]$env:MEGULIT_TEST_CONCURRENCY -le 32) { $taskConcurrency = [int]$env:MEGULIT_TEST_CONCURRENCY }
  # Paths relative to the repository root: 544 absolute paths passed 32767 characters and Windows refused to start node ("filename or extension is too long").
+ # TAP named explicitly: Node 23+ prints spec by default even when piped, and test-resume.cjs record and the "not ok" summary below read TAP only.
  Push-Location -LiteralPath $taskRoot
- try { $taskTestOutput = & $taskNode (Join-Path $taskRoot 'tools/run-isolated.cjs') $taskNode --test --test-force-exit "--test-concurrency=$taskConcurrency" @($taskRun | ForEach-Object { $_.Replace('/','\') }) 2>&1 } finally { Pop-Location }
+ try { $taskTestOutput = & $taskNode (Join-Path $taskRoot 'tools/run-isolated.cjs') $taskNode --test --test-reporter=tap --test-force-exit "--test-concurrency=$taskConcurrency" @($taskRun | ForEach-Object { $_.Replace('/','\') }) 2>&1 } finally { Pop-Location }
  $taskTestExit = $LASTEXITCODE
  $taskTestOutput | Set-Content -LiteralPath (Join-Path $taskRoot 'validation/automated-results.txt') -Encoding utf8
  & $taskNode (Join-Path $taskRoot 'tools/test-resume.cjs') record $taskState $taskRoot $taskList (Join-Path $taskRoot 'validation/automated-results.txt') $taskTestExit

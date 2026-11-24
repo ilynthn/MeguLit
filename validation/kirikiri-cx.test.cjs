@@ -3,6 +3,7 @@
 // E282: cx-encrypted KiriKiri Z scene files (Steam 千恋＊万花 and others) are read without the game's key, and their own
 // Chinese language slot lines up with the Japanese one.
 const test=require('node:test'),assert=require('node:assert'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {createHash}=require('node:crypto');
 const psb=require('../services/original-engines/psb.cjs'),worker=require('../services/original-engines/cx-worker.cjs'),xp3=require('../services/original-engines/xp3.cjs');
 
 const {buildPsb,arr}=require('./helpers/psb-writer.cjs');
@@ -20,10 +21,11 @@ function writeXp3(file,entries){
  const parts=[],files=[];let at=19;
  const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
  const chunk=(tag,body)=>Buffer.concat([Buffer.from(tag,'latin1'),u64(body.length),body]);
- for(const {name,data} of entries){
+ for(const {name,data,hash=0} of entries){
   parts.push(data);
   const nm=Buffer.from(name,'utf16le'),info=Buffer.concat([Buffer.from([1,0,0,0]),u64(data.length),u64(data.length),Buffer.from([name.length,0]),nm]);
   const segm=Buffer.concat([Buffer.alloc(4),u64(at),u64(data.length),u64(data.length)]),adlr=Buffer.alloc(4);
+  adlr.writeUInt32LE(hash);
   files.push(chunk('File',Buffer.concat([chunk('info',info),chunk('segm',segm),chunk('adlr',adlr)])));
   at+=data.length;
  }
@@ -34,6 +36,78 @@ function writeXp3(file,entries){
 test('PSB writer and reader agree',()=>{
  const doc=psb.parse(buildPsb(scene));
  assert.deepStrictEqual(doc.root,scene);
+});
+
+function legacyCxCachePath(file){
+ const {size,mtimeMs}=fs.statSync(file);
+ const name=createHash('sha256').update(`${path.resolve(file).toLowerCase()}|${size}|${mtimeMs}|6`).digest('hex').slice(0,24);
+ return path.join(os.tmpdir(),'megulit-cx',name+'.json');
+}
+function writeLegacyCxCache(file,result){
+ const cache=legacyCxCachePath(file);
+ fs.mkdirSync(path.dirname(cache),{recursive:true});
+ fs.writeFileSync(cache,JSON.stringify({schema:1,file,...result}));
+}
+
+test('RiddleCxCrypt PSB scene files reach the probe and reader after an empty cache (#964)',t=>{
+ const game=fs.mkdtempSync(path.join(os.tmpdir(),'cxriddle-'));
+ t.after(()=>fs.rmSync(game,{recursive:true,force:true}));
+ const file=path.join(game,'scn.xp3'),cx=require('../services/original-engines/cx-filter.cjs');
+ const filter=cx.filter(cx.schemes().find(s=>s.type==='RiddleCxCrypt'&&s.cb));
+ const lines=[['朝は紅茶をいれます。','今日はいい天気ですね。','窓を開けましょう。','そろそろ出かけようか。'],
+  ['切符を買いました。','駅まで歩きましょう。','向こうに見えるのは海です。','また明日会いましょう。']];
+ const signature=Buffer.from('159258f0d266fdec','hex');
+ writeXp3(file,lines.map((group,i)=>{
+  const name=`00${i+1}.ks`,hash=0x12345678+i;
+  const data=buildPsb({name,scenes:[{label:'start',texts:group.map(ja=>[null,[[null,ja]]])}]});
+  signature.copy(data);
+  assert.strictEqual(psb.parse(data).version,3);
+  return {name:name+'.scn',hash,data:filter(hash,0,data)};
+ }));
+ writeLegacyCxCache(file,{docs:[],files:0});
+
+ const {probeGame}=require('../services/adapter-probe-core.cjs'),scenes=require('../services/original-engines/scenes.cjs');
+ const result=probeGame({dir:game,executable:''});
+ assert.deepStrictEqual([result.step,result.detected,result.lines],['ok','kirikiri-cx',8]);
+ assert.deepStrictEqual(scenes.withCxProbe(()=>scenes.read('kirikiri-cx',game)).map(s=>s.lines),lines);
+
+ const malformed=buildPsb(scene);
+ signature.copy(malformed);malformed.writeUInt32LE(0x28,8);
+ assert.throws(()=>psb.parse(malformed),/PSB_MAGIC/);
+});
+
+test('cx: earlier readable cache stays usable until the refreshed cache is ready',async t=>{
+ const game=fs.mkdtempSync(path.join(os.tmpdir(),'cxlegacy-'));
+ t.after(()=>fs.rmSync(game,{recursive:true,force:true}));
+ const file=path.join(game,'scn.xp3'),uncached=path.join(game,'common.xp3');
+ writeXp3(file,[{name:'001.ks.scn',data:buildPsb(scene)}]);
+ writeXp3(uncached,[]);
+ const cached=worker.build(file);
+ writeLegacyCxCache(file,cached);
+
+ const scenes=require('../services/original-engines/scenes.cjs');
+ const read=()=>scenes.withCxProbe(()=>scenes.read('kirikiri-cx',game));
+ const before=read();
+ assert.strictEqual(before[0]?.lines[0],'「志那都荘まで行って欲しいんですけど」');
+ const sources=()=>scenes.ENGINES['kirikiri-cx'].sources(game);
+ assert.ok(sources().includes(legacyCxCachePath(file)));
+ assert.ok(sources().includes(legacyCxCachePath(uncached)));
+ assert.strictEqual(scenes.cxPrepareSync(game),1);
+ assert.deepStrictEqual(read(),before);
+ assert.ok(!sources().includes(legacyCxCachePath(file)));
+ assert.ok(sources().includes(legacyCxCachePath(uncached)));
+ assert.strictEqual(scenes.cxPrepareSync(game),0);
+
+ const regularGame=path.join(game,'regular'),regularFile=path.join(regularGame,'scn.xp3');
+ fs.mkdirSync(regularGame);
+ fs.copyFileSync(file,regularFile);
+ writeLegacyCxCache(regularFile,cached);
+ const regular=scenes.read('kirikiri-cx',regularGame);
+ // Let the background refresh finish before the fixture is removed.
+ await Promise.all([...scenes.cxBuilds.values()].filter(Boolean).map(w=>{
+  w.ref();return new Promise(resolve=>w.once('exit',resolve));
+ }));
+ assert.deepStrictEqual(regular,before);
 });
 
 test('cx: two XOR bytes split at a boundary plus a stray byte are undone without a key',()=>{

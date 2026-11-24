@@ -3,6 +3,9 @@
 // E282 KiriKiri Z scene files (.scn) are PSB documents (E-mote / M2 binary JSON), sometimes inside an "mdf" zlib wrapper.
 // Layout after FreeMote (MIT): a header of offsets, a name trie, a string table and typed values.
 const zlib=require('node:zlib');
+// Some retail scenes retain a fixed tag in place of magic, version and flags after RiddleCxCrypt. The PSB v3 header size follows it.
+const RIDDLE_PSB_V3=Buffer.from('159258f0d266fdec2c000000','hex');
+const isRiddlePsb=b=>b.length>=RIDDLE_PSB_V3.length&&b.subarray(0,RIDDLE_PSB_V3.length).equals(RIDDLE_PSB_V3);
 function unwrap(buf){
  if(buf.toString('latin1',0,4)==='mdf\0')return zlib.inflateSync(buf.subarray(8));
  return buf;
@@ -11,8 +14,8 @@ function unwrap(buf){
 function bad(code,at,range){const e=Error(code+'@'+at);e.at=at;e.range=range;return e;}
 // window: only values starting before this offset are read (a quick structural check of the start of the file).
 function parse(input,{window=Infinity,tolerant=false}={}){
- const b=unwrap(input);if(b.toString('latin1',0,4)!=='PSB\0')throw bad('PSB_MAGIC',0,null);
- const version=b.readUInt16LE(4);if(b.readUInt16LE(6)&1)throw Error('PSB_HEADER_ENCRYPTED');
+ const b=unwrap(input),riddle=isRiddlePsb(b);if(!riddle&&b.toString('latin1',0,4)!=='PSB\0')throw bad('PSB_MAGIC',0,null);
+ const version=riddle?3:b.readUInt16LE(4);if(!riddle&&(b.readUInt16LE(6)&1))throw Error('PSB_HEADER_ENCRYPTED');
  const u=o=>b.readUInt32LE(o),offNames=u(12),offStrings=u(16),offStringsData=u(20),offEntries=u(36);
  if(offNames>=b.length||offEntries>=b.length||offStrings>=b.length||offStringsData>=b.length)throw bad('PSB_HEADER',12,null);
  const uint=(at,n)=>{let v=0;for(let i=n-1;i>=0;i--)v=v*256+b[at+i];return v;};
@@ -170,4 +173,4 @@ function decryptCx(raw){
 }
 // Decrypted and parsed in one go; null when the file is not a cx-encrypted PSB or nothing sensible comes out.
 function openCx(raw){const buf=decryptCx(raw);if(!buf)return null;try{const doc=parse(buf,{tolerant:true});return sane(doc,true)?doc:null;}catch{return null;}}
-module.exports={parse,unwrap,decryptCx,openCx};
+module.exports={parse,unwrap,decryptCx,openCx,isRiddlePsb};
