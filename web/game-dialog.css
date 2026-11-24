@@ -47,7 +47,7 @@ img.nsfw-masked{filter:blur(22px) brightness(.62) saturate(.8)!important;transfo
 .nsfw-veil:hover span{background:rgba(10,8,12,.8)}
 dialog.nsfw-ask .dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin:0;padding:18px 28px 22px;border-top:0}
 /* 2026-11-21 developers (web/developer.js): the logo chip before a library card's title, the developer line of the game page with its panel */
-.dev-logo{flex:none;display:inline-grid;place-items:center;width:18px;height:18px;overflow:hidden;border-radius:4px;background:rgba(237,181,110,.16);box-shadow:inset 0 0 0 1px rgba(237,181,110,.35);font:600 10px/1 "Noto Serif JP","Noto Serif SC",serif;font-style:normal;color:#edb56e}
+.dev-logo{flex:none;display:inline-grid;place-items:center;width:18px;height:18px;overflow:hidden;border-radius:4px;background:color-mix(in srgb,var(--g-gold) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--g-gold) 32%,transparent);font:600 10px/1 "Noto Serif JP","Noto Serif SC",serif;font-style:normal;color:var(--g-gold)}
 .dev-logo.has-img{background:rgba(255,255,255,.92);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .dev-logo img{display:block;width:100%;height:100%;object-fit:contain}
 /* the chip is the first thing on the title's line (inside .mq), centred on it: each library view pads the caption differently, so a fixed offset drifted */
@@ -56,11 +56,11 @@ dialog.nsfw-ask .dialog-actions{display:flex;justify-content:flex-end;gap:10px;m
 .dev-card[hidden]{display:none}
 .dev-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .dev-card-head .dev-logo{width:26px;height:26px;font-size:13px}
-.dev-card-head small{display:block;font-size:11px;letter-spacing:.14em;color:#8f8178}
-.dev-card-head b{display:block;font-size:15px;font-weight:600;color:#f1e0d2}
-.dev-card .sc-intro{margin:0 0 10px;font-size:12.5px;line-height:1.75;color:#cdbdb1}
-.dev-card .sc-intro small{display:block;margin-top:4px;font-size:11px;color:#8f8178}
-.dev-card .sc-panel-note{margin:0;font-size:12.5px;color:#8f8178}
+.dev-card-head small{display:block;font-size:11px;letter-spacing:.14em;color:var(--g-t2)}
+.dev-card-head b{display:block;font-size:15px;font-weight:600;color:var(--g-t1)}
+.dev-card .sc-intro{margin:0 0 10px;font-size:12.5px;line-height:1.75;color:var(--g-t2)}
+.dev-card .sc-intro small{display:block;margin-top:4px;font-size:11px;color:var(--g-t2)}
+.dev-card .sc-panel-note{margin:0;font-size:12.5px;color:var(--g-t2)}
 .dev-card .sc-links{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
-.dev-card .sc-link{height:28px;padding:0 12px;border:0;border-radius:2px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);font-size:12px;color:#f1e0d2;cursor:pointer}
-.dev-card .sc-link:hover{box-shadow:inset 0 0 0 1px #edb56e;color:#edb56e}
+.dev-card .sc-link{height:28px;padding:0 12px;border:0;border-radius:2px;background:color-mix(in srgb,var(--g-t1) 7%,transparent);box-shadow:inset 0 0 0 1px var(--t-line-2);font-size:12px;color:var(--g-t1);cursor:pointer}
+.dev-card .sc-link:hover{box-shadow:inset 0 0 0 1px var(--g-gold);color:var(--g-gold)}

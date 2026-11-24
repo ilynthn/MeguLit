@@ -4,7 +4,8 @@
 :root{
  --t-red:#c8323c;--t-red-2:#e0404a;--t-gold:#d1a000;
  --t-panel:linear-gradient(160deg,rgba(24,24,30,.66),rgba(14,14,18,.54));
- --t-panel-solid:linear-gradient(160deg,rgba(26,22,26,.94),rgba(15,13,16,.94));
+ --t-panel-base:#0f0d10;
+ --t-panel-solid:linear-gradient(160deg,rgba(26,22,26,.94),color-mix(in srgb,var(--t-panel-base) 94%,transparent));
  --t-line:rgba(255,255,255,.09);--t-line-2:rgba(255,255,255,.16);
  --t-radius:2px;
  --t-ring:inset 0 0 0 1px var(--t-line);
@@ -136,7 +137,8 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .profile-perks li{color:
 :root[data-theme=light]{
  --t-red:#a8232f;--t-red-2:#c0303d;--t-gold:#8a6400;
  --t-panel:linear-gradient(160deg,rgba(255,252,249,.94),rgba(248,242,238,.92));
- --t-panel-solid:linear-gradient(160deg,#fffcf9,#f6efea);
+ --t-panel-base:#f6efea;
+ --t-panel-solid:linear-gradient(160deg,#fffcf9,var(--t-panel-base));
  --t-line:rgba(60,30,30,.12);--t-line-2:rgba(60,30,30,.22);--t-label-color:#5a4640;
  --t-bar-track:rgba(60,30,30,.1)}
 :root{--t-text:var(--text,#f3f3f5);--t-text-2:color-mix(in srgb,var(--text,#f3f3f5) 72%,transparent)}
@@ -174,14 +176,20 @@ html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body :is(dialog.g
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page :is(b,span,small,h2,.gm-kicker,.rw-title,.rw-album-btn,.gm-hero-prog,.gm-hero-level,.gm-stg-glyph,.gm-level){color:var(--t-text)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page :is(small,.gm-kicker,.lg-bar>span){color:var(--t-text-2)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page .gm-level.active{color:#fff!important}
-html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page .gm-stg.on :is(span,b){color:#fff4ea!important}
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page :is(.gm-stg.has-next .gm-stg-flag,.gm-hero-go>span){color:#fff!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .gm-page .gm-link{color:var(--t-red)!important}
+/* Readable feedback on the light practice surface, with the existing underline and strike-through states. */
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-lesson .gm-jd-opt:is(.hit,.miss){color:var(--t-text)!important;box-shadow:none!important;text-shadow:none}
 
 /* light theme, game library: the no-cover placeholder, the caption under each cover and the centre tool capsule were drawn for dark glass;
    on the light paper they take the light panel and the text tokens (dark mode untouched, the wall's edge fade stays) */
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .cover-frame .hero-placeholder{background:var(--t-panel-solid)!important;border:1px solid var(--t-line-2)!important;color:var(--t-text-2)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .cover-frame .hero-placeholder svg{opacity:1!important;color:var(--t-text-2)!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .cover-frame .hero-placeholder .ph-title{color:var(--t-text)!important;opacity:1!important}
+/* Game details also mount status and reading panels after changing tabs. */
+html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .main :is(.first-player,.dev-card,.game-detail-content :is(.ds-summary,.ds-rows,.ds-empty)){
+ background:var(--t-panel)!important;border-color:var(--t-line)!important;box-shadow:none!important
+}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .lib-field .cover-frame{background-color:transparent}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .lib-field .game-caption .mq{color:var(--t-text)!important;text-shadow:none!important;-webkit-text-stroke:0!important}
 html[data-theme=light]:not(#u):not(#v):not(#w):not(#x):not(#y) body .lib-field .game-caption.mq-box{background:rgba(255,252,249,.72);border-radius:var(--t-radius)}

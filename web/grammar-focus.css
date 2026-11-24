@@ -60,8 +60,8 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-overview>.gm-cap{font-size
 
 /* ---- stage cards ---- */
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-no{color:color-mix(in srgb,var(--gf-t1) 70%,transparent)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{color:#fff!important;opacity:1!important;}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-glyph{color:color-mix(in srgb,#fff 80%,transparent)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-glyph{color:var(--gf-t1)!important;opacity:1!important;}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-glyph{color:color-mix(in srgb,var(--gf-t1) 80%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-nick{color:var(--gf-t1)!important}
 
 /* bars: gold = learned, everything else one quiet grey */
@@ -71,8 +71,8 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-bar i.on{backg
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-flag{background:transparent!important;border:0!important;color:color-mix(in srgb,var(--gf-gold) 85%,transparent)!important;padding:0!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.clear .gm-stg-flag::before{content:"✓ "}
 /* the stage to take next: the one red card in the strip */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next{border-color:transparent!important;background:linear-gradient(180deg,color-mix(in srgb,var(--gf-red) 16%,rgba(0,0,0,.86)),rgba(0,0,0,.86) 70%)!important}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-flag{background:var(--gf-red)!important;color:#fff!important;border:0!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next{border-color:transparent!important;background:linear-gradient(180deg,color-mix(in srgb,var(--t-red) 12%,var(--g-raise)),var(--g-raise) 70%)!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-flag{background:var(--t-red)!important;color:#fff!important;border:0!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg.has-next .gm-stg-bar i.cur{background:var(--gf-red)!important}
 
 /* ---- small print everywhere on the page ---- */
@@ -88,7 +88,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-page :is(.gm-card-node,.gm
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-anki-offer p{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 80%,transparent)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-anki-offer .gm-anki-note{color:color-mix(in srgb,var(--g-t1,#f1e0d2) 64%,transparent)!important}
 /* lesson rows: the next lesson's labels were red on a red row */
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next :is(.gm-card-no,.gm-card-meta b){color:#fff!important}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next :is(.gm-card-no,.gm-card-meta b){color:var(--mgc-red-ink,var(--gf-t1))!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-group .gm-card.next{box-shadow:inset 3px 0 0 var(--mg-red,#c8323c)!important}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-stg .gm-stg-sub{font-variant-numeric:tabular-nums}
 /* round 3: the Anki offer is a quiet panel (no gold edge); the overview sentence steps back behind the lesson title */
@@ -156,7 +156,7 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-game{flex-basi
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-game .gm-tr{margin:2px 0 0}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-game-meta{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;margin-top:6px}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-game-meta .gm-cap{margin:0}
-html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-none{margin:0;font-size:13px;color:color-mix(in srgb,var(--gf-t1) 62%,transparent)}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-none{margin:0;font-size:13px;color:var(--g-t2)}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-note{margin:18px 0 0;font-size:14px;line-height:1.7;color:var(--gf-t1)}
 html:not(#u):not(#v):not(#w):not(#x):not(#y) body .gm-how .gm-how-note b{margin-right:10px;padding:1px 8px;border:1px solid var(--gf-gold);color:var(--gf-gold);font-size:12px}
 /* the step list keeps its names on narrow windows now that the numbers are gone */

@@ -86,10 +86,59 @@ async function assertMemoriesScrollbars(page){
   assert.deepEqual(results[index][2].slice(0,4),['none','auto','0px','0px'],'selection overlay');
  }
 }
+
+async function assertDetailTheme(page){
+ const failures=await page.evaluate(async()=>{
+  const origin='https://detail.invalid/';
+  const {sessionsView}=await import(origin+'detail-sessions.js');
+  const {mountDetailDeveloper}=await import(origin+'developer.js');
+  const {receiptView}=await import(origin+'seed-receipt.js');
+  const main=document.querySelector('main'),root=document.documentElement;
+  const opts={locale:'zh',esc:String,number:String,duration:n=>n+' 秒'};
+  const receipt=receiptView({state:'bundled',bundled:{revision:1}},opts);
+  const mount=body=>{main.innerHTML='<div class="game-detail-content">'+body+'</div>';};
+  const ctx=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
+  const paint=color=>{ctx.fillStyle=color;ctx.fillRect(0,0,1,1);};
+  const luminance=()=>{
+   const v=[...ctx.getImageData(0,0,1,1).data].slice(0,3).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
+   return .2126*v[0]+.7152*v[1]+.0722*v[2];
+  };
+  const results=[],style=selector=>getComputedStyle(main.querySelector(selector));
+  root.dataset.theme='light';
+  const check=(ink,surface)=>{
+   const panel=style(surface),stops=panel.backgroundImage.match(/(?:rgba?|color)\([^)]*\)/g)||[];
+   paint(getComputedStyle(root).getPropertyValue('--bg').trim());
+   paint(stops.at(-1)||panel.backgroundColor);
+   const back=luminance();
+   paint(style(ink).color);
+   const text=luminance(),ratio=(Math.max(text,back)+.05)/(Math.min(text,back)+.05);
+   if(ratio<4.5)results.push({ink,surface,ratio});
+  };
+  mount('<div class="detail-overview"><div class="detail-main"><section class="first-player">'+receipt.html+'</section></div><aside class="detail-aside"></aside></div>');
+  const api=async action=>action==='game_developer'?{pid:'p1',name:'Sample studio'}:
+   action==='seed_producer'?{intro:'Sample description',source:'moegirl',links:[{kind:'vndb'}]}:null;
+  mountDetailDeveloper({main,id:'7',api,...opts});
+  await new Promise(resolve=>requestAnimationFrame(resolve));
+  for(const ink of ['.dev-card-head small','.dev-card-head b','.dev-card .sc-intro','.dev-card .sc-intro small','.dev-card .sc-link','.dev-card .dev-logo'])
+   check(ink,'.dev-card');
+  for(const ink of ['.first-player-from','.first-player-receipt-source'])check(ink,'.first-player');
+  const now=Date.now(),started_at=Math.floor(now/1000)-120;
+  mount(sessionsView([{started_at,active_seconds:90,characters:225,sentences:14}],{...opts,now}));
+  for(const ink of ['.ds-fig>span','.ds-fig>strong','.ds-chart-k','.ds-bar b'])check(ink,'.ds-summary');
+  for(const ink of ['.ds-time','.ds-dur','.ds-num','.ds-num small'])check(ink,'.ds-rows');
+  mount(sessionsView([],opts));
+  check('.ds-empty h3','.ds-empty');check('.ds-empty p','.ds-empty');
+  root.dataset.theme='dark';
+  return results;
+ });
+ assert.deepEqual(failures,[]);
+}
+
+
 test('detail hero layout, launch motion and memories scrollbar styles',async()=>{
  const browser=await launch({viewport:{width:1360,height:900}}),page=browser.page;
  try{
-  page.route(url=>{const u=new URL(url);if(u.origin!=='https://detail.invalid')return 'abort';const file=path.resolve(web,'.'+decodeURIComponent(u.pathname));if(!file.startsWith(web+path.sep)||!fs.existsSync(file))return 'abort';return {body:fs.readFileSync(file),headers:{'content-type':file.endsWith('.css')?'text/css':'application/octet-stream'}};});
+  page.route(url=>{const u=new URL(url);if(u.origin!=='https://detail.invalid')return 'abort';const file=path.resolve(web,'.'+decodeURIComponent(u.pathname));if(!file.startsWith(web+path.sep)||!fs.existsSync(file))return 'abort';return {body:fs.readFileSync(file),headers:{'content-type':file.endsWith('.css')?'text/css':file.endsWith('.js')?'text/javascript':'application/octet-stream','access-control-allow-origin':'*'}};});
   const html='<!doctype html><html data-theme="dark"><head>'+styles.map(f=>`<link rel="stylesheet" href="https://detail.invalid/${f}">`).join('')+'</head><body><main class="main" data-kids="dtv-bg" style="width:calc(100% - 64px);margin:0 32px;padding:0"></main></body></html>';
   await page.goto('data:text/html;charset=utf-8,'+encodeURIComponent(html));
   await page.evaluate(read('primary-buttons.js').replace('export function ','function '));
@@ -149,5 +198,6 @@ test('detail hero layout, launch motion and memories scrollbar styles',async()=>
    }
   }
   await assertMemoriesScrollbars(page);
+  await assertDetailTheme(page);
  }finally{await browser.close();console.log('Detail layout headless browser closed: '+browser.pid);}
 });

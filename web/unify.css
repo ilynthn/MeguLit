@@ -578,7 +578,7 @@ html:not(#u):not(#v) body .lv-dialog footer .primary:disabled::before{opacity:.3
 /* review: one button size */
 html:not(#u):not(#v) body .review-card :is(button.primary,button.secondary){font-size:15px!important;height:48px!important;font-weight:600!important}
 /* lessons: the step nav sticks to the foot of the window; grammar list margins */
-html:not(#u):not(#v) body .gm-lesson .gm-stepnav{position:sticky;bottom:0;z-index:4;background:#140f12!important}
+html:not(#u):not(#v) body .gm-lesson .gm-stepnav{position:sticky;bottom:0;z-index:4;background:var(--t-panel-base)!important}
 html:not(#u):not(#v) body .gm-page :is(.gm-formula,.gm-formulas li){border-style:solid!important}
 /* leaderboard: my-data values on one line, the "me" badge off the avatar, no tracking on mixed text */
 html:not(#u):not(#v) body .leaderboard-page :is(.lb-local,.leaderboard-local) :is(strong,b,dd,span){white-space:nowrap}
@@ -1882,7 +1882,7 @@ html body .fx-flash{position:fixed;left:var(--x);top:var(--y);width:240px;height
    narrow window, and the three steps carry a small marker instead of 01 / 02 / 03 ---- */
 html:not(#u):not(#v):not(#w):not(#x) body dialog.game-dialog.dev-notice[open]{display:flex!important;flex-direction:column;width:min(1040px,calc(100vw - 32px))!important;height:auto!important;max-height:calc(100vh - var(--titlebar-height,56px) - 24px)!important;overflow:hidden!important;padding:36px 44px 0!important}
 html:not(#u):not(#v):not(#w):not(#x) body dialog.game-dialog.dev-notice[open]>.dev-notice-page:not([hidden]){flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;padding-right:6px}
-html:not(#u):not(#v):not(#w):not(#x) body dialog.game-dialog.dev-notice .dev-notice-page[data-page="1"]>.dev-notice-actions{position:sticky;bottom:0;z-index:2;margin:0!important;padding:16px 0 18px;background:linear-gradient(to bottom,transparent,rgb(15,12,16) 16px)}
+html:not(#u):not(#v):not(#w):not(#x) body dialog.game-dialog.dev-notice .dev-notice-page[data-page="1"]>.dev-notice-actions{position:sticky;bottom:0;z-index:2;margin:0!important;padding:16px 0 18px;background:linear-gradient(to bottom,transparent,var(--t-panel-base) 16px)}
 html:not(#u):not(#v):not(#w):not(#x) body dialog.game-dialog.dev-notice .dev-notice-page:not([data-page="1"])>.dev-notice-actions{margin-top:0!important;padding:16px 0 18px}
 html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.guide-success li::before{content:"";width:7px;height:7px;top:calc(12px + .7em);left:15px;background:var(--g-gold);transform:rotate(45deg);font:0 serif}
 html:not(#u):not(#v):not(#w):not(#x) body .dev-notice-page[data-page="1"]>.guide-success li{padding-left:44px!important}
