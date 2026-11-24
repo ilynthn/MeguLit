@@ -137,6 +137,8 @@ function collectStats(db,now=new Date(),root=''){
 function hotWeekKey(now=new Date()){const d=new Date(now.getTime()+8*3600000);const u=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));const day=u.getUTCDay()||7;u.setUTCDate(u.getUTCDate()+4-day);const year=u.getUTCFullYear(),first=new Date(Date.UTC(year,0,1));return `${year}-W${String(Math.ceil(((u-first)/86400000+1)/7)).padStart(2,'0')}`;}
 function hotWeekStart(now=new Date()){const d=new Date(now.getTime()+8*3600000);d.setUTCHours(0,0,0,0);d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);return Math.floor((d.getTime()-8*3600000)/1000);}
 const HOT_TERMS=100;
+// Older relays bind the week and reader alongside each term in a single D1 query (100 parameters maximum).
+const HOT_TERMS_LEGACY_RELAY=98;
 const japanese=ch=>{const c=ch.codePointAt(0);return c>=0x3040&&c<=0x30ff||c>=0x3400&&c<=0x9fff||c>=0xff66&&c<=0xff9f;};
 /* same rule as relay/src/validate.js cleanTerm */
 function cleanTerm(value){
@@ -201,7 +203,7 @@ async function submit(stats,options={},c=config(options.root,options.env,options
  /* 2026-11-12 转职: the element and the level ride along so the board can show them */
  if(root){const rc=require('./reader-class.cjs'),cls=rc.read(root);if(cls.element)body.element=cls.element;body.level=rc.readerLevel(body.stats.all,cls.element).level;}
  if(c.shareGames&&Array.isArray(stats?.games))body.games=stats.games.slice(0,MAX_GAMES).map(g=>({title:String(g.title||'').slice(0,120),characters:int(g.characters),seconds:int(g.seconds),last:Math.min(int(g.last),Math.floor((options.now||new Date()).getTime()/1000))})).filter(g=>g.title);
- if(stats?.hot?.week)body.hot={week:stats.hot.week,terms:(stats.hot.terms||[]).slice(0,HOT_TERMS).map(t=>({term:t.term,count:Math.min(1000,int(t.count))})).filter(t=>t.count>0)};
+ if(stats?.hot?.week)body.hot={week:stats.hot.week,terms:(stats.hot.terms||[]).map(t=>({term:t.term,count:Math.min(1000,int(t.count))})).filter(t=>t.count>0).slice(0,HOT_TERMS_LEGACY_RELAY)};
  /* 2026-11-13 the board page re-submits every 10 minutes whether or not anything moved, and each submit costs the
     relay D1 rows (the row itself plus its rate-limit buckets). An identical body is simply not sent. */
  const payload=JSON.stringify(body),fingerprint=crypto.createHash('sha256').update(payload).digest('hex');

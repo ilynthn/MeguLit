@@ -59,3 +59,19 @@ test('client gate: a busy minute on the 排行榜 / 交流 pages stays far under
  for(let i=0;i<60;i++){t=i*1000;await g('https://api.megulit.com'+pages[i%pages.length]);for(let k=0;k<10;k++)await g('https://api.megulit.com/api/avatar/'+String(k).padStart(32,'0'));}
  assert.ok(calls<30,'calls '+calls);assert.equal(g.stats().perMinute,calls);
 });
+
+test('a leaderboard upload failure leaves reads, the other relay and avatar uploads available',async()=>{
+ const {createGate}=require('../services/relay-gate.cjs');let failures=0;
+ const host='https://api.megulit.com',fallback='https://cn-api.megulit.com',path='/api/leaderboard',post={method:'POST'};
+ const gate=createGate(async(url,init)=>{
+  if(url===host+path&&init.method==='POST'){failures++;return new Response(null,{status:500});}
+  return Response.json({ok:true});
+ });
+ assert.equal((await gate(host+path,post)).status,500);
+ await assert.rejects(gate(host+path,post),{cause:{code:'MEGULIT_BACKOFF'}});
+ for(const [url,init] of [[host+path,{}],[host+'/api/torch/months',{}],[host+path+'/avatar',post],[fallback+path,post]]) {
+  assert.equal((await gate(url,init)).status,200);
+ }
+ await assert.rejects(gate(host+path,post),{cause:{code:'MEGULIT_BACKOFF'}});
+ assert.equal(failures,1);
+});

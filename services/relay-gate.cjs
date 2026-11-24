@@ -7,7 +7,7 @@
      identical GETs in flight share one request;
    - a 429 closes the gate for the relay's Retry-After (default 60 s); calls in that time get a local 429 at once,
      with Retry-After, instead of going out and extending the block;
-   - network errors and 5xx back off exponentially (2 s, 4 s … 120 s) instead of retrying fast;
+   - network errors and 5xx back off exponentially (2 s, 4 s … 120 s) per host, route and method;
    - a write (POST/PUT/DELETE) that succeeded clears the GET cache, so the page shows what was just changed.
    createGate(fetcher) is the testable core; install() wraps globalThis.fetch once in the service process. */
 const DEFAULT_HOSTS=['api.megulit.com','cn-api.megulit.com'];
@@ -31,8 +31,8 @@ function retryAfterSeconds(response){
 function limited(seconds){return new Response(JSON.stringify({ok:false,error:'RATE_LIMITED',retryAfter:seconds}),{status:429,headers:{'content-type':'application/json; charset=utf-8','retry-after':String(seconds),'x-megulit-gate':'local'}});}
 function createGate(fetcher,options={}){
  const now=options.now||(()=>Date.now()),hosts=options.hosts||(()=>DEFAULT_HOSTS);
- const cache=new Map(),inflight=new Map(),sent=[];
- let blockedUntil=0,failures=0,failUntil=0;
+ const cache=new Map(),inflight=new Map(),failures=new Map(),sent=[];
+ let blockedUntil=0;
  const isRelay=url=>{try{const u=new URL(url);return u.pathname.startsWith('/api/')&&hosts().includes(u.host);}catch{return false;}};
  const count=()=>{const t=now();sent.push(t);while(sent.length&&t-sent[0]>60000)sent.shift();};
  const store=(key,ttl,status,headers,body)=>{cache.delete(key);cache.set(key,{until:now()+ttl*1000,status,headers,body});if(cache.size>MAX_ENTRIES)cache.delete(cache.keys().next().value);};
@@ -47,18 +47,26 @@ function createGate(fetcher,options={}){
   /* 2026-11-15 (v1.4.10 user could not send logs) a one-click report (一键上传问题反馈: logs + reason) always goes out:
      a 429 or backoff from the background adaptation-contribution chunks used to make it fail at once with a local
      RATE_LIMITED; the relay still rate-limits it itself */
-  const method0=String(init.method||'GET').toUpperCase(),userSend=method0==='POST'&&/^\/api\/(diagnostics|feedback)$/.test(new URL(url).pathname);
+  const {host,pathname:path}=new URL(url),method=String(init.method||input?.method||'GET').toUpperCase();
+  const userSend=method==='POST'&&/^\/api\/(diagnostics|feedback)$/.test(path);
   const t=now();if(!userSend&&t<blockedUntil)return limited(Math.ceil((blockedUntil-t)/1000));
-  if(!userSend&&t<failUntil)throw Object.assign(new TypeError('fetch failed'),{cause:{code:'MEGULIT_BACKOFF'}});
-  const method=String(init.method||'GET').toUpperCase(),path=new URL(url).pathname,ttl=method==='GET'&&init.cache!=='no-store'?ttlFor(path):0;
+  const failureKey=host+' '+method+' '+path;
+  const recordFailure=()=>{
+   const count=(failures.get(failureKey)?.count||0)+1;
+   failures.delete(failureKey);
+   failures.set(failureKey,{count,until:now()+Math.min(120,2**count)*1000});
+   if(failures.size>MAX_ENTRIES)failures.delete(failures.keys().next().value);
+  };
+  const ttl=method==='GET'&&init.cache!=='no-store'?ttlFor(path):0;
   const key=ttl?url+'\n'+headerOf(init,'authorization'):'';
   if(key){const hit=cache.get(key);if(hit&&hit.until>t)return replay(hit);if(inflight.has(key))return replay(await inflight.get(key));}
+  if(!userSend&&t<(failures.get(failureKey)?.until||0))throw Object.assign(new TypeError('fetch failed'),{cause:{code:'MEGULIT_BACKOFF'}});
   const run=(async()=>{
    count();let r;
-   try{r=await fetcher(input,init);}catch(error){if(error?.name!=='TimeoutError'&&error?.name!=='AbortError'){failures++;failUntil=now()+Math.min(120,2**failures)*1000;}throw error;}
+   try{r=await fetcher(input,init);}catch(error){if(error?.name!=='TimeoutError'&&error?.name!=='AbortError')recordFailure();throw error;}
    if(r.status===426){try{const body=await r.clone().json();if(body.error==='UPDATE_REQUIRED')required={latest:body.latest||'',minVersion:body.minVersion||'',message:body.message||''};}catch{}}
    if(r.status===429){const s=retryAfterSeconds(r);blockedUntil=Math.max(blockedUntil,now()+s*1000);}
-   if(r.status>=500){failures++;failUntil=now()+Math.min(120,2**failures)*1000;}else failures=0;
+   if(r.status>=500)recordFailure();else failures.delete(failureKey);
    if(method!=='GET'&&r.ok)cache.clear();
    if(!key)return r;
    const body=Buffer.from(await r.arrayBuffer()),headers=[...r.headers.entries()];
@@ -69,7 +77,7 @@ function createGate(fetcher,options={}){
   inflight.set(key,run);try{return replay(await run);}finally{inflight.delete(key);}
  }
  gated.stats=()=>{const t=now();while(sent.length&&t-sent[0]>60000)sent.shift();return {perMinute:sent.length,blockedFor:Math.max(0,Math.ceil((blockedUntil-t)/1000)),cached:cache.size};};
- gated.reset=()=>{cache.clear();inflight.clear();sent.length=0;blockedUntil=0;failures=0;failUntil=0;};
+ gated.reset=()=>{cache.clear();inflight.clear();failures.clear();sent.length=0;blockedUntil=0;};
  return gated;
 }
 /* hosts: the two built-in relays plus the address saved in Settings, read when a call is made */

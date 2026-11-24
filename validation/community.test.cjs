@@ -8,7 +8,7 @@ const load=name=>import(pathToFileURL(path.join(relayDir,'src',name)).href);
 const MIGRATIONS=fs.readdirSync(path.join(relayDir,'migrations')).filter(f=>f.endsWith('.sql')).sort().map(f=>fs.readFileSync(path.join(relayDir,'migrations',f),'utf8')).join('');
 function d1(){
  const db=new DatabaseSync(':memory:');db.exec(MIGRATIONS);
- const stmt=(sql,args=[])=>({bind:(...a)=>stmt(sql,a),first:async()=>db.prepare(sql).get(...args)??null,all:async()=>({results:db.prepare(sql).all(...args)}),run:async()=>{db.prepare(sql).run(...args);return {success:true};}});
+ const stmt=(sql,args=[])=>({bind:(...a)=>{if(a.length>100)throw Error('D1 bound parameter limit');return stmt(sql,a);},first:async()=>db.prepare(sql).get(...args)??null,all:async()=>({results:db.prepare(sql).all(...args)}),run:async()=>{db.prepare(sql).run(...args);return {success:true};}});
  return {prepare:sql=>stmt(sql),batch:async list=>{db.exec('BEGIN');try{for(const s of list)await s.run();db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}},raw:db};
 }
 function r2(){const store=new Map();return {store,put:async(k,b)=>{store.set(k,new Uint8Array(b));},get:async k=>store.has(k)?{body:store.get(k)}:null,delete:async k=>{store.delete(k);}};}
@@ -20,6 +20,20 @@ let ipN=0;const req=(method,url,data,headers={})=>new Request('https://relay.tes
 const uuid=n=>`${String(n).padStart(8,'0')}-1111-4111-8111-111111111111`;
 const stats={week:{characters:100,seconds:60,words:1,streak:1},month:{characters:100,seconds:60,words:1,streak:1},all:{characters:100,seconds:60,words:1,streak:1}};
 const join=(id,extra={})=>({version:1,id,name:'Reader'+id.slice(6,8),keys:{week:'2026-W46',month:'2026-11'},stats,...extra});
+
+test('leaderboard accepts all 100 weekly terms and replaces the prior set within the D1 parameter limit',async()=>{
+ const {handle}=await load('worker.js'),e=env(),id=uuid(47);
+ const terms=Array.from({length:101},(_,i)=>({term:'言葉'+i,count:1}));
+ const send=(name,weekly)=>handle(req('POST','/api/leaderboard',join(id,{name,hot:{week:'2026-W46',terms:weekly}})),e,NOW);
+ const sent=await send('Reader47',terms.slice(0,100));assert.equal(sent.status,200,await sent.text());
+ const saved=await send('Reader48',terms.slice(1));assert.equal(saved.status,200,await saved.text());
+ const rows=e.DB.raw.prepare('SELECT term FROM hot_lookups WHERE id_hash=?').all(sha(id));
+ assert.equal(rows.length,100);
+ assert.ok(rows.some(r=>r.term==='言葉100')&&!rows.some(r=>r.term==='言葉0'));
+ assert.equal(e.DB.raw.prepare('SELECT name FROM leaderboard_users WHERE id_hash=?').get(sha(id)).name,'Reader48');
+ assert.equal((await send('Reader48',[])).status,200);
+ assert.equal(e.DB.raw.prepare('SELECT COUNT(*) AS n FROM hot_lookups').get().n,0);
+});
 /* minimal still WebP (VP8L header) of size×size; animated=true builds a VP8X with the animation flag */
 function webp(size=128,{height=size,animated=false}={}){
  const b=new Uint8Array(40);const put=(o,s)=>[...s].forEach((c,i)=>b[o+i]=c.charCodeAt(0));put(0,'RIFF');b[4]=32;put(8,'WEBP');
