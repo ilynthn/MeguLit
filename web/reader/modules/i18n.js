@@ -147,6 +147,7 @@
    '日本語の縁取り色'],'日文描边粗细':['Japanese outline width','日本語の縁取りの太さ'],'中文描边颜色':['Chinese outline color','中国語の縁取り色'],'中文描边粗细':['Chinese outline width','中国語の縁取りの太さ'],'中文字距（px）':['Chinese letter spacing (px)',
    '中国語の字間（px）'],'日文字距（px）':['Japanese letter spacing (px)','日本語の字間（px）'],'日文行距':['Japanese line height','日本語の行間'],'日文字号':['Japanese size','日本語の文字サイズ'],'中文字号':['Chinese size',
    '中国語の文字サイズ'],'日文加粗':['Bold Japanese','日本語を太字'],'中文加粗':['Bold Chinese','中国語を太字'],
+  '中文紧随日文':['Continue Chinese after Japanese','中国語訳を日本語の後に続ける'],
   '显示内容':['Show','表示内容'],'日文＋假名／中文':['Japanese + furigana / Chinese','日本語＋ふりがな／中国語'],'仅日文＋假名':['Japanese + furigana only','日本語＋ふりがなのみ'],'仅中文 · 接近汉化版':['Chinese only · like a translation patch',
    '中国語のみ・翻訳パッチ風'],'文字阴影':['Text shadow','文字の影'],'细描边 · 适合复杂背景':['Thin outline · busy backgrounds','細い縁取り・複雑な背景向け'],'柔和阴影':['Soft shadow','柔らかい影'],'无阴影':['No shadow',
    '影なし'],'字号跟随游戏窗口缩放':['Scale text with the game window','ゲームウィンドウに合わせて拡大縮小'],'行距与留白':['Spacing & padding','行間と余白'],'译文行距':['Translation line spacing','訳文の行間'],
