@@ -65,12 +65,14 @@ test('learning map keeps the selected words in place and learning pages follow t
   const tabs=q('.tabs'),top=tabs.getBoundingClientRect().top;
   frame.scrollTop=100;const sticky=frame.scrollTop>0&&tabs.getBoundingClientRect().top===top;
   const backing=getComputedStyle(tabs,'::before').boxShadow;
-  return {firstSelected,nextSelected,stationary,closed,dark,light,lightReading,blackReading,blackKana,lightKana,lightSheet,sticky,backing};
+  const tab=tabs.querySelector('.tab'),rectTab=tab.getBoundingClientRect();
+  const tabClickable=document.elementFromPoint(rectTab.left+rectTab.width/2,rectTab.top+rectTab.height/2)===tab;
+  return {firstSelected,nextSelected,stationary,closed,dark,light,lightReading,blackReading,blackKana,lightKana,lightSheet,sticky,backing,tabClickable};
  })()`);
  assert.ok(map.firstSelected&&map.nextSelected&&map.stationary&&map.closed,JSON.stringify(map));
  assert.ok(map.light.every((value,i)=>value!==map.dark[i]),JSON.stringify(map));
  assert.ok(map.lightReading.every((value,i)=>value!==map.blackReading[i]),JSON.stringify(map));
  assert.notEqual(map.lightKana,map.blackKana);
  assert.match(map.lightSheet,/gradient/);
- assert.ok(map.sticky&&map.backing!=='none',JSON.stringify(map));
+ assert.ok(map.sticky&&map.backing!=='none'&&map.tabClickable,JSON.stringify(map));
 });
