@@ -23,6 +23,8 @@ const settingNames = {
  'page.reportClear':'接收引擎清页通知',
  'page.engineRows':'按引擎行坐标逐行排版',
  'page.keepHeld':'保留超时未配对的台词',
+ 'page.filterHookRedraws':'过滤已显示的台词重绘',
+ 'page.hookAnnotationPatterns':'抓字附加标记清理规则',
  'choice.contentInterleave':'仅按正文字符识别交错特效帧',
  'choice.dropEffectFrames':'从选项候选中排除特效帧和残句',
  'choice.filters':'选项过滤规则',

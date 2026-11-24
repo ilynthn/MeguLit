@@ -113,7 +113,24 @@ test('Fata: a late redraw cannot replace the current line, and the next scripted
  f.begin(102000,105);f.end(102060,105,previous);f.end(102100,105,previous);
  assert.deepEqual(f.sources(),[previous,aside,next,previous]);
  assert.ok(f.traces.some(s=>s.includes('next script aside recovered')));
- assert.ok(f.traces.some(s=>s.includes('replay ignored')));
+ assert.ok(f.traces.some(s=>s.includes('unconfirmed hook text ignored')));
+});
+
+test('Fata: a late draw cannot publish a queued packet, while the script recovers the individual rows in order',t=>{
+ const f=fixture(t),{Matcher}=require('../../../../services/original-text.cjs');
+ const previous='扉がゆっくりと開いた。',pause='…………。',short='（……まだ寒い……）',next='では、ここでお待ちください。';
+ const rows=[previous,pause,short,pause,next],m=new Matcher(rows,rows),packet=rows.slice(1,4).join('');
+ f.hook.originalText={pageParts:s=>m.pageParts(s),pageBetween:(a,b,c)=>m.pageBetween(a,b,c)};
+ f.begin(100100,80);f.end(100200,80,previous);f.clear(101000,80);
+ f.begin(101010,81);f.hookLine(101070,packet);f.hookLine(101080,packet);
+ f.begin(101270,82);f.end(101300,82,next);f.end(101310,81,'');
+ f.hookLine(101330,packet);f.at(103100);
+ assert.deepEqual(f.sources(),rows);
+ assert.equal(f.hook.lastSource,next);
+ assert.ok(f.traces.some(s=>s.includes('recovered 3 script row(s)')));
+ const unconfirmed=fixture(t);unconfirmed.begin(110000,1);unconfirmed.hookLine(110010,short);unconfirmed.end(110050,1,'');
+ assert.deepEqual(unconfirmed.sources(),[]);
+ unconfirmed.at(111800);assert.deepEqual(unconfirmed.sources(),[short]);
 });
 
 test('Fata: authored suffixes, fragments, and emphatic repetition pass both source and reader filters',t=>{

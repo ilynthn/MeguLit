@@ -18,7 +18,10 @@
    "engineRows": true,
    "keepHeld": true,
    "filterHookRedraws": true,
-   "hookAnnotationPatterns": ["(?<=「あなた)死者(?=」)"]
+   "hookAnnotationPatterns": [
+    "(?<=「あなた)死者(?=」)",
+    "^[ 　]*(?:コンクリートの上を歩く（革靴）女性暖炉|リビング|終了しますか？)[ 　]*$"
+   ]
   },
   "choice": {
    "pageFrames": [

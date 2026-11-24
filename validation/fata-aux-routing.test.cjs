@@ -37,6 +37,19 @@ test('effect-frame game: a recent full dialogue still excludes its late aux frag
  const h=Object.create(HookNative.prototype),located=[];Object.assign(h,{profile:fata(),now:()=>5000,trace(){},artLocate:t=>located.push(t),lastSource:'次の台詞が来た。',recentSources:['扉の向こうから声が聞こえた。']});
  h.artCandidate('声が聞こえた。');assert.deepEqual(located,[]);
 });
+test('Fata filters known UI and sound metadata from both auxiliary and selected hooks',()=>{
+ const {h,out}=sourceRig(),located=[];
+ h.artLocate=t=>located.push(t);
+ for(const text of ['終了しますか？','リビング','コンクリートの上を歩く（革靴）女性暖炉']){
+  h.auxText({text,role:0,sourceName:'Krkr2wcs'});
+  h.artCandidate(text);
+  h.source({text,sourceCode:'HWN-10',sourceName:'KiriKiri1'});
+ }
+ assert.deepEqual(located,[]);assert.deepEqual(out,[]);
+ h.originalText.pageParts=t=>t==='リビング'?[t]:[];
+ h.source({text:'リビング',sourceCode:'HWN-10',sourceName:'KiriKiri1'});
+ assert.deepEqual(out,['リビング'],'exact script dialogue wins over a label of the same spelling');
+});
 test('other engines keep the existing aux art policy',()=>{
  const h=Object.create(HookNative.prototype),located=[];Object.assign(h,{profile:P.profileFor({}),now:()=>5000,trace(){},artLocate:t=>located.push(t),recentSources:[]});
  h.artCandidate('選択肢');assert.deepEqual(located,['選択肢']);

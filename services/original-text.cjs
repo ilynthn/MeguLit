@@ -596,6 +596,20 @@ class Matcher{
    return ['exact','high'].includes(r.status)&&r.method!=='guess'&&r.method!=='same-text'&&r.indices?.length>0&&plainKey(this.rt[r.indices.at(-1)+1])===tail;
   }finally{this.load(before);}
  }
+ // A packet bounded by two drawn rows proves that its entries took place between them.
+ pageBetween(previous,packet,next){
+  const before=plainKey(previous),after=plainKey(next),key=matchKey(packet);
+  if(!before||!key||!after)return [];
+  const candidates=this.heads.get(matchKey(previous).slice(0,4))||[];
+  for(const i of candidates){
+   if(plainKey(this.rt[i])!==before)continue;
+   const indices=this.cover(i+1,key,packet);
+   if(!indices?.length||plainKey(this.rt[indices.at(-1)+1])!==after)continue;
+   const rows=indices.map(j=>inlineTags(this.rt[j]));
+   if(rows.map(plainKey).join('')===plainKey(packet))return rows;
+  }
+  return [];
+ }
  /* sure=false: a guessed place, the other places stay open (maybe) */
  moveTo(i,sure=true){this.last=i;if(sure)this.maybe=null;(this.recent||(this.recent=[])).push(i);if(this.recent.length>8)this.recent.shift();}
  recentPick(found){for(const a of [...(this.recent||[])].reverse()){if(a===this.last)continue;const c=found.filter(c=>c[0]>a&&c[0]-a<=400).sort((x,y)=>x[0]-y[0]);if(c.length)return {c:c[0],method:'recent'};}
@@ -690,6 +704,7 @@ function liveProvider(root,id,executable){
   ocrSuffix(text){return inner?.ocrSuffix?.(text)===true;},
   pageParts(text){return inner?.pageParts?.(text)||[];},
   pageNext(previous,text){return inner?.pageNext?.(previous,text)===true;},
+  pageBetween(previous,packet,next){return inner?.pageBetween?.(previous,packet,next)||[];},
   position(){return inner?.position?inner.position():-1;},
   save(){return inner?.save?{inner,v:inner.save()}:null;},
   load(x){if(x&&x.inner===inner)inner.load(x.v);},
@@ -847,7 +862,7 @@ function staticProvider(root,executable,opts={}){
     return group.length===options.length&&new Set(group).size===group.length&&group.every(text=>live.has(text))?group:null;
    },
    matchedBody:text=>rtIndex.roles?.[m.last]==='b'&&norm(rt[m.last])===norm(text),
-   resolveChoice:require('./script-translation-quality.cjs').choiceLookup(rt,patched?m.og:[],rtIndex.roles),pageParts:text=>m.pageParts(text),pageNext:(previous,text)=>m.pageNext(previous,text),resolve:text=>withRuby(resolveLine(text))};
+   resolveChoice:require('./script-translation-quality.cjs').choiceLookup(rt,patched?m.og:[],rtIndex.roles),pageParts:text=>m.pageParts(text),pageNext:(previous,text)=>m.pageNext(previous,text),pageBetween:(previous,packet,next)=>m.pageBetween(previous,packet,next),resolve:text=>withRuby(resolveLine(text))};
   if(state.runtime.engine==='nitro-pak'&&require('../core/saya-page-ocr.cjs').legacyExe(path.basename(executable))){
    let lookup;
    api.sayaPageLine=(text,mode)=>(lookup??=require('../core/saya-page-ocr.cjs').scriptLookup(rt))(text,mode);

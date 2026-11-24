@@ -42,6 +42,7 @@ const LineOnce=require('./line-once.js');const {PageText}=require('./page-text.c
 // Engines whose MeguLit DLL reports each sentence of a full-screen page (hookEngineLine): KiriKiri (E300), Ren'Py (E301),
 // and every other engine through the OCR page locator (E306, GalWindowBridge PageLocator.cs).
 const PAGE_ENGINES=new Set(['krkr','renpy','ocr']);
+const SCRIPT_PAGE_ROW=Symbol('script page row');
 /* E305 full-screen (NVL) games whose engine reports no line positions or page turns (魔法使いの夜 / WITCH ON THE HOLY NIGHT,
    HuneX, LunaHook typemoon): their lines go out as engine 'nvl', and the reader stacks each one under the last inside
    the calibrated text box, turning the page when the box is full. Keyed by the game's process name. */
@@ -385,7 +386,7 @@ class HookNative{
  /* 2026-11-12 (user: art text in the opening and during play must be readable, the game keeps drawing it and MeguLit lays an
     invisible copy and the translation over it): a Japanese line from another stream that is not the current dialogue line
     is looked for on the picture (PageLocator art mode); once per text within 20 s. */
- artCandidate(text){try{const t=String(text||'').trim(),flat=HookNative.flat(t);if(typeof this.artLocate!=='function'||[...flat].length<2||[...flat].length>60)return;
+ artCandidate(text){try{const t=this.stripHookAnnotations(String(text||'')).trim(),flat=HookNative.flat(t);if(typeof this.artLocate!=='function'||[...flat].length<2||[...flat].length>60)return;
   /* The effect-frame seed already rejects these draws as choices. The art route must not paint the same
      interleaved glyphs or frame-picture names back over its clean dialogue. Other games keep their policy. */
   if(Profiles.get(this.profile,'choice.dropEffectFrames',false)===true&&Profiles.get(this.profile,'page.pairByDrawn',false)===true){
@@ -510,7 +511,7 @@ class HookNative{
  static retainedPrevious(page,previous,current){if(!previous||!current)return false;let end=0;for(let at=page.indexOf(current);at>=0;at=page.indexOf(current,at+1)){if(at>end&&page.slice(end,at).includes(previous))return true;end=Math.max(end,at+current.length);}return page.slice(end).includes(previous);}
  /* share of the character pairs of `flat` found in the hooked lines of the last ten minutes (0 when nothing to compare) */
  static hookOverlap(flat,recent,now){const t=String(flat||'');if([...t].length<4||!Array.isArray(recent))return 0;const hay=recent.filter(r=>now-r.at<600000).map(r=>r.key).join(String.fromCharCode(10));if(!hay)return 0;const ch=[...t];let n=0,hit=0;for(let i=0;i+1<ch.length;i++){n++;if(hay.includes(ch[i]+ch[i+1]))hit++;}return n?hit/n:0;}
- auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(text!==m.text)m={...m,text};this.auxPage(m);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
+ auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(!text?.trim())return;if(text!==m.text)m={...m,text};this.auxPage(m);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
     came here as aux text, went to the art path and its translation was drawn over the game's own line. A line from the same hook
     as the dialogue stream is dialogue, never art text. */
   if(m.sourceName&&this.dialogueHook&&String(m.sourceName)===this.dialogueHook)return;/* nor choice text (user: 「不是选项」) */
@@ -647,6 +648,7 @@ class HookNative{
   // The game's own ruby readings ride after the line as \x1d base \x1c reading pairs (ISLAND hook): split them off
   // before anything else sees the text, and attach them when this line is delivered (user, 2026-11-03).
   const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:this.stripHookAnnotations(extracted.text)};
+  if(typeof m.text==='string'&&!m.text.trim()&&extracted.text?.trim())return;
   if(this.pageRedraw(this.pageState,m.text)){this.trace('krkr page: hook redraw with the drawn line at its end, skipped chars='+m.text.length);return;}
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
@@ -661,7 +663,8 @@ class HookNative{
      and code-page mojibake stay unreadable there. */
   /* user: 「按照剧本来上遮罩防止误杀」 - a line the game's own script holds exactly is its text, whatever it looks like */
   let scripted=false;if(typeof m.text==='string'&&this.originalText){try{const r=this.resolveSource(String(m.text).trim());scripted=!!r&&r.status==='exact';}catch{}}
-  const authored=this.filterHookRedraws()&&this.pageScriptParts(m.text).length===1;
+  const pageParts=this.filterHookRedraws()?this.pageScriptParts(m.text):[];
+  const authored=pageParts.length===1||pageParts.length>1&&this.pageNvl();
   /* A wide hook proves decoding, not that a redraw frame is a sentence. Only this opt-in effect-page
      policy applies, and a line verified exactly in the script remains the game's authored dialogue. */
   if(this.originalText&&!scripted&&!authored&&Profiles.get(this.profile,'choice.dropEffectFrames',false)===true&&Profiles.get(this.profile,'page.pairByDrawn',false)===true&&HookNative.interleaved(m.text,Profiles.get(this.profile,'choice.contentInterleave',false)===true)){this.trace('source effect redraw left to the engine');return;}
@@ -806,11 +809,18 @@ class HookNative{
      and the sentence was read twice while the right one was dropped): the hook text is paired by what the line drew, not by order alone.
      A drawn line with kana takes the held hook line whose characters it shows (an effect frame shows them shuffled or repeated); when
      none does, the drawn text is the line and the hook line waits for its own page line (expirePageHeld delivers it if none comes) */
-  const own=String(m.text||'');
+  const own=filtered?this.stripHookAnnotations(String(m.text||'')):String(m.text||'');
   const fx=engine!=='ocr'&&Profiles.get(this.profile,'page.pairByDrawn',false)===true&&this.pagePick(K,e,own)===true;
   const exactDrawn=filtered&&(!/[ぁ-ゟァ-ヺ]/u.test(own)||HookNative.interleaved(own))&&this.pageScriptParts(own).length===1;
   const useDrawn=exactDrawn||filtered&&/[ぁ-ゟァ-ヺ]/u.test(own)&&!HookNative.interleaved(own);
-  const drawn=useDrawn?this.stripHookAnnotations(own).trim():HookNative.pageText(own,e.hookText);
+  if(filtered&&!useDrawn&&e.hookText&&(!HookNative.drawnMatch(e.hookText,own)||this.pageScriptParts(e.hookText).length>1)){
+   if(!this.pageHeldCovered(K,e.hookText)&&!K.held.some(h=>HookNative.flat(h.text)===HookNative.flat(e.hookText))){
+    K.held.unshift({text:e.hookText,origin:e.origin,at:e.heldAt??e.at});this.schedulePageHeld();
+   }
+   this.trace(engine+' page line '+m.line+' unconfirmed hook text ignored');
+   return;
+  }
+  const drawn=useDrawn?own.trim():HookNative.pageText(own,e.hookText);
   const key=HookNative.flat(drawn);
   if(filtered&&key){
    const published=key===HookNative.flat(this.lastSource)||this.hookRecent?.some(line=>line.key===key)||[...K.lines.values()].some(line=>line.sourceText===key);
@@ -819,6 +829,7 @@ class HookNative{
     this.trace(engine+' page line '+m.line+' replay ignored chars='+key.length);return;
    }
   }
+  if(filtered&&useDrawn&&m.line>(K.latestLine||0))this.flushPageBetween(K,e,drawn);
   const text=!drawn||e.hookText&&!useDrawn?drawn:this.originalTextFor(drawn);
   if(!text){this.trace(engine+' page line '+m.line+' had no readable text');return;}
   const token=IslandSource.token(text),line=m.line*2;
@@ -844,12 +855,28 @@ class HookNative{
  stripHookAnnotations(text){
   const patterns=Profiles.get(this.profile,'page.hookAnnotationPatterns',[]);
   if(!patterns.length||typeof text!=='string')return text;
-  return patterns.reduce((value,pattern)=>value.replace(new RegExp(pattern,'gu'),''),text);
+  const cleaned=patterns.reduce((value,pattern)=>value.replace(new RegExp(pattern,'gu'),''),text);
+  return !cleaned.trim()&&text.trim()&&this.pageScriptParts(text).length===1?text:cleaned;
  }
  filterHookRedraws(page=this.pageState){
   return Profiles.get(this.profile,'page.filterHookRedraws',false)===true&&(!page||page.engine==='krkr');
  }
  pageScriptParts(text){return HookNative.flat(text)?this.originalText?.pageParts?.(text)||[]:[];}
+ flushPageBetween(K,current,next){
+  if(!this.lastSource||!this.originalText?.pageBetween)return;
+  const pending=[...K.held,...K.lines.values()].filter(h=>(h.text||h.hookText)&&(!h.line||h===current||!h.ended&&h.line<current.line));
+  for(const h of pending){
+   const packet=h.text||h.hookText,rows=this.originalText.pageBetween(this.lastSource,packet,next);
+   if(!rows.length)continue;
+   const key=HookNative.flat(packet);
+   K.held=K.held.filter(x=>HookNative.flat(x.text)!==key);
+   for(const e of K.lines.values())if(e.line<=current.line&&HookNative.flat(e.hookText)===key)e.hookText='';
+   this.schedulePageHeld();
+   this.trace(K.engine+' page: recovered '+rows.length+' script row(s) before the next native draw');
+   for(const text of rows){this.originalTextFor(text);this.emitSource(text,'live',K.engine,0,SCRIPT_PAGE_ROW);}
+   return;
+  }
+ }
  recoverPageAside(m){
   const K=this.pageState,clear=K?.clear,now=this.now(),key=HookNative.flat(m.text);
   if(!clear||!this.filterHookRedraws(K)||clear.sequence!==this.state.hookSequence||now-clear.at>350||m.role!==0||!/^KiriKiri\d+$/i.test(m.sourceName||''))return false;
@@ -919,7 +946,7 @@ class HookNative{
   if(!this.pageNvl())return false;
   const K=this.pageState,now=this.now(),open=[...K.lines.values()].reverse().find(e=>!e.ended&&!e.hookText&&now-e.at<3000);
   if(this.pageRedraw(K,text)){this.trace(K.engine+' page: hook redraw with the drawn line at its end, skipped chars='+text.length);return true;}
-  if(open){open.hookText=text;open.origin=origin||'live';return true;}
+  if(open){open.hookText=text;open.origin=origin||'live';open.heldAt=now;return true;}
   K.held.push({text,origin:origin||'live',at:now});if(K.held.length>8)K.held.shift();this.schedulePageHeld();return true;
  }
  schedulePageHeld(){const K=this.pageState;if(!K)return;clearTimeout(K.timer);if(!K.held.length)return;const serial=this.serial,wait=Math.max(0,K.held[0].at+this.holdFor(K.engine)-this.now());K.timer=setTimeout(()=>{if(serial===this.serial)this.expirePageHeld();},wait);K.timer.unref?.();}
@@ -1158,7 +1185,8 @@ class HookNative{
  giveWay(ms){this.send({type:'engineGiveWay',ms:Math.max(0,Math.min(10000,Number(ms)||3000))});}
  emitSource(text,origin,engine='',nativeLine=0,authority){if(require('./danganronpa-pc-source.cjs').shouldBlock(this,authority,origin))return;if(require('./unity-il2cpp-source.cjs').shouldBlock(this.textPath,authority||{origin},this.target))return;if(require('./unity-kemco-source.cjs').shouldBlock(this.textPath,authority,this.target)||require('./artemis-session.cjs').shouldBlock(this.textPath,authority,this.target,origin,this.wanted!==false))return;{const f=HookNative.flat(text);if(f){(this.recentSources||(this.recentSources=[])).push(f);if(this.recentSources.length>24)this.recentSources.shift();}}this.positionsCheck?.();
   try{this.textPath?.want(text);}catch{}
-  const authored=this.filterHookRedraws()&&this.pageScriptParts(text).length===1;
+  const scriptStep=authority===SCRIPT_PAGE_ROW;
+  const authored=scriptStep||this.filterHookRedraws()&&this.pageScriptParts(text).length===1;
   /* E501 every source path (native line, merged batch, skip burst) meets the same frame-dump filter as the aux entries */
   if(!authored){
    if(require('./language-tracks.cjs').stuttered(text)){this.trace('drop typewriter/redraw frame '+JSON.stringify(String(text).slice(0,40)));return;}
@@ -1176,14 +1204,14 @@ class HookNative{
     if(this.windowState?.bound&&!this.originalReplaced())engine='saya-script-read';
    }
   }
-  const paged=!nativeLine&&!this.flowPage&&!['saya-page-ocr','saya-script-read'].includes(engine);if(paged){const P=this.pageText||(this.pageText=new PageText());if(!authored){const r=P.take(text,this.now());if(r.drop){this.trace('page text: '+r.drop+' '+JSON.stringify(String(text).slice(0,40)));return;}if(r.page){this.trace('page text: new part after '+r.page+' shown lines');text=r.text;}}}
+  const paged=!nativeLine&&!scriptStep&&!this.flowPage&&!['saya-page-ocr','saya-script-read'].includes(engine);if(paged){const P=this.pageText||(this.pageText=new PageText());if(!authored){const r=P.take(text,this.now());if(r.drop){this.trace('page text: '+r.drop+' '+JSON.stringify(String(text).slice(0,40)));return;}if(r.page){this.trace('page text: new part after '+r.page+' shown lines');text=r.text;}}}
   {const sp=splitSpeaker(text,this.knownSpeakers);if(sp.name){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);if(!sp.text.trim()){this.trace('speaker name split from the text flow');return;}text=sp.text;}}
   if(!engine&&!nativeLine&&this.flowPage)engine='nvl';
   const takesOverSayaPage=this.state.hookSourceEngine==='saya-page-ocr'&&origin!=='ocr'&&origin!=='history';
-  if((origin==='history'&&this.state.receivedText)||(!nativeLine&&!takesOverSayaPage&&this.sameAsLast(text)&&this.state.hookActive&&this.state.receivedText&&!this.state.hookRecovering)){this.trace('source duplicate ignored chars='+text.length);return;}
+  if((origin==='history'&&this.state.receivedText)||(!nativeLine&&!scriptStep&&!takesOverSayaPage&&this.sameAsLast(text)&&this.state.hookActive&&this.state.receivedText&&!this.state.hookRecovering)){this.trace('source duplicate ignored chars='+text.length);return;}
   // E247 (user: a game settings screen looped its prompts into the text bar): when lines already shown in the last
   // 8 s keep coming back (two or more repeats), the stream is cycling menu/system text; drop it until an unseen line.
-  if(!nativeLine&&(origin||'live')==='live'){const now=this.now(),L=this.loopGuard||(this.loopGuard={seen:[],repeats:[],looping:false});L.seen=L.seen.filter(x=>now-x.at<8000);L.repeats=L.repeats.filter(t=>now-t<8000);
+  if(!nativeLine&&!scriptStep&&(origin||'live')==='live'){const now=this.now(),L=this.loopGuard||(this.loopGuard={seen:[],repeats:[],looping:false});L.seen=L.seen.filter(x=>now-x.at<8000);L.repeats=L.repeats.filter(t=>now-t<8000);
    if(L.seen.some(x=>x.text===text)){L.repeats.push(now);if(L.looping||L.repeats.length>=2){if(!L.looping)this.trace('menu loop detected; repeating lines ignored');L.looping=true;return;}}
    else{if(L.looping)this.trace('menu loop ended');L.looping=false;L.repeats=[];}
    L.seen.push({text,at:now});if(L.seen.length>12)L.seen.shift();}
