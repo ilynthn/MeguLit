@@ -19,9 +19,11 @@
 .tv-cover.touch .tv-face,.tv-holo.touch .tv-face{box-shadow:0 22px 40px -18px #000,0 0 0 1px color-mix(in srgb,var(--g-gold) 50%,transparent)}
 .tv-art{position:absolute;inset:0}
 .tv-glare,.tv-foil{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s}
+/* Keep the short opacity fade even when reduced motion disables the card's movement. */
+.tv-card :is(.tv-glare,.tv-foil){transition:opacity .3s ease-out!important;transition-duration:.3s!important}
 .tv-glare{background:radial-gradient(circle at var(--px) var(--py),rgba(255,255,255,.55),rgba(255,255,255,.08) 28%,transparent 55%);mix-blend-mode:overlay}
 .tv-foil{background:linear-gradient(115deg,transparent 20%,hsl(var(--hue) 90% 70% / .55) 38%,hsl(calc(var(--hue) + 90deg) 90% 70% / .5) 50%,hsl(calc(var(--hue) + 180deg) 90% 70% / .45) 62%,transparent 80%);background-size:220% 220%;background-position:var(--px) var(--py);mix-blend-mode:color-dodge}
-.tv-card.touch .tv-glare{opacity:1}.tv-card.touch .tv-foil{opacity:.55}
+.tv-card:not([data-busy]):hover .tv-glare{opacity:1}.tv-card:not([data-busy]):hover .tv-foil{opacity:.55}
 .tv-marks i{position:absolute;width:22px;height:22px;border:1px solid color-mix(in srgb,var(--g-t1) 40%,transparent);z-index:4;pointer-events:none}.tv-marks i:nth-child(1){left:2.4vw;top:2.4vh;border-right:0;border-bottom:0}.tv-marks i:nth-child(2){right:2.4vw;top:2.4vh;border-left:0;border-bottom:0}.tv-marks i:nth-child(3){left:2.4vw;bottom:2.4vh;border-right:0;border-top:0}.tv-marks i:nth-child(4){right:2.4vw;bottom:2.4vh;border-left:0;border-top:0}
 .tv-scene{position:absolute;right:4vw;bottom:calc(15vh + 100px);z-index:6;font-family:var(--tv-mono);font-size:11px;letter-spacing:.35em;color:var(--g-t2)}.tv-scene b{color:var(--g-gold);font-weight:400}
 .tv-index{position:absolute;left:4%;bottom:4%;font-family:var(--g-serif);font-size:34vmin;line-height:.8;color:transparent;-webkit-text-stroke:1px color-mix(in srgb,var(--g-t1) 12%,transparent);user-select:none}
