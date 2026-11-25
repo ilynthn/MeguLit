@@ -448,12 +448,8 @@ img{-webkit-user-drag:none}
 /* second-level menu: a capsule hanging from the top bar, starting where the home content starts */
 .main>.tabs,.main.review-page>.tabs{position:sticky;top:0;z-index:5;display:inline-flex!important;width:auto!important;max-width:none!important;margin:0 0 24px 0!important;align-self:flex-start;justify-content:flex-start!important;gap:4px;padding:4px 10px 8px!important;
   border:1px solid color-mix(in srgb,var(--gold-accent,#edb56e) 18%,transparent);border-top:0;border-radius:0 0 14px 14px!important;background:linear-gradient(color-mix(in srgb,var(--g-bar,#1a1110) 92%,#000),var(--g-bar,#1a1110))!important;box-shadow:0 10px 24px -14px rgba(0,0,0,.7);backdrop-filter:none!important;transform:none!important;left:auto!important}
-/* The learning tabs stay sticky over an opaque strip, including the space beside the tabs. */
+/* The capsule covers scrolling content; leave the page background visible beside it. */
 .main[data-page=learning]>.tabs{z-index:6}
-.main[data-page=learning]>.tabs::before{
-  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
-  box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax)
-}
 .main>.tabs .tab{position:relative;background:none!important;border-radius:0!important;box-shadow:none!important;color:#b39b8d;padding:8px 14px 10px!important;font-size:14px}
 .main>.tabs .tab:hover{color:#f1e0d2}
 .main>.tabs .tab.active{color:#f1e0d2!important;background:none!important}
