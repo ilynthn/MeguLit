@@ -198,8 +198,10 @@ const ENGINES=[
  {name:'CloudNovel',hook:null,generic:true,test:f=>f.names.some(n=>/cloudnovel/i.test(n))},
  {name:'HTMLVN',hook:null,generic:true,test:f=>f.names.some(n=>/htmlvn/i.test(n))},
  {name:'HTML5 / Electron / NW.js',hook:null,generic:true,test:f=>f.inspect(dir=>require('./webbundle.cjs').probe(dir,'html5'))},
- // Keep SIA last so any existing folder match, including SoftPal, NeXAS and Tmr-Hiro PACs, takes priority.
+ // Keep SIA after established folder matches so any existing PAC match, including SoftPal, NeXAS and Tmr-Hiro PACs, takes priority.
  {name:'SIA-Soft',hook:null,test:f=>f.has(/^1055\.exe$/i)&&f.inspect(require('./sia.cjs').probe)},
+ // Preserve established engine fingerprints when a folder also ships an ARCG side archive.
+ {name:'Will ARCG',hook:null,test:f=>f.inspect(require('./arcg.cjs').matches)},
 ];
 /* the readers of each engine */
 const READERS={"BGI / Ethornell":["bgi"],
@@ -250,6 +252,7 @@ const READERS={"BGI / Ethornell":["bgi"],
  "NEKOPACK":["nekosdk"],
  "Marble":["marble"],
  "rUGP (age)":["rugp"],
+ "Will ARCG":["arcg"],
  "Seraph":["seraph"],
  "ExHIBIT":["exhibit"],
  "Escude":["escude"],"ARCGameEngine (Eushully)":["eushully"],"PJADV":["pjadv"],"Luca System":["luca"],"ISM":["ism"],"Enigma Virtual Box":["evbox"],"GLib2":["glib2"],"Cyberworks (C,system)":["cyberworks"],"DxLib":["dxlib"],
