@@ -30,10 +30,27 @@ test('library views fade completely, wall strips alternate, and the elastic bar 
  await wait("document.querySelectorAll('.library-grid .library-card').length===5");
  await sleep(400); // Finish the page's initial deferred render before observing switch replacements.
  await evaluate(`window.__input=document.querySelector('#game-search');__input.focus();window.__motions=[];window.__cuts=[];
+  window.__rowAnimations=new WeakMap();window.__rowSnapshot=null;
   const animate=Element.prototype.animate;Element.prototype.animate=function(keys,options){
    const kind=this.id==='library-results'?'host':this.classList.contains('field-search')?'bar':this.matches('mg-cell[data-wall-row]')?'row':null;
-   if(kind){const r=this.getBoundingClientRect();__motions.push({kind,row:this.dataset.wallRow,keys,options,rect:{left:r.left,top:r.top,width:r.width,height:r.height}});}
-   return animate.call(this,keys,options);
+   // Only the bar needs a geometry read. Measuring every row between animate() calls
+   // forced repeated layout on busy CI runners and could consume the animation itself.
+   const r=kind==='bar'?this.getBoundingClientRect():null;
+   const record=kind?{kind,row:this.dataset.wallRow,keys,options,rect:r?{left:r.left,top:r.top,width:r.width,height:r.height}:null}:null;
+   if(record)__motions.push(record);
+   const animation=animate.call(this,keys,options);
+   if(kind==='row'){
+    __rowAnimations.set(this,animation);
+    // Capture the real clock before cleanup clears it. A later CDP response must
+    // not mistake a correctly finished/cancelled animation for one never started.
+    const cancel=animation.cancel.bind(animation);
+    animation.cancel=()=>{
+     if(this.isConnected&&!__rowSnapshot)__rowSnapshot=[...this.parentNode.querySelectorAll('mg-cell[data-wall-row]:not([data-parked])')]
+      .map(node=>__rowAnimations.get(node)?.startTime??null);
+     if(animation.startTime!==null)record.startTime=animation.startTime;return cancel();
+    };
+   }
+   return animation;
   };
   new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.matches?.('.games-grid'))))
    __cuts.push(+getComputedStyle(document.querySelector('#library-results')).opacity);
@@ -42,17 +59,11 @@ test('library views fade completely, wall strips alternate, and the elastic bar 
  for(const preference of ['reduce','no-preference']){
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:preference}]});
   for(const view of ['tracks','wall','list']){
-   await evaluate("__motions=[];__cuts=[];document.querySelector('.library-wall-toggle').click()");
+   await evaluate("__motions=[];__cuts=[];__rowSnapshot=null;document.querySelector('.library-wall-toggle').click()");
    await wait("__motions.some(x=>x.kind==='bar')");
-   if(view==='wall'){
-    await wait("document.querySelectorAll('mg-cell[data-wall-row]:not([data-parked])').length>0");
-    const clocks=await evaluate("[...document.querySelectorAll('mg-cell[data-wall-row]:not([data-parked])')].map(n=>n.getAnimations()[0]?.startTime)");
-    assert.ok(clocks.every(n=>n!=null),'all wall cells, including deferred margin cells, animate');
-    assert.ok(Math.max(...clocks)-Math.min(...clocks)<1,'rows share one entrance clock');
-   }
    await wait(settled);
    const result=await evaluate(`(()=>{const bar=document.querySelector('.field-search'),root=document.querySelector('#library-results'),r=bar.getBoundingClientRect();
-    return {motions:__motions,cuts:__cuts,view:document.querySelector('.library-wall-toggle').dataset.view,stored:localStorage.getItem('megulit-library-view'),
+    return {motions:__motions,cuts:__cuts,rowSnapshot:__rowSnapshot,view:document.querySelector('.library-wall-toggle').dataset.view,stored:localStorage.getItem('megulit-library-view'),
      same:__input===document.querySelector('#game-search'),focus:document.activeElement===__input,barAnimations:bar.getAnimations().length,hostAnimations:root.getAnimations().length,
      transition:bar.style.transition,pointerEvents:root.style.pointerEvents,opacity:root.style.opacity,rect:{left:r.left,top:r.top,width:r.width,height:r.height},
      leader:root.querySelector('mg-cell[data-wall-row="0"][data-wall-col="0"] [data-member-id]')?.dataset.memberId,
@@ -64,8 +75,16 @@ test('library views fade completely, wall strips alternate, and the elastic bar 
    for(const key of ['left','top','width','height'])assert.ok(Math.abs(bar.rect[key]-result.rect[key])<.5,`exact final ${key}`);
    assert.equal(result.barAnimations,0);assert.equal(result.hostAnimations,0);assert.equal(result.transition,'');assert.equal(result.pointerEvents,'');assert.equal(result.opacity,'');
    const rows=result.motions.filter(m=>m.kind==='row');
+   if(view==='wall'){
+    assert.ok(result.rowSnapshot?.length>0,'wall cells are sampled together before cleanup');
+    assert.ok(result.rowSnapshot.every(n=>n!=null),'every active wall cell, including deferred cells, has an animation');
+    assert.ok(Math.max(...result.rowSnapshot)-Math.min(...result.rowSnapshot)<1,'all active cells share the same entrance clock');
+   }
    if(view!=='tracks'){
     assert.ok(rows.length>0);const entering=view==='wall',directions=new Map();
+    const clocks=rows.map(row=>row.startTime);
+    assert.ok(clocks.every(n=>n!=null),'all recorded wall cells, including deferred cells, started before cleanup');
+    assert.ok(Math.max(...clocks)-Math.min(...clocks)<1,'rows share one animation clock');
     for(const row of rows){const pose=row.keys[entering?0:1],x=parseFloat(pose.translate);
      assert.ok(Math.abs(x)>1000,'strips travel from/to outside the viewport');assert.equal(pose.opacity,0);
      if(directions.has(+row.row))assert.equal(directions.get(+row.row),x);directions.set(+row.row,x);
@@ -86,8 +105,10 @@ test('library views fade completely, wall strips alternate, and the elastic bar 
  await evaluate("for(let i=0;i<6;i++)document.querySelector('.library-wall-toggle').click()");
  await wait("__motions.filter(m=>m.kind==='bar').length>1");await wait(settled);
  assert.equal(await evaluate("document.querySelector('.library-wall-toggle').dataset.view===localStorage.getItem('megulit-library-view')"),true);
- await evaluate("document.querySelector('.library-wall-toggle').click()");
- await wait("(async()=>(await import('/library-switch-motion.js')).isBusy())()");
- await evaluate("window.__megulitTest.navigate('home')");await wait(settled);
+ // Start and leave within the browser, so CDP latency cannot miss the busy window.
+ await evaluate(`(async()=>{const motion=await import('/library-switch-motion.js'),end=performance.now()+5000;
+  document.querySelector('.library-wall-toggle').click();
+  while(!motion.isBusy()){if(performance.now()>end)throw Error('switch did not start');await new Promise(requestAnimationFrame);}
+  window.__megulitTest.navigate('home');})()`);await wait(settled);
  assert.equal(await evaluate("!!document.querySelector('#library-results')"),false,'leaving the page does not render a stale library');
 });
