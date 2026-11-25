@@ -230,6 +230,7 @@ export function matchJacket(root=document){
 /* ---------- library field: render only the cells near the viewport ---------- */
 let fieldStop=()=>{};
 const fieldState={x:0,y:0,z:1};
+let wallLeadOffset=0;
 const modulo=(value,period)=>((value%period)+period)%period;
 /* E279: row offset for the open wall; below / diagonal neighbours (stride, stride+-1 mod n) must not be the same game. */
 export const wallStride=(cols,n)=>{for(let k=0;k<n;k++){const sd=modulo(cols+k,n);if(sd>1&&sd<n-1)return cols+k;}return cols;};
@@ -299,6 +300,9 @@ export function fieldify(grid,filtered=false,tracks=false){
  if(!host||!main)return;
  const pod=main.querySelector(':scope > .field-search');
  const items=spreadTwins([...grid.children]);
+ // Rotate only this wall's sources: a different cover leads each entrance without reordering the library.
+ if(!filtered&&!tracks&&items.length>1){wallLeadOffset=(wallLeadOffset+1+Math.floor(Math.random()*(items.length-1)))%items.length;
+  items.push(...items.splice(0,wallLeadOffset));}
  /* 2026-11-13 multi-track view: the drifting field (library-drift.js) owns the covers, search or not */
  if(tracks){grid.classList.add('field-grid');const plane=document.createElement('div');plane.className='field-plane';grid.replaceChildren(plane);host.querySelector(':scope > .field-shield')?.remove();
   fieldStop=driftMount(host,grid,plane,items.filter(el=>el.matches?.('[data-member-id],[data-series-drop]')),filtered,main.querySelector(':scope > .field-search'));return;}
@@ -424,6 +428,7 @@ export function fieldify(grid,filtered=false,tracks=false){
     if(!pool.get(game)?.length){const sx=cx+(col*cw-x)*z,sy=cy+(row*ch-y)*z,mx=cardWidth*z,my=cardHeight*z;if((sx<-mx||sx>width+mx||sy<-my||sy>height+my)&&made>=6){deferred=true;continue;} /* 2026-11-14: the margin ring (cells a whole card outside the window) comes 6 a frame during a view switch too; building all of it in the cut doubled the cut frame (104 cells against 50, 75 -> 190+ ms) */made++;}
     const node=take(game);
     if(node.dataset.zoom!==tier)node.dataset.zoom=tier;
+    node.dataset.wallRow=String(row);node.dataset.wallCol=String(col);
 
     if(!node.isConnected)(added||=document.createDocumentFragment()).append(node);
     cell={node,col,row,index:game,t:'',o:'',z:tier};cells.set(key,cell);

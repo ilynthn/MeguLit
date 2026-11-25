@@ -1,102 +1,115 @@
-// E263: wall <-> simple list switch. Wall gathers to the centre and fades, the list then unrolls top-down like
-// dominoes (and the reverse), each cover with a small pan-crop. Uses individual translate/scale so the wall's own
-// positioning transforms are left alone.
-import {warmGsap} from './gsap-loader.js';
+// A complete fade separates views; the wall travels in alternating horizontal strips.
+// Individual translate/scale compose with each field's own positioning transforms.
 import {syncMainKids} from './main-kids.js';
-const reduce=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
-const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const host=()=>document.querySelector('#library-results');
-function visible(root){
- if(!root)return [];
- return [...root.querySelectorAll('.library-card')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth;}).slice(0,120);
-}
 const cover=el=>el.querySelector('.cover-frame img,.cover-frame .cover');
-const settle=list=>Promise.all(list.map(a=>a.finished.catch(()=>{})));
 const centre=root=>{const b=root.getBoundingClientRect();const top=Math.max(b.top,0),bottom=Math.min(b.bottom,innerHeight);return [b.left+b.width/2,(top+bottom)/2];};
-// warm the compositor once: the first switches were janky while animation and filter pipelines spun up
-globalThis.requestIdleCallback?.(()=>{const d=document.createElement('div');d.style.cssText='position:fixed;left:-9px;top:0;width:1px;height:1px;clip-path:inset(0);';document.body.append(d);d.animate([{translate:'0 0',scale:1,opacity:1,clipPath:'inset(0 0 0 0)'},{translate:'1px 1px',scale:.9,opacity:.5,clipPath:'inset(0 0 50% 0)'}],{duration:60}).finished.finally(()=>d.remove());});
-let busy=false;const spots={};
-// E275 (user: after fullscreen <-> windowed the capsule flew sideways first): remembered spots are window coordinates,
-// so a resize makes them stale. Forget them; the next switch measures fresh and only the FLIP moves the capsule.
-addEventListener('resize',()=>{delete spots.wall;delete spots.list;});
-// the wall lays itself out around the search capsule; measure again once the capsule has stopped moving
 const capsule=()=>document.querySelector('.field-search');
 const remeasure=()=>dispatchEvent(new Event('megulit-field-measure'));
-const vignette=(el,out)=>el?.animate(out?[{scale:'1 1',opacity:1},{scale:'1.7 1',opacity:0}]:[{scale:'1.7 1',opacity:0},{scale:'1 1',opacity:1}],{pseudoElement:'::after',duration:out?300:560,easing:out?'cubic-bezier(.55,0,.75,.2)':'cubic-bezier(.2,.8,.2,1)',fill:out?'forwards':'backwards'});
+const EXPO_OUT='cubic-bezier(.16,1,.3,1)',ACCELERATE='cubic-bezier(.55,0,.85,.35)';
+const FADE_OUT=360,FADE_IN=680,WALL_IN=960,WALL_OUT=640,BAR_SETTLE=1120;
+let busy=false;
 export const isBusy=()=>busy;
-/* 2026-11-13 option v2 "camera through planes" (CS mode): an AE 3D camera move through layered planes.
-   The old view flies past the lens as one plane (scale 1 -> 1.12 on an accelerating in, 160 ms, then drifting on). It is the live, already
-   rastered results layer, so the compositor moves it from the very first frame and keeps moving it while the main
-   thread builds the new view; it stays bright (an object passing the lens, not a dissolve), so a slow build can never leave an empty or muddy frame. On the commit
-   that carries the new view the camera cuts hard (no cross-dissolve): the new plane arrives from depth (scale .9 -> 1, expo-out, 420 ms or what is left of a 600 ms budget), the capsule's ring is there on the cut and the
-   outer covers wash in ring by ring from the capsule outwards (24 ms a ring). (2026-11-14: the blueprint HUD beat with the view's running number is gone: no numbering in the UI, and appending it to #main
-   restyled the whole page in the cut frame.)
-   Reads are batched before writes; every move is transform/opacity only (WAAPI for the planes so they run on the
-   compositor). */
-const FLY=200,ARRIVE=420,BUDGET=600,RING=16,RINGS=5,CARD=340,LIGHT=240,FLOOR=.7; /* 2026-11-13 (user recording, drift -> wall: 铺满的时候有几个地方卡): outer rings started near 0 and came up in 100 ms, which read as covers popping in at the edges; they now start at least 35% lit and rise over 240 ms */
-const EXPO_OUT='cubic-bezier(.16,1,.3,1)',FLY_IN='cubic-bezier(.35,0,.75,.45)'; /* an accelerating in that already reads in the first 100 ms, before the cut */
-warmGsap();
-/* keep the results host on its own compositor layer, so the fly-past starts on the click's first frame instead of
-   waiting for the whole view to be re-rastered as a new layer */
-const promote=()=>{const h=host();if(h&&h.style.willChange!=='transform, opacity')h.style.willChange='transform, opacity';};
+const promote=()=>{const h=host();if(h)h.style.willChange='opacity';};
 globalThis.requestIdleCallback?.(promote);
-/* one batch of reads: every visible card, the element that carries its own placement (wall cell, orbit slot or the
-   card itself) and its offset from the vanishing point. Rects come from the outer slot: in the grid that slot is the
-   content-visibility box, and measuring a card inside an off-screen one unlocked and laid it out (140 ms for 60) */
-function cells(root,vx,vy){const out=[];if(!root)return out;
- for(const el of root.querySelectorAll('.library-card')){if(el.closest('[data-parked]'))continue;const r=(el.closest('mg-cell,.field-plane > *,.library-grid > *')||el).getBoundingClientRect();
-  if(!r.width||r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth)continue;const dx=r.left+r.width/2-vx,dy=r.top+r.height/2-vy;
-  out.push({node:el.closest('mg-cell,.field-plane > *')||el,dx,dy,h:Math.hypot(dx,dy)});if(out.length>=160)break;}
- return out;}
-export async function switchLibrary(view,render,from=''){
- if(busy)return;busy=true;const toWall=view!=='list',t0=performance.now();
- try{
-  const root=host();
-  if(!root||reduce()){render();if(toWall)remeasure();return;}
-  /* reads (old plane) */
-  const cap0=capsule()?.getBoundingClientRect(),b0=root.getBoundingClientRect();
-  const [ox,oy]=cap0?[cap0.left+cap0.width/2,cap0.top+cap0.height/2]:centre(root);
-  /* writes: the old plane flies past the lens around the capsule */
-  root.style.transformOrigin=`${ox-b0.left}px ${oy-b0.top}px`;
-  /* 160 ms to 1.12, then a slow drift on toward the lens, so a long build never freezes the frame before the cut */
-  const fly=root.animate([{scale:1,easing:FLY_IN},{scale:1.12,offset:.4},{scale:1.17}],{duration:FLY*2,fill:'forwards'});
-  const dim=root.animate([{opacity:1,easing:'cubic-bezier(.5,0,.9,.5)'},{opacity:FLOOR,offset:.4},{opacity:FLOOR*.8}],{duration:FLY*2,fill:'forwards'});
-  /* wait until the fly-past runs on the compositor (rAF alone can run ahead of the commit), so it keeps playing
-     through the render below */
-  await Promise.race([fly.ready,new Promise(r=>setTimeout(r,48))]);await new Promise(r=>requestAnimationFrame(r));
-  const cap=capsule();if(cap)cap.style.transition='none';
-  /* the cut: the fly-past ends in the same task as the render, so the screen keeps the flying plane until the commit that
-     carries the new view, and the wall measures itself against an untransformed host */
-  fly.cancel();dim.cancel();root.style.transformOrigin='';
-  /* 2026-11-14 (CDP trace, tracks -> wall 190-290 ms): main-kids.js mirrors #main's children onto body from a MutationObserver,
-     which ran after this task's layout and restyled the whole page a second time (~2900 elements, 65-80 ms) in the same frame;
-     syncing here lets the one forced layout below see the final attributes */
-  window.__megulitOrbitWarm=true;render();syncMainKids(document.getElementById('main'));if(toWall)remeasure();
-  /* reads (new plane), still in the same task, so the cut and the arrival reach the screen in one commit */
-  const next=host(),cap1=capsule()?.getBoundingClientRect();
-  const [nx,ny]=cap1?[cap1.left+cap1.width/2,cap1.top+cap1.height/2]:[ox,oy];
-  const b1=next?.getBoundingClientRect(),fresh=next?cells(next,nx,ny):[],far=Math.max(1,...fresh.map(c=>c.h));
-  /* a slow build eats into the arrival, never into the 600 ms budget (the arrival keeps at least 300 ms) */
-  const arrive=Math.round(Math.max(300,Math.min(ARRIVE,BUDGET-(performance.now()-t0)))),card=arrive-(ARRIVE-CARD);
-  /* writes: cut. Capsule glides into the frame, the new plane arrives from depth, rings wash in */
-  const now=capsule(),runs=[];
-  if(now&&cap0&&cap1){const dx=ox-nx,dy=oy-ny;
-   if(Math.abs(dx)+Math.abs(dy)>1)runs.push(now.animate([{translate:`${dx}px ${dy}px`},{translate:'0 0'}],{duration:arrive,easing:EXPO_OUT}).finished.catch(()=>{}).finally(()=>{now.style.transition='';if(toWall)remeasure();}));
-   else now.style.transition='';}
-  if(next){next.style.transformOrigin=`${nx-b1.left}px ${ny-b1.top}px`;
-   runs.push(next.animate([{scale:.9},{scale:1}],{duration:arrive,easing:EXPO_OUT}).finished.catch(()=>{}));
-   for(const c of fresh){const ring=Math.min(RINGS,Math.floor(c.h/far*(RINGS+1))),pull=.08+ring*.012;
-    const o=c.node.style.opacity||1,delay=ring*RING;
-    /* opacity lands fast (no muddy half-lit covers), the push toward the lens runs the full expo-out */
-    c.node.animate([{opacity:Math.max(.35,1-ring*.13)*o},{opacity:o}],{duration:LIGHT,delay,easing:'cubic-bezier(.25,.1,.25,1)',fill:'backwards'});
-    c.node.animate([{translate:`${-c.dx*pull}px ${-c.dy*pull}px`},{translate:'0px 0px'}],{duration:card,delay,easing:EXPO_OUT,fill:'backwards'});}}
-  /* safety net: measure once more after everything has settled (layout-based, so it never re-seats the wall) */
-  if(toWall)setTimeout(remeasure,760);
-  await Promise.race([Promise.all(runs),new Promise(r=>setTimeout(r,arrive+80))]);
-  if(next)next.style.transformOrigin='';
- }finally{busy=false;window.__megulitOrbitWarm=false;promote();const h=host();h?.classList.remove('lib-entering');h?.getAnimations().forEach(a=>{if(a.playState!=='running')a.cancel();});}
-}
 
+export async function switchLibrary(view,render,from=''){
+ if(busy)return;busy=true;
+ const root=host(),bar=capsule(),animations=new Set(),restores=new Map(),observers=[];
+ let next=null;
+ const style=(el,key,value)=>{if(!el)return;let saved=restores.get(el);if(!saved)restores.set(el,saved=new Map());
+  if(!saved.has(key))saved.set(key,el.style[key]);el.style[key]=value;};
+ const play=(el,keys,options)=>{if(!el)return null;const a=el.animate(keys,options);a.finished.catch(()=>{});animations.add(a);return a;};
+ const wait=async(runs,ms)=>{let timer;try{await Promise.race([
+  Promise.all(runs.filter(Boolean).map(a=>a.finished.catch(()=>{}))),new Promise(resolve=>{timer=setTimeout(resolve,ms+200);})
+ ]);}finally{clearTimeout(timer);}};
+ const hold=runs=>{for(const a of runs.filter(Boolean)){a.pause();a.currentTime=0;}};
+ const start=runs=>{const epoch=document.timeline.currentTime;for(const a of runs.filter(Boolean)){a.play();a.startTime=epoch;}return epoch;};
+ const alive=el=>el?.isConnected&&host()===el;
+ // A shared row clock also covers margin cells added by the wall's deferred painter.
+ // Without it these late cells appeared at their destination while their neighbours were still sliding.
+ const strips=(el,enter)=>{
+  const plane=el.querySelector('.field-plane'),nodes=[...el.querySelectorAll('mg-cell[data-wall-row]:not([data-parked])')];
+  if(!plane||!nodes.length)return null;
+  const first=Math.min(...nodes.map(n=>Number(n.dataset.wallRow))),runs=[],assigned=new Map();
+  const distance=innerWidth+336,duration=enter?WALL_IN:WALL_OUT,step=enter?48:32;
+  let epoch=null;
+  const attach=node=>{
+   if(!node.matches?.('mg-cell[data-wall-row]:not([data-parked])'))return;
+   const row=Number(node.dataset.wallRow);if(assigned.get(node)?.row===row)return;
+   assigned.get(node)?.animation.cancel();
+   const direction=Math.abs(row)%2?-1:1,delay=Math.min(4,Math.max(0,row-first))*step;
+   const opacity=Number(node.style.opacity||1),x=direction*distance;
+   const a=play(node,enter?[{translate:`${-x}px 0`,opacity:0},{translate:'0 0',opacity}]:[
+    {translate:'0 0',opacity},{translate:`${x}px 0`,opacity:0}
+   ],{duration,delay,easing:enter?EXPO_OUT:ACCELERATE,fill:'both'});
+   a.pause();a.currentTime=0;assigned.set(node,{row,animation:a});runs.push(a);
+   if(epoch!==null){a.play();a.startTime=epoch;}
+  };
+  nodes.forEach(attach);
+  const observer=new MutationObserver(records=>{for(const record of records){
+   if(record.type==='attributes')attach(record.target);
+   else for(const node of record.addedNodes)attach(node);
+  }});
+  observer.observe(plane,{childList:true,subtree:true,attributes:true,attributeFilter:['data-parked','data-wall-row']});observers.push(observer);
+  return {runs,duration:duration+4*step,start(){epoch=start(runs);},stop(){observer.disconnect();}};
+ };
+ try{
+  if(!root||document.hidden||typeof root.animate!=='function'){render();if(view!=='list')remeasure();return;}
+  const before=bar?.getBoundingClientRect();style(root,'pointerEvents','none');
+  const leaving=from==='wall'?strips(root,false):null;
+  const outDuration=leaving?.duration||FADE_OUT;
+  const fade=play(root,leaving?[{opacity:1},{opacity:1,offset:.55},{opacity:0}]:[{opacity:1},{opacity:0}],{
+   duration:outDuration,easing:leaving?'linear':'cubic-bezier(.4,0,.7,1)',fill:'forwards'});
+  leaving?.start();await wait([fade,...(leaving?.runs||[])],outDuration);
+  if(!alive(root))return;
+  leaving?.stop();
+  // Keep the host invisible across synchronous DOM replacement and the layout measurement.
+  style(root,'opacity','0');style(bar,'transition','none');
+  window.__megulitOrbitWarm=true;render();syncMainKids(document.getElementById('main'));
+  if(view!=='list')remeasure();
+  next=host();if(!alive(next))return;
+  const now=capsule(),after=now?.getBoundingClientRect();style(now,'transition','none');style(next,'pointerEvents','none');
+  const arriving=view==='wall'?strips(next,true):null,runs=[];
+  runs.push(play(next,[{opacity:0},{opacity:1}],{duration:arriving?240:FADE_IN,easing:'cubic-bezier(.22,.65,.3,1)',fill:'both'}));
+  // FLIP the existing capsule, keeping its input and focus. A damped overshoot plus a small
+  // squash/stretch makes it elastic; the final identity pose restores the exact CSS position.
+  if(now&&before&&after){
+   const dx=before.left+before.width/2-after.left-after.width/2,dy=before.top+before.height/2-after.top-after.height/2;
+   const sx=before.width/Math.max(1,after.width),sy=before.height/Math.max(1,after.height),moving=Math.hypot(dx,dy)>1;
+   // Sample one damped spring instead of easing separate segments: velocity stays continuous
+   // through the target and the rebound, with no extra pause at intermediate keyframes.
+   const spring=t=>1-Math.exp(-6*t)*(Math.cos(8*t)+.75*Math.sin(8*t)),end=spring(1);
+   const keys=Array.from({length:81},(_,i)=>{
+    const t=i/80,p=i===80?1:spring(t*t*(3-2*t))/end;
+    const strain=i===80?0:.05*Math.exp(-3*t)*Math.sin(4*Math.PI*t);
+    return {offset:t,translate:`${dx*(1-p)}px ${dy*(1-p)+(moving?0:strain*100)}px`,
+     scale:`${(1+(sx-1)*(1-p))*(1+strain)} ${(1+(sy-1)*(1-p))*(1-1.4*strain)}`};
+   });
+   runs.push(play(now,keys,{duration:BAR_SETTLE,easing:'linear',fill:'both'}));
+   const lit=['tracks','wall','list'].indexOf(view)+1;
+   now.querySelectorAll('.library-view-leds i').forEach((lamp,i)=>runs.push(play(lamp,[
+    {opacity:i<lit ? .45 : .28,scale:.88},{opacity:i<lit?1:.28,scale:1}
+   ],{duration:520,delay:i*55,easing:EXPO_OUT,fill:'both'})));
+  }
+  hold(runs);fade.cancel();
+  // Rows already hold their off-screen pose, so revealing the new host cannot flash its final layout.
+  style(next,'opacity','1');
+  let paintTimer;try{await Promise.race([
+   new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))),
+   new Promise(resolve=>{paintTimer=setTimeout(resolve,180);})
+  ]);}finally{clearTimeout(paintTimer);}
+  if(!alive(next))return;
+  start(runs);arriving?.start();
+  await wait([...runs,...(arriving?.runs||[])],Math.max(BAR_SETTLE,arriving?.duration||FADE_IN));
+ }finally{
+  for(const observer of observers)observer.disconnect();
+  for(const a of animations)a.cancel();
+  for(const [el,saved] of restores)for(const [key,value] of saved)el.style[key]=value;
+  if(view!=='list'&&alive(next))remeasure();
+  busy=false;window.__megulitOrbitWarm=false;promote();host()?.classList.remove('lib-entering');
+ }
+}
 
 /* v1.1.6 (user: switching back to the wall, and opening the library, must gather from the outside in, not spread out
    from the centre): cards start further out from the centre, a little larger and transparent, and settle inward; the

@@ -33,8 +33,8 @@ test('the wall measures again after layout settles and after the switch glide', 
   assert.match(grimoire, /settle=requestAnimationFrame\(\(\)=>\{settle=requestAnimationFrame\(\(\)=>\{settle=0;measure\(\);queue\(\);\}\);\}\)/);
   assert.match(grimoire, /pod\?\.addEventListener\('transitionend',\(\)=>\{measure\(\);queue\(\);\},\{signal\}\)/);
   assert.match(grimoire, /cancelAnimationFrame\(settle\)/);
-  assert.match(motion, /finally\(\(\)=>\{now\.style\.transition='';if\(toWall\)remeasure\(\);\}\)/);
-  assert.match(motion, /if\(toWall\)setTimeout\(remeasure,760\)/);
+  assert.match(motion, /for\(const \[el,saved\] of restores\)for\(const \[key,value\] of saved\)el\.style\[key\]=value/);
+  assert.match(motion, /if\(view!=='list'&&alive\(next\)\)remeasure\(\)/);
 });
 
 test('the service exits on its own when the host is gone, even if stopping hangs', () => {
