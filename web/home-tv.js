@@ -1,3 +1,4 @@
+import {requestUiFrame,cancelUiFrame} from './idle-gate.js';
 import {activityCells} from './learning-activity.js';
 import {openLinesPicker} from './home-lines.js';
 import {createDepth,markFlat,cachedDaily,rememberDaily,dailyIsFresh,dailySignature,cachedActivity,rememberActivity} from './home-depth.js';
@@ -282,17 +283,88 @@ function fitLeft(root){const left=root.querySelector('.tv-left'),title=root.quer
  /* 2026-11-15 (user: 每日热点的四个封面都要完整显示，没有例外) nothing is hidden or cropped any more: when the column is taller than the room above the title it is scaled down as a whole, covers keep their ratio */
  parts.forEach(p=>p.style.display='');hot?.classList.remove('is-compact');left.style.zoom='';let z=1;for(let k=0;k<3;k++){const r=left.getBoundingClientRect(),room=inkTop-14-r.top;if(r.bottom<=inkTop-14||room<=0)break;z=Math.max(.35,z*room/r.height);left.style.zoom=String(z);}/* 2026-11-19 (user: 切换游戏时左列随标题行数跳高度): the column's size changes with the title's line count; the change is eased in (FLIP, transform only, 260 ms) instead of jumping; reduced motion jumps */{const r=left.getBoundingClientRect(),was=left.__flRect;left.__flRect={h:r.height,w:r.width};if(was&&was.h>0&&r.height>0&&Math.abs(was.h-r.height)>2&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&left.animate){left.style.transformOrigin='0 0';left.animate([{transform:'scale('+(was.w/r.width)+','+(was.h/r.height)+')'},{transform:'none'}],{duration:260,easing:'cubic-bezier(.16,1,.3,1)'});}}}
 
-export function cardify(card){const face=card.querySelector('.tv-face');let pressed=false,last=null;
- const set=(x,y)=>{if(card.dataset.busy){face.style.transform='';return;}card.classList.add('touch');const depth=pressed?1.6:1,rx=(.5-y)*20*depth,ry=(x-.5)*20*depth;
-  face.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg) scale(${pressed?.96:1.03})`;face.style.setProperty('--px',`${x*100}%`);face.style.setProperty('--py',
-  `${y*100}%`);face.style.setProperty('--hue',`${Math.round(x*360)}deg`);};
- card.addEventListener('pointerenter',()=>{if(card.dataset.busy)return;card.classList.add('touch');face.style.transition='transform .12s ease-out';});
- card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect();last=[Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))];
-  set(...last);});
- card.addEventListener('pointerdown',()=>{pressed=true;if(last)set(...last);});
- const up=()=>{pressed=false;if(last)set(...last);};card.addEventListener('pointerup',up);card.addEventListener('pointercancel',up);
- card.addEventListener('pointerleave',()=>{pressed=false;last=null;card.classList.remove('touch');face.style.transition='transform .7s cubic-bezier(.2,1.6,.4,1)';
-  face.style.transform='';});}
+export function cardify(card){
+ const face=card.querySelector('.tv-face');if(!face)return ()=>{};
+ const host=card.closest('.tv-home')||card.parentElement;
+ const initialTransition=face.style.transition;
+ const state={rx:0,ry:0,scale:1,x:.5,y:.5,strength:0};
+ let target={...state},pointer=null,pressed=false,dirty=false,frame=0,lastAt=0,stopped=false;
+ // One clock owns the tilt. A CSS transform transition would restart at every pointer sample.
+ face.style.transition='box-shadow .3s';
+ const neutral=()=>({rx:0,ry:0,scale:1,x:.5,y:.5,strength:0});
+ const paint=()=>{
+  face.style.transform=state.strength<.001&&!pressed?'':
+   `rotateX(${state.rx.toFixed(3)}deg) rotateY(${state.ry.toFixed(3)}deg) scale(${state.scale.toFixed(5)})`;
+  face.style.setProperty('--px',`${(state.x*100).toFixed(2)}%`);
+  face.style.setProperty('--py',`${(state.y*100).toFixed(2)}%`);
+  face.style.setProperty('--hue',`${(state.x*360).toFixed(1)}deg`);
+  card.classList.toggle('touch',state.strength>.001);
+ };
+ function aim(){
+  dirty=false;target=neutral();
+  if(!pointer||document.hidden||card.dataset.busy)return;
+  const r=card.getBoundingClientRect();if(!r.width||!r.height)return;
+  const dx=Math.max(r.left-pointer.x,0,pointer.x-r.right);
+  const dy=Math.max(r.top-pointer.y,0,pointer.y-r.bottom);
+  const distance=Math.hypot(dx,dy),margin=64;
+  if(distance>=margin)return;
+  const near=1-distance/margin,strength=near*near*(3-2*near);
+  const x=Math.max(0,Math.min(1,(pointer.x-r.left)/r.width));
+  const y=Math.max(0,Math.min(1,(pointer.y-r.top)/r.height));
+  const depth=pressed?1.6:1;
+  target={rx:(.5-y)*20*depth*strength,ry:(x-.5)*20*depth*strength,
+   scale:1+(pressed?-.04:.03)*strength,x,y,strength};
+ }
+ function tick(now){
+  frame=0;if(stopped)return;if(!card.isConnected){stop();return;}
+  if(dirty)aim();
+  // Cap the step after a stalled frame so re-entering never snaps to the target pose.
+  const dt=Math.min(32,Math.max(0,now-lastAt));lastAt=now;
+  const blend=1-Math.exp(-dt/100);
+  let settled=true;
+  for(const key of Object.keys(state)){
+   state[key]+=(target[key]-state[key])*blend;
+   const tolerance=key==='scale'?.0001:.001;
+   if(Math.abs(target[key]-state[key])>tolerance)settled=false;
+  }
+  if(settled)Object.assign(state,target);
+  paint();if(!settled)frame=requestUiFrame(tick);
+ }
+ function wake(){if(!stopped&&!frame){lastAt=performance.now();frame=requestUiFrame(tick);}}
+ function move(event){
+  if(event.pointerType==='touch')return;
+  pointer={x:event.clientX,y:event.clientY};dirty=true;wake();
+ }
+ function leave(){pointer=null;pressed=false;dirty=true;wake();}
+ function down(event){if(event.button!==0||event.pointerType==='touch')return;pressed=true;move(event);}
+ function up(){if(!pressed)return;pressed=false;dirty=true;wake();}
+ function geometry(){dirty=true;if(pointer)wake();}
+ function reset(){
+  if(frame)cancelUiFrame(frame);frame=0;pointer=null;pressed=false;
+  target=neutral();Object.assign(state,target);paint();
+ }
+ const busy=new MutationObserver(()=>{if(card.dataset.busy)reset();else geometry();});
+ busy.observe(card,{attributes:true,attributeFilter:['data-busy']});
+ host.addEventListener('pointermove',move,{passive:true});
+ host.addEventListener('pointerleave',leave);
+ card.addEventListener('pointerdown',down);
+ window.addEventListener('pointerup',up);
+ window.addEventListener('pointercancel',up);
+ window.addEventListener('blur',leave);
+ window.addEventListener('resize',geometry);
+ document.addEventListener('scroll',geometry,true);
+ document.addEventListener('visibilitychange',reset);
+ function stop(){
+  if(stopped)return;stopped=true;reset();busy.disconnect();
+  host.removeEventListener('pointermove',move);host.removeEventListener('pointerleave',leave);
+  card.removeEventListener('pointerdown',down);
+  window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);
+  window.removeEventListener('blur',leave);window.removeEventListener('resize',geometry);
+  document.removeEventListener('scroll',geometry,true);document.removeEventListener('visibilitychange',reset);
+  face.style.transition=initialTransition;
+ }
+ return stop;
+}
 
 /* 2026-11-15 (user: 热力图重新设计，只展示当月) this month as a calendar (Monday first, today marked, later days faint, four tiers of reading) with the month's totals beside it */
 export function monthHTML(all,locale,esc,w,fmtNum,today=new Date()){const y=today.getFullYear(),m=today.getMonth(),pre=`${y}-${String(m+1).padStart(2,'0')}`,N=new Date(y,m+1,0).getDate(),first=(new Date(y,m,1).getDay()+6)%7,td=today.getDate();
@@ -302,7 +374,7 @@ export function monthHTML(all,locale,esc,w,fmtNum,today=new Date()){const y=toda
  /* every day carries its own grid cell: automatic placement after leading blanks was fragile (grimoire.css made days spill into extra columns and the month sat a day off) */
  const wd=locale==='en'?'MTWTFSS':'一二三四五六日',lk={zh:'查词',ja:'辞書引き',en:'lookups'}[locale]||'查词';
  return {active,month:m+1,html:`<div class="tv-month-cal"><div class="tv-month-wd">${[...wd].map(x=>`<span>${x}</span>`).join('')}</div><div class="tv-month-days">${days.join('')}</div></div><div class="tv-month-sum"><span><b>${fmtNum(chars)}</b><em>${esc(w.figChars||w.chars)}</em></span><span><b>${fmtNum(looks)}</b><em>${esc(lk)}</em></span><span><b>${best}<small>${esc(w.days)}</small></b><em>${esc(w.streak)}</em></span></div>`};}
-export function stopHomeTV(){if(!live)return;live.tl?.kill();clearTimeout(live.timer);clearInterval(live.beat);clearInterval(live.typer);live.depth?.stop();live.hand?.stop();live=null;}
+export function stopHomeTV(){if(!live)return;live.tl?.kill();clearTimeout(live.timer);clearInterval(live.beat);clearInterval(live.typer);live.depth?.stop();live.hand?.stop();live.cardTilts?.forEach(stop=>stop());live=null;}
 
 export function homeTVSignature(model){return JSON.stringify([model.games.map(g=>[g.id,g.available,g.cover?.length,g.title,g.lastPlayedAt,g.readingSeconds,g.characters,
  g.learnedWords]),model.stats,model.preferences.homeShowcase,model.preferences.username]);}
@@ -425,7 +497,7 @@ export function renderHomeTV(main,ctx){
  {const L=(sel,z)=>{const el=$(sel);return el?{el,z}:null;};live.depth=createDepth(root,{canvas,planes,layers:[L('.tv-left',7),L('.tv-figs',8),
   L('.tv-rail',24),L('.tv-dialog',5),L('.tv-title',9),L('.tv-marks',3),L('.tv-cshadow',-22)].filter(Boolean)});}
  const onResize=()=>{if(live&&live.root===root){fitLeft(root);}else removeEventListener('resize',onResize);};addEventListener('resize',onResize);
- root.querySelectorAll('.tv-cover,.tv-heat-card').forEach(cardify);
+ live.cardTilts=[...root.querySelectorAll('.tv-cover,.tv-heat-card')].map(cardify);
  const coverEl=$('.tv-cover');let clickTimer=0,pressAt=0,pressXY=[0,0];coverEl.setAttribute('aria-label',w.coverHint);const pop=document.createElement('div');pop.className='tv-pop';
   pop.innerHTML=`<p><i class="m1"></i><b>${w.tipClick}</b><span>${w.tipDetail}</span></p><p><i class="m2"></i><b>${w.tipDbl}</b><span>${w.tipDraw}</span></p>`;root.appendChild(pop);
   let popT=0;const hidePop=()=>{clearTimeout(popT);pop.classList.remove('on');};coverEl.addEventListener('pointermove',e=>{const r=root.getBoundingClientRect();
