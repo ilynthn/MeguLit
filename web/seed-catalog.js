@@ -11,21 +11,21 @@ const W={
   engineHint:'同引擎的游戏大多能用，个别版本更换密钥或封包后可能读不出，欢迎反馈。',engineCountMissing:'部数暂缺',engineCached:'缓存部数，打开后更新',
   tabEngines:'引擎已适配',about:n=>`约 ${n} 部`,unit:'部',allEngines:'全部引擎',tabs:'目录分类',
   previous:'上一页',next:'下一页',page:(n,m)=>m?`第 ${n} / ${m} 页`:`第 ${n} 页`,retry:'重试',
-  status:{verified:'已确认','owner-ok':'已确认',read:'只读模式',skeleton:'等传火'},hidden:'成人内容 · 在设置里开启后显示',reveal:'点击只临时查看这一张',devNone:'暂时读不到这个游戏社的介绍',devSource:'简介来自 VNDB',devOpen:'在浏览器中打开',links:{vndb:'VNDB 游戏社页',site:'官网',moegirl:'萌娘百科',jawiki:'日文维基'},
+  status:{verified:'已确认','owner-ok':'已确认',read:'已适配 · 默认配置已导入',skeleton:'等传火'},hidden:'成人内容 · 在设置里开启后显示',reveal:'点击只临时查看这一张',devNone:'暂时读不到这个游戏社的介绍',devSource:'简介来自 VNDB',devOpen:'在浏览器中打开',links:{vndb:'VNDB 游戏社页',site:'官网',moegirl:'萌娘百科',jawiki:'日文维基'},
   offline:'连不上 VNDB，部分游戏名和封面暂时显示不了',empty:'没有找到',close:'关闭',loading:'正在读取…',failed:'读取失败，稍后再试',link:'看看都有哪些游戏'},
  en:{title:'Seeded games',sub:(g,s,b)=>`${g} games · ${s} seeds · ${b} developers`,seeds:n=>`${n} seeds`,partly:(a,b)=>`${a}/${b} confirmed`,locked:'"Keep R18 pictures off the card back" is on in Settings, so only normal mode is shown',search:'Search tested games or developers',
   count:n=>`${n} ${+n===1?'game':'games'}`,other:'Other',tested:'Tested',engineAdapted:'Supported engines (individual games untested)',
   engineHint:'Most games on these engines should work. Some releases use different keys or archives. Please report any that cannot be read.',engineCountMissing:'Count unavailable',engineCached:'Cached count, refreshed when opened',
   tabEngines:'Supported engines',about:n=>`about ${n}`,unit:'games',allEngines:'All engines',tabs:'Catalog sections',
   previous:'Previous',next:'Next',page:(n,m)=>m?`Page ${n} of ${m}`:`Page ${n}`,retry:'Retry',
-  status:{verified:'Confirmed','owner-ok':'Confirmed',read:'Read mode',skeleton:'Waiting for a spark'},hidden:'Adult content · shown when enabled in Settings',reveal:'Click to see only this one for now',devNone:'No introduction could be loaded for this developer for now',devSource:'Introduction from VNDB',devOpen:'Open in the browser',links:{vndb:'VNDB developer page',site:'Official site',moegirl:'Moegirlpedia',jawiki:'Japanese Wikipedia'},
+  status:{verified:'Confirmed','owner-ok':'Confirmed',read:'Adapted · default settings imported',skeleton:'Waiting for a spark'},hidden:'Adult content · shown when enabled in Settings',reveal:'Click to see only this one for now',devNone:'No introduction could be loaded for this developer for now',devSource:'Introduction from VNDB',devOpen:'Open in the browser',links:{vndb:'VNDB developer page',site:'Official site',moegirl:'Moegirlpedia',jawiki:'Japanese Wikipedia'},
   offline:'VNDB cannot be reached, so some names and covers are missing for now',empty:'Nothing found',close:'Close',loading:'Loading…',failed:'Could not load the list, try again later',link:'See which games'},
  ja:{title:'種まき済みのゲーム',sub:(g,s,b)=>`${g} 本 · 種 ${s} 個 · ${b} ブランド`,seeds:n=>`種 ${n} 個`,partly:(a,b)=>`${a}/${b} 確認済み`,locked:'設定で「カード裏の R18 画像を除外」がオンのため、通常モードのみ表示します',search:'確認済みゲーム・ブランドで検索',
   count:n=>`${n} 本`,other:'その他',tested:'実機確認済み',engineAdapted:'対応エンジン（作品ごとの動作は未確認）',
   engineHint:'同じエンジンの多くの作品に対応していますが、鍵やアーカイブが異なる版は読み込めない場合があります。問題があればお知らせください。',engineCountMissing:'件数を取得できません',engineCached:'キャッシュされた件数。開くと更新されます',
   tabEngines:'対応エンジン',about:n=>`約 ${n} 本`,unit:'本',allEngines:'すべてのエンジン',tabs:'カタログの区分',
   previous:'前へ',next:'次へ',page:(n,m)=>m?`${n} / ${m} ページ`:`${n} ページ`,retry:'再試行',
-  status:{verified:'確認済み','owner-ok':'確認済み',read:'読み取りモード',skeleton:'伝火待ち'},hidden:'成人向け · 設定でオンにすると表示',reveal:'クリックでこの 1 枚だけ一時的に表示',devNone:'このブランドの紹介は今は読み込めません',devSource:'紹介文の出典：VNDB',devOpen:'ブラウザで開く',links:{vndb:'VNDB のブランドページ',site:'公式サイト',moegirl:'萌娘百科（中国語）',jawiki:'日本語版ウィキペディア'},
+  status:{verified:'確認済み','owner-ok':'確認済み',read:'対応済み · 既定設定を取り込み済み',skeleton:'伝火待ち'},hidden:'成人向け · 設定でオンにすると表示',reveal:'クリックでこの 1 枚だけ一時的に表示',devNone:'このブランドの紹介は今は読み込めません',devSource:'紹介文の出典：VNDB',devOpen:'ブラウザで開く',links:{vndb:'VNDB のブランドページ',site:'公式サイト',moegirl:'萌娘百科（中国語）',jawiki:'日本語版ウィキペディア'},
   offline:'VNDB に接続できないため、一部の名前と表紙を表示できません',empty:'見つかりません',close:'閉じる',loading:'読み込み中…',failed:'読み込めませんでした。後でもう一度お試しください',link:'収録ゲームを見る'}
 };
 export const catalogWords=locale=>W[locale]||W.zh;
@@ -69,7 +69,7 @@ export function groupGames(games,locale,query=''){
 /* what a card shows where the cover goes: an image to load, the placeholder because the mode hides it, or no cover at all */
 export const coverState=(g,mode)=>g.cover==='safe'||(g.cover==='nsfw'&&mode==='nsfw')?'load':g.cover==='nsfw'?'hidden':'none';
 
-const STATUS_CLASS={verified:'ok','owner-ok':'ok',read:'read',skeleton:'wait'};
+const STATUS_CLASS={verified:'ok','owner-ok':'ok',read:'ok',skeleton:'wait'};
 function cardHTML(g,locale,mode,esc,seeded=true){
  const t=catalogWords(locale),title=gameTitle(g,locale),st=coverState(g,mode),dev=g.developers?.[0]?developerName(g.developers[0],locale):'';
  const ph=`<span class="sc-ph" aria-hidden="true">${esc(Array.from(dev||title)[0]||'?')}</span>${st==='hidden'?`<button type="button" class="sc-veil" data-reveal="${esc(g.vndb)}" title="${esc(t.reveal)}">${esc(t.hidden)}</button>`:''}`;
