@@ -43,7 +43,7 @@ test('a detached old line does not push the recent lines out of the next request
 });
 /* RRFZ #1176: an older copy of a repeated line was never filled, because the newer translated copy stopped the search */
 test('a fill for a repeated line skips translated copies and reaches the older empty one',()=>{
- const log=read('web/reader/modules/backlog.js'),m=/function translated\(src,text,keep\)\{[^]*?return;\}\}/.exec(log);
+ const log=read('web/reader/modules/backlog.js'),m=/function translated\(src,text,keep\)\{[^]*?refreshLog\(\);\}\}/.exec(log);
  assert.ok(m,'translated() found');
  const make=new Function('entries','norm','split','persist','refreshLog',m[0]+'\nreturn translated;');
  const entries=[{src:'「はい」',tr:''},{src:'「違う」',tr:'不对'},{src:'「はい」',tr:'是的'}];
@@ -55,4 +55,15 @@ test('a fill for a repeated line skips translated copies and reaches the older e
  assert.deepEqual(entries.map(e=>e.tr),['是的','不对','是的'],'keep: nothing translated is overwritten');
  translated('「はい」','好');
  assert.equal(entries[2].tr,'好','without keep the newest copy is replaced as before');
+});
+/* RRFZ #1289: with keep, every empty copy of a repeated line in the window is filled, not only the newest empty one */
+test('a kept fill reaches every empty copy of a repeated line and saves once',()=>{
+ const log=read('web/reader/modules/backlog.js'),m=/function translated\(src,text,keep\)\{[^]*?refreshLog\(\);\}\}/.exec(log);
+ const make=new Function('entries','norm','split','persist','refreshLog',m[0]+'\nreturn translated;');
+ const entries=[{src:'「はい」',tr:''},{src:'「はい」',tr:''},{src:'「違う」',tr:'不对'},{src:'「はい」',tr:'是的'},{src:'「はい」',tr:''}];
+ let saved=0;make(entries,t=>t,t=>({text:t}),()=>saved++,()=>{})('「はい」','是',true);
+ assert.deepEqual(entries.map(e=>e.tr),['是','是','不对','是的','是']);
+ assert.equal(saved,1);
+ saved=0;make(entries,t=>t,t=>({text:t}),()=>saved++,()=>{})('「無い」','无',true);
+ assert.equal(saved,0,'nothing to fill, nothing saved');
 });
