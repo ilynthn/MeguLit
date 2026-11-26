@@ -157,10 +157,12 @@
       return;
     }
     /* 2026-11-20 (user, CHAOS;CHILD: 「译文咋没对齐」「译文排版同步一下」): the translation takes the Japanese block's width and side,
-       centred under a centred page, from the first character of a left-aligned box; never narrower than half the box (a short line keeps a readable translation) */
+       centred under a centred page, from the first character of a left-aligned box; never narrower than half the box (a short line keeps a readable translation).
+       2026-11-26 (QQ essence 1137, integration live test on 死に逝く君: the anchored line ignored 译文换行宽度): a wrap width the user changed from its
+       default is the translation's width here too (% of the game client, inside the room right of the line); the default keeps the Japanese width */
     if (row) { for (const p of ['max-width', 'margin-left', 'margin-right']) row.style.removeProperty(p);
       const toks = [...sentence.querySelectorAll('.char-token')].filter(t => !t.closest('.tome-page-lines')).map(t => t.getBoundingClientRect()).filter(r => r.width > 0);
-      if (toks.length) { const l = Math.min(...toks.map(r => r.left)), r = Math.max(...toks.map(r => r.right)), rr = row.getBoundingClientRect(), w = Math.max(r - l, wr.width * .5);
+      if (toks.length) { const l = Math.min(...toks.map(r => r.left)), r = Math.max(...toks.map(r => r.right)), rr = row.getBoundingClientRect(), own = userRowLayout(pr), w = own.width > 0 ? Math.max(80, Math.min(anchor.center ? cwc - 16 : cx0 + cwc - l - 8, cwc * own.width / 100)) : Math.max(r - l, wr.width * .5);
         set(row, 'max-width', Math.ceil(w) + 'px'); if (anchor.center) { set(row, 'margin-left', 'auto'); set(row, 'margin-right', 'auto'); } else set(row, 'margin-left', Math.max(0, Math.round(l - rr.left)) + 'px'); } }
     for (const o of row ? [row, ...parts] : []) o.style.removeProperty('font-size');
     const cnBase = row ? parseFloat(getComputedStyle(parts[0] || row).fontSize) || 16 : 16; // All fit passes share the user's 85% floor
