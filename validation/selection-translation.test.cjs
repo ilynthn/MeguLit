@@ -35,3 +35,15 @@ test('closing the card drops its selection translation, so queued attempts and f
  const reader=read('services/reader.cjs');
  assert.match(reader,/case 'lookupCancel':this\.lookup\+\+;this\.lookupTranslation=\(this\.lookupTranslation\|\|0\)\+1;/);
 });
+test('the selection translation is never rewritten by polish.js as AI explanation rows (RRFZ #1175)',()=>{
+ const s=read('web/reader/modules/selection.js'),polish=read('web/reader/modules/polish.js');
+ const block=/const label='选区翻译';[^]*?选区翻译失败'\)\);place\(\);\}\);\}/.exec(s);
+ assert.ok(block,'selection translation block found');
+ const make=/const line=\(cls,text\)=>\{(const n=el\('div',cls,text\);n\.dataset\.mgLines='1';return n;)\}/.exec(block[0]);
+ assert.ok(make,'every line of the box is created marked');
+ const line=new Function('el','return (cls,text)=>{'+make[1]+'}')((tag,cls,text)=>({tag,className:cls,textContent:text,dataset:{}}));
+ assert.equal(line('','注意：这是译文').dataset.mgLines,'1');
+ assert.equal((block[0].match(/el\('div'/g)||[]).length,1,'no unmarked div is put in the box');
+ assert.equal((block[0].match(/line\('/g)||[]).length,3,'pending, answer and error lines all marked');
+ for(const m of polish.matchAll(/document\.querySelectorAll\('\.tomoyo-ai-result > div([^']*)'\)/g))assert.equal(m[1],':not([data-mg-lines])','polish skips marked boxes');
+});

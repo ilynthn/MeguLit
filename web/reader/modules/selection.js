@@ -233,10 +233,10 @@
    el('div','',value.text));}catch(e){if(current===mine&&card){if(e.message==='CONTEXT_KEY_REQUIRED'||e.message==='LOOKUP_MODEL_REQUIRED'){keyHint();return;}ai.textContent=e.message;
    }}place();}
   /* drag: a drag selection (no point-lookup result handed in) */const drag=!result;
-  if(drag&&[...String(args.text||'')].slice(args.start,args.end).join('').trim()){const label='选区翻译';translated.hidden=false;translated.replaceChildren(el('strong','',label),el('div','tomoyo-muted','翻译中…'));
+  if(drag&&[...String(args.text||'')].slice(args.start,args.end).join('').trim()){const label='选区翻译';/* RRFZ #1175: marked as laid out, so polish.js never splits a phrase like 「注意：…」 into AI explanation rows */const line=(cls,text)=>{const n=el('div',cls,text);n.dataset.mgLines='1';return n;};translated.hidden=false;translated.replaceChildren(el('strong','',label),line('tomoyo-muted','翻译中…'));
    translateSelection(mine).then(value=>{if(current!==mine||!card)return;const text=String(value?.text||'').trim();
-    if(text)translated.replaceChildren(el('strong','',value.provider?label+' · '+value.provider:label),el('div','',text));else translated.hidden=true;place();},
-    e=>{if(current!==mine||!card)return;translated.replaceChildren(el('strong','',label),el('div','tomoyo-muted',e.message||'选区翻译失败'));place();});}
+    if(text)translated.replaceChildren(el('strong','',value.provider?label+' · '+value.provider:label),line('',text));else translated.hidden=true;place();},
+    e=>{if(current!==mine||!card)return;translated.replaceChildren(el('strong','',label),line('tomoyo-muted',e.message||'选区翻译失败'));place();});}
   try{result=result||await b.localLookup('lookup_exact',args);if(current!==mine||!card)return;
    renderLocal(result,body);b.decorateWordActions?.(card,args,result,{drag});place();}catch(e){if(current===mine&&card){status.textContent=e.message;place();}}
  }
