@@ -92,6 +92,7 @@ class Settings{
     if(/(?:Url|baseUrl)$/.test(key)&&value){let url;try{url=new URL(value);}catch{throw Error('SETTINGS_INVALID_URL');}if(url.username||url.password||url.search||url.hash||!['http:','https:'].includes(url.protocol))throw Error('SETTINGS_INVALID_URL');if((scope==='anki'||scope==='speech')&&!['127.0.0.1','localhost','[::1]'].includes(url.hostname))throw Error('SETTINGS_INVALID_URL');}
     setPath(next,key,value);
   }
+  if(scope==='dictionary'&&Object.hasOwn(values,'contextProvider')&&values.contextProvider!==current.contextProvider)next.contextProviderPicked=true; /* a context source changed on purpose (#1117, Codex #1176) */
   const written=Object.keys(values||{});if(scope==='text'&&written.some(k=>['japaneseSize','translationSize','englishSize'].includes(k))){next.sizeSource='user';written.push('sizeSource');}
   if(gameScopes.has(scope)){
     /* a gap or ruby height typed here never takes the one-time spacing move */if(written.some(k=>k==='gap'||k==='rubyOffsetY'))next.spacingDefaults=1;

@@ -390,3 +390,47 @@ test('hot-word notes: the type follows the note, the prompt asks to use headline
  assert.deepEqual(d.parseNotes([{type:'作品',note:'日本棒球独立联盟球队'}],1),[{kind:'org',gloss:'日本棒球独立联盟球队'}]);
  assert.match(d.GLOSS_PROMPT,/MotoGP、F1/);assert.match(d.GLOSS_PROMPT,/类型必须和说明一致/);
 });
+
+test('daily reader and hot-word furigana keep okurigana and pure kana outside <ruby>, and phrase selection drops <rt>',async()=>{
+ const view=await import(pathToFileURL(path.join(__dirname,'..','web','daily-view.js')).href);
+ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ // Okurigana, prefixes, medial kana, katakana compounds, and numbers
+ assert.equal(view.rubyHTML('新作','しんさく',esc),'<ruby>新作<rt>しんさく</rt></ruby>');
+ assert.equal(view.rubyHTML('新しい','あたらしい',esc),'<ruby>新<rt>あたら</rt></ruby>しい');
+ assert.equal(view.rubyHTML('受け取る','うけとる',esc),'<ruby>受<rt>う</rt></ruby>け<ruby>取<rt>と</rt></ruby>る');
+ assert.equal(view.rubyHTML('目覚め','めざめ',esc),'<ruby>目覚<rt>めざ</rt></ruby>め');
+ assert.equal(view.rubyHTML('お話し','おはなし',esc),'お<ruby>話<rt>はな</rt></ruby>し');
+ assert.equal(view.rubyHTML('ゴミ箱','ごみばこ',esc),'ゴミ<ruby>箱<rt>ばこ</rt></ruby>');
+ assert.equal(view.rubyHTML('10分','じゅっぷん',esc),'<ruby>10分<rt>じゅっぷん</rt></ruby>');
+ assert.equal(view.rubyHTML('アニメ','あにめ',esc),'アニメ','pure katakana with hiragana reading gets no ruby');
+ assert.equal(view.rubyHTML('食べる','タベル',esc),'<ruby>食<rt>た</rt></ruby>べる','katakana reading normalizes to hiragana');
+ // paragraphHTML keeps okurigana outside <ruby>
+ const pHtml=view.paragraphHTML({text:'新しい作品を受け取る。',tokens:[
+  {s:'新しい',b:'新しい',r:'あたらしい'},{s:'作品',b:'作品',r:'さくひん'},{s:'を',b:'を',r:''},{s:'受け取る',b:'受け取る',r:'うけとる'},{s:'。',b:'。',r:''},
+ ]},esc);
+ assert.equal(pHtml,
+  '<span class="rd-t" data-b="新しい" data-r="あたらしい"><ruby>新<rt>あたら</rt></ruby>しい</span>'
+  +'<span class="rd-t" data-b="作品" data-r="さくひん"><ruby>作品<rt>さくひん</rt></ruby></span>'
+  +'<span class="rd-t" data-b="を" data-r="">を</span>'
+  +'<span class="rd-t" data-b="受け取る" data-r="うけとる"><ruby>受<rt>う</rt></ruby>け<ruby>取<rt>と</rt></ruby>る</span>。');
+ // wordsHTML strips ruby from pure katakana with hiragana dict reading and splits okurigana
+ const wHtml=view.wordsHTML([{term:'アニメ',reading:'あにめ'},{term:'取り消し',reading:'とりけし'},{term:'文化祭',reading:'ぶんかさい'}],{esc,w:{lookup:'查词',wReading:'读音',wGloss:'释义',wSource:'出处',noWords:'',kinds:{},glossFrom:{}}});
+ assert.doesNotMatch(wHtml,/<ruby>アニメ/);
+ assert.match(wHtml,/<ruby>取<rt>と<\/rt><\/ruby>り<ruby>消<rt>け<\/rt><\/ruby>し/);
+ assert.match(wHtml,/<ruby>文化祭<rt>ぶんかさい<\/rt><\/ruby>/);
+ // CSS prevents selecting <rt> text during drag-to-lookup and copy-paste
+ const css=fs.readFileSync(path.join(__dirname,'..','web','daily.css'),'utf8');
+ assert.match(css,/\.rd-ja rt\{[^}]*user-select:none/);
+ assert.match(css,/\.dl-term rt\{[^}]*user-select:none/);
+ // selectionText strips <rt>/<rp> nodes from dragged ranges
+ const mkFrag=nodes=>({
+  nodes:[...nodes],
+  querySelectorAll(sel){const tags=sel.split(',');return this.nodes.filter(n=>tags.includes(n.tag)).map(n=>({remove:()=>{const idx=this.nodes.indexOf(n);if(idx>=0)this.nodes.splice(idx,1);}}));},
+  get textContent(){return this.nodes.map(n=>n.text).join('');},
+ });
+ const dragged={rangeCount:1,isCollapsed:false,getRangeAt:()=>({cloneContents:()=>mkFrag([
+  {tag:'text',text:'新作'},{tag:'rt',text:'しんさく'},{tag:'text',text:'を'},{tag:'text',text:'発表'},{tag:'rp',text:'('},{tag:'rt',text:'はっぴょう'},{tag:'rp',text:')'},
+ ])})};
+ assert.equal(view.selectionText(dragged),'新作を発表');
+ assert.equal(view.selectionText({rangeCount:1,isCollapsed:true}),'');
+});

@@ -22,7 +22,7 @@ const days=new Set(runs.map(r=>new Date(r.id).toDateString()));let streak=0;for(
 const wk={};week.forEach(r=>r.log.filter(l=>!l.ok).forEach(l=>wk[l.show]=(wk[l.show]||0)+1));
 const weak=Object.entries(wk).sort((a,b)=>b[1]-a[1]).slice(0,6),wmax=weak[0]?.[1]||1;
 const cS=count(SEION),known=cS[2]+cS[3];
-const KD=ctx.data,best=(G,D)=>{const rs=runs.filter(r=>r.G===G&&r.D===D&&!(r.only&&r.only.length)&&r.log.length);if(!rs.length)return null;const As=rs.map(r=>KD.achievement(r.log)),b=As.reduce((a,x)=>x.pct>a.pct?x:a);return {score:KD.fmtPct(b.pct),n:rs.length}};
+const KD=ctx.data,best=(G,D)=>{const rs=runs.filter(r=>r.G===G&&r.D===D&&!(r.only&&r.only.length)&&r.log.length);if(!rs.length)return null;let top=null;for(const r of rs){const a=KD.achievement(r.log);if(!top||a.pct>top.pct)top={pct:a.pct,acc:Math.round(r.log.filter(l=>l.ok).length/r.log.length*100)+'%'};}return {score:KD.fmtPct(top.pct),acc:top.acc,n:rs.length};};
 function nextStep(){
   if(due.length)return {seal:"復",text:`先清掉今天到期的 ${due.length} 个复习，大约 2 分钟`,href:`play.html?g=conv&d=intro&only=${encodeURIComponent(due.join(","))}`,go:"开始复习"};
   const lessons=S.get(S.KEY.l,{}),nextL=ctx.data.LESSONS.find(l=>!lessons[l.id]);

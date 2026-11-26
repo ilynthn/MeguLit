@@ -24,6 +24,7 @@
 import {probeFullRoute} from './probe-full.js';
 import {enqueueProbeDrafts,probeDraft} from './probe-seed.js';
 import {legacyProbeDisposition,closeReceiptIssue} from './probe-issues.js';
+import {settle,trackIssue,repoFor} from './issue-trackers.js';
 const HEX64=/^[a-f0-9]{64}$/,ID=/^[a-z0-9][a-z0-9-]{2,63}$/,SEMVER=/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 export const ADAPTER_LIMITS={pack:256*1024,bundle:8*1024*1024,chunk:512*1024,parts:16,reports:50,keys:200,feed:300};
 const encoder=new TextEncoder();
@@ -34,6 +35,22 @@ function same(a,b){if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.l
 function canonical(v){if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';return JSON.stringify(v);}
 const admin=(request,env)=>!!env.ADAPTER_ADMIN_TOKEN&&same(request.headers.get('authorization')||'','Bearer '+env.ADAPTER_ADMIN_TOKEN);
 const nums=o=>({lines:Math.max(0,Math.min(1e8,o?.lines|0)),japanese:Math.max(0,Math.min(1e8,o?.japanese|0)),total:Math.max(0,Math.min(1e8,o?.total|0)),paired:Math.max(0,Math.min(1e8,o?.paired|0))});
+/* 2026-11-26 a stored probe gets a detail issue again, closed at once and listed in the [适配探针] 汇总 tracker under its
+   reason (issue-trackers.js). Its first line is not the legacy intro ("MeguLit desensitized probe uploaded through the
+   relay"), so the issue webhook and tools/github-issue-event.mjs leave it alone: the Seed drafts are queued here. */
+const md=t=>String(t??'').replace(/[\\`*_{}[\]()#+!|<>@]/g,c=>'\\'+c).replace(/[\r\n]+/g,' ').slice(0,200);
+const PROBE_SECTIONS={'chinese-build':'中文版（按规矩回复后关闭即可）','parse-failed':'解析失败','decrypt-failed':'解密失败'},MULTI_SECTION='同一用户多部游戏（原 issue 里有逐部勾选）';
+export function probeDetail(bundle,{link,days,sha,size}){
+ const games=bundle.games,steps=[...new Set(games.map(g=>String(g.step||'unknown')))];
+ const name=games.length===1?String(games[0].title||'未知游戏').slice(0,80):`${games.length} 部游戏：${games.slice(0,8).map(g=>String(g.title||'未知游戏').slice(0,40)).join(' / ')}`;
+ const lines=['MeguLit probe received by the relay (desensitized: no game text, every natural-language character was replaced locally and checked before upload).','',
+  `- App: ${md(bundle.app||'?')}`,`- Created: ${md(bundle.createdAt||'?')}`,`- Games: ${games.length}`,`- Size: ${size} bytes`,`- SHA-256: \`${sha}\``,''];
+ if(games.length>1)lines.push(...games.slice(0,30).map(g=>`- [ ] ${md(g.title||'(title not shared)')} · ${md(g.step)}`),'');
+ for(const g of games.slice(0,30))lines.push(`### ${md(g.title||'(title not shared)')}`,`- key: \`${String(g.key||'').slice(0,64)}\``,...(HEX64.test(String(g.identity||''))?[`- identity: \`${g.identity}\``]:[]),`- step: **${md(g.step)}** ${md(g.detail||'')}`,`- reader: ${md(g.detected||'none')} · lines ${g.lines|0} · Japanese ${g.japaneseLines|0}${g.pairing?` · pairing ${g.pairing.paired|0}/${g.pairing.total|0}`:''}`,
+  `- archives: ${(Array.isArray(g.inventory?.archives)?g.inventory.archives:[]).slice(0,6).map(a=>md(a?.name)+' '+md(a?.format||a?.magic)).join(', ')||'-'}`,`- engines tried: ${(Array.isArray(g.engines)?g.engines:[]).map(e=>md(e?.id)+(e?.error?' ('+md(e.error)+')':'')).slice(0,10).join(', ')||'-'}`,'');
+ lines.push(`Download (expires in ${days} days): ${link}`,'','Answer with a pack: `node tools/adapter-pack.cjs sign …` then `publish`; ask for a fresh probe with `probe-request`.');
+ return {name,title:`[适配探针] ${games.length===1?name:games.length+' 个游戏'} · ${steps.join(', ')}`.slice(0,200),body:lines.join('\n').slice(0,60000),
+  section:games.length>1?MULTI_SECTION:PROBE_SECTIONS[steps[0]]||String(steps[0]).replace(/[^\w-]/g,'').slice(0,40)||'unknown'};}
 const b64=s=>{const bin=atob(s);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;};
 
 /* ---- feed / packs ---------------------------------------------------------------------------------------------- */
@@ -97,7 +114,7 @@ async function probeHas(env,url,now,{json,fail}){const id=url.searchParams.get('
  const row=await env.DB.prepare('SELECT state,items FROM probe_games WHERE identity=?').bind(id).first();
  if(row&&url.searchParams.get('seen')==='1')await bump(env,id,Math.floor(now.getTime()/1000));
  return json({ok:true,state:row?.state||'none',items:row?.items|0});}
-async function probeChunk(request,env,ip,now,{json,fail,readJSON}){
+async function probeChunk(request,env,ip,now,url,{json,fail,readJSON,ctx}){
  const body=await readJSON(request,Math.ceil(ADAPTER_LIMITS.chunk*4/3)+4096);if(body.error)return fail(body.error,body.error==='PAYLOAD_TOO_LARGE'?413:400);const v=body.value||{};
  if(v.version!==1||!/^[0-9a-f-]{36}$/.test(String(v.upload||''))||!Number.isSafeInteger(v.part)||!Number.isSafeInteger(v.parts)||v.parts<1||v.parts>ADAPTER_LIMITS.parts||v.part<0||v.part>=v.parts||!Number.isSafeInteger(v.size)||v.size<1||v.size>ADAPTER_LIMITS.bundle||!HEX64.test(String(v.sha256||''))||typeof v.data!=='string')return fail('INVALID_CHUNK');
  let bytes;try{bytes=b64(v.data);}catch{return fail('INVALID_CHUNK');}if(bytes.length>ADAPTER_LIMITS.chunk||!bytes.length)return fail('PAYLOAD_TOO_LARGE',413);
@@ -153,9 +170,16 @@ async function probeChunk(request,env,ip,now,{json,fail,readJSON}){
  for(let i=0;i<v.parts;i++)await env.BUCKET.delete?.(`probes/parts/${id}/${i}`).catch(()=>{});
  // Keep historical issue-linked evidence available for its disposition.
  if(stored?.bundle_id){
-  const old=await env.DB.prepare("DELETE FROM probe_bundles WHERE id=? AND issue_url='' RETURNING object_key").bind(stored.bundle_id).first();
+  /* 2026-11-26 a bundle whose download a tracker-listed detail issue advertises stays too (issue-trackers.js) */
+  const old=await env.DB.prepare("DELETE FROM probe_bundles WHERE id=? AND issue_url='' AND NOT EXISTS (SELECT 1 FROM issue_tracker_entries WHERE id='probe:'||probe_bundles.id) RETURNING object_key").bind(stored.bundle_id).first()
+   .catch(error=>/no such table/i.test(error?.message||'')?env.DB.prepare("DELETE FROM probe_bundles WHERE id=? AND issue_url='' RETURNING object_key").bind(stored.bundle_id).first():Promise.reject(error));
   if(old)await env.BUCKET.delete?.(old.object_key).catch(()=>{});
  }
+ if(env.GITHUB_TOKEN){const old=/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)$/.exec(String(stored?.issue_url||'')),legacy=old&&old[1]===repoFor(env)?old:null;
+  const link=env.LINK_SECRET&&url?`${url.origin}/api/probe/download/${id}?exp=${expires}&sig=${await hmac(env.LINK_SECRET,'probe:'+id+':'+expires)}`:'(LINK_SECRET not set)';
+  const detail=probeDetail(bundle,{link,days,sha:v.sha256,size:total});
+  await settle(ctx,trackIssue(env,{id:'probe:'+id,tracker:'adapter-probe',name:detail.name,section:detail.section,draft:{title:detail.title,body:detail.body,labels:['adapter-probe']},
+   mergeKey:dd?'probe:'+dd.identity:'',mergeRef:legacy?Number(legacy[2]):undefined},now));}
  return finish({ok:true,id,queued:true},201);}
 async function probeDownload(url,env,{fail}){const id=url.pathname.split('/').pop()||'',exp=Number(url.searchParams.get('exp')),sig=url.searchParams.get('sig')||'';
  if(!/^[0-9a-f-]{36}$/.test(id)||!Number.isSafeInteger(exp)||!HEX64.test(sig)||!env.LINK_SECRET)return fail('NOT_FOUND',404);
@@ -171,7 +195,7 @@ export async function adaptersRoute(request,env,ip,now,url,path,deps){
  if(path==='/api/adapters/report'&&m==='POST')return await hit(env,'adapt-report',ip,now.getTime())?reportPost(request,env,now,deps):fail('RATE_LIMITED',429);
  /* 2026-11-15 closed-beta full probes (probe-full.js) */
  if(path.startsWith('/api/probe/full/'))return probeFullRoute(request,env,ip,now,url,path,deps);
- if(path==='/api/probe'&&m==='POST')return await hit(env,'probe',ip,now.getTime())?probeChunk(request,env,ip,now,deps):fail('RATE_LIMITED',429);
+ if(path==='/api/probe'&&m==='POST')return await hit(env,'probe',ip,now.getTime())?probeChunk(request,env,ip,now,url,deps):fail('RATE_LIMITED',429);
  /* no rate-limit row here (D1 write budget): the global per-IP limiter covers it */
  if(path==='/api/probe/has'&&m==='GET')return probeHas(env,url,now,deps);
  if(path.startsWith('/api/probe/download/')&&m==='GET')return await hit(env,'diag-dl',ip,now.getTime())?probeDownload(url,env,deps):fail('RATE_LIMITED',429);

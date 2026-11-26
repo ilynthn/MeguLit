@@ -66,7 +66,8 @@ test('upload bundle: desensitized samples + key candidates, manifest, no game te
 test('upload: chunks to /api/probe, assembled and checked by the relay, one private skeleton',async()=>{
  const {hash}=test.prep;const before=sample.CHUNK;
  const r=await sample.upload(R,{hash,followUp:true,fetcher});assert.equal(r.state,'uploaded',JSON.stringify(r));assert.equal(r.issueUrl,'');
- assert.equal(issues.length,0);
+ assert.equal(issues.length,1);assert.deepEqual(issues[0].labels,['adapter-probe'],'detail issue for the [适配探针] 汇总 tracker');
+ assert.ok(!issues[0].body.startsWith('MeguLit desensitized probe uploaded through the relay'),'not a legacy probe issue');
  const item=await ENV.DB.prepare("SELECT * FROM seed_admin_items WHERE kind='probe-skeleton'").first();
  assert.equal(item.state,'pending');assert.equal(item.published,0);assert.equal(item.author_torch_no,null);
  assert.ok(!item.body.includes(GAMES[0].title));assert.ok(!fx.LINES.some(l=>item.body.includes(l)));

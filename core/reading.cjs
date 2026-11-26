@@ -2,9 +2,10 @@
 const fs=require('node:fs');
 const {kana}=require('./furigana.js');
 const {numberTokens}=require('./counter-reading.cjs');
+const {contextReadings}=require('./context-reading.cjs');
 const hasKanji=s=>/[\p{Script=Han}々〆]/u.test(s||'');
 /* Readings consumers may show: settled by the dictionary, read from a number and its counter or a VNDB character name, not the tokenizer's guess. */
-const settled=t=>t?.readingSource==='dictionary'||t?.readingSource==='number'||t?.readingSource==='name';function pronunciation(s){return kana(s).replace(/([おこそとのほもよろごぞどぼぽょ])(?:う|お)/g,'$1ー').replace(/([うくすつぬふむゆるぐずづぶぷゅ])う/g,'$1ー').replace(/([いきしちにひみりぎじぢびぴ])い/g,'$1ー').replace(/[びぴ]/g,'ひ').replace(/[ぶぷ]/g,'ふ');}
+const settled=t=>t?.readingSource==='dictionary'||t?.readingSource==='number'||t?.readingSource==='name'||t?.readingSource==='context'||t?.readingSource==='game';function pronunciation(s){return kana(s).replace(/([おこそとのほもよろごぞどぼぽょ])(?:う|お)/g,'$1ー').replace(/([うくすつぬふむゆるぐずづぶぷゅ])う/g,'$1ー').replace(/([いきしちにひみりぎじぢびぴ])い/g,'$1ー').replace(/[びぴ]/g,'ひ').replace(/[ぶぷ]/g,'ふ');}
 function createReadingResolver(file=require('node:path').join(require('./paths.cjs').resources,'jmdict.json')){
   let index;
   function load(){
@@ -28,22 +29,23 @@ function createReadingResolver(file=require('node:path').join(require('./paths.c
   function resolve(tokens){
     load();if(!Array.isArray(tokens)||tokens.length>4000)return [];
     // Usually done by LocalLearning.tokenize already; tokens from the UniDic engine come here directly.
-    tokens=numberTokens(tokens);
+    tokens=contextReadings(numberTokens(tokens));
     const result=[];
     for(let i=0;i<tokens.length;i++){
       const token=tokens[i];if(!token||typeof token.surface!=='string')continue;
+      if(token.readingSource==='game'||token.readingSource==='context'){result.push(token);continue;}
       let surface=token.surface,expected=token.reading||'',best,stop=i;
       if(hasKanji(surface)){
         let merged=surface,pron=expected;
         // Compound words such as 月曜日 must not become 月曜 + 日(ひ).
         for(let j=i+1;j<Math.min(tokens.length,i+6);j++){
-          const next=tokens[j]?.surface;if(!next||/[\s。、！？「」『』]/u.test(next)||merged.length+next.length>16)break;
+          const next=tokens[j]?.surface;if(!next||tokens[j].readingSource==='game'||/[\s。、！？「」『』]/u.test(next)||merged.length+next.length>16)break;
           merged+=next;pron+=tokens[j].reading||'';
           const reading=choose(merged,pron,true);if(reading){best={surface:merged,reading};stop=j;}
         }
       }
       if(best){result.push({...token,...best,readingSource:'dictionary'});i=stop;continue;}
-      if(token.readingSource==='number'||token.readingSource==='name'){result.push(token);continue;}
+      if(token.readingSource==='number'||token.readingSource==='name'||token.readingSource==='context'){result.push(token);continue;}
       if(!hasKanji(surface)){result.push(token);continue;}
       let reading=choose(surface,expected);
       if(!reading&&typeof token.base_form==='string'){
@@ -71,7 +73,7 @@ function createReadingResolver(file=require('node:path').join(require('./paths.c
     const touches=(a,b)=>!Number.isInteger(a?.end)||!Number.isInteger(b?.start)||a.end===b.start;
     const same=(a,b)=>pronunciation(a).replace(/ぢ/g,'じ').replace(/づ/g,'ず')===pronunciation(b).replace(/ぢ/g,'じ').replace(/づ/g,'ず');
     return tokens.map((token,i)=>{
-      if(!token||typeof token.surface!=='string'||token.readingSource==='number'||token.readingSource==='name'||!hasKanji(token.surface)||!token.reading)return token;
+      if(!token||typeof token.surface!=='string'||token.readingSource==='number'||token.readingSource==='name'||token.readingSource==='context'||token.readingSource==='game'||!hasKanji(token.surface)||!token.reading)return token;
       const g=Array.isArray(token.grammar)?token.grammar:[];
       if(token.base_form!==token.surface||g[1]==='固有名詞'||['接頭辞','接尾辞'].includes(g[0]))return token;
       if((kanjiAt(tokens[i-1],true)&&touches(tokens[i-1],token))||(kanjiAt(tokens[i+1],false)&&touches(token,tokens[i+1])))return token;

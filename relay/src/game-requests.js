@@ -3,6 +3,7 @@ import requestIdentity from '../../core/game-request-selector.cjs';
 import {seedAdminAuthorized} from './seed-admin.js';
 import {lookup} from './torch-release.js';
 import {FEEDBACK_KINDS} from './feedback.js';
+import {requestTrackerTick, trackerEntry} from './issue-trackers.js';
 
 const HEX = /^[a-f0-9]{64}$/;
 const GENERATION_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -134,12 +135,15 @@ export async function resolveGameRequest(env, repo, number, now, github) {
   if (!response.ok) return 'retry';
   const issue = await response.json();
   if (gameRequestSelector(issue, env, repo, number)?.key !== selector.key) return 'open';
-  if (issue.state === 'closed' && job.matched_ref) {
+  /* 2026-11-26 a request listed in the [想玩] 汇总 tracker was closed by the relay right after it was listed: it is
+     resolved by ticking its tracker line instead of closing the issue (issue-trackers.js) */
+  const tracked = !!(await trackerEntry(env, repo, number))?.listed_at;
+  if (issue.state === 'closed' && job.matched_ref && !tracked) {
     await db.prepare('UPDATE game_request_jobs SET closed_at=? WHERE repo=? AND issue=? AND selector=?')
       .bind(stamp, repo, number, selector.key).run();
     return 'closed';
   }
-  if (issue.state !== 'open') return 'open';
+  if (issue.state !== 'open' && !tracked) return 'open';
   for (const {kind, ref} of evidence) {
     if (!await sourceExists(env, repo, selector, kind, ref)) continue;
     const token = crypto.randomUUID(), until = new Date(+now + 60000).toISOString();
@@ -151,12 +155,16 @@ export async function resolveGameRequest(env, repo, number, now, github) {
     if (!saved) return 'open';
     let closed = false;
     try {
-      closed = (await github(env, repo, number, 'PATCH')).ok;
-      return closed ? 'closed' : 'retry';
+      if (tracked) closed = await requestTrackerTick(env, repo, number, now);
+      else closed = (await github(env, repo, number, 'PATCH')).ok;
     } finally {
       await db.prepare(`UPDATE game_request_jobs SET closed_at=?,closing_token=NULL,closing_until=NULL
         WHERE repo=? AND issue=? AND closing_token=?`).bind(closed ? stamp : null, repo, number, token).run();
     }
+    /* closed by PATCH while its tracker entry may still be on the way: the tick is asked only after closed_at is
+       stored, so a registration that finds no tick here reads closed_at instead (feedback.js) */
+    if (closed && !tracked) await requestTrackerTick(env, repo, number, now);
+    return closed ? 'closed' : 'retry';
   }
   return 'open';
 }

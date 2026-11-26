@@ -184,3 +184,17 @@ test('interactive: particle puzzle gaps, explanations on the grammar, read aloud
  const hit=g.quizHTML(wo,q,{locale:'zh',esc,answered:'を'});assert.match(hit,/答对了/);assert.match(hit,/data-next/);
  const src=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8');assert.match(src,/playSentence\(api,/,'read aloud plays the game voice first, then the voice engine');assert.match(src,/prefers-reduced-motion/);
 });
+
+test('grammar Anki cards carry their actual JLPT/N0 level instead of hardcoding N5',async()=>{
+ assert.equal(G.ankiWord('wo','を','宾语',{text:'本を読む。'}).pos,'N5 语法');
+ assert.equal(G.ankiWord('n4-tara','たら','条件',{text:'雨が止んだら。'},'N4').pos,'N4 语法');
+ assert.equal(G.ankiWord('n2-wake','わけだ','推理',{text:'そういうわけだ。'},'N2').pos,'N2 语法');
+ assert.equal(G.ankiWord('n0-tteba','ってば','口语强调',{text:'もう、早くしてってば。'},'N0').pos,'N0 语法');
+ assert.equal(G.ankiWord('bb-9001','～に違いない','肯定推测',{text:'彼に違いない。'},'N3').pos,'N3 语法');
+ assert.equal(G.ankiWord('bb-9002','～ざるを得ない','不得不',{text:'認めざるを得ない。'},'N1').pos,'N1 语法');
+ assert.equal(G.ankiWord('bb-9003','未知','释义',{text:'例文。'},'bad').pos,'N5 语法');
+ const grammarSrc=fs.readFileSync(path.join(__dirname,'..','web','grammar.js'),'utf8');
+ assert.match(grammarSrc,/api\('grammar_anki',\{[^}]*level:levelOf\(point\)/,'grammar page passes levelOf(point) to grammar_anki');
+ const bridgeSrc=fs.readFileSync(path.join(__dirname,'..','services','bridge.cjs'),'utf8');
+ assert.match(bridgeSrc,/grammar\.ankiWord\([^\n]*request\.level\)/,'bridge forwards request.level to grammar.ankiWord');
+});

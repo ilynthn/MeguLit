@@ -150,3 +150,30 @@ test('Anki.stats falls back to Reading when WordReading is empty or nbsp so homo
  assert.equal(db.prepare('SELECT note_id FROM anki_links WHERE word_id=502').get().note_id,8001);
  assert.equal(db.prepare('SELECT note_id FROM anki_links WHERE word_id=501').get().note_id,8002);
 });
+
+test('kana-only Anki notes with blank WordReading match existing local vocabulary without resolveEntry, while kanji homographs do not',async t=>{
+ const {db}=fixture(t);
+ db.prepare('INSERT INTO vocabulary VALUES(?,?,?,?,?,?,?,?)').run(601,'やっぱり','やっぱり','["as expected"]',0,123,null,'{}');
+ db.prepare('INSERT INTO vocabulary VALUES(?,?,?,?,?,?,?,?)').run(602,'コーヒー','コーヒー','["coffee"]',0,123,null,'{}');
+ db.prepare('INSERT INTO vocabulary VALUES(?,?,?,?,?,?,?,?)').run(603,'生','せい','["life"]',0,123,null,'{}');
+ const resolved=[];
+ const sync=new AnkiSync({
+  db,config:{},
+  anki:{stats:async()=>[
+   {noteId:9001,word:'やっぱり',reading:'',status:3,reviews:[10000]},
+   {noteId:9002,word:'コーヒー',reading:'',status:2,reviews:[20000]},
+   {noteId:9003,word:'生',reading:'',status:4,reviews:[30000]}
+  ]},
+  resolveEntry:async(word,reading)=>{resolved.push([word,reading]);return null;}
+ });
+ const res=await sync.run();
+ assert.deepEqual(resolved,[['生','']],'only the kanji note with blank reading falls through to resolveEntry');
+ assert.equal(res.linked,2);
+ assert.equal(res.skipped,1);
+ assert.equal(res.reviews,2);
+ assert.equal(db.prepare('SELECT status FROM vocabulary WHERE id=601').get().status,3);
+ assert.equal(db.prepare('SELECT status FROM vocabulary WHERE id=602').get().status,2);
+ assert.equal(db.prepare('SELECT status FROM vocabulary WHERE id=603').get().status,0);
+ assert.equal(db.prepare('SELECT note_id FROM anki_links WHERE word_id=601').get().note_id,9001);
+ assert.equal(db.prepare('SELECT note_id FROM anki_links WHERE word_id=602').get().note_id,9002);
+});

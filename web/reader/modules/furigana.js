@@ -19,7 +19,8 @@
     const match = (i, r, offset) => {
       if (i === runs.length) return r === reading.length ? [] : null;
       const run = runs[i], length = [...run.text].length;
-      if (!run.kanji) { const plain = kana(run.text); if (reading.slice(r, r + plain.length) !== plain) return null; return match(i + 1, r + plain.length, offset + length); }
+      /* a line break the game put inside a word (黒⏎ずんで) reads as nothing; one between two kanji leaves no way to split them */
+      if (!run.kanji) { const plain = kana(run.text).replace(/\s/g, ''); if (!plain && i > 0 && i < runs.length - 1) return null; if (reading.slice(r, r + plain.length) !== plain) return null; return match(i + 1, r + plain.length, offset + length); }
       const last = i === runs.length - 1;
       for (let end = last ? reading.length : r + 1; end <= reading.length; end++) {
         if (end <= r) continue;
@@ -54,7 +55,7 @@
     if (!Array.isArray(tokens)) return [];
     const humble = formal.test(String(text || ''));
     return tokens.map((token, i) => {
-      if (!token || typeof token.surface !== 'string' || !/^私/.test(token.surface)) return token;
+      if (!token || typeof token.surface !== 'string' || token.readingSource === 'game' || !/^私/.test(token.surface)) return token;
       const reading = kana(token.reading);
       if (!reading.startsWith('わたくし')) return token;
       const next = tokens[i + 1]?.surface || '';

@@ -184,4 +184,11 @@ test('translation rows follow the Japanese rows: breaks after the punctuation ne
  assert.deepEqual(cut(t,cnSplit(t,sh)),['曾经引领潮流的高层建筑仿佛放弃了自身使命般倒塌，','黑色的火灾不断蔓延势力、仿佛在寻找同伴，','陷入混乱的人们在群体心理的煽动下心生恐惧，','而这一切夺走了无数生命。']);
  const u='这场天灾在一夜之间将东京代表性繁华街区之一的涩谷变得一文不值。';
  assert.deepEqual(cut(u,cnSplit(u,[.72])),['这场天灾在一夜之间将东京代表性繁华街区之一的','涩谷变得一文不值。']);
+ // #1122: never split closing punctuation onto its own line or orphan the last character on a new line
+ assert.deepEqual(cut('“等会儿一起去吃午饭吧。”',cnSplit('“等会儿一起去吃午饭吧。”',[.6])),['“等会儿一起去吃午饭吧。”']);
+ assert.deepEqual(cut('‘这样真的好吗？’',cnSplit('‘这样真的好吗？’',[.7])),['‘这样真的','好吗？’']);
+ assert.deepEqual(cut('今天真是太开心了，嗯。',cnSplit('今天真是太开心了，嗯。',[.75])),['今天真是太开心了，嗯。']);
+ assert.deepEqual(cut('其实早就已经决定好了啊。',cnSplit('其实早就已经决定好了啊。',[.8])),['其实早就已经决定好了啊。']);
+ // A genuine 2-row sentence with a closing quote still breaks at the middle comma rather than splitting 。”
+ assert.deepEqual(cut('“等会儿下课以后，我们一起去吃午饭吧。”',cnSplit('“等会儿下课以后，我们一起去吃午饭吧。”',[.85])),['“等会儿下课以后，','我们一起去吃午饭吧。”']);
 });

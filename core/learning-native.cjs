@@ -4,6 +4,8 @@ const {createReadingResolver}=require('./reading.cjs');
 const {kana,contextual}=require('./furigana.js');
 const {numberTokens}=require('./counter-reading.cjs');
 const {nameTokens}=require('./name-reading.cjs');
+const {contextReadings}=require('./context-reading.cjs');
+const {readingsIn,gameTokens,unknownNames}=require('./game-reading.cjs');
 const {InstallProgress}=require('./install-progress.cjs');
 const {conjugation}=require('./morphology.cjs');
 const {definitionGroups}=require('./definitions.cjs');
@@ -128,7 +130,10 @@ class LocalLearning{
  /* names: read the running game's character names (the reader); other pages (daily news, examples, grammar counts)
     read the text without them. */
  async tokenize(text,{names=false}={}){
-  const key=(names?'names\u0000':'')+text;
+  /* the game's own readings (core/game-reading.cjs) apply to the reader page only, like names; they can grow while the game
+     runs, so the ones found in this text are part of the cache key */
+  const game=names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[];
+  const key=(names?'names\u0000':'')+(game.length?JSON.stringify(game)+'\u0000':'')+text;
   if(this.cache.has(key))return this.cache.get(key);await this.ready();
   const tokens=await this.raw(text);
   /* 2026-11-23 (user: the speech button said わたくし and ぶん where furigana showed わたし and ふん): furigana, the speech
@@ -136,7 +141,8 @@ class LocalLearning{
      once instead of in the reader page only. Numbers first: JMdict would otherwise join the counter with what follows
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
-  const corrected=contextual(text,this.readings.settle(this.dictionaryWords(numberTokens(names?this.withNames(plain):plain))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const own=names?unknownNames(this.withNames(gameTokens(plain,game))):plain;
+  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}
@@ -167,6 +173,8 @@ class LocalLearning{
     previous game's names is dropped; tokenize() reads the names after its last await, so a call still running when the
     game changes uses the new ones. */
  useNames(names){this.names=names instanceof Map?names:new Map();this.cache.clear();}
+ /* fn(text) → {line, learned, script}: the running game's own readings (services/reader.cjs bindReadings); null when no game is bound */
+ useGameReadings(fn){this.gameReadings=typeof fn==='function'?fn:null;this.cache.clear();}
  withNames(tokens){return nameTokens(tokens,this.names);}
  // Whole adjacent tokens that together spell one JMdict word with a single reading are that word: Sudachi split
  // 後一歩 into 後一 (ゴイチ) + 歩 (アユミ, a given name), so furigana and speech said ごいちあゆみ while the dictionary card
@@ -176,7 +184,7 @@ class LocalLearning{
   if(!Array.isArray(tokens)||tokens.length<2)return tokens;this.load();const out=[];
   for(let i=0;i<tokens.length;i++){let best=null,stop=i;
    for(let j=Math.min(tokens.length,i+4)-1;j>i&&!best;j--){const part=tokens.slice(i,j+1);
-    if(part.some((t,k)=>!t.surface?.trim()||t.pos==='補助記号'||(k&&part[k-1].end!==t.start)))continue;
+    if(part.some((t,k)=>!t.surface?.trim()||t.pos==='補助記号'||t.readingSource==='game'||(k&&part[k-1].end!==t.start)))continue;
     const surface=part.map(t=>t.surface).join('');if(!/[\p{Script=Han}々]/u.test(surface))continue;
     const [reading,base]=this.idiomReading(part,surface);
     if(!reading||kana(part.map(t=>t.reading||'').join(''))===reading)continue;
@@ -235,20 +243,30 @@ class LocalLearning{
   return {...selected,pos:language==='en'?selected.pos:selected.pos.map(chinesePos),definition_groups:definitionGroups(selected)};
  }
  adaptResult(result,language){if(Array.isArray(result))return result.map(r=>this.adaptResult(r,language));if(!result)return result;return {...result,entries:(result.entries||[]).map(e=>this.adapt(e,language)),related_entries:(result.related_entries||[]).map(e=>this.adapt(e,language))};}
+ /* #1111 (user 2026-11-24: 异表记 must not merge words only because they read alike): the index holds readings too, so a word
+    written in kana (きる, ひきちぎる) found every entry read so, and the most frequent homophone (着る for 切る) headed the card. A
+    word is now first found by a spelling an entry lists, the tokenizer's lemma included (Sudachi normalizes ひきちぎる to 引き千切る,
+    服をきる to 着る); entries that only share the reading follow, marked match:'reading' (the card lists them as homophones, never
+    as other spellings of the word). Only when no entry is spelled so do readings find the word, as before. */
  entries(token,language){
-  this.load();let ids=[];for(const key of [token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean)){ids=this.index.get(key)||[];if(ids.length)break;}
-  const reading=kana(token.reading||'');
-  ids=[...ids].sort((a,b)=>{
+  this.load();const keys=[token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean);
+  const spelled=key=>(this.index.get(key)||[]).filter(id=>this.byId.get(id)?.spellings?.includes(key));
+  let ids=[],homophones=[];for(const key of keys){ids=spelled(key);if(ids.length)break;}
+  if(!ids.length)for(const key of keys){ids=this.index.get(key)||[];if(ids.length)break;}
+  else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=(this.index.get(written)||[]).filter(id=>!ids.includes(id));}
+  const reading=kana(token.reading||''),order=list=>[...list].sort((a,b)=>{
    const left=this.byId.get(a),right=this.byId.get(b),match=e=>e.readings.some(r=>kana(r)===reading)?0:1;
    return match(left)-match(right)||(left.freq_rank||999999)-(right.freq_rank||999999);
   });
-  return ids.slice(0,20).map(id=>{
-   const entry=this.adapt(this.byId.get(id),language),conjugation=token.grammar?.[4]||'';
-   if(language==='zh'&&/上一段|下一段|五段/.test(conjugation)){
-    const match=conjugation.match(/(上一段|下一段|五段)(?:-(.+))?/),label=match[1]+'动词（'+(match[1]==='五段'?'一类':'二类')+'动词'+(match[2]?' · '+match[2]:'')+'）';
-    return {...entry,pos:entry.pos.map(p=>/一段动词|五段动词/.test(p)?label:p)};
-   }return entry;
-  });
+  const reached=new Set(homophones);ids=[...order(ids),...order(homophones)];
+  return ids.slice(0,20).map(id=>{if(reached.has(id))return {...this.entryFor(id,token,language),match:'reading'};return this.entryFor(id,token,language);});
+ }
+ entryFor(id,token,language){
+  const entry=this.adapt(this.byId.get(id),language),conjugation=token.grammar?.[4]||'';
+  if(language==='zh'&&/上一段|下一段|五段/.test(conjugation)){
+   const match=conjugation.match(/(上一段|下一段|五段)(?:-(.+))?/),label=match[1]+'动词（'+(match[1]==='五段'?'一类':'二类')+'动词'+(match[2]?' · '+match[2]:'')+'）';
+   return {...entry,pos:entry.pos.map(p=>/一段动词|五段动词/.test(p)?label:p)};
+  }return entry;
  }
  // A noun that takes する (JMdict "takes the aux. verb suru", or Sudachi サ変可能) followed by する is one サ変 verb:
  // 検分して was explained as the noun 検分 plus する (user, 2026-11-03). Nouns that cannot take する stay separate.
@@ -264,8 +282,10 @@ class LocalLearning{
    groups.push(group);
   }return groups;
  }
+ /* #1131 (user 2026-11-24: the speech button, the furigana and the lookup card each said another reading): the line is read
+    as furigana and lookup read it, without the game's line breaks (tokenizeWhole), so a word the game wrapped is one word here too. */
  async word(args,entryId,options){
-  const result=await this.request('lookup_exact',args,'zh',options),tokens=await this.tokenize(args.text,options),token=tokens.find(t=>t.start===args.start&&t.end===args.end),head=tokens.find(t=>t.start===args.start),entry=result.entries?.find(e=>e.id===entryId)||result.entries?.[0],m=result.morphology||{};
+  const result=await this.request('lookup_exact',args,'zh',options),tokens=await this.tokenizeWhole(args.text,options),token=tokens.find(t=>t.start===args.start&&t.end===args.end),head=tokens.find(t=>t.start===args.start),entry=result.entries?.find(e=>e.id===entryId)||result.entries?.[0],m=result.morphology||{};
   let chosen=token,reading=token?.reading||m.reading||'',surface=result.surface,pronunciationForm='surface';
   if(!chosen&&head?.lexeme?.base===m.base&&entry?.readings?.some(r=>kana(r)===kana(head.lexeme.reading))){chosen=head;reading=head.lexeme.reading;surface=m.base;pronunciationForm='lemma';}
   /* 2026-11-19 (user, 千恋＊万花: うたたね could not be mined, 「当前词没有确定读音」): Sudachi cut the line うたた｜ねし, so a selection
@@ -288,10 +308,12 @@ class LocalLearning{
     surface = selected; chosen = null; phrase = true; pronunciationForm = 'phrase';
   }
   // A VNDB character name is the reading even where the dictionary entry is another word (希 まれ for Nozomi).
-  const ambiguous=!reading||!!chosen?.reading_ambiguous||!phrase&&!fixed&&chosen?.readingSource!=='name'&&!!entry&&!entry.readings?.some(r=>kana(r)===kana(reading));
+  /* #1131: the word's own token is what the furigana shows, so the speech button says that reading even when the card's
+     dictionary entry spells it otherwise; only the lemma path (a token the selection does not match) is checked against the entry */
+  const ambiguous=!reading||!!chosen?.reading_ambiguous||!phrase&&!fixed&&!(chosen&&chosen===token)&&chosen?.readingSource!=='name'&&chosen?.readingSource!=='game'&&!!entry&&!entry.readings?.some(r=>kana(r)===kana(reading));
   /* A piece of a number word (分 of 10分): the furigana reads the whole word (じゅっぷん), so the speech button says that word;
      the card keeps the selected word. */
-  const number=!token&&tokens.find(t=>(t.readingSource==='number'||t.readingSource==='name')&&t.start<=args.start&&args.end<=t.end);
+  const number=!token&&tokens.find(t=>(t.readingSource==='number'||t.readingSource==='name'||t.readingSource==='game')&&t.start<=args.start&&args.end<=t.end);
   const spoken=number?{surface:number.surface,reading:number.reading,pitch:[],ambiguous:false,...(number.parts?{parts:number.parts}:{})}:null;
   return {...(spoken?{spoken}:{}),...(chosen?.parts?{parts:chosen.parts}:{}),surface,clickedSurface:result.surface,base:m.base||result.surface,reading,pitch:chosen?.pitch||[],pitchSource:chosen?.pitch_source||(phrase?'词组 · 音调由语音引擎估计':'UniDic 未匹配 · 音调由语音引擎估计'),pronunciationForm,ambiguous,pos:m.wordClass||entry?.pos?.join('、')||'',meaning:entry?.definition_groups?.map(g=>g.text).join('\n')||entry?.definitions?.join('\n')||'',sentence:args.text};
  }

@@ -53,3 +53,51 @@ test('reload does not release a rating still waiting for Anki',async t=>{
   await assert.rejects(other.grade({cardId:101,ease:3,operationId:'second-101'}),/ANKI_ACTION_PENDING/);
  }finally{release();await pending;}
 });
+
+test('grading the final card returns today count, next due, and deck total without failing if summary queries fail',async t=>{
+ const {reviewRest}=await import('../web/empty-states.js');
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT)');t.after(()=>db.close());
+ let card={cardId:101,deckName:'MeguLit',question:'front',answer:'back',buttons:[1,2,3,4],nextReviews:['1m','6m','1d','4d']};
+ const calls=[];
+ const fetcher=async(_u,o)=>{
+  const {action,params}=JSON.parse(o.body);calls.push({action,params});
+  if(action==='deckNames')return {ok:true,json:async()=>({result:['MeguLit'],error:null})};
+  if(action==='guiDeckReview'||action==='guiShowAnswer')return {ok:true,json:async()=>({result:true,error:null})};
+  if(action==='guiCurrentCard')return {ok:true,json:async()=>card?{result:card,error:null}:{result:null,error:'Gui review is not currently active.'}};
+  if(action==='guiAnswerCard'){card=null;return {ok:true,json:async()=>({result:true,error:null})};}
+  if(action==='getDeckStats')return {ok:true,json:async()=>({result:{1:{total_in_deck:42}},error:null})};
+  if(action==='getNumCardsReviewedToday')return {ok:true,json:async()=>({result:15,error:null})};
+  if(action==='findCards')return {ok:true,json:async()=>({result:/prop:due=1$/.test(params.query)?[201,202,203,204,205]:[],error:null})};
+  throw Error('unexpected '+action);
+ };
+ const reviewer=new AnkiReviewer({db,fetcher});
+ await reviewer.start('MeguLit');await reviewer.showAnswer(101);
+ const done=await reviewer.grade({cardId:101,ease:3,operationId:'finish-101'});
+ assert.deepEqual(done,{done:true,finished:true,deck:'MeguLit',total:42,reviewedToday:15,nextDue:{days:1,count:5}});
+ // Idempotent replay returns the exact cached finished summary without re-answering.
+ assert.deepEqual(await reviewer.grade({cardId:101,ease:3,operationId:'finish-101'}),done);
+ assert.equal(calls.filter(c=>c.action==='guiAnswerCard').length,1);
+ const html=reviewRest({locale:'zh',esc:String,kind:'rest',deck:done.deck,reviewed:done.reviewedToday??null,nextDue:done.nextDue,total:done.total??null});
+ assert.match(html,/>15<\/b><span>张 · 今天复习过的卡/);
+ assert.match(html,/下次到期 明天 · 5 张/);
+ assert.match(html,/MeguLit · 牌组共 42 张/);
+
+ // Summary lookup failures after guiAnswerCard must never turn a succeeded rating into ANKI_RATING_UNCERTAIN.
+ const db2=new DatabaseSync(':memory:');db2.exec('CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT)');t.after(()=>db2.close());
+ let card2={cardId:201,deckName:'',question:'f',answer:'b',buttons:[1,2,3,4],nextReviews:[]};
+ const seen2=[];
+ const fetcher2=async(_u,o)=>{
+  const {action,params}=JSON.parse(o.body);seen2.push({action,params});
+  if(action==='deckNames')return {ok:true,json:async()=>({result:['MeguLit'],error:null})};
+  if(action==='guiDeckReview'||action==='guiShowAnswer')return {ok:true,json:async()=>({result:true,error:null})};
+  if(action==='guiCurrentCard')return {ok:true,json:async()=>card2?{result:card2,error:null}:{result:null,error:'Gui review is not currently active.'}};
+  if(action==='guiAnswerCard'){card2=null;return {ok:true,json:async()=>({result:true,error:null})};}
+  if(action==='getNumCardsReviewedToday')return {ok:true,json:async()=>({result:7,error:null})};
+  throw Error('summary failed');
+ };
+ const reviewer2=new AnkiReviewer({db:db2,fetcher:fetcher2});
+ await reviewer2.start('MeguLit');await reviewer2.showAnswer(201);
+ const done2=await reviewer2.grade({cardId:201,ease:3,operationId:'finish-201'});
+ assert.deepEqual(done2,{done:true,finished:true,deck:'',reviewedToday:7});
+ assert.ok(!seen2.some(c=>c.action==='getDeckStats'||c.action==='findCards'),'empty deck skips deck-scoped summary queries');
+});

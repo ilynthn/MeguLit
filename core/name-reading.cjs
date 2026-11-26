@@ -85,7 +85,7 @@ function nameTokens(tokens,names){
   let hit=null;
   for(let j=Math.min(tokens.length,i+4)-1;j>=i&&!hit;j--){
    // Empty tokens (SudachiDict splits … into … and two empty marks) are never part of a name.
-   const part=tokens.slice(i,j+1);if(part.some((t,k)=>typeof t?.surface!=='string'||!t.surface||k&&Number.isInteger(part[k-1].end)&&part[k-1].end!==t.start))continue;
+   const part=tokens.slice(i,j+1);if(part.some((t,k)=>typeof t?.surface!=='string'||!t.surface||t.readingSource==='game'||k&&Number.isInteger(part[k-1].end)&&part[k-1].end!==t.start))continue;
    const surface=part.map(t=>t.surface).join(''),reading=names.get(surface);if(!reading)continue;
    // A one-kanji name right before another word is the kanji's own use: 新 in 新技, 新食感 reads しん, and so does the prefix
    // in 新スキル (篝シナリオ is still Kagari's). A title, 家 or 本人 after it is still the name (希本人, 希先輩, 鳳家).

@@ -139,7 +139,14 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     /* 2026-11-20 (user, CHAOS;CHILD: 「对应一下每一行的日文」): two game rows give the translation two rows, broken after its comma */
     { await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'今天是，晴天啊'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }); }); await frame(); await frame();
       const rows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });
-      assert.deepStrictEqual(rows, ['今天是，', '晴天啊'], 'translation rows follow the Japanese rows'); }
+      assert.deepStrictEqual(rows, ['今天是，', '晴天啊'], 'translation rows follow the Japanese rows');
+      /* #1122: closing quote and single trailing character must never be split onto a new row */
+      await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'“今天是晴天。”'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }); }); await frame(); await frame();
+      const quoteRows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });
+      assert.deepStrictEqual(quoteRows, ['“今天是晴天。”'], 'closing quote stays attached to sentence end');
+      await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'今天是晴天，嗯。'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [420, 400, 40, 40], [300, 450, 40, 40]] }); }); await frame(); await frame();
+      const orphanRows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });
+      assert.deepStrictEqual(orphanRows, ['今天是晴天，嗯。'], 'single trailing character is not orphaned on a new row'); }
     await page.evaluate(() => { document.querySelector('.tomoyo-cn-row').textContent = '今天是晴天'; });
     await page.evaluate(() => { window.__tomoyoChinese.textPlaceAnchor(false); window.__tomoyoChinese.textPlace({ fallback: true, text: '今日は晴れ' }); }); await frame();
     /* name plate and a choice drawn on their boxes, click-through */
