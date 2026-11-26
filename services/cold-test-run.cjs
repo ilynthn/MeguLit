@@ -44,6 +44,12 @@ function choiceItems(lines,aux){const a=plainOf(aux);if(a.length<8)return [];con
  for(const l of Array.isArray(lines)?lines:[]){const t=plainOf(l?.text);if(t.length<5||!(l.w>0&&l.h>0))continue;let hit=0;for(const c of t)if(a.includes(c))hit++;if(hit/t.length<0.75)continue;
   if(out.some(o=>Math.abs(o.y-l.y)<Math.max(8,l.h/2)))continue;out.push({role:'choice',text:String(l.text).replace(/\s+/g,''),ocr:t.slice(0,40),x:l.x|0,y:l.y|0,w:l.w|0,h:l.h|0});}
  return out.sort((p,q)=>p.y-q.y);}
+/* options the kernel wants located + OCR rows -> the 'hookChoiceBoxes' answer GalWindowBridge gives (client px, the window as the screen):
+   each option takes the unused row sharing most of its characters (75 % of the row's, at least 4) */
+function locateAnswer(lines,options,win){const rows=(Array.isArray(lines)?lines:[]).map(l=>({...l,p:plainOf(l?.text)})).filter(l=>l.p.length>=4&&l.w>0&&l.h>0);const used=new Set(),items=[],missed=[];
+ for(const o of options){const op=plainOf(o);let best=null,score=0;for(const [i,r] of rows.entries()){if(used.has(i))continue;let hit=0;for(const c of r.p)if(op.includes(c))hit++;const sc=hit/r.p.length;if(sc>=0.75&&hit>=4&&sc>score){score=sc;best=i;}}
+  if(best==null){missed.push(o);continue;}used.add(best);const r=rows[best];items.push({text:o,x0:r.x|0,y0:r.y|0,x1:(r.x+r.w)|0,y1:(r.y+r.h)|0});}
+ if(!items.length)return null;return {type:'hookChoiceBoxes',status:missed.length?'partial':'ok',items,missed,sw:win?.w|0,sh:win?.h|0,rows:[]};}
 function ocr(file,{spawn=nodeSpawn,timeoutMs=30000}={}){return new Promise(resolve=>{let out='',p;
   try{p=spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(__dirname,'cold-ocr.ps1'),file],{windowsHide:true,stdio:['ignore','pipe','ignore']});}catch{return resolve([]);}
   const t=setTimeout(()=>{try{p.kill();}catch{}},timeoutMs);t.unref?.();p.stdout.on('data',d=>out+=d);p.on('error',()=>{clearTimeout(t);resolve([]);});
@@ -69,6 +75,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    if(opts.hideProbe===true&&sel.sample&&sel.embeddable!==true&&hooks?.probing!==true){try{hooks.probeHide?.(true);{const hp=res.hideProbes||(res.hideProbes=[]);if(hp.length<20)hp.push({id:String(sel.id),at:new Date(now()).toISOString()});}}catch{}}};
   /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
   let hookTextAt=0,threadSig='';
+  let locatePending=null;
   let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new Driver({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
@@ -88,6 +95,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    hooks=new Hook(layout,e=>{if(e&&Array.isArray(e.hookThreads)){hideProbe(e.hookThreads);const sig=e.hookThreads.map(x=>x&&x.sample||'').join('|');if(sig!==threadSig){threadSig=sig;hookTextAt=now();}}if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
    const drawLog=hooks.drawLog?.bind(hooks);if(drawLog)hooks.drawLog=raw=>{const m=menuItem(raw,res.window);if(m){menu.unshift(m);menu.length=Math.min(menu.length,12);}return drawLog(raw);};
    try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' attach '+JSON.stringify({pid:res.pid,launcherPid:res.launcherPid||0,hwnd:res.window.hwnd,started})+'\n');}catch{}
+   /* 2026-11-26 opts.choiceLocate (tools/adapt-auto.cjs): the kernel asks the host to locate the options it has (hooks.locateChoices; in the
+      app GalWindowBridge answers with its OCR as 'hookChoiceBoxes'). A cold run has no reader, so this runner answers with its own OCR
+      rows; the answer also goes on Cardinal's tape as the gwb record the app would have */
+   if(opts.choiceLocate===true)hooks.locateChoices=options=>{locatePending={options:(Array.isArray(options)?options:[]).map(String).slice(0,12),at:now()};ocrAt=0;};
    hooks.configure({hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started});}
    /* 2026-11-26 processName without .exe, as GalWindowBridge sends it: native/HookTarget.cs Validate compares it with the image name
       without extension, so 'orfre.exe' made every cold run end in 「Bound game process changed」 and six reconnects */
@@ -104,6 +115,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
       /* options the hook saw (its last 'choice aux' text, since the lines stopped) and OCR finds as separate rows: a choice; the kernel
          confirms choices with the reader's OCR, which a cold run has not (オルフレール: "choice locate unavailable", the run stalled on
          its first choice with Ctrl held) */
+      if(locatePending){const ans=locateAnswer(lines,locatePending.options,res.window);locatePending=null;if(ans){res.choiceLocates=(res.choiceLocates||0)+1;try{require('../core/cardinal/tape.cjs').record('gwb',ans);}catch{}try{hooks?.choiceBoxes?.(ans);}catch{}}}
       {const opts=choiceItems(lines,choiceAuxAt>=lastLineAt-1000?choiceAux:'');if(opts.length>=2){for(let i=menu.length-1;i>=0;i--)if(menu[i].role==='choice')menu.splice(i,1);for(const it of opts.slice().reverse())menu.unshift(it);res.choices++;res.ocrChoices=opts.map(o=>o.text);}}});break;}
      if(m.ok&&m.path){res.shots.push(path.basename(m.path));if(m.black===true)res.black=true;else res.black=false;}break;
     case 'input':res.stopped='input';finish('input');break;
@@ -120,7 +132,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   child.on?.('close',()=>{finish('helper-close');resolve(res);});
   let ocrBusy=false,ocrAt=0,ocrN=0;
   timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
-   if(opts.ocrMenu===true&&!ocrBusy&&res.window&&now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY)){ocrAt=now();ocrBusy=true;
+   if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
    const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,quietMs:hookTextAt?now()-hookTextAt:1e9});
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
@@ -129,4 +141,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={runOne,helperPath,menuItem,ocrItems,choiceItems,ocr,stopActive:()=>stopActive?.()};
+module.exports={runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};

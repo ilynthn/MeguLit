@@ -61,8 +61,9 @@ class Driver{
    if(this.lastLines>this.choiceLine){if(this.choiceTry>0)out.push({do:'phase',name:'choice-done',try:this.choiceTry});this.choiceAt=0;this.choiceTry=0;this.choiceHoverClick=false;}
    else if(this.choiceHoverClick){if(t>=this.choiceNext){this.choiceHoverClick=false;this.lastAct=t;if(at)out.push({do:'click',...at});else out.push({do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;}return out;}
    else if(t>=this.choiceNext&&t-this.choiceAt>=o.choiceWait&&(this.choiceTry>0||(obs.quietMs??1e9)>=o.choiceQuietMs)){this.lastAct=t;const k=this.choiceTry++;
-    if(k===0||k===1){out.push({do:'phase',name:'choice-try-'+(k+1)});if(at)out.push({do:'move',...at});this.choiceNext=t+o.choiceHover;this.choiceHoverClick=true;return out;}
-    if(k===2){out.push({do:'phase',name:'choice-try-3'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;return out;}
+    /* keyboard first (three オルフレール runs: Down + Enter was the try that worked), hover + click twice as the fallback */
+    if(k===0){out.push({do:'phase',name:'choice-try-1'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;return out;}
+    if(k===1||k===2){out.push({do:'phase',name:'choice-try-'+(k+1)});if(at)out.push({do:'move',...at});this.choiceNext=t+o.choiceHover;this.choiceHoverClick=true;return out;}
     this.choiceAt=0;}
    if(this.choiceAt)return out;}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);

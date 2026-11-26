@@ -193,15 +193,16 @@ test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a ch
  await new Promise(r=>setTimeout(r,600));R.stopActive();const r=await p;
  assert.ok(r.choices>=1,'a choice');assert.ok(h.sent.includes('click 641 207'),h.sent.filter(l=>l.startsWith('click')).join('|'));});
 
-test('driver: a choice is answered by hover + click after Ctrl is released, hover + click again, then Down + Enter',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
+test('driver: a choice is answered by Down + Enter after Ctrl is released, then hover + click twice',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
  const d=new Driver({skip:false,slowLines:1,afterChoice:5,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[],choiceSequence:true});const W={w:10,h:10},opt={role:'choice',text:'A',x:400,y:300,w:200,h:40};
  d.next({t:0,window:W});d.next({t:10,window:W,lines:1});
  const seen=a=>JSON.stringify(a);const c=d.next({t:100,window:W,lines:2,choices:1,menu:[opt]});assert.ok(seen(c).includes('"keyup"'));
  assert.deepEqual(d.next({t:1000,window:W,lines:2,choices:1,menu:[opt]}),[],'waits for fast-forward to end');
- assert.deepEqual(d.next({t:1700,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-1'},{do:'move',x:500,y:320}]);
- assert.deepEqual(d.next({t:1800,window:W,lines:2,choices:1,menu:[opt]}),[],'hovering');
- assert.deepEqual(d.next({t:2100,window:W,lines:2,choices:1,menu:[opt]}),[{do:'click',x:500,y:320}]);
- assert.deepEqual(d.next({t:5200,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-2'},{do:'move',x:500,y:320}],'hover + click again before the keyboard');
+ assert.deepEqual(d.next({t:1700,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-1'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter}],'keyboard first');
+ assert.deepEqual(d.next({t:2000,window:W,lines:2,choices:1,menu:[opt]}),[]);
+ assert.deepEqual(d.next({t:4800,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-2'},{do:'move',x:500,y:320}]);
+ assert.deepEqual(d.next({t:5000,window:W,lines:2,choices:1,menu:[opt]}),[],'hovering');
+ assert.deepEqual(d.next({t:5200,window:W,lines:2,choices:1,menu:[opt]}),[{do:'click',x:500,y:320}]);
  assert.deepEqual(d.next({t:5300,window:W,lines:3,choices:1,menu:[opt]}),[{do:'phase',name:'choice-done',try:2}]);});
 
 test('driver readEvery: without Ctrl the game is advanced at reading pace; with Ctrl at advanceEvery',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
@@ -228,10 +229,15 @@ test('driver choiceQuietMs: the first try waits until fast-forward stopped drawi
  const d=new Driver({skip:false,slowLines:1,afterChoice:5,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[],choiceSequence:true,choiceQuietMs:1500});const W={w:10,h:10},opt={role:'choice',text:'A',x:400,y:300,w:200,h:40};
  d.next({t:0,window:W});d.next({t:10,window:W,lines:1});d.next({t:100,window:W,lines:2,choices:1,menu:[opt]});
  assert.deepEqual(d.next({t:3000,window:W,lines:2,choices:1,menu:[opt],quietMs:200}),[],'still drawing');
- assert.deepEqual(d.next({t:4000,window:W,lines:2,choices:1,menu:[opt],quietMs:1600}),[{do:'phase',name:'choice-try-1'},{do:'move',x:500,y:320}]);});
+ assert.deepEqual(d.next({t:4000,window:W,lines:2,choices:1,menu:[opt],quietMs:1600}),[{do:'phase',name:'choice-try-1'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter}]);});
 
 test('run: stage records (core/yui-run.cjs) say where a run stopped',async()=>{const d=tmp();
  const sw=path.join(d,'[GAME]Garden[01009DB022BC6000]');put(path.join(sw,'game.nsp'));const out=path.join(d,'out');
  const r=await A.run({dir:sw,out,budgetMin:1,app:''},{log:()=>{}});const y=require('../core/yui-run.cjs').read(out);
  assert.equal(r.artifacts.yui,path.join(out,'yui-run.log'));assert.equal(y.kind,'adapt-auto');assert.equal(y.state,'failed');assert.equal(y.failed.stage,'verdict-inconclusive');assert.match(y.failed.reason,/Switch/);
  assert.ok(y.events.some(e=>e.stage==='triage'));});
+
+test('locateAnswer: the options the kernel wants located get the OCR rows that are theirs; GalWindowBridge\'s answer shape',()=>{const R=require('../services/cold-test-run.cjs');
+ const a=R.locateAnswer([{text:'・ ・ ・ 本 当 は 。 お 憂 し い 方 な の か し ら',x:466,y:196,w:349,h:22},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21}],['……本当は、お優しい方なのかしら','……本当に、几帳面な方なのね'],{w:1280,h:720});
+ assert.equal(a.type,'hookChoiceBoxes');assert.equal(a.status,'ok');assert.deepEqual(a.items.map(i=>[i.text,i.x0,i.y0,i.x1,i.y1]),[['……本当は、お優しい方なのかしら',466,196,815,218],['……本当に、几帳面な方なのね',523,283,791,304]]);assert.deepEqual([a.sw,a.sh],[1280,720]);
+ assert.equal(R.locateAnswer([{text:'村 人',x:1,y:1,w:5,h:5}],['……本当は、お優しい方なのかしら'],{w:10,h:10}),null);});

@@ -144,7 +144,7 @@ const SLOW_LINES=60;
 async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||''};
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,driver:{targetLines:1000,afterChoice:5,choiceSequence:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,driver:{targetLines:1000,afterChoice:5,choiceSequence:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$args[0];$stop=Join-Path $d 'stop';$i=0;
@@ -158,6 +158,11 @@ function screenRecorder(dir){try{fs.rmSync(dir,{recursive:true,force:true});}cat
  let closed=false;const ended=new Promise(r=>{p.once('close',()=>{closed=true;r();});p.once('error',()=>{closed=true;r();});});
  /* -> a promise that settles once the recorder has exited (it finishes the picture it is writing), at most 20 s */
  return ()=>{try{fs.writeFileSync(path.join(dir,'stop'),'');}catch{}const kill=setTimeout(()=>{try{p.kill();}catch{}},20000);return ended.then(()=>clearTimeout(kill));};}
+
+/* at most n pictures, evenly over the run, for Cardinal's screen OCR (owner: OCR 只跑隐藏判定需要的帧，最多 20 张；all of them added two minutes) */
+function shotSample(dir,to,n){let files=[];try{files=fs.readdirSync(dir).filter(f=>/\.png$/i.test(f)).sort();}catch{return '';}if(!files.length)return '';
+ try{fs.rmSync(to,{recursive:true,force:true});}catch{}fs.mkdirSync(to,{recursive:true});const pick=files.length<=n?files:Array.from({length:n},(_,i)=>files[Math.round(i*(files.length-1)/(n-1))]);
+ for(const f of new Set(pick))try{fs.copyFileSync(path.join(dir,f),path.join(to,f));}catch{}return to;}
 
 /* ---- 4 diff ------------------------------------------------------------------------------------------------------------- */
 const RUN_LOGS=/^(hook-events|engine-draw|reader-host)\.log$|^shot-.*\.jpe?g$/i;
@@ -334,7 +339,7 @@ async function run(opts,{log=console.log}={}){
   /* Cardinal (only when the cold run has lines to replay) */
   let card=null;
   if(runCopy&&(cold.lines|0)>0){if(overtime('Cardinal 回放'))return finish(judge({cold,diff,card:null}));
-   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(60000,left()),shots:result.foreground?path.join(out,'screen'):''});if(card.ok)result.artifacts.cardinal=file;
+   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(60000,left()),shots:result.foreground?shotSample(path.join(out,'screen'),path.join(out,'screen-sample'),20):''});if(card.ok)result.artifacts.cardinal=file;
     fs.writeFileSync(path.join(out,'cardinal.log'),card.log||'');result.cardinal=card.ok?{scores:card.result.scores,applies:card.result.applies,total:card.result.total,lines:card.result.lines,errors:card.errors}:{why:card.why};
     log('# cardinal '+(card.ok?JSON.stringify(card.result.scores):card.why));});}
   const j=judge({cold,diff,card});
