@@ -91,6 +91,15 @@ test('AQUAPLUS #1142: IC/script.pak comes after the full script.pak even when th
  assert.deepStrictEqual(aquaplus.scenes(dir).map(s=>s.name),['1001.txt','1002.txt']);
  fs.rmSync(dir,{recursive:true,force:true});
 });
+test('AQUAPLUS #1142: sibling 中文版/日文版 with game/data/script.pak are found from the Chinese folder',()=>{
+ const base0=tmp('aqua-pairdeep-'),zh=patchEncoder(),cnDir=path.join(base0,'整合版','中文版'),jaDir=path.join(base0,'整合版','日文版');
+ const ja=',mv01,a.tga,「あ…」,<W>とうとう、降ってきた。,春希,',cn=',mv01,a.tga,「啊…」,<W>终于，还是下起来了。,春希,';
+ put(cnDir,{'WA2.exe':'x','game/data/script.pak':kcap([['1001.txt',zh(cn),true],['1002.txt',zh(cn),true]])});
+ put(jaDir,{'WA2.exe':'x','game/data/script.pak':kcap([['1001.txt',sjis(ja),true],['1002.txt',sjis(ja),true]])});
+ assert.strictEqual(aquaplus._internal.findScript(jaDir),path.join(jaDir,'game','data','script.pak'));
+ assert.strictEqual(aquaplus._internal.findScript(cnDir),path.join(jaDir,'game','data','script.pak'));
+ fs.rmSync(base0,{recursive:true,force:true});
+});
 test('AQUAPLUS: Japanese asset filenames go to anchors without breaking patch pairing or anchor guards',()=>{
  const dir=tmp('aqua-asset-'),zh=patchEncoder();
  const fon=fonPak([833652,724679,3302082,1918771]);

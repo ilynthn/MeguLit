@@ -94,11 +94,11 @@ const pakMemo=new Map();
 function findScript(dir){const hit=pakMemo.get(dir);if(hit&&Date.now()-hit.at<10000)return hit.file;let file=null;
  file=below(dir).find(f=>scriptKind(f)==='ja')||null;
  /* a 中文版 folder (ck-gal.pak or a Chinese script.pak, no Japanese one) next to its 日文版: the sibling's script.pak, when
-    it holds the same scenes */
- if(!file){const zh=chineseNear(dir,1)[0],parent=path.dirname(dir);
+    it holds the same scenes; both sides searched two levels deep like below(), so game/data/script.pak repacks are found */
+ if(!file){const zh=chineseNear(dir)[0],parent=path.dirname(dir);
   if(zh&&parent!==dir&&path.dirname(parent)!==parent){const want=txtNames(zh);
    for(const s of subdirs(parent)){if(path.resolve(s).toLowerCase()===path.resolve(dir).toLowerCase())continue;
-    const f=below(s,1).find(x=>{if(scriptKind(x)!=='ja')return false;const have=txtNames(x);let same=0;for(const n of want)if(have.has(n))same++;return same>=want.size*.8;});
+    const f=below(s).find(x=>{if(scriptKind(x)!=='ja')return false;const have=txtNames(x);let same=0;for(const n of want)if(have.has(n))same++;return same>=want.size*.8;});
     if(f){file=f;break;}}}}
  pakMemo.set(dir,{at:Date.now(),file});if(pakMemo.size>32)pakMemo.delete(pakMemo.keys().next().value);return file;}
 const scriptPak=dir=>findScript(dir);
