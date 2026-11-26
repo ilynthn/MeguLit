@@ -175,3 +175,9 @@ test('driver slowLines: reading pace, then Ctrl until the first choice, then rea
  const c=d.next({t:30,window:W,lines:40,choices:1});assert.deepEqual(c.slice(0,2),[{do:'keyup',vk:VK.ctrl},{do:'phase',name:'choice'}]);
  assert.ok(!d.next({t:40,window:W,lines:41,choices:1}).some(a=>a.do==='keydown'),'no Ctrl after the choice');
  assert.deepEqual(d.next({t:50,window:W,lines:42,choices:1}),[{do:'end',why:'choice'}]);});
+
+test('choiceItems: OCR rows that are pieces of the hook\'s option text, topmost first; nothing without that text',()=>{const R=require('../services/cold-test-run.cjs');
+ const aux='……本当は、お優しい方なのかしら……本当に、几帳面な方なのね';
+ const L=[{text:'私 の こ と な ん て 、',x:10,y:500,w:200,h:20},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21},{text:'・ ・ ・ 本 当 は 。 お 憂 し い 方 な の か し ら',x:466,y:196,w:349,h:22}];
+ const c=R.choiceItems(L,aux);assert.deepEqual(c.map(o=>o.y),[196,283]);assert.equal(c[0].role,'choice');assert.equal(c[0].text,'・・・本当は。お憂しい方なのかしら');
+ assert.deepEqual(R.choiceItems(L,''),[]);assert.deepEqual(R.choiceItems([{text:'村 人',x:1,y:1,w:5,h:5}],aux),[]);});

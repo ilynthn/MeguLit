@@ -38,6 +38,12 @@ function ocrItems(lines){const out=[],ls=(Array.isArray(lines)?lines:[]).map(l=>
   const ttl=ls.find(l=>OCR_TITLE.test(l.t)&&Math.abs(l.y+l.h/2-cy)<def.h*1.5&&l.x>def.x);const step=ttl?ttl.x+ttl.w/2-cx:def.w*2;
   const x=Math.round(cx-step);if(x>0)out.push({role:'button',text:'決定',estimated:true,ocr:def.t,x:x-Math.round(def.w/2),y:def.y|0,w:def.w|0,h:def.h|0});}
  return out;}
+/* OCR rows that are pieces of the hook's option text: most of a row's characters appear in it, at least 5 of them; topmost first */
+const plainOf=t=>String(t||'').replace(/[\s、。・…‥〃″'"`,.！？!?「」『』（）()]/g,'');
+function choiceItems(lines,aux){const a=plainOf(aux);if(a.length<8)return [];const out=[];
+ for(const l of Array.isArray(lines)?lines:[]){const t=plainOf(l?.text);if(t.length<5||!(l.w>0&&l.h>0))continue;let hit=0;for(const c of t)if(a.includes(c))hit++;if(hit/t.length<0.75)continue;
+  if(out.some(o=>Math.abs(o.y-l.y)<Math.max(8,l.h/2)))continue;out.push({role:'choice',text:String(l.text).replace(/\s+/g,''),ocr:t.slice(0,40),x:l.x|0,y:l.y|0,w:l.w|0,h:l.h|0});}
+ return out.sort((p,q)=>p.y-q.y);}
 function ocr(file,{spawn=nodeSpawn,timeoutMs=30000}={}){return new Promise(resolve=>{let out='',p;
   try{p=spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(__dirname,'cold-ocr.ps1'),file],{windowsHide:true,stdio:['ignore','pipe','ignore']});}catch{return resolve([]);}
   const t=setTimeout(()=>{try{p.kill();}catch{}},timeoutMs);t.unref?.();p.stdout.on('data',d=>out+=d);p.on('error',()=>{clearTimeout(t);resolve([]);});
@@ -54,7 +60,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   if(!helper){res.end='no-helper';return resolve(res);}
   let child;try{child=spawn(helper,['run',exe,'--seconds',String(Math.ceil(budgetMs/1000)+20),...(opts.ignoreInput===true?['--ignore-input']:[]),...(opts.visible===true?['--visible']:[]),...(opts.localeEmulator?.path&&opts.localeEmulator?.guid?['--locale-emulator',opts.localeEmulator.path,'--le-guid',opts.localeEmulator.guid]:[])],{windowsHide:true,stdio:['pipe','pipe','ignore']});}catch(e){res.end='spawn '+String(e?.message||e).slice(0,80);return resolve(res);}
   const send=line=>{try{child.stdin.write(line+'\n');}catch{}};
-  let lastLineAt=0;const driver=new Driver({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
+  let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new Driver({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
    res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=require('../core/cardinal/tape.cjs').snapshot();if(snap.lines>0){fs.writeFileSync(path.join(runDir,'cardinal-tape.jsonl'),snap.rows.map(r=>JSON.stringify(r)).join('\n')+'\n');res.tapeLines=snap.lines;}}catch{}try{fs.writeFileSync(path.join(runDir,'run.json'),JSON.stringify(res,null,1));}catch{}if(child.exitCode!==null&&child.exitCode!==undefined)resolve(res);else child.once('exit',()=>resolve(res));};
@@ -62,7 +68,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{
    const Hook=deps.Hook||require('../core/hook-native.cjs').HookNative;const layout={...(deps.layout||require('../core/layout.cjs')),logs:runDir};
-   Hook.traceTap=line=>{const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
+   Hook.traceTap=line=>{{const m=/ choice aux .* text="(.*)"s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
    const statusLog=path.join(runDir,'hook-status.log');let statusN=0;
    hooks=new Hook(layout,e=>{if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
@@ -80,7 +86,11 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
      if(!hooks&&m.pid>0&&(m.pid|0)!==res.pid){res.launcherPid=res.pid;res.pid=m.pid|0;if(m.started)started=String(m.started);}
      attach();break;
     case 'shot':if(m.ok&&m.path&&/^ocr-/i.test(path.basename(m.path))){ocrBusy=true;(deps.ocr||ocr)(m.path).then(lines=>{ocrBusy=false;const items=ocrItems(lines);res.ocr=(res.ocr||0)+1;res.ocrText=(Array.isArray(lines)?lines:[]).map(l=>String(l?.text||'').replace(/\s+/g,'')).filter(Boolean).join(' ').slice(0,300);for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);
-      if(items.length){res.ocrStart=items[0].ocr;for(const it of items)menu.unshift(it);menu.length=Math.min(menu.length,12);}});break;}
+      if(items.length){res.ocrStart=items[0].ocr;for(const it of items)menu.unshift(it);menu.length=Math.min(menu.length,12);}
+      /* options the hook saw (its last 'choice aux' text, since the lines stopped) and OCR finds as separate rows: a choice; the kernel
+         confirms choices with the reader's OCR, which a cold run has not (オルフレール: "choice locate unavailable", the run stalled on
+         its first choice with Ctrl held) */
+      {const opts=choiceItems(lines,choiceAuxAt>=lastLineAt-1000?choiceAux:'');if(opts.length>=2){for(let i=menu.length-1;i>=0;i--)if(menu[i].role==='choice')menu.splice(i,1);for(const it of opts.slice().reverse())menu.unshift(it);res.choices++;res.ocrChoices=opts.map(o=>o.text);}}});break;}
      if(m.ok&&m.path){res.shots.push(path.basename(m.path));if(m.black===true)res.black=true;else res.black=false;}break;
     case 'input':res.stopped='input';finish('input');break;
     case 'power':if(m.ac===false){res.stopped='battery';finish('battery');}break;
@@ -105,4 +115,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={runOne,helperPath,menuItem,ocrItems,ocr,stopActive:()=>stopActive?.()};
+module.exports={runOne,helperPath,menuItem,ocrItems,choiceItems,ocr,stopActive:()=>stopActive?.()};
