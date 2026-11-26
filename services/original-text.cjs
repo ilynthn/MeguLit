@@ -923,6 +923,13 @@ function scriptPairs(root,executable){
   return {source:'group',ja,tr:ja.map((t,i)=>{const o=inlineTags(og[i]);return sampler.translated(o,inlineTags(t))?o:'';})};
  }catch{return null;}
 }
+/* Reading (core/game-reading.cjs, #1134): the ruby of the whole stored script, one entry per line (null or [[base,reading],…]),
+   from the Japanese original when it replaces the running script, else from the running script; null when there is none. */
+function scriptRuby(root,executable,id){
+ const entry=providerEntry(root,executable,id,{runtimeOnly:true});if(!entry)return null;const state=entry[1];
+ try{const file=state.mode==='original'&&state.status==='ready'&&state.original?.index?state.original.index:state.runtime?.index;if(!file)return null;
+  const index=readIndex(file);return Array.isArray(index.ruby)&&index.ruby.some(Boolean)?index.ruby:null;}catch{return null;}
+}
 function staticProvider(root,executable,opts={}){
  // BGI's and scene engines' script is the whole game folder, AIN is a file in it.
  const entry=providerEntry(root,executable,opts.id,{runtimeOnly:true});
@@ -1027,4 +1034,4 @@ function localPairs(root,db,id){
  if(embedded.manifest(dir))return {hasPairs:embedded.provider(dir)?.hasLocalPairs?.()===true,embedded:true};
  return {hasPairs:staticProvider(root,executable,{id:String(id)})?.hasLocalPairs?.()===true,embedded:false};
 }
-module.exports={contributionScript,backupOriginal,locateBackup,_fillStore:fillStore,providerKey,foreignKey,foreignNear,foreignSeq,scriptPairs,brief,autoPatchLater,autoPatch,buildPatch,collect,nearbyPatchSources,patchHint,importPatch,importPatchSource,clearPatch,locate,readScript,ADAPTERS,readAin,_ain:{mtXor,inflateAin},align,Matcher,importOriginal,status,setMode,provider,localPairs,scanRunning,japaneseLine,chineseOnly,norm,discover,findCandidates};
+module.exports={scriptRuby,contributionScript,backupOriginal,locateBackup,_fillStore:fillStore,providerKey,foreignKey,foreignNear,foreignSeq,scriptPairs,brief,autoPatchLater,autoPatch,buildPatch,collect,nearbyPatchSources,patchHint,importPatch,importPatchSource,clearPatch,locate,readScript,ADAPTERS,readAin,_ain:{mtXor,inflateAin},align,Matcher,importOriginal,status,setMode,provider,localPairs,scanRunning,japaneseLine,chineseOnly,norm,discover,findCandidates};
