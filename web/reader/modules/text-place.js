@@ -120,28 +120,6 @@
   }
   /* the reader's own layout, its first character on the anchor */
   function pin(win, sentence) {
-    /* 2026-11-26 (#1122, owner, 死に逝く君、館に芽吹く憎悪: 「…抓住生的希」 then 「望。」 alone on a second row): the translation takes the
-       Japanese block's width, and a translation a character or two longer than its Japanese left those on a row of their own. When the last
-       row is that short tail, the row is widened by the tail (same type size) as far as the game client goes; it stays as it was when that
-       does not take a row away. */
-    function cnLines(row) {
-      const out = row.querySelector?.('.tomoyo-cn-output'); if (!out || out.hidden || !String(out.textContent || '').trim() || typeof document.createRange !== 'function') return [];
-      const rg = document.createRange(); rg.selectNodeContents(out);
-      const lines = [];
-      for (const r of rg.getClientRects()) { if (!(r.width > 0 && r.height > 0)) continue; const ln = lines.find(x => Math.abs(x.top - r.top) < Math.min(x.h, r.height) * .5); if (ln) { ln.left = Math.min(ln.left, r.left); ln.right = Math.max(ln.right, r.right); } else lines.push({ top: r.top, left: r.left, right: r.right, h: r.height }); }
-      return lines.sort((x, y) => x.top - y.top);
-    }
-    function widenForTail(row, cn, left, right, clientLeft) {
-      const lines = cnLines(row); if (lines.length < 2) return;
-      const fs = parseFloat(getComputedStyle(row.querySelector('.tomoyo-cn-output') || row).fontSize) || 16, last = lines[lines.length - 1], tail = last.right - last.left;
-      if (!(tail > 0) || tail > Math.max(fs * 2.6, cn.w * .18)) return;
-      /* a left-aligned row grows to the right up to the client edge; a centred one keeps 8 px inside the client on both sides */
-      const max = Math.floor(left == null ? right - Math.max(0, clientLeft) - 16 : right - left - 8);
-      const want = Math.ceil(cn.w + tail / (lines.length - 1) + fs * .6);
-      if (want > max) return;
-      row.style.setProperty('max-width', want + 'px', 'important');
-      if (cnLines(row).length >= lines.length) row.style.setProperty('max-width', cn.w + 'px', 'important');
-    }
     if (!anchor || !win || !sentence) return;
     document.body.classList.add('megulit-anchored'); win.classList.add('megulit-anchor-window');
     for (const p of ['left', 'top']) win.style.removeProperty(p);
@@ -174,12 +152,10 @@
     }
     /* 2026-11-20 (user, CHAOS;CHILD: 「译文咋没对齐」「译文排版同步一下」): the translation takes the Japanese block's width and side,
        centred under a centred page, from the first character of a left-aligned box; never narrower than half the box (a short line keeps a readable translation) */
-    if (row) { let cnW = null; for (const p of ['max-width', 'margin-left', 'margin-right']) row.style.removeProperty(p);
+    if (row) { for (const p of ['max-width', 'margin-left', 'margin-right']) row.style.removeProperty(p);
       const toks = [...sentence.querySelectorAll('.char-token')].filter(t => !t.closest('.tome-page-lines')).map(t => t.getBoundingClientRect()).filter(r => r.width > 0);
       if (toks.length) { const l = Math.min(...toks.map(r => r.left)), r = Math.max(...toks.map(r => r.right)), rr = row.getBoundingClientRect(), w = Math.max(r - l, wr.width * .5);
-        set(row, 'max-width', Math.ceil(w) + 'px'); if (anchor.center) { set(row, 'margin-left', 'auto'); set(row, 'margin-right', 'auto'); } else set(row, 'margin-left', Math.max(0, Math.round(l - rr.left)) + 'px'); cnW = { w: Math.ceil(w), l }; }
-      for (const o of [row, ...parts]) o.style.removeProperty('font-size');
-      if (cnW) widenForTail(row, cnW, anchor.center ? null : cnW.l, Math.min(innerWidth, cx0 + cwc), cx0); }
+        set(row, 'max-width', Math.ceil(w) + 'px'); if (anchor.center) { set(row, 'margin-left', 'auto'); set(row, 'margin-right', 'auto'); } else set(row, 'margin-left', Math.max(0, Math.round(l - rr.left)) + 'px'); } }
     for (const o of row ? [row, ...parts] : []) o.style.removeProperty('font-size');
     const cnBase = row ? parseFloat(getComputedStyle(parts[0] || row).fontSize) || 16 : 16; // All fit passes share the user's 85% floor
     /* 2026-11-20 (CHAOS;CHILD acceptance: a two-row dialogue line put its translation over the game's AUTO/SKIP buttons and under
