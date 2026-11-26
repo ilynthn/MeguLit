@@ -243,20 +243,30 @@ class LocalLearning{
   return {...selected,pos:language==='en'?selected.pos:selected.pos.map(chinesePos),definition_groups:definitionGroups(selected)};
  }
  adaptResult(result,language){if(Array.isArray(result))return result.map(r=>this.adaptResult(r,language));if(!result)return result;return {...result,entries:(result.entries||[]).map(e=>this.adapt(e,language)),related_entries:(result.related_entries||[]).map(e=>this.adapt(e,language))};}
+ /* #1111 (user 2026-11-24: 异表记 must not merge words only because they read alike): the index holds readings too, so a word
+    written in kana (きる, ひきちぎる) found every entry read so, and the most frequent homophone (着る for 切る) headed the card. A
+    word is now first found by a spelling an entry lists, the tokenizer's lemma included (Sudachi normalizes ひきちぎる to 引き千切る,
+    服をきる to 着る); entries that only share the reading follow, marked match:'reading' (the card lists them as homophones, never
+    as other spellings of the word). Only when no entry is spelled so do readings find the word, as before. */
  entries(token,language){
-  this.load();let ids=[];for(const key of [token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean)){ids=this.index.get(key)||[];if(ids.length)break;}
-  const reading=kana(token.reading||'');
-  ids=[...ids].sort((a,b)=>{
+  this.load();const keys=[token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean);
+  const spelled=key=>(this.index.get(key)||[]).filter(id=>this.byId.get(id)?.spellings?.includes(key));
+  let ids=[],homophones=[];for(const key of keys){ids=spelled(key);if(ids.length)break;}
+  if(!ids.length)for(const key of keys){ids=this.index.get(key)||[];if(ids.length)break;}
+  else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=(this.index.get(written)||[]).filter(id=>!ids.includes(id));}
+  const reading=kana(token.reading||''),order=list=>[...list].sort((a,b)=>{
    const left=this.byId.get(a),right=this.byId.get(b),match=e=>e.readings.some(r=>kana(r)===reading)?0:1;
    return match(left)-match(right)||(left.freq_rank||999999)-(right.freq_rank||999999);
   });
-  return ids.slice(0,20).map(id=>{
-   const entry=this.adapt(this.byId.get(id),language),conjugation=token.grammar?.[4]||'';
-   if(language==='zh'&&/上一段|下一段|五段/.test(conjugation)){
-    const match=conjugation.match(/(上一段|下一段|五段)(?:-(.+))?/),label=match[1]+'动词（'+(match[1]==='五段'?'一类':'二类')+'动词'+(match[2]?' · '+match[2]:'')+'）';
-    return {...entry,pos:entry.pos.map(p=>/一段动词|五段动词/.test(p)?label:p)};
-   }return entry;
-  });
+  const reached=new Set(homophones);ids=[...order(ids),...order(homophones)];
+  return ids.slice(0,20).map(id=>{if(reached.has(id))return {...this.entryFor(id,token,language),match:'reading'};return this.entryFor(id,token,language);});
+ }
+ entryFor(id,token,language){
+  const entry=this.adapt(this.byId.get(id),language),conjugation=token.grammar?.[4]||'';
+  if(language==='zh'&&/上一段|下一段|五段/.test(conjugation)){
+   const match=conjugation.match(/(上一段|下一段|五段)(?:-(.+))?/),label=match[1]+'动词（'+(match[1]==='五段'?'一类':'二类')+'动词'+(match[2]?' · '+match[2]:'')+'）';
+   return {...entry,pos:entry.pos.map(p=>/一段动词|五段动词/.test(p)?label:p)};
+  }return entry;
  }
  // A noun that takes する (JMdict "takes the aux. verb suru", or Sudachi サ変可能) followed by する is one サ変 verb:
  // 検分して was explained as the noun 検分 plus する (user, 2026-11-03). Nouns that cannot take する stay separate.
