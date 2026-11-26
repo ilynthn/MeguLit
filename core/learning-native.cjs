@@ -142,7 +142,7 @@ class LocalLearning{
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
   const own=names?unknownNames(this.withNames(gameTokens(plain,game))):plain;
-  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const corrected=this.withRuby(contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own))))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}
@@ -192,7 +192,7 @@ class LocalLearning{
     - never from the middle of a word (聖女様に, 病院側から: 様 and 側 are suffixes), never an inflected verb taken for a noun
       spelled the same (説明し, 説き明かし: the verb 説明する);
     - an emphatic っ after the word (いつの間にっ) stays after the dictionary reading.
-    The ruby is cut back onto each kanji by splitReading (何時 いつ, 間 ま). Checked on the whole
+    The ruby is cut back onto each kanji by JmdictFurigana (withRuby) or splitReading (何時 いつ, 間 ま). Checked on the whole
     game corpus: see validation/dictionary-phrases.test.cjs. */
  dictionaryWords(tokens){
   if(!Array.isArray(tokens)||tokens.length<2)return tokens;this.load();const out=[];
@@ -276,6 +276,20 @@ class LocalLearning{
   // the reading of a different verb that lists it as an alternative.
   const matches=headwords.length||!/^\p{Script=Han}+$/u.test(surface)?headwords:entries;
   return [...new Set(matches.flatMap(e=>e.readings).map(kana))];
+ }
+ /* Per-kanji ruby from JmdictFurigana (runtime/dictionaries/jmdict-furigana.json, built by tools/build-jmdict.cjs) for the
+    words dictionaryWords joins: splitReading can only cut a reading at okurigana, so 後一歩 got one ruby あといっぽ over three
+    kanji and 一寸法師 いっすんぼうし over four. Such a word whose spelling and reading JmdictFurigana aligns gets token.ruby =
+    {reading, parts} (parts in code points of the token: 後 あと 一 いっ 歩 ぽ; 熟字訓 stay together: 何時 いつ); an inflected
+    idiom uses the alignment of its dictionary form for the kanji before the ending. furigana.js annotations() uses it while the
+    token still reads so (contextual() may change a reading); without the file, splitReading works as before.
+    Only the joined words: on every compound (自分 自 じ 分 ぶん) it changed the ruby of 754,489 of 1,162,894 corpus lines, a
+    change of look the user did not ask for; the joined words are where the old ruby was wrong. */
+ withRuby(tokens){
+  if(!Array.isArray(tokens))return tokens;
+  if(this.furigana===undefined){this.furigana=null;try{const file=path.join(require('./paths.cjs').resources,'jmdict-furigana.json');if(fs.existsSync(file))this.furigana=new Map(Object.entries(JSON.parse(fs.readFileSync(file,'utf8'))));}catch{}}
+  if(!this.furigana)return tokens;
+  return tokens.map(t=>{const ruby=t?.subtokens&&t.reading_source==='JMdict 词语读音'&&rubyParts(this.furigana,t);return ruby?{...t,ruby}:t;});
  }
  load(){
   if(this.index)return;
@@ -398,6 +412,18 @@ class LocalLearning{
   return group?make(group):null;
  }
  stop(){this.closed=true;this.worker?.stdin.end();this.installer?.kill();for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('本地辞书已关闭'));}this.pending.clear();}
+}
+/* {reading, parts} for a token from the JmdictFurigana map, or null (see withRuby) */
+function rubyParts(map,t){
+ const surface=String(t.surface||''),reading=kana(t.reading||'');if(!reading||!/[\p{Script=Han}々〆ヶ][\p{Script=Han}々〆ヶ]/u.test(surface))return null;
+ const parse=(spec,limit)=>{const parts=[];for(const piece of String(spec).split(';')){const m=/^(\d+)(?:-(\d+))?:(.+)$/.exec(piece);if(!m)return null;const start=Number(m[1]),end=Number(m[2]??m[1])+1;if(end>limit)return null;parts.push({start,end,reading:m[3]});}return parts;};
+ const chars=[...surface],spelled=parts=>{let out='',k=0;while(k<chars.length){const p=parts.find(x=>x.start===k);if(p){out+=p.reading;k=p.end;}else out+=kana(chars[k++]);}return out;};
+ let parts=map.has(surface+'|'+reading)?parse(map.get(surface+'|'+reading),chars.length):null;
+ if(!parts&&t.base_form&&t.base_form!==surface){const base=[...t.base_form];let cut=0;while(cut<chars.length&&cut<base.length&&chars[cut]===base[cut])cut++;
+  const tail=kana(chars.slice(cut).join('')),from=kana(base.slice(cut).join(''));
+  if(cut&&reading.endsWith(tail)&&!/[\p{Script=Han}]/u.test(tail+from)){const key=t.base_form+'|'+reading.slice(0,reading.length-tail.length)+from;if(map.has(key))parts=parse(map.get(key),base.length)?.filter(p=>p.end<=cut)||null;}}
+ if(!parts||!parts.length||spelled(parts)!==reading)return null;
+ return {reading,parts};
 }
 const VERBAL=/^(?:Godan|Ichidan|Nidan|Yodan|Kuru verb|irregular|su verb|suru verb|adjective \(|'ku'|'shiku'|expressions|auxiliary|transitive verb|intransitive verb)/;
 /* the kana of a spelling stay in its reading, in order; kanji, digits and marks read as anything but a particle を (ちょっかい出す

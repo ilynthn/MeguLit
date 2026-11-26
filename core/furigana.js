@@ -39,7 +39,9 @@
       const index = text.indexOf(token.surface, cursor);
       if (index < 0) continue;
       const offset = [...text.slice(0, index)].length;
-      for (const segment of splitReading(token.surface, token.reading)) result.push({ start: offset + segment.start, end: offset + segment.end, reading: segment.reading });
+      /* per-kanji ruby from JmdictFurigana (LocalLearning.withRuby), while the token still reads as it was aligned */
+      const own = token.ruby && Array.isArray(token.ruby.parts) && token.ruby.reading === kana(token.reading) ? token.ruby.parts : null;
+      for (const segment of own || splitReading(token.surface, token.reading)) result.push({ start: offset + segment.start, end: offset + segment.end, reading: segment.reading });
       cursor = index + token.surface.length;
     }
     return result;

@@ -101,6 +101,8 @@ function stubbed(furigana=null){
 const kana=s=>[...String(s||'')].map(c=>{const n=c.codePointAt(0);return n>=0x30a1&&n<=0x30f6?String.fromCodePoint(n-0x60):c;}).join('');
 const read=async(L,text)=>(await L.tokenize(text)).map(t=>t.surface+':'+kana(t.reading)).join(' ');
 const ruby=async(L,text)=>annotations(text,await L.tokenize(text)).map(a=>[...text].slice(a.start,a.end).join('')+'='+a.reading).join(' ');
+const FURIGANA={'後一歩|あといっぽ':'0:あと;1:いっ;2:ぽ','何時の間にか|いつのまにか':'0-1:いつ;3:ま','一日中|いちにちじゅう':'0:いち;1:にち;2:じゅう'};
+
 test('何時の間にか, いつの間にか, いつの間にっ are the JMdict word いつのまにか, the ruby on each kanji',async()=>{
  const L=stubbed();
  assert.equal(await read(L,'何時の間にか眠っていた'),'何時の間にか:いつのまにか 眠っ:ねむっ て:て い:い た:た');
@@ -154,3 +156,18 @@ test('何 before a particle is なに, 言う is いう',async()=>{
  assert.equal(await read(L,'何だよ'),'何:なん だ:だ よ:よ','なん before d');
  assert.equal((await read(L,'大切って言うじゃないか')).split(' ')[2],'言う:いう','SudachiDict: ユウ');
 });
+
+/* JmdictFurigana 2.3.1+2026-11-25 on the corpus: the joined words of 11,106 lines get per-kanji ruby (26,879 tokens, 1,543 words;
+   叢雨 むら さめ, もう一回 いっ かい, 文字通り も じ どお, 上目遣い うわ め づか, 火格子 ひ ごう し; the 60 most frequent read, all aligned
+   right). On every compound it would have changed 754,489 lines (自分 じ ぶん), a change of look nobody asked for, so it is kept to
+   the joined words, where the old ruby was one block over several kanji. */
+test('JmdictFurigana puts the ruby on each kanji of a compound',async()=>{
+ const L=stubbed(FURIGANA);
+ assert.equal(await ruby(L,'後一歩だった'),'後=あと 一=いっ 歩=ぽ');
+ assert.equal(await ruby(L,'何時の間にか眠っていた'),'何時=いつ 間=ま 眠=ねむ','熟字訓 stays together');
+ assert.equal(await ruby(L,'一日中歩き回った'),'一=いち 日=にち 中=じゅう 歩=ある 回=まわ');
+ assert.equal(await ruby(stubbed(),'後一歩だった'),'後一歩=あといっぽ','without the file: splitReading as before');
+ const [word]=await L.tokenize('後一歩だった');
+ assert.equal(annotations('後一歩',[{...word,reading:'あとひとあし'}]).length,1,'a token read otherwise later drops the alignment');
+});
+
