@@ -1148,7 +1148,7 @@ function dictionary(target){
     const request=ticket,[{mountEntries},saved]=await Promise.all([import('./detail-collect.js'),loadSaved()]);if(request!==ticket||!results.isConnected)return;
     results.innerHTML='<div class="dict-entries"></div>';const box=results.firstElementChild,wanted=wantedEntry;wantedEntry='';
     /* local text goes through formatDefinition: clean senses, no →英和 or (n,vs) tags, one sense per line */
-    const items=lastOnline?lastItems:lastItems.map(w=>({...w,definition:formatDefinition(w.definition).map(g=>g.glosses.join('；')).join('\n')||w.definition}));
+    const items=lastOnline?lastItems:lastItems.map(w=>w.source==='user'?w:({...w,definition:formatDefinition(w.definition).map(g=>g.glosses.join('；')).join('\n')||w.definition}));
     unmountEntries=mountEntries(box,{items,source:lastOnline?onlineSource:'local',locale,esc,wanted,savedSpellings:saved,
      loadDetail:lastOnline&&onlineSource==='moji'?async item=>{try{return await api('moji_word',{id:item.id});}catch(error){
       if(String(error?.message||error).includes('MOJI_SESSION_EXPIRED')){toast(L.expiredSession);showStatus({});}throw error;}}:null,

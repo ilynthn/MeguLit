@@ -346,7 +346,7 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
    :(w.means.length?w.means:['—']).map((m,i)=>`<li${i===0?' class="lead"':''}><span>${esc(m)}</span></li>`).join('');
   const notes=(d?.notes||[]).slice(0,3).map(n=>`<li>${n.title?`<b>${esc(n.title)}</b>`:''}<span>${esc(n.content||n.text||'')}</span></li>`).join('');
   const saved=has(w);
-  return `<div class="esr-cap"><span>${esc(t.current)}</span><span${saved?' class="on"':''}>${esc(saved?t.saved:label)}</span></div>
+  return `<div class="esr-cap"><span>${esc(t.current)}</span><span${saved?' class="on"':''}>${esc(saved?t.saved:w.dictionary||label)}</span></div>
    <div class="esr-th"><h3 class="esr-t" lang="ja" style="--len:${Math.max(2,[...String(head.spelling||head.reading||'')].length)}">${rubyHTML(head.spelling||head.reading,ruby,esc)}</h3>${accent?`<span class="esr-n ent-acc" lang="ja">${esc(accent)}</span>`:''}</div>
    <i class="esr-bar" aria-hidden="true"></i>
    ${meta(head)}

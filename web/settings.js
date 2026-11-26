@@ -155,7 +155,7 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
    }finally{button.disabled=false;}};content.append(button);
  }
  if(section==='translation')stopTranslation=configureTranslation({content,form,data,locale,api,esc,toast});
- if(section==='dictionary')configureDictionary({content,form,locale});
+ if(section==='dictionary'){configureDictionary({content,form,locale});/* #1099 我的辞典 */import('./user-dicts.js').then(m=>{if(content.isConnected)m.mountUserDictionaries({content,api,invoke,locale,esc,toast});}).catch(()=>{});}
  if(section==='speech')stopTranslation=configureSpeech({content,form,api,locale,esc,toast});
  stopPacks();stopPacks=['speech','dictionary'].includes(section)?mountRuntimePacks({content,api,locale,esc,toast}):()=>{};
  /* E383 built-in tutorial card at the top of the page; its buttons run the step for the reader */

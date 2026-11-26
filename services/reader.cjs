@@ -661,6 +661,8 @@ class Reader{
    this.cardScreenshots.set(id,{id,image,expires:Date.now()+180000});
    return {id};
   }
+  /* #1099 the lookup card asks the player's own dictionaries for the word (dictionary form first, then the selection) */
+  if(action==='userDict')return require('./user-dictionaries.cjs').lookup(this.root,(Array.isArray(args.words)?args.words:[args.word]).slice(0,4).map(w=>String(w||'').slice(0,60)));
   if(action==='mojiFacts')return await require('./moji-dictionary.cjs').cachedFacts(String(args.word||''),String(args.reading||''),{root:this.root}).catch(()=>null);
   if(action==='modelDelete')return this.runtime.models().remove(String(args.id));
   if(action==='runtimeDelete')return this.runtime.local().remove();
