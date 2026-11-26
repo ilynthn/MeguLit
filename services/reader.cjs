@@ -394,15 +394,18 @@ class Reader{
  }
  localTranslation(text,language,returned={}){
   const strict=this.zeroLatencyEnabled?.(language);
-  const script=language==='en'?'':this.gal?.hooks?.scriptTranslation?.(text,returned);
+  /* QQ #1116: a stored translation (script track, patch, an earlier machine answer) in another script (Hangul) is no translation of this line */
+  const sane=value=>value&&!require('../core/text-sanity.cjs').foreignScript(value,text)?value:'';
+  let script=language==='en'?'':this.gal?.hooks?.scriptTranslation?.(text,returned);
+  if(script&&!sane(script)){script='';delete returned.source;}
   if(script&&(!strict||script.trim()!==text.trim()&&[undefined,'script','patch','official','group'].includes(returned.source))){returned.source??="script";this.embedCached(text,script,{language,source:returned.source});return script;}
   if(strict){
    const parts=this.gal?.hooks?.piecedTranslation?.(text);
-   if(parts?.text&&!parts.machine&&!parts.filled){returned.source='patch';return parts.text;}
-   if(!script&&this.gal?.hooks?.scriptAllowed?.()!==false)return this.embedCached(text,undefined,{language,returned,verified:true})||'';
+   if(sane(parts?.text)&&!parts.machine&&!parts.filled){returned.source='patch';return parts.text;}
+   if(!script&&this.gal?.hooks?.scriptAllowed?.()!==false)return sane(this.embedCached(text,undefined,{language,returned,verified:true}))||'';
    return '';
   }
-  return this.embedCached(text,undefined,{language,returned})||'';
+  return sane(this.embedCached(text,undefined,{language,returned}))||'';
  }
  recordTranslation(role,result,index){
   if(!this.gameId||!index||result.target!=='zh')return;

@@ -56,18 +56,18 @@ test('the resolver keeps a context reading (sentence cards, UniDic engine)',()=>
    (何時の間に), 何時 → なんじ 132 (+ 何時か 2, 何時まで 2, 何時頃 1), 矢張 やばり→やはり 112 (逆転裁判 矢張政志), 彼処 あすこ→あそこ 4,
    一寸 → いっすん 1, 出来 しゅったい→でき 1. None wrong; 何時に呼び出されてよーが is なんじ or いつ. Left alone: 56 何時 いつ (何時から,
    何時だった, 何時です…: either reading) and 9 Japanese 何時 なんどき (何時になったら, 何時届くか, 毎朝何時から…: no plain clue). */
-test('何時の間にか and いつの間にか are いつのまにか, the ruby on each kanji',()=>{
+/* 2026-11-27: 何時の間にか, いつの間に and the other phrases are joined into their JMdict word by LocalLearning.dictionaryWords before
+   this runs (validation/dictionary-phrases.test.cjs); contextReadings no longer lists phrases and leaves 間 as it is. */
+test('phrases are the dictionary path\'s; 何 before a particle is なに, 言う is いう',()=>{
  const P='助詞,格助詞,*',N='名詞,普通名詞,一般';
- const a=contextReadings(line(`何時/イツ/代名詞,*,* の/ノ/${P} 間/アイダ/${N} に/ニ/${P} か/カ/助詞,副助詞,* 眠っ/ネムッ/動詞,一般,* て/テ/助詞,接続助詞,* い/イ/動詞,非自立可能,* た/タ/助動詞,*,*`));
- assert.equal(a.slice(0,5).map(t=>t.surface+':'+t.reading).join(' '),'何時:イツ の:ノ 間:ま に:ニ か:カ');
- assert.equal(a[2].readingSource,'context');assert.deepEqual(a[2].pitch,[]);assert.equal(a[0].readingSource,'context','いつ was right already, the phrase keeps it');assert.deepEqual(a[0].pitch,[1],'and its accent');
- assert.equal(read(line(`から/カラ/${P} な/ナ/助詞,終助詞,* 。/。/補助記号,句点,* 何時/ナンドキ/${N} の/ノ/${P} 間/アイダ/${N} に/ニ/${P}`)).split(' ').slice(3).join(' '),'何時:いつ の:ノ 間:ま に:ニ');
- assert.equal(read(line(`いつ/イツ/代名詞,*,* の/ノ/${P} 間/アイダ/${N} に/ニ/${P} か/カ/助詞,副助詞,*`)),'いつ:イツ の:ノ 間:ま に:ニ か:カ');
- assert.equal(read(line(`いつ/イツ/代名詞,*,* の/ノ/${P} 間/アイダ/${N} にっ/ニッ/${P} ！/!/補助記号,句点,*`)),'いつ:イツ の:ノ 間:ま にっ:ニッ ！:!');
- assert.equal(read(line(`何時/イツ/代名詞,*,* の/ノ/${P} 間/アイダ/${N} に/ニ/${P} やら/ヤラ/助詞,副助詞,*`)).split(' ')[2],'間:ま');
- assert.equal(read(line(`いつの間に/いつのまに/副詞,*,* か/カ/助詞,副助詞,*`)),'いつの間に:いつのまに か:カ','the JMdict word is left as it is');
+ assert.equal(read(line(`いつ/イツ/代名詞,*,* の/ノ/${P} 間/アイダ/${N} に/ニ/${P} か/カ/助詞,副助詞,*`)),'いつ:イツ の:ノ 間:アイダ に:ニ か:カ');
  assert.equal(read(line(`二人/フタリ/${N} の/ノ/${P} 間/アイダ/${N} に/ニ/${P}`)).split(' ')[2],'間:アイダ','between two people stays あいだ');
- assert.deepEqual(contextReadings(a),a,'running it twice changes nothing');
+ assert.equal(read(line(`何/ナン/代名詞,*,* を/ヲ/${P} 言う/ユウ/動詞,一般,*`)),'何:なに を:ヲ 言う:いう');
+ assert.equal(read(line(`何/ナン/代名詞,*,* より/ヨリ/${P}`)).split(' ')[0],'何:なに');
+ assert.equal(read(line(`何/ナン/代名詞,*,* で/デ/${P}`)).split(' ')[0],'何:ナン','なん before d, t, n');
+ assert.equal(read(line(`何/ナン/代名詞,*,* か/カ/助詞,副助詞,*`)).split(' ')[0],'何:ナン','なんか');
+ assert.equal(read(line(`何/ナン/代名詞,*,* 回/カイ/名詞,普通名詞,助数詞可能`)).split(' ')[0],'何:ナン','before a counter');
+ const a=contextReadings(line(`何/ナン/代名詞,*,* を/ヲ/${P}`));assert.deepEqual(contextReadings(a),a,'running it twice changes nothing');
 });
 
 test('何時 is なんじ only where the time of day is plain',()=>{
