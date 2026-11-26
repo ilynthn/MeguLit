@@ -132,8 +132,8 @@ class LocalLearning{
  async tokenize(text,{names=false}={}){
   /* the game's own readings (core/game-reading.cjs) apply to the reader page only, like names; they can grow while the game
      runs, so the ones found in this text are part of the cache key */
-  const game=names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[];
-  const key=(names?'names\u0000':'')+(game.length?JSON.stringify(game)+'\u0000':'')+text;
+  const found=()=>names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[],keyOf=list=>(names?'names\u0000':'')+(list.length?JSON.stringify(list)+'\u0000':'')+text;
+  const key=keyOf(found());
   if(this.cache.has(key))return this.cache.get(key);await this.ready();
   const tokens=await this.raw(text);
   /* 2026-11-23 (user: the speech button said わたくし and ぶん where furigana showed わたし and ふん): furigana, the speech
@@ -141,8 +141,11 @@ class LocalLearning{
      once instead of in the reader page only. Numbers first: JMdict would otherwise join the counter with what follows
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
+  /* RRFZ #1192: read after the last await, like the names: a game switched meanwhile (useGameReadings) never gets the old game's
+     readings, and the result is kept under the key of the readings it was made with */
+  const game=found();
   const own=names?unknownNames(this.withNames(gameTokens(plain,game))):plain;
-  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own)))));this.cache.set(keyOf(game),corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}

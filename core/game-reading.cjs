@@ -50,7 +50,8 @@ function gameTokens(tokens, readings) {
         if (typeof t?.surface !== 'string' || !t.surface || j > i && Number.isInteger(tokens[j - 1].end) && Number.isInteger(t.start) && tokens[j - 1].end !== t.start) break;
         surface += t.surface; if (surface.length >= base.length) break;
       }
-      if (surface === base) { hit = { base, stop: j }; break; }
+      /* RRFZ #1192: the longest word at this place (島津 of the script before 島 learned); the same length keeps the source order line > learned > script */
+      if (surface === base && (!hit || [...base].length > [...hit.base].length)) hit = { base, stop: j };
     }
     if (!hit) { out.push(tokens[i]); continue; }
     const part = tokens.slice(i, hit.stop + 1), first = part[0], last = part.at(-1), { reading, source } = byBase.get(hit.base);
