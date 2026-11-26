@@ -203,6 +203,8 @@ public sealed class PageLocator : IDisposable {
      if (idle >= 4 && (DateTime.UtcNow - lastOcr).TotalMilliseconds < 2000) continue;
      last = thumb; lastOcr = DateTime.UtcNow;
      List<Row> rows; lock (OcrLock) rows = Read(image, w, h);
+     /* 2026-11-26 save / load screens: two or more rows that carry a date (the slots' save times) */
+     { int dates = DateRows(rows); if (dates != ScanDates) { ScanDates = dates; Emit(new { type = "artScreen", dates = dates }); } }
      /* 2026-11-19 OCR read lines: MeguLit shows a read group as a line only while the dialogue line is not on the picture */
      ScanDialogSeen = dialog != null && Find(rows, dialog) != null;
      groups = ScanGroups(rows, w, h, dialog, speaker, band, active);
@@ -383,7 +385,14 @@ public sealed class PageLocator : IDisposable {
   string alt = null; if (it.Foreign) foreach (var r in it.Rows) if (r.Alt != null) { alt = r.Alt; break; }
   Emit(new { type = "artText", id = it.Id, text = it.Text, visible = visible, source = "ocr", foreign = it.Foreign, alt = alt, rows = parts, sw = w, sh = h, dialogSeen = ScanDialogSeen, others = ScanOthers, once = once, at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() });
  }
- void ScanClear() { foreach (var x in ScanItems) if (x.Shown) ScanEmit(x, 0, 0, false); ScanItems.Clear(); }
+ /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run 12:50:55: the game's LOAD screen read as 「NO. 03」「NO. 04」…「2026 / 11 / 16 …」 while
+    MeguLit's line stayed over it). A save or load screen shows each slot's save time; the dialogue screen does not show two of
+    them. Rows with a date (y/m/d, m/d with a time, 年月日) are counted and the count goes out when it changes (artScreen);
+    MeguLit hides its line while there are two or more (core hook-native artScreen). */
+ static readonly System.Text.RegularExpressions.Regex DateRow = new System.Text.RegularExpressions.Regex(@"(\d{2,4}\s*[/／.\-]\s*\d{1,2}\s*[/／.\-]\s*\d{1,2})|(\d{1,2}\s*[/／]\s*\d{1,2}.{0,6}\d{1,2}\s*[:：]\s*\d{2})|(\d{1,4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日)");
+ volatile int ScanDates;
+ public static int DateRows(List<Row> rows) { int n = 0; if (rows != null) foreach (var r in rows) if (r != null && r.Text != null && DateRow.IsMatch(r.Text)) n++; return n; }
+ void ScanClear() { foreach (var x in ScanItems) if (x.Shown) ScanEmit(x, 0, 0, false); ScanItems.Clear(); if (ScanDates != 0) { ScanDates = 0; Emit(new { type = "artScreen", dates = 0 }); } }
 
  /* diagnostics: the art scan on a saved picture (--art-scan-file <png>): groups, foreign groups and their sampled colours */
  public static string ScanFile(string file) {

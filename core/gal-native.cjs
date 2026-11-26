@@ -63,6 +63,7 @@ class GalNative {
       if(message.type==='hookEngineLine'){this.hooks.pageLine?.(message);return;}
       if(message.type==='hookChoiceBoxes'){this.hooks.choiceBoxes?.(message);return;}
       if(message.type==='pageLocateStatus'){this.hooks.trace?.('ocr page '+message.status);return;}
+      if(message.type==='artScreen'){this.hooks.artScreen?.(message);return;}
       /* 2026-11-19 (素晴らしき日々: the opening quotes are pictures) what the art scan reads becomes a read-only line of the reader (hook-native ocrLine); drawing it over the picture stays with 文字图片翻译 (artText) */
       if(message.type==='artText'&&!this.state.gameProcessId)return;
       if(message.type==='artText'&&this.hooks.sayaOcrGroup(message))return;
