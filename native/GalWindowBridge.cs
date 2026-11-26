@@ -503,14 +503,19 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
     static uint BacklogMods,BacklogKey,BacklogHeldMods,BacklogHeldKey;
     internal static bool BacklogKeyValid(uint mods,uint key){return key>=0x41&&key<=0x5A&&(mods&~7u)==0&&(mods&3)!=0;}
     internal static bool BacklogKeyWanted(bool configured,bool translation,bool bound,bool gameInFront){return configured&&translation&&bound&&gameInFront;}
+    /* RRFZ #1175: a combination another program already holds is tried again only every 1.5 s, not on every 16 ms tick; a newly chosen one is tried at once */
+    static uint BacklogFailedMods,BacklogFailedKey;static DateTime BacklogRetryAt=DateTime.MinValue;
+    internal static bool BacklogRetryWait(uint mods,uint key,uint failedMods,uint failedKey,DateTime now,DateTime retryAt){return key!=0&&key==failedKey&&mods==failedMods&&now<retryAt;}
     static void BacklogHotkeyConfigure(Dictionary<string,object> d){uint mods=(uint)Math.Max(0,Math.Min(255,Num(d,"modifiers",0))),key=(uint)Math.Max(0,Math.Min(255,Num(d,"key",0)));
         if(!BacklogKeyValid(mods,key)){mods=0;key=0;}BacklogMods=mods;BacklogKey=key;}
     static void BacklogHotkeyTick(bool noHotkeys){
-        var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,2);
-        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,2)||front==Overlay));
+        var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,3);
+        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,3)||Overlay!=IntPtr.Zero&&front==GetAncestor(Overlay,3)));
         if(want&&BacklogHeldKey==BacklogKey&&BacklogHeldMods==BacklogMods||!want&&BacklogHeldKey==0)return;
         if(BacklogHeldKey!=0){UnregisterHotKey(IntPtr.Zero,0x544);BacklogHeldKey=0;BacklogHeldMods=0;}
-        if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;}
+        if(!want||noHotkeys||BacklogRetryWait(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime.UtcNow,BacklogRetryAt))return;
+        if(RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;BacklogFailedKey=0;BacklogFailedMods=0;}
+        else{BacklogFailedKey=BacklogKey;BacklogFailedMods=BacklogMods;BacklogRetryAt=DateTime.UtcNow.AddMilliseconds(1500);}
     }
     static void ToggleCover(){
         if((DateTime.UtcNow-LastCoverToggle).TotalMilliseconds<180)return;
@@ -917,6 +922,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
             /* the log key: Alt/Ctrl + a letter only; held only for a bound game in front in translation mode */
             if(!BacklogKeyValid(1,0x4C)||!BacklogKeyValid(3,0x4C)||BacklogKeyValid(4,0x4C)||BacklogKeyValid(0,0x4C)||BacklogKeyValid(1,0x54+0x20)||BacklogKeyValid(9,0x4C)||
                !BacklogKeyWanted(true,true,true,true)||BacklogKeyWanted(false,true,true,true)||BacklogKeyWanted(true,false,true,true)||BacklogKeyWanted(true,true,false,true)||BacklogKeyWanted(true,true,true,false))return 11;
+            {var t0=new DateTime(2026,1,1,0,0,0,DateTimeKind.Utc);if(!BacklogRetryWait(1,0x4C,1,0x4C,t0,t0.AddMilliseconds(1500))||BacklogRetryWait(1,0x4C,1,0x4C,t0.AddMilliseconds(1500),t0.AddMilliseconds(1500))||BacklogRetryWait(3,0x4C,1,0x4C,t0,t0.AddSeconds(1))||BacklogRetryWait(1,0x42,1,0x4C,t0,t0.AddSeconds(1))||BacklogRetryWait(0,0,0,0,t0,t0.AddSeconds(1)))return 11;}
             Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",1},{"key",0x4C}});if(BacklogKey!=0x4C||BacklogMods!=1)return 11;
             Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",0},{"key",0x4C}});if(BacklogKey!=0)return 11;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","translation"}});
