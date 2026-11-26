@@ -27,7 +27,9 @@ function scrub(text,who=identity()){
  const profile=String(who.profile||'').replace(/[\\/]+$/,'');
  if(profile.length>3){const parts=profile.split(/[\\/]+/).map(escapeRe);out=out.replace(new RegExp(parts.join('(?:\\\\{1,2}|/)'),'gi'),'%USERPROFILE%');}
  out=out.replace(/([A-Za-z]:(?:\\{1,2}|\/)(?:Users|Documents and Settings)(?:\\{1,2}|\/))(?!Public\b|Default\b|All Users\b)[^\\/"'\r\n<>|:*?]+/gi,'$1<user>');
- for(const name of [who.user,...(who.names||[])].map(v=>String(v||'').trim()).filter(v=>v.length>=2&&!/^(?:user|admin|administrator)$/i.test(v)))
+ /* 2026-11-27 a Microsoft-account profile folder is often not the user name (megumin → megum): that folder name goes too */
+ const folder=profile.length>3?profile.split(/[\\/]+/).pop():'';
+ for(const name of [who.user,folder,...(who.names||[])].map(v=>String(v||'').trim()).filter(v=>v.length>=2&&!/^(?:user|admin|administrator)$/i.test(v)))
   out=out.replace(new RegExp('(^|[^\\p{L}\\p{N}_])'+escapeRe(name)+'(?=$|[^\\p{L}\\p{N}_])','giu'),'$1<user>');
  return out;
 }
@@ -144,7 +146,7 @@ function build(root,db,id,options={}){
    MAX_LINES lines, plus a short library overview, all scrubbed the same way. For a problem with one game the per-game
    package above is sharper; this one is for "something is wrong and I don't know where". */
 const ALL_MAX_FILES=24,ALL_MAX_AGE_MS=7*24*3600*1000;
-function collectAll(root,db,{version='',now=new Date(),who=identity()}={}){
+function collectAll(root,db,{version='',now=new Date(),who=identity(),extra=[]}={}){
  const dir=path.join(root,'logs');let names=[];
  try{names=fs.readdirSync(dir).filter(n=>/\.log$/i.test(n)).map(n=>{let st=null;try{st=fs.statSync(path.join(dir,n));}catch{}return st&&st.isFile()?{n,t:st.mtimeMs}:null;}).filter(Boolean).filter(f=>now.getTime()-f.t<=ALL_MAX_AGE_MS).sort((a,b)=>b.t-a.t).slice(0,ALL_MAX_FILES).map(f=>f.n);}catch{}
  const files=[],logInfo={};
@@ -152,9 +154,11 @@ function collectAll(root,db,{version='',now=new Date(),who=identity()}={}){
  let games=[];try{games=db.prepare('SELECT id,title,library FROM games ORDER BY last_launched_at DESC LIMIT 60').all().map(r=>{let lib={};try{lib=JSON.parse(r.library||'{}');}catch{}return {id:String(r.id),title:r.title,engine:String(lib.engine||''),hook:String(lib.hook||'')};});}catch{}
  const marked=require('./sentence-marks.cjs').all(root);
  if(marked.length)files.push({name:'sentence-marks.json',kind:'info',data:JSON.stringify({schema:1,games:marked},null,2)});
+ /* log-export.cjs: the reader's own description (问题说明.txt), scrubbed like everything else */
+ for(const f of extra)files.push({name:String(f.name),kind:'note',data:scrub(f.data,who)});
  const info={schema:1,yui:require('./yui.cjs').sessions(root),kind:'all',createdAt:now.toISOString(),megulit:{version:String(version||'')},os:osInfo(),games,logs:logInfo};
  files.unshift({name:'info.json',data:scrub(JSON.stringify(info,null,2),who),kind:'info'});
- const readme=['MeguLit diagnostic package (whole app)','','Created: '+now.toISOString(),'',...files.map(f=>`${f.name}  ${f.kind==='log'?'last lines of this log':'MeguLit version, OS and the library'}`),'','Privacy: the Windows user name and profile paths are replaced by placeholders and e-mail addresses are removed.'].join('\n');
+ const readme=['MeguLit diagnostic package (whole app)','','Created: '+now.toISOString(),'',...files.map(f=>`${f.name}  ${f.kind==='log'?'last lines of this log':f.kind==='note'?'what the user wrote about the problem':'MeguLit version, OS and the library'}`),'','Privacy: the Windows user name and profile paths are replaced by placeholders and e-mail addresses are removed.'].join('\n');
  files.push({name:'README.txt',data:scrub(readme,who),kind:'readme'});
  return {files,info};
 }
@@ -162,7 +166,7 @@ function buildAll(root,db,options={}){
  const now=options.now||new Date(),{files,info}=collectAll(root,db,{...options,now}),dir=path.join(root,'data','diagnostics');fs.mkdirSync(dir,{recursive:true});
  const file=path.join(dir,`MeguLit-diag-all-${stamp(now)}.zip`),buffer=zip(files,now),temporary=file+'.tmp';fs.writeFileSync(temporary,buffer);fs.renameSync(temporary,file);
  prune(dir,20);
- return {path:file,name:path.basename(file),bytes:buffer.length,game:{id:'',title:'MeguLit',engine:''},version:info.megulit.version,entries:files.map(f=>({name:f.name,kind:f.kind,bytes:Buffer.byteLength(String(f.data)),preview:f.kind==='info'?String(f.data).slice(0,6000):undefined}))};
+ return {path:file,name:path.basename(file),bytes:buffer.length,game:{id:'',title:'MeguLit',engine:''},version:info.megulit.version,entries:files.map(f=>({name:f.name,kind:f.kind,bytes:Buffer.byteLength(String(f.data)),preview:f.kind==='info'||f.kind==='note'?String(f.data).slice(0,6000):undefined}))};
 }
 /* keep the newest packages only */
 function prune(dir,keep){try{const zips=fs.readdirSync(dir).filter(n=>/^MeguLit-diag-.*\.zip$/.test(n)).map(n=>({n,t:fs.statSync(path.join(dir,n)).mtimeMs})).sort((a,b)=>b.t-a.t);for(const z of zips.slice(keep))fs.rmSync(path.join(dir,z.n),{force:true});}catch{}}

@@ -38,12 +38,12 @@ const norm=s=>s.normalize("NFKC").normalize("NFC").replace(/[\s　、。・]/g,"
 /* ================= 配置（与入口页一致） ================= */
 const CFG={
  pos:{name:"行段识别",
-  intro:{n:10,t:0,hints:Infinity,pool:()=>{const p=LEARNED.filter(k=>k!=="ん");return p.length?p:ORDER.slice(0,5)},script:"h"},
+  intro:{n:10,t:0,hints:Infinity,pool:()=>{const p=LEARNED.filter(k=>k!=="ん");return p.length?p:ORDER.slice(0,5)}},
   std:{n:20,t:10,hints:3,pool:()=>SEION.filter(k=>k!=="ん")},
   adv:{n:25,t:8,hints:1,pool:()=>[...SEION.filter(k=>k!=="ん"),...DAKU],script:"m",daku:true},
   chal:{n:Infinity,total:90,lives:3,hints:0,pool:()=>[...SEION.filter(k=>k!=="ん"),...DAKU],script:"m",daku:true}},
  seq:{name:"前后假名",
-  intro:{n:10,t:0,hints:Infinity,pool:()=>LEARNED.slice(0,-1),script:"h",mode:"next",input:false},
+  intro:{n:10,t:0,hints:Infinity,pool:()=>LEARNED.slice(0,-1),mode:"next",input:false},
   std:{n:15,t:12,hints:3,pool:()=>ORDER,mode:"both",input:false},
   adv:{n:20,t:10,hints:1,pool:()=>ORDER,script:"m",mode:"both",input:true},
   chal:{n:Infinity,total:90,lives:3,hints:0,pool:()=>ORDER,script:"m",mode:"both",input:true}},
@@ -206,8 +206,8 @@ function submitSeq(val,btn){
   q.given[w]=ok;
   if(!ok){locked=true;return resolve(false,w==="prev"?"前一个错":"后一个错")}
   q.slot++;
-  if(q.slot<q.need.length){const nw=q.need[q.slot];$("#slot-"+nw).classList.add("active");
-    clearTimeout(slotTimer);slotTimer=setTimeout(()=>{if(st.over)return;if(C.input){const inp=$("#ans");inp.value="";inp.placeholder=`再填${nw==="prev"?"前":"后"}一个`;inp.classList.remove("right");inp.focus()}else seqOptions()},350);return}
+  if(q.slot<q.need.length){const nw=q.need[q.slot];locked=true;$("#slot-"+nw).classList.add("active");
+    clearTimeout(slotTimer);slotTimer=setTimeout(()=>{if(st.over)return;locked=false;if(C.input){const inp=$("#ans");inp.value="";inp.placeholder=`再填${nw==="prev"?"前":"后"}一个`;inp.classList.remove("right");inp.focus()}else seqOptions()},350);return}
   locked=true;resolve(true,"",q.explain);
 }
 

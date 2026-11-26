@@ -38,7 +38,14 @@
   const panel=!!(inLookup||at?.closest(MENUS)||at?.closest(LOOKUPS)||scroll&&scroll.scrollHeight>scroll.clientHeight||log==='all');
   window.__tomoyoTranslateRequest(JSON.stringify({type:'galWheelDecision',id,panel,panelUp:!panel&&log==='up'}));
  };
- function schedule(){if(queued)return;queued=true;queueMicrotask(report);}
+ /* 2026-11-26 (オルフレール, Ctrl fast-forward: one hooked line of 3996 characters, 8000 char tokens on the page; Cardinal r1/r2: the
+    reader stopped answering for good after 89 s). Every mutation ran a report in a microtask and a report reads every token's style and
+    boxes (110 ms for 8000 tokens): a typing line mutates every frame, so the page did nothing else. A report that took long holds the
+    next one back by three times its cost (at most a quarter of the time goes to regions, whatever the page holds); a page of normal size
+    (a report under 12 ms) reports at once as before. */
+ let nextReport=0,reportTimer=0;const clock=()=>typeof performance==='object'&&performance?performance.now():Date.now();
+ function runReport(){reportTimer=0;const t=clock();report();const now=clock(),cost=now-t;nextReport=cost>12?now+cost*3:0;}
+ function schedule(){if(queued)return;queued=true;const wait=nextReport-clock();if(wait>0){if(!reportTimer)reportTimer=setTimeout(runReport,wait);}else queueMicrotask(runReport);}
  /* 2026-11-19 (1.4.17 candidate, user: 「打字机效果…像运行了两遍…像被啃了一块走又恢复」, every game): a character the typewriter has
     just let in starts its 70 ms fade at opacity 0. Counted as invisible, it and its neighbour dropped out of the window region
     for one report; the bridge applies regions a few frames late, so the hole showed on letters already painted and swept

@@ -104,7 +104,8 @@ let current=null;
 function stopNow(why){const c=current;if(!c?.stop)return false;c.stop(why).catch(()=>{});return true;}
 
 /* -> {verdict, why, ...}; deps for tests: {runner(opts)->result, report, upload, now} */
-async function testOne(root,game,{budgetMs,deps={}}={}){const s=load(root),id=game.exeKey||'id:'+game.id,now=deps.now||Date.now;const t0=now();
+/* ignoreInput / visible (tools/adapt-auto.cjs only, unattended): ColdDesk does not end the run on GetLastInputInfo changes / runs the game on the visible desktop */
+async function testOne(root,game,{budgetMs,ignoreInput=false,visible=false,localeEmulator=null,ocrMenu=false,driver=null,hideProbe=false,choiceLocate=false,inputFallback=null,deps={}}={}){const s=load(root),id=game.exeKey||'id:'+game.id,now=deps.now||Date.now;const t0=now();
  const block=(why)=>{const st=load(root);st.blocked[id]={why,at:new Date(now()).toISOString(),title:game.title};note(st,{game:game.title,blocked:why});save(root,st);return {verdict:'blocked',why};};
  const steam=steamOf(game);
  if(steam&&!steam.appid)return block('steam-appid-unknown');
@@ -125,7 +126,7 @@ async function testOne(root,game,{budgetMs,deps={}}={}){const s=load(root),id=ga
   snap.journal.state='failed';snap.journal.errors=['cold cleanup has not been confirmed'];snap.journal.coldCleanup={state:'starting',at:new Date().toISOString()};
   fs.writeFileSync(path.join(Saves.snapDir(root),snap.journal.id,'journal.json'),JSON.stringify(snap.journal,null,1));
   current={game,started:t0,snapshot:{root,journal:snap.journal},stop:()=>require('./background-games.cjs').foreground()};
-  result=await (deps.runner||runInWorker)({root,exe:game.exe,runDir,budgetMs,profile:profile?JSON.parse(JSON.stringify(profile)):null});}
+  result=await (deps.runner||runInWorker)({root,exe:game.exe,runDir,budgetMs,profile:profile?JSON.parse(JSON.stringify(profile)):null,...(ignoreInput?{ignoreInput:true}:{}),...(visible?{visible:true}:{}),...(localeEmulator?{localeEmulator}:{}),...(ocrMenu?{ocrMenu:true}:{}),...(driver?{driver}:{}),...(hideProbe?{hideProbe:true}:{}),...(choiceLocate?{choiceLocate:true}:{}),...(inputFallback?{inputFallback}:{})});}
  finally{current=null;
   if(result?.cleanupConfirmed!==true){restored={ok:false,errors:['cold cleanup has not been confirmed']};}
   else{snap.journal.coldCleanup={...snap.journal.coldCleanup,state:'confirmed'};

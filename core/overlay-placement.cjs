@@ -14,8 +14,8 @@ const fs = require('node:fs'), path = require('node:path');
 const { rectsToClient } = require('./compositor-host.cjs');
 
 class OverlayPlacement {
-  constructor({ root, send = () => {}, trace = () => {}, replaced = () => false, hidden = () => {}, blanking = () => false } = {}) {
-    this.hidden = hidden; this.replaced = replaced; this.blanking = blanking; this.root = root; this.send = send; this.trace = trace; this.client = [0, 0]; this.current = null; this.on = false;
+  constructor({ root, send = () => {}, trace = () => {}, replaced = () => false, hidden = () => {}, blanking = () => false, skipping = () => false } = {}) {
+    this.hidden = hidden; this.replaced = replaced; this.blanking = blanking; this.skipping = skipping; this.root = root; this.send = send; this.trace = trace; this.client = [0, 0]; this.current = null; this.on = false;
     /* the running game's layered profile (core/profiles), set by gal-native setGameProfile; branches read this.profile.placement.* */
     this.profile = require('./profiles/index.cjs').profileFor({});
   }
@@ -273,6 +273,9 @@ class OverlayPlacement {
     /* incr9 2026-11-21 (owner, 千恋＊万花: 「お客さん」「……ぁ？」 every short line 'has no hidden glyph yet', the game drew nothing, the reader
        neither): with the bridge blanking the writable stream the line is hidden; the reader draws it, a late hidden glyph only places it */
     if (!this.hideSeen && require('./profiles/index.cjs').get(this.profile, 'placement.drawWhileBlanking', false) && this.blanking()) { this.why('gblank:' + id, 'fallback: glyph line ' + (Number(table.seq) || 0) + ' has no hidden glyph yet, but the glyph layer blanks the stream (the reader draws it)'); return this.emitLine({ id, engine: 'glyph', text: table.text, fallback: true, client: this.client.slice() }); }
+    /* 2026-11-26 (オルフレール, KiriKiri without KAG: row 0.4, the reader drew only the Chinese): the bridge skips the game's DrawText at the
+       source (drawSkipped on the selected stream), so the game never draws this line: the reader draws its Japanese. Any engine with a source skip */
+    if (!this.hideSeen && this.skipping()) { this.why('gskip:' + id, 'fallback: glyph line ' + (Number(table.seq) || 0) + ' has no hidden glyph, but the bridge skips the game\'s own draw at the source (the reader draws it)'); return this.emitLine({ id, engine: 'glyph', text: table.text, fallback: true, client: this.client.slice() }); }
     if (!this.hideSeen) this.why('gshown:' + id, 'not placed: glyph line ' + (Number(table.seq) || 0) + ' has no hidden glyph yet (the game draws it itself)');
     if (!this.hideSeen) { const vis = chars.filter(c => !/\s/.test(c)).join(''); if (this.current?.id === id) this.clear(); if (vis && vis !== this.visibleKey) { this.visibleKey = vis; this.send({ type: 'textPlace', visible: true, text: vis, ...(this.hiding === true ? { hiding: true } : {}) }); } return; }
     const typed = this.typed(table, chars.length, recorded), drawn = new Set(chars.map((c, i) => i).filter(i => i < typed));

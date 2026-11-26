@@ -10,7 +10,7 @@ set PATH=E:\Apps\build-tools\vs2022\Common7\IDE\CommonExtensions\Microsoft\CMake
 call "E:\Apps\build-tools\vs2022\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -no_logo >nul 2>nul
 set "INCLUDE=%MEGULIT_HOOK_TREE%\atl\VC\Tools\MSVC\14.44.35207\atlmfc\include;%INCLUDE%"
 set "LIB=%MEGULIT_HOOK_TREE%\atl\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64;%LIB%"
-for %%F in (MeguLitGdiHide.h MeguLitMarks.h MeguLitEmbedWait.h texthook.cc hijackfuns.cc embed_util.cc main.cc veh_hook.cpp hookfinder.cc enginecontrol.cpp) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
+for %%F in (MeguLitGdiHide.h MeguLitDrawSkip.h MeguLitMarks.h MeguLitEmbedWait.h texthook.cc hijackfuns.cc embed_util.cc main.cc veh_hook.cpp hookfinder.cc enginecontrol.cpp) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
 for %%F in (DrawSites.h DrawSitesSig.h) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
 for %%F in (MajiroDraw.h MajiroDrawSig.h) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
 for %%F in (AdvhdDraw.h AdvhdDrawSig.h) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1

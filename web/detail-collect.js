@@ -286,13 +286,13 @@ export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc
    reading and a short meaning, the current entry on the right (big word with ruby from the dictionary reading, accent, part of speech, every
    meaning with examples, 加入单词本, MOJi audio). Same rules as the word list: only a click, ↑ ↓ or Enter changes the entry, every row keeps the
    same height, the wheel scrolls the list itself. MOJi details are fetched once per entry (loadDetail); local entries carry their meanings. */
-const D={zh:{results:'查词结果',moji:'MOJi 辞書',jisho:'Jisho.org',local:'本地词典',order:'点击或 ↑ ↓ 选中，滚轮浏览',current:'当前词条',save:'加入单词本',saved:'已在单词本',
+const D={zh:{results:'查词结果',moji:'MOJi 辞書',weblio:'Weblio 辞書',jisho:'Jisho.org',local:'本地词典',order:'点击或 ↑ ↓ 选中，滚轮浏览',current:'当前词条',save:'加入单词本',saved:'已在单词本',
   saveDone:'已加入单词本',anki:'加入 Anki',ankiDone:'已加入 Anki',ankiBusy:'正在制卡',saveFail:'暂时无法加入单词本',play:'播放发音',examples:'例句',notes:'MOJi 用户笔记',loading:'正在载入详情',detailFail:'详情暂时无法打开，先显示摘要',
   usage:'常用度',usageLv:['罕见','少见','一般','常用','高频'],views:n=>`MOJi 查词 ${n} 次`,mine:'我的笔记',noNotes:'还没有用户笔记',moreNotes:n=>`展开其余 ${n} 条`,loadMore:'加载更多笔记',likes:'赞',replies:n=>`${n} 条回复`,notesLoading:'正在载入笔记'},
- ja:{results:'検索結果',moji:'MOJi 辞書',jisho:'Jisho.org',local:'ローカル辞書',order:'クリックか ↑ ↓ で選択、ホイールでスクロール',current:'選択中の項目',save:'単語帳に追加',saved:'単語帳にあります',
+ ja:{results:'検索結果',moji:'MOJi 辞書',weblio:'Weblio 辞書',jisho:'Jisho.org',local:'ローカル辞書',order:'クリックか ↑ ↓ で選択、ホイールでスクロール',current:'選択中の項目',save:'単語帳に追加',saved:'単語帳にあります',
   saveDone:'単語帳に追加しました',anki:'Anki に追加',ankiDone:'Anki に追加済み',ankiBusy:'カード作成中',saveFail:'単語帳に追加できませんでした',play:'発音を再生',examples:'例文',notes:'MOJi ユーザーノート',loading:'詳細を読み込み中',detailFail:'詳細を開けません。概要を表示します',
   usage:'使用頻度',usageLv:['まれ','少なめ','普通','よく使う','頻出'],views:n=>`MOJi 検索 ${n} 回`,mine:'自分のノート',noNotes:'ユーザーノートはまだありません',moreNotes:n=>`残り ${n} 件を表示`,loadMore:'さらに読み込む',likes:'いいね',replies:n=>`返信 ${n} 件`,notesLoading:'ノートを読み込み中'},
- en:{results:'Results',moji:'MOJi',jisho:'Jisho.org',local:'Offline dictionary',order:'Click or ↑ ↓ to select, scroll to browse',current:'Current entry',save:'Add to words',saved:'In your words',
+ en:{results:'Results',moji:'MOJi',weblio:'Weblio',jisho:'Jisho.org',local:'Offline dictionary',order:'Click or ↑ ↓ to select, scroll to browse',current:'Current entry',save:'Add to words',saved:'In your words',
   saveDone:'Added to your words',anki:'Add to Anki',ankiDone:'Added to Anki',ankiBusy:'Making the card',saveFail:'Could not add it',play:'Play audio',examples:'Examples',notes:'MOJi user notes',loading:'Loading the entry',detailFail:'Could not open the entry; showing the summary',
   usage:'Frequency',usageLv:['Rare','Uncommon','Moderate','Common','Very common'],views:n=>`${n} MOJi lookups`,mine:'My note',noNotes:'No user notes yet',moreNotes:n=>`Show ${n} more`,loadMore:'Load more notes',likes:'likes',replies:n=>`${n} replies`,notesLoading:'Loading notes'}};
 const firstReading=r=>String(r||'').split(/\s*[·・,，、]\s*|\s+/)[0].trim();
@@ -311,7 +311,7 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
   return `<li class="esr-row${sel?' is-cur':''}" role="option" id="ent-o-${w.key}" data-key="${w.key}" aria-selected="${sel}" tabindex="${sel?0:-1}" style="--len:${Math.max(3,len)}">`+
    `<span class="esr-w" lang="ja">${rubyHTML(w.spelling||w.reading,w.ruby,esc)}</span><span class="esr-g ent-g"><span class="esr-gm">${meansFit(w.means,3,18).map(esc).join('<i class="sep">·</i>')||'—'}</span>`+
    `<span class="ent-r" lang="ja">${w.spelling&&w.ruby&&w.ruby!==w.spelling?esc(w.ruby):''}</span></span></li>`;};
- const label=source==='moji'?t.moji:source==='jisho'?t.jisho:t.local;
+ const label=source==='moji'?t.moji:source==='jisho'?t.jisho:source==='weblio'?t.weblio:t.local;
  target.innerHTML=`<section class="esr ent" aria-label="${esc(t.results)}">
   <header class="esr-h"><div class="esr-hl"><span class="esr-tot"><span class="esr-k">${esc(label)}</span><b>${list.length}</b></span></div><div class="esr-hr"><p class="esr-k">${esc(t.order)}</p></div></header>
   <div class="esr-body"><div class="esr-lw"><div class="esr-vp"><ul class="esr-list" role="listbox" aria-label="${esc(t.results)}" aria-activedescendant="ent-o-${cur}">${list.map(row).join('')}</ul></div></div><aside class="esr-d" aria-live="polite"></aside></div></section>`;
@@ -346,7 +346,7 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
    :(w.means.length?w.means:['—']).map((m,i)=>`<li${i===0?' class="lead"':''}><span>${esc(m)}</span></li>`).join('');
   const notes=(d?.notes||[]).slice(0,3).map(n=>`<li>${n.title?`<b>${esc(n.title)}</b>`:''}<span>${esc(n.content||n.text||'')}</span></li>`).join('');
   const saved=has(w);
-  return `<div class="esr-cap"><span>${esc(t.current)}</span><span${saved?' class="on"':''}>${esc(saved?t.saved:label)}</span></div>
+  return `<div class="esr-cap"><span>${esc(t.current)}</span><span${saved?' class="on"':''}>${esc(saved?t.saved:w.dictionary||label)}</span></div>
    <div class="esr-th"><h3 class="esr-t" lang="ja" style="--len:${Math.max(2,[...String(head.spelling||head.reading||'')].length)}">${rubyHTML(head.spelling||head.reading,ruby,esc)}</h3>${accent?`<span class="esr-n ent-acc" lang="ja">${esc(accent)}</span>`:''}</div>
    <i class="esr-bar" aria-hidden="true"></i>
    ${meta(head)}

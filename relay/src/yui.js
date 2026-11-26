@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import {trackIssue} from './issue-trackers.js';
-const faults=new Set(['instance-failed','runtime-unavailable','hot-reload-failed','desktop-failed','webview-failed','service-failed','service-timeout','service-disconnected','startup-failed','route-failed','frontend-error','frontend-rejection']);
+const faults=new Set(['instance-failed','runtime-unavailable','hot-reload-failed','desktop-failed','webview-failed','service-failed','service-timeout','service-disconnected','startup-failed','route-failed','frontend-error','frontend-rejection','frontend-rejection-service','frontend-rejection-abort','native-panic','document-timeout','reveal-timeout','game-hook-failed','game-hook-stopped','hook-components-missing']);
 const stages=new Set([...faults,'native-entry','process-start','runtime-ready','splash-start','webview-build-start','webview-built','service-start','service-replied','document','home-ready','content-painted','notice-open','notice-painted','notice-closed','hot-reload','first-window-ready','window-revealed','closed','service-home-start','service-home-done']);
 export async function yuiPost(request,env,{readJSON,fail,json,hit},ip,now){
  if(!await hit(env,'diag',ip,now.getTime()))return fail('RATE_LIMITED',429);

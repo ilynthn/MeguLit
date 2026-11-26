@@ -35,11 +35,14 @@ test('update: background download reports real progress, verifies and reuses the
  u.reset();fs.rmSync(root,{recursive:true,force:true});
 });
 test('v1.1.2: the update script is started by Windows (WMI), and a failed launch keeps MeguLit open',async()=>{
+ const fs=require('fs'),os=require('os'),path=require('path');const root=fs.mkdtempSync(path.join(os.tmpdir(),'upd-wmi-'));u.reset();
  const {EventEmitter}=require('node:events');let seen=null;
- const fake=code=>(cmd,args,opt)=>{seen={cmd,args,opt};const c=new EventEmitter();setTimeout(()=>c.emit('exit',code),5);return c;};
- assert.equal(await u.launchScript('C:\MeguLit',{run:fake(0)}),true);
- assert.match(seen.args.join(' '),/Win32_Process -MethodName Create/);assert.match(seen.opt.env.MEGULIT_UPDATE_COMMAND,/-File ".*" -Root "C:\MeguLit"/);
- assert.equal(await u.launchScript('C:\MeguLit',{run:fake(9)}),false);
+ /* v1.4.25: the started script writes its mark file first; a refused launch never gets that far */
+ const fake=code=>(cmd,args,opt)=>{seen={cmd,args,opt};const c=new EventEmitter();setTimeout(()=>{const mark=/-Mark "([^"]+)"/.exec(opt.env.MEGULIT_UPDATE_COMMAND)[1];if(code===0){fs.mkdirSync(path.dirname(mark),{recursive:true});fs.writeFileSync(mark,'1');}c.emit('exit',code);},5);return c;};
+ assert.equal(await u.launchScript(root,{run:fake(0)}),true);
+ assert.match(seen.args.join(' '),/Win32_Process -MethodName Create/);assert.ok(seen.opt.env.MEGULIT_UPDATE_COMMAND.includes('-Root "'+root+'"'));
+ assert.equal(await u.launchScript(root,{run:fake(9)}),false);
+ u.reset();fs.rmSync(root,{recursive:true,force:true});
 });
 test('v1.1.8: the same version with a different package online is a hotfix',async()=>{
  const fs=require('fs'),os=require('os'),path=require('path');const root=fs.mkdtempSync(path.join(os.tmpdir(),'hf-'));u.reset();

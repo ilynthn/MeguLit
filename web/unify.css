@@ -942,6 +942,8 @@ html:not(#u):not(#v):not(#w) body .dev-notice-off:hover{background:color-mix(in 
 html:not(#u):not(#v):not(#w) body .dev-notice-off:has(input:checked){background:color-mix(in srgb,var(--g-gold,#edb56e) 24%,var(--t-panel-base,#1b1416));border-color:var(--g-gold,#edb56e)}
 html:not(#u):not(#v):not(#w) body .dev-notice-off:has(input:focus-visible){outline:2px solid var(--g-gold,#edb56e);outline-offset:2px}
 html:not(#u):not(#v):not(#w) body .dev-notice-off input{width:16px;height:16px;margin:0;accent-color:var(--g-gold,#edb56e);cursor:pointer}
+/* 11-27 (user: 文字位置错了): the CJK fallback glyphs of the Sitka Text stack sit about 2px above the line box centre, so the label text looked higher than the tick box; nudge the text down to the box centre */
+html:not(#u):not(#v):not(#w) body .dev-notice-off span{display:block;line-height:1;transform:translateY(1.5px)}
 /* the request line as a single underlined field */
 html:not(#u):not(#v):not(#w) body dialog.game-dialog.dev-notice{background:linear-gradient(160deg,rgba(26,20,24,.97),rgba(13,11,14,.97))!important}
 @media (max-width:900px){html:not(#u):not(#v):not(#w) body .dev-notice-page[data-page="1"]:not([hidden]){grid-template-columns:1fr;grid-template-areas:"top" "title" "sub" "text" "form" "rule" "status" "succ" "upd" "note" "more" "off" "act"}}

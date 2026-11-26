@@ -8,7 +8,9 @@
    Kept: about cardinal.lines + a margin of dialogue lines (hookSource), at most MAX_ROWS records and MAX_BYTES; the attach records
    (ready, bound, layout, hookProcess, hookThreads) that scrolled out are kept as the head, so a snapshot can always attach. */
 const SKIP={gwb:new Set(['hostFrame','readerPointer','readerContext','layerState','layerRaise','clientShot','sceneShot','rawFrame','sceneFrame','sceneProbe','mediaClip','hotkeyState']),hb:new Set(['hookHeartbeat'])};
-const HEAD=['gwb:ready','gwb:bound','gwb:layout','hb:hookProcess','hb:hookThreads'];
+/* 2026-11-26 hb:hookStatus too: the bridge's replacement / hide state (replacementState, hookActive …) says how the kernel may draw; a
+   snapshot that cut it off replayed a read-only stream as embeddable (cold-test tape of オルフレール: embed mode, no Japanese row) */
+const HEAD=['gwb:ready','gwb:bound','gwb:layout','hb:hookProcess','hb:hookThreads','hb:hookStatus'];
 const MAX_ROWS=30000,MAX_BYTES=12*1024*1024,ROW_MAX=64*1024,MARGIN=20;
 let keepLines=60+MARGIN;
 let tape=fresh();

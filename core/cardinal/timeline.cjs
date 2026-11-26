@@ -71,7 +71,12 @@ function timeline(ex,game,{markEvery=true,side=true,actions=[]}={}){
 }
 /* GalWindowBridge's messages (core/gal-native.cjs reads them); every other record of a tape is HookBridge's */
 const GWB=new Set(['ready','bound','layout','readerInput','hookChoiceBoxes','artText','hookVisual','hotkey','bindHotkey','modeRequest','backlogHotkey','regionApplied','waitMarkerFrame','hotkeyState','error','dialogScene','dialogAway','dialogVisibility','choiceBoxes','ocrChoices','choiceOcr']);
-const rowOf=r=>r&&(r.hb?{t:r.t,hb:r.hb}:r.gwb?{t:r.t,gwb:r.gwb}:r.m&&typeof r.m.type==='string'?(GWB.has(r.m.type)?{t:r.t,gwb:r.m}:{t:r.t,hb:r.m}):null);
+/* 2026-11-26 what the game's screen showed, as the cold test / a live capture saw it (not a bridge record): {t, screen:{type:'choices',
+   texts:[...], until?}} -> a screenChoice step. The driver only notes when it came (o.screenChoices); nothing is fed to the reader, so
+   options the hook did not turn into a choice stay unoffered and core/cardinal/checks.cjs choices() fails them as unseen by the player */
+function screenRow(r){const s=r.screen;if(!s||s.type!=='choices'||!Array.isArray(s.texts))return null;const texts=s.texts.map(x=>String(x??'').slice(0,400)).filter(x=>x.trim()).slice(0,12);
+ if(!texts.length)return null;return {t:r.t,screenChoice:{texts,...(Number.isFinite(s.until)&&s.until>=r.t?{until:s.until}:{})}};}
+const rowOf=r=>r&&(r.hb?{t:r.t,hb:r.hb}:r.gwb?{t:r.t,gwb:r.gwb}:r.screen?screenRow(r):r.phase&&typeof r.phase.name==='string'?{t:r.t,phase:r.phase.name.slice(0,40)}:r.m&&typeof r.m.type==='string'?(GWB.has(r.m.type)?{t:r.t,gwb:r.m}:{t:r.t,hb:r.m}):null);
 /* a tape -> steps. game: {pid, started, hwnd, sha, title, process, exe, layout, stream} for the attach when the tape has none (an older
    recording of the HookBridge alone); every hookSource is a dialogue line (line = its order, text = its text) */
 function fromTape(rows,game){const steps=[];let n=0;const list=(rows||[]).map(rowOf).filter(r=>r&&Number.isFinite(r.t)).sort((a,b)=>a.t-b.t);if(!list.length)return steps;
@@ -79,4 +84,4 @@ function fromTape(rows,game){const steps=[];let n=0;const list=(rows||[]).map(ro
  if(!has('bound'))steps.push(...attachSteps(game,list[0].t-400));
  for(const r of list){if(r.hb?.type==='hookSource'&&typeof r.hb.text==='string'){steps.push({...r,line:++n,text:r.hb.text});continue;}steps.push(r);}
  return steps;}
-module.exports={extract,timeline,attachSteps,sideEvents,fieldOf,textOf,fromTape,GWB};
+module.exports={extract,timeline,attachSteps,sideEvents,fieldOf,textOf,fromTape,GWB,screenRow};

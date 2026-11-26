@@ -86,11 +86,11 @@ static class ColdDesk{
 
  static readonly object Out=new object();
  static void Emit(string json){lock(Out){Console.Out.WriteLine(json);Console.Out.Flush();}}
- static string Q(string s){var b=new StringBuilder("\"");foreach(var c in s??""){if(c=='"'||c=='\\'){b.Append('\\').Append(c);}else if(c<0x20){b.Append("\\u").Append(((int)c).ToString("x4"));}else b.Append(c);}return b.Append('"').ToString();}
+ static string Q(string s){var b=new StringBuilder("\"");foreach(var c in s??""){if(c=='"'||c=='\\'){b.Append('\\').Append(c);}else if(c<0x20||c>0x7e){b.Append("\\u").Append(((int)c).ToString("x4"));}else b.Append(c);}return b.Append('"').ToString();}
 
  static int Main(string[] a){
-  if(a.Length<1){Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID]");return 2;}
-  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1)return Run(a);}
+  if(a.Length<1){/* --visible (tools/adapt-auto.cjs --foreground, owner away): the game on the user's own desktop, still muted and in the job */Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID] [--ignore-input] [--visible]");return 2;}
+  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1)return Array.IndexOf(a,"--visible")>=2?Run(a,"Default"):Run(a);}
   catch(Exception e){Emit("{\"type\":\"ended\",\"why\":"+Q("error "+e.Message)+"}");return 1;}
   return 2;}
 
@@ -111,6 +111,26 @@ static class ColdDesk{
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd,StringBuilder name,int max);
  [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr hwnd,EnumProc callback,IntPtr data);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr length,StringBuilder text,uint flags,uint timeout,out IntPtr result);
+ /* 2026-11-27 (Monochrome Empire, YU-RIS name entry: three #32770 「名前入力」 dialogs, Edit + OK). services/cold-input.ps1 answers them
+    with EnumThreadWindows from the visible desktop, which finds nothing on this hidden desktop: the runs that passed it were --foreground,
+    every hidden run stalled on the first dialog. "dialog [name]": a visible #32770 of the game's job on this desktop with an Edit gets the
+    name when the Edit is empty, then its OK (id 1, or OK / 決定 / はい) is pressed; any other dialog is only reported */
+ [DllImport("user32.dll",EntryPoint="SendMessageTimeoutW",CharSet=CharSet.Unicode)] static extern IntPtr SendText(IntPtr hwnd,uint msg,IntPtr w,string text,uint flags,uint timeout,out IntPtr result);
+ [DllImport("user32.dll",EntryPoint="SendMessageTimeoutW")] static extern IntPtr SendPlain(IntPtr hwnd,uint msg,IntPtr w,IntPtr l,uint flags,uint timeout,out IntPtr result);
+ [DllImport("user32.dll")] static extern int GetDlgCtrlID(IntPtr h);
+ static string WinText(IntPtr h){var b=new StringBuilder(256);GetWindowText(h,b,256);return b.ToString();}
+ static void AnswerDialog(string name){
+  var pids=new HashSet<uint>(JobPids());var dlgs=new List<IntPtr>();var cls=new StringBuilder(80);
+  EnumDesktopWindows(Desk,(h,l)=>{uint p;GetWindowThreadProcessId(h,out p);cls.Clear();GetClassName(h,cls,cls.Capacity);if(pids.Contains(p)&&IsWindowVisible(h)&&cls.ToString()=="#32770")dlgs.Add(h);return true;},IntPtr.Zero);
+  if(dlgs.Count==0)return;var o=new StringBuilder();IntPtr res;
+  foreach(var d in dlgs){IntPtr edit=IntPtr.Zero,ok=IntPtr.Zero;var labels=new List<string>();
+   EnumChildWindows(d,(h,l)=>{var c=new StringBuilder(80);GetClassName(h,c,c.Capacity);string k=c.ToString(),x=WinText(h);
+    if(k=="Edit"&&edit==IntPtr.Zero)edit=h;else if(k=="Button"){if(GetDlgCtrlID(h)==1||System.Text.RegularExpressions.Regex.IsMatch(x.Trim(),"^(OK|ＯＫ|決定|はい|&OK)$",System.Text.RegularExpressions.RegexOptions.IgnoreCase))ok=h;}else if(k=="Static"&&x.Trim().Length>0&&labels.Count<4)labels.Add(x.Trim());return true;},IntPtr.Zero);
+   string had=edit!=IntPtr.Zero?WinText(edit):"";bool filled=false;
+   if(edit!=IntPtr.Zero&&had.Trim().Length==0&&!String.IsNullOrEmpty(name)){SendText(edit,0x0C,IntPtr.Zero,name,2,2000,out res);filled=true;}
+   if(ok!=IntPtr.Zero&&edit!=IntPtr.Zero)SendPlain(ok,0xF5,IntPtr.Zero,IntPtr.Zero,2,2000,out res);
+   o.Append((o.Length>0?" | ":"")+"\""+WinText(d)+"\" "+String.Join("/",labels)+(edit!=IntPtr.Zero?" edit=\""+(filled?name:had)+"\"":"")+(ok==IntPtr.Zero?" no-ok":edit!=IntPtr.Zero?" ok":" left"));}
+  Emit("{\"type\":\"dialog\",\"what\":"+Q(o.ToString())+"}");}
  static void ReadGameDialog(IntPtr window){
   var cls=new StringBuilder(80);GetClassName(window,cls,cls.Capacity);
   if(cls.ToString()!="#32770")return;
@@ -160,6 +180,8 @@ static class ColdDesk{
  static void WatchParent(int pid){if(pid<=0)return;new Thread(()=>{try{using(var owner=Process.GetProcessById(pid)){while(!Stopping&&!owner.HasExited)Thread.Sleep(100);if(owner.HasExited)RequestStop();}}catch{RequestStop();}}){IsBackground=true}.Start();}
  static IntPtr Lp(uint vk,bool up){uint sc=MapVirtualKey(vk,0);long l=1|(sc<<16);if(up)l|=0xC0000000L;return (IntPtr)unchecked((int)l);}
  static void Key(uint vk,bool down,bool up){if(GameWin==IntPtr.Zero)return;if(down)PostMessage(GameWin,0x100,(IntPtr)vk,Lp(vk,false));if(down&&up&&(vk==0x0d||vk==0x20||vk==0x1b))PostMessage(GameWin,0x102,(IntPtr)vk,Lp(vk,false));if(up)PostMessage(GameWin,0x101,(IntPtr)vk,Lp(vk,true));}
+ /* hover: a WM_MOUSEMOVE to the deepest child under the point, nothing pressed (KiriKiri buttons take the hover state from it) */
+ static void Move(int x,int y){if(GameWin==IntPtr.Zero)return;var w=GameWin;for(int i=0;i<8;i++){POINT pt;pt.X=x;pt.Y=y;var c=ChildWindowFromPointEx(w,pt,1);if(c==IntPtr.Zero||c==w)break;POINT o;o.X=0;o.Y=0;MapWindowPoints(c,w,ref o,1);x-=o.X;y-=o.Y;w=c;}PostMessage(w,0x200,IntPtr.Zero,(IntPtr)((y<<16)|(x&0xffff)));}
  static void Click(int x,int y){if(GameWin==IntPtr.Zero)return;var w=GameWin;/* the deepest child under the point (KiriKiri draws in a child) */for(int i=0;i<8;i++){POINT pt;pt.X=x;pt.Y=y;var c=ChildWindowFromPointEx(w,pt,1);if(c==IntPtr.Zero||c==w)break;POINT o;o.X=0;o.Y=0;MapWindowPoints(c,w,ref o,1);x-=o.X;y-=o.Y;w=c;}
   var lp=(IntPtr)((y<<16)|(x&0xffff));PostMessage(w,0x200,IntPtr.Zero,lp);PostMessage(w,0x201,(IntPtr)1,lp);Thread.Sleep(40);PostMessage(w,0x202,IntPtr.Zero,lp);}
  /* games pause when they think they lost focus: tell the window it is the active one (on its own desktop) */
@@ -172,11 +194,19 @@ static class ColdDesk{
    double mean=n>0?sum/n:0,sd=n>0?Math.Sqrt(Math.Max(0,sq/n-mean*mean)):0;bool black=mean<10&&sd<6;
    int tw=Math.Min(w,Math.Max(160,maxW)),th=(int)Math.Round(h*(double)tw/w);
    using(var s=new Bitmap(tw,th)){using(var g=Graphics.FromImage(s)){g.InterpolationMode=System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;g.DrawImage(b,0,0,tw,th);}
-    var ep=new EncoderParameters(1);ep.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,70L);Directory.CreateDirectory(Path.GetDirectoryName(file));s.Save(file,Jpeg(),ep);}
+    var ep=new EncoderParameters(1);ep.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,70L);Directory.CreateDirectory(Path.GetDirectoryName(file));/* .png: lossless (the cold OCR reads outlined button labels JPEG blurs) */if(file.EndsWith(".png",StringComparison.OrdinalIgnoreCase))s.Save(file,ImageFormat.Png);else s.Save(file,Jpeg(),ep);}
    Emit("{\"type\":\"shot\",\"ok\":true,\"path\":"+Q(file)+",\"w\":"+tw+",\"h\":"+th+",\"black\":"+(black?"true":"false")+"}");}}
 
  static bool StopUnassigned(IntPtr process){try{TerminateProcess(process,1);return WaitForSingleObject(process,4000)==0;}catch{return false;}}
  internal static int Run(string[] a,string desktop=DESK,string childArgument=null,Func<IntPtr,int,bool> observe=null,SuspendedLaunch restricted=null,bool readerOnly=false){string exe=Path.GetFullPath(a[1]);int seconds=600,parentPid=0;for(int i=2;i<a.Length-1;i++){if(a[i]=="--seconds")seconds=Math.Max(10,int.Parse(a[i+1]));if(a[i]=="--parent-pid")parentPid=int.Parse(a[i+1]);}
+  /* 2026-11-26 tools/adapt-auto.cjs (unattended pipeline, owner away): --ignore-input keeps the run going when GetLastInputInfo moves
+     (a phantom input source reset it every ~100 ms and every run ended at 0.4 s). Without the switch the user's input still ends the run at once */
+  bool ignoreInput=Array.IndexOf(a,"--ignore-input")>=2;
+  /* --locale-emulator <LEProc.exe> --le-guid <profile>: the game started through Locale Emulator (x86 games on a non-Japanese system
+     quit at once without it: オルフレール shows a Shift-JIS "Information" box). The game is LEProc's child, so it is in the job too;
+     the window event carries the owning pid (the hook attaches to the game, not to LEProc) */
+  string le=null,leGuid=null;for(int i=2;i<a.Length-1;i++){if(a[i]=="--locale-emulator")le=Path.GetFullPath(a[i+1]);if(a[i]=="--le-guid")leGuid=a[i+1];}
+  if(le!=null&&(leGuid==null||!File.Exists(le)))le=null;
   requireObservedAudio=restricted!=null;
   using(var owner=Process.GetCurrentProcess())Emit("{\"type\":\"owner\",\"pid\":"+owner.Id+",\"started\":"+Q(owner.StartTime.ToUniversalTime().Ticks.ToString())+"}");
   ImageName=Path.GetFileNameWithoutExtension(exe);
@@ -187,7 +217,7 @@ static class ColdDesk{
   var si=new STARTUPINFO();si.cb=Marshal.SizeOf(si);si.lpDesktop="WinSta0\\"+desktop;
   const uint CREATE_SUSPENDED=4,CREATE_NO_WINDOW=0x08000000;
   if(restricted!=null)restricted(exe,si.lpDesktop,out pi.hProcess,out pi.hThread,out pi.dwProcessId);
-  else if(!CreateProcess(exe,new StringBuilder("\""+exe+"\""+(childArgument==null?"":" "+childArgument)),IntPtr.Zero,IntPtr.Zero,false,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,Path.GetDirectoryName(exe),ref si,out pi)){Emit("{\"type\":\"ended\",\"why\":\"create "+Marshal.GetLastWin32Error()+"\"}");return 1;}
+  else if(!CreateProcess(le??exe,new StringBuilder(le!=null?"\""+le+"\" -runas "+leGuid+" \""+exe+"\"":"\""+exe+"\""+(childArgument==null?"":" "+childArgument)),IntPtr.Zero,IntPtr.Zero,false,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,Path.GetDirectoryName(exe),ref si,out pi)){Emit("{\"type\":\"ended\",\"why\":\"create "+Marshal.GetLastWin32Error()+"\"}");return 1;}
   if(!AssignProcessToJobObject(Job,pi.hProcess)){/* This suspended child is outside the job: only its original handle identifies it safely. */if(!StopUnassigned(pi.hProcess))CleanupSafe=false;Emit("{\"type\":\"ended\",\"why\":\"job\"}");return 1;}
   WatchParent(parentPid);ResumeThread(pi.hThread);CloseHandle(pi.hThread);pi.hThread=IntPtr.Zero;StartedAt=DateTime.UtcNow;
   string started="";try{started=Process.GetProcessById(pi.dwProcessId).StartTime.ToUniversalTime().Ticks.ToString();}catch{}
@@ -199,7 +229,7 @@ static class ColdDesk{
   while(why==""){
    if(Stopping){why="stopped";break;}
    /* the user is back: end now, before anything else */
-   {var li=new LASTINPUTINFO();li.cbSize=(uint)Marshal.SizeOf(li);if(observe==null && GetLastInputInfo(ref li)&&li.dwTime!=baseInput){Emit("{\"type\":\"input\"}");why="input";break;}}
+   {var li=new LASTINPUTINFO();li.cbSize=(uint)Marshal.SizeOf(li);if(observe==null && !ignoreInput && GetLastInputInfo(ref li)&&li.dwTime!=baseInput){Emit("{\"type\":\"input\"}");why="input";break;}}
    string c=null;lock(cmds)if(cmds.Count>0)c=cmds.Dequeue();
    if(c!=null && restricted!=null && RootWindow(pi.dwProcessId)==IntPtr.Zero)throw new IOException("GAME_INPUT_WINDOW_CHANGED");
    if(c!=null){var p=c.Trim().Split(new[]{' '},3);try{switch(p[0]){
@@ -207,8 +237,10 @@ static class ColdDesk{
      case "keydown":Key(Convert.ToUInt32(p[1]),true,false);break;
      case "keyup":Key(Convert.ToUInt32(p[1]),false,true);break;
      case "click":Click(int.Parse(p[1]),int.Parse(p[2]));break;
+     case "move":Move(int.Parse(p[1]),int.Parse(p[2]));break;
      case "activate":Activate();break;
      case "shot":Shot(int.Parse(p[1]),p[2]);break;
+     case "dialog":AnswerDialog(p.Length>1?Uri.UnescapeDataString(p[1].Trim()):"");break;
      case "kill":why="killed";break;}}catch(Exception e){Emit("{\"type\":\"error\",\"what\":"+Q(c)+",\"why\":"+Q(e.Message)+"}");}
     if(why!="")break;continue;}
    if(observe!=null && observe(Job,pi.dwProcessId)){why="sampled";break;}
@@ -219,8 +251,8 @@ static class ColdDesk{
     foreach(var pr in Process.GetProcessesByName(ImageName)){try{if(pr.StartTime.ToUniversalTime()>StartedAt&&!pids.Contains((uint)pr.Id)&&String.Equals(Path.GetFullPath(pr.MainModule.FileName),exe,StringComparison.OrdinalIgnoreCase)){Emit("{\"type\":\"relaunched\",\"pid\":"+pr.Id+"}");why="relaunched";CleanupSafe=false;}}catch{}finally{pr.Dispose();}}
     if(why!="")break;
     if((DateTime.UtcNow-goneAt).TotalSeconds>12){uint code=0;GetExitCodeProcess(pi.hProcess,out code);Emit("{\"type\":\"exited\",\"code\":"+code+"}");why="exited";break;}}
-   var w=Biggest();if(w!=IntPtr.Zero){RECT r;GetClientRect(w,out r);int cw=r.R-r.L,ch=r.B-r.T;if(w!=lastHwnd||cw!=lastW||ch!=lastH){lastHwnd=w;lastW=cw;lastH=ch;GameWin=w;if(restricted!=null)ReadGameDialog(w);var t=new StringBuilder(256);GetWindowText(w,t,256);Activate();
-     Emit("{\"type\":\"window\",\"hwnd\":"+Q(w.ToInt64().ToString())+",\"w\":"+cw+",\"h\":"+ch+",\"title\":"+Q(t.ToString())+"}");}}
+   var w=Biggest();if(w!=IntPtr.Zero){RECT r;GetClientRect(w,out r);int cw=r.R-r.L,ch=r.B-r.T;if(w!=lastHwnd||cw!=lastW||ch!=lastH){lastHwnd=w;lastW=cw;lastH=ch;GameWin=w;if(restricted!=null)ReadGameDialog(w);var t=new StringBuilder(256);GetWindowText(w,t,256);Activate();uint wpid;GetWindowThreadProcessId(w,out wpid);string wstarted="";try{using(var wp=Process.GetProcessById((int)wpid))wstarted=wp.StartTime.ToUniversalTime().Ticks.ToString();}catch{}
+     Emit("{\"type\":\"window\",\"hwnd\":"+Q(w.ToInt64().ToString())+",\"pid\":"+wpid+",\"started\":"+Q(wstarted)+",\"w\":"+cw+",\"h\":"+ch+",\"title\":"+Q(t.ToString())+"}");}}
    if(!readerOnly && (DateTime.UtcNow-lastMute).TotalMilliseconds>700){lastMute=DateTime.UtcNow;Mute();}
    if((DateTime.UtcNow-lastPower).TotalSeconds>5){lastPower=DateTime.UtcNow;if(Ac()=="false")Emit("{\"type\":\"power\",\"ac\":false}");int q=Quns();bool full=q>=2&&q<=4;if(full&&!wasFull)Emit("{\"type\":\"fullscreen\",\"on\":true}");wasFull=full;}
    if(DateTime.UtcNow>end){Emit("{\"type\":\"timeout\"}");why="timeout";break;}

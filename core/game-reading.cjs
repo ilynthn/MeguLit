@@ -40,20 +40,20 @@ function readingsIn(text, { line = [], learned = {}, script = null } = {}) {
    is not the 島 of 島民. Up to 8 tokens, never across a gap. */
 function gameTokens(tokens, readings) {
   if (!Array.isArray(tokens) || !Array.isArray(readings) || !readings.length) return tokens;
-  const byBase = new Map(readings.map(([b, r, s]) => [b, { reading: r, source: s }])), out = [];
+  const ordered = [...readings].sort((a, b) => [...String(b?.[0] || '')].length - [...String(a?.[0] || '')].length), out = [];
   for (let i = 0; i < tokens.length; i++) {
     let hit = null;
-    for (const [base] of readings) {
+    for (const [base, reading, source] of ordered) {
       let surface = '', j = i;
       for (; j < tokens.length && j < i + 8; j++) {
         const t = tokens[j];
         if (typeof t?.surface !== 'string' || !t.surface || j > i && Number.isInteger(tokens[j - 1].end) && Number.isInteger(t.start) && tokens[j - 1].end !== t.start) break;
         surface += t.surface; if (surface.length >= base.length) break;
       }
-      if (surface === base) { hit = { base, stop: j }; break; }
+      if (surface === base) { hit = { base, reading, source, stop: j }; break; }
     }
     if (!hit) { out.push(tokens[i]); continue; }
-    const part = tokens.slice(i, hit.stop + 1), first = part[0], last = part.at(-1), { reading, source } = byBase.get(hit.base);
+    const part = tokens.slice(i, hit.stop + 1), first = part[0], last = part.at(-1), { reading, source } = hit;
     out.push({ ...first, surface: hit.base, reading, base_form: part.length === 1 ? first.base_form : hit.base, normalized: part.length === 1 ? first.normalized : hit.base,
       end: last.end, ...(part.length > 1 ? { subtokens: part } : {}), pitch: kanaOf(first.reading) === kanaOf(reading) && part.length === 1 ? first.pitch || [] : [],
       lexeme: part.length === 1 && kanaOf(first.reading) === kanaOf(reading) ? first.lexeme : null, reading_ambiguous: false, readingSource: 'game', gameSource: source });
