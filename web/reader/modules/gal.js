@@ -96,6 +96,32 @@
   /* The game's client area in CSS px of this page (null until the bridge has placed a game): the lookup card caps its
      height at half the game window, not half the desktop-wide layer (2026-11-15). */
   bridge.gameArea = () => { const l = layoutInfo, dpr = Math.max(.5, Number(window.devicePixelRatio)||1); if (![l?.clientX,l?.clientY,l?.clientWidth,l?.clientHeight].every(Number.isFinite) || l.clientWidth < 50 || l.clientHeight < 50) return null; return {left:l.clientX/dpr, top:l.clientY/dpr, width:l.clientWidth/dpr, height:l.clientHeight/dpr}; };
+  /* one-line Japanese (QQ essence 1145): a line wider than the room it has (right edge of the game, else of the layer) shrinks as a
+     whole; the natural width is measured at scale 1 so a shorter next line grows back */
+  {
+    let queued = false, watching = false;
+    const fit = () => {
+      queued = false;
+      const on = document.body.classList.contains('megulit-jp-one-line');
+      for (const text of document.querySelectorAll('.sentence-window .sentence-text')) {
+        if (!on) { text.style.removeProperty('--megulit-jp-one-line-scale'); continue; }
+        text.style.setProperty('--megulit-jp-one-line-scale', '1');
+        const range = document.createRange(); range.selectNodeContents(text);
+        const natural = range.getBoundingClientRect(), area = bridge.gameArea?.();
+        const right = area ? area.left + area.width : window.innerWidth, room = right - natural.left - 4;
+        const scale = natural.width > 1 && room > 0 && natural.width > room ? Math.max(.4, room / natural.width) : 1;
+        text.style.setProperty('--megulit-jp-one-line-scale', scale.toFixed(3));
+      }
+    };
+    bridge.japaneseOneLineFit = () => {
+      if (!queued) { queued = true; requestAnimationFrame(fit); }
+      if (!watching && document.body.classList.contains('megulit-jp-one-line')) {
+        watching = true;
+        new MutationObserver(() => { if (document.body.classList.contains('megulit-jp-one-line')) bridge.japaneseOneLineFit(); }).observe(document.body, { childList: true, subtree: true, characterData: true });
+        addEventListener('resize', () => bridge.japaneseOneLineFit());
+      }
+    };
+  }
   bridge.galLayout = layout => {
     if (![layout?.readerX,layout?.readerY,layout?.readerWidth,layout?.readerHeight].every(Number.isFinite)) return;
     if(maskGeometry&&[layout.maskX,layout.maskY].every(Number.isFinite))maskGeometry={...maskGeometry,x:layout.maskX,y:layout.maskY};
@@ -213,6 +239,7 @@
     .sentence-window.tomoyo-cn-active .sentence-text, .sentence-window.tomoyo-cn-active .tomoyo-cn-row { box-sizing:border-box!important; align-self:stretch!important; min-width:0!important; width:100%!important; margin-left:0!important; margin-right:0!important; padding-left:0!important; padding-right:0!important; border-left:0!important; border-right:0!important; text-indent:0!important; text-align:left!important; }
     .tomoyo-cn-output { margin:0!important; padding:0!important; text-indent:0!important; text-align:left!important; white-space:pre-line!important; }
     body.tomoyo-gal-bound .sentence-window .sentence-text[data-megulit-native-breaks] { white-space:pre!important; }
+    body.megulit-jp-one-line.tomoyo-gal-bound .sentence-window .sentence-text, body.megulit-jp-one-line.tomoyo-gal-bound .sentence-window .sentence-text[data-megulit-native-breaks] { white-space:nowrap!important; max-width:none!important; font-size:calc(var(--tomoyo-gal-jp-size,26px) * var(--megulit-jp-one-line-scale,1))!important; }
     .sentence-text .char-token[data-tomoyo-leading-space] { display:none!important; }
     .sentence-window.tomoyo-cn-active .sentence-text { text-indent:var(--tomoyo-jp-indent,0px)!important; }
     .tomoyo-cn-output { text-indent:var(--tomoyo-cn-indent,0px)!important; }
@@ -525,6 +552,12 @@
       document.body.classList.toggle('megulit-inline-translation', inlineTranslation);
       bridge.textPlaceLayoutChanged?.();
     }
+    /* one-line Japanese (QQ essence 1145): no wrapping, a line that does not fit shrinks as a whole (--megulit-jp-one-line-scale) */
+    if (document.body.classList.contains('megulit-jp-one-line') !== (preferences.japaneseOneLine === true)) {
+      document.body.classList.toggle('megulit-jp-one-line', preferences.japaneseOneLine === true);
+      bridge.japaneseOneLineFit?.();
+      bridge.textPlaceLayoutChanged?.();
+    }
     const insets=appearance.insets(preferences);
     root.setProperty('--tomoyo-gal-pad-x', scaled(insets.padX));
     root.setProperty('--tomoyo-gal-pad-y', scaled(insets.padY));
@@ -808,6 +841,7 @@
       <small>点游戏或按空格补全当前句；按住 Ctrl 快速显示</small>
       <label>显示内容<select name="galDisplay"><option value="bilingual">日文＋假名／中文</option><option value="japanese">仅日文＋假名</option><option value="chinese">仅中文 · 接近汉化版</option><option value="bilingual-en">日文＋假名／英文</option><option value="english">仅英文</option><option value="none">不显示（只看游戏文本框）</option></select></label>
       <label><input name="galTranslationInline" type="checkbox"> 中文紧随日文</label>
+      <label title="日文不换行；一行放不下时整行缩小字号"><input name="galJapaneseOneLine" type="checkbox"> 日文原文只占一行</label>
       <div class="tomoyo-cn-grid tomoyo-type-sizes"><label>中文字号<input name="galChineseSize" type="number" min="12" max="60"></label></div>
       <div class="tomoyo-cn-grid"><label>未读渐变<input name="galTextGradient" type="checkbox"></label><label>已读渐变<input name="galReadTextGradient" type="checkbox"></label><label>未读渐变上色<input name="galTextGradientTop" type="color"></label><label>未读渐变下色<input name="galTextGradientBottom" type="color"></label><label>已读渐变上色<input name="galReadTextGradientTop" type="color"></label><label>已读渐变下色<input name="galReadTextGradientBottom" type="color"></label><label>未读渐变起点（%）<input name="galTextGradientStart" type="number" min="0" max="95" step="1"></label><label>已读渐变起点（%）<input name="galReadTextGradientStart" type="number" min="0" max="95" step="1"></label></div>
       <div class="tomoyo-cn-grid"><label>文字颜色<input name="galTextColor" type="color"></label><label>已读文字颜色<input name="galReadTextColor" type="color"></label><label>文字阴影<select name="galShadow"><option value="outline">细描边 · 适合复杂背景</option><option value="soft">柔和阴影</option><option value="none">无阴影</option></select></label></div>
@@ -899,7 +933,7 @@
      typewriterSpeed:'galTypewriterSpeed', japaneseFont:'galJapaneseFont', chineseFont:'galChineseFont', rubyFont:'galRubyFont', japaneseOutline:'galJapaneseOutline',
      chineseOutline:'galChineseOutline', japaneseOutlineColor:'galJapaneseOutlineColor', chineseOutlineColor:'galChineseOutlineColor', japaneseOutlineWidth:'galJapaneseOutlineWidth',
      rubyOutline:'galRubyOutline', rubyOutlineColor:'galRubyOutlineColor', rubyOutlineWidth:'galRubyOutlineWidth', chineseOutlineWidth:'galChineseOutlineWidth',
-     style:'galStyle', display:'galDisplay', translationInline:'galTranslationInline', translationSize:'galChineseSize', textColor:'galTextColor', shadow:'galShadow', autoScale:'galAutoScale', lineHeight:'galLineHeight',
+     style:'galStyle', display:'galDisplay', translationInline:'galTranslationInline', japaneseOneLine:'galJapaneseOneLine', translationSize:'galChineseSize', textColor:'galTextColor', shadow:'galShadow', autoScale:'galAutoScale', lineHeight:'galLineHeight',
      translationLineHeight:'galTranslationLineHeight', japaneseSpacingPx:'galJapaneseSpacingPx', chineseSpacingPx:'galChineseSpacingPx', rubyScale:'galRubyScale',
      rubyOffsetX:'galRubyOffsetX',rubyOffsetY:'galRubyOffsetY',rubyRowOffsets:'galRubyRowOffsets',rubyRowOffsetsX:'galRubyRowOffsetsX',embedTranslation:'galEmbedTranslation',
      gap:'galGap', translationWidth:'galTranslationWidth', paddingX:'galPaddingX', paddingY:'galPaddingY', autoGameStyle:'galAutoGameStyle', maskColor:'galMaskColor',

@@ -6,7 +6,7 @@
   'use strict';
   const defaults = Object.freeze({
     translationPrompt:'',choiceFont:'game',choiceSelectedColor:'',choiceUnselectedColor:'',
-    typewriter:true,typewriterSpeed:35, layoutVersion: 22, style: 'classic', display: 'bilingual', translationInline: false, furigana: true, japaneseSize: 34,
+    typewriter:true,typewriterSpeed:35, layoutVersion: 22, style: 'classic', display: 'bilingual', translationInline: false, japaneseOneLine: false, furigana: true, japaneseSize: 34,
     translationSize: 30, rubyScale: .55, rubyOffsetX:0, rubyOffsetY:3, rubyRowOffsets:'',rubyRowOffsetsX:'', lineHeight: 0, lineHeightMode:'offset', translationLineHeight:0, japaneseSpacing:0, japaneseSpacingPx:0,chineseSpacingPx:0, gap: -2, translationWidth: 75,
     paddingX: 20, paddingY: 10, textColor: '#fffaf2', readTextColor: '', speechTextColor: '', narrationTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
     bindEnabled: false, interfaceMode:'normal', gameProcess: '', x: 4, y: 70, width: 92, height: 27, anchorDX: 0, anchorDY: 0,
@@ -34,7 +34,7 @@
       if (Number.isFinite(number)) result[key] = Math.max(min, Math.min(max, number));
     }
     for (const key of ['typewriter','furigana','autoScale','fastMask','scanAuto','ocrReadLines']) result[key] = value[key] !== false; /* ocrReadLines (2026-11-19): text read from the picture as reader lines, on unless set false */
-    for (const key of ['hideWaitMarker','relocateWaitMarker','translationInline']) result[key] = value[key] === true;
+    for (const key of ['hideWaitMarker','relocateWaitMarker','translationInline','japaneseOneLine']) result[key] = value[key] === true;
     for(const key of ['textGradient','readTextGradient'])result[key]=value[key]===true;
     // Where the top colour starts turning into the bottom colour, as % of the line height (0 = from the top).
     for(const key of ['textGradientStart','readTextGradientStart'])if(Number.isFinite(Number(value[key])))result[key]=Math.max(0,Math.min(95,Number(value[key])));

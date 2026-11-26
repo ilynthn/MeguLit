@@ -727,10 +727,36 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         if(complete||skip!=ReaderSkipHeld)Emit(new{type="readerInput",complete=complete,skipHeld=skip});
         ReaderSkipHeld=skip;
     }
+    /* 2026-11-26 (QQ essence 1144, Danganronpa V3 and other games that hide and lock the mouse: with the Alt+T panel open the pointer
+       stayed locked to the game and invisible, so no setting could be changed). While the panel (or a word card) is open the cursor
+       clip is lifted and the cursor made visible; both are given back to the game when the panel closes. Guess: a game that also
+       re-centres the pointer itself every frame (SetCursorPos) is not helped by this, it needs the hook layer. */
+    [StructLayout(LayoutKind.Sequential)] struct CursorInfo { public int Size,Flags; public IntPtr Cursor; public int X,Y; }
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] static extern bool ClipCursor(IntPtr rect);
+    [DllImport("user32.dll")] static extern bool GetClipCursor(out Rect rect);
+    [DllImport("user32.dll")] static extern bool GetCursorInfo(ref CursorInfo info);
+    [DllImport("user32.dll")] static extern int ShowCursor(bool show);
+    static int CursorShown;static bool CursorFreed;
+    internal static bool ClipIsTight(Rect clip,Rect screen){return clip.Right-clip.Left<screen.Right-screen.Left||clip.Bottom-clip.Top<screen.Bottom-screen.Top;}
+    static void FreeCursorForMenu(bool wanted){
+        try{
+            if(wanted){
+                Rect clip;
+                if(GetClipCursor(out clip)&&ClipIsTight(clip,new Rect(GetSystemMetrics(76),GetSystemMetrics(77),GetSystemMetrics(76)+GetSystemMetrics(78),GetSystemMetrics(77)+GetSystemMetrics(79)))){ClipCursor(IntPtr.Zero);CursorFreed=true;}
+                CursorInfo info=new CursorInfo();info.Size=Marshal.SizeOf(typeof(CursorInfo));
+                for(int i=0;i<4&&GetCursorInfo(ref info)&&(info.Flags&1)==0;i++){ShowCursor(true);CursorShown++;info.Size=Marshal.SizeOf(typeof(CursorInfo));}
+            }else if(CursorShown>0||CursorFreed){
+                while(CursorShown>0){ShowCursor(false);CursorShown--;}
+                CursorFreed=false;
+            }
+        }catch{}
+    }
     static void Tick(){
         if(HookVerifier!=null)HookVerifier.Tick();
         FindOverlay();if(Overlay==IntPtr.Zero)return;
         if(CheckGameExit())return;
+        FreeCursorForMenu(MenuOpen||LookupOpen);
         // Demote inherited/older topmost state in every mode, including minimised or foreign-application states.
         bool foregroundGame=TranslationMode&&Target!=IntPtr.Zero&&IsWindow(Target)&&!IsIconic(Overlay)&&GetAncestor(GetForegroundWindow(),3)==GetAncestor(Target,3);
         Layer=DecideLayer();
@@ -900,6 +926,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         if(args.Length>0&&args[0]=="--focus-self-test"){
             if(!ReadingVisible(true,false,false,true,true,false)||!ReadingVisible(true,false,false,false,false,true)||ReadingVisible(false,false,false,true,true,true)||ReadingVisible(true,true,false,true,true,true)||ReadingVisible(true,false,true,true,true,true)||ReadingVisible(true,false,false,false,true,false))return 5;
             if(!CoversMonitor(0,0,1920,1080,0,0,1920,1080)||CoversMonitor(0,0,1280,720,0,0,1920,1080)||!CoversMonitor(-8,-8,1928,1088,0,0,1920,1080)||OverlayMayActivate(true,true,true)||!OverlayMayActivate(false,true,true)||OverlayMayActivate(false,true,false))return 6;
+            if(!ClipIsTight(new Rect(960,540,961,541),new Rect(0,0,1920,1080))||ClipIsTight(new Rect(0,0,1920,1080),new Rect(0,0,1920,1080))||!ClipIsTight(new Rect(0,0,1280,720),new Rect(0,0,1920,1080)))return 9;
             Emit(new{type="focus-selftest",passed=true,fullscreenGameKeepsForeground=true,foreignApplicationsYield=true,minimizedWindowPreserved=true});return 0;
         }
         if(args.Length>0&&args[0]=="--scene-frame-self-test"){string r=GameAudio.SceneFrameSelfTest();Console.WriteLine(r=="0"?"PASS scene frame: top hash ignores the dialogue box, other scenes differ, fades give nothing, JPEG long side 1600":"FAIL scene frame: "+r);return r=="0"?0:15;}

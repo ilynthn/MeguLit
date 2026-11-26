@@ -113,6 +113,12 @@
   b.textPlaceAnchorActive = () => on && anchorMode;
   b.textPlaceEngineRowsActive = () => on && window.MeguLitProfile?.get?.('page.engineRows', false) === true;
   b.textPlaceAnchor = v => { anchorMode = v !== false; document.body.classList.toggle('megulit-anchor-mode', on && anchorMode); anchor = null; anchorLine = ''; schedule?.(); };
+  /* the user's own translation wrap width (% of the game box, 0 = nothing set) and line spacing (em offset) for rows a game's glyphs lock;
+     the default width (75) and a zero offset are "not set", so a game nobody touched keeps the size that follows its text */
+  const userRowLayout = prefs => {
+    const width = Number(prefs?.translationWidth), spacing = Number(prefs?.translationLineHeight);
+    return { width: Number.isFinite(width) && width > 0 && width <= 100 && width !== 75 ? width : 0, lineHeight: Number.isFinite(spacing) ? Math.max(-.8, Math.min(3, spacing)) : 0 };
+  };
   const median = list => { const v = list.filter(n => n > 0).sort((x, y) => x - y); return v.length ? v[v.length >> 1] : 0; };
   function target() {
     const own = document.querySelector('.sentence-window.tomoyo-hook-reader');
@@ -979,7 +985,10 @@
     if (row && all.length) {
       const x0 = Math.min(...all.map(r => r[0])), y0 = Math.min(...all.map(r => r[1])), x1 = Math.max(...all.map(r => r[0] + r[2])), y1 = Math.max(...all.map(r => r[1] + r[3]));
       const only = document.body.classList.contains('tomoyo-gal-zh-only');
-      const [L, T, R, B] = map.bounds, width = Math.max(1, Math.min(R - x0, Math.max(x1 - x0, Math.min(R - x0 - 8, size * 20))));
+      /* 2026-11-26 (QQ essence 1137: the placed rows locked the translation's wrap width and line spacing): a translation wrap width
+         or line spacing the user changed from its default now applies here too; the defaults keep the game-following size */
+      const own = userRowLayout(b.galPreferences?.() || {});
+      const [L, T, R, B] = map.bounds, width = Math.max(1, Math.min(R - x0, Math.max(x1 - x0, own.width > 0 ? Math.max(Math.min(R - x0 - 8, size * 20), (R - L) * own.width / 100) : Math.min(R - x0 - 8, size * 20))));
       set(row, 'left', Math.min(Math.max(x0, L), Math.max(L, R - width)) + 'px'); set(row, 'width', width + 'px');
       /* 2026-11-16 (user recording: the translation was small, then suddenly large and over the game's SAVE/LOAD bar, its
          last row out of the window): its size came from the stylesheet and was only made smaller when there was room, so a
@@ -990,7 +999,7 @@
       /* 2026-11-19 (user: 中文不要随便调尺寸, 只有显示不下才小): the standard size is the user's translation size, the same for every line;
          it is made smaller only when this line's translation does not fit, once, and the result is kept for the line (key: its text) */
       const floor = Math.max(10, Math.round(base * .85));
-      set(row, 'font-size', base + 'px'); set(row, 'line-height', '1.25');
+      set(row, 'font-size', base + 'px'); set(row, 'line-height', String(Math.max(.9, 1.25 + own.lineHeight)));
       /* 2026-11-16 (1.4.16 live: the row was 10px, its text 32px and over the SAVE/LOAD bar): the translation's own elements carry the
          game style's size rule; inline, they take the row's size and line height */
       for (const o of row.querySelectorAll('*')) { set(o, 'font-size', 'inherit'); set(o, 'line-height', 'inherit'); }
