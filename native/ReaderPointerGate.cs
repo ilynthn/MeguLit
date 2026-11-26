@@ -84,12 +84,14 @@ internal sealed class ReaderPointerGate {
         internal Context Owner;
         internal int Button=-1;
         internal bool DragLookup;
+        /* a press outside the open lookup card only closes the card: the whole press is kept from the game */
+        internal bool Dismiss;
         internal bool Accept(int down,int up,bool move,Context initial,bool dragLookup=false){
             if(Owner!=null)return up==Button||move;
             if(down<0||initial==null)return false;
             Owner=initial;Button=down;DragLookup=down==0&&dragLookup;return true;
         }
-        internal void End(){Owner=null;Button=-1;DragLookup=false;}
+        internal void End(){Owner=null;Button=-1;DragLookup=false;Dismiss=false;}
     }
     readonly Gesture gesture=new Gesture();
     uint lastMove;
@@ -158,6 +160,14 @@ internal sealed class ReaderPointerGate {
         events.Add(new{type="hostFrame",pointer=down?"down":"up",isolated=false,button,gameX=point.X,gameY=point.Y,
             gameWidth=client.Right,gameHeight=client.Bottom,game=context.Game.ToInt64(),ctrl=GetAsyncKeyState(0x11)<0,
             x=mouse.Position.X,y=mouse.Position.Y,dismissLookup=down&&context.Lookup});
+    }
+
+    /* 2026-11-26 (QQ #1120, p0: with the lookup card open, a click beside it advanced the game; it has to close the card only).
+       The click used to pass to the game and only asked the page to close the card afterwards (dismissLookup in TraceGameClick).
+       While the card is open, a press on the game window (not on MeguLit's text or panels) is the card's dismissal and the
+       whole press, down to its release, stays out of the game. */
+    internal static bool DismissOutside(bool lookupCard,bool hit,bool overOverlay,bool overGame,bool gameActive,bool inClient){
+        return lookupCard&&!hit&&!overOverlay&&overGame&&gameActive&&inClient;
     }
 
     static int Modifiers(){
@@ -233,6 +243,21 @@ internal sealed class ReaderPointerGate {
             return false;
         }
         if(gesture.Owner==null&&index>=0&&context.NativeMenu(point.X,point.Y))return false;
+        if(gesture.Owner!=null&&gesture.Dismiss){
+            if(up!=gesture.Button)return false;
+            gesture.End();return true;
+        }
+        if(gesture.Owner==null&&index>=0&&IsWindowVisible(context.Overlay)){
+            var below=GetAncestor(WindowFromPoint(mouse.Position),2);
+            var front=GetAncestor(GetForegroundWindow(),2);
+            if(DismissOutside(context.Lookup&&context.LookupPanels.Length>0,context.Hit(point.X,point.Y),below==context.Overlay,
+                below==context.Game&&context.Game!=IntPtr.Zero,front==context.Game||front==context.Overlay,Contains(context.Client,point.X,point.Y))){
+                gesture.Owner=context;gesture.Button=index;gesture.Dismiss=true;
+                events.Add(new{type="hostFrame",pointer="down",isolated=true,button=index,x=mouse.Position.X,y=mouse.Position.Y,
+                    game=context.Game.ToInt64(),overlay=context.Overlay.ToInt64(),lookup=true,dismissLookup=true});
+                return true;
+            }
+        }
         if(gesture.Owner==null){
             /* (user, issue #133: the speaker button still advanced the game) a click Windows delivers to the overlay is
                MeguLit's, whether or not the page listed that control among its hit regions; it never reaches a game
@@ -272,6 +297,10 @@ internal sealed class ReaderPointerGate {
         var lookup=new Context(IntPtr.Zero,IntPtr.Zero,client,true,hits,hits,hits);
         if(!line.Hit(300,620)||line.Hit(800,620)||line.Hit(900,600)||lookup.Hit(900,600)||lookup.Hit(-1,600)||lookup.Hit(1920,600))return false;
         if(!lookup.Hit(300,620)||lookup.NativeMenu(300,620)||!lookup.InMenu(300,620))return false;
+        /* only a press on the game itself, while the card is open and the game is in front, is a dismissal */
+        if(!DismissOutside(true,false,false,true,true,true)||DismissOutside(false,false,false,true,true,true)||DismissOutside(true,true,false,true,true,true)||
+           DismissOutside(true,false,true,false,true,true)||DismissOutside(true,false,false,true,false,true)||DismissOutside(true,false,false,true,true,false))return false;
+        {var held=new Gesture();held.Owner=lookup;held.Button=0;held.Dismiss=true;held.End();if(held.Dismiss||held.Owner!=null)return false;}
         if(!NeedsWheelHitTest(false,false,true,false,true)||!NeedsWheelHitTest(false,true,false,true,true)||
            !NeedsWheelHitTest(true,false,false,true,true)||NeedsWheelHitTest(false,false,false,true,true)||
            NeedsWheelHitTest(true,true,false,false,true)||NeedsWheelHitTest(true,true,false,true,false))return false;
