@@ -11,3 +11,10 @@
 - 桥侧全部在 no-KAG 闸门后（KrkrNoKag）：KAG 游戏永远不会打开这些线程；第一次 `MeguLit_DRAWSKIP hit` 把所选流标 hide-only（和 GDI 隐藏命中同一条路），计数挂在 hookThreads 所选流的 drawSkipped 上，冷测试写进 run.json，adapt-auto 写进 result.hide.skipped
 - 实机：Cardinal 实屏「原文可见」从 7 张里 3 张降到 10 张里 2 张，剩下 2 张是选项画面，选项本来就要保留原样画（OCR 把选项字配到了附近台词上）；第二局 7 张全隐藏、leak 1。两局跳过约 5.36 万字。row 0.511/0.4 比之前几局（0.54–0.73）低，原因没查清
 - 构建：仓库 preserved/source/lunahoook-adapted 是 ToMe 专用裁剪版（engine32 只编 Yuris.cpp、32 位不编 python），拿来编 MeguLitHook32 要在私有树里改成 aux_source_directory("engine32") 并把 python 加回 32 位；ATL 头文件在 get-atl-x64.py 的 Headers 包里，x86 脚本只下库
+
+## 阅读层跟进（分支 reader-nodraw，2026-11-26）
+
+- 源头不画后 row 掉到 0.4–0.5 的原因：字形层 hideSeen 一直是 false（游戏根本没画，自然没有"隐藏的字形"回报），overlay-placement 就判「游戏自己画」，发 visible，阅读层加 megulit-place-game-drawn 只画中文。修法：HookNative.drawSkipping()（所选流 drawSkipped>0 且在隐藏模式）经 gal-native 传给 placement，字形行在这种情况下走 fallback，阅读层自己画日文。注意 Ctrl 快进后流会换成 DrawText 自身的流（538f14:0:90，只读、hideOnly=false、hideTrying），只看 hideOnly 会漏，所以条件用 drawSkipped
+- 阅读层卡死的原因：Ctrl 快进时钩子一次吐 3996 字，页面上 8000 个 char-token。interaction.js 的命中区 report 每次 DOM 变化都在微任务里跑一遍，每次读每个 token 的样式和盒子（约 110 ms），打字机每帧变一次 → 页面被 report 占满，Cardinal 取样 15 s 超时。CPU Profiler 在这种状态下 Profiler.stop 也拿不回来；能用的办法是 Debugger.enable + 定时 Debugger.pause 取调用栈（paused 事件里的 callFrames），采到的几乎全是 report/textBoxes
+- 修法：report 花了 >12 ms，下一次推迟它耗时的 3 倍（report 最多占约 1/4 时间），正常页面（<12 ms）照旧立即报。只推迟不丢：最后一次变化一定会报
+- 回放验证：r2 磁带 total 6 → 9.33、row 6 → 9.33、不再 unresponsive；game-drawn 样本 317 → 22（剩下的都在第一句 drawSkipped 还没上报之前的预热段）；r1 磁带 row 5.11 → 9.47
