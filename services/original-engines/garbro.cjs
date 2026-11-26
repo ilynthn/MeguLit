@@ -100,10 +100,17 @@ function archives(dir){
   .filter(a=>a.legacyScript?legacy++<MAX_LEGACY_SCRIPT_PACKS:generic++<MAX_ARCHIVES).map(a=>a.file);
 }
 
-function run(args,{timeout=10*60000}={}){
+/* 2026-11-27 the "archives" pack is GARbro-Mod 1.0.2.3 (crskycode, MIT; ~61 more archive formats). The 1.5.44 release stays as the
+   hidden "archives-legacy" pack in runtime/garbro-legacy: when it is installed and the newer GameRes cannot open an archive (or does
+   not load), the same call is made once more with it. Without it everything is as before */
+const LEGACY_DIR=()=>path.join(ROOT(),'runtime','garbro-legacy');
+const legacyReady=()=>{try{return fs.existsSync(path.join(LEGACY_DIR(),'ArcFormats.dll'))&&path.resolve(LEGACY_DIR())!==path.resolve(DIR());}catch{return false;}};
+const FALLBACK=/^(?!GARBRO_TIMEOUT)./;
+async function run(args,opts={},{runner=runIn,legacy=legacyReady}={}){try{return await runner(DIR(),args,opts);}catch(e){if(!legacy()||!FALLBACK.test(String(e.message||'')))throw e;return runner(LEGACY_DIR(),args,opts);}}
+function runIn(dir,args,{timeout=10*60000}={}){
  return new Promise((resolve,reject)=>{
   const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
-  const p=spawn(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',HOST,'-GarbroDir',DIR(),...args],{windowsHide:true});
+  const p=spawn(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',HOST,'-GarbroDir',dir,...args],{windowsHide:true});
   let out='',err='';const timer=setTimeout(()=>{try{p.kill();}catch{}reject(Error('GARBRO_TIMEOUT'));},timeout);
   /* one decoder per stream: a Japanese file name split across two chunks stays whole */p.stdout.setEncoding('utf8');p.stderr.setEncoding('utf8');p.stdout.on('data',d=>out+=d);p.stderr.on('data',d=>err+=d);p.on('error',e=>{clearTimeout(timer);reject(e);});
   p.on('exit',()=>{clearTimeout(timer);const line=out.trim().split(/\r?\n/).pop()||'';let json=null;try{json=JSON.parse(line);}catch{}
@@ -135,9 +142,11 @@ function unpackSync(file,{timeout=60000}={}){
  const v=version(),bad=cachedFailure(out,v);if(bad)throw Error(bad.error||'GARBRO_FAILED');
  const tmp=out+'.part';fs.rmSync(tmp,{recursive:true,force:true});
  try{const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
-  const r=require('node:child_process').spawnSync(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',HOST,'-GarbroDir',DIR(),'-Mode','extract','-Archive',file,'-Out',tmp,'-Match',scriptPack(file)?.entries.source||MATCH,'-Limit',String(LIMIT_FILES),'-MaxBytes',String(LIMIT_BYTES)],{windowsHide:true,encoding:'utf8',timeout,maxBuffer:16<<20});
+  const call=dir=>require('node:child_process').spawnSync(ps,['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',HOST,'-GarbroDir',dir,'-Mode','extract','-Archive',file,'-Out',tmp,'-Match',scriptPack(file)?.entries.source||MATCH,'-Limit',String(LIMIT_FILES),'-MaxBytes',String(LIMIT_BYTES)],{windowsHide:true,encoding:'utf8',timeout,maxBuffer:16<<20});
+  const parse=r=>{let json=null;try{json=JSON.parse(String(r.stdout||'').trim().split(/\r?\n/).pop()||'');}catch{}return json;};
+  let r=call(DIR()),json=parse(r);
+  if(legacyReady()&&!(r.error&&/ETIMEDOUT/.test(String(r.error.code||r.error.message)))&&(!json||FALLBACK.test(String(json.error||'')))){fs.rmSync(tmp,{recursive:true,force:true});r=call(LEGACY_DIR());json=parse(r);}
   if(r.error&&/ETIMEDOUT/.test(String(r.error.code||r.error.message)))throw Error('GARBRO_TIMEOUT');
-  let json=null;try{json=JSON.parse(String(r.stdout||'').trim().split(/\r?\n/).pop()||'');}catch{}
   if(!json)throw Error('GARBRO_BAD_OUTPUT '+String(r.stderr||r.stdout||'').slice(0,300));if(json.error)throw Error(json.error);
   if(!json.files?.length)throw Error('GARBRO_NO_SCRIPTS');
   fs.rmSync(out,{recursive:true,force:true});fs.renameSync(tmp,out);

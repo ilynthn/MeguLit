@@ -7,7 +7,7 @@ const fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:chil
 
 /* E383 a mirror template may use {url} (whole GitHub URL), or {tag} and {file} (release tag and file name) for our own mirror dl.megulit.com */
 const mirrorUrl=(template,url)=>require('./download-sources.cjs').fill(typeof template==='string'?template:template.url,url);
-const MARKERS={base:'runtime/node.exe',reading:'runtime/reading/sudachidict_full/resources/system.dic',voice:'runtime/aivis/run.exe',archives:'runtime/garbro/ArcFormats.dll','runtime-dump':'runtime/runtime-dump/MeguLitDump64.dll','unity-text':'runtime/unity-text/MeguLitUnityText.dll','disc-mount':'runtime/wincdemu/WinCDEmu-4.1.exe'};
+const MARKERS={base:'runtime/node.exe',reading:'runtime/reading/sudachidict_full/resources/system.dic',voice:'runtime/aivis/run.exe',archives:'runtime/garbro/ArcFormats.dll','archives-legacy':'runtime/garbro-legacy/ArcFormats.dll','runtime-dump':'runtime/runtime-dump/MeguLitDump64.dll','unity-text':'runtime/unity-text/MeguLitUnityText.dll','disc-mount':'runtime/wincdemu/WinCDEmu-4.1.exe'};
 /* E470 "archives": GARbro (morkt, MIT) downloaded only when a game's scripts sit in an archive MeguLit's own readers cannot open.
    onDemand packs are left out of "download full", unpack into their own dest folder (the upstream release is not laid out as runtime/...)
    and can be removed again in Settings. */
@@ -86,6 +86,8 @@ class RuntimePacks{
    const to=path.resolve(this.root,pack.dest);if(!to.startsWith(path.resolve(this.root,'runtime')+path.sep))throw Error('PACK_DEST_OUTSIDE');
    const files=packFiles(pack),top=fs.readdirSync(stage),from=top.length===1&&fs.statSync(path.join(stage,top[0])).isDirectory()&&!files.some(f=>fs.existsSync(path.join(stage,f)))?path.join(stage,top[0]):stage;
    if(!files.every(f=>fs.existsSync(path.join(from,f))))throw Error('安装不完整');
+   /* 2026-11-27 a release that ships no licence text (GARbro-Mod 1.0.2.3) gets the one kept in core/runtime-licenses (licenseFile) */
+   if(pack.licenseFile){const lic=path.join(__dirname,'runtime-licenses',path.basename(String(pack.licenseFile)));if(fs.existsSync(lic)&&!fs.existsSync(path.join(from,'LICENSE.txt')))fs.copyFileSync(lic,path.join(from,'LICENSE.txt'));}
    fs.mkdirSync(path.dirname(to),{recursive:true});fs.rmSync(to+'.old',{recursive:true,force:true});if(fs.existsSync(to))fs.renameSync(to,to+'.old');fs.renameSync(from,to);fs.rmSync(to+'.old',{recursive:true,force:true});
   }else{
   const from=path.join(stage,'runtime'),to=path.join(this.root,'runtime');fs.mkdirSync(to,{recursive:true});

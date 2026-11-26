@@ -11,7 +11,10 @@ test('runtime.json lists GARbro as an on-demand pack beside base/reading/voice',
  assert.deepEqual(Object.keys(m.packs).slice(0,3),['base','reading','voice']);
  assert.ok(p,'archives pack');assert.equal(p.onDemand,true);assert.equal(p.dest,'runtime/garbro');
  assert.match(p.sha256,/^[0-9A-F]{64}$/);assert.ok(p.size>1e6&&p.unpacked>p.size);
- assert.ok(p.urls.every(u=>u.startsWith('https://github.com/morkt/GARbro/releases/download/')),'upstream release only');
+ /* 2026-11-27 GARbro-Mod 1.0.2.3 (crskycode, MIT; ships no licence text, so the pack names the one in core/runtime-licenses); 1.5.44 stays as the hidden legacy pack */
+ assert.ok(p.urls.every(u=>u.startsWith('https://github.com/crskycode/GARbro/releases/download/')),'upstream release only');
+ assert.ok(fs.existsSync(path.join(__dirname,'..','core','runtime-licenses',p.licenseFile)),'licence text kept');
+ const l=m.packs['archives-legacy'];assert.equal(l.hidden,true);assert.equal(l.dest,'runtime/garbro-legacy');assert.ok(l.urls.every(u=>u.startsWith('https://github.com/morkt/GARbro/releases/download/v1.5.44/')));
  assert.match(p.license,/MIT/);
  assert.match(fs.readFileSync(path.join(repo,'THIRD-PARTY.md'),'utf8'),/runtime\/garbro/,'THIRD-PARTY names the downloaded pack');
 });
@@ -194,3 +197,10 @@ test('live: real GARbro opens and extracts a zip through garbro-host.ps1',{skip:
  const scenes=g.engine.scenes(game);assert.deepEqual(scenes.map(s=>g.engine.parse(s.read()).lines),[['こんにちは、世界。']]);
  delete process.env.MEGULIT_GARBRO_ROOT;fs.rmSync(root,{recursive:true,force:true});
 });
+
+test('GARbro-Mod first; an archive it cannot open (or a pack that does not load) is tried once more with the 1.5.44 legacy pack, only when that is installed',async()=>{
+ const G=require('../services/original-engines/garbro.cjs');const calls=[];
+ const runner=async dir=>{calls.push(path.basename(dir));if(/garbro$/.test(dir))throw Error('UNSUPPORTED_ARCHIVE');return {format:'OLD',files:['a.ks']};};
+ assert.deepEqual(await G.run(['-Mode','list'],{},{runner,legacy:()=>true}),{format:'OLD',files:['a.ks']});assert.deepEqual(calls,['garbro','garbro-legacy']);
+ calls.length=0;await assert.rejects(G.run(['-Mode','list'],{},{runner,legacy:()=>false}),/UNSUPPORTED_ARCHIVE/);assert.deepEqual(calls,['garbro'],'no legacy pack: as before');
+ calls.length=0;await assert.rejects(G.run([],{},{runner:async d=>{calls.push(d);throw Error('GARBRO_TIMEOUT');},legacy:()=>true}),/GARBRO_TIMEOUT/);assert.equal(calls.length,1,'a timeout is not retried');});
