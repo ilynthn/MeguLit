@@ -25,5 +25,6 @@ test('cold run: Cardinal\'s tape is written to the run folder when it has dialog
  class Hook{configure(){Tape.record('hb',{type:'hookSource',text:'私も頑張らなくちゃ！',sourceName:'tTVPNativeBaseBitmap::DrawText'});}tick(){}stop(){}}
  setImmediate(()=>{child.stdout.write(JSON.stringify({type:'started',pid:7,started:'1'})+'\n');child.stdout.write(JSON.stringify({type:'window',hwnd:'9',w:10,h:10})+'\n');setTimeout(()=>child.stdout.write(JSON.stringify({type:'exited'})+'\n'),40);});
  const r=await R.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000},{spawn:()=>child,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:10});
- assert.equal(r.tapeLines,1);const rows=fs.readFileSync(path.join(dir,'run','cardinal-tape.jsonl'),'utf8').trim().split('\n').map(l=>JSON.parse(l));
+ assert.equal(r.tapeLines,1);const text=fs.readFileSync(path.join(dir,'run','cardinal-tape.jsonl'),'utf8'),rows=text.trim().split('\n').map(l=>JSON.parse(l));
+ assert.equal(rows[0].tape,'megulit.cardinal-tape','versioned header (core/cardinal/tape-file.cjs)');assert.equal(require('../core/cardinal/tape-file.cjs').parse(text).lines,1);
  assert.ok(rows.some(x=>x.hb?.type==='hookSource'&&x.hb.text==='私も頑張らなくちゃ！'));Tape.clear();});
