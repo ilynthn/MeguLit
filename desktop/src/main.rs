@@ -510,6 +510,7 @@ fn main() {
     std::panic::set_hook(Box::new(move |info| {
         let _=std::fs::create_dir_all(diagnostic_root.join("logs"));
         let _=std::fs::write(diagnostic_root.join("logs/native-startup-error.log"),info.to_string());
+        yui::mark("native-panic");
     }));
     let ui_check = std::env::args().any(|arg| arg == "--headless-ui-check");
     let headless = ui_check || std::env::args().any(|arg| arg == "--headless-check");
@@ -536,7 +537,7 @@ fn main() {
     let window_memory=window_memory::WindowMemory::new(&root);
     let state = DesktopState { root, exiting: AtomicBool::new(false), headless, main_ready: AtomicBool::new(false), splash,window_memory,reader_background:AtomicBool::new(true),home_transition:home_transition::HomeTransition::default() };
     tauri::Builder::default().manage(state).plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![yui::yui_stage, service, tray_menu::tray_menu_action, window_action, pick_executable, pick_patch_file, pick_image, pick_directories, pick_backup, set_tray_language, reader_open, reader_connect, reader_restart, read_clipboard, moji_login, kanji_go_open, kanji_go_embed, kanji_go_hide, app_exit_for_update, hot_reload])
+        .invoke_handler(tauri::generate_handler![yui::yui_stage, yui::yui_detail, service, tray_menu::tray_menu_action, window_action, pick_executable, pick_patch_file, pick_image, pick_directories, pick_backup, set_tray_language, reader_open, reader_connect, reader_restart, read_clipboard, moji_login, kanji_go_open, kanji_go_embed, kanji_go_hide, app_exit_for_update, hot_reload])
         .setup(move |app| {
             broker::attach(app.handle().clone());
             if !headless{single_instance::watch(app.handle().clone(),app.state::<DesktopState>().root.clone());}
@@ -557,6 +558,8 @@ fn main() {
                 .build()
                 .map_err(|error| {yui::mark("webview-failed");let _=std::fs::write(&stage,format!("WebView creation failed: {error:?}"));error})?;
             let _=std::fs::write(&stage,"WebView created");startup_mark(&state.root,"webview-built");
+            /* 2026-11-26 Yui: a page that never loads or a home window never shown leaves no failure of its own; record the silence */
+            if !headless{yui::expect("document",std::time::Duration::from_secs(45),"document-timeout");yui::expect("window-revealed",std::time::Duration::from_secs(120),"reveal-timeout");}
             if let Some(home)=app.get_webview_window("main"){window_policy::configure_home_frame(&home);}
             if !headless {
                 app.manage(TrayItems{language:std::sync::Mutex::new("zh".into())});
