@@ -12,7 +12,7 @@
    Records: {t, gwb|hb|m|screen}; anything else is counted as skipped. */
 const KIND='megulit.cardinal-tape',VERSION=1;
 class TapeError extends Error{constructor(code,message){super(code+': '+message);this.code=code;}}
-const isRecord=r=>r&&typeof r==='object'&&(r.hb||r.gwb||r.m||r.screen);
+const isRecord=r=>r&&typeof r==='object'&&(r.hb||r.gwb||r.m||r.screen||r.phase);
 function parse(text){
  const raw=String(text||'').split(/\r?\n/).filter(l=>l.trim());if(!raw.length)throw new TapeError('TAPE_EMPTY','the tape has no records');
  let header=null,bad=0,skipped=0,untimed=0;const rows=[];

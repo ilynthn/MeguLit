@@ -76,7 +76,7 @@ const GWB=new Set(['ready','bound','layout','readerInput','hookChoiceBoxes','art
    options the hook did not turn into a choice stay unoffered and core/cardinal/checks.cjs choices() fails them as unseen by the player */
 function screenRow(r){const s=r.screen;if(!s||s.type!=='choices'||!Array.isArray(s.texts))return null;const texts=s.texts.map(x=>String(x??'').slice(0,400)).filter(x=>x.trim()).slice(0,12);
  if(!texts.length)return null;return {t:r.t,screenChoice:{texts,...(Number.isFinite(s.until)&&s.until>=r.t?{until:s.until}:{})}};}
-const rowOf=r=>r&&(r.hb?{t:r.t,hb:r.hb}:r.gwb?{t:r.t,gwb:r.gwb}:r.screen?screenRow(r):r.m&&typeof r.m.type==='string'?(GWB.has(r.m.type)?{t:r.t,gwb:r.m}:{t:r.t,hb:r.m}):null);
+const rowOf=r=>r&&(r.hb?{t:r.t,hb:r.hb}:r.gwb?{t:r.t,gwb:r.gwb}:r.screen?screenRow(r):r.phase&&typeof r.phase.name==='string'?{t:r.t,phase:r.phase.name.slice(0,40)}:r.m&&typeof r.m.type==='string'?(GWB.has(r.m.type)?{t:r.t,gwb:r.m}:{t:r.t,hb:r.m}):null);
 /* a tape -> steps. game: {pid, started, hwnd, sha, title, process, exe, layout, stream} for the attach when the tape has none (an older
    recording of the HookBridge alone); every hookSource is a dialogue line (line = its order, text = its text) */
 function fromTape(rows,game){const steps=[];let n=0;const list=(rows||[]).map(rowOf).filter(r=>r&&Number.isFinite(r.t)).sort((a,b)=>a.t-b.t);if(!list.length)return steps;

@@ -27,11 +27,12 @@ function explain(result){const d=result?.detail||{},sc=result?.scores||{},ap=res
   out[k]={points,lost:points==null?null:Math.round((10-points)*100)/100,factors:Object.fromEntries(factors[k]),items:points===10?[]:why[k]};}
  if(result?.unscorable)out.unscorable={...result.unscorable};
  if(d.model)out.model={name:d.model.name,label:d.model.label,bad:d.model.bad};
+ if(result?.fastForward)out.fastForward={left:result.fastForward.droppedLines+' lines, '+result.fastForward.droppedSamples+' samples in '+result.fastForward.spans+' Ctrl fast-forward span(s) not scored for row / stable / clean / pair / clear',why:result.fastForward.why};
  if(result?.warmup)out.warmup={left:result.warmup.droppedSamples+' samples, '+result.warmup.droppedLines+' lines before '+result.warmup.until+' ms (start-up, not scored)'};
  return out;}
 /* the lines a terminal or a report shows: one per key that lost points, its factors, then its first samples */
 function lines(result,{per=3}={}){const e=explain(result),out=[];
- for(const [k,v] of Object.entries(e)){if(k==='warmup'){out.push('warmup: '+v.left);continue;}if(k==='unscorable'){out.unshift('unscorable: '+v.text);continue;}if(k==='model'){out.push('model: '+v.label+' ('+v.name+')'+(v.bad.length?' — '+v.bad.slice(0,3).join(' | '):''));continue;}if(v.points==null||v.points===10)continue;
+ for(const [k,v] of Object.entries(e)){if(k==='warmup'){out.push('warmup: '+v.left);continue;}if(k==='unscorable'){out.unshift('unscorable: '+v.text);continue;}if(k==='fastForward'){out.push('fast-forward: '+v.left+' ('+v.why+')');continue;}if(k==='model'){out.push('model: '+v.label+' ('+v.name+')'+(v.bad.length?' — '+v.bad.slice(0,3).join(' | '):''));continue;}if(v.points==null||v.points===10)continue;
   out.push(k+' '+v.points+'/10 (-'+v.lost+') '+Object.entries(v.factors).map(([a,b])=>a+' '+b).join(', '));
   for(const i of v.items.slice(0,per))out.push('  '+(i.line!=null?'line '+i.line+' ':'')+(i.at!=null?'@'+i.at+'ms ':'')+i.reason.slice(0,200));}
  return out;}

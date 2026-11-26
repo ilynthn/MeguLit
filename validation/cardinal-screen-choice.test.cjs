@@ -10,13 +10,13 @@ const run={phases:[{name:'fast',at:'2026-11-26T08:08:45.709Z',lines:60},{name:'c
  ocrChoices:['・・・・・・本当は、おしい方なのかしら','・本当に、几帳面な方なのね']};
 
 test('a cold-test run gives one screen choice row from its choice phases and OCR options',()=>{
- const rows=R.screenRows(run);assert.equal(rows.length,1);assert.equal(rows[0].t,Date.parse('2026-11-26T08:09:30.153Z'));
+ const rows=R.choiceRows(run);assert.equal(rows.length,1);assert.equal(rows[0].t,Date.parse('2026-11-26T08:09:30.153Z'));
  assert.deepEqual(rows[0].screen.texts,run.ocrChoices);assert.equal(rows[0].screen.until,Date.parse('2026-11-26T08:09:39.606Z'));
- assert.deepEqual(R.screenRows({...run,ocrChoices:[]}),[]);assert.deepEqual(R.screenRows({ocrChoices:['a','b']}),[],'no choice phase, no row');
+ assert.deepEqual(R.choiceRows({...run,ocrChoices:[]}),[]);assert.equal(R.screenRows(run).length,4,'the choice row and the three phases');assert.deepEqual(R.choiceRows({ocrChoices:['a','b']}),[],'no choice phase, no row');
 });
 
 test('a tape keeps screen rows as screenChoice steps in time order and drops malformed ones',()=>{
- const rows=[{t:1000,hb:{type:'hookSource',text:'一行目です'}},...R.screenRows(run).map(r=>({...r,t:1500})),{t:1600,screen:{type:'choices',texts:[]}},{t:1700,screen:{type:'other'}},{t:2000,hb:{type:'hookSource',text:'二行目です'}}];
+ const rows=[{t:1000,hb:{type:'hookSource',text:'一行目です'}},...R.choiceRows(run).map(r=>({...r,t:1500})),{t:1600,screen:{type:'choices',texts:[]}},{t:1700,screen:{type:'other'}},{t:2000,hb:{type:'hookSource',text:'二行目です'}}];
  const steps=L.fromTape(rows,{});const sc=steps.filter(s=>s.screenChoice);assert.equal(sc.length,1);assert.equal(sc[0].t,1500);
  const i=steps.indexOf(sc[0]);assert.equal(steps[i-1].hb?.text,'一行目です');assert.equal(steps[i+1].hb?.text,'二行目です');
 });
