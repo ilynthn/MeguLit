@@ -9,10 +9,11 @@
    人気 (ひとけ): のない / の無い / の少ない / の絶えた is the presence of people (人気のない廊下); 人気がない stays にんき (not popular).
    Only these patterns: a rule that guesses more turns right readings wrong.
 
-   Phrases (user 2026-11-26: 何時の間にか annotated なんじのあいだ, it is いつのまにか). SudachiDict Full 20261015 cuts 何時の間にか
-   into 何時 の 間 に か and reads 間 アイダ (and 何時 イツ or ナンドキ by the words before it); いつの間に is one JMdict word only
-   when it is written in kana and followed by more than っ. The phrase gives each token its own part of the reading, so the
-   ruby lands on its own kanji (何時 いつ, 間 ま).
+   Phrases (user 2026-11-26: 何時の間にか annotated なんじのあいだ, it is いつのまにか) are JMdict words; LocalLearning.dictionaryWords
+   joins the tokens of any JMdict word before this runs (何時の間にか, いつの間にっ, 一寸 from 一 + 寸), so no phrase is listed here.
+   何 is なに before a particle that does not start with t / d / n (何を, 何が, 何より, 何やら, 何かしら; SudachiDict: なん); なん is only
+   said before those sounds (何で, 何だ, 何の, 何と) and in 何か. 言う read ゆう by SudachiDict is いう, the reading JMdict lists first
+   (って言う, と言うか); ゆう is how it is said, and a writer who means ゆう writes it in kana.
    何時 alone is いつ (when) or なんじ (what time); SudachiDict reads it イツ or ナンドキ, which is never the clock time of today.
    It is なんじ only where the time of day is plain: 今(、/は/って) 何時, 何日の / 明日の 何時, 何時？ / 何時だ。 / 何時だと思ってる,
    何時くらい, 何時に + anything but なる / も / は (何時に寝た, but 何時になったら is いつ), 何時の便 / 電車, 何時から何時まで.
@@ -27,7 +28,6 @@ const kanaOf = s => [...String(s || '')].map(c => { const n = c.codePointAt(0); 
 const touches = (a, b) => !!a && !!b && (!Number.isInteger(a.end) || !Number.isInteger(b.start) || a.end === b.start);
 const surf = t => String(t?.surface || '');
 const fixed = t => !t || typeof t.surface !== 'string' || t.readingSource === 'name' || t.readingSource === 'number' || t.readingSource === 'game';
-const hasKanji = s => /[\p{Script=Han}々]/u.test(s);
 
 const RULES = [
   { surface: '生', from: 'なま', to: 'せい', when: (prev, next, after) => {
@@ -43,11 +43,8 @@ const RULES = [
   { surface: '矢張', from: 'やばり', to: 'やはり', alone: true, when: () => true },
   { surface: '一寸', from: 'ちょっと', to: 'いっすん', when: (prev, next, after) => surf(next) === 'たり' || (surf(next) === 'の' && /^(?:虫|光陰|先|身)/.test(surf(after))) },
   { surface: '出来', from: 'しゅったい', to: 'でき', when: (prev, next) => /^[なずまたてるれよそ]/.test(surf(next)) },
-];
-
-/* consecutive tokens by surface, and the reading each one takes (null keeps it) */
-const PHRASES = [
-  { match: [/^(?:何時|いつ)$/, /^の$/, /^間$/, /^に/], read: ['いつ', null, 'ま', null] },
+  { surface: '何', from: 'なん', to: 'なに', when: (prev, next) => ['助詞', '助動詞'].includes(next?.grammar?.[0]) && /^[\p{Script=Hiragana}]/u.test(surf(next)) && !/^[たちつてとだぢづでどなにぬねのん]/.test(surf(next)) && surf(next) !== 'か' },
+  { surface: '言う', from: 'ゆう', to: 'いう', alone: true, when: () => true },
 ];
 
 const DAYS = new Set(['何日', '明日', '今日', '昨日', '明後日', '今夜', '今晩']);
@@ -84,15 +81,6 @@ function contextReadings(tokens) {
   const out = tokens.slice();
   /* the UniDic accent belonged to the old reading; speech estimates the new one */
   const set = (i, reading) => { if (kanaOf(out[i].reading) !== reading) out[i] = { ...out[i], reading, readingSource: 'context', pitch: [], lexeme: null, reading_ambiguous: false }; };
-  /* a phrase settles every kanji in it, also the ones already read right, so the dictionary steps after this keep them */
-  const keep = i => { if (out[i].readingSource !== 'context') out[i] = { ...out[i], readingSource: 'context', reading_ambiguous: false }; };
-  for (let i = 0; i < out.length; i++) {
-    for (const phrase of PHRASES) {
-      const part = out.slice(i, i + phrase.match.length);
-      if (part.length < phrase.match.length || part.some(fixed) || part.some((t, k) => k && !touches(part[k - 1], t)) || !phrase.match.every((m, k) => m.test(part[k].surface))) continue;
-      phrase.read.forEach((reading, k) => { if (reading && hasKanji(part[k].surface)) { set(i + k, reading); keep(i + k); } });
-    }
-  }
   for (let i = 0; i < out.length; i++) {
     const token = out[i];
     if (fixed(token) || token.readingSource === 'context') continue;
