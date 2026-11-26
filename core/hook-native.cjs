@@ -1313,8 +1313,12 @@ class HookNative{
   if(n<6)return '';for(const [line,i] of H.at)if(H.n-i>=PAST_LINE_AGE&&line.length>k.length&&line.includes(k))return 'part';return '';}
  /* the art scan read two or more rows with a date (save slots: native PageLocator DateRows) while no line came for 1.5 s: a save or
     load screen; the line comes back when the dates leave the picture (the scan reads none, or stops for a new line) */
- artScreen(m){try{const n=Number(m?.dates)||0,P=this.pastScreen;
-  if(n>=2){if(P?.hidden||this.skipKey||!this.lastSource||this.now()-(this.lastSourceAt||0)<1500)return;if(P)clearTimeout(P.timer);
+ artScreen(m){try{const n=Number(m?.dates)||0,P=this.pastScreen;clearTimeout(this.artRecheck);this.artRecheck=null;
+  if(n>=2){if(P?.hidden||this.skipKey||!this.lastSource)return;
+   /* Codex #1267: PageLocator reports the dates only when their count changes, so a screen read within 1.5 s of the last line is
+      checked again once that time is up, unless the picture changed (another report) or a line came meanwhile */
+   const since=this.now()-(this.lastSourceAt||0);if(since<1500){const at=this.lastSourceAt;this.artRecheck=setTimeout(()=>{this.artRecheck=null;if(this.lastSourceAt===at)this.artScreen(m);},1500-since);this.artRecheck.unref?.();return;}
+   if(P)clearTimeout(P.timer);
    this.pastScreen={seq:this.state?.hookSequence,at:this.now(),hidden:true,by:'dates'};this.trace('save or load screen: '+n+' rows with a date, reader line hidden');this.clearChoices?.('save or load screen');this.emit({type:'hookDialog',engine:'pastlines',visible:false});return;}
   if(P?.hidden&&P.by==='dates'){this.pastScreen=null;this.trace('save or load screen left: no dates on the picture');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}}catch{}}
  pastScreenAux(raw){try{

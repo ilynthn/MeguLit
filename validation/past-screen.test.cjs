@@ -54,10 +54,20 @@ test('the current line drawn again ends the hide (the screen was closed without 
 test('rows with save dates hide the line while they stay on the picture',()=>{
  const r=rig();try{
   r.say(2000,NOW);
-  r.run(2500);r.h.artScreen({type:'artScreen',dates:3});assert.deepEqual(r.dialog(),[],'not while the line has just come');
-  r.run(6000);r.h.artScreen({type:'artScreen',dates:1});assert.deepEqual(r.dialog(),[],'one date is a HUD clock, not slots');
+  r.run(2500);r.h.artScreen({type:'artScreen',dates:3});r.h.artScreen({type:'artScreen',dates:1});r.run(6000);
+  assert.deepEqual(r.dialog(),[],'one date is a HUD clock, not slots; it also cancels the pending recheck');
   r.h.artScreen({type:'artScreen',dates:3});assert.deepEqual(r.dialog(),[false]);
   r.h.artScreen({type:'artScreen',dates:0});assert.deepEqual(r.dialog(),[false,true]);
+ }finally{r.done();}});
+
+test('dates read within 1.5 s of the line are checked again when that time is up; a new line meanwhile cancels (Codex #1267)',()=>{
+ const r=rig();try{
+  r.say(2000,NOW);
+  r.run(2500);r.h.artScreen({type:'artScreen',dates:3});assert.deepEqual(r.dialog(),[],'not while the line has just come');
+  r.run(3600);assert.deepEqual(r.dialog(),[false],'the same dated screen, never reported again, hides the line after the grace period');
+  r.h.artScreen({type:'artScreen',dates:0});assert.deepEqual(r.dialog(),[false,true]);
+  r.say(8000,'「ここは……」');r.run(8200);r.h.artScreen({type:'artScreen',dates:3});r.say(8800,'「次の台詞だ」');r.run(12000);
+  assert.deepEqual(r.dialog(),[false,true],'a line that came during the grace period drops the recheck');
  }finally{r.done();}});
 
 test('the current line drawn again before the hide fires cancels the pending hide (Codex #1267)',()=>{
