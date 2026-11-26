@@ -94,8 +94,11 @@ function buildHookBridge(root){const exe=path.join(root,'native','HookBridge.exe
  for(const f of BRIDGE_SOURCES){h.update(f+'\0');try{h.update(fs.readFileSync(path.join(REPO,'native',f)));}catch{}}
  const sum=h.digest('hex');let old='';try{old=fs.readFileSync(mark,'utf8');}catch{}
  if(old===sum&&fs.existsSync(exe))return exe;
- const r=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(REPO,'native','Build-HookBridge.ps1'),'-OutputPath',exe],
+ /* about 8.7 s (Roslyn + the bridge's --self-test), only when a source changed; otherwise the copy is reused (prepareApp ~30 ms).
+    One retry: the previous build's self-test process can still hold the output file for a moment */
+ const build=()=>spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(REPO,'native','Build-HookBridge.ps1'),'-OutputPath',exe],
   {encoding:'utf8',windowsHide:true,timeout:600000,maxBuffer:64<<20,env:{...process.env,MEGULIT_BUILD_TOOLS:process.env.MEGULIT_BUILD_TOOLS||'E:\\Apps\\build-tools'}});
+ let r=build();if(r.status!==0){Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,2000);r=build();}
  if(r.status!==0)throw Error('HookBridge build failed: '+String(r.stderr||r.stdout||r.error?.message||'').slice(-600));
  fs.writeFileSync(mark,sum);return exe;}
 
