@@ -510,6 +510,8 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
   if(KrkrSplitOptions("……本当は、お優しい方なのかしら……本当に、几帳面な方なのね")!="……本当は、お優しい方なのかしら\n……本当に、几帳面な方なのね"||KrkrSplitOptions("「はい」と言った。")!="「はい」と言った。"||KrkrSplitOptions("クレア")!="クレア"||KrkrSplitOptions("いる。海に面しているため、貿易事業")!="いる。海に面しているため、貿易事業")return false;
   {var tpx=new ThreadParam{processId=1,addr=0x9999,ctx=7,ctx2=1};if(KrkrJoinPiece("c","KiriKiri2",tpx,"「",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"こんな",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"ことが？」",0)!="「こんなことが？」"||KrkrJoinPiece("c","KiriKiri2",tpx,"一文。",0)!="一文。"||KrkrJoinPiece("c","KiriKiri2",tpx,"途中まで",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"「次の行",0)!="途中まで"||KrkrJoinPiece("c","KiriKiri2",tpx,"です」",0)!="「次の行です」"||UndoubleChars("ここ",2)!="こ")return false;}
   if(UndoubleChars("私私もも頑頑張張るる")!="私も頑張る"||UndoubleChars("はいはい")!="はいはい"||UndoubleChars("クレレアア")!="クレレアア")return false;
+  if(KrkrUndouble("selftest-once","おお")!="おお"||KrkrUndouble("selftest-once","全身に残る眠気")!="全身に残る眠気"||KrkrUndouble("selftest-once","……")!="……")return false;
+  if(KrkrUndouble("selftest-twice","私私もも頑頑張張るる")!="私も頑張る"||KrkrUndouble("selftest-twice","おお")!="お")return false;
   KrkrWaitKagAt=0;KrkrKagSeen=false;if(!AutoSkipped(KrkrDrawText))return false;KrkrKagStatus("wait kag");if(!AutoSkipped(KrkrDrawText))return false;/* not yet 20 s */
   KrkrWaitKagAt=DateTime.UtcNow.AddSeconds(-30).Ticks;if(AutoSkipped(KrkrDrawText)||!AutoSkipped("GDI TextOutW")||!AutoSkipped("KiriKiri name"))return false;
   KrkrKagStatus("ok layers=2");if(!AutoSkipped(KrkrDrawText))return false;KrkrKagStatus("wait kag");return AutoSkipped(KrkrDrawText);/* a KAG game stays a KAG game */
@@ -638,6 +640,15 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
    unclosed one, so a quote running over two pages reaches the reader page by page, KrkrJoinMs late */
  internal static bool JoinEnd(string t){if(!SentenceEnd(t))return false;int a=0,b=0,c=0;foreach(char ch in t??""){if(ch=='「')a++;else if(ch=='」')a--;else if(ch=='『')b++;else if(ch=='』')b--;else if(ch=='（')c++;else if(ch=='）')c--;}return a<=0&&b<=0&&c<=0;}
 /* closing punctuation only: a typed 「― or 「… is a pause inside the line, not its end */static bool SentenceEnd(string t){t=(t??"").TrimEnd();return t.Length>0&&"。！？!?」』）)".IndexOf(t[t.Length-1])>=0;}
+ /* 2026-11-27 (MeguLit-Adapter, オルフレール on the visible desktop: 「おお、クレア」 came out 「お、クレア」, 「……」 as 「…」, 「いいえ」 as
+    「いえ」, Cardinal row 0.95 -> 0.64): a stream only counts as drawing every glyph twice once a piece of four or more characters
+    proved it (all pairs, or the doubled typewriter prefix); a piece that long which is not doubled proves the opposite. A two-character
+    piece ("おお", "……") is halved only on a stream proven doubled. -> the text once */
+ static readonly Dictionary<string,bool> KrkrDoubled=new Dictionary<string,bool>();
+ internal static string KrkrUndouble(string key,string text){if(text==null)return text;bool known,doubled;lock(KrkrDoubled){known=KrkrDoubled.TryGetValue(key??"",out doubled);}
+  string all=UndoubleChars(text,4),prefix=all==text?UndoublePrefix(text):all;
+  if(text.Length>=4){bool d=prefix!=text;lock(KrkrDoubled){KrkrDoubled[key??""]=d;}return prefix;}
+  if(known&&doubled)return UndoubleChars(text,2);return text;}
  internal static string UndoubleChars(string text,int min=4){if(text==null||text.Length<min||text.Length<2||text.Length%2!=0)return text;for(int i=0;i<text.Length;i+=2)if(text[i]!=text[i+1])return text;var sb=new System.Text.StringBuilder(text.Length/2);for(int i=0;i<text.Length;i+=2)sb.Append(text[i]);return sb.ToString();}
  // SACT2 uses one hook for sprite text. The map label can speak twice before the
  // first named dialogue line and take the selected context with it.
@@ -694,7 +705,7 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
  /* E500 the game window's own title, read at most every 2 s: a stream that carries it is not choice text */ static string CaptionText="";static DateTime CaptionAt=DateTime.MinValue;static string GameCaption(){if((DateTime.UtcNow-CaptionAt).TotalSeconds<2)return CaptionText;CaptionAt=DateTime.UtcNow;try{using(var p=System.Diagnostics.Process.GetProcessById((int)Pid))CaptionText=p.MainWindowTitle??"";}catch{CaptionText="";}return CaptionText;}
  static void OutputFrame(string code,string name,ThreadParam tp,string text,long probe){if(tp.processId!=Pid||String.IsNullOrWhiteSpace(text))return;/* 2026-11-12 a file path the game opens is never text to read (EmbedTextPolicy.StripPaths) */{string kept=EmbedTextPolicy.StripPaths(text);if(kept.Length!=text.Length){Diagnostic("paths dropped "+name+" chars="+(text.Length-kept.Length));text=kept;if(String.IsNullOrWhiteSpace(text))return;}}if(!AcceptProbeFrame(probe,tp,text))return;
   if(String.Equals(code,Sact2TextHook,StringComparison.OrdinalIgnoreCase))FollowSact2Speech(tp,text);
-  if(KrkrRank(name)>0&&KrkrNoKag()){string once=UndoubleChars(text,2);if(once==text)once=UndoublePrefix(text);text=once;{bool locked;lock(Gate){locked=DrawBodySeen(tp.Key(),text);}if(locked)FlushEmbedSync();}
+  if(KrkrRank(name)>0&&KrkrNoKag()){string once=KrkrUndouble(tp.Key(),text);text=once;{bool locked;lock(Gate){locked=DrawBodySeen(tp.Key(),text);}if(locked)FlushEmbedSync();}
    if(!KrkrJoinFlush){string whole=KrkrJoinPiece(code,name,tp,text,probe);if(whole==null)return;text=whole;}
    /* the stream that carries whole lines takes the selection: a complete sentence there, and the selected stream ranks lower or has
       had no complete line for 10 s (a name field context of the same hook). Same rank never moves twice within 10 s */
