@@ -58,6 +58,13 @@ static class ColdDesk{
  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h,out uint pid);
  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h,out RECT r);
  [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr h,out RECT r);
+ [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr h,ref POINT p);
+ [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr h);
+ [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr h,IntPtr dc);
+ [DllImport("gdi32.dll")] static extern bool BitBlt(IntPtr dst,int x,int y,int w,int h,IntPtr src,int sx,int sy,int rop);
+ /* 2026-11-27 (MeguLit-Adapter, ISLAND): on the user's own desktop (--visible) a Direct3D window PrintWindow cannot read is taken from
+    the composed screen instead (BitBlt of the screen DC at the client area); on the hidden desktop nothing changes */
+ static bool OnUserDesktop;
  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,StringBuilder s,int n);
@@ -90,7 +97,7 @@ static class ColdDesk{
 
  static int Main(string[] a){
   if(a.Length<1){/* --visible (tools/adapt-auto.cjs --foreground, owner away): the game on the user's own desktop, still muted and in the job */Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID] [--ignore-input] [--visible]");return 2;}
-  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1)return Array.IndexOf(a,"--visible")>=2?Run(a,"Default"):Run(a);}
+  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1){if(Array.IndexOf(a,"--visible")>=2){OnUserDesktop=true;return Run(a,"Default");}return Run(a);}}
   catch(Exception e){Emit("{\"type\":\"ended\",\"why\":"+Q("error "+e.Message)+"}");return 1;}
   return 2;}
 
@@ -190,12 +197,15 @@ static class ColdDesk{
  /* the client area only (PW_CLIENTONLY | PW_RENDERFULLCONTENT), scaled to maxWidth, JPEG q70; black = nothing drawn */
  static void Shot(int maxW,string file){if(GameWin==IntPtr.Zero){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"no window\"}");return;}RECT r;GetClientRect(GameWin,out r);int w=r.R-r.L,h=r.B-r.T;if(w<16||h<16){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"tiny\"}");return;}
   using(var b=new Bitmap(w,h,PixelFormat.Format32bppArgb)){using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{PrintWindow(GameWin,dc,3);}finally{g.ReleaseHdc(dc);}}
-   double sum=0,sq=0;int n=0;for(int yy=0;yy<h;yy+=Math.Max(1,h/48))for(int xx=0;xx<w;xx+=Math.Max(1,w/64)){var c=b.GetPixel(xx,yy);double v=(c.R+c.G+c.B)/3.0;sum+=v;sq+=v*v;n++;}
-   double mean=n>0?sum/n:0,sd=n>0?Math.Sqrt(Math.Max(0,sq/n-mean*mean)):0;bool black=mean<10&&sd<6;
+   bool black=IsBlack(b,w,h),screen=false;
+   if(black&&OnUserDesktop){var p=new POINT();ClientToScreen(GameWin,ref p);IntPtr sdc=GetDC(IntPtr.Zero);try{using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{BitBlt(dc,0,0,w,h,sdc,p.X,p.Y,0x00CC0020);}finally{g.ReleaseHdc(dc);}}}finally{ReleaseDC(IntPtr.Zero,sdc);}black=IsBlack(b,w,h);screen=true;}
    int tw=Math.Min(w,Math.Max(160,maxW)),th=(int)Math.Round(h*(double)tw/w);
    using(var s=new Bitmap(tw,th)){using(var g=Graphics.FromImage(s)){g.InterpolationMode=System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;g.DrawImage(b,0,0,tw,th);}
     var ep=new EncoderParameters(1);ep.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,70L);Directory.CreateDirectory(Path.GetDirectoryName(file));/* .png: lossless (the cold OCR reads outlined button labels JPEG blurs) */if(file.EndsWith(".png",StringComparison.OrdinalIgnoreCase))s.Save(file,ImageFormat.Png);else s.Save(file,Jpeg(),ep);}
-   Emit("{\"type\":\"shot\",\"ok\":true,\"path\":"+Q(file)+",\"w\":"+tw+",\"h\":"+th+",\"black\":"+(black?"true":"false")+"}");}}
+   Emit("{\"type\":\"shot\",\"ok\":true,\"path\":"+Q(file)+",\"w\":"+tw+",\"h\":"+th+",\"black\":"+(black?"true":"false")+(screen?",\"source\":\"screen\"":"")+"}");}}
+ /* black = nothing drawn: mean and spread of a 64 x 48 sample of the picture both tiny */
+ static bool IsBlack(Bitmap b,int w,int h){double sum=0,sq=0;int n=0;for(int yy=0;yy<h;yy+=Math.Max(1,h/48))for(int xx=0;xx<w;xx+=Math.Max(1,w/64)){var c=b.GetPixel(xx,yy);double v=(c.R+c.G+c.B)/3.0;sum+=v;sq+=v*v;n++;}
+  double mean=n>0?sum/n:0,sd=n>0?Math.Sqrt(Math.Max(0,sq/n-mean*mean)):0;return mean<10&&sd<6;}
 
  static bool StopUnassigned(IntPtr process){try{TerminateProcess(process,1);return WaitForSingleObject(process,4000)==0;}catch{return false;}}
  internal static int Run(string[] a,string desktop=DESK,string childArgument=null,Func<IntPtr,int,bool> observe=null,SuspendedLaunch restricted=null,bool readerOnly=false){string exe=Path.GetFullPath(a[1]);int seconds=600,parentPid=0;for(int i=2;i<a.Length-1;i++){if(a[i]=="--seconds")seconds=Math.Max(10,int.Parse(a[i+1]));if(a[i]=="--parent-pid")parentPid=int.Parse(a[i+1]);}

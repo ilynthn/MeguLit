@@ -15,7 +15,7 @@
            advance  lines are coming: Ctrl held (fast forward), click + Enter in turn, a choice takes its first option
            end      enough lines, the time is up, nothing happens any more, or the picture stays black */
 const VK={enter:0x0d,esc:0x1b,ctrl:0x11,space:0x20,down:0x28};
-const START=/はじめから|始めから|最初から|ニューゲーム|new\s*game|^start$|^スタート$|ゲーム開始|^開始$|^play$|^begin$/i;
+const START=/はじめから|始めから|最初から|ニューゲーム|new\s*game|^start$|^スタート$|ゲーム開始|^開始$|^play$|^begin$|新游戏|新遊戲|开始游戏|開始遊戲/i;
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;

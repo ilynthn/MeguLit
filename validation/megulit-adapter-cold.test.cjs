@@ -290,3 +290,8 @@ test('ocrItems: a title menu with no start word gets its topmost row (ファタ�
  assert.deepEqual(R.ocrItems([row('システム設定',400),row('おまけ',450),row('終了',500)]),[]);
  assert.deepEqual(R.ocrItems([row('今日はいい天気',400,100),row('だね',400,900)]),[],'not a column');
  assert.equal(R.ocrItems([row('はじめから',400),row('つづきから',450)])[0].ocr,'はじめから','a start word wins as before');});
+
+test('ocrItems / driver: a Chinese title menu starts (千恋＊万花 Steam copy in Simplified Chinese: 新游戏, read by Japanese OCR as *新游双)',()=>{
+ const R=require('../services/cold-test-run.cjs');const row=(text,y)=>({text,x:600,y,w:180,h:30});
+ assert.equal(R.ocrItems([row('*新游双',400),row('读取存档',450)])[0]?.text,'はじめから');assert.equal(R.ocrItems([row('新游戏',400)])[0]?.text,'はじめから');
+ assert.deepEqual(R.ocrItems([row('新游',400)]).filter(i=>!i.guessed),[],'two characters are not enough');});

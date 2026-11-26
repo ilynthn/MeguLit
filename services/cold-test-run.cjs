@@ -26,7 +26,8 @@ function menuItem(raw,win){let rec=null;try{rec=require('../core/text-paths.cjs'
    goes through Windows OCR (services/cold-ocr.ps1, Japanese); a line that reads like 「はじめから / New Game」 (OCR is rough on
    decorated fonts: は し め 力 、 ら) becomes a 'button' item for the driver; 「つづきから / ロード」 lines never do */
 const LOCATE_TRIES=3;
-const OCR_CONFIRM=/^(決定|[OＯ][KＫ])$/i,OCR_EVERY=20000,OCR_START=/^[はハ][しじシジ]め|^[始最]初から|new.?game|ニューゲ|ゲーム開始|^start$/i,OCR_NOT=/[続つ][づきけ]|ロード|load|continue|コンティ/i;
+const OCR_CONFIRM=/^(決定|[OＯ][KＫ])$/i,OCR_EVERY=20000,OCR_START=/^[はハ][しじシジ]め|^[始最]初から|new.?game|ニューゲ|ゲーム開始|^start$|^\*?新[游遊][戏戲成双]|^开始游戏|^開始遊戲/i,OCR_NOT=/[続つ][づきけ]|ロード|load|continue|コンティ/i;
+/* 2026-11-27 a Chinese title menu (千恋＊万花 Steam copy left in Simplified Chinese: 「新游戏」, Japanese OCR reads 新游成 / *新游双) */
 /* a name entry (オルフレール: 「主人公の名前を入力してください」, buttons 決定 / デフォルト / タイトルへ) keeps the default name: its 「決定」
    is read, or placed one button step left of 「デフォルト」 on the same row (step = distance to 「タイトルへ」, else twice the label
    width: decorated 「決 定」 is the one label OCR never reads). 「はい」 only under 「よろしいですか」 */
