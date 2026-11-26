@@ -9,5 +9,5 @@
 - 读正文的 KiriKiri2（GetTextExtentPoint32W，量宽）在 DrawText 被跳过后照样出字，阅读不断；KiriKiri1/DrawText 线程也照样出文本（钩子在函数入口、先出文本再换空）
 - eax 图层：一层主消息层反复出现，另有大量一次性的逐字图层，所以图层锁只是补充，主力是桥按「DrawText 片段属于所选正文」锁的线程
 - 桥侧全部在 no-KAG 闸门后（KrkrNoKag）：KAG 游戏永远不会打开这些线程；第一次 `MeguLit_DRAWSKIP hit` 把所选流标 hide-only（和 GDI 隐藏命中同一条路），计数挂在 hookThreads 所选流的 drawSkipped 上，冷测试写进 run.json，adapt-auto 写进 result.hide.skipped
-- 实机：Cardinal 实屏「原文可见」从 7 张里 3 张降到 10 张里 2 张，剩下 2 张是选项画面，选项本来就要保留原样画（OCR 把选项字配到了附近台词上）
+- 实机：Cardinal 实屏「原文可见」从 7 张里 3 张降到 10 张里 2 张，剩下 2 张是选项画面，选项本来就要保留原样画（OCR 把选项字配到了附近台词上）；第二局 7 张全隐藏、leak 1。两局跳过约 5.36 万字。row 0.511/0.4 比之前几局（0.54–0.73）低，原因没查清
 - 构建：仓库 preserved/source/lunahoook-adapted 是 ToMe 专用裁剪版（engine32 只编 Yuris.cpp、32 位不编 python），拿来编 MeguLitHook32 要在私有树里改成 aux_source_directory("engine32") 并把 python 加回 32 位；ATL 头文件在 get-atl-x64.py 的 Headers 包里，x86 脚本只下库
