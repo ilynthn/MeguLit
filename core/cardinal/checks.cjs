@@ -124,6 +124,16 @@ function clears(run,t,ls){t=opts(t);const name=run.name||'run',steps=run.steps||
   if(hit){stale++;if(bad.length<6)bad.push(name+' line '+cur.line+' still shows 「'+ls[hit.j].text.slice(0,16)+'」 at y '+hit.y);}}
  return {bad,n,stale};}
 
+/* 2026-11-26 (オルフレール cold run: both options ruled not clickable) where an option's click goes. Two designs, both clickable:
+     MeguLit takes it   the option takes pointer input and lies in a capturing hit region (GalWindowBridge passes it to the reader)
+     the game takes it  web/reader/modules/choice-overlay.js: ruby and translation over the game's own option, pointer-events none, its
+                        box sent as a pass region (web/reader/modules/interaction.js, 2026-11-15) so the window lets the click
+                        through to the game's button; it must not also lie in a capturing region, which would swallow the click
+   An option with pointer none and no pass region, or with pointer input and no capturing region, reaches nothing it can act on */
+const within=(rect,h)=>{const cx=rect.x+rect.w/2,cy=rect.y+rect.h/2;return cx>=h.x-1&&cx<=h.x+h.width+1&&cy>=h.y-1&&cy<=h.y+h.height+1;};
+function reaches(x,hits){const hs=Array.isArray(hits)?hits:[],capture=hs.filter(h=>h&&h.pass!==true),pass=hs.filter(h=>h&&h.pass===true);
+ if(x.pointer!=='none')return capture.some(h=>within(x.rect,h));
+ return pass.some(h=>within(x.rect,h))&&!capture.some(h=>within(x.rect,h));}
 /* choices: every set of options core offered the reader (o.choiceOffers: a reader event with hookChoices) is visible and clickable
    within choiceMs, or the game draws them itself (a KiriKiri choice frame the script keeps: o.krkr.choice ui 'choice') */
 function choices(run,t){t=opts(t);const name=run.name||'run',o=run.o,bad=[];let n=0,ok=0,unobserved=0;
@@ -136,7 +146,7 @@ function choices(run,t){t=opts(t);const name=run.name||'run',o=run.o,bad=[];let 
   const good=w.some(s=>{const sh=(s.choices||[]).filter(x=>x.shown);
    const observed=sh.length>0&&sh.every(x=>typeof x.translationRequired==='boolean'&&(!expected||typeof x.sourceText==='string'));
    if(observed)measured=true;if(sh.length!==c.n||!observed)return false;
-   return sh.every((x,i)=>x.rect&&['x','y','w','h'].every(key=>Number.isFinite(x.rect[key]))&&x.rect.w>0&&x.rect.h>0&&x.pointer!=='none'&&inside({rect:x.rect},s.hitRegions)&&(!expected||textKey(x.sourceText)===textKey(expected[i]))&&(!x.translationRequired||x.translationShown===true&&typeof x.translation==='string'&&!!x.translation.trim()));});
+   return sh.every((x,i)=>x.rect&&['x','y','w','h'].every(key=>Number.isFinite(x.rect[key]))&&x.rect.w>0&&x.rect.h>0&&reaches(x,s.hitRegions)&&(!expected||textKey(x.sourceText)===textKey(expected[i]))&&(!x.translationRequired||x.translationShown===true&&typeof x.translation==='string'&&!!x.translation.trim()));});
   if(!measured&&w.some(s=>(s.choices||[]).some(x=>x.shown)))unobserved++;
   if(good)ok++;else if(bad.length<6)bad.push(name+' @'+c.at+' '+c.n+' options not all visible, clickable, source-matched and translated when enabled');}
  /* the game's options were on screen (the window bridge found them: hook-events 'choice ocr found found=<n>', n >= 1; one choice's
@@ -199,4 +209,4 @@ function offSpans(run,t){t=opts(t);const o=run.o,ev=[];const at=l=>Date.parse(St
  for(const k of Object.keys(open))if(open[k])spans.push({...open[k],to:end});
  return spans.filter(s=>!(s.to-s.from<=t.preflightMs&&checks.some(c=>Math.abs(c-s.from)<=300)));}
 
-module.exports={T0,JP,norm,jpGlyphs,lineGlyphs,inside,expectedLines,deliveryClock,lines,perLine,white,flashes,hold,readMode,calibration,clears,choices,leaks,offSpans};
+module.exports={reaches,T0,JP,norm,jpGlyphs,lineGlyphs,inside,expectedLines,deliveryClock,lines,perLine,white,flashes,hold,readMode,calibration,clears,choices,leaks,offSpans};
