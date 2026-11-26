@@ -271,3 +271,7 @@ test('driver readPerCharMs: a long line that came whole gets 45 ms a character b
 
 test('coldTest: the per-character wait is for engines that hand lines over whole (YU-RIS), not KiriKiri',()=>{const src=fs.readFileSync(path.join(__dirname,'..','tools','megulit-adapter','cold.cjs'),'utf8');
  assert.match(src,/const WHOLE_LINE=new Set\(\['yuris'\]\);/);assert.match(src,/readPerCharMs:WHOLE_LINE\.has\(loc\.engine\)\?45:0/);});
+
+test('stuckOf: a black capture on the visible desktop is the capture, not a hidden-desktop render failure (ISLAND drew its title)',()=>{
+ const black={cold:{verdict:'inconclusive',lines:0,end:'black'},run:{end:'black'}};
+ assert.match(A.stuckOf({...black,visible:true}),/客户区截图截不到/);assert.match(A.stuckOf(black),/隐藏桌面画不出画面/);});

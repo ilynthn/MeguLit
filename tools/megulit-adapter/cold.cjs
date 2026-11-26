@@ -275,14 +275,15 @@ function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSam
  return out;}
 
 /* where the run got stuck, for the person who takes over (owner: 改名画面、标题菜单、黑屏、钩子没命中等) */
-function stuckOf({cold,run,diag,engine,minLines=8}){const lines=cold?.lines|0,end=String(run?.end||cold?.end||'');
+function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=cold?.lines|0,end=String(run?.end||cold?.end||'');
  if(!cold)return '冷测试没有跑';
  if(cold.verdict==='blocked'||cold.verdict==='skipped')return '冷测试没开始：'+cold.why;
  if(lines>=minLines)return '';
  if(engine?.route==='engine-draw'&&!(engine.hits>0))return '钩子没命中：'+engine.hook+' 画字签名在这个 exe 里没找到';
  if(end==='no-window')return '没有游戏窗口（启动失败或弹窗退出）';
  if(end==='exited')return '游戏自己退出了（启动弹窗？见 run/hook-status.log）';
- if(end==='black'||run?.black)return '黑屏（隐藏桌面画不出画面）';
+ /* 2026-11-27 ISLAND on the visible desktop drew its title fine; only the client-area capture of the D3D window was black */
+ if(end==='black'||run?.black)return visible?'截图全黑（可见桌面上游戏在画，客户区截图截不到这个 D3D 窗口）':'黑屏（隐藏桌面画不出画面）';
  const ocr=String(run?.ocrText||'');
  if(!lines&&/^(no-lines|time-intro)/.test(end))return run?.ocrStart?'开场后没有台词（点了「'+run.ocrStart+'」）':'标题菜单（没找到「はじめから / New Game」）';
  if(diag?.auxNoise>0)return '钩子没命中正文：正文在被丢弃的线程里（'+diag.auxSample+'…，共 '+diag.auxNoise+' 条），选中的是 '+(diag.selected||'别的线程')+(diag.kagWait?'；KAG 层没接上（krkr wait kag）':'');
@@ -364,7 +365,7 @@ async function run(opts,{log=console.log}={}){
    result.hook=hookUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
    diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait,lunaEngine:diag.lunaEngine};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
-  result.stuck=stuckOf({cold,run:runInfo,diag,engine});
+  result.stuck=stuckOf({cold,run:runInfo,diag,engine,visible:opts.foreground===true});
   /* layer 3: the game diff */
   let diff=null;
   await step('diff',()=>{if(probe&&runCopy){try{const fast=(runInfo?.phases||[]).find(p=>p.name==='fast');result.phases=runInfo?.phases||[];diff=makeDiff(probe.dir,runCopy,out,fast?{from:runInfo.startedAt,to:fast.at}:null);if(fast)diff.window={from:runInfo.startedAt,to:fast.at};result.artifacts.diff=diff.dir;if(diff.gameKey)result.gameKey=diff.gameKey;log('# diff '+diff.mode+' cost='+diff.cost);}catch(e){diff={ok:false,why:e.message};}}
