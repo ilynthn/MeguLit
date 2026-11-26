@@ -181,3 +181,13 @@ test('choiceItems: OCR rows that are pieces of the hook\'s option text, topmost 
  const L=[{text:'私 の こ と な ん て 、',x:10,y:500,w:200,h:20},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21},{text:'・ ・ ・ 本 当 は 。 お 憂 し い 方 な の か し ら',x:466,y:196,w:349,h:22}];
  const c=R.choiceItems(L,aux);assert.deepEqual(c.map(o=>o.y),[196,283]);assert.equal(c[0].role,'choice');assert.equal(c[0].text,'・・・本当は。お憂しい方なのかしら');
  assert.deepEqual(R.choiceItems(L,''),[]);assert.deepEqual(R.choiceItems([{text:'村 人',x:1,y:1,w:5,h:5}],aux),[]);});
+
+test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a choice the driver answers',async()=>{const R=require('../services/cold-test-run.cjs');const dir=tmp();let t=0;
+ const h=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:1280,h:720});});
+ class Hook{configure(){Hook.traceTap?.('source chars=10 sequence=1');}tick(){}stop(){}drawLog(){}}
+ const p=R.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:600000,ocrMenu:true},{spawn:h.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:5,now:()=>t+=400,
+  ocr:async()=>{Hook.traceTap('choice aux KiriKiri1 role=0 added=[] text="……本当は、お優しい方なのかしら……本当に、几帳面な方なのね"');return [{text:'・ 本 当 は 、 お 優 し い 方 な の か し ら',x:466,y:196,w:349,h:22},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21}];},
+  driver:{introEvery:1e9,advanceEvery:1e9,stallMs:1e9,shotLines:[]}});
+
+ await new Promise(r=>setTimeout(r,600));R.stopActive();const r=await p;
+ assert.ok(r.choices>=1,'a choice');assert.ok(h.sent.includes('click 641 207'),h.sent.filter(l=>l.startsWith('click')).join('|'));});

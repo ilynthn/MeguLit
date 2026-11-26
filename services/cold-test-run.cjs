@@ -68,7 +68,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{
    const Hook=deps.Hook||require('../core/hook-native.cjs').HookNative;const layout={...(deps.layout||require('../core/layout.cjs')),logs:runDir};
-   Hook.traceTap=line=>{{const m=/ choice aux .* text="(.*)"s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
+   Hook.traceTap=line=>{{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
    const statusLog=path.join(runDir,'hook-status.log');let statusN=0;
    hooks=new Hook(layout,e=>{if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
