@@ -8,7 +8,7 @@
    files, command} | null, error}. detect.py is read-only and bounded; an extractor runs only when its command needs nothing but the
    game folder and an output folder (out/external/galtransl, never the game folder). Nothing here is fatal: errors come back as error. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
-const DEFAULT_SKILL=process.env.MEGULIT_GT_SKILL||'F:\\Agent\\work\\research\\GalTransl_GalTransl-GalGameReverse-Skill';
+const DEFAULT_SKILL=process.env.MEGULIT_GT_SKILL||'';
 const TRIGGER=new Set(['unsupported-engine','unknown-pack','decrypt-failed','parse-failed','no-script','error']);
 const wanted=({probe,caps})=>!caps?.known||TRIGGER.has(String(probe?.step||'error'));
 function runPy(python,args,{cwd,timeoutMs}){const r=spawnSync(python,args,{cwd,encoding:'utf8',windowsHide:true,timeout:timeoutMs,maxBuffer:32<<20,env:{...process.env,PYTHONIOENCODING:'utf-8',PYTHONUTF8:'1'}});
@@ -22,7 +22,7 @@ function countLines(dir){let lines=0,files=0;const walk=d=>{let e=[];try{e=fs.re
  walk(dir);return {lines,files};}
 function secondOpinion({gameDir,out,skill=DEFAULT_SKILL,python='python'},{run=runPy,detectMs=30000,extractMs=180000}={}){
  const res={ok:false,candidates:[],port:'',extracted:null,error:''};
- if(!fs.existsSync(path.join(skill,'python','detect.py'))){res.error='GalTransl skill not found ('+path.basename(skill)+')';return res;}
+ if(!skill||!fs.existsSync(path.join(skill,'python','detect.py'))){res.error=skill?'GalTransl skill not found ('+path.basename(skill)+')':'MEGULIT_GT_SKILL not set';return res;}
  const d=run(python,['-I',path.join(skill,'python','detect.py'),gameDir,'--max-seconds','15'],{cwd:skill,timeoutMs:detectMs});
  let j=null;try{j=JSON.parse(d.stdout);}catch{}
  if(!j){res.error='detect.py: '+(d.error||d.stderr.trim().split(/\r?\n/).pop()||'no output').slice(0,160);return res;}

@@ -65,12 +65,12 @@ const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.pus
 function lunaCaps(caps,gameDir,engine=''){if(caps.known)return caps;let hits=[];try{hits=require('../services/original-engines/registry.cjs').lunaHook(gameDir);}catch{}
  const names=[...new Set(hits.map(h=>h.cls))];const mapped=names.find(n=>Engines.lunaRule(n));
  if(mapped&&!engine)return {...Engines.capabilities(Engines.lunaRule(mapped)),luna:mapped,lunaStatic:true};return names.length?{...caps,luna:names.join(' / ')}:caps;}
-/* 2026-11-27 (E: nearly full): the game's own copy for testing goes to MEGULIT_ADAPTER_GAMES (default H:MeguLit-Workadapter-games),
-   never E: or C:; the target drive must keep MIN_FREE free after the copy. A copy already there (same name) is kept */
-/* where a run's pictures and logs go (F: and E: ran out on 11-27): MEGULIT_ADAPTER_OUT, default H:\MeguLit-Work\adapter-runs; the
-   shared game lock and the copied app stay in the cold stage's runs root */
-const OUT_ROOT=()=>process.env.MEGULIT_ADAPTER_OUT||'H:\\MeguLit-Work\\adapter-runs';
-const GAMES_ROOT=()=>process.env.MEGULIT_ADAPTER_GAMES||'H:\\MeguLit-Work\\adapter-games',MIN_FREE=15*2**30;
+/* 2026-11-27 (E: nearly full): the game's own copy for testing goes to MEGULIT_ADAPTER_GAMES (else beside the runs root),
+   never on a drive of MEGULIT_ADAPTER_NO_DRIVES (default C and E); the target drive must keep MIN_FREE free after the copy. A copy already there (same name) is kept */
+/* where a run's pictures and logs go: MEGULIT_ADAPTER_OUT (on our PC a big data drive, see the megulit-adapter skill), else beside the
+   cold stage's runs root; the shared game lock and the copied app stay in that runs root */
+const OUT_ROOT=()=>process.env.MEGULIT_ADAPTER_OUT||path.join(Cold.RUNS_ROOT,'adapter-out');
+const GAMES_ROOT=()=>process.env.MEGULIT_ADAPTER_GAMES||path.join(Cold.RUNS_ROOT,'adapter-games'),MIN_FREE=15*2**30;
 function treeBytes(d){let n=0;const walk=x=>{let e=[];try{e=fs.readdirSync(x,{withFileTypes:true});}catch{return;}for(const y of e){const f=path.join(x,y.name);if(y.isDirectory())walk(f);else if(y.isFile())try{n+=fs.statSync(f).size;}catch{}}};walk(d);return n;}
 function copyGame(src,{root=GAMES_ROOT(),statfs=fs.statfsSync,noDrives=process.env.MEGULIT_ADAPTER_NO_DRIVES??'C,E'}={}){const dir=path.join(root,Cold.safeName(Cold.titleOf(src)));
  const drive=(/^([A-Za-z]):/.exec(path.resolve(dir))||[])[1]||'';if(drive&&String(noDrives).toUpperCase().split(/[,\s]+/).includes(drive.toUpperCase()))throw Error('copies never go to C: or E: ('+dir+'); set MEGULIT_ADAPTER_GAMES');
