@@ -42,6 +42,9 @@ validation/fixtures/*
 # engine-draw signature fixtures: a few hundred bytes of code around each matched call + the exe SHA-256 (no script text)
 !validation/fixtures/engine-sigs/
 !validation/fixtures/engine-sigs/**
+# Weblio page markup with placeholder text for services/weblio-dictionary.cjs (#1110)
+!validation/fixtures/weblio/
+!validation/fixtures/weblio/*.html
 # Small GPL upstream LiveMaker format fixtures, individually pinned in manifest.json
 !validation/fixtures/livemaker/
 !validation/fixtures/livemaker/test.dat

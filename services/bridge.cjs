@@ -759,8 +759,9 @@ async function dispatch(request,runtime=null) {
       case 'dictionary':{
         const query=String(request.query||'').trim().slice(0,100);
         if(!query)return [];
-        const online=request.source==='moji'||request.source==='jisho';/* 2026-11-13 English UI: Jisho (services/jisho-dictionary.cjs) */
-        let entries=request.source==='jisho'?await require('./jisho-dictionary.cjs').lookupJisho(query,fetch,{root}):request.source==='moji'?await require('./moji-dictionary.cjs').lookupMoji(query,fetch,{root}):db.prepare('SELECT DISTINCT e.spelling,e.reading,e.definition FROM dictionary_entries e JOIN dictionary_forms f ON e.id=f.entry_id WHERE f.form=? ORDER BY e.frequency LIMIT 20').all(query);
+        const online=request.source==='moji'||request.source==='jisho'||request.source==='weblio';/* 2026-11-13 English UI: Jisho (services/jisho-dictionary.cjs) */
+        /* #1110 Weblio 国語辞典 / 日中中日辞典 public pages (services/weblio-dictionary.cjs) */
+        let entries=request.source==='weblio'?await require('./weblio-dictionary.cjs').lookupWeblio(query,fetch,{root,language:request.language==='en'?'en':'zh'}):request.source==='jisho'?await require('./jisho-dictionary.cjs').lookupJisho(query,fetch,{root}):request.source==='moji'?await require('./moji-dictionary.cjs').lookupMoji(query,fetch,{root}):db.prepare('SELECT DISTINCT e.spelling,e.reading,e.definition FROM dictionary_entries e JOIN dictionary_forms f ON e.id=f.entry_id WHERE f.form=? ORDER BY e.frequency LIMIT 20').all(query);
         /* E457 (user, 2026-11-12: 本地查词 found nothing for 爆裂 or 夢): the dictionary_entries table is only filled by a
            developer tool, so it is empty on every install. The local search now asks the same JMdict the lookup card uses. */
         if(!entries.length&&!online&&runtime){try{const r=await runtime.learning().request('lookup_exact',{text:query,start:0,end:[...query].length},request.language==='en'?'en':'zh');entries=localEntries(r,query);}catch{}}
