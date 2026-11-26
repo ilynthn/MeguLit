@@ -206,7 +206,12 @@
   const cur={state:'',style:'',g:null,pos:null,place:null,want:null,settle:0,visible:false,hovered:false,tucked:false};
   let tl=null,timers={},drag=null,suppressClick=false,note='';
   const timer=(k,ms,fn)=>{clearTimeout(timers[k]);timers[k]=ms===null?0:setTimeout(()=>{timers[k]=0;fn();},ms);};
-  const view=()=>({w:window.innerWidth,h:window.innerHeight});
+  /* the game's client area inside the overlay (the overlay covers the whole screen, a windowed game does not); the whole overlay when the host has not said yet */
+  function view(){
+   const W=window.innerWidth,H=window.innerHeight,i=bridge().galLayoutInfo?.(),dpr=window.devicePixelRatio||1,w=(Number(i?.clientWidth)||0)/dpr,h=(Number(i?.clientHeight)||0)/dpr;
+   if(!(w>=320&&h>=240))return {x:0,y:0,w:W,h:H};
+   const x=clamp((Number(i.clientX)||0)/dpr,0,W-1),y=clamp((Number(i.clientY)||0)/dpr,0,H-1);return {x,y,w:Math.min(w,W-x),h:Math.min(h,H-y)};
+  }
   const openDialog=()=>document.querySelector('.tomoyo-cn-dialog[open]:not([data-leaving])');
   const send=m=>{try{window.__tomoyoTranslateRequest(JSON.stringify(m));}catch{}};
 
@@ -273,10 +278,12 @@
   }
   /* where the resting shape goes now; moves back to the chosen spot only after it stayed free for SETTLE_TICKS checks */
   function target(g){
-   const v=view(),obs=obstacles(),r=g.anchor;
-   if(cur.style==='a')return {...placeA(prefs.a.x*v.w,{w:r.w,h:r.h,y:TOP+r.y},v,obs),obs};
-   if(cur.style==='b')return {...placeB(prefs.b.side,prefs.b.y*v.h,{w:r.w,h:r.h},v,obs),obs};
-   return {...placeC(prefs.c.corner,{w:r.w,h:r.h},v,obs),obs};
+   const f=view(),v={w:f.w,h:f.h},obs=obstacles(),local=obs.map(o=>({...o,x:o.x-f.x,y:o.y-f.y})),r=g.anchor;
+   const p=cur.style==='a'?placeA(prefs.a.x*v.w,{w:r.w,h:r.h,y:TOP+r.y},v,local):cur.style==='b'?placeB(prefs.b.side,prefs.b.y*v.h,{w:r.w,h:r.h},v,local):placeC(prefs.c.corner,{w:r.w,h:r.h},v,local);
+   let px=p.x+f.x;
+   /* A grows sideways into the quick bar: the open shape, not only the resting pill, has to stay inside the game's area */
+   if(cur.style==='a'&&g.w<=f.w-2*EDGE)px=clamp(px-g.anchor.x,f.x+EDGE,f.x+f.w-EDGE-g.w)+g.anchor.x;
+   return {...p,x:px,y:p.y+f.y,obs};
   }
   function applyOrientation(p){
    let changed=false;
@@ -393,21 +400,21 @@
    timer('intent',null);timer('idle',null);timer('leave',null);
    if(cur.style!=='a'&&cur.state!=='rest')go('rest',{instant:cur.style==='c'});
    rootEl.classList.add('mg-cap-dragging');const v=view(),g=geom();
-   setHit(cur.style==='a'?{x:0,y:0,w:v.w,h:TOP+g.h+PAD}:{x:0,y:0,w:v.w,h:v.h});
+   setHit(cur.style==='a'?{x:0,y:0,w:window.innerWidth,h:v.y+TOP+g.h+PAD}:{x:0,y:0,w:window.innerWidth,h:window.innerHeight});
   }
   function paintDrag(){
    dragFrame=0;if(!drag||!dragLast)return;const g=geom(),v=view(),a=g.anchor;
    let x=drag.pos.x+dragLast.dx,y=drag.pos.y+(cur.style==='a'?0:dragLast.dy);
-   x=clamp(x,EDGE-a.x,v.w-EDGE-a.x-a.w);y=clamp(y,EDGE-a.y,v.h-EDGE-a.y-a.h);
+   x=cur.style==='a'&&g.w<=v.w-2*EDGE?clamp(x,v.x+EDGE,v.x+v.w-EDGE-g.w):clamp(x,v.x+EDGE-a.x,v.x+v.w-EDGE-a.x-a.w);y=clamp(y,v.y+EDGE-a.y,v.y+v.h-EDGE-a.y-a.h);
    cur.pos={x,y};setBox(bodyRule,cur.pos);
   }
   function dragEnd(){
    window.removeEventListener('pointermove',dragMove,true);window.removeEventListener('pointerup',dragEnd,true);window.removeEventListener('pointercancel',dragEnd,true);
-   const d=drag;drag=null;if(!d||!d.moved)return;
-   cancelAnimationFrame(dragFrame);dragFrame=0;paintDrag.call(null);
+   const d=drag;if(!d||!d.moved){drag=null;return;}
+   cancelAnimationFrame(dragFrame);paintDrag();drag=null;
    suppressClick=true;setTimeout(()=>{suppressClick=false;},0);
    rootEl.classList.remove('mg-cap-dragging');
-   const g=geom(),v=view(),r=vp(g.anchor),cx=r.x+r.w/2,cy=r.y+r.h/2;
+   const g=geom(),v=view(),r=vp(g.anchor),cx=r.x+r.w/2-v.x,cy=r.y+r.h/2-v.y;
    if(cur.style==='a')prefs={...prefs,a:{x:clamp(cx/v.w,0,1)}};
    else if(cur.style==='b')prefs={...prefs,b:{side:sideOf(cx,v),y:clamp(cy/v.h,0,1)}};
    else prefs={...prefs,c:{corner:snapCorner(cx,cy,v)}};
@@ -415,7 +422,7 @@
    const fromAnchor=r;
    cur.pos=null;cur.place=null;layout(true);if(cur.state)go(cur.state,{force:true,instant:true});
    if(animated()&&cur.pos){const g2=geom(),to=vp(g2.anchor);gsap.fromTo(wrap,{x:fromAnchor.x-to.x,y:fromAnchor.y-to.y},{x:0,y:0,duration:MOTION.snap.duration,ease:MOTION.snap.ease,clearProps:'transform',onComplete:()=>setHit(hitFor(geom(),cur.state))});}
-   if(cur.g&&cur.state)setHit(union(hitFor(cur.g,cur.state),grow(fromAnchor)));
+   if(cur.g&&cur.state)setHit(animated()&&cur.pos?union(hitFor(cur.g,cur.state),grow(fromAnchor)):hitFor(cur.g,cur.state));
    if(cur.style!=='a'||!cur.hovered)settle();
   }
 
