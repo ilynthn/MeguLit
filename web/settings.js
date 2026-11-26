@@ -22,6 +22,7 @@ import {mountSettingsSearch} from './settings-search.js';
 import {configureDictionary,fieldHelp} from './settings-help.js';
 import {mountSettingsPreview} from './settings-preview.js';
 let stopTranslation=()=>{};
+export function stopSettings(){stopTranslation();stopTranslation=()=>{};stopPacks();stopPacks=()=>{};}
 import {navigation,fieldPages,visibleFields} from './settings-layout.js';
 const selectedPages=new Map();
 let settingsRender=0;
@@ -29,7 +30,7 @@ let settingsRender=0;
 function pageLabel(label,page){if(!page||!label||!label.startsWith(page))return label;const rest=label.slice(page.length).replace(/^\s*[·・:：-]?\s*/,'');return rest||label;
  }
 export async function renderSettings({main,api,invoke,text,locale,esc,toast,heading,basicSettings,isCurrent,onSaved,onProfileClose,section,setSection,profile,setProfile}){
- await leaveSettings();stopTranslation();stopTranslation=()=>{};const renderId=++settingsRender;
+ await leaveSettings();stopSettings();const renderId=++settingsRender;
  const labels={zh:{general:'常规与外观',global:'全局默认',profile:'按游戏设置',apiKey:'API 密钥',keyHint:'留空保留已有密钥，密钥仅由当前 Windows 账户加密保存',saveKey:'保存密钥',keySaved:'密钥已加密保存',invalid:'设置值无效，请检查后重试',
   selectProfile:'选择已保存的游戏配置',saved:'设置已保存',savedHint:'游戏内设置将由独立阅读服务读取',emptyProfiles:'绑定并保存游戏设置后，可在这里选择',models:'离线模型',modelHint:'保留已下载的模型文件；只在使用对应引擎时运行',refreshVoices:'刷新声音列表',
   voice:'声音',style:'说话风格',keyRequired:'请填写密钥',restore:'恢复历史配置',history:'配置历史'},ja:{general:'一般・外観',global:'全体の既定値',profile:'作品別の設定',apiKey:'API キー',keyHint:'空欄では既存キーを保持します。現在の Windows アカウントで暗号化保存します',

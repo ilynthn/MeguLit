@@ -113,6 +113,12 @@
   b.textPlaceAnchorActive = () => on && anchorMode;
   b.textPlaceEngineRowsActive = () => on && window.MeguLitProfile?.get?.('page.engineRows', false) === true;
   b.textPlaceAnchor = v => { anchorMode = v !== false; document.body.classList.toggle('megulit-anchor-mode', on && anchorMode); anchor = null; anchorLine = ''; schedule?.(); };
+  /* the user's own translation wrap width (% of the game box, 0 = nothing set) and line spacing (em offset) for rows a game's glyphs lock;
+     the default width (75) and a zero offset are "not set", so a game nobody touched keeps the size that follows its text */
+  const userRowLayout = prefs => {
+    const width = Number(prefs?.translationWidth), spacing = Number(prefs?.translationLineHeight);
+    return { width: Number.isFinite(width) && width > 0 && width <= 100 && width !== 75 ? width : 0, lineHeight: Number.isFinite(spacing) ? Math.max(-.8, Math.min(3, spacing)) : 0 };
+  };
   const median = list => { const v = list.filter(n => n > 0).sort((x, y) => x - y); return v.length ? v[v.length >> 1] : 0; };
   function target() {
     const own = document.querySelector('.sentence-window.tomoyo-hook-reader');
@@ -151,10 +157,12 @@
       return;
     }
     /* 2026-11-20 (user, CHAOS;CHILD: 「译文咋没对齐」「译文排版同步一下」): the translation takes the Japanese block's width and side,
-       centred under a centred page, from the first character of a left-aligned box; never narrower than half the box (a short line keeps a readable translation) */
+       centred under a centred page, from the first character of a left-aligned box; never narrower than half the box (a short line keeps a readable translation).
+       2026-11-26 (QQ essence 1137, integration live test on 死に逝く君: the anchored line ignored 译文换行宽度): a wrap width the user changed from its
+       default is the translation's width here too (% of the game client, inside the room right of the line); the default keeps the Japanese width */
     if (row) { for (const p of ['max-width', 'margin-left', 'margin-right']) row.style.removeProperty(p);
       const toks = [...sentence.querySelectorAll('.char-token')].filter(t => !t.closest('.tome-page-lines')).map(t => t.getBoundingClientRect()).filter(r => r.width > 0);
-      if (toks.length) { const l = Math.min(...toks.map(r => r.left)), r = Math.max(...toks.map(r => r.right)), rr = row.getBoundingClientRect(), w = Math.max(r - l, wr.width * .5);
+      if (toks.length) { const l = Math.min(...toks.map(r => r.left)), r = Math.max(...toks.map(r => r.right)), rr = row.getBoundingClientRect(), own = userRowLayout(pr), w = own.width > 0 ? Math.max(80, Math.min(anchor.center ? cwc - 16 : cx0 + cwc - l - 8, cwc * own.width / 100)) : Math.max(r - l, wr.width * .5);
         set(row, 'max-width', Math.ceil(w) + 'px'); if (anchor.center) { set(row, 'margin-left', 'auto'); set(row, 'margin-right', 'auto'); } else set(row, 'margin-left', Math.max(0, Math.round(l - rr.left)) + 'px'); } }
     for (const o of row ? [row, ...parts] : []) o.style.removeProperty('font-size');
     const cnBase = row ? parseFloat(getComputedStyle(parts[0] || row).fontSize) || 16 : 16; // All fit passes share the user's 85% floor
@@ -764,13 +772,15 @@
      Japanese row ends (by share of the sentence), else at that share. One-row lines and unfinished translations are left alone. */
   const CN_PUNCT = /[，、。；：！？…—,.;:!?」』）)”’》】〕〗〉\]\}]/;
   const CN_NONWORD = /[，、。；：！？…—,.;:!?」』）)”’》】〕〗〉\]\}“‘「『（(《【〔〖〈\s]/g;
+  const CN_CLOSE_QUOTE = /[」』”’]/, CN_OPEN_QUOTE = /[「『“‘]/;
   /* breaks for `shares` (where each Japanese row ends, as a share of the sentence): the set of break points after the
      translation's punctuation that lies nearest to the shares overall (least squares); a share no punctuation is left for
      breaks at its own place */
   function cnSplit(text, shares) {
     const n = text.length, k = shares.length; if (!n || !k) return [];
-    /* never split closing punctuation onto its own line or orphan a single trailing character */
-    const tailOk = i => text.slice(i).replace(CN_NONWORD, '').length >= 2;
+    /* never split closing punctuation onto its own line or orphan a single trailing character; allow a 1-char quoted reply after a closing quote */
+    const quoteGap = i => CN_CLOSE_QUOTE.test(text[i - 1]) && CN_OPEN_QUOTE.test(text.slice(i).trimStart()[0] || '');
+    const tailOk = i => text.slice(i).replace(CN_NONWORD, '').length >= (quoteGap(i) ? 1 : 2);
     const cand = []; for (let i = 1; i < n; i++) if (CN_PUNCT.test(text[i - 1]) && !CN_PUNCT.test(text[i]) && tailOk(i)) cand.push(i);
     /* not enough punctuation: a break goes where a Chinese clause can start (before 在/将/变…, after 的/了…), never inside a word; none near: no break */
     if (cand.length < k) { const soft = i => CN_PUNCT.test(text[i - 1]) || /[在将把被让使变是有和与而但却又也就都才从向对]/.test(text[i]) || /[的了着过地]/.test(text[i - 1]); const out = []; let last = 0;
@@ -800,7 +810,8 @@
   }
   function rowBreaks(win, shown, rows) {
     const want = new Set(); let prev = -1;
-    shown.forEach((t, j) => { const r = rows.rowOf[j]; if (r < 0) return; if (prev >= 0 && r > prev) { const base = t.closest('.megulit-ruby-base'); const at = base && base.querySelector('.char-token') === t ? base : t; if (!base || at === base) want.add(at); } prev = r; });
+    /* one-line Japanese (QQ essence 1145, Codex #1177): no game row breaks; they come back when the option is off */
+    if (!document.body.classList.contains('megulit-jp-one-line')) shown.forEach((t, j) => { const r = rows.rowOf[j]; if (r < 0) return; if (prev >= 0 && r > prev) { const base = t.closest('.megulit-ruby-base'); const at = base && base.querySelector('.char-token') === t ? base : t; if (!base || at === base) want.add(at); } prev = r; });
     for (const br of win.querySelectorAll('br.megulit-row-br')) if (!want.has(br.nextSibling)) br.remove();
     for (const at of want) if (!(at.previousSibling && at.previousSibling.nodeName === 'BR' && at.previousSibling.classList.contains('megulit-row-br'))) { const br = document.createElement('br'); br.className = 'megulit-row-br'; at.parentNode.insertBefore(br, at); }
     win.classList.toggle('megulit-game-rows', want.size > 0); /* 2026-11-20 (CHAOS;CHILD: a two-row line drawn as three) the game's row breaks only */
@@ -979,7 +990,10 @@
     if (row && all.length) {
       const x0 = Math.min(...all.map(r => r[0])), y0 = Math.min(...all.map(r => r[1])), x1 = Math.max(...all.map(r => r[0] + r[2])), y1 = Math.max(...all.map(r => r[1] + r[3]));
       const only = document.body.classList.contains('tomoyo-gal-zh-only');
-      const [L, T, R, B] = map.bounds, width = Math.max(1, Math.min(R - x0, Math.max(x1 - x0, Math.min(R - x0 - 8, size * 20))));
+      /* 2026-11-26 (QQ essence 1137: the placed rows locked the translation's wrap width and line spacing): a translation wrap width
+         or line spacing the user changed from its default now applies here too; the defaults keep the game-following size */
+      const own = userRowLayout(b.galPreferences?.() || {});
+      const [L, T, R, B] = map.bounds, width = own.width > 0 ? Math.max(1, Math.min(R - x0, Math.max(size * 4, (R - L) * own.width / 100))) /* the width asked for, narrower too (Codex #1177) */ : Math.max(1, Math.min(R - x0, Math.max(x1 - x0, Math.min(R - x0 - 8, size * 20))));
       set(row, 'left', Math.min(Math.max(x0, L), Math.max(L, R - width)) + 'px'); set(row, 'width', width + 'px');
       /* 2026-11-16 (user recording: the translation was small, then suddenly large and over the game's SAVE/LOAD bar, its
          last row out of the window): its size came from the stylesheet and was only made smaller when there was room, so a
@@ -990,7 +1004,7 @@
       /* 2026-11-19 (user: 中文不要随便调尺寸, 只有显示不下才小): the standard size is the user's translation size, the same for every line;
          it is made smaller only when this line's translation does not fit, once, and the result is kept for the line (key: its text) */
       const floor = Math.max(10, Math.round(base * .85));
-      set(row, 'font-size', base + 'px'); set(row, 'line-height', '1.25');
+      set(row, 'font-size', base + 'px'); set(row, 'line-height', String(Math.max(.9, 1.25 + own.lineHeight)));
       /* 2026-11-16 (1.4.16 live: the row was 10px, its text 32px and over the SAVE/LOAD bar): the translation's own elements carry the
          game style's size rule; inline, they take the row's size and line height */
       for (const o of row.querySelectorAll('*')) { set(o, 'font-size', 'inherit'); set(o, 'line-height', 'inherit'); }

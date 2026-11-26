@@ -46,7 +46,7 @@ test('DLL: every covered path asks the matcher only while a line is pushed, and 
 
 test('HookBridge: pushes only for a selected stream that cannot write back, with replacement on or while the reader probes (E578)',()=>{
  const b=read('native/HookBridge.cs');
- assert.ok(b.includes('static bool GlyphWanted(){lock(Gate){Candidate c;return !HookTarget.ChineseText&&!GlyphCached&&Enabled&&(ReplacementEnabled||ProbeWanted)&&Selected!=""&&Candidates.TryGetValue(Selected,out c)&&(c.gdiProbe||GlyphAll||RememberedHide(c));}}'));
+ assert.ok(b.includes('static bool GlyphWanted(){lock(Gate){Candidate c;return !GpuSact2Ready&&!HookTarget.ChineseText&&!GlyphCached&&Enabled&&(ReplacementEnabled||ProbeWanted)&&Selected!=""&&Candidates.TryGetValue(Selected,out c)&&(c.gdiProbe||GlyphAll||RememberedHide(c));}}'));
  assert.ok(b.includes('Diagnostic("source id="+tp.Key()+" chars="+text.Length);GlyphLine(text);'),'pushed before the reader gets the line');
  assert.ok(b.includes('static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&'),'never when an engine-specific embed hook exists');
  assert.ok(b.includes('replacement disabled; reason="+reason+"; selected="+Selected);GlyphOff();'),'switching hiding off stops it at once');

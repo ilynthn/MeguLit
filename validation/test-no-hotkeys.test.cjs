@@ -11,5 +11,7 @@ test('MEGULIT_NO_HOTKEYS=1 turns off every global hotkey of the bridge, nothing 
  assert.match(cs,/bool hotkey=!noHotkeys&&RegisterHotKey\(IntPtr\.Zero,0x541,0x4001,0x54\),coverHotkey=!noHotkeys&&RegisterHotKey\(IntPtr\.Zero,0x542,0x4001,0x48\),modeHotkey=!noHotkeys&&RegisterHotKey\(IntPtr\.Zero,0x543,0x4001,0x4d\);/);
  assert.match(cs,/if\(!sideBySide&&!noHotkeys&&\(!hotkey\|\|!coverHotkey\|\|!modeHotkey\)\)\{if\(EndForeignBridges\(\)>0\)/,'no ending of other helpers');
  assert.match(cs,/if\(!noHotkeys&&\(!hotkey\|\|!coverHotkey\|\|!modeHotkey\)&&DateTime\.UtcNow>=nextHotkeyTry\)/,'no 2 s retry');
+ assert.match(cs,/bool want=!noHotkeys&&BacklogKeyWanted\(/,'2026-11-26 the log key (Alt+L) is off too');
+ assert.match(cs,/if\(want&&!noHotkeys&&RegisterHotKey\(IntPtr\.Zero,0x544,/);
  assert.ok(!/RegisterHotKey\(IntPtr\.Zero,0x5[0-9a-f]{2}/.test(cs.replace(/!noHotkeys&&RegisterHotKey/g,'').replace(/\{if\(!hotkey\)hotkey=RegisterHotKey[^}]*\}/g,'').replace(/if\(!hotkey\)hotkey=RegisterHotKey\(IntPtr\.Zero,0x541,0x4001,0x54\);if\(!coverHotkey\)coverHotkey=RegisterHotKey\(IntPtr\.Zero,0x542,0x4001,0x48\);if\(!modeHotkey\)modeHotkey=RegisterHotKey\(IntPtr\.Zero,0x543,0x4001,0x4d\);/g,'')),'no other global hotkey');
  for(const f of fs.readdirSync(path.join(__dirname,'..','native')).filter(f=>/\.(cs|cpp|h)$/.test(f)))assert.ok(!/WH_KEYBOARD_LL|SetWindowsHookExW?\(13/.test(fs.readFileSync(path.join(__dirname,'..','native',f),'utf8')),f+' has no low-level keyboard hook');});

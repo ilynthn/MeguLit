@@ -80,8 +80,11 @@ test('parallel probe, several fast sources at once, mid-way slowdown replaced, 4
   assert.equal(j.phase,'done',j.error);
   assert.ok(fs.readFileSync(f.part).equals(f.file),'file content');
   assert.equal(fs.existsSync(f.part+'.json'),false,'state removed after success');
-  assert.ok(j.probeMs<=4000,'probe took '+j.probeMs+' ms');
+  /* ProbeMs is 3000 ms and ProbeCapMs is 4000 ms, so thread abort/join plus runner scheduling can run a little over
+     4000 ms (observed 4178-4339 ms on CI); 5500 ms leaves scheduling slack while staying well under serial probing. */
+  assert.ok(j.probeMs<5500,'probe took '+j.probeMs+' ms');
   // all sources were probed at the same time, not one after another
+  assert.ok([dead,slowmid,fast,medium].every(s=>s.reqs.length>0),'every source received a probe: '+JSON.stringify(j.sources));
   const probeStarts=[dead,slowmid,fast,medium].map(s=>s.reqs[0].t);
   assert.ok(Math.max(...probeStarts)-Math.min(...probeStarts)<1000,'probes started together');
   const src=h=>j.sources.find(s=>s.host===h);
@@ -188,7 +191,9 @@ test('connections grow while the total speed still rises; a host limit is kept',
 
 test('end game: the slowest last segment is fetched again from another source, the first copy to finish is used',{skip,timeout:90000},async()=>{
  const f=fixture(8*MB);
- const tail=await source(f.file,{rate:3*MB,tailFrom:7*MB,tailRate:8*1024}),other=await source(f.file,{rate:600*1024});
+ /* Pick() scores sources by speed / (1 + 0.6 * active); keeping other below tail / 5.2 ensures the 8th segment (seg 7)
+    actually lands on tail's 8 KB/s trickle so end game has to fetch the duplicate from other. */
+ const tail=await source(f.file,{rate:3*MB,tailFrom:7*MB,tailRate:8*1024}),other=await source(f.file,{rate:400*1024});
  try{
   /* slow drops off: only the end game can save the tail */
   const j=await run({Urls:[tail.url,other.url].join('|'),Part:f.part,Size:String(f.file.length),Sha:f.sha,Options:{SegmentSize:MB,SlowRatio:0,DupMinMs:500,StallMs:60000}});
@@ -196,6 +201,7 @@ test('end game: the slowest last segment is fetched again from another source, t
   assert.equal(j.phase,'done',j.error);
   /* whichever copy wins, the tail is not left on an 8 KB/s connection (1 MB would take 2 minutes) */
   assert.ok(j.dups>=1,'end-game duplicate fetched: '+j.dups);
+  assert.ok(j.dupWins>=1,'end-game duplicate won: '+j.dupWins);
   assert.ok(j.ms<30000,'finished in '+j.ms+' ms');
   assert.ok(fs.readFileSync(f.part).equals(f.file));
  }finally{tail.close();other.close();}

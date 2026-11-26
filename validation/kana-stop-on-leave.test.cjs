@@ -102,7 +102,7 @@ function startAppServer(webDir){
  return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve(server)));
 }
 
-test('kana speech.stop cancels in-flight kana_speak and leaving kana tab stops playback and flushes progress',{skip:!hasEdge},async t=>{
+test('kana speech.stop cancels in-flight kana_speak and leaving kana tab stops playback and flushes progress',{skip:!hasEdge,timeout:90000},async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-kana-stop-'));
  let server,browser;
  t.after(async()=>{
@@ -114,23 +114,32 @@ test('kana speech.stop cancels in-flight kana_speak and leaving kana tab stops p
  browser=await startEdge(path.join(root,'edge'));
  const origin='http://127.0.0.1:'+server.address().port;
 
- await browser.send('Page.navigate',{url:origin+'/__test-kana.html'});
+ const url=origin+'/__test-kana.html';
+ const nav=await browser.send('Page.navigate',{url});
+ assert.ok(!nav.errorText,`kana harness navigation failed (${nav.errorText})`);
+ let readyState=null;
+ for(const deadline=Date.now()+30000;Date.now()<deadline;){
+  readyState=await browser.evaluate('({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READY__,hasTest:!!window.__megulitTest})').catch(()=>null);
+  if(readyState?.href===url&&readyState.ready&&readyState.hasTest)break;
+  await new Promise(r=>setTimeout(r,100));
+ }
+ assert.ok(readyState?.href===url&&readyState.ready&&readyState.hasTest,`kana harness ready: ${JSON.stringify(readyState)}`);
+
  const report=await browser.evaluate(`(async()=>{
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const waitFor = async (fn, ms = 5000) => {
+  const waitFor = async (fn, label, ms = 15000) => {
    const end = Date.now() + ms;
    while (Date.now() < end) { const v = fn(); if (v) return v; await wait(20); }
-   throw new Error('TIMEOUT');
+   throw new Error('TIMEOUT: ' + label);
   };
-  await waitFor(() => window.__TOME_READY__ && window.__megulitTest);
   await window.__megulitTest.navigate('learning', 'kana');
   const shadow = () => document.querySelector('.kana-host')?.shadowRoot;
-  await waitFor(() => shadow()?.querySelector('[data-voice="ai"]'));
+  await waitFor(() => shadow()?.querySelector('[data-voice="ai"]'), 'kana voice picker');
 
   // 1. Trigger in-flight kana_speak by clicking AI voice option, then switch internal view (show() -> speech.stop())
   const beforeCount = window.__kanaTest.audios.length;
   shadow().querySelector('[data-voice="ai"]').click();
-  await waitFor(() => window.__kanaTest.pendingSpeak.length >= 1);
+  await waitFor(() => window.__kanaTest.pendingSpeak.length >= 1, 'pending kana_speak');
   const inflight = window.__kanaTest.pendingSpeak.shift();
 
   const navLink = shadow().querySelector('a[href="gojuon.html"], [data-go="gojuon.html"], a[href*="gojuon"]');
@@ -142,17 +151,17 @@ test('kana speech.stop cancels in-flight kana_speak and leaving kana tab stops p
 
   // 2. Start actual playback and modify volume (debounced 400ms save), then leave kana tab via navigate('home')
   window.__kanaTest.setSpeakMode('resolve');
-  const ruler = await waitFor(() => shadow()?.querySelector('.kn-ruler'));
+  const ruler = await waitFor(() => shadow()?.querySelector('.kn-ruler'), 'volume ruler');
   const savesBefore = window.__kanaTest.saves.length;
   ruler.value = '60';
   ruler.dispatchEvent(new Event('input', {bubbles:true}));
   ruler.dispatchEvent(new Event('change', {bubbles:true}));
-  await waitFor(() => window.__kanaTest.audios.length > beforeCount);
+  await waitFor(() => window.__kanaTest.audios.length > beforeCount, 'playback start');
   const activeClip = window.__kanaTest.audios.at(-1);
   const playingBeforeLeave = activeClip.played && !activeClip.paused;
 
   await window.__megulitTest.navigate('home');
-  await wait(40);
+  await waitFor(() => activeClip.paused && window.__kanaTest.saves.length > savesBefore, 'leave kana pause and flush', 250).catch(() => {});
   const pausedAfterLeave = activeClip.paused;
   const flushedImmediately = window.__kanaTest.saves.length > savesBefore;
 

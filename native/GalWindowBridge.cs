@@ -497,6 +497,21 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
        that menu. A dummy key (VK 0xE8, unassigned; AutoHotkey's menu mask key) while Alt is still down makes the release ordinary. */
     [DllImport("user32.dll")] static extern void keybd_event(byte vk,byte scan,uint flags,UIntPtr extra);
     static void MaskAltRelease(){if((GetAsyncKeyState(0x12)&0x8000)==0)return;keybd_event(0xE8,0,0,UIntPtr.Zero);keybd_event(0xE8,0,2,UIntPtr.Zero);}
+    /* 2026-11-26 (QQ #1130: L was the game's own shortcut; the log only opened on L with the Alt+T menu open). The log has its own
+       global key (Alt+L by default, chosen in the log settings, backlog.js), held only while a bound game (or MeguLit's layer) is
+       in front in translation mode, so it is never taken from other programs; outside that the key stays theirs. */
+    static uint BacklogMods,BacklogKey,BacklogHeldMods,BacklogHeldKey;
+    internal static bool BacklogKeyValid(uint mods,uint key){return key>=0x41&&key<=0x5A&&(mods&~7u)==0&&(mods&3)!=0;}
+    internal static bool BacklogKeyWanted(bool configured,bool translation,bool bound,bool gameInFront){return configured&&translation&&bound&&gameInFront;}
+    static void BacklogHotkeyConfigure(Dictionary<string,object> d){uint mods=(uint)Math.Max(0,Math.Min(255,Num(d,"modifiers",0))),key=(uint)Math.Max(0,Math.Min(255,Num(d,"key",0)));
+        if(!BacklogKeyValid(mods,key)){mods=0;key=0;}BacklogMods=mods;BacklogKey=key;}
+    static void BacklogHotkeyTick(bool noHotkeys){
+        var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,2);
+        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,2)||front==Overlay));
+        if(want&&BacklogHeldKey==BacklogKey&&BacklogHeldMods==BacklogMods||!want&&BacklogHeldKey==0)return;
+        if(BacklogHeldKey!=0){UnregisterHotKey(IntPtr.Zero,0x544);BacklogHeldKey=0;BacklogHeldMods=0;}
+        if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;}
+    }
     static void ToggleCover(){
         if((DateTime.UtcNow-LastCoverToggle).TotalMilliseconds<180)return;
         LastCoverToggle=DateTime.UtcNow;CoverEnabled=!CoverEnabled;
@@ -588,7 +603,8 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
             RefreshReaderPointer();}
         else if(type=="glass")GlassCommand(d);
         else if(type=="lookup"){bool open=Bool(d,"open");LookupOpen=open&&TranslationMode&&CoverEnabled;if(!open){LookupDragRegion=0;LookupGrip=null;}RefreshReaderPointer();}
-        else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"));}
+        else if(type=="backlogHotkey")BacklogHotkeyConfigure(d);
+        else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"),Bool(d,"panelUp"));}
         else if(type=="quit")Running=false;
     }
     static bool ReaderMouseDown,ReaderSpaceDown,ReaderEnterDown,ReaderSkipHeld;
@@ -711,10 +727,40 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         if(complete||skip!=ReaderSkipHeld)Emit(new{type="readerInput",complete=complete,skipHeld=skip});
         ReaderSkipHeld=skip;
     }
+    /* 2026-11-26 (QQ essence 1144, Danganronpa V3 and other games that hide and lock the mouse: with the Alt+T panel open the pointer
+       stayed locked to the game and invisible, so no setting could be changed). While the panel (or a word card) is open the cursor
+       clip is lifted and the cursor made visible; both are given back to the game when the panel closes. Guess: a game that also
+       re-centres the pointer itself every frame (SetCursorPos) is not helped by this, it needs the hook layer. */
+    [StructLayout(LayoutKind.Sequential)] struct CursorInfo { public int Size,Flags; public IntPtr Cursor; public int X,Y; }
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] static extern bool ClipCursor(IntPtr rect);
+    [DllImport("user32.dll")] static extern bool GetClipCursor(out Rect rect);
+    [DllImport("user32.dll")] static extern bool GetCursorInfo(ref CursorInfo info);
+    [DllImport("user32.dll")] static extern int ShowCursor(bool show);
+    [DllImport("user32.dll",EntryPoint="ClipCursor")] static extern bool ClipCursorTo(ref Rect rect);
+    static int CursorShown;static bool CursorFreed;static Rect CursorClip;
+    internal static bool ClipIsTight(Rect clip,Rect screen){return clip.Right-clip.Left<screen.Right-screen.Left||clip.Bottom-clip.Top<screen.Bottom-screen.Top;}
+    static Rect VirtualScreen(){return new Rect(GetSystemMetrics(76),GetSystemMetrics(77),GetSystemMetrics(76)+GetSystemMetrics(78),GetSystemMetrics(77)+GetSystemMetrics(79));}
+    static void FreeCursorForMenu(bool wanted){
+        try{
+            if(wanted){
+                Rect clip;
+                if(GetClipCursor(out clip)&&!CursorFreed&&ClipIsTight(clip,VirtualScreen())){CursorClip=clip;ClipCursor(IntPtr.Zero);CursorFreed=true;}
+                CursorInfo info=new CursorInfo();info.Size=Marshal.SizeOf(typeof(CursorInfo));
+                for(int i=0;i<4&&GetCursorInfo(ref info)&&(info.Flags&1)==0;i++){ShowCursor(true);CursorShown++;info.Size=Marshal.SizeOf(typeof(CursorInfo));}
+            }else if(CursorShown>0||CursorFreed){
+                while(CursorShown>0){ShowCursor(false);CursorShown--;}
+                /* a game that set its clip once gets it back (Codex #1177); one that set a new clip meanwhile keeps its own */
+                Rect now;if(CursorFreed&&!(GetClipCursor(out now)&&ClipIsTight(now,VirtualScreen())))ClipCursorTo(ref CursorClip);
+                CursorFreed=false;
+            }
+        }catch{}
+    }
     static void Tick(){
         if(HookVerifier!=null)HookVerifier.Tick();
         FindOverlay();if(Overlay==IntPtr.Zero)return;
         if(CheckGameExit())return;
+        FreeCursorForMenu(MenuOpen||LookupOpen);
         // Demote inherited/older topmost state in every mode, including minimised or foreign-application states.
         bool foregroundGame=TranslationMode&&Target!=IntPtr.Zero&&IsWindow(Target)&&!IsIconic(Overlay)&&GetAncestor(GetForegroundWindow(),3)==GetAncestor(Target,3);
         Layer=DecideLayer();
@@ -868,6 +914,11 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
             if(!GameSceneProbe.SelfTest())return 6;
             if(!GameCapture.FreezeSelfTest())return 10;
             if(!GameAudio.ClientShotSelfTest())return 9;
+            /* the log key: Alt/Ctrl + a letter only; held only for a bound game in front in translation mode */
+            if(!BacklogKeyValid(1,0x4C)||!BacklogKeyValid(3,0x4C)||BacklogKeyValid(4,0x4C)||BacklogKeyValid(0,0x4C)||BacklogKeyValid(1,0x54+0x20)||BacklogKeyValid(9,0x4C)||
+               !BacklogKeyWanted(true,true,true,true)||BacklogKeyWanted(false,true,true,true)||BacklogKeyWanted(true,false,true,true)||BacklogKeyWanted(true,true,false,true)||BacklogKeyWanted(true,true,true,false))return 11;
+            Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",1},{"key",0x4C}});if(BacklogKey!=0x4C||BacklogMods!=1)return 11;
+            Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",0},{"key",0x4C}});if(BacklogKey!=0)return 11;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","translation"}});
             if(!TranslationMode)return 4;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","normal"}});
@@ -879,6 +930,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         if(args.Length>0&&args[0]=="--focus-self-test"){
             if(!ReadingVisible(true,false,false,true,true,false)||!ReadingVisible(true,false,false,false,false,true)||ReadingVisible(false,false,false,true,true,true)||ReadingVisible(true,true,false,true,true,true)||ReadingVisible(true,false,true,true,true,true)||ReadingVisible(true,false,false,false,true,false))return 5;
             if(!CoversMonitor(0,0,1920,1080,0,0,1920,1080)||CoversMonitor(0,0,1280,720,0,0,1920,1080)||!CoversMonitor(-8,-8,1928,1088,0,0,1920,1080)||OverlayMayActivate(true,true,true)||!OverlayMayActivate(false,true,true)||OverlayMayActivate(false,true,false))return 6;
+            if(!ClipIsTight(new Rect(960,540,961,541),new Rect(0,0,1920,1080))||ClipIsTight(new Rect(0,0,1920,1080),new Rect(0,0,1920,1080))||!ClipIsTight(new Rect(0,0,1280,720),new Rect(0,0,1920,1080)))return 9;
             Emit(new{type="focus-selftest",passed=true,fullscreenGameKeepsForeground=true,foreignApplicationsYield=true,minimizedWindowPreserved=true});return 0;
         }
         if(args.Length>0&&args[0]=="--scene-frame-self-test"){string r=GameAudio.SceneFrameSelfTest();Console.WriteLine(r=="0"?"PASS scene frame: top hash ignores the dialogue box, other scenes differ, fades give nothing, JPEG long side 1600":"FAIL scene frame: "+r);return r=="0"?0:15;}
@@ -911,10 +963,10 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         Emit(new{type="ready",hotkey=hotkey,coverHotkey=coverHotkey,modeHotkey=modeHotkey,coverEnabled=true,interfaceMode="normal"});
         DateTime nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);
         var input=new Thread(delegate(){string line;while((line=Console.ReadLine())!=null){try{var command=Json.Deserialize<Dictionary<string,object>>(line);if(Str(command,"type")=="glass"){GlassCommand(command);continue;}Commands.Enqueue(command);}catch{}}Running=false;});input.IsBackground=true;input.Start();
-        try{while(Running){Dictionary<string,object> command;while(Commands.TryDequeue(out command)){try{Command(command);}catch(Exception error){Emit(new{type="error",message=error.Message});}}Msg message;while(PeekMessage(out message,IntPtr.Zero,0,0,1)){if(message.message==0x0312)MaskAltRelease();if(message.message==0x0312&&message.wParam.ToUInt64()==0x543){BindHotkey();}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x542){ToggleCover();}else if(message.message==0x0312){Emit(new{type="hotkey"});}else{TranslateMessage(ref message);DispatchMessage(ref message);}}try{ModeRequestTick();PickTick();Tick();}catch{}
+        try{while(Running){Dictionary<string,object> command;while(Commands.TryDequeue(out command)){try{Command(command);}catch(Exception error){Emit(new{type="error",message=error.Message});}}Msg message;while(PeekMessage(out message,IntPtr.Zero,0,0,1)){if(message.message==0x0312)MaskAltRelease();if(message.message==0x0312&&message.wParam.ToUInt64()==0x544){Emit(new{type="backlogHotkey"});}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x543){BindHotkey();}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x542){ToggleCover();}else if(message.message==0x0312){Emit(new{type="hotkey"});}else{TranslateMessage(ref message);DispatchMessage(ref message);}}try{ModeRequestTick();PickTick();Tick();}catch{}try{BacklogHotkeyTick(noHotkeys);}catch{}
           /* E476: keys another program held are taken as soon as it lets go, so "not ready" heals by itself */
           if(!noHotkeys&&(!hotkey||!coverHotkey||!modeHotkey)&&DateTime.UtcNow>=nextHotkeyTry){nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);bool was=hotkey&&coverHotkey&&modeHotkey;if(!hotkey)hotkey=RegisterHotKey(IntPtr.Zero,0x541,0x4001,0x54);if(!coverHotkey)coverHotkey=RegisterHotKey(IntPtr.Zero,0x542,0x4001,0x48);if(!modeHotkey)modeHotkey=RegisterHotKey(IntPtr.Zero,0x543,0x4001,0x4d);if(hotkey||coverHotkey||modeHotkey)Emit(new{type="hotkeyState",hotkey=hotkey,coverHotkey=coverHotkey,modeHotkey=modeHotkey});}
           try{Glass.Follow(Overlay,TranslationMode&&Target!=IntPtr.Zero&&LayersMayFloat&&IsShown&&Overlay!=IntPtr.Zero&&IsWindowVisible(Overlay)&&!IsIconic(Overlay)&&!IsIconic(Target));}catch{}Thread.Sleep(Dragging?8:Target==IntPtr.Zero?250:16);}}
-        finally{RevealGame(Target);TopmostGuard.Uninstall();UninstallShowWatch();ForgetGame();if(HookVerifier!=null)HookVerifier.Dispose();Restore();TextMask.Dispose();WaitMarker.Dispose();MaskLayer.Dispose();Glass.Dispose();if(hotkey)UnregisterHotKey(IntPtr.Zero,0x541);if(coverHotkey)UnregisterHotKey(IntPtr.Zero,0x542);if(modeHotkey)UnregisterHotKey(IntPtr.Zero,0x543);}return 0;
+        finally{RevealGame(Target);TopmostGuard.Uninstall();UninstallShowWatch();ForgetGame();if(HookVerifier!=null)HookVerifier.Dispose();Restore();TextMask.Dispose();WaitMarker.Dispose();MaskLayer.Dispose();Glass.Dispose();if(hotkey)UnregisterHotKey(IntPtr.Zero,0x541);if(coverHotkey)UnregisterHotKey(IntPtr.Zero,0x542);if(modeHotkey)UnregisterHotKey(IntPtr.Zero,0x543);if(BacklogHeldKey!=0)UnregisterHotKey(IntPtr.Zero,0x544);}return 0;
     }
 }

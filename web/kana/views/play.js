@@ -56,7 +56,7 @@ const CFG={
 const DNAME={intro:"入门",std:"标准",adv:"进阶",chal:"挑战"};
 
 const P={get:k=>params[k]??null};
-const G=P.get("g")||"pos",D=P.get("d")||"intro",S=P.get("s")||"h";
+const G=P.get("g")||"pos",D=P.get("d")||"intro",S=P.get("s")||"h",SAY=P.get("say")!=="0";
 const C={...CFG[G][D]},script=C.script||S;
 const VALID_KANA={pos:new Set([...SEION.filter(k=>k!=="ん"),...DAKU]),seq:new Set(C.mode==="next"?ORDER.slice(0,-1):ORDER),conv:new Set([...SEION,...DAKU,...YOON])};
 const ONLY=[...new Set((P.get("only")||"").split(",").filter(Boolean).map(toHira))];
@@ -117,7 +117,7 @@ function resolve(ok,why,detail){
   const fb=$("#fb");
   fb.innerHTML=ok?`<span class="ok">正确</span>${detail?" · "+detail:""}<span class="pts judge j-${jg.split(" ").join("-").toLowerCase()}">${brk?"BREAK · ":""}${jg}</span>`:
     `<b>${why==="超时"?"超时":"不对"}</b> · ${q.explain}<span class="pts judge j-miss">${brk?"BREAK · ":""}MISS</span>`;
-  if(ok&&q.speak)say(q.speak);
+  if(ok&&SAY&&q.speak)say(q.speak);
   clearTimeout(nextTimer);nextTimer=setTimeout(next,ok?700:1900);
 }
 function next(){

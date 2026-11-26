@@ -70,3 +70,43 @@ test('a clip at the cache size limit plays on the first retrieval and from disk'
 test('fit keeps an ordinary card within its viewport and bounds the reduction for long illustrated notes',()=>{
  assert.equal(fitScale(900,400,900,600),2/3);assert.equal(fitScale(900,700,900,600),1);assert.equal(fitScale(900,300,900,1200),.6);assert.equal(fitScale(900,400,900,600,false),1);assert.equal(fitScale(0,0,0,0),1);
 });
+
+test('templates with non-audio metadata blocks or hint/type filters still resolve audio safely',()=>{
+ const card={
+  template:'Kaishi',
+  fields:{
+   Word:{value:'食べる'},
+   Notes:{value:'Ichidan verb'},
+   WordAudio:{value:'[sound:word.mp3]'},
+   SentenceAudio:{value:'[sound:sent.mp3]'},
+   Empty:{value:''}
+  }
+ };
+ const templates={
+  Kaishi:{
+   Front:'{{Word}}{{WordAudio}}{{type:Word}}{{#Tags}}<div class="tags">{{Tags}}</div>{{/Tags}}',
+   Back:'{{FrontSide}}<hr>{{hint:Notes}}{{SentenceAudio}}{{#Tags}}<footer class="tags">{{Tags}}</footer>{{/Tags}}'
+  }
+ };
+ assert.deepEqual(
+  [...playMap(card,templates,'[anki:play:q:0][anki:play:a:0]')],
+  [['q:0','word.mp3'],['a:0','sent.mp3']]
+ );
+ // Safety invariants: audio inside unknown conditional blocks, hint filters, tts, or unknown third-party filters stays unsafe.
+ assert.equal(templateSounds('{{#Tags}}{{WordAudio}}{{/Tags}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{#Tags}}[sound:lit.mp3]{{/Tags}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{#Tags}}[anki:tts lang=ja_JP]{{/Tags}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{#Tags}}{{#Deck}}{{WordAudio}}{{/Deck}}{{/Tags}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{#Tags}}{{#Word}}{{WordAudio}}{{/Word}}{{/Tags}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{hint:WordAudio}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{hint:Missing}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{tts ja_JP:Word}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{text: tts ja_JP:Word}}',card.fields).safe,false);
+ assert.equal(templateSounds('{{forvo:Word}}{{WordAudio}}',card.fields).safe,false);
+ // Unclosed conditional and trailing literal [sound:] are still handled accurately.
+ assert.equal(templateSounds('{{#Word}}{{WordAudio}}',card.fields).safe,false);
+ assert.deepEqual(templateSounds('{{Word}}[sound:tail.mp3]',card.fields),{safe:true,names:['tail.mp3']});
+ // Dead branches (either outside or inside an unknown conditional) do not taint safety.
+ assert.deepEqual(templateSounds('{{#Empty}}{{#Tags}}{{WordAudio}}{{/Tags}}{{/Empty}}{{SentenceAudio}}',card.fields),{safe:true,names:['sent.mp3']});
+ assert.deepEqual(templateSounds('{{#Tags}}{{#Empty}}{{WordAudio}}{{/Empty}}{{/Tags}}{{SentenceAudio}}',card.fields),{safe:true,names:['sent.mp3']});
+});

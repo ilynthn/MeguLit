@@ -119,12 +119,12 @@ if(ctx.params?.focus==='practice'){const p=el.querySelector('#practice');setTime
 
 /* 2026-11-11 (user: the familiarity chart should be usable): a cell opens a card to hear it and set 未学/见过/熟悉/掌握 */
 const card=el.querySelector('[data-mk-card]'),empty=el.querySelector('[data-mk-empty]');let open='';
-const drawCard=k=>{const l=lv(k),w=D.wordOf?D.wordOf(k):null;card.hidden=false;empty.hidden=true;
- card.innerHTML=`<div class="mk-head"><b class="mk-kana">${esc(k)}</b><div><span class="mk-roma">${esc(D.romaOf(k))}</span><small>${esc(D.toKata(k))}${w&&w[0]?' · '+esc(w[0])+(w[1]?'（'+esc(w[1])+'）':''):''}</small></div><button type="button" class="mk-say" data-mk-say aria-label="发音">▶ 发音</button></div>
+const drawCard=k=>{const l=lv(k),w=D.wordOf?D.wordOf(k):null,pair=D.isKata(k)?D.toHira(k):D.toKata(k),word=w&&w[0]?' · '+esc(w[0])+(w[1]&&w[1]!==w[0]?'（'+esc(w[1])+'）':''):'';card.hidden=false;empty.hidden=true;
+ card.innerHTML=`<div class="mk-head"><b class="mk-kana">${esc(k)}</b><div><span class="mk-roma">${esc(D.romaOf(k))}</span><small>${esc(pair)}${word}</small></div><button type="button" class="mk-say" data-mk-say aria-label="发音">▶ 发音</button></div>
 <div class="mk-levels" role="radiogroup" aria-label="${t.level}">${LV.map((t,i)=>`<button type="button" role="radio" class="mk-lv l${i}${i===l?' on':''}" aria-checked="${i===l}" data-mk-lv="${i}">${t}</button>`).join('')}</div>
 <button type="button" class="mk-go" data-go="gojuon.html?k=${encodeURIComponent(k)}">${t.stroke}</button>`;
  card.querySelector('[data-mk-say]').onclick=()=>ctx.speech.say(k);
- card.querySelectorAll('[data-mk-lv]').forEach(b=>b.onclick=()=>{m[k]=+b.dataset.mkLv;S.put(KEY.m,m);const cell=el.querySelector(`[data-mk="${k}"]`);if(cell){cell.className='m'+m[k]+' sel';cell.title=k+' · '+LV[m[k]];beat(cell);}drawCard(k);});
+ card.querySelectorAll('[data-mk-lv]').forEach(b=>b.onclick=()=>{m[k]=+b.dataset.mkLv;S.put(KEY.m,m);const cell=el.querySelector(`[data-mk="${k}"]`);if(cell){cell.className='m'+m[k]+' sel'+(lessonOf(k)===cur?' row':'');cell.title=k+' · '+LV[m[k]];cell.setAttribute('aria-label',`${k} ${D.romaOf(k)} ${LV[m[k]]}`);beat(cell);}drawStage(cur);drawCard(k);});
  if(!calm)card.animate([{opacity:0,filter:'blur(6px)',transform:'translateX(12px)'},{opacity:1,filter:'none',transform:'none'}],{duration:360,easing:EXPO});};
 board.addEventListener('click',e=>{const b=e.target.closest('[data-mk]');if(!b)return;const k=b.dataset.mk;const L=lessonOf(k);if(L&&L!==cur){drawStage(L);markRow();}beat(b);board.querySelectorAll('[data-mk]').forEach(x=>x.classList.toggle('sel',x===b&&open!==k));if(open===k){open='';card.hidden=true;empty.hidden=false;return;}open=k;drawCard(k);ctx.speech.say(k);});
 }

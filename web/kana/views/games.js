@@ -69,7 +69,9 @@ const SCORE={
  adv:["满分 101.0000%：基础 100% + BREAK 奖励 1%","限时更短：35% 内 CRITICAL PERFECT，60% 内 PERFECT","易混假名出现得更多，BREAK 越多，最后 1% 越难拿满"],
  chal:["满分 101.0000%：基础 100% + BREAK 奖励 1%","2 秒内 CRITICAL PERFECT，4 秒内 PERFECT，再慢 GREAT","总计 90 秒，错满 3 次结束"]
 };
-const KD=ctx.data,BEST={},BESTV={};for(const r of ctx.store.get(ctx.store.KEY.r,[])){if(r.only&&r.only.length||!r.log.length)continue;const key=r.G+"-"+r.D,A=KD.achievement(r.log);if(BESTV[key]===undefined||BESTV[key]<A.pct){BESTV[key]=A.pct;BEST[key]={score:KD.fmtPct(A.pct),acc:Math.round(r.log.filter(l=>l.ok).length/r.log.length*100)+'%'};}}
+const KD=ctx.data,RUNS=ctx.store.get(ctx.store.KEY.r,[]),BEST={},BESTV={};for(const r of RUNS){if(r.only&&r.only.length||!r.log.length)continue;const key=r.G+"-"+r.D,A=KD.achievement(r.log);if(BESTV[key]===undefined||BESTV[key]<A.pct){BESTV[key]=A.pct;BEST[key]={score:KD.fmtPct(A.pct),acc:Math.round(r.log.filter(l=>l.ok).length/r.log.length*100)+'%'};}}
+const NOW=Date.now(),WK={};RUNS.filter(r=>NOW-r.id<7*ctx.store.DAY).forEach(r=>r.log.filter(l=>!l.ok).forEach(l=>{WK[l.show]=(WK[l.show]||0)+1;}));
+const WEAK=Object.entries(WK).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0]);
 
 function poolOf(p){
   const has=x=>p.includes(x)||p==="all";
@@ -81,7 +83,7 @@ function poolOf(p){
   return {list:l,label:parts.join(" + ")+(has("kata")||p==="all"?"，平片混出":""),kata:has("kata")||p==="all",hot:has("confuse")||p==="all"};
 }
 
-let g=0,d=0,script="h";
+let g=0,d=0,script="h",speak=null,onlyWeak=false;
 const $=s=>el.querySelector(s);
 function renderGames(){
   $("#games").innerHTML=GAMES.map((x,i)=>{const played=DIFFS.map(y=>x.id+"-"+y.id).filter(k=>BEST[k]),topKey=played.reduce((a,k)=>!a||BESTV[k]>BESTV[a]?k:a,null);
@@ -112,19 +114,21 @@ function renderCfg(){
    <div class="label">选项</div>
    <div class="opts">
      ${P.kata?`<span class="check" style="cursor:default">这个难度固定平片混出</span>`:`<div class="seg" id="scr">${[["h","平假名"],["k","片假名"],["m","混合"]].map(([v,n])=>`<button data-v="${v}" aria-pressed="${script===v}">${n}</button>`).join("")}</div>`}
-     <label class="check"><input type="checkbox" ${d<2?"checked":""}> 答完播放发音</label>
-     <label class="check"><input type="checkbox"> 只练薄弱假名</label>
+     <label class="check"><input type="checkbox" id="opt-speak" ${(speak===null?d<2:speak)?"checked":""}> 答完播放发音</label>
+     <label class="check"${WEAK.length?"":' style="opacity:.55"'}><input type="checkbox" id="opt-weak" ${onlyWeak&&WEAK.length?"checked":""}${WEAK.length?"":" disabled"}> 只练薄弱假名${WEAK.length?`（${WEAK.length} 个）`:"（近 7 天无错题）"}</label>
    </div>
    <div class="start-row"><span class="best">${best?`<b class="num">${best.score}</b>个人最佳 · 正确率 ${best.acc}`:"这个难度还没有成绩"}</span>
      <button class="btn lg" id="go">开始 <kbd style="opacity:.8">Enter</kbd></button></div>`;
   el.querySelectorAll(".diff").forEach(b=>b.onclick=()=>{d=+b.dataset.d;render()});
   el.querySelectorAll("#scr button").forEach(b=>b.onclick=()=>{script=b.dataset.v;renderCfg()});
+  $("#opt-speak").onchange=e=>{speak=e.target.checked};
+  $("#opt-weak").onchange=e=>{onlyWeak=e.target.checked};
   $("#go").onclick=start;
   /* 数值变化时闪一下，让人看到难度确实改了东西 */
   el.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;if(prev[k]!==undefined&&prev[k]!==val[k])el.classList.add("changed");prev[k]=val[k]});
 }
 function render(){renderGames();renderCfg()}
-function start(){go(`play.html?g=${GAMES[g].id}&d=${DIFFS[d].id}&s=${script}`)}
+function start(){const speakOn=speak===null?d<2:speak;go(`play.html?g=${GAMES[g].id}&d=${DIFFS[d].id}&s=${script}&say=${speakOn?1:0}${onlyWeak&&WEAK.length?`&only=${encodeURIComponent(WEAK.join(","))}`:""}`)}
 ctx.onKey(e=>{
   if(e.target.closest("input"))return;
   if(/^[1-3]$/.test(e.key)){g=+e.key-1;render()}
@@ -136,12 +140,9 @@ render();
 
 
 /* 复习入口：近 7 天常错的假名 + 最近一局的错题（都来自本地练习记录） */
-(()=>{const runs=ctx.store.get(ctx.store.KEY.r,[]),now=Date.now(),wk={};
- runs.filter(r=>now-r.id<7*ctx.store.DAY).forEach(r=>r.log.filter(l=>!l.ok).forEach(l=>{wk[l.show]=(wk[l.show]||0)+1;}));
- const weak=Object.entries(wk).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0]);
- const lastBad=[...runs].reverse().find(r=>r.log.some(l=>!l.ok));const wrong=lastBad?[...new Set(lastBad.log.filter(l=>!l.ok).map(l=>l.show))]:[];
+(()=>{const lastBad=[...RUNS].reverse().find(r=>r.log.some(l=>!l.ok));const wrong=lastBad?[...new Set(lastBad.log.filter(l=>!l.ok).map(l=>l.show))]:[];
  const box=el.querySelector("#review");if(!box)return;
- if(!weak.length&&!wrong.length){box.innerHTML='<h4>复习入口</h4><p class="rv-empty">还没有错题。玩几局之后，常错的假名会出现在这里</p>';return;}
- box.innerHTML='<h4>复习入口</h4>'+(weak.length?`<a class="rv" href="play.html?g=conv&d=intro&only=${encodeURIComponent(weak.join(","))}"><span class="ks">${weak.join(" ")}</span><span>薄弱假名专项 · ${weak.length} 个</span><em>开始 →</em></a>`:"")+(wrong.length?`<a class="rv" href="play.html?g=${lastBad.G}&d=${lastBad.D==="chal"?"std":lastBad.D}&s=${lastBad.script||"h"}&only=${encodeURIComponent(wrong.join(","))}"><span class="ks">${wrong.join(" ")}</span><span>上次错题再挑战 · ${wrong.length} 个</span><em>开始 →</em></a>`:"");
+ if(!WEAK.length&&!wrong.length){box.innerHTML='<h4>复习入口</h4><p class="rv-empty">还没有错题。玩几局之后，常错的假名会出现在这里</p>';return;}
+ box.innerHTML='<h4>复习入口</h4>'+(WEAK.length?`<a class="rv" href="play.html?g=conv&d=intro&only=${encodeURIComponent(WEAK.join(","))}"><span class="ks">${WEAK.join(" ")}</span><span>薄弱假名专项 · ${WEAK.length} 个</span><em>开始 →</em></a>`:"")+(wrong.length?`<a class="rv" href="play.html?g=${lastBad.G}&d=${lastBad.D==="chal"?"std":lastBad.D}&s=${lastBad.script||"h"}&only=${encodeURIComponent(wrong.join(","))}"><span class="ks">${wrong.join(" ")}</span><span>上次错题再挑战 · ${wrong.length} 个</span><em>开始 →</em></a>`:"");
 })();
 }
