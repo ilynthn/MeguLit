@@ -138,10 +138,13 @@ function localeEmulatorFor(root,loc,title){try{const P=require('../core/profiles
  const profile=P.profileFor({engine:loc.engine,exe:loc.exe,title,folder:loc.gameDir});
  if(LE.steamApi(loc.exe)||!require('../services/locale-launch.cjs').useJapanese(profile,{},loc.exe))return null;
  const dir=path.join(root,'runtime','locale-emulator'),guid=LE.profile(dir);return LE.complete(dir)&&guid?{path:path.join(dir,'LEProc.exe'),guid}:null;}catch{return null;}}
+/* reading pace for this many lines (the diff's samples), then fast-forward to the first choice (owner: 先阅读速度采够 60 句 → 按 Ctrl
+   快进直到第一个选项 → 选项出现时恢复正常速度采选项和后 5 句) */
+const SLOW_LINES=60;
 async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||''};
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,driver:{targetLines:1000,afterChoice:5,...(skip===false?{skip:false}:{})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,driver:{targetLines:1000,afterChoice:5,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$args[0];$stop=Join-Path $d 'stop';$i=0;
@@ -154,8 +157,10 @@ function screenRecorder(dir){fs.rmSync(dir,{recursive:true,force:true});fs.mkdir
 
 /* ---- 4 diff ------------------------------------------------------------------------------------------------------------- */
 const RUN_LOGS=/^(hook-events|engine-draw|reader-host)\.log$|^shot-.*\.jpe?g$/i;
-function makeDiff(probeDir,runDir,outDir){
+/* window: {from,to} ISO, the part of the run the diff is made from (the reading-pace phase: fast-forward shreds a per-glyph stream) */
+function makeDiff(probeDir,runDir,outDir,window=null){
  const rt=path.join(probeDir,'runtime');fs.mkdirSync(rt,{recursive:true});
+ {const mf=path.join(probeDir,'manifest.json');const man=JSON.parse(fs.readFileSync(mf,'utf8'));if(window)man.runtime=window;else delete man.runtime;fs.writeFileSync(mf,JSON.stringify(man,null,1));}
  for(const f of fs.readdirSync(runDir))if(RUN_LOGS.test(f))fs.copyFileSync(path.join(runDir,f),path.join(rt,f));
  const DM=require('./diff-maker/index.cjs');const m=DM.make(probeDir);const written=DM.write(m,{out:path.join(outDir,'diff'),repo:false});
  const b=m.result.best;return {ok:true,gameKey:m.key,engine:m.probe.engine,mode:b.params.hideMethod,cost:b.cost,over:b.over,lines:m.result.lines,dir:written[0]};}
@@ -308,7 +313,7 @@ async function run(opts,{log=console.log}={}){
   result.stuck=stuckOf({cold,run:runInfo,diag,engine});
   /* layer 3: the game diff */
   let diff=null;
-  await step('diff',()=>{if(probe&&runCopy){try{diff=makeDiff(probe.dir,runCopy,out);result.artifacts.diff=diff.dir;if(diff.gameKey)result.gameKey=diff.gameKey;log('# diff '+diff.mode+' cost='+diff.cost);}catch(e){diff={ok:false,why:e.message};}}
+  await step('diff',()=>{if(probe&&runCopy){try{const fast=(runInfo?.phases||[]).find(p=>p.name==='fast');result.phases=runInfo?.phases||[];diff=makeDiff(probe.dir,runCopy,out,fast?{from:runInfo.startedAt,to:fast.at}:null);if(fast)diff.window={from:runInfo.startedAt,to:fast.at};result.artifacts.diff=diff.dir;if(diff.gameKey)result.gameKey=diff.gameKey;log('# diff '+diff.mode+' cost='+diff.cost);}catch(e){diff={ok:false,why:e.message};}}
    else diff={ok:false,why:probe?'冷测试没有运行目录':'没有探针'};});
   result.diff=diff;if(diff.ok)result.layers.game={diff:diff.dir,mode:diff.mode};
   /* Cardinal (only when the cold run has lines to replay) */

@@ -167,3 +167,11 @@ test('driver afterChoice / skip:false: no held Ctrl at reading pace; ends a few 
  d.next({t:20,window:{w:10,h:10},lines:3,choices:1});assert.equal(d.next({t:30,window:{w:10,h:10},lines:4,choices:1}).length,0);
  assert.deepEqual(d.next({t:40,window:{w:10,h:10},lines:5,choices:1}),[{do:'end',why:'choice'}]);
  const o=A.parseArgs(['node','x','d']);assert.equal(o.skip,false,'reading pace by default');assert.equal(A.parseArgs(['node','x','d','--skip']).skip,true);});
+
+test('driver slowLines: reading pace, then Ctrl until the first choice, then reading pace for the choice and afterChoice lines',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({skip:false,slowLines:3,afterChoice:2,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});
+ assert.ok(!d.next({t:10,window:W,lines:1}).some(a=>a.vk===VK.ctrl),'slow first');
+ const f=d.next({t:20,window:W,lines:3});assert.deepEqual(f,[{do:'phase',name:'fast'},{do:'keydown',vk:VK.ctrl}]);
+ const c=d.next({t:30,window:W,lines:40,choices:1});assert.deepEqual(c.slice(0,2),[{do:'keyup',vk:VK.ctrl},{do:'phase',name:'choice'}]);
+ assert.ok(!d.next({t:40,window:W,lines:41,choices:1}).some(a=>a.do==='keydown'),'no Ctrl after the choice');
+ assert.deepEqual(d.next({t:50,window:W,lines:42,choices:1}),[{do:'end',why:'choice'}]);});

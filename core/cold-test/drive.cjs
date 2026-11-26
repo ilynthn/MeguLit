@@ -19,18 +19,18 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0});
 
 class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;}
- next(obs){const o=this.o,t=obs.t|0,out=[];const end=why=>{if(this.phase==='advance'&&this.o.skip!==false)out.push({do:'keyup',vk:VK.ctrl});this.phase='end';out.push({do:'end',why});return out;};
+ next(obs){const o=this.o,t=obs.t|0,out=[];const end=why=>{if(this.phase==='advance'&&(this.o.slowLines>0?this.fast:this.o.skip!==false))out.push({do:'keyup',vk:VK.ctrl});this.phase='end';out.push({do:'end',why});return out;};
   if(this.phase==='end')return out;
   if(obs.deadline&&t>=obs.deadline)return end(this.phase==='advance'?'time':'time-'+this.phase);
   if(this.phase==='boot'){if(obs.window&&obs.window.w>0&&obs.window.h>0){this.phase='intro';this.introAt=t;this.lastAct=t;}else if(t>=o.bootMs)return end('no-window');else return out;}
   const W=obs.window||{w:0,h:0};const center={do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.6)};
   if((obs.lines|0)>this.lastLines){this.lastLines=obs.lines|0;this.lastLineAt=t;}
   if(this.phase==='intro'){
-   if((obs.lines|0)>0){this.phase='advance';this.lastLineAt=t;if(o.skip!==false){out.push({do:'keydown',vk:VK.ctrl});this.lastCtrl=t;}}
+   if((obs.lines|0)>0){this.phase='advance';this.lastLineAt=t;if(o.skip!==false&&!(o.slowLines>0)){out.push({do:'keydown',vk:VK.ctrl});this.lastCtrl=t;}}
    else{const since=t-this.introAt;
     if(!this.introShot&&since>=o.introShotAt){this.introShot=true;out.push({do:'shot',tag:'intro'});}
     if(obs.black&&since>=o.blackAfter)return end('black');
@@ -46,12 +46,16 @@ class Driver{
   if(o.afterChoice>0&&this.choiceLine!=null&&this.lastLines>=this.choiceLine+o.afterChoice)return end('choice');
   if(t-this.lastLineAt>=o.stallMs)return end('stalled');
   for(const n of o.shotLines)if(this.lastLines>=n&&!this.shotsTaken.has(n)){this.shotsTaken.add(n);out.push({do:'shot',tag:'line-'+n});}
-  if((obs.choices|0)>this.lastChoices){this.lastChoices=obs.choices|0;this.choiceAt=t;if(this.choiceLine==null)this.choiceLine=this.lastLines;}
+  if((obs.choices|0)>this.lastChoices){this.lastChoices=obs.choices|0;this.choiceAt=t;if(this.choiceLine==null){this.choiceLine=this.lastLines;if(this.fast){this.fast=false;out.push({do:'keyup',vk:VK.ctrl},{do:'phase',name:'choice'});}}}
+  /* slowLines (tools/adapt-auto.cjs): reading pace for the first slowLines lines (the samples a diff is made from), then fast-forward
+     (held Ctrl) until the first choice, then reading pace again for the choice and afterChoice lines */
+  if(o.slowLines>0&&!this.fast&&this.choiceLine==null&&this.lastLines>=o.slowLines){this.fast=true;this.lastCtrl=t;out.push({do:'phase',name:'fast'},{do:'keydown',vk:VK.ctrl});}
   if(this.choiceAt&&t-this.choiceAt>=600){this.choiceAt=0;this.lastAct=t;const opt=(obs.menu||[]).find(m=>m&&m.role==='choice'&&m.w>0&&m.h>0);out.push(opt?{do:'click',x:Math.round(opt.x+opt.w/2),y:Math.round(opt.y+opt.h/2)}:{do:'key',vk:VK.enter});return out;}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
   if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2)});return out;}
   /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
-  if(o.skip!==false&&t-this.lastCtrl>=o.ctrlEvery){this.lastCtrl=t;out.push({do:'keydown',vk:VK.ctrl});}
+  const ctrl=o.slowLines>0?this.fast:o.skip!==false;
+  if(ctrl&&t-this.lastCtrl>=o.ctrlEvery){this.lastCtrl=t;out.push({do:'keydown',vk:VK.ctrl});}
   if(t-this.lastAct>=o.advanceEvery){this.lastAct=t;out.push(this.step++%2?{do:'key',vk:VK.enter}:{do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.85)});}
   return out;}
 }
