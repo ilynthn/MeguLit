@@ -67,6 +67,8 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   const hideProbe=threads=>{const sel=threads.find(t=>t&&t.selected);if(!sel)return;
    if(sel.hideOnly===true){const c=res.hideConfirmed||(res.hideConfirmed=[]);if(!c.some(x=>x.id===sel.id)){c.push({id:String(sel.id),name:String(sel.name||''),at:new Date(now()).toISOString(),lines:res.lines});}return;}
    if(opts.hideProbe===true&&sel.sample&&sel.embeddable!==true&&hooks?.probing!==true){try{hooks.probeHide?.(true);{const hp=res.hideProbes||(res.hideProbes=[]);if(hp.length<20)hp.push({id:String(sel.id),at:new Date(now()).toISOString()});}}catch{}}};
+  /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
+  let hookTextAt=0,threadSig='';
   let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new Driver({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
@@ -75,10 +77,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{
    const Hook=deps.Hook||require('../core/hook-native.cjs').HookNative;const layout={...(deps.layout||require('../core/layout.cjs')),logs:runDir};
-   Hook.traceTap=line=>{{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
+   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
    const statusLog=path.join(runDir,'hook-status.log');let statusN=0;
-   hooks=new Hook(layout,e=>{if(e&&Array.isArray(e.hookThreads))hideProbe(e.hookThreads);if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
+   hooks=new Hook(layout,e=>{if(e&&Array.isArray(e.hookThreads)){hideProbe(e.hookThreads);const sig=e.hookThreads.map(x=>x&&x.sample||'').join('|');if(sig!==threadSig){threadSig=sig;hookTextAt=now();}}if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
    const drawLog=hooks.drawLog?.bind(hooks);if(drawLog)hooks.drawLog=raw=>{const m=menuItem(raw,res.window);if(m){menu.unshift(m);menu.length=Math.min(menu.length,12);}return drawLog(raw);};
    try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' attach '+JSON.stringify({pid:res.pid,launcherPid:res.launcherPid||0,hwnd:res.window.hwnd,started})+'\n');}catch{}
    hooks.configure({hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started});}
@@ -115,7 +117,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
    if(opts.ocrMenu===true&&!ocrBusy&&res.window&&now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY)){ocrAt=now();ocrBusy=true;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
-   const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black});
+   const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,quietMs:hookTextAt?now()-hookTextAt:1e9});
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
     if(a.do==='phase'){(res.phases||(res.phases=[])).push({name:String(a.name),at:new Date(now()).toISOString(),lines:res.lines});continue;}
     if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);

@@ -19,7 +19,7 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,readEvery:0,choiceWait:1500,choiceHover:300,choiceRetry:3000});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000});
 
 class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
@@ -50,16 +50,19 @@ class Driver{
   /* slowLines (tools/adapt-auto.cjs): reading pace for the first slowLines lines (the samples a diff is made from), then fast-forward
      (held Ctrl) until the first choice, then reading pace again for the choice and afterChoice lines */
   if(o.slowLines>0&&!this.fast&&this.choiceLine==null&&this.lastLines>=o.slowLines){this.fast=true;this.lastCtrl=t;out.push({do:'phase',name:'fast'},{do:'keydown',vk:VK.ctrl});}
-  /* answering a choice (2026-11-26, オルフレール: one click right after Ctrl was released did nothing): after choiceWait (the game leaves
+  /* 2026-11-26 second pass (both オルフレール runs: the hover + click 8 s after Ctrl was released worked, the one at 1.5 s and the keyboard did
+     not): the first try waits until the game drew nothing for choiceQuietMs (fast-forward ended); hover + click, hover + click, then the
+     keyboard last.
+     answering a choice (2026-11-26, オルフレール: one click right after Ctrl was released did nothing): after choiceWait (the game leaves
      fast-forward), hover on the first option and click it choiceHover later; no line within choiceRetry: Down + Enter; then hover +
      click once more; each try is a phase ('choice-try-N'), the one that worked 'choice-done' */
   if(!o.choiceSequence&&this.choiceAt&&t-this.choiceAt>=600){this.choiceAt=0;this.lastAct=t;const opt=(obs.menu||[]).find(m=>m&&m.role==='choice'&&m.w>0&&m.h>0);out.push(opt?{do:'click',x:Math.round(opt.x+opt.w/2),y:Math.round(opt.y+opt.h/2)}:{do:'key',vk:VK.enter});return out;}
   if(o.choiceSequence&&this.choiceAt){const opt=(obs.menu||[]).find(m=>m&&m.role==='choice'&&m.w>0&&m.h>0),at=opt?{x:Math.round(opt.x+opt.w/2),y:Math.round(opt.y+opt.h/2)}:null;
    if(this.lastLines>this.choiceLine){if(this.choiceTry>0)out.push({do:'phase',name:'choice-done',try:this.choiceTry});this.choiceAt=0;this.choiceTry=0;this.choiceHoverClick=false;}
    else if(this.choiceHoverClick){if(t>=this.choiceNext){this.choiceHoverClick=false;this.lastAct=t;if(at)out.push({do:'click',...at});else out.push({do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;}return out;}
-   else if(t>=this.choiceNext&&t-this.choiceAt>=o.choiceWait){this.lastAct=t;const k=this.choiceTry++;
-    if(k===0||k===2){out.push({do:'phase',name:'choice-try-'+(k+1)});if(at)out.push({do:'move',...at});this.choiceNext=t+o.choiceHover;this.choiceHoverClick=true;return out;}
-    if(k===1){out.push({do:'phase',name:'choice-try-2'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;return out;}
+   else if(t>=this.choiceNext&&t-this.choiceAt>=o.choiceWait&&(this.choiceTry>0||(obs.quietMs??1e9)>=o.choiceQuietMs)){this.lastAct=t;const k=this.choiceTry++;
+    if(k===0||k===1){out.push({do:'phase',name:'choice-try-'+(k+1)});if(at)out.push({do:'move',...at});this.choiceNext=t+o.choiceHover;this.choiceHoverClick=true;return out;}
+    if(k===2){out.push({do:'phase',name:'choice-try-3'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;return out;}
     this.choiceAt=0;}
    if(this.choiceAt)return out;}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
@@ -69,7 +72,10 @@ class Driver{
   if(ctrl&&t-this.lastCtrl>=o.ctrlEvery){this.lastCtrl=t;out.push({do:'keydown',vk:VK.ctrl});}
   /* readEvery (tools/adapt-auto.cjs): the advance interval without Ctrl, so a long line is shown to its end before the next one (the reader
      reveals it; at 450 ms 3-row lines of オルフレール never completed: Cardinal row) */
-  if(t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery)){this.lastAct=t;out.push(this.step++%2?{do:'key',vk:VK.enter}:{do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.85)});}
+  /* readQuietMs (tools/adapt-auto.cjs, owner: DrawText 流静默 ≥600 ms 且距上次点击 ≥1 s 再点): without Ctrl, the next click waits until the
+     game drew nothing for readQuietMs (a long line is shown to its end) and readMinMs passed (a short one does not wait for nothing) */
+  const due=!ctrl&&o.readQuietMs>0?(obs.quietMs??1e9)>=o.readQuietMs&&t-this.lastAct>=o.readMinMs:t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery);
+  if(due){this.lastAct=t;out.push(this.step++%2?{do:'key',vk:VK.enter}:{do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.85)});}
   return out;}
 }
 module.exports={Driver,DEFAULTS,VK,START,NOT_START,CONFIRM};

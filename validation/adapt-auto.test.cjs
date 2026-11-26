@@ -193,7 +193,7 @@ test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a ch
  await new Promise(r=>setTimeout(r,600));R.stopActive();const r=await p;
  assert.ok(r.choices>=1,'a choice');assert.ok(h.sent.includes('click 641 207'),h.sent.filter(l=>l.startsWith('click')).join('|'));});
 
-test('driver: a choice is answered by hover + click after Ctrl is released, then Down + Enter, then hover + click',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
+test('driver: a choice is answered by hover + click after Ctrl is released, hover + click again, then Down + Enter',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
  const d=new Driver({skip:false,slowLines:1,afterChoice:5,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[],choiceSequence:true});const W={w:10,h:10},opt={role:'choice',text:'A',x:400,y:300,w:200,h:40};
  d.next({t:0,window:W});d.next({t:10,window:W,lines:1});
  const seen=a=>JSON.stringify(a);const c=d.next({t:100,window:W,lines:2,choices:1,menu:[opt]});assert.ok(seen(c).includes('"keyup"'));
@@ -201,7 +201,7 @@ test('driver: a choice is answered by hover + click after Ctrl is released, then
  assert.deepEqual(d.next({t:1700,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-1'},{do:'move',x:500,y:320}]);
  assert.deepEqual(d.next({t:1800,window:W,lines:2,choices:1,menu:[opt]}),[],'hovering');
  assert.deepEqual(d.next({t:2100,window:W,lines:2,choices:1,menu:[opt]}),[{do:'click',x:500,y:320}]);
- assert.deepEqual(d.next({t:5200,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-2'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter}]);
+ assert.deepEqual(d.next({t:5200,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-2'},{do:'move',x:500,y:320}],'hover + click again before the keyboard');
  assert.deepEqual(d.next({t:5300,window:W,lines:3,choices:1,menu:[opt]}),[{do:'phase',name:'choice-done',try:2}]);});
 
 test('driver readEvery: without Ctrl the game is advanced at reading pace; with Ctrl at advanceEvery',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
@@ -216,3 +216,16 @@ test('runOne hideProbe: a selected read-only stream with text gets the hide prob
  assert.deepEqual(probes,[true]);assert.equal(r.hideConfirmed.length,1);assert.equal(r.hideConfirmed[0].name,'KiriKiri2');
  const h2=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:10,h:10});setTimeout(()=>emit({type:'exited'}),40);});probes.length=0;
  await R.runOne({exe:'C:/g/x.exe',runDir:path.join(dir,'run2'),budgetMs:60000},{spawn:h2.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:10});assert.deepEqual(probes,[],'off unless asked');});
+
+test('driver readQuietMs: without Ctrl the next click waits for 600 ms without game text and 1 s since the last one',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,stallMs:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});d.next({t:10,window:W,lines:1,quietMs:0});
+ assert.equal(d.next({t:2000,window:W,lines:1,quietMs:100}).length,0,'still drawing');
+ assert.equal(d.next({t:2100,window:W,lines:1,quietMs:700}).length,1,'quiet: click');
+ assert.equal(d.next({t:2600,window:W,lines:1,quietMs:5000}).length,0,'less than 1 s since the last click');
+ assert.equal(d.next({t:3200,window:W,lines:1,quietMs:5000}).length,1);});
+
+test('driver choiceQuietMs: the first try waits until fast-forward stopped drawing',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({skip:false,slowLines:1,afterChoice:5,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[],choiceSequence:true,choiceQuietMs:1500});const W={w:10,h:10},opt={role:'choice',text:'A',x:400,y:300,w:200,h:40};
+ d.next({t:0,window:W});d.next({t:10,window:W,lines:1});d.next({t:100,window:W,lines:2,choices:1,menu:[opt]});
+ assert.deepEqual(d.next({t:3000,window:W,lines:2,choices:1,menu:[opt],quietMs:200}),[],'still drawing');
+ assert.deepEqual(d.next({t:4000,window:W,lines:2,choices:1,menu:[opt],quietMs:1600}),[{do:'phase',name:'choice-try-1'},{do:'move',x:500,y:320}]);});
