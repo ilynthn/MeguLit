@@ -42,6 +42,12 @@ function score(run,rules={}){const cut=require('./warmup.cjs').cut(run);run=cut.
  const below=KEYS.filter(k=>applies[k]&&Number.isFinite(rules.floor?.[k])&&scores[k]<rules.floor[k]);
  const result={scores,total,lines:n,applies,below,warmup:cut.warmup,detail:{model:run.o?.model&&typeof run.o.model==='object'?{name:String(run.o.model.name||''),label:String(run.o.model.label||''),bad:Array.isArray(run.o.model.bad)?run.o.model.bad.slice(0,12):[]}:null,pair:{...pairs},pairObservation:{reliable:pairs.source==='live-display'&&pairs.reliable===true,source:pairs.source||'replay-layout'},timeline:C.deliveryClock(run),sourceCoverage,contentCoverage,visibility,row:pl.row.slice(0,6),unseen,stable:pl.stable.slice(0,6),owner:pl.owner.slice(0,6),dup:pl.dup.slice(0,6),white:wh.bad.slice(0,6),flash:fl.bad.slice(0,6),clear:cl.bad,choice:ch.bad,choiceObservation:{reliable:ch.reliable,unobserved:ch.unobserved},leak:lk.bad,leakObservation:{state:lk.state,hideConfirmed:lk.hideConfirmed,screen:lk.screen,observed:lk.observed,checked:lk.checked,native:lk.nativeObserved,read:lk.readObserved}}};
  /* every deduction with its samples (core/cardinal/explain.cjs) */
+ /* 2026-11-26 nothing to score: not one dialogue line on the tape (a hook that only caught paths or resource names, Adobe AIR's
+    TrickOrAlice: '…\\Local Store'). The total stays 0, and the result says why instead of an unexplained 0 */
+ if(!expected){const isFed=st=>st?.hb?.type==='hookSource'||st?.hb?.type==='hookSourceWarmup',warm=(run.steps||[]).filter(st=>st?.hb?.type==='hookSourceWarmup').length;const fedText=(run.steps||[]).filter(isFed).map(st=>String(st.hb.text||''));const streams=[...new Set((run.steps||[]).filter(isFed).map(st=>String(st.hb.sourceName||'')).filter(Boolean))].slice(0,4);
+  const generic=!result.detail.model||result.detail.model.name==='generic';
+  result.unscorable={reason:generic?'no-engine-hook':'no-dialogue',hookLines:fedText.length,warmupLines:warm,streams,sample:(fedText[0]||'').replace(/\s+/g,' ').slice(0,60),
+   text:(generic?'无引擎钩子（通用模型）：':'没有台词可评：')+'磁带里没有一句日文台词'+(fedText.length?'（收到 '+fedText.length+' 段文本，来自 '+(streams.join('、')||'未知文本流')+'，例如「'+(fedText[0]||'').replace(/\s+/g,' ').slice(0,60)+'」'+(warm?'，其中 '+warm+' 段在启动段不计分':'')+'，不是可评的对白）':'（钩子没有给出任何文本）')};}
  result.explain=require('./explain.cjs').explain(result);return result;}
 /* several runs of one game: the scores weighted by each run's lines */
 function combine(results,rules={}){const w=rules.weights||{};const tot=results.reduce((a,r)=>a+Math.max(1,r.lines),0)||1;const scores={},applies={};
