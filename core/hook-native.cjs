@@ -17,7 +17,7 @@ function speakerName(raw){const n=String(raw||'').replace(/[\x00-\x1f]/g,'').rep
    Whatever the engine, a name is split off into the speaker field: 【名前】 / ［名前］ alone or before the line, a name before
    a quote with a line break, ideographic space or colon in between, and – for names already seen – 名前「…」 and a bare
    名前 line. Returns {name,text}; text is '' when the string was only a name. */
-/* side-stream text waits this long for the dialogue line of the same moment before it may be art text */const AUX_ART_DELAY_MS=120;
+/* side-stream text waits this long for the dialogue line of the same moment before it may be art text */const AUX_ART_DELAY_MS=120;/* a name-like side-stream text this soon after a quoted line without a speaker is that line's name (noteAuxName) */const AUX_NAME_LATE_MS=400;
 /* OCR read lines (2026-11-19): a read group waits this long for the rest of the screen's groups; this many groups at once is a menu or settings page; a hook line this recent is current; the same text again within this long is the same screen */
 const HOOK_RETRY_MAX=6,HOOK_ATTACH_GRACE_MS=45000,OCR_LINE_SETTLE_MS=500,OCR_LINE_MAX_BLOCKS=4,OCR_LINE_QUIET_MS=5000,OCR_LINE_REPEAT_MS=60000,OCR_LINE_STALE_MS=60000;
 const SKIP_BURST_GAP_MS=300,SKIP_BURST_SETTLE_MS=400,SKIP_BURST_MAX_HOLD_MS=800;
@@ -515,7 +515,7 @@ class HookNative{
  static retainedPrevious(page,previous,current){if(!previous||!current)return false;let end=0;for(let at=page.indexOf(current);at>=0;at=page.indexOf(current,at+1)){if(at>end&&page.slice(end,at).includes(previous))return true;end=Math.max(end,at+current.length);}return page.slice(end).includes(previous);}
  /* share of the character pairs of `flat` found in the hooked lines of the last ten minutes (0 when nothing to compare) */
  static hookOverlap(flat,recent,now){const t=String(flat||'');if([...t].length<4||!Array.isArray(recent))return 0;const hay=recent.filter(r=>now-r.at<600000).map(r=>r.key).join(String.fromCharCode(10));if(!hay)return 0;const ch=[...t];let n=0,hit=0;for(let i=0;i+1<ch.length;i++){n++;if(hay.includes(ch[i]+ch[i+1]))hit++;}return n?hit/n:0;}
- auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(!text?.trim())return;if(text!==m.text)m={...m,text};this.auxPage(m);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
+ auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(!text?.trim())return;if(text!==m.text)m={...m,text};this.auxPage(m);this.noteAuxName(m.text);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){/* a name drawn just after a line is that line's (noteAuxName), not the next one's */if(!(this.now()-(this.lastSourceAt||0)<AUX_NAME_LATE_MS))this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
     came here as aux text, went to the art path and its translation was drawn over the game's own line. A line from the same hook
     as the dialogue stream is dialogue, never art text. */
   if(m.sourceName&&this.dialogueHook&&String(m.sourceName)===this.dialogueHook)return;/* nor choice text (user: 「不是选项」) */
@@ -1256,9 +1256,27 @@ class HookNative{
  /* #141 (CLANNAD: a bare name sent as its own string, with no brackets, before the 「…」 line). A short name-like line
     followed within 2 s by a quoted line is a name candidate; the second time it happens the name is learned, so from then
     on splitSpeaker moves it to the speaker field. Any engine. */
- learnBareName(text){const now=this.now(),c=this.nameCandidate,bare=String(text||'').trim();this.nameCandidate=null;
-  if(c&&now-c.at<2000&&/^[「『]/.test(bare)){const N=this.nameHits||(this.nameHits=new Map());const hits=(N.get(c.text)||0)+1;N.set(c.text,hits);if(N.size>400)N.delete(N.keys().next().value);if(hits>=2&&!this.knownSpeakers?.has(c.text)){this.noteSpeaker(c.text);this.trace('speaker name learned from bare lines');}if(this.knownSpeakers?.has(c.text)&&!this.speaker)this.speaker={text:c.text,at:now};}
+ learnBareName(text){const now=this.now(),c=this.nameCandidate||this.auxNameBefore(now),bare=String(text||'').trim(),quoted=/^[「『]/.test(bare),named=this.speaker&&now-this.speaker.at<2500;this.nameCandidate=null;this.auxNames=[];this.nameLate=null;
+  if(c&&now-c.at<2000&&quoted){if(this.nameHit(c.text)&&!this.speaker)this.speaker={text:c.text,at:now};}
+  else if(quoted&&!named)this.nameLate={at:now,sequence:(this.state.hookSequence||0)+1};
   if(bare.length>=1&&bare.length<=8&&speakerName(bare)===bare&&!/[\s　「『（(【［\[。、，,.！？!?…‥・～〜]/.test(bare))this.nameCandidate={text:bare,at:now};}
+ /* one more sighting of a name before a quoted line; learned (true) from the second */
+ nameHit(name){const N=this.nameHits||(this.nameHits=new Map());const hits=(N.get(name)||0)+1;N.set(name,hits);if(N.size>400)N.delete(N.keys().next().value);if(hits>=2&&!this.knownSpeakers?.has(name)){this.noteSpeaker(name);this.trace('speaker name learned from bare lines');}return !!this.knownSpeakers?.has(name);}
+ /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run: every line of the 对话记录 said 旁白). KiriKiri draws the name box on side
+    streams (KiriKiri1 / DrawText 「血塗れの男血塗れの男」, KiriKiri2 「男男」) while the dialogue stream sends the line alone, so the
+    bare-name learning above, which only looked at the dialogue stream, never saw a name. A short name-like side-stream text (kana
+    or kanji, a doubled frame read once) in the 2 s before a quoted line is that line's name candidate; the one most streams drew
+    wins, the latest on a tie. The side streams come 15 ms before the line about two times in three and 15 ms after it otherwise
+    (hook-events of that run: 191 before, 106 after): names within AUX_NAME_LATE_MS after a quoted line without a speaker belong to
+    it and are sent as a late hookSpeaker for the line (the reader's log puts the name on its row), never to the next line. Learned
+    on the second appearance like a bare name line, so a menu word never becomes a speaker. Any engine. */
+ noteAuxName(raw){const n=speakerName(String(raw||'').trim());if(!n||n.length>8||!/[ぁ-ヺ㐀-鿿々〆]/.test(n)||/[\s　「『（(【［\[。、，,.！？!?…‥・～〜]/.test(n))return;
+  const now=this.now(),late=!!this.nameLate&&now-this.nameLate.at<AUX_NAME_LATE_MS,A=(this.auxNames||[]).filter(x=>now-x.at<2000);A.push({text:n,at:now,late});if(A.length>24)A.shift();this.auxNames=A;
+  if(late&&!this.nameLateTimer){this.nameLateTimer=setTimeout(()=>{this.nameLateTimer=null;this.resolveLateName();},60);this.nameLateTimer.unref?.();}}
+ static pickAuxName(A){const count=new Map();for(const x of A)count.set(x.text,(count.get(x.text)||0)+1);let best=null;for(const x of A)if(!best||count.get(x.text)>=count.get(best.text))best=x;return best;}
+ auxNameBefore(now){const best=HookNative.pickAuxName((this.auxNames||[]).filter(x=>now-x.at<2000&&!x.late));return best?{text:best.text,at:best.at}:null;}
+ resolveLateName(){const L=this.nameLate,A=this.auxNames||[];this.nameLate=null;this.auxNames=A.filter(x=>!x.late);if(!L||(this.state.hookSequence||0)!==L.sequence)return;
+  const best=HookNative.pickAuxName(A.filter(x=>x.late));if(!best||!this.nameHit(best.text))return;this.trace('speaker name drawn after its line '+JSON.stringify(best.text));this.notify({hookSpeaker:best.text,hookSpeakerLate:L.sequence});}
  /* #141 names seen in a name stream or split from a line; at most 200 are kept. */
  noteSpeaker(n){const K=this.knownSpeakers||(this.knownSpeakers=new Set());if(!n||n.length>16)return;K.delete(n);K.add(n);if(K.size>200)K.delete(K.values().next().value);}
  markerTarget(v){this.waitTarget=v;this.syncMarker();this.flowMarker(v);}

@@ -700,6 +700,8 @@
     if(typeof message.hookActive==='boolean'){bridge.hookActive=message.hookActive;if(!message.hookActive)bridge.hookSourceText='';}
     if(typeof message.hookSource==='string'){bridge.hookSourceText=message.hookSource;bridge.hookSpeaker=typeof message.hookSpeaker==='string'?message.hookSpeaker:'';
      }
+    /* a name the game drew just after its line (core noteAuxName): the current line's speaker, and its log row */
+    else if(message.hookSpeakerLate&&typeof message.hookSpeaker==='string'&&message.hookSpeaker){bridge.hookSpeaker=message.hookSpeaker;bridge.onLateSpeaker?.(message.hookSpeaker);}
     if(message.hookRubyDict&&typeof message.hookRubyDict==='object')bridge.gameRuby=message.hookRubyDict;
     /* Borrowed-code (Chinese patch) text was dropped: say why in the sentence window; the next real line clears it. */
     if(message.hookNotice){let n=document.querySelector('.megulit-hook-notice');const host=document.querySelector('.sentence-window');if(host&&!n){n=document.createElement('div');
