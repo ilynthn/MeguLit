@@ -198,11 +198,16 @@ static class ColdDesk{
  static void Shot(int maxW,string file){if(GameWin==IntPtr.Zero){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"no window\"}");return;}RECT r;GetClientRect(GameWin,out r);int w=r.R-r.L,h=r.B-r.T;if(w<16||h<16){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"tiny\"}");return;}
   using(var b=new Bitmap(w,h,PixelFormat.Format32bppArgb)){using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{PrintWindow(GameWin,dc,3);}finally{g.ReleaseHdc(dc);}}
    bool black=IsBlack(b,w,h),screen=false;
-   if(black&&OnUserDesktop){var p=new POINT();ClientToScreen(GameWin,ref p);IntPtr sdc=GetDC(IntPtr.Zero);try{using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{BitBlt(dc,0,0,w,h,sdc,p.X,p.Y,0x00CC0020);}finally{g.ReleaseHdc(dc);}}}finally{ReleaseDC(IntPtr.Zero,sdc);}black=IsBlack(b,w,h);screen=true;}
+   if(black&&OnUserDesktop&&GameOnTop(w,h)){var p=new POINT();ClientToScreen(GameWin,ref p);IntPtr sdc=GetDC(IntPtr.Zero);try{using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{BitBlt(dc,0,0,w,h,sdc,p.X,p.Y,0x00CC0020);}finally{g.ReleaseHdc(dc);}}}finally{ReleaseDC(IntPtr.Zero,sdc);}black=IsBlack(b,w,h);screen=true;}
    int tw=Math.Min(w,Math.Max(160,maxW)),th=(int)Math.Round(h*(double)tw/w);
    using(var s=new Bitmap(tw,th)){using(var g=Graphics.FromImage(s)){g.InterpolationMode=System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;g.DrawImage(b,0,0,tw,th);}
     var ep=new EncoderParameters(1);ep.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,70L);Directory.CreateDirectory(Path.GetDirectoryName(file));/* .png: lossless (the cold OCR reads outlined button labels JPEG blurs) */if(file.EndsWith(".png",StringComparison.OrdinalIgnoreCase))s.Save(file,ImageFormat.Png);else s.Save(file,Jpeg(),ep);}
    Emit("{\"type\":\"shot\",\"ok\":true,\"path\":"+Q(file)+",\"w\":"+tw+",\"h\":"+th+",\"black\":"+(black?"true":"false")+(screen?",\"source\":\"screen\"":"")+"}");}}
+ /* the screen is read only where the game itself is on top: the centre and four inner corners of its client area all hit a window of the
+    game's process (千恋＊万花 run: the game lay under the user's other windows and the screen read took those instead) */
+ [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(POINT p);
+ static bool GameOnTop(int w,int h){uint game;GetWindowThreadProcessId(GameWin,out game);int[][] at={new[]{w/2,h/2},new[]{8,8},new[]{w-8,8},new[]{8,h-8},new[]{w-8,h-8}};
+  foreach(var a in at){var p=new POINT();p.X=a[0];p.Y=a[1];ClientToScreen(GameWin,ref p);var hit=WindowFromPoint(p);uint pid;if(hit==IntPtr.Zero)return false;GetWindowThreadProcessId(hit,out pid);if(pid!=game)return false;}return true;}
  /* black = nothing drawn: mean and spread of a 64 x 48 sample of the picture both tiny */
  static bool IsBlack(Bitmap b,int w,int h){double sum=0,sq=0;int n=0;for(int yy=0;yy<h;yy+=Math.Max(1,h/48))for(int xx=0;xx<w;xx+=Math.Max(1,w/64)){var c=b.GetPixel(xx,yy);double v=(c.R+c.G+c.B)/3.0;sum+=v;sq+=v*v;n++;}
   double mean=n>0?sum/n:0,sd=n>0?Math.Sqrt(Math.Max(0,sq/n-mean*mean)):0;return mean<10&&sd<6;}
