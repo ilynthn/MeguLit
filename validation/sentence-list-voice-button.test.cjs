@@ -23,7 +23,7 @@ function startHarness(webDir){
  return new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve(server)));
 }
 
-test('sentence list play button expands on a single line for game voice and CV? badge without overflowing',{skip:!hasEdge},async t=>{
+test('sentence list play button expands on a single line for game voice and CV? badge without overflowing',{skip:!hasEdge,timeout:90000},async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-slist-btn-'));
  let server,browser;
  t.after(async()=>{
@@ -36,9 +36,19 @@ test('sentence list play button expands on a single line for game voice and CV? 
  const origin='http://127.0.0.1:'+server.address().port;
 
  for(const [lang,locale,expectedWord] of [['zh-CN','zh','原声'],['ja','ja','原音声'],['en','en','Game voice']]){
-  await browser.send('Page.navigate',{url:origin+'/__test.html'});
+  const url=`${origin}/__test.html?locale=${locale}`;
+  const nav=await browser.send('Page.navigate',{url});
+  assert.ok(!nav.errorText,`${locale} navigation failed (${nav.errorText})`);
+  let pageState=null;
+  for(const deadline=Date.now()+30000;Date.now()<deadline;){
+   pageState=await browser.evaluate('({href:location.href,ready:document.readyState,target:!!document.getElementById("target")})').catch(()=>null);
+   if(pageState?.href===url&&pageState.ready==='complete'&&pageState.target)break;
+   await new Promise(r=>setTimeout(r,50));
+  }
+  assert.ok(pageState?.href===url&&pageState.ready==='complete'&&pageState.target,`${locale} harness page ready: ${JSON.stringify(pageState)}`);
   const rows=await browser.evaluate(`(async()=>{
    document.documentElement.lang=${JSON.stringify(lang)};
+   if(document.fonts?.ready)await document.fonts.ready;
    const {mountSentences}=await import('/sentences-page.js');
    const wav='UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
    HTMLMediaElement.prototype.play=()=>Promise.resolve();
@@ -65,7 +75,14 @@ test('sentence list play button expands on a single line for game voice and CV? 
    });
    const list=target.querySelector('.sp-all');
    const btns=[1,2,3].map(id=>list.querySelector('[data-sentence-play="'+id+'"]'));
-   for(const b of btns){b.click();await new Promise(r=>setTimeout(r,40));}
+   for(const b of btns){
+    b.click();
+    for(const deadline=Date.now()+15000;Date.now()<deadline&&b.getAttribute('aria-busy')==='true';){
+     await new Promise(r=>setTimeout(r,20));
+    }
+    if(b.getAttribute('aria-busy')==='true')throw new Error('sentence play timed out for id='+b.dataset.sentencePlay);
+   }
+   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
    return btns.map(b=>{
     const del=b.parentElement.querySelector('[data-sentence-delete]');
     const r=b.getBoundingClientRect(),dr=del.getBoundingClientRect();

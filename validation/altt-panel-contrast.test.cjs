@@ -102,7 +102,11 @@ async function withReader(run) {
   await cdp?.stop();
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
-  fs.rmSync(temp, {recursive:true, force:true, maxRetries:4, retryDelay:150});
+  try {
+   fs.rmSync(temp, {recursive:true, force:true, maxRetries:10, retryDelay:150});
+  } catch (error) {
+   if (!['EBUSY','EPERM','ENOTEMPTY'].includes(error?.code)) throw error;
+  }
  }
 }
 
@@ -243,7 +247,7 @@ async function measureContrast(cdp,selectors,directText,scan = false) {
   const boxes = probes.flat().map(area => area.box);
   const before = directText ? await cdp.send('Page.captureScreenshot',{format:'png'}) : null;
   await cdp.evaluate('window.maskContrastProbe()');
-  if (before) await frame(cdp);
+  await frame(cdp);
   const result = await screenshotPixels(cdp,boxes);
   if (before && !await cdp.evaluate('window.contrastProbeIsStable()')) return null;
   const withText = before ? await screenshotPixels(cdp,boxes,before.data) : [];
@@ -263,7 +267,7 @@ async function measureContrast(cdp,selectors,directText,scan = false) {
   return Object.fromEntries(selectors.map((selector,i) => [selector,readings[i]]));
  } finally {
   await cdp.evaluate('window.restoreContrastProbe(); delete window.restoreContrastProbe; delete window.maskContrastProbe; delete window.contrastProbeIsStable;');
-  if (directText) await frame(cdp);
+  await frame(cdp);
  }
 }
 async function contrast(cdp,selectors) {
@@ -582,6 +586,7 @@ if (require.main === module) {
    search.dispatchEvent(new Event('input',{bubbles:true}));
   })()`);
   await waitFor(cdp, `!!document.querySelector('.tome-backlog .tome-log-hit')`);
+  await frame(cdp);
   assertAA(await contrast(cdp,['.tome-backlog .tome-log-hit']));
  }));
  test('all panel text stays readable in both themes over a white picture and white game', {...options,timeout:150000},() => withReader(async (cdp,load) => {

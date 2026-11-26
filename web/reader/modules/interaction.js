@@ -21,7 +21,7 @@
   window.__tomoyoHitRegionsRefresh?.(true);
  };
  let queued=false,last='';const watched=new WeakSet(),resize=new ResizeObserver(schedule);
- const NODES='.sentence-text:not(.megulit-art-row) .char-token,.tome-page-lines>div,.tome-inline-wait,.tomoyo-cn-output,.tome-translation-char,.tomoyo-learning-notice,.tome-first-run,.lookup-tooltip,.tomoyo-selection-card,.tomoyo-cn-dialog[open],.tomoyo-cn-dialog[data-leaving],.tome-backlog[data-open],.tome-backlog[data-leaving],.tome-box-deco,.tome-subtitle-drag-guide,.sentence-placeholder,.mg-select-pop,.tome-color-panel,body.tomoyo-ui-translation:not(.tomoyo-gal-bound) .sentence-window';/* 2026-11-13 the choice overlay (E407.2) paints only inside the window region: without its boxes here it was drawn but never seen */
+ const NODES='.sentence-text:not(.megulit-art-row) .char-token,.tome-page-lines>div,.tome-inline-wait,.tomoyo-cn-output,.tome-translation-char,.tomoyo-learning-notice,.tome-first-run,.lookup-tooltip,.tomoyo-selection-card,.tomoyo-cn-dialog[open],.tomoyo-cn-dialog[data-leaving],.tome-backlog[data-open],.tome-backlog[data-leaving],.tome-box-deco,.tome-subtitle-drag-guide,.sentence-placeholder,.mg-select-pop,.tome-color-panel,.mg-cap-hit,body.tomoyo-ui-translation:not(.tomoyo-gal-bound) .sentence-window';/* 2026-11-13 the choice overlay (E407.2) paints only inside the window region: without its boxes here it was drawn but never seen */
  // The lookup card and its dropdowns need the native pointer gate even when the game polls mouse buttons.
  const MENUS='.tomoyo-cn-dialog,.tome-backlog,.mg-select-pop,.tome-color-panel,.tome-subtitle-drag-guide,.tomoyo-selection-card';
  function movedTranslationScroll(node) {

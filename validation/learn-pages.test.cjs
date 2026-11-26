@@ -47,7 +47,7 @@ test('one dictionary search uses one operationId, also for the local fallback',(
 test('dictionary page: no duplicate chips row; clearing the search returns home; home rows open the exact entry',()=>{
  const app=web('app.js');
  assert.doesNotMatch(app,/g-dict-chips/);
- assert.match(app,/#lookup-input'\)\.addEventListener\('input',e=>\{if\(e\.target\.value\.trim\(\)\|\|!results\.innerHTML\)return;ticket\+\+;lastItems=\[\];openWanted='';results\.innerHTML='';\}\)/);
+ assert.match(app,/#lookup-input'\)\.addEventListener\('input',e=>\{if\(e\.target\.value\.trim\(\)\|\|!results\.innerHTML\)return;stopAudio\(\);ticket\+\+;lastItems=\[\];openWanted='';results\.innerHTML='';\}\)/);
  assert.match(app,/openWanted=word;/);
  /* 2026-11-15 results use mountEntries: the searched word becomes the current entry (its MOJi detail opens on the right) */
  assert.match(app,/lastItems=items;lastOnline=used;wantedEntry=query;renderList\(\);/);assert.match(app,/wanted,savedSpellings:saved/);

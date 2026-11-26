@@ -114,7 +114,7 @@ const STEP=40;
 export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc,state,animate=false,onLookup,onLaunch,canLaunch=true,scope='game',onStatus,onDelete,enhance,onGame,peek}){
  const t=tx(locale,scope),life=lifecycle(target);
  const all=words.map(w=>({...w,means:meanings(w.definitions),met:Number(w.met)||0})),extra=lookupOnly.map(w=>({...w,means:meanings(w.definitions),met:0}));
- const oftenCount=scope==='all'?all.filter(w=>w.lookups).length+extra.length:0;
+ let oftenCount=scope==='all'?all.filter(w=>w.lookups).length+extra.length:0;
  const byStatus=counts?.byStatus||null,groupCount=k=>byStatus?Object.entries(byStatus).filter(([s])=>group(s)===k).reduce((a,[,n])=>a+Number(n||0),0):all.filter(w=>group(w.status)===k).length;
  let total=Number(counts?.total)||all.length;
  state.filter??='all';state.q??='';state.shown??=STEP;state.open=false;
@@ -123,13 +123,13 @@ export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc
  const matches=w=>{if(state.filter==='often'?!w.lookups:state.filter!=='all'&&group(w.status)!==state.filter)return false;const q=state.q.trim().toLowerCase();if(!q)return true;
   return String(w.spelling||'').toLowerCase().includes(q)||String(w.reading||'').toLowerCase().includes(q)||hira(w.reading).includes(hira(q))||w.means.some(m=>m.toLowerCase().includes(q));};
  let list=[];const curWord=()=>list.find(w=>w.id===state.cur)||null;
-
- if(!all.length&&!extra.length){
+ function renderEmpty(intro){
   target.innerHTML=`<section class="esr is-empty" aria-label="${esc(t.words)}"><header class="esr-h"><div class="esr-hl"><span class="esr-tot"><span class="esr-k">${esc(t.total)}</span><b>0</b></span></div></header>
    <div class="esr-none" role="status"><span class="esr-w esr-w-none" lang="${locale==='en'?'en':'zh'}">${esc(t.noWords)}</span><p>${esc(t.noWordsSub)}</p>${canLaunch&&onLaunch?`<div class="esr-act"><button type="button" class="primary" data-launch>${esc(t.launch)}</button></div>`:''}</div></section>`;
   target.querySelector('[data-launch]')?.addEventListener('click',e=>onLaunch(e.currentTarget));
-  const gsap=animate&&motion();if(gsap)life.add(()=>{gsap.timeline({defaults:{duration:.6,ease:'power3.out'}}).from(target.querySelectorAll('.esr-h > *, .esr-none > *'),{y:18,opacity:0,stagger:.08});});
-  return life.stop;}
+  const gsap=intro&&animate&&motion();if(gsap)life.add(()=>{gsap.timeline({defaults:{duration:.6,ease:'power3.out'}}).from(target.querySelectorAll('.esr-h > *, .esr-none > *'),{y:18,opacity:0,stagger:.08});});
+ }
+ if(!all.length&&!extra.length){renderEmpty(true);return life.stop;}
 
  const chips=()=>[['all',t.all,total],...t.groups.map((name,i)=>[String(i),name,groupCount(String(i))]),...(oftenCount?[['often',t.often,oftenCount]]:[])].map(([key,name,n])=>
   `<button type="button" role="tab" class="esr-fb${state.filter===key?' on':''}" data-f="${key}" aria-selected="${state.filter===key}" tabindex="${state.filter===key?0:-1}">${esc(name)}<b>${n}</b></button>`).join('');
@@ -251,7 +251,10 @@ export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc
  function paintChips(){const f=root.querySelector('.esr-f');f.innerHTML=chips();root.querySelector('.esr-tot b').textContent=total;}
  /* after a delete: the word leaves the list, the next one (or the previous at the end) becomes current */
  function removeWord(w){const i=list.findIndex(x=>x.id===w.id),k=all.findIndex(x=>x.id===w.id);if(k<0)return;all.splice(k,1);total=Math.max(0,total-1);
+  if(scope==='all'&&w.lookups)oftenCount=Math.max(0,oftenCount-1);
   if(byStatus)byStatus[level(w.status)]=Math.max(0,Number(byStatus[level(w.status)]||0)-1);
+  if(!all.length&&!extra.length){state.cur=null;state.filter='all';renderEmpty(false);return;}
+  if(state.filter==='often'&&!oftenCount)state.filter='all';
   const nextWord=list[i+1]||list[i-1];state.cur=nextWord?nextWord.id:null;paintChips();renderList();}
  /* lookup-only words have no saved meaning: the local dictionary fills meaning and reading in place (no lookup is recorded) */
  if(peek&&extra.length)(async()=>{for(const w of extra.slice(0,100)){if(!life.live)return;let d=null;try{d=await peek(w.spelling);}catch{}if(!d||!life.live)continue;

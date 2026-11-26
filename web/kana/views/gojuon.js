@@ -74,6 +74,7 @@ const SOUND_NOTE={し:"读 shi，不是 si",ち:"读 chi，不是 ti",つ:"读 t
 
 /* ======== 工具 ======== */
 const toKata=s=>s.replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));
+const toHira=s=>s.replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
 const $=s=>el.querySelector(s);
 const speaker='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
 function say(t){ctx.speech.say(t)}
@@ -174,8 +175,9 @@ function baseOf(k){const m={が:"か",ぎ:"き",ぐ:"く",げ:"け",ご:"こ",�
 function romajiOf(x){for(const set of [SEION,DAKU])for(const row of set)for(let i=0;i<5;i++)if(row[2][i]&&(row[2][i]===x||toKata(row[2][i])===x))return row[3][i];return ""}
 function toRomajiTwo(k){return romajiOf(k[0])+" + "+({"ゃ":"ya","ゅ":"yu","ょ":"yo"}[k[1]])}
 function jump(x){
-  const isK=/[゠-ヿ]/.test(x);state.script=isK?"k":"h";const h=isK?String.fromCharCode(x.charCodeAt(0)-0x60):x;
-  for(const [cat,set] of [["seion",SEION],["daku",DAKU]])for(let r=0;r<set.length;r++){const c=set[r][2].indexOf(h);if(c>=0){state.cat=cat;state.sel={r,c};syncSeg();renderTable();renderDetail();say(x);return}}
+  const isK=/[゠-ヿ]/.test(x),h=isK?toHira(x):x;
+  for(const [cat,set] of [["seion",SEION],["daku",DAKU],["yoon",YOON]])for(let r=0;r<set.length;r++){const c=set[r][2].indexOf(h);if(c>=0){state.script=isK?"k":"h";state.cat=cat;state.sel={r,c};syncSeg();renderTable();renderDetail();say(x);return true}}
+  return false;
 }
 function setLevel(l){const {d}=cur();mastery[d]=l;saveM();renderTable();renderDetail()}
 
@@ -205,7 +207,7 @@ ctx.onKey(e=>{
   if(/^[1-4]$/.test(e.key))setLevel(+e.key-1);
   if(e.key==="Tab"&&!e.shiftKey&&(e.target===document.body||e.target===document.documentElement)||e.key==="Tab"&&e.target.classList.contains("cell")){e.preventDefault();state.script=state.script==="h"?"k":"h";syncSeg();renderTable();renderDetail()}
 });
-if(params.k)jump(params.k);else{renderTable();renderDetail();}
+if(!(params.k&&jump(params.k))){renderTable();renderDetail();}
 /* 预合成当前表里的假名，点击即响 */
 const _rt=renderTable;renderTable=function(){_rt();ctx.speech.prefetch([...el.querySelectorAll('#table .cell .k')].map(e=>e.textContent))};ctx.speech.prefetch([...el.querySelectorAll('#table .cell .k')].map(e=>e.textContent));
 

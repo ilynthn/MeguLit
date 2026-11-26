@@ -232,40 +232,119 @@ jobs:
           $env:TMP = $env:TEMP
           # Every runner needs the same parallelism to compute the same shard plan.
           $parallelism = 3
-          $tests = @(node tools/test-shards.cjs ${{ matrix.shard }} 3 $parallelism | ForEach-Object { $_.Replace('/', '\') })
-          if ($LASTEXITCODE -or -not $tests.Count) { throw 'No tests in this shard' }
+          $plan = node tools/test-shards.cjs --plan ${{ matrix.shard }} 3 $parallelism | ConvertFrom-Json
+          if ($LASTEXITCODE -or -not $plan) { throw 'Failed to compute shard plan' }
+          $replay = @($plan.replay | ForEach-Object { $_.Replace('/', '\') })
+          $browser = @($plan.browser | ForEach-Object { $_.Replace('/', '\') })
+          $standard = @($plan.standard | ForEach-Object { $_.Replace('/', '\') })
+          if (($replay.Count + $browser.Count + $standard.Count) -eq 0) { throw 'No tests in this shard' }
 
-          # The real-time reader replay needs regular browser samples even while the runner is busy.
-          $replay = 'validation\games-regression.test.cjs'
-          $batches = @()
-          if ($tests -contains $replay) {
-            $batches += ,@($replay)
-            $tests = @($tests | Where-Object { $_ -ne $replay })
+          $nodeExe = (Get-Command node).Source
+          function Quote-WinArg([string]$arg) {
+            if ($arg -eq '' -or $arg -match '[\s"]') {
+              return '"' + ($arg -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
+            }
+            return $arg
           }
-          if ($tests.Count) { $batches += ,$tests }
+          function Start-BackgroundBatch([string]$name, [string[]]$files, [int]$concurrency) {
+            $outFile = Join-Path $env:RUNNER_TEMP "test-batch-$name.out"
+            $errFile = Join-Path $env:RUNNER_TEMP "test-batch-$name.err"
+            $timeFile = Join-Path $env:RUNNER_TEMP "test-file-times-$name.json"
+            Remove-Item -LiteralPath $outFile, $errFile, $timeFile -Force -ErrorAction SilentlyContinue
+            $nodeArgs = @(
+              '--test', '--test-force-exit', "--test-concurrency=$concurrency",
+              '--test-reporter=tap', '--test-reporter-destination=stdout',
+              '--test-reporter=./tools/test-file-times.mjs', "--test-reporter-destination=$timeFile"
+            ) + $files
+            $argString = ($nodeArgs | ForEach-Object { Quote-WinArg $_ }) -join ' '
+            $proc = Start-Process -FilePath $nodeExe -ArgumentList $argString `
+              -NoNewWindow -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+            $null = $proc.Handle
+            return [pscustomobject]@{ Name = $name; Process = $proc; Out = $outFile; Err = $errFile; Timings = $timeFile }
+          }
 
           $failed = $false
           $count = 0
           $timings = @{}
-          $index = 0
+          $batchErrors = [System.Collections.Generic.List[string]]::new()
           Set-Content -LiteralPath test-output.txt -Value '' -NoNewline
-          foreach ($batch in $batches) {
-            $index++
-            $batchOutput = @()
-            $batchTimings = Join-Path $env:RUNNER_TEMP "test-file-times-$index.json"
-            # --test-force-exit lets completed tests finish even when they leave a browser or server handle open.
-            node --test --test-force-exit "--test-concurrency=$parallelism" `
-              --test-reporter=tap --test-reporter-destination=stdout `
-              --test-reporter=./tools/test-file-times.mjs "--test-reporter-destination=$batchTimings" `
-              @batch 2>&1 | Tee-Object -Variable batchOutput | Tee-Object -FilePath test-output.txt -Append
-            if ($LASTEXITCODE) { $failed = $true }
-            $batchCount = [regex]::Match(($batchOutput -join "`n"), '(?m)^(?:#|ℹ) tests (\d+)').Groups[1].Value
-            if (-not $batchCount -or [int]$batchCount -eq 0) { throw 'Test runner reported zero tests' }
-            $count += [int]$batchCount
-            $timings += (Get-Content -LiteralPath $batchTimings -Raw | ConvertFrom-Json -AsHashtable)
+
+          function Record-BatchResult([string]$name, [int]$exitCode, [string]$outText, [string]$timeFile) {
+            if ($exitCode -ne 0) { $script:failed = $true }
+            $m = [regex]::Match($outText, '(?m)^(?:#|ℹ) tests (\d+)')
+            if (-not $m.Success -or [int]$m.Groups[1].Value -eq 0) {
+              $script:batchErrors.Add("Test runner ($name) reported zero tests")
+            } else {
+              $script:count += [int]$m.Groups[1].Value
+            }
+            if (Test-Path -LiteralPath $timeFile) {
+              $rawTimes = Get-Content -LiteralPath $timeFile -Raw -Encoding utf8
+              if (-not [string]::IsNullOrWhiteSpace($rawTimes)) {
+                $batchObj = $rawTimes | ConvertFrom-Json
+                foreach ($prop in $batchObj.PSObject.Properties) { $script:timings[$prop.Name] = $prop.Value }
+              } elseif ($exitCode -eq 0) {
+                $script:batchErrors.Add("Test runner ($name) wrote empty timings file")
+              }
+            } elseif ($exitCode -eq 0) {
+              $script:batchErrors.Add("Test runner ($name) wrote no timings file")
+            }
           }
+
+          function Invoke-ForegroundBatch([string]$name, [string[]]$files, [int]$concurrency) {
+            $timeFile = Join-Path $env:RUNNER_TEMP "test-file-times-$name.json"
+            Remove-Item -LiteralPath $timeFile -Force -ErrorAction SilentlyContinue
+            $batchOutput = $null
+            & node --test --test-force-exit "--test-concurrency=$concurrency" `
+              --test-reporter=tap --test-reporter-destination=stdout `
+              --test-reporter=./tools/test-file-times.mjs "--test-reporter-destination=$timeFile" `
+              @files 2>&1 | Tee-Object -Variable batchOutput | Tee-Object -FilePath test-output.txt -Append
+            $exitCode = if ($null -eq $LASTEXITCODE) { 1 } else { [int]$LASTEXITCODE }
+            $outText = if ($batchOutput) { ($batchOutput | ForEach-Object { $_.ToString() }) -join "`n" } else { '' }
+            Record-BatchResult $name $exitCode $outText $timeFile
+          }
+
+          function Complete-BackgroundBatch($job) {
+            $job.Process.WaitForExit()
+            $rawOut = if (Test-Path -LiteralPath $job.Out) { Get-Content -LiteralPath $job.Out -Raw -Encoding utf8 } else { '' }
+            $rawErr = if (Test-Path -LiteralPath $job.Err) { Get-Content -LiteralPath $job.Err -Raw -Encoding utf8 } else { '' }
+            $outText = if ($null -eq $rawOut) { '' } else { [string]$rawOut }
+            $errText = if ($null -eq $rawErr) { '' } else { [string]$rawErr }
+            $combined = $outText + $(if ($errText) { "`n$errText" } else { '' })
+            if ($combined) {
+              Write-Output $combined
+              Add-Content -LiteralPath test-output.txt -Value $combined -Encoding utf8
+            }
+            $exitCode = if ($null -eq $job.Process.ExitCode) { 1 } else { [int]$job.Process.ExitCode }
+            Record-BatchResult $job.Name $exitCode $outText $job.Timings
+          }
+
+          # The real-time reader replay needs regular browser samples even while the runner is busy.
+          if ($replay.Count) {
+            Invoke-ForegroundBatch 'replay' $replay 1
+          }
+          # Headless browser tests stream in the foreground one at a time while non-browser tests run in the background.
+          if ($browser.Count -and $standard.Count) {
+            $stdConcurrency = [Math]::Max(1, $parallelism - 1)
+            $bg = Start-BackgroundBatch 'standard' $standard $stdConcurrency
+            $fgCompleted = $false
+            try {
+              Invoke-ForegroundBatch 'browser' $browser 1
+              $fgCompleted = $true
+            } finally {
+              if (-not $fgCompleted -and -not $bg.Process.HasExited) {
+                try { $bg.Process.Kill($true) } catch { try { $bg.Process.Kill() } catch {} }
+              }
+              Complete-BackgroundBatch $bg
+            }
+          } elseif ($browser.Count) {
+            Invoke-ForegroundBatch 'browser' $browser 1
+          } elseif ($standard.Count) {
+            Invoke-ForegroundBatch 'standard' $standard $parallelism
+          }
+
           # Keep the same artifact format for tools/test-shards.cjs --update.
           ConvertTo-Json -InputObject $timings | Set-Content -LiteralPath test-file-times.json
+          if ($batchErrors.Count) { throw ($batchErrors -join '; ') }
           if ($failed) { throw 'Tests failed' }
           "Ran $count tests"
 

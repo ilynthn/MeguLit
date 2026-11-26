@@ -5,7 +5,7 @@ const go=ctx.go,params=ctx.params;
 el.className='v-records';
 el.innerHTML=`<div class="wrap" id="app"></div>`;
 
-const S=ctx.store,m=S.get(S.KEY.m,{}),boxes=S.get(S.KEY.b,{}),runs=S.get(S.KEY.r,[]),now=Date.now();
+const S=ctx.store,m=S.get(S.KEY.m,{}),boxes=S.get(S.KEY.b,{}),runs=S.get(S.KEY.r,[]),lessons=S.get(S.KEY.l,{}),now=Date.now();
 const toKata=s=>s.replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));
 const GRID="あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもや_ゆ_よらりるれろわ___をん____".split("");
 const SEION=GRID.filter(k=>k!=="_");
@@ -18,14 +18,14 @@ const due=Object.entries(boxes).filter(([k,v])=>v.due<=now).map(([k])=>k);
 const boxCount=[1,2,3,4].map(n=>Object.values(boxes).filter(v=>v.box===n).length);
 const week=runs.filter(r=>now-r.id<7*S.DAY);
 const qWeek=week.reduce((s,r)=>s+r.log.length,0),okWeek=week.reduce((s,r)=>s+r.log.filter(l=>l.ok).length,0);
-const days=new Set(runs.map(r=>new Date(r.id).toDateString()));let streak=0;for(let d=new Date();days.has(d.toDateString());d.setDate(d.getDate()-1))streak++;
+const days=new Set(runs.map(r=>new Date(r.id).toDateString()).concat(Object.values(lessons).map(t=>new Date(t).toDateString())));let streak=0;for(let d=new Date();days.has(d.toDateString());d.setDate(d.getDate()-1))streak++;
 const wk={};week.forEach(r=>r.log.filter(l=>!l.ok).forEach(l=>wk[l.show]=(wk[l.show]||0)+1));
 const weak=Object.entries(wk).sort((a,b)=>b[1]-a[1]).slice(0,6),wmax=weak[0]?.[1]||1;
 const cS=count(SEION),known=cS[2]+cS[3];
 const KD=ctx.data,best=(G,D)=>{const rs=runs.filter(r=>r.G===G&&r.D===D&&!(r.only&&r.only.length)&&r.log.length);if(!rs.length)return null;let top=null;for(const r of rs){const a=KD.achievement(r.log);if(!top||a.pct>top.pct)top={pct:a.pct,acc:Math.round(r.log.filter(l=>l.ok).length/r.log.length*100)+'%'};}return {score:KD.fmtPct(top.pct),acc:top.acc,n:rs.length};};
 function nextStep(){
   if(due.length)return {seal:"復",text:`先清掉今天到期的 ${due.length} 个复习，大约 2 分钟`,href:`play.html?g=conv&d=intro&only=${encodeURIComponent(due.join(","))}`,go:"开始复习"};
-  const lessons=S.get(S.KEY.l,{}),nextL=ctx.data.LESSONS.find(l=>!lessons[l.id]);
+  const nextL=ctx.data.LESSONS.find(l=>!lessons[l.id]);
   if(nextL)return {seal:"新",text:`学下一课：${nextL.title}`,href:"lesson.html?id="+nextL.id,go:"去学习"};
   return {seal:"進",text:"清音都熟悉了，试试进阶难度，加入浊音和拗音",href:"games.html",go:"去练习"};
 }

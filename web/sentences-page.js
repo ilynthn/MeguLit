@@ -11,6 +11,7 @@
 import {loadGsap} from './gsap-loader.js';
 import {inspectPhoto,closeInspect} from './photo-inspect.js';
 import {exAttr} from './example-ruby.js';
+import {labelVoices,playSentence,stopSentence} from './sentence-voice.js';
 const L={
  zh:{all:'全部',manual:'手动收藏',auto:'加卡时自动留下',autoTag:'加卡时留下',words:'从这句加过的词',lookup:'查词：',none:'这个筛选下还没有句子',howManual:'在游戏里点一个词，或在台词上拖选一段文字，查词卡底部的「☆ 收藏句子」会把这一整句和译文存到这里',remove:'取消收藏',confirm:'确认取消',play:'播放（有游戏原声时播原声）',playShort:'朗读',missing:'这句还没有收藏到句子页（这个词是在句子收藏功能之前加的）',game:'打开作品',
   lede:'你最近收下的一句',ledeOther:'收下的台词',noTr:'没有保存译文',recent:'最近收录',recentSub:n=>`最近的 ${n} 句 · 拖动或用 ← → 浏览，点一张换到上面，双击照片放大`,current:'正在看',enlarge:'放大查看这张场景图',inspect:'滚轮缩放 · 拖动平移 · 双击复原 · Esc 关闭',close:'关闭',shelf:'作品书架',shelfSub:n=>`${n} 部作品 · 点开进入这部作品的收录句子`,lines:n=>`${n} 句`,latest:'最近',
@@ -81,7 +82,7 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
  const gsap0=window.gsap,ctx=gsap0&&!reduced()?gsap0.context(()=>{},target):null;const offs=[];let alive=true;
  const main=target.closest('.main')||document.querySelector('#main');
  const watch=main?new MutationObserver(()=>{if(!target.isConnected)stop();}):null;watch?.observe(main,{childList:true,subtree:true});
- function stop(){if(!alive)return;alive=false;watch?.disconnect();offs.splice(0).forEach(f=>{try{f();}catch{}});try{ctx?.revert();}catch{}}
+ function stop(){if(!alive)return;alive=false;watch?.disconnect();stopSentence();offs.splice(0).forEach(f=>{try{f();}catch{}});try{ctx?.revert();}catch{}}
  const add=fn=>ctx?ctx.add(fn):fn();
 
  const playIc=`<svg class="sp-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5l7 4.5-7 4.5z" fill="currentColor"/></svg>`;
@@ -154,7 +155,7 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
      .from(heroIn.querySelectorAll('.sp-lede,.sp-meta'),{autoAlpha:0,y:10,duration:.45},'<.15'));
     shown.then(ok=>{if(alive&&ok)add(()=>gsap.fromTo(cg,{autoAlpha:0,y:-26,rotation:-7},{autoAlpha:1,y:0,rotation:0,duration:.75,ease:'back.out(1.4)'}));else gsap.set(cg,{autoAlpha:1});});});});}
  function bindHero(){heroIn.querySelectorAll('[data-sentence-play]').forEach(b=>b.addEventListener('click',()=>play(b)));
-  /* 2026-11-15 原声 or 朗读 on each play button */import('./sentence-voice.js').then(m=>m.labelVoices(api,[...heroIn.querySelectorAll('[data-sentence-play]')].map(b=>({button:b,id:Number(b.dataset.sentencePlay),text:byId.get(String(b.dataset.sentencePlay))?.text})))).catch(()=>{});
+  /* 2026-11-15 原声 or 朗读 on each play button */labelVoices(api,[...heroIn.querySelectorAll('[data-sentence-play]')].map(b=>({button:b,id:Number(b.dataset.sentencePlay),text:byId.get(String(b.dataset.sentencePlay))?.text})));
   heroIn.querySelectorAll('[data-sentence-delete]').forEach(b=>b.addEventListener('click',()=>{if(!b.classList.contains('armed')){b.classList.add('armed');b.querySelector('span').textContent=s.confirm;
    setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.querySelector('span').textContent=s.remove;}},3200);return;}remove(b);}));
   heroIn.querySelectorAll('[data-lookup]').forEach(b=>b.addEventListener('click',()=>lookup(b.dataset.lookup)));
@@ -162,7 +163,7 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
  /* 2026-11-14: while the voice is being fetched (the speech engine may need a cold start) the button shows it is working
     instead of turning grey like a dead control; a second click is ignored until it finishes */
  async function play(b){const id=b.dataset.sentencePlay,item=byId.get(String(id));if(!item||b.getAttribute('aria-busy')==='true')return;b.setAttribute('aria-busy','true');b.classList.add('is-busy');
-  try{await (await import('./sentence-voice.js')).playSentence(api,item.text,b,{id:item.id});}catch(error){toast(errorMessage(error));}finally{b.removeAttribute('aria-busy');b.classList.remove('is-busy');}}
+  try{await playSentence(api,item.text,b,{id:item.id});}catch(error){toast(errorMessage(error));}finally{b.removeAttribute('aria-busy');b.classList.remove('is-busy');}}
  async function remove(b){b.disabled=true;try{await api('sentence_delete',{id:Number(b.dataset.sentenceDelete)});rerender();}catch(error){b.disabled=false;toast(errorMessage(error));}}
 
  /* ---------- strip: drag with inertia, shift-wheel, arrows ---------- */

@@ -1028,7 +1028,7 @@ async function learning(token){
  const commit=()=>{slot.closest('.main').classList.toggle('review-page',tab==='review');slot.replaceChildren(target);};
   /* E459: switching tabs shows the new tab's loading state at once, never the previous tab's content */
   if(slot.dataset.tab!==tab){slot.innerHTML=loading();slot.dataset.tab=tab;}
-  if(subtab==='dictionary'){dictionary(target);commit();return;}
+  if(subtab==='dictionary'){stopDetailPage=dictionary(target);commit();return;}
   /* 读过的词: frequency, this week's new words and JLPT coverage from the lines read */
   /* 语法: N5 → N0 lessons with examples and exercises from the lines you read */
   if(subtab==='grammar'){commit();try{const {mountGrammar}=await import('./grammar.js');if(token===pageToken)await mountGrammar(target,{api,locale,esc,toast,isCurrent:()=>token===pageToken});
@@ -1109,7 +1109,7 @@ function dictionary(target){
   let openWanted='';
   import('./dict-home.js').then(({mountDictHome})=>{if(!results.isConnected)return;return mountDictHome(target,results,{api,esc,number,locale,look:word=>{const input=target.querySelector('#lookup-input'),form=target.querySelector('#lookup-form');if(!input||!form)return;input.value=word;openWanted=word;(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();}});}).catch(()=>{});
   /* 2026-11-14：搜索框清空（× 或删光）时回到词典首页，旧结果不再留着 */
-  target.querySelector('#lookup-input').addEventListener('input',e=>{if(e.target.value.trim()||!results.innerHTML)return;ticket++;lastItems=[];openWanted='';results.innerHTML='';});
+  target.querySelector('#lookup-input').addEventListener('input',e=>{if(e.target.value.trim()||!results.innerHTML)return;stopAudio();ticket++;lastItems=[];openWanted='';results.innerHTML='';});
   const stopPoll=()=>{clearTimeout(poll);poll=0;};
   const showStatus=state=>{stopPoll();account.innerHTML=state?.signedIn?`<span class="moji-state signed">${L.signed}${state.name?' · '+esc(state.name):''}</span><button type="button" class="text-button" data-moji-logout>${L.logout}</button>`:`<span class="moji-state">${L.anon}</span><button type="button" class="text-button" data-moji-login>${L.login}</button>`;
     account.querySelector('[data-moji-login]')?.addEventListener('click',startLogin);
@@ -1154,10 +1154,10 @@ function dictionary(target){
       if(String(error?.message||error).includes('MOJI_SESSION_EXPIRED')){toast(L.expiredSession);showStatus({});}throw error;}}:null,
      loadNotes:lastOnline&&onlineSource==='moji'?(item,page)=>api('moji_comments',{id:item.id,page}):null,
      onPlay:async item=>{stopAudio();const req=audioTicket;let a=null;const clear=()=>{if(audio===a)audio=null;};
-      try{const r=await api('moji_audio',{id:item.id});if(req!==audioTicket)return;
+      try{const r=await api('moji_audio',{id:item.id});if(req!==audioTicket||!results.isConnected)return;
        a=new Audio(r.audio);audio=a;a.addEventListener('ended',clear,{once:true});a.addEventListener('error',clear,{once:true});
        await a.play();
-      }catch{clear();if(req===audioTicket)toast(L.audioFail);}},
+      }catch{clear();if(req===audioTicket&&results.isConnected)toast(L.audioFail);}},
      onAnki:async(item,example)=>{try{await api('dictionary_anki',{word:item.spelling||item.reading,...example});
       toast(`${{zh:'已加入 Anki',ja:'Anki に追加しました',en:'Added to Anki'}[locale]} · ${item.spelling||item.reading}`);
       savedSet=null;}catch(error){toast(errorMessage(error));throw error;}},
@@ -1167,6 +1167,7 @@ function dictionary(target){
   if(onlineSource==='jisho')account.hidden=true;else api('moji_status').then(state=>{if(account.isConnected&&!account.querySelector('.moji-qr-panel'))showStatus(state);}).catch(()=>showStatus({}));
   target.querySelector('#lookup-form').addEventListener('submit',async event=>{
     event.preventDefault();const query=target.querySelector('#lookup-input').value.trim();if(!query)return;
+    stopAudio();
     const request=++ticket,online=event.submitter?.value!=='local',wanted=openWanted===query,language=locale==='en'?'en':'zh';openWanted='';
     /* one search = one look-up: the local fallback reuses the same operationId, so it can never be counted twice */
     const operationId=crypto.randomUUID();
@@ -1185,6 +1186,7 @@ function dictionary(target){
   });
   if(pendingLookup){const word=pendingLookup;pendingLookup='';const input=target.querySelector('#lookup-input');input.value=word;/* the form is attached by commit() after this returns */setTimeout(()=>{
    const form=target.querySelector('#lookup-form');if(form?.isConnected)form.requestSubmit(form.querySelector('button[value=moji]'));},0);}
+  return ()=>{stopAudio();stopPoll();unmountEntries();unmountEntries=()=>{};};
 }
 /* 2026-11-13 Anki review HUD: the latest played game's art for its background, and the window's own full screen */
  const ankiCover=()=>recentGames(model.games||[]).find(g=>g.cover)?.cover||'',ankiWindow=action=>invoke('window_action',{action});
