@@ -18,3 +18,12 @@
 - 阅读层卡死的原因：Ctrl 快进时钩子一次吐 3996 字，页面上 8000 个 char-token。interaction.js 的命中区 report 每次 DOM 变化都在微任务里跑一遍，每次读每个 token 的样式和盒子（约 110 ms），打字机每帧变一次 → 页面被 report 占满，Cardinal 取样 15 s 超时。CPU Profiler 在这种状态下 Profiler.stop 也拿不回来；能用的办法是 Debugger.enable + 定时 Debugger.pause 取调用栈（paused 事件里的 callFrames），采到的几乎全是 report/textBoxes
 - 修法：report 花了 >12 ms，下一次推迟它耗时的 3 倍（report 最多占约 1/4 时间），正常页面（<12 ms）照旧立即报。只推迟不丢：最后一次变化一定会报
 - 回放验证：r2 磁带 total 6 → 9.33、row 6 → 9.33、不再 unresponsive；game-drawn 样本 317 → 22（剩下的都在第一句 drawSkipped 还没上报之前的预热段）；r1 磁带 row 5.11 → 9.47
+
+## 自动适配跟进（分支 feat/auto-adapt，2026-11-27）
+
+- 「源头不画有时不生效」（hide.skipped 0、阅读层停在读模式）：查了 11 局 result，skipped=0 的每一局诊断里都没有 `MeguLit_DRAWSKIP ready`。DrawSkip 的 MeguLitHook32.dll 只在 krkr-native 工作区本地构建（不进 git），别的工作区跑 adapt-auto 时 useCheckoutHook 找不到就静默用安装版 DLL。现在 adapt-auto 依次找 MEGULIT_HOOK_DIR、本仓库、本仓库其它 worktree，带 DrawSkip 的优先，用的哪份写进 result.hook；KiriKiri 没用上 DrawSkip 时 reasons 直接写明
+- 合并后 row 0.63 → 0.89：之前那局是在 reader-nodraw 之前的代码上跑的（阅读层把 DrawSkip 的行当成游戏自己画，只画中文）；同一磁带用合并后代码回放 row 0.886
+- 引号内句号：「…ってね……。 / この村は大丈夫かねえ。 / 不安だよ……」 三段 0.4–0.6 s 先后到，太短读不到。无 KAG 接句器现在只在 「『（ 都闭合时才按句尾结束一行（静默 1.2 s 和 400 字上限照旧兜底）
+- 选项送达晚：内核 1.2 s 内问了两次（第二次多一个「らね」），冷测试为第一次拍的图被丢掉，答复晚 8.6 s，Cardinal 判「没送到阅读层」。同一选项屏的追问（和上一问有相同选项）沿用已拍的图
+- 结果：r3–r6 连续四局 pass（row 0.955 / 0.912 / 0.951 / 0.95，leak 1，choice 1，每局 skipped 约 5.35 万字）；r3/r4 约 6.2 分钟，r5/r6 约 9.2 分钟（那两局冷测试也按字数等待，已改回只对 YU-RIS；Cardinal 回放整盘磁带，约 250 s）
+- 注意：DrawSkip DLL 仍只在 krkr-native 工作区有本地构建，换机器或清掉那个目录就退回「源头不画没装上」（reasons 会写明），要长期用得把 native/megulithook 的构建产物放到固定位置（MEGULIT_HOOK_DIR）
