@@ -301,7 +301,7 @@ class LocalLearning{
  }
  adapt(entry,language){
   this.load();const selected=language==='en'?(this.english.get(entry.id)||entry):(this.byId.get(entry.id)||entry);
-  return {...selected,pos:language==='en'?selected.pos:selected.pos.map(chinesePos),definition_groups:definitionGroups(selected)};
+  return {...selected,pos:language==='en'?selected.pos:selected.pos.map(chinesePos),definition_groups:definitionGroups(selected,language)};
  }
  adaptResult(result,language){if(Array.isArray(result))return result.map(r=>this.adaptResult(r,language));if(!result)return result;return {...result,entries:(result.entries||[]).map(e=>this.adapt(e,language)),related_entries:(result.related_entries||[]).map(e=>this.adapt(e,language))};}
  /* #1111 (user 2026-11-24: 异表记 must not merge words only because they read alike): the index holds readings too, so a word
