@@ -25,6 +25,7 @@ test('plan: a reader that read Japanese is the text source; the draw hook aligns
  const caps=Engines.capabilities('yuris');
  const p=plan({caps,probe:{step:'ok',detected:'yuris',lines:9000,japaneseLines:8000,chineseLines:0}});
  assert.deepEqual([p.source.kind,p.source.reader,p.align,p.pairing.mode,p.hide.kind],['script','yuris','draw-roles','script','engine']);
+ assert.equal(plan({caps:Engines.capabilities('kirikiri'),probe:{step:'ok',detected:'kirikiri-cx',lines:54584,japaneseLines:53137,chineseLines:241}}).pairing.mode,'script','Han-only name lines are no Chinese build (千恋＊万花)');
  const z=plan({caps:Engines.capabilities('catsystem2'),probe:{step:'chinese-build',detected:'catsystem2',original:'layer',lines:9000,japaneseLines:7000,chineseLines:8800}});
  assert.equal(z.pairing.mode,'patch');assert.equal(z.source.original,'layer');
  const h=plan({caps:Engines.capabilities('artemis'),probe:{step:'decrypt-failed',detail:'artemis:KEY',detected:null}});

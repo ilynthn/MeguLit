@@ -11,7 +11,7 @@
      notes   [what the plan could not decide] }
    A reader counts when it read at least MIN_JP Japanese lines (adapter-probe-core's DEDICATED_JP); the probe's own classify() said
    which reader that is (probe.detected). */
-const MIN_JP=30;
+const MIN_JP=30,ZH_SHARE=0.3;
 function alignOf(caps){const d=caps?.draw||[];if(d.some(x=>x.kind==='kag'))return 'kag';if(d.some(x=>x.kind==='roles'))return 'draw-roles';return 'hook';}
 function plan({caps={},probe=null}={}){const notes=[],align=alignOf(caps);
  const step=probe?.step||'',detected=probe?.detected||'',jp=probe?.japaneseLines|0;
@@ -19,7 +19,9 @@ function plan({caps={},probe=null}={}){const notes=[],align=alignOf(caps);
  if(detected&&jp>=MIN_JP&&(step==='ok'||step==='chinese-build'&&probe.original))source={kind:'script',reader:detected,lines:probe.lines|0,japaneseLines:jp,...(probe.original?{original:probe.original}:{})};
  else{source={kind:'hook',via:align,why:step?step+(probe?.detail?':'+probe.detail:''):'no probe'};
   if(step==='decrypt-failed'||step==='unknown-pack'||step==='unsupported-engine')notes.push('剧本读不出（'+source.why+'）：这是引擎层读取器的活（services/original-engines），先用钩子流');}
- const chinese=probe?.chineseLines|0,zhBuild=step==='chinese-build'||chinese>=MIN_JP;
+ /* a Chinese build: the probe says so, or Chinese lines are a real share of the Japanese (a Japanese script always has some Han-only
+    lines: names, labels; 千恋＊万花 241 of 53k, ISLAND 321 of 42k are not a Chinese build) */
+ const chinese=probe?.chineseLines|0,zhBuild=step==='chinese-build'||chinese>=Math.max(MIN_JP,jp*ZH_SHARE);
  const own=(caps.pairing||[]).filter(p=>source.kind==='script'&&p.startsWith(source.reader+':'));
  let pairing;
  if(source.kind==='script'&&zhBuild)pairing={mode:'patch',reader:source.reader,chineseLines:chinese,how:own.join(',')||'original-text align'};
