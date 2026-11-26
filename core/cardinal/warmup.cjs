@@ -7,6 +7,9 @@
    moment are left out, and the result says how many. A run that never leaves read mode, or does not start in it, is not cut, so a
    game that really reads keeps its leak. Thresholds and weights are untouched. */
 const STABLE_MS=5000;
+/* 2026-11-27 (ISLAND cold run: two read samples at +38 and +130 ms after the switch, the whole leak 0) the reader page takes the switch a
+   moment later than core: the cut goes on to the first sample that left read, when that is within FOLLOW_MS */
+const FOLLOW_MS=1000;
 const atOf=(o,l)=>Date.parse(String(l).slice(0,24))-(o.t0||0);
 
 /* -> the replay-clock ms where the start-up segment ends, or 0 (no cut) */
@@ -17,8 +20,11 @@ function until(run){const o=run?.o||{},sw=[];
  return 0;}
 
 /* -> {run, warmup:{until, droppedSamples, keptSamples, droppedLines} | null}; run is a new object, the input is not changed */
-function cut(run){const at=until(run);if(!(at>0))return {run,warmup:null};const o=run.o;
- const samples=Array.isArray(o.samples)?o.samples:[],kept=samples.filter(s=>!(Number.isFinite(s?.at)&&s.at<at));
+function cut(run){let at=until(run);if(!(at>0))return {run,warmup:null};const o=run.o;
+ const samples=Array.isArray(o.samples)?o.samples:[];
+ {const read=s=>s.hookProfile==='read'||s.readMode===true,after=samples.filter(s=>Number.isFinite(s?.at)&&s.at>=at),left=after.find(s=>!read(s));
+  if(after[0]&&read(after[0])&&left&&left.at-at<=FOLLOW_MS)at=left.at;}
+ const kept=samples.filter(s=>!(Number.isFinite(s?.at)&&s.at<at));
  const eps=Array.isArray(o.sourceEpisodes)?o.sourceEpisodes:null,drop=new Set(eps?eps.filter(e=>Number.isFinite(e?.at)&&e.at<at).map(e=>e.step):[]);
  /* a dropped line stays in the step list (delivery records point at step indexes) but is no dialogue line any more */
  const steps=(run.steps||[]).map((st,i)=>drop.has(i)&&st?.hb?.type==='hookSource'?{...st,line:undefined,hb:{...st.hb,type:'hookSourceWarmup'}}:st);
@@ -29,4 +35,4 @@ function cut(run){const at=until(run);if(!(at>0))return {run,warmup:null};const 
   ...(eps?{sourceEpisodes:eps.filter(e=>!drop.has(e.step))}:{})};
  return {run:{...run,steps,o:out},warmup:{until:Math.round(at),droppedSamples:samples.length-kept.length,keptSamples:kept.length,droppedLines:drop.size}};}
 
-module.exports={until,cut,STABLE_MS};
+module.exports={until,cut,STABLE_MS,FOLLOW_MS};

@@ -24,28 +24,43 @@ const menuOpen=s=>String(s.body||'').includes('megulit-menu-open');
 const opts=t=>({...T0,...(t||{})});
 const fed=run=>(run.steps||[]).filter(st=>st.hb?.type==='hookSource');
 
-/* the dialogue lines of a run: each hookSource with its first record, and the samples taken while it was the reader's line.
-   A line counts once it is the reader's line for lineMs; lines of a skip burst (the next record within burstMs, Ctrl held) only pass by */
-function expectedLines(run,t){t=opts(t);const steps=fed(run).filter(st=>st.line!=null);
- return steps.filter((st,i)=>norm(st.text)&&!(steps[i+1]&&steps[i+1].t-st.t<t.burstMs)&&!(i>0&&st.t-steps[i-1].t<t.burstMs));}
+/* 2026-11-27 (ISLAND, 千恋＊万花 cold runs: 120 and 104 lines on the tape, not one scored) a record is a new line only when its text is
+   not one of the last REPEAT lines: ISLAND's CS2 stream sends the line it draws four times, and the line two ahead once before it (the
+   script reads ahead), so every reading-pace record had another within burstMs and the whole tape looked like a Ctrl burst */
+const REPEAT=8,AHEAD=4;
+function newLines(run){const out=[],recent=[];
+ for(const st of fed(run)){if(st.line==null)continue;if(!norm(st.text))continue;const k=String(st.text).replace(/\s+/g,'');if(recent.includes(k))continue;recent.push(k);if(recent.length>REPEAT)recent.shift();out.push(st);}
+ return out;}
+/* the reader's line for a record: the record itself, or the line core made of it. 千恋＊万花's EmbedKrkrZ record carries the sentence
+   four times and its Chinese after it (「お客さんってば」「お客さんってば」…「先生您醒醒」…) and core shows 「お客さんってば」: taken when the
+   record starts with the reader's line and goes on with it again or with no Japanese character next (never a cut-off prefix) */
+function sameLine(source,text){const a=String(source||'').replace(/\s+/g,''),b=String(text||'').replace(/\s+/g,'');if(!norm(a))return false;if(norm(a)===norm(b))return true;
+ if(!b.startsWith(a))return false;const rest=b.slice(a.length);return rest.startsWith(a)||!JP.test(rest[0]);}
+/* the dialogue lines of a run: each new line with its first record, and the samples taken while it was the reader's line.
+   A line counts once it is the reader's line for lineMs; lines of a skip burst (the next new line within burstMs, Ctrl held) only pass by */
+function expectedLines(run,t){t=opts(t);const steps=newLines(run);
+ return steps.filter((st,i)=>!(steps[i+1]&&steps[i+1].t-st.t<t.burstMs)&&!(i>0&&st.t-steps[i-1].t<t.burstMs));}
 function deliveryClock(run){const records=run.o.sourceEpisodes;if(!Array.isArray(records))return {source:'legacy-source-transitions',reliable:false};
  const sent=(run.steps||[]).map((st,step)=>({st,step})).filter(x=>x.st.hb?.type==='hookSource');let previous=-Infinity;const seen=new Set();
  if(records.length!==sent.length)return {source:'invalid-delivery',reliable:false,why:'source delivery count mismatch'};
  for(let i=0;i<sent.length;i++){const {st,step}=sent[i],record=records[i];if(!record||record.step!==step||!Number.isInteger(record.line)||record.line!==st.line||seen.has(record.line)||!Number.isFinite(record.at)||record.at<0||record.at<previous||record.text!==st.hb.text)return {source:'invalid-delivery',reliable:false,why:'source delivery identity/order/text mismatch'};seen.add(record.line);previous=record.at;}
  return {source:'measured-delivery',reliable:true};}
-function lines(run,t){t=opts(t);const o=run.o,steps=fed(run).filter(st=>st.line!=null),episodes=o.sourceEpisodes;
+function lines(run,t){t=opts(t);const o=run.o,episodes=o.sourceEpisodes;
  const timeOf=st=>Array.isArray(episodes)?episodes.find(e=>e.line===st.line&&(e.step===undefined||e.step===(run.steps||[]).indexOf(st)))?.at:st.t;
  const all=(o.samples||[]).filter(s=>!menuOpen(s)),out=[];if(Array.isArray(episodes)&&!deliveryClock(run).reliable)return out;
  // Old observations have no replay delivery clock. Consume each observed source transition at most once.
  if(!Array.isArray(episodes)){const groups=[];for(const sample of all){const key=norm(sample.hookSource);if(groups.at(-1)?.key!==key)groups.push({key,samples:[]});groups.at(-1).samples.push(sample);}let cursor=0;
-  for(const st of expectedLines(run,t)){const at=groups.findIndex((g,i)=>i>=cursor&&g.key===norm(st.text));if(at<0)continue;cursor=at+1;const samples=groups[at].samples;
+  for(const st of expectedLines(run,t)){const at=groups.findIndex((g,i)=>i>=cursor&&sameLine(g.samples[0].hookSource,st.text));if(at<0)continue;cursor=at+1;const samples=groups[at].samples;
    if(samples.at(-1).at-samples[0].at>=t.lineMs)out.push({line:st.line,text:st.text,t:st.t,from:samples[0].at,to:samples.at(-1).at,samples});}return out;}
- for(const st of expectedLines(run,t)){const index=steps.indexOf(st),next=steps[index+1],start=timeOf(st),end=next?timeOf(next):Infinity;
-  const l={line:st.line,text:st.text,t:st.t,from:start,to:end,samples:[]};if(!Number.isFinite(start)||next&&!Number.isFinite(end))continue;
-  let run2=[];for(const sample of all){if(sample.at<start||sample.at>=end)continue;
-   if(norm(sample.hookSource)&&norm(sample.hookSource)===norm(l.text))run2.push(sample);
-   else if(run2.length){if(run2.at(-1).at-run2[0].at>=t.lineMs)break;run2=[];}}
-  if(run2.length&&run2.at(-1).at-run2[0].at>=t.lineMs){l.samples=run2;out.push(l);}}
+ /* the reader may take the line after its record (ISLAND shows a line when the game draws it, up to two records later): the line is
+    looked for from its record until the reader shows a later line, or AHEAD new lines later */
+ const news=newLines(run);
+ for(const st of expectedLines(run,t)){const k=news.indexOf(st),later=news.slice(k+1),start=timeOf(st),stop=later[AHEAD-1]?timeOf(later[AHEAD-1]):Infinity;
+  const l={line:st.line,text:st.text,t:st.t,from:start,to:stop,samples:[]};if(!Number.isFinite(start)||later[AHEAD-1]&&!Number.isFinite(stop))continue;
+  let run2=[];for(const sample of all){if(sample.at<start)continue;if(sample.at>=stop)break;
+   if(sameLine(sample.hookSource,st.text))run2.push(sample);
+   else{if(run2.length){if(run2.at(-1).at-run2[0].at>=t.lineMs)break;run2=[];}if(later.some(x=>sameLine(sample.hookSource,x.text)&&!sameLine(sample.hookSource,st.text)))break;}}
+  if(run2.length&&run2.at(-1).at-run2[0].at>=t.lineMs){l.samples=run2;l.source=st.text;l.text=String(run2[0].hookSource);l.to=run2.at(-1).at;out.push(l);}}
  return out;}
 
 /* per line: 1 the Japanese row is there and clickable, 2 it keeps its place (the Chinese under it, the row's y does not move),
@@ -214,4 +229,4 @@ function offSpans(run,t){t=opts(t);const o=run.o,ev=[];const at=l=>Date.parse(St
  for(const k of Object.keys(open))if(open[k])spans.push({...open[k],to:end});
  return spans.filter(s=>!(s.to-s.from<=t.preflightMs&&checks.some(c=>Math.abs(c-s.from)<=300)));}
 
-module.exports={reaches,T0,JP,norm,jpGlyphs,lineGlyphs,inside,expectedLines,deliveryClock,lines,perLine,white,flashes,hold,readMode,calibration,clears,choices,leaks,offSpans};
+module.exports={reaches,T0,JP,norm,sameLine,newLines,jpGlyphs,lineGlyphs,inside,expectedLines,deliveryClock,lines,perLine,white,flashes,hold,readMode,calibration,clears,choices,leaks,offSpans};
