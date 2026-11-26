@@ -99,3 +99,8 @@ test('run: lines quiet for 3 s → the game\'s text dialog is answered with the 
  const desk=fakeDesk(),inp=fakeInput();const reply=inp.spawn;let child;const spawn=(c,a)=>{child=reply(c,a);child.stdin.on('data',b=>{if(/^dialog /m.test(String(b)))child.stdout.write(JSON.stringify({type:'dialog',what:'"名前入力" edit="朽木" ok'})+'\n');});return child;};
  const r=await alive(run.runOne({exe:'C:/g/MonochromeEmpire.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:'',foreground:false}},{spawn:desk.spawn,inputSpawn:spawn,helper:'ColdDesk.exe',Hook:NameHook,layout:{native:dir},tick:20,Driver:Wait}));
  assert.ok(inp.sent.includes('dialog 4242 朽木'),inp.sent.join(' | '));assert.match(r.input.dialogs[0].what,/名前入力/);});
+
+test('ladder: a level a watched click proved is not raised by stalled lines (オルフレール name entry waiting for the OCR)',()=>{
+ const L=new F.Ladder(['post','inputctl'],{waitMs:1000,stallMs:5000});const click={do:'click',x:1,y:2,watch:'start'};
+ L.start(click,0,{lines:0});L.tick(1000,{lines:0});L.screen(0.9);assert.deepEqual(L.tick(1100,{lines:0}),{done:true,changed:true});
+ assert.deepEqual(L.record.verified,['post']);assert.equal(L.stall(30000,0),false);assert.equal(L.level,'post');});

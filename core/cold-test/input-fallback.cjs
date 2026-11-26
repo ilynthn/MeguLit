@@ -33,8 +33,8 @@ function screenChange(a,b){if(!a||!b||a.w!==b.w||a.h!==b.h||!a.px.length)return 
 
 const DEFAULTS=Object.freeze({waitMs:4000,stallMs:15000,minChange:0.25,keep:40});
 class Ladder{
- constructor(levels,opt={}){this.levels=levels.length?levels.slice():['post'];this.o={...DEFAULTS,...opt};this.i=0;this.watch=null;this.raisedAt=-1e9;
-  this.record={levels:this.levels.slice(),level:this.levels[0],sent:{},escalations:[],checks:[],errors:[]};}
+ constructor(levels,opt={}){this.levels=levels.length?levels.slice():['post'];this.o={...DEFAULTS,...opt};this.i=0;this.watch=null;this.raisedAt=-1e9;this.verified=new Set();
+  this.record={levels:this.levels.slice(),level:this.levels[0],verified:[],sent:{},escalations:[],checks:[],errors:[]};}
  get level(){return this.levels[this.i];}
  /* a level that cannot work here (InputShim not injected): skipped, the next one taken */
  drop(level,why){const k=this.levels.indexOf(level);if(k<0)return;this.record.errors.push(level+': '+why);this.levels.splice(k,1);if(this.i>=this.levels.length)this.i=this.levels.length-1;if(k<this.i)this.i--;this.record.level=this.level;}
@@ -53,10 +53,14 @@ class Ladder{
  screen(diff){if(this.watch)this.watch.diff=diff==null?-1:diff;}
  close(t,changed,why){const w=this.watch;this.watch=null;const c={t,act:w.act.do+(w.act.x!=null?' '+w.act.x+' '+w.act.y:w.act.vk!=null?' '+w.act.vk:''),tag:w.act.watch||'',via:w.level,changed,why};
   if(this.record.checks.length<this.o.keep)this.record.checks.push(c);
-  if(changed||this.i>=this.levels.length-1)return {done:true,changed};
+  /* a level the game answered is kept: lines that stop later (a name entry waiting for the OCR) are not its fault */
+  if(changed){this.verified.add(w.level);this.record.verified=[...this.verified];this.raisedAt=t;return {done:true,changed};}
+  if(this.i>=this.levels.length-1)return {done:true,changed};
   this.raise(t,'no change after '+c.act+' ('+why+')');return {done:true,changed:false,resend:w.act};}
- /* advancing, lines stopped for stallMs since the last line (and since the last raise): one level up, nothing re-sent */
- stall(t,lastLineAt,{advancing=true}={}){if(!advancing||this.watch||this.i>=this.levels.length-1)return false;if(t-Math.max(lastLineAt,this.raisedAt)<this.o.stallMs)return false;this.raise(t,'no line for '+Math.round((t-Math.max(lastLineAt,this.raisedAt))/1000)+' s');return true;}
+ /* advancing, lines stopped for stallMs since the last line (and since the last raise or answered click), on a level no watched click
+    has shown to work yet: one level up, nothing re-sent (2026-11-26 オルフレール: its name entry waited 15 s for the OCR's 「決定」 and
+    raised PostMessage, which had just opened the title's start item) */
+ stall(t,lastLineAt,{advancing=true}={}){if(!advancing||this.watch||this.verified.has(this.level)||this.i>=this.levels.length-1)return false;if(t-Math.max(lastLineAt,this.raisedAt)<this.o.stallMs)return false;this.raise(t,'no line for '+Math.round((t-Math.max(lastLineAt,this.raisedAt))/1000)+' s');return true;}
  raise(t,why){const from=this.level;this.i++;this.raisedAt=t;this.record.level=this.level;this.record.escalations.push({t,from,to:this.level,why});}
 }
 module.exports={ladder,pngGray,screenChange,Ladder,DEFAULTS};
