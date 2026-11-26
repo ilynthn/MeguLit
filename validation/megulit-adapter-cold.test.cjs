@@ -295,3 +295,8 @@ test('ocrItems / driver: a Chinese title menu starts (千恋＊万花 Steam copy
  const R=require('../services/cold-test-run.cjs');const row=(text,y)=>({text,x:600,y,w:180,h:30});
  assert.equal(R.ocrItems([row('*新游双',400),row('读取存档',450)])[0]?.text,'はじめから');assert.equal(R.ocrItems([row('新游戏',400)])[0]?.text,'はじめから');
  assert.deepEqual(R.ocrItems([row('新游',400)]).filter(i=>!i.guessed),[],'two characters are not enough');});
+
+test('a visible run whose game lay under other windows says so (ISLAND / ファタ / 千恋＊万花 under the bottom guard); a hidden run is unchanged',()=>{
+ const st={cold:{verdict:'inconclusive',lines:0,end:'no-lines'},run:{end:'no-lines',covered:5}};
+ assert.match(A.stuckOf({...st,visible:true}),/被别的窗口挡住（5 张/);assert.doesNotMatch(A.stuckOf(st),/挡住/);
+ const src=fs.readFileSync(path.join(__dirname,'..','native','ColdDesk.cs'),'utf8');assert.match(src,/covered=OnUserDesktop&&!GameOnTop\(w,h\)/);});

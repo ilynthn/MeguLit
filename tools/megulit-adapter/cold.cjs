@@ -283,6 +283,8 @@ function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=co
  if(end==='no-window')return '没有游戏窗口（启动失败或弹窗退出）';
  if(end==='exited')return '游戏自己退出了（启动弹窗？见 run/hook-status.log）';
  /* 2026-11-27 ISLAND on the visible desktop drew its title fine; only the client-area capture of the D3D window was black */
+ /* 2026-11-27 the visible run's game lay under other windows (the bottom guard): every picture and real click missed it */
+ if(visible&&(run?.covered|0)>0&&lines<minLines)return '游戏窗口被别的窗口挡住（'+run.covered+' 张截图时不在最上层），截图和真实点击都落不到游戏上';
  if(end==='black'||run?.black)return visible?'截图全黑（可见桌面上游戏在画，客户区截图截不到这个 D3D 窗口）':'黑屏（隐藏桌面画不出画面）';
  const ocr=String(run?.ocrText||'');
  if(!lines&&/^(no-lines|time-intro)/.test(end))return run?.ocrStart?'开场后没有台词（点了「'+run.ocrStart+'」）':'标题菜单（没找到「はじめから / New Game」）';
@@ -368,6 +370,7 @@ async function run(opts,{log=console.log}={}){
    diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait,lunaEngine:diag.lunaEngine};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
   result.stuck=stuckOf({cold,run:runInfo,diag,engine,visible:opts.foreground===true});
+  if((runInfo?.covered|0)>0){result.covered=runInfo.covered;result.reasons.push('前台模式下游戏窗口有 '+runInfo.covered+' 次被别的窗口挡住（置底守护？），这些截图和点击不算数');}
   /* layer 3: the game diff */
   let diff=null;
   await step('diff',()=>{if(probe&&runCopy){try{const fast=(runInfo?.phases||[]).find(p=>p.name==='fast');result.phases=runInfo?.phases||[];diff=makeDiff(probe.dir,runCopy,out,fast?{from:runInfo.startedAt,to:fast.at}:null);if(fast)diff.window={from:runInfo.startedAt,to:fast.at};result.artifacts.diff=diff.dir;if(diff.gameKey)result.gameKey=diff.gameKey;log('# diff '+diff.mode+' cost='+diff.cost);}catch(e){diff={ok:false,why:e.message};}}
