@@ -84,6 +84,13 @@ test('AQUAPLUS #1142: a 中文版 folder (ck-gal renamed to script.pak) next to 
  assert.strictEqual(aquaplus.patchLines(scenes.read('aquaplus',jaDir),{files:new Map(),dirs:[jaDir]}),null);
  fs.rmSync(base0,{recursive:true,force:true});
 });
+test('AQUAPLUS #1142: IC/script.pak comes after the full script.pak even when the full one is deeper',()=>{
+ const dir=tmp('aqua-icdeep-'),ja=',mv01,「あ…」,<W>とうとう、降ってきた。,春希,';
+ put(dir,{'WA2.exe':'x','IC/script.pak':kcap([['1001.txt',sjis(ja),true]]),'game/data/script.pak':kcap([['1001.txt',sjis(ja),true],['1002.txt',sjis(ja),true]])});
+ assert.strictEqual(aquaplus._internal.findScript(dir),path.join(dir,'game','data','script.pak'));
+ assert.deepStrictEqual(aquaplus.scenes(dir).map(s=>s.name),['1001.txt','1002.txt']);
+ fs.rmSync(dir,{recursive:true,force:true});
+});
 test('AQUAPLUS: Japanese asset filenames go to anchors without breaking patch pairing or anchor guards',()=>{
  const dir=tmp('aqua-asset-'),zh=patchEncoder();
  const fon=fonPak([833652,724679,3302082,1918771]);

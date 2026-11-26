@@ -83,10 +83,10 @@ const txtCount=file=>txtNames(file).size;
 const SKIP=/^(?:\.|node_modules$|save|savedata$|\$)/i;
 function subdirs(dir){try{return fs.readdirSync(dir,{withFileTypes:true}).filter(e=>e.isDirectory()&&!SKIP.test(e.name)).slice(0,64).map(e=>path.join(dir,e.name));}catch{return [];}}
 /* script.pak files in a folder and up to two levels below it; IC/script.pak (Introductory Chapter only, its scenes are
-   also in the main one) comes last */
+   also in the main one) comes last whatever its depth, so game/data/script.pak wins over IC/script.pak */
 function below(dir,depth=2){const out=[],walk=(d,k)=>{const f=path.join(d,'script.pak');if(kit.isFile(f))out.push({f,k});if(k>0)for(const s of subdirs(d))walk(s,k-1);};walk(dir,depth);
  const ic=x=>/^ic$/i.test(path.basename(path.dirname(x.f)))?1:0;
- return out.sort((a,b)=>b.k-a.k||ic(a)-ic(b)||txtCount(b.f)-txtCount(a.f)).map(x=>x.f);}
+ return out.sort((a,b)=>ic(a)-ic(b)||b.k-a.k||txtCount(b.f)-txtCount(a.f)).map(x=>x.f);}
 /* the Chinese script of a folder: ck-gal.pak, or a script.pak that reads as the patch */
 function chineseNear(dir,depth=2){const out=[],walk=(d,k)=>{for(const n of ['ck-gal.pak','script.pak']){const f=path.join(d,n);if(kit.isFile(f)&&scriptKind(f)==='zh')out.push(f);}
   if(k>0)for(const s of subdirs(d))walk(s,k-1);};walk(dir,depth);return out;}
