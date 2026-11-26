@@ -92,3 +92,12 @@ test('ChoiceCapture: a candidate that is the new line with other punctuation goe
  const d=new ChoiceCapture(()=>now);d.add('血塗れの男','前。');d.add('男男','前。');d.noteDialogue('「まあ……」','血塗れの男');d.reset(400,'「まあ……」');
  assert.equal(d.options(),null,'the name plate of the line is not kept as an option');
 });
+/* Codex #1198: two equal glyphs are dropped only as the tail of a name plate drawn glyph by glyph, never next to a real option */
+test('ChoiceCapture: 「いい」 beside an option ending in い stays a choice; 「男男」 beside a name plate goes',()=>{
+ let now=0;const c=new ChoiceCapture(()=>now);c.add('いい\nよくない','どう思う？');
+ assert.deepEqual(c.options(),['いい','よくない']);
+ const e=new ChoiceCapture(()=>now);e.add('いい\nよくない\nわからない','どう思う？');
+ assert.deepEqual(e.options(),['いい','よくない','わからない']);
+ const d=new ChoiceCapture(()=>now);d.add('血塗れの男','前。');d.add('血塗れの男血塗れの男','前。');d.add('男男','前。');d.add('館を出る','前。');
+ assert.ok(!(d.options()||[]).includes('男男'),'the doubled last glyph of a text this stream draws twice is no option');
+});
