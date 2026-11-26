@@ -856,7 +856,7 @@ async function dispatch(request,runtime=null) {
         try{const learning=runtime?.learning?.();if(learning?.installed?.())extra.sentenceHtml=require('../core/example-ruby.cjs').exampleCardHtml(text,learning.readings.resolve(await learning.tokenize(text)),{pairs:Array.isArray(e.ruby)&&e.ruby.length?e.ruby:require('./example-ruby.cjs').gameRubyOf(db,text),start,end});}catch{}
         if(!extra.sentenceHtml){const chars=[...text],h=v=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));extra.sentenceHtml=h(chars.slice(0,start).join(''))+'<b class="tm-hl">'+h(chars.slice(start,end).join(''))+'</b>'+h(chars.slice(end).join(''));}
         const config=runtime?.config?.()||store.readJSON(path.join(root,'data','config','v4-preferences.json'));
-        return await new(require('../core/anki.cjs').Anki)().sync(grammar.ankiWord(String(request.point||''),String(request.title||''),String(request.gist||''),{text}),config,null,extra);
+        return await new(require('../core/anki.cjs').Anki)().sync(grammar.ankiWord(String(request.point||''),String(request.title||''),String(request.gist||''),{text},request.level),config,null,extra);
       }
       /* 2026-11-14 读过的词 › JLPT 覆盖: one level's words (optionally one game's), and meanings for the rows on screen */
       case 'jlpt_words':return require('./learning-insights.cjs').jlptWords(db,{level:String(request.level||''),gameId:typeof request.gameId==='string'&&request.gameId?request.gameId:null});

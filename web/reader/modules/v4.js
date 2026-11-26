@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 (function installV4(){
  'use strict';if(!document.documentElement||!window.__tomoyoChinese){document.addEventListener('DOMContentLoaded',installV4,{once:true});return;}const b=window.__tomoyoChinese;
-  if(b.v4)return;b.v4=true;let serial=0,config={},currentAudio;const pending=new Map();
+  if(b.v4)return;b.v4=true;let serial=0,config={},configVersion=0,currentAudio;const pending=new Map(),panelSyncs=new Set();
+ function applyConfig(next){config={...config,...next};
+  if(currentAudio&&typeof config.aivisVolume==='number'&&Number.isFinite(config.aivisVolume))currentAudio.volume=Math.max(0,Math.min(1,config.aivisVolume));
+  for(const sync of [...panelSyncs])sync();}
+ b.restoreV4Config=next=>{if(!next||typeof next!=='object'||Array.isArray(next))return;configVersion++;applyConfig(next);};
  const send=m=>window.__tomoyoTranslateRequest(JSON.stringify(m));
  const request=(action,args={},timeout=240000)=>new Promise((resolve,reject)=>{const id=++serial,timer=setTimeout(()=>{pending.delete(id);reject(Error('服务等待超时，请检查组件状态'));
   },timeout);pending.set(id,{resolve,reject,timer});send({type:'v4',id,action,args});});
@@ -101,7 +105,7 @@
   }
  function updateDiagnostic(){for(const n of document.querySelectorAll('[data-v4-hook]'))if(n.textContent!==diagnostic())n.textContent=diagnostic();}
  function panel(host){if(host.querySelector('.tomoyo-v4-settings'))return;const section=el('section');section.className='tomoyo-v4-settings';const status=el('div'),
-  fields={};const imm=el('section');imm.className='tomoyo-v4-immersion';imm.append(el('h4','沉浸模式'));const voice=el('section'),voiceStatus=el('small');
+  fields={};let syncing=false;const imm=el('section');imm.className='tomoyo-v4-immersion';imm.append(el('h4','沉浸模式'));const voice=el('section'),voiceStatus=el('small');
   // 'fetch failed' is the raw error when the local speech engine is not up yet (starting, or restarting after a voice
   // was deleted): say that in words instead, and clear it once speakers load again (user, 2026-11-02).
   const voiceError=e=>{const raw=String(e?.message||e||'');if(!/fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|network/i.test(raw))return raw;voiceStatus.dataset.err='1';
@@ -118,17 +122,17 @@
    if(type==='range'){const out=el('output');out.className='tomoyo-slider-value';const show=()=>{out.textContent=key==='aivisVolume'?String(Math.round(input.value*100)):Number(input.value).toFixed(2)+'×';
     };input.addEventListener('input',show);show();row.append(out);}
    // Volume applies at once (also to audio already playing) and is saved without pressing the save button.
-   if(key==='aivisAutoSpeak'){input.addEventListener('change',()=>{config.aivisAutoSpeak=input.checked;request('configure',{...config,aivisAutoSpeak:input.checked}).then(v=>{
-    config=v;}).catch(e=>{status.textContent=e.message;});});}
-   if(key==='aivisVolume'){input.addEventListener('input',()=>{config.aivisVolume=Number(input.value);if(currentAudio)currentAudio.volume=config.aivisVolume;});
-    input.addEventListener('change',()=>{request('configure',{...config,aivisVolume:Number(input.value)}).then(v=>{config=v;}).catch(e=>{status.textContent=e.message;
+   if(key==='aivisAutoSpeak'){input.addEventListener('change',()=>{const ver=++configVersion;config.aivisAutoSpeak=input.checked;request('configure',{...config,aivisAutoSpeak:input.checked}).then(v=>{
+    if(configVersion===ver)config={...config,...v};}).catch(e=>{status.textContent=e.message;});});}
+   if(key==='aivisVolume'){input.addEventListener('input',()=>{if(syncing)return;configVersion++;config.aivisVolume=Number(input.value);if(currentAudio)currentAudio.volume=config.aivisVolume;});
+    input.addEventListener('change',()=>{const ver=++configVersion;request('configure',{...config,aivisVolume:Number(input.value)}).then(v=>{if(configVersion===ver)config={...config,...v};}).catch(e=>{status.textContent=e.message;
     });});}
    fields[key]=input;row.append(input);if(key==='ankiPath')row.append(button('浏览…',async()=>{try{const value=await window.__megulitPickExecutable();if(value){input.value=value;
     input.dispatchEvent(new Event('input',{bubbles:true}));}}catch(e){status.textContent=e.message||String(e);}}));if(key==='ankiDeck')row.append(el('small','新加入的单词会保存到这个牌组，可与当前复习牌组不同'));
     if(key==='ankiModel')row.append(el('small','决定卡片字段和正反面排版；MeguLit / 旧 ToMe 类型包含释义、例句、语音和游戏截图'));(key==='immersion'?imm:/^aivis/.test(key)?voice:section).append(row);
     }
   // Speaker: pick "voice（style）" from AivisSpeech instead of typing a bare style ID; the ID is still what gets saved.
-  let loadSpeakers=async()=>{};
+  let loadSpeakers=async()=>{},syncSpeaker=()=>{};
   // Style names are Japanese descriptions of how the voice speaks; translate the common ones (speaker names stay as they are).
   // Style names are Japanese descriptions of how the voice speaks; translate them (speaker names stay as they are).
   // Keys are matched after katakana→hiragana folding, so ノーマル / のーまる and ふつう / ふつー all hit the same entry.
@@ -181,7 +185,7 @@
   const styleLabel=n=>{const lang=window.__tomeI18n?.get?.()||'zh';if(lang==='ja')return n;const t=styleText(n,lang==='en'?1:0);return t&&fold(t)!==fold(n)?n+' · '+t:n;
    };
   {const spk=fields.aivisSpeaker,row=spk.closest('label'),sel=el('select'),hint=el('small');const speaker=el('select'),speakerRow=el('label','语音角色'),emotionRow=el('label',
-   '情感／风格');speaker.className='tome-speaker-select';speakerRow.append(speaker);emotionRow.append(sel);let speakerList=[];const remembered=new Map();sel.className='tome-speaker-select';
+   '情感／风格');speaker.className='tome-speaker-select';speakerRow.append(speaker);emotionRow.append(sel);let speakerList=[],rawSpeakers=[];const remembered=new Map();sel.className='tome-speaker-select';
    sel.hidden=true;hint.className='tome-speaker-hint';
    hint.textContent='AivisSpeech 里每个「话者」是一种声音，每个声音有几种说话风格（普通、温柔、开心等），每种风格对应一个 ID；在这里直接选声音和风格即可。';
    let previewPlayer=null;const PREVIEW='▶ 试听',STOP='■ 停止';const tryBtn=button(PREVIEW,async()=>{
@@ -204,16 +208,17 @@
     remembered.set(speaker.value,sel.value);};
    const fillStyles=(index,current)=>{sel.replaceChildren();for(const st of speakerList[index]?.styles||[]){const option=new Option(styleLabel(st.name),String(st.id));
     option.dataset.styleName=st.name;option.dataset.noI18n='';sel.add(option);}if([...sel.options].some(o=>o.value===String(current)))sel.value=String(current);
-    spk.value=sel.value;};
+    if(sel.options.length)spk.value=sel.value;};
    speaker.onchange=()=>fillStyles(Number(speaker.value),remembered.get(speaker.value));
    // The menu is rebuilt on every open: fill the list from the last result right away (and show the picker, not the raw
    // ID field, while loading), so the ID box no longer flashes before the names arrive.
-   const fill=list=>{speakerList=(Array.isArray(list)?list:[]).filter(s=>s.styles?.length);speaker.replaceChildren();const cur=String(spk.value||'').trim();let index=speakerList.findIndex(s=>s.styles.some(st=>String(st.id)===cur));
+   const fill=list=>{rawSpeakers=Array.isArray(list)?list:[];speakerList=rawSpeakers.filter(s=>s?.styles?.length);speaker.replaceChildren();const cur=String(spk.value||'').trim();let index=speakerList.findIndex(s=>s.styles.some(st=>String(st.id)===cur));
     if(index<0&&cur&&cur!=='0'){speakerList.push({name:'ID '+cur,styles:[{id:Number(cur),name:'ID '+cur}]});index=speakerList.length-1;}
     speakerList.forEach((s,i)=>{const o=new Option(s.name,String(i));o.dataset.noI18n='';speaker.add(o);});speaker.value=String(Math.max(0,index));fillStyles(Number(speaker.value),
      cur);
     sel.hidden=speaker.hidden=!speakerList.length;spk.hidden=!!speakerList.length;if(speakerList.length&&row.firstChild?.nodeType===3)row.firstChild.textContent='朗读声音';
      };
+   syncSpeaker=()=>{if(rawSpeakers.length||speakerList.length)fill(rawSpeakers);};
    sel.__tomeRefreshLanguage=()=>{for(const option of sel.options)if(option.dataset.styleName)option.textContent=styleLabel(option.dataset.styleName);};
    // Home and Alt+T panels share one published speaker list: a download or reload in one refreshes every open panel
    // (Alt+T used to keep the two speakers it was built with). Each open also re-reads the launcher's cached list.
@@ -235,8 +240,8 @@
   const immMode=()=>{const v=detection.value;edge.hidden=v!=='visual';immHint.textContent=v==='marker'?'跟随游戏自己的「点击继续」标记判断有没有对话，不用设置，窗口大小变化也会自动适配':v==='hook'?'游戏发出空文本时隐藏，适合文字钩子稳定的游戏':'检测对话框边缘是否还在。先进入有对话框的画面，再点「记住当前对话框边缘」';
    };detection.addEventListener('change',immMode);immMode();const calibration=el('small');calibration.dataset.v4Calibration='';edge.append(button('记住当前对话框边缘',async()=>{
    try{await request('calibrate',Object.fromEntries(Object.entries(roi).map(([k,n])=>[k,Number(n.value)])));}catch(e){calibration.textContent=e.message;}}),calibration);
-  const saveAll=async out=>{const value={...config};for(const [k,input]of Object.entries(fields))value[k]=input.type==='checkbox'?input.checked:['number','range'].includes(input.type)?Number(input.value):input.value;
-   try{config=await request('configure',value);out.textContent='已保存，重启仍保留';}catch(e){out.textContent=e.message;}};const immStatus=el('small');imm.append(button('保存沉浸模式设置',
+  const saveAll=async out=>{const ver=++configVersion,value={...config};for(const [k,input]of Object.entries(fields))value[k]=input.type==='checkbox'?input.checked:['number','range'].includes(input.type)?Number(input.value):input.value;
+   try{const saved=await request('configure',value);if(configVersion===ver)config={...config,...saved};out.textContent='已保存，重启仍保留';}catch(e){out.textContent=e.message;}};const immStatus=el('small');imm.append(button('保存沉浸模式设置',
    ()=>saveAll(immStatus)),immStatus);section.append(button('保存学习服务',()=>saveAll(status)));
   // Recommended voices (AivisHub, ACML 1.0): downloaded in the background on request, about 250 MB each.
   const packWords={zh:{all:'推荐声音已全部安装',busy:(s)=>'正在下载 '+s.current+'（'+(s.done+1)+'/'+s.total+'，'+Math.round(s.bytes/1048576)+'/'+Math.round(s.size/1048576)+' MB）',
@@ -283,7 +288,16 @@
    status.textContent='AnkiConnect '+info.version+' · '+info.decks.join('、');}catch(e){status.textContent=e.message;}}),status);const hookBox=el('section');hookBox.className='tomoyo-v4-hook';
    const hookStatus=el('small');hookBox.append(el('h4','Hook 诊断'));const hook=el('small');hook.dataset.v4Hook='';hookBox.append(hook,button('重新枚举／恢复文本',()=>send({
    type:'hookRescan'})));hookBox.append(button('我已确认游戏原文隐藏',()=>{if(!b.receivedText){hookStatus.textContent='请先推进一句并确认原文确已隐藏，再记录结果';return;}send({type:'hookReplacementConfirm'});
-   }),hookStatus);host.append(voice,section,imm,hookBox);updateDiagnostic();
+   }),hookStatus);host.append(voice,section,imm,hookBox);
+  const sync=()=>{if(!host.isConnected){panelSyncs.delete(sync);return;}syncing=true;try{for(const [k,input] of Object.entries(fields)){
+   if(input.type==='checkbox')input.checked=config[k]===true;
+   else if(k==='aivisSpeed')input.value=config.aivisSpeed??1;
+   else if(k==='aivisVolume')input.value=config.aivisVolume??.9;
+   else if(k==='dialogDetection')input.value=config.dialogDetection||'marker';
+   else input.value=config[k]??'';
+   if(input.type==='range')input.dispatchEvent(new Event('input'));}
+   immMode();syncSpeaker();}finally{syncing=false;}};
+  panelSyncs.add(sync);updateDiagnostic();
  }
  // Translation shown for this line right now (only when it really belongs to the sentence on the card).
  function publishSpeakers(list){if(!Array.isArray(list))return;if(JSON.stringify(list)===JSON.stringify(window.__tomeSpeakerCache))return;window.__tomeSpeakerCache=list;
@@ -297,6 +311,6 @@
   }if(document.title!=='MeguLit')document.title='MeguLit';}
  const style=el('style');style.textContent='.megulit-autospeak-hint{margin-left:auto;opacity:.55;font-size:11px;white-space:nowrap}.tomoyo-v4-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 18px}.tomoyo-speak-row{display:inline-flex!important;align-items:center;gap:10px}.tomoyo-speak-button{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;font-size:17px;line-height:1;border:1px solid var(--theme-border,#3a3a40);border-radius:9px;background:transparent;cursor:pointer}.tomoyo-speak-button:hover:not(:disabled){border-color:var(--theme-primary,#e0495a)}.tomoyo-speak-button:disabled{opacity:.4;cursor:default}.tomoyo-anki-button{margin-left:auto}.tomoyo-selection-card>header{display:flex!important;align-items:center;padding:8px 10px 8px 14px!important;gap:8px}.tomoyo-card-bar{display:flex;gap:6px;align-items:center;flex:1;min-width:0}.tomoyo-card-bar button{font-size:12px!important;padding:4px 10px!important;border-radius:8px!important;white-space:nowrap}.tomoyo-card-bar .tomoyo-anki-button{margin-left:auto}.tomoyo-card-bar .tomoyo-save-sentence-button{margin-left:auto}.tomoyo-card-bar .tomoyo-save-sentence-button~.tomoyo-anki-button{margin-left:0}.tomoyo-footer-empty{display:none!important}.tomoyo-selection-card .tomoyo-ai-result{margin-top:12px!important}.tomoyo-v4-actions:not(:has(.tomoyo-pitch-choices:not([hidden]),.tomoyo-save-sentence-button)){display:none!important}.tomoyo-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 18px 10px;border-top:1px solid color-mix(in srgb,var(--theme-border,#444) 60%,transparent);font-size:10.5px;color:var(--theme-textSecondary,#999)}.tomoyo-card-meta small{flex-basis:auto!important;font-size:10.5px}.tomoyo-selection-card .tomoyo-card-meta .tomoyo-mark-sentence{padding:1px 7px;margin:0;border:1px solid var(--line,color-mix(in srgb,var(--theme-border,#444) 80%,transparent));border-radius:var(--mgc-r,2px);background:transparent;color:var(--theme-textSecondary,#aaa);font-size:11px;line-height:1.4;cursor:pointer;white-space:nowrap}.tomoyo-selection-card .tomoyo-card-meta .tomoyo-mark-sentence:hover:not(:disabled){border-color:var(--theme-primary,#e0495a);color:var(--theme-text,#eee)}.tomoyo-selection-card .tomoyo-card-meta .tomoyo-mark-sentence:disabled{opacity:.55;border-style:dashed;cursor:default}.tomoyo-v4-actions small{flex-basis:100%;color:var(--theme-textSecondary,#aaa)}.tomoyo-pitch-choices{display:flex;gap:6px;flex-wrap:wrap}.tomoyo-pitch-choices[hidden]{display:none!important}.tomoyo-pitch-choices button{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border:1px solid var(--theme-border,#3a3a40);border-radius:999px;background:transparent;color:var(--theme-textSecondary,#aaa);font-size:12px;line-height:1.4;font-family:inherit;cursor:pointer;transition:border-color .12s,color .12s}.tomoyo-pitch-choices button:hover{color:var(--theme-text,#eee)}.tomoyo-pitch-choices button[aria-checked=true]{border-color:var(--theme-primary,#e0495a);color:var(--theme-text,#eee);background:color-mix(in srgb,var(--theme-primary,#e0495a) 14%,transparent)}.tomoyo-pitch-choices svg{overflow:visible}.tomoyo-pitch-choices polyline{fill:none;stroke:currentColor;stroke-width:1.4;opacity:.7}.tomoyo-pitch-choices circle{fill:currentColor}.tomoyo-pitch-choices button[aria-checked=true] svg{color:var(--theme-primary,#e0495a)}.tomoyo-v4-settings input[type=range]{padding:0!important;border:0!important;background:none!important}.tomoyo-v4-settings .tomoyo-slider-value{float:right}.tomoyo-v4-settings{border-top:1px solid var(--theme-border,#444);margin-top:20px;padding-top:8px}.tomoyo-v4-settings input:not([type=checkbox]){display:block;width:100%;box-sizing:border-box;padding:8px;color:inherit;background:var(--theme-background,#151518);border:1px solid var(--theme-border,#444);border-radius:6px}.tomoyo-dialog-hidden .sentence-window,.tomoyo-dialog-hidden .tomoyo-selection-card,.tomoyo-dialog-hidden .lookup-tooltip{visibility:hidden!important;opacity:0!important;transition:opacity .12s ease-out,visibility 0s linear .12s!important}.tomoyo-selection-open .lookup-tooltip{display:none!important}';
   document.head.append(style);
- request('load').then(value=>{config=value;mount();}).catch(()=>{});new MutationObserver(mount).observe(document.documentElement,{subtree:true,childList:true});
+ const initialVersion=configVersion;request('load').then(value=>{if(configVersion===initialVersion)applyConfig(value);mount();}).catch(()=>{});new MutationObserver(mount).observe(document.documentElement,{subtree:true,childList:true});
   mount();
 })();

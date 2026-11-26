@@ -602,7 +602,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
     sub:n?`下一课：${loc(n.title,locale).split(/\s*——\s*/)[0]}`:'',r:rr,esc});}
    if(on)keepStep(point.id,step,STEPS.length);if(n){memo.groupOf={...(memo.groupOf||{}),[lv]:n.group};openPoint(n.id);}else renderLesson();}catch(error){toast?.(String(error?.message||error));}};
   root.querySelectorAll('[data-anki]').forEach(b=>b.onclick=async()=>{const e=real[Number(b.dataset.anki)];b.disabled=true;try{await api('grammar_anki',{point:point.id,
-   title:loc(point.title,'zh'),gist:loc(point.gist,'zh'),example:e});b.textContent=w.ankiDone;}catch{b.disabled=false;toast?.(w.ankiFail);}});
+   level:levelOf(point),title:loc(point.title,'zh'),gist:loc(point.gist,'zh'),example:e});b.textContent=w.ankiDone;}catch{b.disabled=false;toast?.(w.ankiFail);}});
   root.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak,b));labelSpeak(root);
   root.querySelectorAll('[data-explain]').forEach(m=>{m.onclick=e=>{e.stopPropagation();explain(m);};m.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();
    explain(m);}};m.onmouseenter=()=>explain(m);});

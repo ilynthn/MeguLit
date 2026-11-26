@@ -170,7 +170,7 @@ async function describe(db,words,lookup,{deadline=Date.now()+4000}={}){
   ensure(db);const get=db.prepare('SELECT * FROM word_info WHERE key=?'),put=db.prepare('INSERT OR REPLACE INTO word_info(key,entry_id,spelling,reading,meaning,checked_at) VALUES(?,?,?,?,?,?)');
   for(const w of words){let info=get.get(w.key);
     if(!info&&lookup&&Date.now()<deadline){try{let entry=await lookup(w.base,w.key);if(!entryMatches(entry,w.base,w.key))entry=null;const d=Array.isArray(entry?.definitions)?entry.definitions:[];
-      put.run(w.key,entry?.id??null,entry?.spellings?.[0]||'',entry?.readings?.[0]||'',d.slice(0,2).map(x=>typeof x==='string'?x:x?.gloss||'').filter(Boolean).join('；').slice(0,160),Math.floor(Date.now()/1000));info=get.get(w.key);}catch{}}
+      put.run(w.key,entry?.id??null,entry?.spellings?.[0]||entry?.readings?.[0]||'',entry?.readings?.[0]||'',d.slice(0,2).map(x=>typeof x==='string'?x:x?.gloss||'').filter(Boolean).join('；').slice(0,160),Math.floor(Date.now()/1000));info=get.get(w.key);}catch{}}
     if(info){w.entryId=info.entry_id;w.reading=info.reading;w.meaning=info.meaning;}}
   return words;
 }
@@ -233,14 +233,15 @@ function exampleLine(db,key,gameId=null){
 /* Saves a word met in reading: dictionary entry, plus its line as the example. */
 function saveWord(db,entry,example,{status=null}={}){
   if(!entry?.id)throw Error('WORD_NOT_FOUND');
+  const spelling=entry.spellings?.[0]||entry.readings?.[0]||'',reading=entry.readings?.[0]||'';
   db.exec('BEGIN IMMEDIATE');
   try{
-    db.prepare('INSERT OR IGNORE INTO vocabulary(id,spelling,reading,definitions,status,created_at,original) VALUES(?,?,?,?,0,?,?)').run(entry.id,entry.spellings?.[0]||'',entry.readings?.[0]||'',JSON.stringify(entry.definitions||[]),Math.floor(Date.now()/1000),JSON.stringify({entry,from:'reading'}));
+    db.prepare('INSERT OR IGNORE INTO vocabulary(id,spelling,reading,definitions,status,created_at,original) VALUES(?,?,?,?,0,?,?)').run(entry.id,spelling,reading,JSON.stringify(entry.definitions||[]),Math.floor(Date.now()/1000),JSON.stringify({entry,from:'reading'}));
     if(example?.text&&!require('./saved-sentences.cjs').findExample(db,entry.id,example.text,example.gameId))
       db.prepare('INSERT INTO examples(word_id,game_id,text,translation,highlight_start,highlight_end,created_at,original) VALUES(?,?,?,?,?,?,?,?)').run(entry.id,example.gameId||null,example.text,example.translation||'',example.start||0,example.end||0,Math.floor(Date.now()/1000),JSON.stringify({translationSource:example.translationSource||'',from:'reading',readAt:example.readAt||null}));
     if(Number.isInteger(status)&&status>=0&&status<=4)db.prepare('UPDATE vocabulary SET status=? WHERE id=?').run(status,entry.id);
     db.exec('COMMIT');
   }catch(error){db.exec('ROLLBACK');throw error;}
-  return {id:entry.id,status:Number.isInteger(status)&&status>=0&&status<=4?status:undefined,spelling:entry.spellings?.[0]||'',reading:entry.readings?.[0]||''};
+  return {id:entry.id,status:Number.isInteger(status)&&status>=0&&status<=4?status:undefined,spelling,reading};
 }
 module.exports={plainLine,entryMatches,readableLine,isHuman,usable,humanFromResolve,pickTranslation,SOURCE_LABEL,applyGameRuby,ANKI_EXTRA,ankiSentenceFields,lineWords,savedForms,countWords,weekStart,loadJlpt,jlptIndex,jlptCoverage,gameLevels,LEVELS,ensure,refresh,pending,lineRows,describe,report,exampleLine,saveWord,jlptWords,jlptDescribe};

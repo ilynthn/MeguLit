@@ -131,18 +131,65 @@ function windows(mode){
  return new Promise(resolve=>{execFile('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command','& {'+WINDOWS+'} '+"'"+String(mode).replace(/'/g,"''")+"'"],{windowsHide:true,timeout:20000},(error,stdout)=>resolve(error?0:Number(String(stdout).trim())||0));});
 }
 class AnkiProcess{
- constructor({root='',config,log=()=>{},anki=new Anki(),windowControl=windows,portOwners=listeners,killer=kill,running=ankiRunning,ankiPids=ankiProcesses,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}){this.portOwners=portOwners;this.killer=killer;this.running=running;this.ankiPids=ankiPids;this.wait=wait;this.windows=windowControl;this.root=root;this.config=config;this.log=log;this.anki=anki;this.started=false;this.hidden=false;}
+ constructor({root='',config,log=()=>{},anki=new Anki(),windowControl=windows,portOwners=listeners,killer=kill,running=ankiRunning,ankiPids=ankiProcesses,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms)),spawner=spawn,watcher=null,now=Date.now}={}){this.portOwners=portOwners;this.killer=killer;this.running=running;this.ankiPids=ankiPids;this.wait=wait;this.windows=windowControl;this.spawner=spawner;this.watcherFactory=watcher;this.now=now;this.root=root;this.config=config;this.log=log;this.anki=anki;this.started=false;this.hidden=false;this.starting=null;this.hideRequested=false;this.startGen=0;}
  async online(){try{await this.anki.call(this.config(),'version');return true;}catch{return false;}}
  find(){return find(this.config().ankiPath,process.env,undefined,this.root);}
+ stopWatch(){this.watcher?.kill?.();this.watcher=null;}
  async start({hide=false}={}){
-  if(await this.online()){if(hide)await this.hide();return {running:true,started:false};}
-  const exe=this.find();if(!exe)throw Error('ANKI_EXECUTABLE_MISSING');
-  if(hide){this.hidden=true;this.watch(30000);}
-  const child=spawn(exe,[],{cwd:path.dirname(exe),detached:true,stdio:'ignore',windowsHide:hide});child.on('error',()=>{});child.unref();
-  this.started=true;this.log('[MeguLit] started Anki '+exe+(hide?' (hidden)':''));
-  /* v1.1.5: a cold Anki syncs and loads add-ons before AnkiConnect answers; 45 s was often too short, so wait up to 90 s */
-  for(let i=0;i<120;i++){await new Promise(resolve=>setTimeout(resolve,750));if(hide&&i%2===0)await this.hide();if(await this.online()){if(hide){await this.hide();}return {running:true,started:true};}}
-  throw Error('ANKI_OFFLINE');
+  if(!hide)this.hideRequested=false;
+  const pending=this.starting;
+  if(pending){
+   if(!hide&&(this.hidden||this.watcher))await this.show();
+   return pending;
+  }
+  const gen=++this.startGen;
+  this.hideRequested=!!hide;
+  let hideStarted=false;
+  const task=(async()=>{
+   if(!this.hideRequested&&(this.hidden||this.watcher))await this.show();
+   const isOnline=await this.online();
+   if(gen!==this.startGen)throw Error('ANKI_OFFLINE');
+   if(isOnline){
+    if(this.hideRequested)await this.hide();
+    return {running:true,started:false};
+   }
+   const alreadyRunning=!!this.running();
+   const exe=alreadyRunning?'':this.find();
+   if(!alreadyRunning&&!exe)throw Error('ANKI_EXECUTABLE_MISSING');
+   if(this.hideRequested&&!alreadyRunning){hideStarted=true;this.hidden=true;this.watch(30000);}
+   if(!alreadyRunning){
+    await new Promise((resolve,reject)=>{
+     let child;
+     try{child=this.spawner(exe,[],{cwd:path.dirname(exe),detached:true,stdio:'ignore',windowsHide:this.hideRequested});}catch(err){reject(err);return;}
+     let settled=false;
+     const done=fn=>v=>{if(settled)return;settled=true;fn(v);};
+     if(typeof child?.once==='function'){
+      child.once('error',done(reject));
+      child.once('spawn',done(()=>{child.unref?.();resolve();}));
+     }else{child?.unref?.();done(resolve)();}
+    }).catch(err=>{if(gen===this.startGen){this.stopWatch();this.hideRequested=false;this.hidden=false;}throw err;});
+    this.started=true;this.log('[MeguLit] started Anki '+exe+(this.hideRequested?' (hidden)':''));
+   }else{
+    if(!this.hideRequested)await this.show();
+    this.log('[MeguLit] Anki already running; waiting for AnkiConnect');
+   }
+   /* v1.1.5: a cold Anki syncs and loads add-ons before AnkiConnect answers; 45 s was often too short, so wait up to 90 s */
+   for(let i=0;i<120;i++){
+    await this.wait(750);
+    const up=await this.online();
+    if(gen!==this.startGen)throw Error('ANKI_OFFLINE');
+    if(up){
+     if(this.hideRequested)await this.hide();
+     else if(hideStarted||this.hidden||this.watcher)await this.show();
+     return {running:true,started:!alreadyRunning};
+    }
+    if(this.hideRequested&&!alreadyRunning&&i%2===0)await this.hide();
+   }
+   if(gen===this.startGen){this.hideRequested=false;if(this.hidden||this.watcher)await this.show();}
+   throw Error('ANKI_OFFLINE');
+  })().finally(()=>{if(this.starting===task)this.starting=null;});
+  this.starting=task;
+  return task;
  }
  // "Reconnect" that actually reconnects (user, 2026-11-09): close whatever else holds AnkiConnect's port, and when
  // AnkiConnect still does not answer, close Anki normally and start it cold so the add-on binds the port again.
@@ -155,19 +202,24 @@ class AnkiProcess{
   if(killed.length){for(let i=0;i<8;i++){await this.wait(500);if(await this.online())return {running:true,repaired:true,killed};}}
   // Cold start: a running Anki whose AnkiConnect failed to bind (or hangs) is closed the normal way first.
   const anki=(await this.portOwners(port)).some(isAnki)||this.running();
+  this.startGen++;this.starting=null;this.stopWatch();
   if(anki){
    await this.windows('close');
    for(let i=0;i<30&&this.running();i++)await this.wait(500);
-   if(this.running()){for(const p of this.ankiPids())this.killer(p);await this.wait(1000);this.log('[MeguLit] Anki did not close for a cold restart; stopped it');}
+   if(this.running()){
+    await this.show();
+    this.log('[MeguLit] Anki did not close for a cold restart; shown for user');
+    throw Error('ANKI_CLOSE_REQUIRED');
+   }
   }
   const result=await this.start({hide});return {...result,repaired:true,killed,restarted:anki};
  }
  async hide(){const n=await this.windows('hideall');if(n)this.hidden=true;return n;}
  // E259: Anki's sync progress dialog and its 'collection synced' tooltip are separate windows of the same process
  // E265: one long-lived helper (compiled once) hides Anki's windows every ~30ms, so none is ever painted
- watch(ms){this.watcher?.kill?.();this.watcher=execFile('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command','& {'+WINDOWS+'} '+"'watch:"+Math.round(ms)+"'"],{windowsHide:true,timeout:ms+15000},()=>{});}
+ watch(ms){this.stopWatch();this.watcher=this.watcherFactory?this.watcherFactory(ms):execFile('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command','& {'+WINDOWS+'} '+"'watch:"+Math.round(ms)+"'"],{windowsHide:true,timeout:ms+15000},()=>{});}
  sweep(ms){const until=Date.now()+ms;const tick=()=>{if(Date.now()>until||!this.hidden)return;this.windows('hideall').finally(()=>setTimeout(tick,400).unref?.());};tick();}
- async show(){this.watcher?.kill?.();this.watcher=null;this.hidden=false;return this.windows('show');}
+ async show(){this.stopWatch();this.hideRequested=false;this.hidden=false;return this.windows('show');}
  // E215.7 (user): open Anki's own add-on manager / deck options / custom study in its native window. AnkiConnect has
  // no action for those dialogs, so Anki is shown, focused and sent its own shortcut (Ctrl+Shift+A add-ons; on a deck's
  // overview O options, C custom study). If focusing fails, Anki is still shown on that deck for a click.
@@ -177,22 +229,26 @@ class AnkiProcess{
   const keys={addons:'^+a',options:'o',custom:'c',overview:''}[target];if(keys===undefined)throw Error('ANKI_INVALID_TARGET');
   // E215.9: a background helper may not take the foreground, so MeguLit's own window process (in front after the
   // click) focuses Anki and presses the shortcut; this only makes sure Anki's window is shown.
-  this.hidden=false;await this.windows('show');return {opened:true,focused:false,shortcut:target};
+  await this.show();return {opened:true,focused:false,shortcut:target};
  }
  async auto(){const c=this.config();if(!c.ankiAutoStart)return {skipped:true};try{return await this.start({hide:c.ankiHidden});}catch(error){this.log('[MeguLit] Anki auto start failed '+error.message);return {error:error.message};}}
  // E215.6: AnkiConnect's guiExitAnki answered but Anki kept running hidden (its timer is not kept alive), and the
  // user could not open Anki afterwards. Closing now posts WM_CLOSE to Anki's main window, the same as its close
  // button, so Anki saves and exits normally; an Anki that stays open is always shown again.
  async stop(){
+  this.startGen++;this.starting=null;
   const close=this.started&&this.config().ankiAutoClose;this.started=false;
+  this.hideRequested=false;
   try{
-   if(!close){if(this.hidden||this.config().ankiHidden)await this.show();return {closed:false};}
+   if(!close){if(this.hidden||this.config().ankiHidden)await this.show();else this.stopWatch();return {closed:false};}
    const quiet=this.hidden||this.config().ankiHidden;if(quiet)this.watch(20000);const sent=await this.windows('close');
-   for(let i=0;i<40&&await this.online();i++){if(quiet)await this.windows('hideall');await new Promise(resolve=>setTimeout(resolve,400));}
+   const deadline=this.now()+4500;
+   for(let i=0;i<40&&this.now()<deadline&&(await this.online()||this.running());i++){if(quiet)await this.windows('hideall');await this.wait(400);}
    this.hidden=false;
-   if(await this.online()){await this.show();this.log('[MeguLit] Anki did not close; shown again');return {closed:false};}
+   if(await this.online()||this.running()){await this.show();this.log('[MeguLit] Anki did not close; shown again');return {closed:false};}
    this.log('[MeguLit] closed Anki started by MeguLit (windows='+sent+')');return {closed:true};
-  }catch(error){this.log('[MeguLit] Anki close failed '+error.message);try{await this.show();}catch{}return {closed:false};}
+  }catch(error){this.log('[MeguLit] Anki close failed '+error.message);try{await this.show();}catch{this.stopWatch();}return {closed:false};}
+  finally{this.stopWatch();}
  }
 }
 // One-click AnkiConnect (user, 2026-11-08: most "Anki will not connect" reports were a missing add-on). Downloads the

@@ -490,11 +490,30 @@
     return drawn;
   }
   let reveal = { id: 0, n: 0, t: 0 };
-  /* tags a dash token (see the style rule); the stroke takes the colour the glyph was filled with */
+  /* tags a dash token (see the style rule); leave --megulit-dash-color unset when fill tracks currentColor (or gradient
+     transparent fill) so ::after inherits currentColor dynamically across read/unread line colour transitions. Only pin
+     --megulit-dash-color when a stylesheet sets an explicit non-transparent -webkit-text-fill-color different from color. */
+  function applyDashColor(t, fill, color) {
+    if (fill && fill !== 'rgba(0, 0, 0, 0)' && fill !== color) t.style.setProperty('--megulit-dash-color', fill);
+    else t.style.removeProperty('--megulit-dash-color');
+  }
+  function refreshDashColors() {
+    const list = [...document.querySelectorAll('.sentence-text .char-token.megulit-dash')];
+    if (!list.length) return;
+    // Two-phase read/write: lift inline/class overrides on all dashes first so the browser runs one style recalc.
+    for (const t of list) { t.classList.remove('megulit-dash'); t.style.removeProperty('-webkit-text-fill-color'); }
+    const measured = list.map(t => { const cs = getComputedStyle(t); return [t, cs.webkitTextFillColor, cs.color]; });
+    for (const [t, fill, color] of measured) {
+      applyDashColor(t, fill, color);
+      t.classList.add('megulit-dash');
+      t.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
+    }
+  }
   function markDash(t) {
     if (t.classList.contains('megulit-dash') || !DASH.test(t.textContent || '')) return;
-    const cs = getComputedStyle(t), fill = cs.webkitTextFillColor, color = fill && fill !== 'rgba(0, 0, 0, 0)' ? fill : cs.color;
-    t.style.setProperty('--megulit-dash-color', color); t.classList.add('megulit-dash');
+    const cs = getComputedStyle(t);
+    applyDashColor(t, cs.webkitTextFillColor, cs.color);
+    t.classList.add('megulit-dash');
     /* 2026-11-16 (user: 「──」 drawn as two lines of different widths): a game style's own fill / outline rules outranked
        the dash rule, so the glyph was painted under the drawn line. Inline !important wins over every stylesheet. */
     for (const [p, v] of [['-webkit-text-fill-color', 'transparent'], ['-webkit-text-stroke-width', '0px'], ['text-shadow', 'none'], ['paint-order', 'normal']]) t.style.setProperty(p, v, 'important');
@@ -751,16 +770,19 @@
   /* 2026-11-20 (user, CHAOS;CHILD: 「排版同步一下啊 对应一下每一行的日文」): the translation gets as many rows as the game gave the
      Japanese, each the part that matches one Japanese row: breaks after the translation's punctuation nearest to where each
      Japanese row ends (by share of the sentence), else at that share. One-row lines and unfinished translations are left alone. */
-  const CN_PUNCT = /[，、。；：！？…—,.;:!?」』）)]/;
+  const CN_PUNCT = /[，、。；：！？…—,.;:!?」』）)”’》】〕〗〉\]\}]/;
+  const CN_NONWORD = /[，、。；：！？…—,.;:!?」』）)”’》】〕〗〉\]\}“‘「『（(《【〔〖〈\s]/g;
   /* breaks for `shares` (where each Japanese row ends, as a share of the sentence): the set of break points after the
      translation's punctuation that lies nearest to the shares overall (least squares); a share no punctuation is left for
      breaks at its own place */
   function cnSplit(text, shares) {
     const n = text.length, k = shares.length; if (!n || !k) return [];
-    const cand = []; for (let i = 1; i < n; i++) if (CN_PUNCT.test(text[i - 1]) && !CN_PUNCT.test(text[i])) cand.push(i);
+    /* never split closing punctuation onto its own line or orphan a single trailing character */
+    const tailOk = i => text.slice(i).replace(CN_NONWORD, '').length >= 2;
+    const cand = []; for (let i = 1; i < n; i++) if (CN_PUNCT.test(text[i - 1]) && !CN_PUNCT.test(text[i]) && tailOk(i)) cand.push(i);
     /* not enough punctuation: a break goes where a Chinese clause can start (before 在/将/变…, after 的/了…), never inside a word; none near: no break */
     if (cand.length < k) { const soft = i => CN_PUNCT.test(text[i - 1]) || /[在将把被让使变是有和与而但却又也就都才从向对]/.test(text[i]) || /[的了着过地]/.test(text[i - 1]); const out = []; let last = 0;
-      for (const sh of shares) { const p = sh * n; let best = -1, c = Infinity; for (let i = last + 1; i < n; i++) if (soft(i) && !CN_PUNCT.test(text[i]) && Math.abs(i - p) < c) { c = Math.abs(i - p); best = i; } if (best > last && c <= n * .2) { out.push(best); last = best; } } return out; }
+      for (const sh of shares) { const p = sh * n; let best = -1, c = Infinity; for (let i = last + 1; i < n; i++) if (soft(i) && !CN_PUNCT.test(text[i]) && tailOk(i) && Math.abs(i - p) < c) { c = Math.abs(i - p); best = i; } if (best > last && c <= n * .2) { out.push(best); last = best; } } return out; }
     const m = cand.length, cost = (j, i) => (cand[i] / n - shares[j]) ** 2, INF = 1e9;
     const D = Array.from({ length: k }, () => new Array(m).fill(INF)), P = Array.from({ length: k }, () => new Array(m).fill(-1));
     for (let i = 0; i < m; i++) D[0][i] = cost(0, i);
@@ -1103,9 +1125,16 @@
   let busy = false;
   new MutationObserver(records => { if (on && (line || drawnByGame || page || bandWindow) && records.some(r => !(r.target.closest?.('.tomoyo-cn-dialog,#megulit-place-extras,#megulit-page-ahead,.megulit-old-line')) && !r.target.classList?.contains('megulit-old-line'))) { /* page mode: at once, before the next paint, so a line that just stopped being the reader's own never misses a frame */ if (page && !busy) { busy = true; try { apply(); } finally { busy = false; } } else schedule(); } }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
   const markAll = root => { for (const t of (root.querySelectorAll ? root.querySelectorAll('.sentence-text .char-token:not(.megulit-dash)') : [])) markDash(t); };
+  let dashRefreshQueued = false;
+  const scheduleDashRefresh = () => {
+    if (dashRefreshQueued || !document.querySelector('.sentence-text .char-token.megulit-dash')) return;
+    dashRefreshQueued = true;
+    requestAnimationFrame(() => { dashRefreshQueued = false; refreshDashColors(); });
+  };
   new MutationObserver(records => { for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1) { if (n.matches?.('.char-token') && n.closest('.sentence-text')) markDash(n); else markAll(n); } }).observe(document.documentElement, { subtree: true, childList: true });
+  if (document.body) new MutationObserver(scheduleDashRefresh).observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
   markAll(document);
   addEventListener('resize', schedule);
-  new MutationObserver(() => { if (on && (anchor || page || bandWindow)) schedule(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  new MutationObserver(() => { scheduleDashRefresh(); if (on && (anchor || page || bandWindow)) schedule(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
   addEventListener('megulit-profile', schedule);
 })();

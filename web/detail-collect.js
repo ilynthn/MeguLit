@@ -313,7 +313,8 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
   <header class="esr-h"><div class="esr-hl"><span class="esr-tot"><span class="esr-k">${esc(label)}</span><b>${list.length}</b></span></div><div class="esr-hr"><p class="esr-k">${esc(t.order)}</p></div></header>
   <div class="esr-body"><div class="esr-lw"><div class="esr-vp"><ul class="esr-list" role="listbox" aria-label="${esc(t.results)}" aria-activedescendant="ent-o-${cur}">${list.map(row).join('')}</ul></div></div><aside class="esr-d" aria-live="polite"></aside></div></section>`;
  const root=target.querySelector('.esr'),vp=root.querySelector('.esr-vp'),side=root.querySelector('.esr-d'),l=root.querySelector('.esr-list');
- const has=w=>savedSpellings?.has(w.spelling)||savedSpellings?.has(w.reading);
+ const wordKey=w=>w.spelling||w.reading;
+ const has=w=>{const k=wordKey(w);return !!k&&!!savedSpellings?.has(k);};
  const fmt=n=>Number(n).toLocaleString(locale==='en'?'en-US':locale==='ja'?'ja-JP':'zh-CN');
  /* JLPT level, part of speech and 常用度 on one line under the bar; a MOJi entry without a JLPT tag shows none (never a guess) */
  function meta(h){const lv=String(h.jlpt||'').match(/^N([1-5])$/),step=usageStep(h.views),pos=tags(h);if(!lv&&step<0&&!pos.length)return '';
@@ -368,11 +369,11 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
   if(next==null)return;e.preventDefault();select(Math.max(0,Math.min(n,next)),{focus:true,scroll:true});});
  vp.addEventListener('scroll',edge,{passive:true});
  side.addEventListener('click',async e=>{const w=list[cur];if(!w)return;
-  const s=e.target.closest('[data-save]');if(s&&onSave){s.disabled=true;try{await onSave(w);savedSpellings?.add(w.spelling);side.innerHTML=body(w,cache.get(w.key));}catch{s.disabled=false;}return;}
+  const s=e.target.closest('[data-save]');if(s&&onSave){s.disabled=true;try{await onSave(w);const k=wordKey(w);if(k)savedSpellings?.add(k);side.innerHTML=body(w,cache.get(w.key));}catch{s.disabled=false;}return;}
   /* 加入 Anki: the card's example is the first example of this entry (MOJi detail), with its translation; none for a local entry */
   const a=e.target.closest('[data-anki]');if(a&&onAnki){const d=cache.get(w.key),ex=d?.meanings?.flatMap(m=>m.examples||[]).find(x=>x?.ja)||null;
    a.disabled=true;const label=a.innerHTML;a.innerHTML=ACT.anki+`<span>${esc(t.ankiBusy)}</span>`;
-   try{await onAnki(w,ex?{sentence:ex.ja,translation:ex.zh||''}:{});carded.add(w.key);savedSpellings?.add(w.spelling);side.innerHTML=body(w,d);}catch{a.disabled=false;a.innerHTML=label;}return;}
+   try{await onAnki(w,ex?{sentence:ex.ja,translation:ex.zh||''}:{});carded.add(w.key);const k=wordKey(w);if(k)savedSpellings?.add(k);side.innerHTML=body(w,d);}catch{a.disabled=false;a.innerHTML=label;}return;}
   const p=e.target.closest('[data-play]');if(p&&onPlay){p.disabled=true;try{await onPlay(w);}finally{p.disabled=false;}return;}
   if(e.target.closest('[data-notes-open]')){notesOpen.add(w.key);keep(()=>side.innerHTML=body(w,cache.get(w.key)));return;}
   const m=e.target.closest('[data-notes-more]');if(m&&loadNotes){const k=w.key,got=more.get(k)||{list:[],page:1,hasMore:true};m.disabled=true;m.textContent=t.notesLoading;

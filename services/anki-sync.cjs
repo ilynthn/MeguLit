@@ -45,9 +45,9 @@ class AnkiSync{
    const index=(start+i)%notes.length,note=notes[index];if(!Number.isSafeInteger(note.noteId))continue;
    const linked=this.db.prepare('SELECT word_id FROM anki_links WHERE note_id=?').get(note.noteId);let entry=null,wordId=linked?.word_id;
    if(!linked){
-    const rawWord=String(note.word||''),rawReading=String(note.reading||''),normReading=hira(rawReading);
+    const rawWord=String(note.word||''),rawReading=String(note.reading||''),wantReading=hira(rawReading)||(!KANJI.test(rawWord)?hira(rawWord):'');
     const rows=this.db.prepare('SELECT id,reading FROM vocabulary WHERE spelling=?').all(rawWord);
-    const existing=rows.find(row=>String(row.reading||'')===rawReading)||(normReading?rows.find(row=>hira(row.reading)===normReading):null);
+    const existing=rows.find(row=>String(row.reading||'')===rawReading)||(wantReading?rows.find(row=>hira(row.reading)===wantReading):null);
     wordId=existing?.id;
     if(!wordId&&note.word){
      if(attempts<300){attempts++;lastAttempt=note.noteId;try{const found=await this.resolve(note.word,rawReading);if(found&&matchesReading(found,rawReading)){entry=found;wordId=entry.id;}}catch{}}

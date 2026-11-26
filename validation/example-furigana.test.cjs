@@ -191,3 +191,40 @@ test('hydrating a saved sentence uses the same text as the returned reading span
  await called;await new Promise(r=>setImmediate(r));
  assert.match(el.html(),/見上げると<ruby>花<rt>はな<\/rt><\/ruby>が揺れた/);
 });
+
+test('example-ruby chunks batches past 120 items and hydrates elements mounted while a duplicate request is in flight',{timeout:4000},async t=>{
+ const {installExampleRuby,hydrateExamples}=await import('../web/example-ruby.js?batch-and-race');
+ const {exampleRuby}=require('../services/example-ruby.cjs');
+ const doc=new Doc0(),els=[];
+ for(let i=0;i<150;i++){
+  const text=`第${i}話の花。`,el=h(doc,'p',{},text);
+  el.dataset={exr:text,exrRuby:JSON.stringify([['花','はな']])};el.isConnected=true;
+  els.push(el);
+ }
+ Object.assign(doc,{head:{append(){}},documentElement:{style:{setProperty(){}},classList:{toggle(){}}},querySelectorAll:()=>els,addEventListener(){}});
+ for(const [name,value] of Object.entries({document:doc,MutationObserver:class{observe(){}}})){
+  const old=Object.getOwnPropertyDescriptor(globalThis,name);Object.defineProperty(globalThis,name,{value,configurable:true});
+  t.after(()=>{if(old)Object.defineProperty(globalThis,name,old);else delete globalThis[name];});
+ }
+ const batchSizes=[];let releaseFirst,firstStarted;
+ const waitFirst=new Promise(r=>{releaseFirst=r;}),started=new Promise(r=>{firstStarted=r;});
+ installExampleRuby({api:async(action,args)=>{
+  if(action==='settings_get')return {};
+  batchSizes.push(args.items.length);
+  if(batchSizes.length===1){firstStarted();await waitFirst;}
+  return exampleRuby(null,null,args.items);
+ }});
+ await started;
+ // Mount a second element with the exact same sentence while the first batch is still in flight
+ const lateText=els[0].dataset.exr,lateEl=h(doc,'p',{},lateText);
+ lateEl.dataset={exr:lateText,exrRuby:els[0].dataset.exrRuby};lateEl.isConnected=true;
+ els.push(lateEl);
+ hydrateExamples();
+ await new Promise(r=>setTimeout(r,50));
+ releaseFirst();
+ await new Promise(r=>setTimeout(r,80));
+ assert.deepEqual(batchSizes,[120,30],'splits 150 lines into chunks of <= 120 so nothing is truncated by the service cap');
+ assert.match(els[0].html(),/<ruby>花<rt>はな<\/rt><\/ruby>/);
+ assert.match(els[149].html(),/<ruby>花<rt>はな<\/rt><\/ruby>/,'item past 120 gets ruby in the same pass without 4s retry');
+ assert.match(lateEl.html(),/<ruby>花<rt>はな<\/rt><\/ruby>/,'duplicate element mounted mid-flight still gets ruby once the request finishes');
+});

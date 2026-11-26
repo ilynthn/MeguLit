@@ -323,8 +323,8 @@ async function report(db,{root=null,scriptPairs=null,tokenize=null,deadline}={})
   return {scenes:sc,level:'N5',points:POINTS,examples:{...ex,...lx},progress:prog,completion:completion(prog),pending:state.pending||!!cached.lx.pending,lines:{history:list.filter(c=>c.origin==='history').length,script:list.filter(c=>c.origin==='script').length},real:Object.values({...ex,...lx}).reduce((n,l)=>n+l.length,0)};
 }
 /* An Anki note for a grammar line, through the existing card flow (one note per point and line). */
-function ankiWord(point,title,gist,example){
-  const label=String(title||point);
-  return {surface:label,base:label,reading:label,noReading:true,cardKey:'grammar:'+point+':'+example.text,meaning:String(gist||''),pos:'N5 语法',pitch:[],sentence:example.text};
+function ankiWord(point,title,gist,example,level){
+  const label=String(title||point),lv=/^N[0-5]$/.test(String(level||''))?String(level):'N5';
+  return {surface:label,base:label,reading:label,noReading:true,cardKey:'grammar:'+point+':'+example.text,meaning:String(gist||''),pos:lv+' 语法',pitch:[],sentence:example.text};
 }
 module.exports={confirmHit,isExplicit,MIN_CONF,candidatesCached,levelExamplesAsync,checkedLines,levels,levelExamples,pointsBelow,validPoint,cutLine,scenes,POINTS,PREFILTER,matchPoints,rubyPairs,ensure,candidates,refresh,examples,progress,setLearned,recordAnswer,completion,report,ankiWord};
