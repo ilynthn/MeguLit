@@ -18,9 +18,16 @@ test('reader notice: one-line title and buttons, readable message, buttons wrap 
  // Let the app finish its initial reader health check before injecting the errors under test.
  const startupError='READER_NATIVE_MISSING';
  try{web=await startWeb({call:request=>request.action==='reader_status'?{error:startupError}:service.call(request)});cdp=await startEdge(path.join(temp,'edge'));
-  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${web.address().port}/#%7B%7D`});
-  let ready=false;for(let i=0;i<80&&!ready;i++){await sleep(250);ready=await cdp.evaluate('!!window.__megulitTest && document.querySelector("#reader-notice")?.title==='+JSON.stringify(startupError)).catch(()=>false);}
-  assert.ok(ready,'initial reader status displayed');
+  const url=`http://127.0.0.1:${web.address().port}/#%7B%7D`;
+  const navigation=await cdp.send('Page.navigate',{url});
+  assert.ok(!navigation.errorText,`Home navigation failed (${navigation.errorText})`);
+  let state;
+  for(const deadline=Date.now()+45000;Date.now()<deadline;){
+   state=await cdp.evaluate(`({href:location.href,readyState:document.readyState,hasTest:!!window.__megulitTest,title:document.querySelector('#reader-notice')?.title||''})`).catch(()=>null);
+   if(state?.href===url&&state.hasTest&&state.title===startupError)break;
+   await sleep(100);
+  }
+  assert.equal(state?.hasTest&&state?.title===startupError,true,`initial reader status displayed (${JSON.stringify(state)})`);
   for(const [w,narrow] of [[330,true],[760,false],[1920,false]]){
    await cdp.send('Emulation.setDeviceMetricsOverride',{width:w,height:720,deviceScaleFactor:1,mobile:false});await sleep(400);
    for(const err of ['SERVICE_FAILED','READER_START_TIMEOUT']){

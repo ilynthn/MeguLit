@@ -52,9 +52,16 @@ const PROBE=`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms)),frames=()=>
 test('anchored chain: calibrate -> slider -> 回到游戏原字位置 -> another game -> back',{skip:!hasEdge&&'Edge not installed',timeout:120000},async()=>{
  const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-anchor-chain-'));let server,cdp;
  try{server=await serve();cdp=await startEdge(path.join(temp,'edge'));
-  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
-  let ready=false;for(let i=0;i<120&&!ready;i++){await sleep(250);ready=await cdp.evaluate('!!window.__TOME_READER_READY__').catch(()=>false);}
-  assert.ok(ready,'reader page loaded');
+  const url=`http://127.0.0.1:${server.address().port}/reader/index.html`;
+  const navigation=await cdp.send('Page.navigate',{url});
+  assert.ok(!navigation.errorText,`Reader navigation failed (${navigation.errorText})`);
+  let state;
+  for(const deadline=Date.now()+45000;Date.now()<deadline;){
+   state=await cdp.evaluate(`({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READER_READY__,error:document.querySelector('#reader-status')?.textContent||''})`).catch(()=>null);
+   if(state?.href===url&&(state.ready||state.error))break;
+   await sleep(100);
+  }
+  assert.equal(state?.ready,true,`reader page loaded (${JSON.stringify(state)})`);
   await cdp.evaluate(`(()=>{window.__tomoyoMode.set('translation');document.body.classList.add('tomoyo-gal-bound');setTimeout(()=>dispatchEvent(new CustomEvent('tome-region-applied',{detail:{surfaceWidth:innerWidth*devicePixelRatio,surfaceHeight:innerHeight*devicePixelRatio}})),0);return 1})()`);
   await sleep(1500);const s=await cdp.evaluate(PROBE);console.log(JSON.stringify(s));
   const near=(a,b,tol,msg)=>assert.ok(a&&Math.abs(a[0]-b[0])<=tol&&Math.abs(a[1]-b[1])<=tol,msg+' '+JSON.stringify([a,b]));

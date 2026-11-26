@@ -91,7 +91,7 @@
   request('word',scope).then(value=>{if(!alive())return;word=value;status.textContent=(value.pronunciationForm==='lemma'?'原形朗读：':'')+(value.reading||value.surface)+(value.pitch?.length?' · 音调 '+value.pitch.join(' / '):'')+' · '+value.pitchSource;
    if(value.pitch?.length>1){pitch.hidden=false;const morae=(value.reading.match(/[ぁ-ゖァ-ヺー][ぁぃぅぇぉゃゅょゎァィゥェォャュョヮ]?/g)||[]);const pick=p=>{pitchValue=p;for(const c of pitch.children)c.setAttribute('aria-checked',
    String(Number(c.dataset.pitch)===p));};for(const p of value.pitch){const chip=el('button');chip.type='button';chip.dataset.pitch=String(p);chip.setAttribute('role',
-   'radio');chip.title=p+' 型';chip.append(pitchCurve(morae,p),el('span',p+' · '+pitchName(p,morae.length)));chip.onclick=()=>pick(p);pitch.append(chip);}pick(value.pitch[0]);
+   'radio');chip.title=p+' 型';chip.append(pitchCurve(morae,p),el('span',p+' · '+pitchName(p,morae.length)));chip.onclick=()=>{pick(p);/* #1114: a chip is heard at once, not only on the next 🔊 */if(!audio.disabled)act('speak');};pitch.append(chip);}pick(value.pitch[0]);
    }audio.disabled=!value.reading&&!value.surface;audio.title=audio.disabled?'没有可朗读的读音':'朗读 '+(value.reading||value.surface);
    // Prepare the audio while the reader looks at the card; it only plays on click.
    if(!audio.disabled&&(value.pitch?.length||0)<=1)request('prefetch',scope).catch(()=>{});}).catch(e=>{if(alive())status.textContent=e.message;});

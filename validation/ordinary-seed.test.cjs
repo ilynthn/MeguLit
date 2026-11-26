@@ -253,10 +253,11 @@ test('private calibration publish wakes a second library, matches script and rep
     assert.equal((await request('/api/game-profile?exe='+key+'&script='+'c'.repeat(64))).status,404);
     const pinned=feed.layer(feed.cached(peer,key),key,{exe});
     assert.ok(pinned?.ordinaryHash);
-    fs.writeFileSync(scriptFiles.get(peer),JSON.stringify({schema:1,lines:['other script']}));
+    const replaceScript=lines=>{const file=scriptFiles.get(peer),tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.stringify({schema:1,lines}));fs.renameSync(tmp,file);};
+    replaceScript(['other script variant']);
     assert.equal(feed.forExe(pinned,key,exe,{pinned:true}),null);
     assert.equal(await receiver.installed(peer,key,{exe}),null);
-    fs.writeFileSync(scriptFiles.get(peer),JSON.stringify({schema:1,lines:['first script']}));
+    replaceScript(['first script']);
     assert.equal((await receiver.installed(peer,key,{exe})).origin,'ordinary-seed');
     const published=await (await request('/api/torch-release/changes?after=0')).json();
     assert.equal(published.changes.length,1);

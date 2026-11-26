@@ -199,7 +199,7 @@ const sceneOf=(node,list=SCENES)=>Math.max(0,list.findIndex(s=>s.pieces.some(p=>
 function nodeStats(node,prog){const pts=N5.filter(p=>nodeFor(p)===node.id||nodesFor(p).includes(node.id));return {pts,learned:pts.filter(p=>prog?.[p.id]?.learned).length};
  }
 export function sentenceHTML(scene,esc,{open='',piece=-1,mini=false}={}){
- return `<p class="gm-sentence${mini?' mini':''}${open?' focus':''}" lang="ja"${exAttr(scene.pieces.map(p=>p[0]).join(''),scene.ruby,esc)}>${scene.pieces.map(([t,role,n],i)=>t==='、'||t==='。'||!role?`<span class="gm-punct">${esc(t)}</span>`:mini?`<span class="gm-piece n-${n}">${esc(t)}</span>`:`<button type="button" class="gm-piece n-${n}${n===open?' on':''}${i===piece?' picked':''}" data-piece="${i}" data-node="${n}" aria-pressed="${i===piece}" style="--i:${i}"><i class="gm-piece-no">${romanOf(n)}</i><b>${esc(t)}</b><small>${esc(role)}</small></button>`).join('')}</p>`;
+ return `<p class="gm-sentence${mini?' mini':''}${open?' focus':''}" lang="ja"${exAttr(scene.pieces.map(p=>p[0]).join(''),scene.ruby,esc)}>${scene.pieces.map(([t,role,n],i)=>t==='、'||t==='。'||!role?`<span class="gm-punct">${esc(t)}</span>`:mini?`<span class="gm-piece n-${n}">${esc(t)}</span>`:`<button type="button" class="gm-piece n-${n}${n===open?' on':''}${i===piece?' picked':''}" data-piece="${i}" data-node="${n}" aria-pressed="${i===piece}" style="--i:${i}"><i class="gm-piece-no" data-exr-skip>${romanOf(n)}</i><b>${esc(t)}</b><small data-exr-skip>${esc(role)}</small></button>`).join('')}</p>`;
 }
 function mapPanel(progress,{locale,esc,open,scene,piece}){
  const w=grammarMessages[locale]||grammarMessages.zh,prog=progress||{};

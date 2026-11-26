@@ -100,7 +100,7 @@ const COUNTERS = {
   '月': { base: 'がつ', numbers: { 4: 'し', 7: 'しち', 9: 'く' }, only: n => n >= 1 && n <= 12 },
   // The native count: SudachiDict reads 六つ むいつ.
   'つ': { base: 'つ', only: n => n >= 1 && n <= 9, exact: { 1: 'ひとつ', 2: 'ふたつ', 3: 'みっつ', 4: 'よっつ', 5: 'いつつ', 6: 'むっつ', 7: 'ななつ', 8: 'やっつ', 9: 'ここのつ' } },
-  // 一日 is いちにち or ついたち by meaning: the plain reading stays.
+  /* 一日 is いちにち or ついたち by meaning: ついたち only right after a month (numberTokens). */
   '日': { base: 'にち', numbers: { 7: 'しち', 9: 'く' }, lastFour: 'よっか', exact: { 2: 'ふつか', 3: 'みっか', 4: 'よっか', 5: 'いつか', 6: 'むいか', 7: 'なのか', 8: 'ようか', 9: 'ここのか', 10: 'とおか', 20: 'はつか' } },
 };
 /* The last element with a small っ: いち いっ, ろく ろっ, はち はっ, (に)じゅう (に)じゅっ, (さんび)ゃく (さんび)ゃっ. */
@@ -135,7 +135,7 @@ function counterReading(numberText, counter) {
    the pieces does not fit the word, so speech estimates it. A numeral is a 数詞 token, or plain digits without part of
    speech. Tokens already read here pass through unchanged. A kanji numeral without a counter keeps the tokenizer's
    reading, which knows the native counts (六つ むっつ, 三日月 みかづき). */
-const isNumeral = t => typeof t?.surface === 'string' && t.readingSource !== 'name' && (Array.isArray(t.grammar) ? t.grammar[1] === '数詞' : /^[0-9０-９,，]+$/.test(t.surface)) && parseNumber(t.surface) !== null;
+const isNumeral = t => typeof t?.surface === 'string' && t.readingSource !== 'name' && t.readingSource !== 'game' && (Array.isArray(t.grammar) ? t.grammar[1] === '数詞' : /^[0-9０-９,，]+$/.test(t.surface)) && parseNumber(t.surface) !== null;
 function numberTokens(tokens) {
   if (!Array.isArray(tokens)) return tokens;
   const out = [];
@@ -146,10 +146,12 @@ function numberTokens(tokens) {
     if (token?.surface === '対' && (isNumeral(tokens[i - 1]) || zero(tokens[i - 1])) && (isNumeral(next) || zero(next))) { out.push({ ...token, reading: 'たい', pitch: [], lexeme: null, readingSource: 'number' }); continue; }
     const plain = isNumeral(token), value = plain ? parseNumber(token.surface) : token?.grammar?.[1] === '数詞' ? placed(token.surface) : null;
     if (value === null || token.readingSource === 'number') { out.push(token); continue; }
-    const touching = typeof next?.surface === 'string' && (!Number.isInteger(token.end) || token.end === next.start);
+    const touching = typeof next?.surface === 'string' && next.readingSource !== 'game' && (!Number.isInteger(token.end) || token.end === next.start);
     /* 分 of a fraction or a tenth is ぶ: 3分の1 さんぶんのいち, 八分咲き はちぶざき. */
     const after = tokens[i + 2], tenth = touching && next.surface === '分' && (after?.surface === 'の' && isNumeral(tokens[i + 3]) ? 'ぶん' : /^咲/.test(after?.surface || '') ? 'ぶ' : '');
-    const joined = tenth ? readNumber(value) + tenth : touching ? counterReading(plain ? token.surface : String(value), next.surface) : '';
+    /* The first of a month (四月一日, 4月1日) is ついたち; 一日 on its own stays いちにち (a day). */
+    const last = out[out.length - 1], firstOfMonth = touching && next.surface === '日' && value === 1 && last?.readingSource === 'number' && /月$/.test(last.surface || '') && (!Number.isInteger(last.end) || last.end === token.start);
+    const joined = firstOfMonth ? 'ついたち' : tenth ? readNumber(value) + tenth : touching ? counterReading(plain ? token.surface : String(value), next.surface) : '';
     if (!joined && !(plain && /[0-9０-９〇零]/.test(token.surface))) { out.push(token); continue; }
     if (joined) {
       const word = token.surface + next.surface;

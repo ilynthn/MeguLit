@@ -160,9 +160,10 @@
  });
  /* (user 2026-11-12) play the card's own clips by themselves: word = the word's reading; sentence = the example
     (synthesized or the game's voice); both = the word, then the example */
- function autoplay(mode){if(!mode||mode==='off')return;const want=mode==='word'?['word']:mode==='sentence'?['sentence','game']:['word','sentence','game'];
-  const tracks=all('audio[src]').filter(a=>want.includes(a.dataset.ankiChannel||'')).sort((a,b)=>(a.dataset.ankiChannel==='word'?0:1)-(b.dataset.ankiChannel==='word'?0:1));if(!tracks.length)return;
-  stopAudio();const ticket=playback;const next=i=>{if(ticket!==playback||!tracks[i])return;const audio=tracks[i],button=audio.parentElement.querySelector('[data-anki-play]');audio.currentTime=0;audio.addEventListener('ended',()=>{button?.setAttribute('aria-pressed','false');setTimeout(()=>next(i+1),250);},{once:true});audio.play().then(()=>button?.setAttribute('aria-pressed','true')).catch(()=>{});};
+ function autoplay(mode){if(!mode||mode==='off')return;const want=mode==='word'?['word']:mode==='sentence'?['sentence','game']:['word','sentence','game',''];
+  const allTracks=all('audio[src]'),tagged=allTracks.filter(a=>want.includes(a.dataset?.ankiChannel||''));
+  const tracks=(tagged.length?tagged:allTracks.some(a=>a.dataset?.ankiChannel)?[]:allTracks).sort((a,b)=>(a.dataset?.ankiChannel==='word'?0:1)-(b.dataset?.ankiChannel==='word'?0:1));if(!tracks.length)return;
+  stopAudio();const ticket=playback;const next=i=>{if(ticket!==playback||!tracks[i])return;const audio=tracks[i],button=audio.parentElement?.querySelector?.('[data-anki-play]');audio.currentTime=0;audio.addEventListener('ended',()=>{button?.setAttribute('aria-pressed','false');setTimeout(()=>next(i+1),250);},{once:true});audio.play().then(()=>button?.setAttribute('aria-pressed','true')).catch(()=>{});};
   setTimeout(()=>next(0),180);}
  const playClick=async event=>{
   const button=event.target.closest('button[data-anki-play],button[data-anki-replay]');if(!button)return;event.preventDefault();

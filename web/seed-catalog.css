@@ -39,7 +39,7 @@ html:not(#u):not(#v):not(#w) body .seed-catalog .sc-body{flex:1 1 0;min-height:0
 .sc-tags{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font:500 11px/1.2 var(--t-mono,monospace);letter-spacing:.04em;color:var(--mgc-ink-3,#8f8178)}
 .sc-st::before{content:"◆";margin-right:4px;font-size:8px;vertical-align:1px}
 .sc-st-ok{color:var(--mgc-green,#5fb98a)}
-.sc-st-read{color:var(--mgc-ink-2,#b8a69a)}
+.sc-st-read{color:var(--mgc-green,#5fb98a)}
 .sc-st-wait{color:var(--g-gold,#edb56e)}
 .sc-st-part{color:color-mix(in srgb,var(--mgc-green,#5fb98a) 70%,var(--g-gold,#edb56e))}
 .sc-empty{margin:48px auto;max-width:440px;text-align:center;color:var(--mgc-ink-2,#b8a69a);line-height:1.7}

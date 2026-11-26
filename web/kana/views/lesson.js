@@ -39,7 +39,8 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;
 function renderSteps(){$("#steps").innerHTML=STEPS.map(([n,l],i)=>`<span class="step ${i<step?'done':i===step?'on':''}"><i>${i<step?'✓':n}</i>${l}</span>`).join("")}
 
 /* ---------- 第一步：认识 ---------- */
-let animToken=0;
+let animToken=0,left=false,speakTimer=0,nextTimer=0,strokeTimer=0;
+ctx.onLeave?.(()=>{left=true;animToken++;clearTimeout(speakTimer);clearTimeout(nextTimer);clearTimeout(strokeTimer);});
 const kvgCache={};
 async function kvg(ch){
   if(kvgCache[ch])return kvgCache[ch];
@@ -51,16 +52,16 @@ async function kvg(ch){
 }
 async function drawStrokes(x){
   /* KanjiVG 笔顺数据（CC BY-SA 3.0），viewBox 109×109 */
-  const tok=++animToken,ds=await kvg(x.k);if(tok!==animToken)return;
+  const tok=++animToken,ds=await kvg(x.k);if(left||tok!==animToken)return;
   const box=$("#strokes");$("#scount").textContent=ds.length+" 画";
   box.innerHTML=ds.map(d=>`<path d="${d}" class="gh"/>`).join("")+ds.map((d,i)=>`<path d="${d}" class="st" id="s${i}"/>`).join("")+
     ds.map((d,i)=>{const m=d.match(/M\s*([\d.]+)[ ,]([\d.]+)/);return `<text x="${+m[1]-7}" y="${+m[2]-2}" class="sn" id="n${i}" opacity="0">${i+1}</text>`}).join("");
   const paths=[...box.querySelectorAll(".st")];
   paths.forEach(p=>{const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L;});
   if(matchMedia("(prefers-reduced-motion:reduce)").matches){paths.forEach((p,i)=>{p.style.strokeDashoffset=0;$("#n"+i)?.setAttribute("opacity","1")});return}
-  let i=0;(function next(){if(tok!==animToken||i>=paths.length){paths.forEach(p=>p.classList.remove("cur"));return}
+  let i=0;(function next(){if(left||tok!==animToken||i>=paths.length){paths.forEach(p=>p.classList.remove("cur"));return}
     const p=paths[i],L=p.getTotalLength(),t0=performance.now(),dur=Math.max(420,L*8);p.classList.add("cur");$("#n"+i)?.setAttribute("opacity","1");
-    (function f(now){if(tok!==animToken)return;const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,2);p.style.strokeDashoffset=L*(1-e);if(k<1)requestAnimationFrame(f);else{p.classList.remove("cur");i++;setTimeout(next,200)}})(t0);})();
+    (function f(now){if(left||tok!==animToken)return;const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,2);p.style.strokeDashoffset=L*(1-e);if(k<1)requestAnimationFrame(f);else{p.classList.remove("cur");i++;clearTimeout(strokeTimer);strokeTimer=setTimeout(next,200)}})(t0);})();
 }
 function renderLearn(){
   const x=K[idx],last=idx===K.length-1;
@@ -100,7 +101,7 @@ function foundHTML(x){
   return `<div class="found"><q>${line}</q><small><span>${esc(ex?.title||'')}</span>${when?`<span>·</span><span>${when}</span>`:''}<span>·</span><span>「${esc(w)}」共出现 ${v.count} 次</span></small></div>`;
 }
 let gameLoaded=false;
-ctx.gameWords().then(r=>{gameHits=r||{};gameLoaded=true;const slot=el.querySelector(".found-slot");if(slot&&step===0)slot.innerHTML=foundHTML(K[idx]);});
+ctx.gameWords().then(r=>{if(left)return;gameHits=r||{};gameLoaded=true;const slot=el.querySelector(".found-slot");if(slot&&step===0)slot.innerHTML=foundHTML(K[idx]);});
 function nextLearn(){if(idx<K.length-1){idx++;seen.add(idx);renderLearn()}else{goStep(1)}}
 
 /* ---------- 第二～四步：测验 ---------- */
@@ -125,7 +126,8 @@ function renderQuiz(){
     <div class="prompt"><div class="ask">${ask}</div>${big}</div>
     <div class="choices">${opts.map((o,i)=>`<button class="choice ${cur.mode==='k2r'?'latin':'kana'}" data-i="${i}"><kbd>${i+1}</kbd>${o}</button>`).join("")}</div>
     <div class="feedback" id="fb"></div></div>`;
-  if(cur.mode==="snd2k"){$("#qs").onclick=()=>say(cur.x.k);setTimeout(()=>say(cur.x.k),250)}
+  clearTimeout(speakTimer);
+  if(cur.mode==="snd2k"){$("#qs").onclick=()=>say(cur.x.k);speakTimer=setTimeout(()=>{if(!left)say(cur.x.k)},250)}
   stage.querySelectorAll(".choice").forEach(b=>b.onclick=()=>answer(+b.dataset.i));
 }
 function answer(i){
@@ -138,7 +140,8 @@ function answer(i){
     const tip=cur.mode==="k2r"&&confuseR(cur.x.k).includes(opts[i])?`「${cur.x.k}」和读作 ${opts[i]} 的假名形近：${cur.x.hint.split("。").pop()||cur.x.hint}`:cur.x.hint;
     fb.innerHTML=`<b>是「${cur.x.k}」(${cur.x.r})</b><br>${tip}`+(step===3?`<br><span class="requeue">这一题会在稍后再出现</span>`:"");
     if(step===3)queue.push({x:cur.x,mode:cur.mode});}
-  setTimeout(()=>{qi++;if(qi<queue.length)renderQuiz();else if(step<3)goStep(step+1);else renderDone()},ok?650:1700);
+  clearTimeout(nextTimer);
+  nextTimer=setTimeout(()=>{if(left)return;qi++;if(qi<queue.length)renderQuiz();else if(step<3)goStep(step+1);else renderDone()},ok?650:1700);
 }
 
 /* ---------- 完成 ---------- */

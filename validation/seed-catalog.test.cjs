@@ -265,3 +265,22 @@ test('a public torch cover can resolve a cold VNDB ID and reuse its safe cached 
   assert.deepEqual(calls.filter(c=>!c.body).map(c=>c.url),[vn.v1.image.thumbnail]);
  }finally{rm(root);}
 });
+
+test('page: a read-mode seed is shown as adapted with the default settings imported, in green, never as 只读模式',async()=>{
+ const {statusText,catalogHTML,catalogWords}=await import('../web/seed-catalog.js');
+ const g={slug:'y',engine:'bgi',status:'read',vndb:'',title:'T',alttitle:'',developers:[],cover:'none',seeds:1,ok:0};
+ assert.equal(statusText(g,'zh'),'已适配 · 默认配置已导入');
+ for(const l of ['zh','en','ja'])assert.ok(!/只读|Read mode|読み取りモード/.test(catalogWords(l).status.read),l);
+ const html=catalogHTML([g],'zh','normal',v=>String(v??''));
+ assert.ok(html.includes('sc-st-ok')&&html.includes('已适配 · 默认配置已导入')&&!html.includes('只读模式'));
+});
+
+test('a read-mode seed gives its settings as the default layer; this PC personal layers go over it and never change the seed',()=>{
+ const seed=require('../core/profiles/seed.cjs'),profiles=require('../core/profiles/index.cjs');
+ const g=seed.seeds().games.find(x=>x.status==='read');assert.ok(g);
+ const before=JSON.stringify(seed.seeds().games.find(x=>x.key===g.key));
+ const base=profiles.profileFor({engine:g.engine,title:g.prints.title||g.key,exe:'',exeSha256:''});
+ const own=profiles.profileFor({engine:g.engine,title:g.prints.title||g.key,exe:'',exeSha256:'',auto:{placement:{lineOffsetY:7}}});
+ assert.ok(base&&own);
+ assert.equal(JSON.stringify(seed.seeds().games.find(x=>x.key===g.key)),before,'the seed is not written back');
+});

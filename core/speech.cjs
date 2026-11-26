@@ -18,7 +18,7 @@ function engineAccentKana(phrases,reading){
 }
 /* The parts of a name whose readings spell the whole reading (name-reading.cjs), or null. */
 function namedParts(word){const p=Array.isArray(word?.parts)?word.parts:[];return p.length>1&&p.every(x=>x?.surface&&x?.reading)&&p.map(x=>x.reading).join('')===word.reading?p:null;}
-function clipKey(word,c,auto,accent){const parts=namedParts(word);return createHash('sha256').update(JSON.stringify([c.aivisUrl,c.aivisSpeaker,c.aivisSpeed,word.surface,word.reading,auto?'auto':accent,word.ambiguous?'engine-reading':'','unidic-lite-1.0.8-v3',...(word.tuning?[word.tuning]:[]),...(parts?[parts.map(x=>x.surface+':'+x.reading)]:[])])).digest('hex');}
+function clipKey(word,c,auto,accent){const parts=namedParts(word);return createHash('sha256').update(JSON.stringify([c.aivisUrl,c.aivisSpeaker,c.aivisSpeed,word.surface,word.reading,auto?'auto':['accent-without-kana',accent],word.ambiguous?'engine-reading':'','unidic-lite-1.0.8-v3',...(word.tuning?[word.tuning]:[]),...(parts?[parts.map(x=>x.surface+':'+x.reading)]:[])])).digest('hex');}
 class Speech{
  constructor(folder,fetcher=fetch,options=null){this.folder=path.join(folder,'audio-cache');this.fetch=fetcher;this.onSpeakers=options?.onSpeakers||null;this.lastSpeakersJson='';this.pending=new Map();this.chain=Promise.resolve();this.latestPrefetch='';this.explicit=new Set();}
  async api(base,route,options={}){const r=await this.fetch(base+route,{...options,redirect:'error',signal:AbortSignal.timeout(45000)});if(!r.ok)throw Error('AivisSpeech 请求失败：HTTP '+r.status);return r;}
@@ -47,7 +47,11 @@ class Speech{
     const parts=namedParts(word);
     if(parts){const phrases=[];for(const p of parts)phrases.push(...await this.phrasesFor(c,speaker,p.surface,p.reading));query.accent_phrases=phrases;}
     else query.accent_phrases=await this.phrasesFor(c,speaker,word.surface||word.reading,word.reading,query.accent_phrases);}
-   query.kana=word.surface||word.reading;query.speedScale=c.aivisSpeed;
+   /* 2026-11-26 (#1114, user: switching the pitch chips changed nothing, always one accent): AivisSpeech 1.2.0 takes AudioQuery.kana
+      as the text it reads the intonation from, and that outranks the accent in accent_phrases (measured: ヨ'ミガエル and ヨミガエル'
+      gave the same contour with kana 甦る, a falling and a rising one without). A chosen accent is sent without kana; the morae
+      still come from accent_phrases either way, so readings we corrected are kept. */
+   if(auto)query.kana=word.surface||word.reading;else delete query.kana;query.speedScale=c.aivisSpeed;
    /* 学习模块的发音调校（抑扬、前后留白）；朗读和制卡不传，保持原样 */
    if(word.tuning){const t=word.tuning;if(Number.isFinite(t.intonation))query.intonationScale=t.intonation;if(Number.isFinite(t.pre))query.prePhonemeLength=t.pre;if(Number.isFinite(t.post))query.postPhonemeLength=t.post;}
    const data=Buffer.from(await(await this.api(c.aivisUrl,'/synthesis?speaker='+speaker,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(query)})).arrayBuffer());if(data.length<44||data.length>12000000||data.toString('ascii',0,4)!=='RIFF'||data.toString('ascii',8,12)!=='WAVE')throw Error('AivisSpeech 返回了无效 WAV');fs.writeFileSync(file+'.tmp',data);fs.renameSync(file+'.tmp',file);this.prune();return {filename:key+'.wav',data:data.toString('base64'),cached:false,autoAccent:auto};}).finally(()=>{this.pending.delete(key);this.explicit.delete(key);});this.chain=pending.catch(()=>{});this.pending.set(key,pending);return pending;

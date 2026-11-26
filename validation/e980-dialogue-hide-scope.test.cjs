@@ -8,7 +8,7 @@ function fixture(){
  const st={trT:undefined,trOp:undefined,trRec:undefined,trOwner:undefined,trText:'',trKey:'',trLine:0,charsSent:0,
   trLayer:()=>layer,screen:()=>[640,480],shown:()=>true,abs:()=>[0,280],hideOn:()=>true,report:s=>out.push(s)};
  const ctx=vm.createContext({st,int:Math.trunc});
- for(const name of ['trOwn','trRestore','trUi','trHide','trNote','trClear','trDone']){
+ for(const name of ['trOwn','trRestore','trUi','trHide','trNote','trClear','trDone','trTwin']){
   const body=new RegExp('st\\.'+name+'=function\\(([^)]*)\\)\\{([\\s\\S]*?)\\} incontextof st;').exec(script);
   assert.ok(body,name);
   const source=body[2].replace(/%\[\]/g,'({})').replace(/'Object'/g,"'object'").replace(/\.count\b/g,'.length').replace(/\.add\(/g,'.push(').replace(/\bvoid\b/g,'undefined').replace(/isvalid this\.trT/g,'this.trT.valid!==false').replace(/\(inst\.getCharacters incontextof inst\)/g,'inst.getCharacters.bind(inst)');
@@ -131,4 +131,17 @@ test('TextRender retirement reaches real HookNative parsing and OverlayPlacement
   const start=f.out.length;change(f);for(const raw of f.out.slice(start))hook.charRects(raw);
   assert.ok(sent.some(m=>m.type==='textPlace'&&m.gone===true),'old Japanese placement is retired, not just logged');
  }
+});
+
+/* 2026-11-26 (integration live test, 死に逝く君、館に芽吹く憎悪: every 血塗れの男 line, trwhy switch cur=f0 owner=b0): the line is rendered on the back
+   page and [trans] copies it onto the front twin; the record moves there and the front copy is hidden instead of the line being retired */
+test('a line rendered on the back page moves to its front twin after the transition and stays hidden',()=>{
+ const f=fixture(),back={height:200,marginL:0,marginT:0,textLayer:{opacity:255}},fore={height:200,marginL:0,marginT:0,textLayer:{opacity:255}};
+ f.st.kag={back:{messages:[back]},fore:{messages:[fore]}};f.layer=back;f.st.trDone(f.renderer(back));
+ assert.equal(back.textLayer.opacity,0);const n=f.out.length;
+ f.layer=fore;f.st.trHide();
+ assert.equal(fore.textLayer.opacity,0,'the front copy is hidden');assert.equal(back.textLayer.opacity,255,'the back page gets its opacity back');
+ assert.ok(!f.out.slice(n).some(s=>/hidden=0/.test(s)),'the line is not retired: '+JSON.stringify(f.out.slice(n)));
+ const g=fixture(),other={height:200,textLayer:{opacity:128}};g.st.kag={back:{messages:[{}]},fore:{messages:[other]}};g.st.trDone(g.renderer(g.layer));g.layer=other;g.st.trHide();
+ assert.equal(other.textLayer.opacity,128,'a layer that is not the twin is not hidden');assert.ok(g.out.some(s=>/hidden=0 .*n=0/.test(s)),'and the line is retired as before');
 });

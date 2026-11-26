@@ -1140,9 +1140,10 @@ function dictionary(target){
   }
   /* 2026-11-15 results use the word page's layout (detail-collect.js mountEntries): headwords left, one row per entry, the current entry on
      the right with its MOJi detail; click / ↑ ↓ switches, rows never move, the wheel scrolls the list */
-  let unmountEntries=()=>{},savedSet=null,wantedEntry='';
+  let unmountEntries=()=>{},savedSet=null,wantedEntry='',audio=null,audioTicket=0;
+  const stopAudio=()=>{audioTicket++;if(audio){audio.pause();audio=null;}};
   const loadSaved=()=>savedSet||(savedSet=api('vocabulary').then(rows=>new Set(rows.map(r=>r.spelling||r.reading).filter(Boolean))).catch(()=>new Set()));
-  const renderList=async()=>{unmountEntries();unmountEntries=()=>{};
+  const renderList=async()=>{stopAudio();unmountEntries();unmountEntries=()=>{};
     if(!lastItems.length){results.innerHTML=empty(text.noDefinition,'word');return;}
     const request=ticket,[{mountEntries},saved]=await Promise.all([import('./detail-collect.js'),loadSaved()]);if(request!==ticket||!results.isConnected)return;
     results.innerHTML='<div class="dict-entries"></div>';const box=results.firstElementChild,wanted=wantedEntry;wantedEntry='';
@@ -1152,7 +1153,11 @@ function dictionary(target){
      loadDetail:lastOnline&&onlineSource==='moji'?async item=>{try{return await api('moji_word',{id:item.id});}catch(error){
       if(String(error?.message||error).includes('MOJI_SESSION_EXPIRED')){toast(L.expiredSession);showStatus({});}throw error;}}:null,
      loadNotes:lastOnline&&onlineSource==='moji'?(item,page)=>api('moji_comments',{id:item.id,page}):null,
-     onPlay:async item=>{try{const r=await api('moji_audio',{id:item.id});await new Audio(r.audio).play();}catch{toast(L.audioFail);}},
+     onPlay:async item=>{stopAudio();const req=audioTicket;let a=null;const clear=()=>{if(audio===a)audio=null;};
+      try{const r=await api('moji_audio',{id:item.id});if(req!==audioTicket)return;
+       a=new Audio(r.audio);audio=a;a.addEventListener('ended',clear,{once:true});a.addEventListener('error',clear,{once:true});
+       await a.play();
+      }catch{clear();if(req===audioTicket)toast(L.audioFail);}},
      onAnki:async(item,example)=>{try{await api('dictionary_anki',{word:item.spelling||item.reading,...example});
       toast(`${{zh:'已加入 Anki',ja:'Anki に追加しました',en:'Added to Anki'}[locale]} · ${item.spelling||item.reading}`);
       savedSet=null;}catch(error){toast(errorMessage(error));throw error;}},
