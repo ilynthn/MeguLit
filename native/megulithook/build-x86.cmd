@@ -11,6 +11,10 @@ set "INCLUDE=%MEGULIT_HOOK_TREE%\atl\VC\Tools\MSVC\14.44.35207\atlmfc\include;%I
 set "LIB=%MEGULIT_HOOK_TREE%\atl\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x86;%LIB%"
 rem GDI hide (MeguLitGdiHide.h): the hook core files changed for it are copied over the upstream tree first
 for %%F in (MeguLitGdiHide.h MeguLitMarks.h MeguLitEmbedWait.h texthook.cc hijackfuns.cc embed_util.cc main.cc veh_hook.cpp hookfinder.cc enginecontrol.cpp) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
+rem source no-draw (MeguLitDrawSkip.h): texthook.cc runs it; the KiriKiri engine file registers its layer DrawText
+copy /y "%~dp0MeguLitDrawSkip.h" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\MeguLitDrawSkip.h" >nul || exit /b 1
+copy /y "%~dp0MeguLitDrawSkip.h" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\engine32\MeguLitDrawSkip.h" >nul || exit /b 1
+copy /y "%~dp0KiriKiri.cpp" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\engine32\KiriKiri.cpp" >nul || exit /b 1
 for %%F in (DrawSites.h DrawSitesSig.h) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
 for %%F in (MajiroDraw.h MajiroDrawSig.h) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
 for %%F in (AdvhdDraw.h AdvhdDrawSig.h) do copy /y "%~dp0%%F" "%MEGULIT_HOOK_TREE%\src\src\NativeImpl\LunaHook\LunaHook\%%F" >nul || exit /b 1
