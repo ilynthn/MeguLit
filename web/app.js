@@ -1175,13 +1175,13 @@ function dictionary(target){
     try{
       let items,used=online;
       /* #1110 the Weblio button asks Weblio 国語辞典 / 日中中日辞典; a failure falls back to the local dictionary like MOJi */
-      try{items=await api('dictionary',viaWeblio?{query,source:'weblio',language,operationId}:{query,source:online?onlineSource:'local',language,operationId});}
+      try{items=await api('dictionary',{query,source:viaWeblio?'weblio':online?onlineSource:'local',language,operationId});}
       catch(error){if(!online)throw error;if(request===ticket)toast(viaWeblio?{zh:/WEBLIO_TIMEOUT/.test(error?.message)?'Weblio 响应超时，先显示本地词典':'暂时连不上 Weblio，先显示本地词典',ja:'Weblio に接続できません。ローカル辞書を表示します',en:'Could not reach Weblio; showing the offline dictionary'}[locale]:L.fail);used=false;items=await api('dictionary',{query,source:'local',language,operationId});
        }
       if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',language,operationId}).catch(()=>[]);if(local.length){
        items=local;used=false;}}
       if(request!==ticket||!results.isConnected)return;
-      lastItems=items;lastOnline=used;lastWeblio=viaWeblio&&used;wantedEntry=query;renderList();
+      lastWeblio=viaWeblio&&used;lastItems=items;lastOnline=used;wantedEntry=query;renderList();
       api('home').then(next=>{if(request===ticket&&results.isConnected)model=next;}).catch(()=>{});
     }catch(error){if(request===ticket&&results.isConnected)results.innerHTML=empty(online?L.fail:text.serviceFailed,'word');}
   });
