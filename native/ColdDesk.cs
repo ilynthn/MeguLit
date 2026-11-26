@@ -160,6 +160,8 @@ static class ColdDesk{
  static void WatchParent(int pid){if(pid<=0)return;new Thread(()=>{try{using(var owner=Process.GetProcessById(pid)){while(!Stopping&&!owner.HasExited)Thread.Sleep(100);if(owner.HasExited)RequestStop();}}catch{RequestStop();}}){IsBackground=true}.Start();}
  static IntPtr Lp(uint vk,bool up){uint sc=MapVirtualKey(vk,0);long l=1|(sc<<16);if(up)l|=0xC0000000L;return (IntPtr)unchecked((int)l);}
  static void Key(uint vk,bool down,bool up){if(GameWin==IntPtr.Zero)return;if(down)PostMessage(GameWin,0x100,(IntPtr)vk,Lp(vk,false));if(down&&up&&(vk==0x0d||vk==0x20||vk==0x1b))PostMessage(GameWin,0x102,(IntPtr)vk,Lp(vk,false));if(up)PostMessage(GameWin,0x101,(IntPtr)vk,Lp(vk,true));}
+ /* hover: a WM_MOUSEMOVE to the deepest child under the point, nothing pressed (KiriKiri buttons take the hover state from it) */
+ static void Move(int x,int y){if(GameWin==IntPtr.Zero)return;var w=GameWin;for(int i=0;i<8;i++){POINT pt;pt.X=x;pt.Y=y;var c=ChildWindowFromPointEx(w,pt,1);if(c==IntPtr.Zero||c==w)break;POINT o;o.X=0;o.Y=0;MapWindowPoints(c,w,ref o,1);x-=o.X;y-=o.Y;w=c;}PostMessage(w,0x200,IntPtr.Zero,(IntPtr)((y<<16)|(x&0xffff)));}
  static void Click(int x,int y){if(GameWin==IntPtr.Zero)return;var w=GameWin;/* the deepest child under the point (KiriKiri draws in a child) */for(int i=0;i<8;i++){POINT pt;pt.X=x;pt.Y=y;var c=ChildWindowFromPointEx(w,pt,1);if(c==IntPtr.Zero||c==w)break;POINT o;o.X=0;o.Y=0;MapWindowPoints(c,w,ref o,1);x-=o.X;y-=o.Y;w=c;}
   var lp=(IntPtr)((y<<16)|(x&0xffff));PostMessage(w,0x200,IntPtr.Zero,lp);PostMessage(w,0x201,(IntPtr)1,lp);Thread.Sleep(40);PostMessage(w,0x202,IntPtr.Zero,lp);}
  /* games pause when they think they lost focus: tell the window it is the active one (on its own desktop) */
@@ -215,6 +217,7 @@ static class ColdDesk{
      case "keydown":Key(Convert.ToUInt32(p[1]),true,false);break;
      case "keyup":Key(Convert.ToUInt32(p[1]),false,true);break;
      case "click":Click(int.Parse(p[1]),int.Parse(p[2]));break;
+     case "move":Move(int.Parse(p[1]),int.Parse(p[2]));break;
      case "activate":Activate();break;
      case "shot":Shot(int.Parse(p[1]),p[2]);break;
      case "kill":why="killed";break;}}catch(Exception e){Emit("{\"type\":\"error\",\"what\":"+Q(c)+",\"why\":"+Q(e.Message)+"}");}

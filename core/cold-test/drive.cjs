@@ -19,10 +19,10 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,choiceWait:1500,choiceHover:300,choiceRetry:3000});
 
 class Driver{
- constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;}
+ constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
  next(obs){const o=this.o,t=obs.t|0,out=[];const end=why=>{if(this.phase==='advance'&&(this.o.slowLines>0?this.fast:this.o.skip!==false))out.push({do:'keyup',vk:VK.ctrl});this.phase='end';out.push({do:'end',why});return out;};
   if(this.phase==='end')return out;
   if(obs.deadline&&t>=obs.deadline)return end(this.phase==='advance'?'time':'time-'+this.phase);
@@ -50,7 +50,18 @@ class Driver{
   /* slowLines (tools/adapt-auto.cjs): reading pace for the first slowLines lines (the samples a diff is made from), then fast-forward
      (held Ctrl) until the first choice, then reading pace again for the choice and afterChoice lines */
   if(o.slowLines>0&&!this.fast&&this.choiceLine==null&&this.lastLines>=o.slowLines){this.fast=true;this.lastCtrl=t;out.push({do:'phase',name:'fast'},{do:'keydown',vk:VK.ctrl});}
-  if(this.choiceAt&&t-this.choiceAt>=600){this.choiceAt=0;this.lastAct=t;const opt=(obs.menu||[]).find(m=>m&&m.role==='choice'&&m.w>0&&m.h>0);out.push(opt?{do:'click',x:Math.round(opt.x+opt.w/2),y:Math.round(opt.y+opt.h/2)}:{do:'key',vk:VK.enter});return out;}
+  /* answering a choice (2026-11-26, オルフレール: one click right after Ctrl was released did nothing): after choiceWait (the game leaves
+     fast-forward), hover on the first option and click it choiceHover later; no line within choiceRetry: Down + Enter; then hover +
+     click once more; each try is a phase ('choice-try-N'), the one that worked 'choice-done' */
+  if(!o.choiceSequence&&this.choiceAt&&t-this.choiceAt>=600){this.choiceAt=0;this.lastAct=t;const opt=(obs.menu||[]).find(m=>m&&m.role==='choice'&&m.w>0&&m.h>0);out.push(opt?{do:'click',x:Math.round(opt.x+opt.w/2),y:Math.round(opt.y+opt.h/2)}:{do:'key',vk:VK.enter});return out;}
+  if(o.choiceSequence&&this.choiceAt){const opt=(obs.menu||[]).find(m=>m&&m.role==='choice'&&m.w>0&&m.h>0),at=opt?{x:Math.round(opt.x+opt.w/2),y:Math.round(opt.y+opt.h/2)}:null;
+   if(this.lastLines>this.choiceLine){if(this.choiceTry>0)out.push({do:'phase',name:'choice-done',try:this.choiceTry});this.choiceAt=0;this.choiceTry=0;this.choiceHoverClick=false;}
+   else if(this.choiceHoverClick){if(t>=this.choiceNext){this.choiceHoverClick=false;this.lastAct=t;if(at)out.push({do:'click',...at});else out.push({do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;}return out;}
+   else if(t>=this.choiceNext&&t-this.choiceAt>=o.choiceWait){this.lastAct=t;const k=this.choiceTry++;
+    if(k===0||k===2){out.push({do:'phase',name:'choice-try-'+(k+1)});if(at)out.push({do:'move',...at});this.choiceNext=t+o.choiceHover;this.choiceHoverClick=true;return out;}
+    if(k===1){out.push({do:'phase',name:'choice-try-2'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter});this.choiceNext=t+o.choiceRetry;return out;}
+    this.choiceAt=0;}
+   if(this.choiceAt)return out;}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
   if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2)});return out;}
   /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */

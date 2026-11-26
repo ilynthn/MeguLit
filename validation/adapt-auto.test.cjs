@@ -191,3 +191,14 @@ test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a ch
 
  await new Promise(r=>setTimeout(r,600));R.stopActive();const r=await p;
  assert.ok(r.choices>=1,'a choice');assert.ok(h.sent.includes('click 641 207'),h.sent.filter(l=>l.startsWith('click')).join('|'));});
+
+test('driver: a choice is answered by hover + click after Ctrl is released, then Down + Enter, then hover + click',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({skip:false,slowLines:1,afterChoice:5,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[],choiceSequence:true});const W={w:10,h:10},opt={role:'choice',text:'A',x:400,y:300,w:200,h:40};
+ d.next({t:0,window:W});d.next({t:10,window:W,lines:1});
+ const seen=a=>JSON.stringify(a);const c=d.next({t:100,window:W,lines:2,choices:1,menu:[opt]});assert.ok(seen(c).includes('"keyup"'));
+ assert.deepEqual(d.next({t:1000,window:W,lines:2,choices:1,menu:[opt]}),[],'waits for fast-forward to end');
+ assert.deepEqual(d.next({t:1700,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-1'},{do:'move',x:500,y:320}]);
+ assert.deepEqual(d.next({t:1800,window:W,lines:2,choices:1,menu:[opt]}),[],'hovering');
+ assert.deepEqual(d.next({t:2100,window:W,lines:2,choices:1,menu:[opt]}),[{do:'click',x:500,y:320}]);
+ assert.deepEqual(d.next({t:5200,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-2'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter}]);
+ assert.deepEqual(d.next({t:5300,window:W,lines:3,choices:1,menu:[opt]}),[{do:'phase',name:'choice-done',try:2}]);});
