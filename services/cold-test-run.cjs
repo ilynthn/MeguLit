@@ -62,11 +62,14 @@ function ocr(file,{spawn=nodeSpawn,timeoutMs=30000}={}){return new Promise(resol
    res.input records the level, the sends per level, every check and every step up.
    cfg: {inputCtlDir (the testbed folder with InputCtl32/64.exe + InputShim32/64.dll), foreground (visible run: sendinput allowed), ladder} */
 const SHOT_W=160;
+/* the name a name-entry line offers: 「「アナタの名字を入力してください」 + 朽木」 (rows split by a newline or the trace's escaped one) -> 朽木 (a short row after the prompt row) */
+function nameOffered(text){const rows=String(text||'').split(/\\n|\n/).map(r=>r.trim()).filter(Boolean);const k=rows.findIndex(r=>/[入人][力カ]/.test(r));
+ return k<0?'':rows.slice(k+1).find(r=>r.length<=10&&!/[「」『』。、？！?!]/.test(r))||'';}
 function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(cfg.inputCtlDir||'');
  const hasCtl=!!dir&&fs.existsSync(path.join(dir,'InputCtl32.exe'))&&fs.existsSync(path.join(dir,'InputShim32.dll'));
  const ladder=new InputFallback.Ladder(InputFallback.ladder({inputCtl:hasCtl,foreground:cfg.foreground===true}),cfg.ladder||{});
  if(dir&&!hasCtl)ladder.record.errors.push('no InputCtl32.exe / InputShim32.dll in '+dir);
- let helper=null,inited=false,shotN=0,shotA=null,queued=null,cur=ladder.level,closed=false;const held=new Set();
+ let dialogAt=-1e9,helper=null,inited=false,shotN=0,shotA=null,queued=null,cur=ladder.level,closed=false;const held=new Set();
  const bits=()=>{try{return require('../core/locale-emulator.cjs').x86(ctx.exe)?32:64;}catch{return 32;}};
  const err=why=>{if(ladder.record.errors.length<20)ladder.record.errors.push(String(why).slice(0,160));};
  const write=line=>{try{helper.stdin.write(line+'\n');}catch(e){err('helper: '+e.message);}};
@@ -75,7 +78,8 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
   catch(e){err('helper: '+e.message);helper={stdin:{write(){}},kill(){}};return;}
   helper.on?.('error',e=>err('helper: '+e.message));
   createInterface({input:helper.stdout}).on('line',line=>{let m;try{m=JSON.parse(line);}catch{return;}
-   if(m.type==='init'){ladder.record.inject={ok:m.ok===true,why:String(m.why||''),bits:bits()};if(m.ok!==true)ladder.drop('inputctl',String(m.why||'init failed'));}
+   if(m.type==='dialog'){const d=ladder.record.dialogs||(ladder.record.dialogs=[]);if(d.length<10)d.push({t:ctx.t(),what:String(m.what||'').slice(0,200)});}
+   else if(m.type==='init'){ladder.record.inject={ok:m.ok===true,why:String(m.why||''),bits:bits()};if(m.ok!==true)ladder.drop('inputctl',String(m.why||'init failed'));}
    else if(m.type==='error'||m.type==='done'&&m.ok===false)err(String(m.cmd||'')+': '+String(m.why||''));});
   write('hwnd '+String(res.window?.hwnd||0));};
  const via=(level,a)=>{ladder.sent(level);if(level==='post')return post(a);start();
@@ -95,6 +99,9 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
    if(/-a\.png$/i.test(name)){shotA=m.ok?read(m.path):null;if(queued){const q=queued;queued=null;via(q.lv,q.a);}}
    else if(/-b\.png$/i.test(name))ladder.screen(m.ok?InputFallback.screenChange(shotA,read(m.path)):null);},
   tick(t){if(queued&&t-queued.at>=1000){const q=queued;queued=null;via(q.lv,q.a);}
+   /* lines stopped for 3 s: a standard dialog of the game asking for text (YU-RIS name entry, Monochrome Empire) is answered with
+      the name the script offered, every 3 s while it stays */
+   if(res.pid&&t-ctx.since()>=3000&&t-dialogAt>=3000){dialogAt=t;start();write('dialog '+(res.pid|0)+(ctx.name()?' '+ctx.name():''));}
    const r=ladder.tick(t,{lines:res.lines,choices:res.choices});
    if(r?.need==='shot')send('shot '+SHOT_W+' '+path.join(runDir,'inp-'+shotN+'-b.png'));
    else if(r?.resend)act(r.resend,t);
@@ -122,10 +129,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
   let hookTextAt=0,threadSig='';
   let locatePending=null;
-  let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new (deps.Driver||Driver)({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
+  let nameHint='',lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new (deps.Driver||Driver)({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/adapt-auto.cjs) the level the input ladder is on */
   const post=a=>{if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);};
-  const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0}):null;
+  const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint}):null;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
    res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=require('../core/cardinal/tape.cjs').snapshot();if(snap.lines>0){
@@ -138,7 +145,9 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{
    const Hook=deps.Hook||require('../core/hook-native.cjs').HookNative;const layout={...(deps.layout||require('../core/layout.cjs')),logs:runDir};
-   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
+   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}{const q=/"([\s\S]*)"\s*$/.exec(String(line));if(q&&/[入人][力カ]/.test(q[1]))nameHint=nameOffered(q[1])||nameHint;}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();
+    /* a new line: what the OCR read is another screen now (Monochrome Empire: the title's start item, clicked again on its name entry) */
+    for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}else if(e.kind==='choice')res.choices++;};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
    const statusLog=path.join(runDir,'hook-status.log');let statusN=0;
    hooks=new Hook(layout,e=>{if(e&&Array.isArray(e.hookThreads)){hideProbe(e.hookThreads);const sig=e.hookThreads.map(x=>x&&x.sample||'').join('|');if(sig!==threadSig){threadSig=sig;hookTextAt=now();}}if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
@@ -191,4 +200,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
+module.exports={nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};

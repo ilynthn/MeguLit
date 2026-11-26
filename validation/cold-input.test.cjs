@@ -91,3 +91,11 @@ test('driver holdBlind: few lines and none for confirmAfter, no blind click unti
  assert.ok(d.next({t:3200,window:W,lines:1,ocr:1}).length>0,'after the OCR the blind advance resumes');
  const start={role:'button',text:'最初から始める',x:400,y:300,w:200,h:40};assert.deepEqual(d.next({t:6000,window:W,lines:1,ocr:1,menu:[start]}),[{do:'click',x:500,y:320,watch:'start'}]);
  const off=new Driver({confirmAfter:1000,advanceEvery:100,skip:false});off.next({t:0,window:W});off.next({t:100,window:W,lines:1});assert.ok(off.next({t:2000,window:W,lines:1}).length>0,'off by default (the app)');});
+
+test('run: lines quiet for 3 s → the game\'s text dialog is answered with the name the script offered (YU-RIS name entry)',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
+ assert.equal(run.nameOffered('「アナタの名字を入力してください」\n朽木'),'朽木');assert.equal(run.nameOffered('「名前を入力」\n「長い台詞の続き」'),'');assert.equal(run.nameOffered('プレートラント王国\n白炎'),'');
+ class NameHook{configure(){setTimeout(()=>NameHook.traceTap?.('2026-11-26T09:55:56.412Z script noise line kept "「アナタの名字を入力してください」\n朽木"'),20);}tick(){}stop(){}}
+ class Wait{next(obs){return obs.t>=3600?[{do:'end',why:'test'}]:[];}}
+ const desk=fakeDesk(),inp=fakeInput();const reply=inp.spawn;let child;const spawn=(c,a)=>{child=reply(c,a);child.stdin.on('data',b=>{if(/^dialog /m.test(String(b)))child.stdout.write(JSON.stringify({type:'dialog',what:'"名前入力" edit="朽木" ok'})+'\n');});return child;};
+ const r=await alive(run.runOne({exe:'C:/g/MonochromeEmpire.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:'',foreground:false}},{spawn:desk.spawn,inputSpawn:spawn,helper:'ColdDesk.exe',Hook:NameHook,layout:{native:dir},tick:20,Driver:Wait}));
+ assert.ok(inp.sent.includes('dialog 4242 朽木'),inp.sent.join(' | '));assert.match(r.input.dialogs[0].what,/名前入力/);});

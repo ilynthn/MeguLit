@@ -6,8 +6,12 @@
 #                                             window up with EnumWindows, which never sees the hidden desktop)
 #   fg click|move <x> <y> | fg key|down|up <vk hex>       real input (SendInput) to the game made the foreground window; only for a
 #                                             visible run (adapt-auto --foreground, owner away): it moves the real cursor
+#   dialog <pid> [name]                     a standard dialog of the game asking for text (YU-RIS name entry): an empty Edit gets
+#                                             name, OK is pressed; any other dialog is only reported
 #   quit
 $ErrorActionPreference='Stop'
+# node writes UTF-8 (a Japanese name); the console code page would garble it
+[Console]::InputEncoding=[Text.Encoding]::UTF8;[Console]::OutputEncoding=[Text.Encoding]::UTF8
 Add-Type -TypeDefinition @'
 using System;using System.Runtime.InteropServices;using System.Threading;using System.IO.MemoryMappedFiles;
 public static class ColdInput{
@@ -49,13 +53,40 @@ public static class ColdInput{
   if(cmd!="up"){S.Write(KEYS+vk,(byte)0x80);PostMessage(W,0x100,(IntPtr)vk,(IntPtr)1);}
   if(cmd=="key")Thread.Sleep(200);
   if(cmd!="down"){S.Write(KEYS+vk,(byte)0);PostMessage(W,0x101,(IntPtr)vk,unchecked((IntPtr)(int)0xC0000001));}}
- /* the game window to the front: Alt tap + AttachThreadInput (the foreground lock refuses a plain SetForegroundWindow) */
- static bool Front(){if(GetForegroundWindow()==W)return true;if(IsIconic(W))ShowWindow(W,9);
-  uint me=GetCurrentThreadId(),fg=GetWindowThreadProcessId(GetForegroundWindow(),IntPtr.Zero);keybd_event(0x12,0,0,UIntPtr.Zero);keybd_event(0x12,0,2,UIntPtr.Zero);
+ [DllImport("user32.dll")]static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);
+ static uint PidOf(IntPtr h){uint p=0;GetWindowThreadProcessId(h,out p);return p;}
+ /* the game window to the front with AttachThreadInput (the foreground lock refuses a plain SetForegroundWindow). A window of the game
+    already in front (its own dialog) is left there. No Alt tap: in the game it opened the window menu (Monochrome Empire run 2) */
+ static bool Front(){var f=GetForegroundWindow();if(f==W||f!=IntPtr.Zero&&PidOf(f)==PidOf(W))return true;if(IsIconic(W))ShowWindow(W,9);
+  uint me=GetCurrentThreadId(),fg=GetWindowThreadProcessId(f,IntPtr.Zero);
   if(fg!=0&&fg!=me)AttachThreadInput(me,fg,true);BringWindowToTop(W);SetForegroundWindow(W);if(fg!=0&&fg!=me)AttachThreadInput(me,fg,false);Thread.Sleep(80);return GetForegroundWindow()==W;}
  static void Mouse(uint flags){var i=new INPUT[1];i[0].type=0;i[0].u.mi.flags=flags;SendInput(1,i,Marshal.SizeOf(typeof(INPUT)));}
  static void Key(int vk,bool up){var i=new INPUT[1];i[0].type=1;i[0].u.ki.scan=(ushort)MapVirtualKey((uint)vk,0);
   uint f=0x8;if((vk>=0x21&&vk<=0x28)||vk==0x2D||vk==0x2E)f|=1;if(up)f|=2;i[0].u.ki.flags=f;SendInput(1,i,Marshal.SizeOf(typeof(INPUT)));}
+ /* a standard dialog of the game (#32770; YU-RIS asks the name in one: Edit + OK): an empty Edit gets the name the script offered,
+    then OK (IDOK or a button labelled OK / 決定 / はい) is pressed with BM_CLICK. EnumThreadWindows also sees the hidden desktop */
+ [DllImport("user32.dll")]static extern bool EnumThreadWindows(int t,CB c,IntPtr l);
+ public delegate bool CB(IntPtr h,IntPtr l);
+ [DllImport("user32.dll")]static extern bool EnumChildWindows(IntPtr p,CB c,IntPtr l);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern int GetClassName(IntPtr h,System.Text.StringBuilder s,int n);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern int GetWindowText(IntPtr h,System.Text.StringBuilder s,int n);
+ [DllImport("user32.dll")]static extern bool IsWindowVisible(IntPtr h);
+ [DllImport("user32.dll")]static extern int GetDlgCtrlID(IntPtr h);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern IntPtr SendMessage(IntPtr h,uint m,IntPtr w,string l);
+ [DllImport("user32.dll")]static extern IntPtr SendMessage(IntPtr h,uint m,IntPtr w,IntPtr l);
+ static string Cls(IntPtr h){var s=new System.Text.StringBuilder(64);GetClassName(h,s,64);return s.ToString();}
+ static string Txt(IntPtr h){var s=new System.Text.StringBuilder(256);GetWindowText(h,s,256);return s.ToString();}
+ public static string Dialog(int pid,string name){var dlgs=new System.Collections.Generic.List<IntPtr>();
+  try{foreach(System.Diagnostics.ProcessThread t in System.Diagnostics.Process.GetProcessById(pid).Threads)EnumThreadWindows(t.Id,(h,l)=>{if(IsWindowVisible(h)&&Cls(h)=="#32770")dlgs.Add(h);return true;},IntPtr.Zero);}catch{}
+  if(dlgs.Count==0)return "";var o=new System.Text.StringBuilder();
+  foreach(var d in dlgs){IntPtr edit=IntPtr.Zero,ok=IntPtr.Zero;var labels=new System.Collections.Generic.List<string>();
+   EnumChildWindows(d,(h,l)=>{string c=Cls(h),x=Txt(h);if(c=="Edit"&&edit==IntPtr.Zero)edit=h;else if(c=="Button"){if(GetDlgCtrlID(h)==1||System.Text.RegularExpressions.Regex.IsMatch(x.Trim(),"^(OK|ＯＫ|決定|はい|&OK)$",System.Text.RegularExpressions.RegexOptions.IgnoreCase))ok=h;}else if(c=="Static"&&x.Length>0)labels.Add(x);return true;},IntPtr.Zero);
+   string had=edit!=IntPtr.Zero?Txt(edit):"";bool filled=false;
+   if(edit!=IntPtr.Zero&&had.Trim().Length==0&&!string.IsNullOrEmpty(name)){SendMessage(edit,0x0C,IntPtr.Zero,name);filled=true;}
+   /* only a dialog that asks for text: an OK on any other dialog may be 「終了しますか」 or an error the run should report */
+   if(ok!=IntPtr.Zero&&edit!=IntPtr.Zero)SendMessage(ok,0xF5,IntPtr.Zero,IntPtr.Zero);
+   o.Append((o.Length>0?" | ":"")+"\""+Txt(d)+"\" "+string.Join("/",labels)+(edit!=IntPtr.Zero?" edit=\""+(filled?name:had)+"\"":"")+(ok==IntPtr.Zero?" no-ok":edit!=IntPtr.Zero?" ok":" left"));}
+  return o.ToString();}
  public static string Fg(long hwnd,string cmd,int a,int b){W=(IntPtr)hwnd;bool front=Front();
   if(cmd=="move"||cmd=="click"){var p=new PT();p.X=a;p.Y=b;ClientToScreen(W,ref p);SetCursorPos(p.X,p.Y);Thread.Sleep(120);
    if(cmd=="click"){Mouse(2);Thread.Sleep(90);Mouse(4);Thread.Sleep(60);}}
@@ -77,5 +108,6 @@ while($null -ne ($l=[Console]::In.ReadLine())){$p=$l.Trim() -split '\s+';if(-not
   'fg'{$a=if($p[1] -in 'click','move'){[int]$p[2]}else{[Convert]::ToInt32($p[2],16)};$b=if($p.Count -gt 3){[int]$p[3]}else{0}
    $why=[ColdInput]::Fg($hwnd,$p[1],$a,$b);Out-Line @{type='done';cmd=$l;ok=($why -eq '');why=$why}}
   'hwnd'{$hwnd=[long]$p[1]}
+  'dialog'{$name=if($p.Count -gt 2){($l.Trim() -split '\s+',3)[2]}else{''};$what=[ColdInput]::Dialog([int]$p[1],$name);if($what){Out-Line @{type='dialog';what=$what}}}
   'quit'{exit 0}}}
  catch{Out-Line @{type='error';cmd=$l;why=$_.Exception.Message}}}
