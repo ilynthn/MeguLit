@@ -120,10 +120,15 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
    the run held Ctrl for 40 more, so every line on the tape was in the fast span, which Cardinal does not score: "scored 0 lines"
    although the run read 60 at reading pace. The worker keeps up to TAPE_KEEP lines, and the file gets the Ctrl span plus the
    TAPE_SLOW reading-pace lines before it (all of them when there was no Ctrl span) */
-const TAPE_KEEP=400,TAPE_SLOW=60;
+const TAPE_KEEP=400,TAPE_SLOW=60,TAPE_FAST=60;
 function tapeOfRun(res,tape=require('../core/cardinal/tape.cjs')){const fast=(Array.isArray(res?.phases)?res.phases:[]).find(p=>p?.name==='fast');
  const all=tape.snapshot(TAPE_KEEP);const from=fast?Date.parse(fast.at):NaN;if(!Number.isFinite(from))return all;
- const fastLines=all.rows.filter(r=>r.hb?.type==='hookSource'&&r.t>=from).length;return fastLines+TAPE_SLOW>=all.lines?all:tape.snapshot(fastLines+TAPE_SLOW);}
+ const fastLines=all.rows.filter(r=>r.hb?.type==='hookSource'&&r.t>=from).length;const snap=fastLines+TAPE_SLOW>=all.lines?all:tape.snapshot(fastLines+TAPE_SLOW);
+ /* 2026-11-27 (Monochrome Empire r6: 125 lines with Ctrl, none scored, a replay three times as long): a Ctrl span over TAPE_FAST lines
+    keeps its first and last TAPE_FAST/2 (the first choice is at its end); the replay closes the time gap (Cardinal maxGap) */
+ if(fastLines<=TAPE_FAST)return snap;const src=[];snap.rows.forEach((r,i)=>{if(r.hb?.type==='hookSource'&&r.t>=from)src.push(i);});
+ const cutFrom=src[TAPE_FAST/2],cutTo=src[src.length-TAPE_FAST/2];const rows=snap.rows.filter((r,i)=>i<cutFrom||i>=cutTo);
+ return {...snap,rows,lines:rows.filter(r=>r.hb?.type==='hookSource').length,fastDropped:fastLines-TAPE_FAST};}
 function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=null,shotWidth=960}=opts;
  const spawn=deps.spawn||nodeSpawn,now=deps.now||Date.now,TICK=deps.tick||250;
  fs.mkdirSync(runDir,{recursive:true});try{require('../core/cardinal/tape.cjs').keep(TAPE_KEEP);}catch{}
@@ -226,4 +231,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={tapeOfRun,TAPE_SLOW,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
+module.exports={tapeOfRun,TAPE_SLOW,TAPE_FAST,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};

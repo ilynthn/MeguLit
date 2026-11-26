@@ -205,8 +205,9 @@ function cardinal(runDir,run,loc,exeSha,title,outFile,{timeoutMs=600000,shots=''
  /* the bridges' own records of the run (cold-test-run writes Cardinal's tape) replay every engine; the logs need engine-draw records */
  const tape=path.join(runDir,'cardinal-tape.jsonl'),source=fs.existsSync(tape)?['--tape',tape]:['--logs',runDir,'--from',run.startedAt,'--to',run.endedAt];
  /* the cold run's own record (the choice its OCR read on the game screen) and the pictures of the real screen (a second hide evidence,
-    read by Windows OCR inside Cardinal; only once the recorder has written them all) */
- const runFile=path.join(runDir,'run.json'),extra=[...(fs.existsSync(runFile)?['--run',runFile]:[]),...(shots&&fs.existsSync(shots)&&fs.readdirSync(shots).some(f=>/\.png$/i.test(f))?['--shots',shots]:[])];
+    read by Windows OCR inside Cardinal; only once the recorder has written them all). --lines: the whole tape (the cold run cut it to the
+    reading-pace lines and the Ctrl span; Cardinal's default, the profile's last 60 lines, was Ctrl only on Monochrome Empire r6) */
+ const runFile=path.join(runDir,'run.json'),extra=[...(fs.existsSync(runFile)?['--run',runFile]:[]),...(fs.existsSync(tape)&&run.tapeLines>0?['--lines',String(run.tapeLines)]:[]),...(shots&&fs.existsSync(shots)&&fs.readdirSync(shots).some(f=>/\.png$/i.test(f))?['--shots',shots]:[])];
  const r=spawnSync(process.execPath,[path.join(__dirname,'cardinal.cjs'),...source,...extra,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
  const log=String(r.stdout||'')+String(r.stderr||'');
  let o=null;try{o=JSON.parse(fs.readFileSync(outFile,'utf8'));}catch{}
