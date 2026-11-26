@@ -475,7 +475,7 @@ class Reader{
    if(o.provider==='filled')return reviewed;
    const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage,...(quiet?{detached:true}:{})};
    // Reuse an exact MT answer only after all higher-ranked providers have been tried.
-   const key=strict&&chain.isMt(o.provider)?JSON.stringify([game,requestLanguage,o.provider,text]):null;
+   const key=!quiet&&strict&&chain.isMt(o.provider)?JSON.stringify([game,requestLanguage,o.provider,text]):null;
    if(key&&this.strictMtCache?.has(key)){cachedProvider=o.provider;return this.strictMtCache.get(key);}
    if(chain.isLocal(opts.provider))await this.localReady(opts,id,current);
    const value=normalizeTranslation(await this.translator().translate(text,opts,current,foreground));
@@ -484,7 +484,7 @@ class Reader{
     if(this.strictMtCache.size>800)this.strictMtCache.delete(this.strictMtCache.keys().next().value);
    }
    return value;
-  },{isCurrent:current,budgetMs:strict?0:2500,trace:t=>{try{this.gal?.hooks?.trace?.(t);}catch{}},onLate:r=>{if(quiet||!this.active()||this.visualGeneration!==generation)return;this.embedCached(text,r.text,{language:cacheLanguage,source:r.source,provider:r.provider});this.compositorText(text,r.text,cacheLanguage);try{this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,r.text,'better',{target:cacheLanguage,source:r.source,provider:r.provider}]});}catch{}}}).then(r=>{if(r.provider==='filled')return {...r,source:'filled',provider:''};if(cachedProvider===r.provider)r.cached=true;/* E415 (user: 提示用户是微软机翻): said once per reader session when machine translation stood in for the chosen engine */if(r.source==='mt'&&!chain.isMt(options.provider)&&!this.mtNoticed){this.mtNoticed=true;this.emit('reader-event',{type:'call',method:'mtNotice',args:[]});}return r;});}
+  },{isCurrent:current,budgetMs:strict?0:2500,trace:t=>{try{this.gal?.hooks?.trace?.(t);}catch{}},onLate:r=>{if(quiet||!this.active()||this.visualGeneration!==generation)return;this.embedCached(text,r.text,{language:cacheLanguage,source:r.source,provider:r.provider});this.compositorText(text,r.text,cacheLanguage);try{this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,r.text,'better',{target:cacheLanguage,source:r.source,provider:r.provider}]});}catch{}}}).then(r=>{if(r.provider==='filled')return {...r,source:'filled',provider:''};if(cachedProvider===r.provider)r.cached=true;/* E415 (user: 提示用户是微软机翻): said once per reader session when machine translation stood in for the chosen engine */if(!quiet&&r.source==='mt'&&!chain.isMt(options.provider)&&!this.mtNoticed){this.mtNoticed=true;this.emit('reader-event',{type:'call',method:'mtNotice',args:[]});}return r;});}
  /* The reader's own options (preferences, display language, work prompt) */
  baseOptions(language){const options=this.requestOptions();return language?{...options,learnerLanguage:language}:options;}
  translationRetries(){return this.retryQueue??=new(require('./translation-chain.cjs').Retries)((text,c)=>{

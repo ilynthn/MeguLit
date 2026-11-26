@@ -37,3 +37,24 @@ test('in onLate the quiet return comes before compositorText (merge order of #11
  assert.ok(stop===0,'the quiet check opens the callback');
  assert.ok(draw>stop,'compositorText only after it');
 });
+test('a quiet selection that falls back to machine translation does not use up the one-time MT notice',async()=>{
+ const h=harness();
+ const result=await h.r.chainTranslate('選んだ言葉',{provider:'gpt',learnerLanguage:'zh'},{quiet:true});
+ assert.equal(result.source,'mt');
+ assert.ok(!h.r.mtNoticed,'mtNoticed untouched');
+ assert.ok(!h.events.some(e=>e?.method==='mtNotice'));
+ await h.r.chainTranslate('本当のセリフ',{provider:'gpt',learnerLanguage:'zh'});
+ assert.equal(h.r.mtNoticed,true,'the first game line still gets it');
+ assert.equal(h.events.filter(e=>e?.method==='mtNotice').length,1);
+});
+test('a quiet selection neither reads nor writes the strict MT cache of the lines',async()=>{
+ const h=harness({strict:true});
+ await h.r.chainTranslate('選んだ言葉',{provider:'gpt',learnerLanguage:'zh'},{quiet:true});
+ assert.equal(h.r.strictMtCache?.size||0,0,'nothing written');
+ h.r.strictMtCache=new Map();
+ for(const p of ['microsoft','google'])h.r.strictMtCache.set(JSON.stringify(['unit','zh',p,'選んだ言葉']),'台词缓存');
+ const quiet=await h.r.chainTranslate('選んだ言葉',{provider:'gpt',learnerLanguage:'zh'},{quiet:true});
+ assert.equal(quiet.text,'MT:選んだ言葉','not read either');
+ const line=await h.r.chainTranslate('選んだ言葉',{provider:'gpt',learnerLanguage:'zh'});
+ assert.equal(line.text,'台词缓存','game lines keep using it');
+});
