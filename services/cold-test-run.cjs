@@ -103,6 +103,9 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
       the name the script offered, every 3 s while it stays */
    if(res.pid&&t-ctx.since()>=3000&&t-dialogAt>=3000){dialogAt=t;start();write('dialog '+(res.pid|0)+(ctx.name()?' '+ctx.name():''));}
    const r=ladder.tick(t,{lines:res.lines,choices:res.choices});
+   /* the click took (a line or the picture changed): what the OCR read belongs to the screen before it (オルフレール: the title's
+      start item, clicked again on the next screen, looked like a click the game ignored and raised the level twice) */
+   if(r?.done&&r.changed)ctx.changed?.();
    if(r?.need==='shot')send('shot '+SHOT_W+' '+path.join(runDir,'inp-'+shotN+'-b.png'));
    else if(r?.resend)act(r.resend,t);
    else if(!r)ladder.stall(t,ctx.since(),{advancing:res.lines>0});},
@@ -132,7 +135,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   let nameHint='',lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new (deps.Driver||Driver)({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/adapt-auto.cjs) the level the input ladder is on */
   const post=a=>{if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);};
-  const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint}):null;
+  const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint,changed:()=>{for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}}):null;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
    res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=require('../core/cardinal/tape.cjs').snapshot();if(snap.lines>0){
