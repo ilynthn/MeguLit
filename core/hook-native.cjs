@@ -1042,6 +1042,8 @@ class HookNative{
  /* incr9 2026-11-21 (owner, 千恋＊万花: short lines showed the translation alone; the game drew nothing and neither did MeguLit): the bridge
     blanks the selected writable stream's glyphs, so the game's line is hidden whether or not a hidden glyph came back yet */
  glyphBlanking(){return this.enabled===true&&this.preferences?.hookHide!==false&&this.glyphBlankWritable===true;}
+ /* 2026-11-26 (オルフレール, KiriKiri without KAG): the bridge skips the game's own DrawText of the dialogue at the source (MeguLit_DRAWSKIP, drawSkipped on the selected stream), so a line the glyph layer never saw hidden is not drawn by the game either */
+ drawSkipping(){return this.enabled===true&&this.preferences?.hookHide!==false&&(this.state?.hookThreads||[]).some(t=>t&&t.selected===true&&Number(t.drawSkipped)>0);}
  originalReplaced(){return this.enabled===true&&this.preferences?.hookHide!==false&&['clear-requested','callback-acknowledged','user-verified'].includes(this.state?.replacementState);}
  // "A。A。" (also with the game's leading ideographic spaces) -> "A。"; anything else unchanged.
  static undouble(text){const n=text.replace(/[\s\u3000]/g,'');if(n.length<12||n.length%2||n.slice(0,n.length/2)!==n.slice(n.length/2)||!/[。！？!?」』…―）)]$/.test(n))return text;
