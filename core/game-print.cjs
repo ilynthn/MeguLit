@@ -33,4 +33,13 @@ function prints(executable,{title='',steamAppId='',vndb='',script='',engine='',e
  const dir=path.dirname(executable);const pack=mainPack(dir);if(pack)try{out.pack=headTail(pack,1<<20);}catch{}
  let steam=String(steamAppId||'');if(!steam)try{steam=fs.readFileSync(path.join(dir,'steam_appid.txt'),'utf8').trim();}catch{}
  Object.assign(out,{script,steam,vndb:String(vndb||'').toLowerCase(),title:titleHash(title),engine:String(engine||'').toLowerCase()});return check(out);}
-module.exports={LEVELS,VERSION_KINDS,GAME_KINDS,RULES,check,fold,titleHash,prints,peVersion,mainPack};
+/* 2026-11-27 MeguLit-Adapter (owner: 版本层要能扛住补丁和汉化): the content print of an engine's script sources, the files the script
+   reader of services/original-engines names (sources()), each lower-case name | SHA-256 of its first and last 64 KB + size, sorted,
+   with the reader id first. A no-DVD exe, an exe update or a renamed Chinese-patch exe leaves it as it was. '' when no reader names
+   a file. readers: reader ids to try in order (the first that names files wins) */
+function dataPrint(dir,readers){let scenes;try{scenes=require('../services/original-engines/scenes.cjs');}catch{return '';}const fs=require('node:fs'),path=require('node:path');
+ for(const id of readers||[]){const e=scenes.ENGINES[id];if(!e||typeof e.sources!=='function')continue;let files=[];try{files=e.sources(dir)||[];}catch{continue;}
+  files=files.filter(f=>{try{return fs.statSync(f).isFile();}catch{return false;}}).sort((a,b)=>path.basename(a).toLowerCase()<path.basename(b).toLowerCase()?-1:1);if(!files.length)continue;
+  const parts=[];for(const f of files.slice(0,256)){try{parts.push(path.basename(f).toLowerCase()+'|'+headTail(f,64<<10));}catch{}}if(!parts.length)continue;return sha(Buffer.from(id+'\n'+parts.join('\n'),'utf8'));}
+ return '';}
+module.exports={LEVELS,VERSION_KINDS,GAME_KINDS,RULES,check,fold,titleHash,prints,peVersion,mainPack,dataPrint,headTail};

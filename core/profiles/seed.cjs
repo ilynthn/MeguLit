@@ -79,11 +79,25 @@ function load(dir=SEED_DIR){const games=[],versions=new Map(),errors=[];
    const g0=read(path.join(base,'game.json'));if(!g0)continue;const r=check(g0,{engine,slug});if(!r.ok){errors.push(engine+'/'+slug+'/game.json: '+r.errors.join('; '));continue;}const g=r.doc;
    /* builds: its own version files and the shared ones it lists; their exe names also name the game (a generic name only weakly) */
    const builds=[...new Set([...(g.builds||[]),...files.map(f=>f.slice(0,-5))])];
-   games.push({key:slug,engine:g.engine,seed:true,status:g.status,seedRev:Number.isInteger(g.rev)?g.rev:null,sourceLangs:g.sourceLangs||['ja'],mode:g.mode,gameId:g.key,prints:g.prints||{},settings:g.settings||{},
+   games.push({key:slug,engine:g.engine,seed:true,...(plain(g.ext)?{ext:g.ext}:{}),status:g.status,seedRev:Number.isInteger(g.rev)?g.rev:null,sourceLangs:g.sourceLangs||['ja'],mode:g.mode,gameId:g.key,prints:g.prints||{},settings:g.settings||{},
     match:{exeSha256:builds,exe:[...new Set([...builds.map(b=>versions.get(b)?.exe).filter(Boolean),...(g.match?.exe||[])])],titles:g.match?.titles||[],notTitles:g.match?.notTitles||[],steamAppId:g.prints?.steam||undefined,prints:g.prints||{}}});}}
  /* a version file filed under one game may serve others (builds): its game is the one that lists it */
  for(const g of games)for(const b of g.match.exeSha256){const v=versions.get(b);if(v&&!v.game)v.game=g.key;}
- return {games,versions,errors,dir};}
+ /* 2026-11-27 MeguLit-Adapter: game.json ext.versionPrints {<exe sha>: {head, pe, data, pack}} records what else names that build, so
+    a patched or renamed exe of the same build still finds its version layer (versionFor; used only when the game's profile says
+    source.versionMatch 'prints'). An entry of a version this game does not list, or a malformed print, is left out */
+ const byPrint=new Map();
+ for(const g of games){const vp=g.ext?.versionPrints;if(!plain(vp))continue;
+  for(const [sha,pr] of Object.entries(vp)){if(!HEX.test(sha)||!versions.has(sha)||!g.match.exeSha256.includes(sha)||!plain(pr))continue;
+   for(const kind of PRINT_KINDS){const v=String(pr[kind]||'').toLowerCase();if(!v||!PRINT_RULES[kind].test(v))continue;const k=g.key+'|'+kind+'|'+v;if(!byPrint.has(k))byPrint.set(k,sha);}}}
+ return {games,versions,errors,dir,byPrint};}
+/* the version layer of this copy: the exe hash first, then (only for a game whose profile asks for it) the recorded prints, most
+   exact first. -> {doc, match:'exe'|'head'|'pe'|'data'|'pack'} | null. prints: {head, pe, data, pack} of the running copy */
+const PRINT_KINDS=['head','pe','data','pack'],PRINT_RULES={head:HEX,pe:/^\d{1,5}\.\d{1,5}\.\d{1,5}\.\d{1,5}@[0-9a-f]{8}$/,data:HEX,pack:HEX};
+function versionFor({exeSha256='',gameKey='',prints={},fallback=false}={},s=seeds()){const exact=s.versions.get(String(exeSha256||''));if(exact)return {doc:exact,match:'exe'};
+ if(!fallback||!gameKey)return null;
+ for(const kind of PRINT_KINDS){const v=String(prints?.[kind]||'').toLowerCase();if(!v)continue;const sha=s.byPrint?.get(gameKey+'|'+kind+'|'+v);if(sha&&s.versions.has(sha))return {doc:s.versions.get(sha),match:kind};}
+ return null;}
 function seeds(){return cache||(cache=load());}
 function reload(){cache=null;}
-module.exports={SEED_DIR,SEED_FORMAT,STATUS,check,known,load,seeds,reload,versionOf:key=>seeds().versions.get(String(key||''))||null};
+module.exports={SEED_DIR,SEED_FORMAT,STATUS,check,known,load,seeds,reload,versionFor,PRINT_KINDS,versionOf:key=>seeds().versions.get(String(key||''))||null};

@@ -85,6 +85,13 @@ function apply(profile,layer,name){const meta={application:profile.application,v
    (services/self-check-live.cjs inputOf picks them; the signed documents are checked by services/auto-profile-feed.cjs).
    Each is checked again against core/profiles/domains.cjs here; one key or value outside its domain leaves that layer out
    whole (profile.rejected names it). input.exeSha256: the program's SHA-256, shown in the trace. */
+/* the prints of the running copy that can name its build (core/game-print.cjs), read once per exe file state; {} without an exe */
+const printMemo=new Map();
+function copyPrints(input){const exe=String(input.exe||'');if(!exe||!path.isAbsolute(exe))return {};let st;try{st=fs.statSync(exe);}catch{return {};}const k=exe.toLowerCase()+'|'+st.size+'|'+st.mtimeMs;if(printMemo.has(k))return printMemo.get(k);
+ const GP=require('../game-print.cjs'),dir=String(input.folder||path.dirname(exe)),out={};try{out.head=GP.headTail(exe,64<<10);}catch{}const pe=GP.peVersion(exe);if(pe)out.pe=pe;
+ const pack=GP.mainPack(dir);if(pack)try{out.pack=GP.headTail(pack,1<<20);}catch{}
+ try{out.data=GP.dataPrint(dir,require('../../services/original-engines/registry.cjs').readersFor(dir));}catch{}
+ printMemo.set(k,out);return out;}
 const OUTSIDE=[['sharedGame','shared-game'],['shared','shared'],['auto','auto'],['officialGame','official-game'],['official','official'],['verifiedLocal','verified-local'],['stepDown','stepdown']];
 function profileFor(input={}){input=input||{};const hit=findGame(input);const game=hit?.game||null;const {clean}=require('./domains.cjs');
  const engine=engineId(input.engine)||engineId(game?.engine)||'';const eng=loadEngine(engine);
@@ -94,6 +101,12 @@ function profileFor(input={}){input=input||{};const hit=findGame(input);const ga
  /* built-in seeds (The Seed/) stand where the downloaded official diff of their layer stands; a downloaded one with a higher rev
     replaces them (input.officialGameRev / input.officialRev from services/self-check-live.cjs inputOf) */
  const seedVersion=/^[0-9a-f]{64}$/.test(String(input.exeSha256||''))?require('./seed.cjs').versionOf(input.exeSha256):null;
+ /* 2026-11-27 MeguLit-Adapter: the exe hash missed, and this game's seed says source.versionMatch 'prints': the version layer its
+    recorded prints name (a no-DVD / updated / renamed exe of the same build) is a candidate only, so it goes in low, where a skeleton
+    seed goes (under this PC's calibration; the self-check gate decides), never in the official slot */
+ let candidate=null;
+ if(!seedVersion&&game?.seed&&(game.settings?.source?.versionMatch??s.source.versionMatch)==='prints'){const r=require('./seed.cjs').versionFor({exeSha256:input.exeSha256,gameKey:game.key,prints:input.versionPrints||copyPrints(input),fallback:true});
+  if(r&&r.match!=='exe'){candidate=r;s=merge(s,clone(known(r.doc.settings||{})));layers.push('seed-version~'+r.match);}}
  const take=(seedDoc,field,rev)=>seedDoc&&(!plain(input[field])||!(Number(input[rev])>Number(seedDoc.rev||0)));
  const seedGame=game?.seed&&game.status!=='skeleton'?game:null;
  // A bundled revision has no checked runtime/script binding at this stage.
@@ -115,7 +128,7 @@ function profileFor(input={}){input=input||{};const hit=findGame(input);const ga
  /* how the game was recognised, most exact first (docs/diff-layers.md): input.match is the relay's ('exe' | 'bin' | 'game:<basis>');
     else the repo game file's ('exe' when it lists this exe hash, game:<why> otherwise); else 'engine' or 'none' */
  const match=/^(exe|head|pe|game:[a-z~(),]{2,40})$/.test(String(input.match||''))?String(input.match):hit?(hit.why.includes('sha256')?'exe':'game:'+hit.why.filter(w=>w!=='sha256').map(w=>/^exe/.test(w)?'name':w.replace('~','')).join(',')):eng?'engine':'none';
- return freeze({application,vndbLayout:exe&&input.vndbLayoutKey===exe&&['adv','nvl','mixed'].includes(input.vndbLayout)?input.vndbLayout:null,gameKey:game?game.key:autoKey(input),seedStatus:game?.seed?game.status:'',sourceLangs:game?.sourceLangs||['ja'],engine:engine||'unknown',exeSha256:exe,match,layers:layers.join('+'),matched:hit?hit.why.join(','):'',rejected:rejected.join('; '),...s});}
+ return freeze({application,versionMatch:seedVersion?'exe':candidate?candidate.match:'',vndbLayout:exe&&input.vndbLayoutKey===exe&&['adv','nvl','mixed'].includes(input.vndbLayout)?input.vndbLayout:null,gameKey:game?game.key:autoKey(input),seedStatus:game?.seed?game.status:'',sourceLangs:game?.sourceLangs||['ja'],engine:engine||'unknown',exeSha256:exe,match,layers:layers.join('+'),matched:hit?hit.why.join(','):'',rejected:rejected.join('; '),...s});}
 /* the trace line every run writes once (hook-events.log), so the owner's log tells which layers this game ran with */
 const traceLine=p=>'profile '+p.gameKey+' match='+(p.match||'none')+' exe='+(p.exeSha256?p.exeSha256.slice(0,8):'-')+' layers='+p.layers+' engine='+p.engine+(p.rejected?' rejected='+p.rejected:'');
 /* a dotted key of a profile, with the fallback when the profile or the key is missing */

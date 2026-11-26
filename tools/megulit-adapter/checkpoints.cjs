@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+'use strict';
+/* 2026-11-27 MeguLit-Adapter, where a person has to look (owner: 需要人看的地方停下来，给出截图和一句话问题，让人确认).
+   questions(state) -> [{id, ask, evidence:[absolute picture paths], options:[...], free?}] for what the machine cannot settle:
+     vndb       the work id is not known (no seed, no HANDOFF row)             evidence: the title picture
+     release    nobody named the release and nothing guessed it                evidence: the title picture
+     again      HANDOFF already lists this VNDB id + release                    evidence: none (the row)
+     engine     no engine rule matched                                          evidence: the title picture
+     dialogue   the cold test passed: is the original really gone on screen     evidence: dialogue pictures (hidden desktops lied before)
+     choice     the first choice was reached: does it read right                evidence: the choice picture
+     stuck      the run stopped on a screen (title, name entry, black)          evidence: the last pictures
+     readmode   the hide did not pass: ship the game in read mode?              evidence: dialogue pictures
+   status(state, answers) -> the seed status the answers allow ('verified' | 'read' | 'skeleton' | '' = no seed yet).
+   review(file, state, qs) writes one local HTML page with each question and its pictures (nothing leaves this PC). */
+const fs=require('node:fs'),path=require('node:path');
+const VNDB=/^v[1-9]\d{0,7}$/;
+const list=(dir,re)=>{try{return fs.readdirSync(dir).filter(f=>re.test(f)).map(f=>path.join(dir,f)).sort();}catch{return [];}};
+const mtime=f=>{try{return fs.statSync(f).mtimeMs;}catch{return 0;}};
+/* the pictures of a cold run: client-area shots (run/shot-*), OCR grabs (run/ocr-*), whole-screen shots of a --foreground run (screen/*) */
+function pictures(coldOut){const run=path.join(coldOut,'run');return {shots:list(run,/^shot-.*\.jpe?g$/i),ocr:list(run,/^ocr-\d+\.png$/i).sort((a,b)=>mtime(a)-mtime(b)),screen:list(path.join(coldOut,'screen'),/\.png$/i)};}
+function phaseAt(cold,name){const p=(cold?.phases||[]).find(x=>x.name===name);return p?Date.parse(p.at):0;}
+function evidence(coldOut,cold){const P=pictures(coldOut),all=[...P.screen,...P.shots];
+ const title=P.screen[0]||P.shots[0]||P.ocr[0]||'';
+ const lines=P.shots.filter(f=>/line-\d+/i.test(f));const dialogue=[...lines.slice(-2),...P.screen.filter(f=>{const t=phaseAt(cold,'fast');return t&&mtime(f)<=t;}).slice(-1)];
+ const tc=phaseAt(cold,'choice');const near=arr=>arr.filter(f=>mtime(f)>=tc-1000).sort((a,b)=>mtime(a)-mtime(b))[0]||'';
+ const choice=tc?near(P.screen)||near(P.ocr)||'':'';
+ return {title,dialogue:[...new Set(dialogue)],choice,last:all.sort((a,b)=>mtime(a)-mtime(b)).slice(-2)};}
+function questions({identity={},caps={},cold=null,coldOut='',force=false}={}){const q=[],ev=coldOut?evidence(coldOut,cold):{title:'',dialogue:[],choice:'',last:[]};const pic=x=>[x].flat().filter(Boolean);
+ if(!identity.vndb)q.push({id:'vndb',ask:'这是哪部作品？回 VNDB 作品号（v 开头）',evidence:pic(ev.title),free:true});
+ if(!identity.release&&!identity.releaseGuess)q.push({id:'release',ask:'这是哪个发行版？（例：DL 版、Steam 版、DVD 版、汉化硬盘版）',evidence:pic(ev.title),free:true});
+ const same=(identity.adapted||[]).filter(r=>r.same);
+ if(same.length&&!force)q.push({id:'again',ask:'HANDOFF 已登记过这个作品和发行版（'+same.map(r=>r.status+' '+r.ref).join('；')+'），还要重新适配吗？',evidence:[],options:['yes','no']});
+ if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'），这是什么引擎？',evidence:pic(ev.title),free:true});
+ const v=cold?.verdict||'';
+ if(v==='pass'){q.push({id:'dialogue',ask:'这几张对话画面里，游戏原文藏住了、没有残影吗？',evidence:pic(ev.dialogue),options:['yes','no']});
+  if(cold.checks?.choice?.measured)q.push({id:'choice',ask:'这张是第一个选项：选项文字还在、能点吗？',evidence:pic(ev.choice||ev.last),options:['yes','no']});}
+ if(v==='fail'&&cold.checks?.hidden?.measured&&cold.checks.hidden.ok===false)q.push({id:'readmode',ask:'原文隐藏没过（'+(cold.checks.hidden.detail||'')+'），先按读模式发 seed 吗？',evidence:pic(ev.dialogue),options:['yes','no']});
+ if(v==='inconclusive'&&cold?.stuck)q.push({id:'stuck',ask:'冷测试卡在这里（'+cold.stuck+'），下一步该按什么？（回按键、点哪个字，或 skip）',evidence:pic(ev.last),free:true});
+ return q;}
+const yes=v=>/^(y|yes|ok|是|对|好|行|可以)$/i.test(String(v||'').trim());
+function status({cold=null}={},a={}){const v=cold?.verdict||'';
+ if(v==='pass')return yes(a.dialogue)&&(a.choice===undefined||yes(a.choice))?'verified':a.dialogue!==undefined?'skeleton':'';
+ if(v==='fail')return a.readmode!==undefined?(yes(a.readmode)?'read':'skeleton'):'';
+ return '';}
+/* answers 'id=value' -> {id:value}; a VNDB answer is checked */
+function parseAnswers(args){const out={};for(const s of args){const i=String(s).indexOf('=');if(i<1)throw Error('answer is id=value: '+s);const k=s.slice(0,i).trim(),v=s.slice(i+1).trim();
+  if(k==='vndb'&&!VNDB.test(v.toLowerCase()))throw Error('vndb is v<number>: '+v);out[k]=k==='vndb'?v.toLowerCase():v;}return out;}
+function open(qs,a){return qs.filter(x=>a[x.id]===undefined);}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function review(file,{title='',summary=[]}={},qs=[],answers={}){const dir=path.dirname(file),rel=f=>path.relative(dir,f).split(path.sep).map(encodeURIComponent).join('/');
+ const body=qs.map(x=>'<section><h2>'+esc(x.id)+'</h2><p>'+esc(x.ask)+'</p>'+(answers[x.id]!==undefined?'<p class="a">已答：'+esc(answers[x.id])+'</p>':'<p class="cmd">node tools/megulit-adapter.cjs answer "'+esc(dir)+'" '+esc(x.id)+'='+(x.options?x.options.join('|'):'…')+'</p>')+x.evidence.map(f=>'<img src="'+esc(rel(f))+'" alt="'+esc(path.basename(f))+'">').join('')+'</section>').join('\n');
+ const html='<!doctype html><meta charset="utf-8"><title>MeguLit-Adapter 确认</title><style>body{font:15px system-ui;margin:16px;max-width:1100px;background:#fff;color:#111}img{max-width:100%;display:block;margin:8px 0;border:1px solid #ccc}.cmd{font:13px monospace;background:#f3f3f3;padding:6px}.a{color:#070}@media (prefers-color-scheme:dark){body{background:#151515;color:#eee}.cmd{background:#262626}}</style>'+
+  '<h1>'+esc(title)+'</h1><ul>'+summary.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>'+(body||'<p>没有要人看的地方</p>');
+ fs.writeFileSync(file,html);return file;}
+module.exports={questions,status,parseAnswers,open,review,evidence,pictures,yes};

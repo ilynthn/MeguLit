@@ -11,6 +11,11 @@ module.exports={
   /* Artemis64x: retain a quoted message split across one callback batch; only a measured version opts in. */
   artemisQuoteSpans:false,
   siglusDbsNameColumn:null,
+  /* 2026-11-27 MeguLit-Adapter: how this game's built-in version layer is found. 'exe' = the kernel as before: only the exe's
+     SHA-256 (The Seed versions/<sha>.json). 'prints' = when the exe hash misses (no-DVD, update, a Chinese patch's renamed exe), the
+     version whose recorded prints (game.json ext.versionPrints: exe head, PE version, script-source print, main pack print) match
+     this copy is taken as a candidate: applied low (under this PC's calibration, like a skeleton seed) so the self-check gate decides */
+  versionMatch:'exe',
  },
  placement:{
   /* where the first line of a page is anchored: null = kernel (glyph records, then the text box); 'glyph' | 'box' | 'page' */
