@@ -275,3 +275,9 @@ test('coldTest: the per-character wait is for engines that hand lines over whole
 test('stuckOf: a black capture on the visible desktop is the capture, not a hidden-desktop render failure (ISLAND drew its title)',()=>{
  const black={cold:{verdict:'inconclusive',lines:0,end:'black'},run:{end:'black'}};
  assert.match(A.stuckOf({...black,visible:true}),/客户区截图截不到/);assert.match(A.stuckOf(black),/隐藏桌面画不出画面/);});
+
+test('cold test Steam check: a Steam emulator build runs without the Steam client (千恋＊万花 copy: SteamEmu folder, no Valve in steam_api.dll); a real one still needs it',()=>{
+ const C=require('../services/cold-test.cjs');const mk=(dll,extra)=>{const d=tmp();fs.writeFileSync(path.join(d,'game.exe'),'MZ');fs.writeFileSync(path.join(d,'steam_api.dll'),dll);if(extra)fs.mkdirSync(path.join(d,extra));return path.join(d,'game.exe');};
+ assert.equal(C.steamOf({exe:mk('MZ emu build')}),null,'no Valve name');
+ assert.equal(C.steamOf({exe:mk(Buffer.concat([Buffer.from('MZ'),Buffer.from('Valve Corporation','utf16le')]),'SteamEmu')}),null,'SteamEmu folder');
+ const real=C.steamOf({exe:mk(Buffer.concat([Buffer.from('MZ'),Buffer.from('Valve Corporation','utf16le')])),steamAppId:'1144400'});assert.equal(real.appid,'1144400','a genuine steam_api still goes through Steam');});

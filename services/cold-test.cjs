@@ -91,8 +91,13 @@ async function retest(root,{fetcher=globalThis.fetch,now=Date.now()}={}){const f
    user's desktop. With the game's own app id written there for the run (and removed again), it stays on the hidden desktop and
    Steam still counts it (play time, achievements). Steam must be running; a Steam DRM wrapper that relaunches anyway is ended
    by ColdDesk and the game is not cold-tested again. */
+/* 2026-11-27 (MeguLit-Adapter, a 千恋＊万花 copy skipped steam-not-running): a steam_api that is a Steam emulator (a SteamEmu /
+   steam_settings folder beside it, or a DLL without Valve's name in it) never talks to the Steam client, so it is run like any
+   other game: no Steam check, no steam_appid.txt */
+function steamEmulated(dir,names){if(names.includes('steamemu')||names.includes('steam_settings'))return true;
+ for(const n of ['steam_api.dll','steam_api64.dll']){if(!names.includes(n))continue;try{const b=fs.readFileSync(path.join(dir,n));if(b.indexOf('Valve')<0&&b.indexOf(Buffer.from('Valve','utf16le'))<0)return true;}catch{}}return false;}
 function steamOf(game){const dir=path.dirname(game.exe);let names=[];try{names=fs.readdirSync(dir).map(n=>n.toLowerCase());}catch{}
- const usesSteam=names.includes('steam_api.dll')||names.includes('steam_api64.dll');if(!usesSteam)return null;
+ const usesSteam=names.includes('steam_api.dll')||names.includes('steam_api64.dll');if(!usesSteam||steamEmulated(dir,names))return null;
  let appid=String(game.steamAppId||'');const file=path.join(dir,'steam_appid.txt');const has=fs.existsSync(file);
  if(!appid&&has)try{appid=fs.readFileSync(file,'utf8').trim();}catch{}
  if(!appid){try{appid=require('../core/steam-owned.cjs').launchAppid(game.exe,{})||'';}catch{}}

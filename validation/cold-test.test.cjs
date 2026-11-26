@@ -177,7 +177,7 @@ test('service: a stopped run is retried later; no save place blocks; a Steam bui
  assert.equal(Pick.candidates([{...game,seedStatus:'skeleton'}],{state:svc.load(P.root)}).length,1,'tried again');
  const bare=path.join(P.base,'Games','Bare');fs.mkdirSync(bare,{recursive:true});fs.writeFileSync(path.join(bare,'Bare.exe'),'MZ');
  const b=await svc.testOne(P.root,{id:'9',title:'Bare',exe:path.join(bare,'Bare.exe'),exeKey:H('4')},{deps:{env:P.env,runner:async()=>{throw new Error('must not run');}}});assert.deepEqual(b,{verdict:'blocked',why:'no-save-place'});
- fs.writeFileSync(path.join(P.game,'steam_api64.dll'),'x');
+ fs.writeFileSync(path.join(P.game,'steam_api64.dll'),'MZ Valve Corporation');
  const s=await svc.testOne(P.root,{...game,steamAppId:'1144400'},{deps:{env:P.env,steamRunning:()=>false,runner:async()=>{throw new Error('must not run');}}});assert.deepEqual(s,{verdict:'skipped',why:'steam-not-running'});
  /* with Steam running: the app id is there for the run and gone after (the game still goes through Steam) */
  let seen=null;await svc.testOne(P.root,{...game,steamAppId:'1144400',exeKey:H('5')},{deps:{env:P.env,steamRunning:()=>true,report:async()=>({}),runner:async o=>{seen=fs.readFileSync(path.join(P.game,'steam_appid.txt'),'utf8');fs.mkdirSync(o.runDir,{recursive:true});return {cleanupConfirmed:true,pid:1,shots:[]};}}});
