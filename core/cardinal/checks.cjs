@@ -138,7 +138,12 @@ function reaches(x,hits){const hs=Array.isArray(hits)?hits:[],capture=hs.filter(
    within choiceMs, or the game draws them itself (a KiriKiri choice frame the script keeps: o.krkr.choice ui 'choice') */
 function choices(run,t){t=opts(t);const name=run.name||'run',o=run.o,bad=[];let n=0,ok=0,unobserved=0;
  const textKey=value=>String(value??'').normalize('NFKC').replace(/\s+/g,'');
- for(const c of o.choiceOffers||[]){n++;
+ /* 2026-11-26 an offer whose whole window fell while the reader page did not answer (core/cardinal/responsive.cjs) and has no sample:
+    what the player saw is unknown; it is not counted and makes the choice observation unreliable (unanswered) */
+ const quiet=require('./responsive.cjs').spans(o);let unanswered=0;
+ for(const c of o.choiceOffers||[]){
+  if(Number.isFinite(c?.at)&&!(o.samples||[]).some(s=>s.at>=c.at&&s.at<=Math.min(c.at+t.choiceMs,c.until??Infinity))&&require('./responsive.cjs').during(quiet,c.at,c.at+t.choiceMs)){unanswered++;if(bad.length<6)bad.push(name+' @'+c.at+' '+c.n+' options offered while the reader page did not answer (no sample): unobserved');continue;}
+  n++;
   if(!Number.isSafeInteger(c.n)||c.n<1||!Number.isFinite(c.at)||c.until!=null&&(!Number.isFinite(c.until)||c.until<c.at)){bad.push(name+' invalid choice offer');unobserved++;continue;}
   const expected=Array.isArray(c.texts)?c.texts:null;
   if(expected&&(expected.length!==c.n||expected.some(text=>typeof text!=='string'||!textKey(text)))){bad.push(name+' invalid choice source texts');unobserved++;continue;}
@@ -163,7 +168,7 @@ function choices(run,t){t=opts(t);const name=run.name||'run',o=run.o,bad=[];let 
  for(const sc of o.screenChoices||[]){const at=sc?.at;if(!Number.isFinite(at)||!Array.isArray(sc.texts)||!sc.texts.length)continue;if(asked.some(a=>Math.abs(a-at)<t.choiceMs))continue;
   if(offered.some(c=>c.at<=at+t.choiceMs&&(c.until==null||c.until>=at-200)))continue;n++;if(bad.length<6)bad.push(name+' @'+at+' options on the game screen ('+sc.texts.map(x=>String(x).slice(0,24)).join(' / ')+') never reached the reader');}
  for(const c of o.krkr?.choice||[]){n++;if(c.ui==='choice')ok++;else if(bad.length<6)bad.push(name+' '+c.mark+' choice frame not kept for the game');}
- return {bad,n,ok,unobserved,reliable:unobserved===0};}
+ return {bad,n,ok,unobserved,unanswered,reliable:unobserved===0&&unanswered===0};}
 
 /* the original showing through: the bridge's own hide check (hookVisual stage=hidden, read back by core/self-check.cjs), a dialogue
    record the game drew visible while core's hide was on (o.hidden), and every line after the hide was given up or read mode came on */
