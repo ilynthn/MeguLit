@@ -60,6 +60,13 @@ test('rows with save dates hide the line while they stay on the picture',()=>{
   r.h.artScreen({type:'artScreen',dates:0});assert.deepEqual(r.dialog(),[false,true]);
  }finally{r.done();}});
 
+test('the current line drawn again before the hide fires cancels the pending hide (Codex #1267)',()=>{
+ const r=rig();try{
+  const t=story(r,2000);r.aux(t+5000,'KiriKiri2',OLD);r.aux(t+5300,'KiriKiri1',NOW);r.run(t+8000);
+  assert.deepEqual(r.dialog(),[],'the backlog closed within the settling time: the restored dialogue stays');
+  assert.equal(r.h.pastScreen,null);
+ }finally{r.done();}});
+
 test('the art scan counts the LOAD screen rows of the run as dated rows, dialogue rows not',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','native','PageLocator.cs'),'utf8');
  const m=/Regex DateRow = new System\.Text\.RegularExpressions\.Regex\(@"([^"]+)"\)/.exec(src);assert.ok(m,'DateRow pattern');

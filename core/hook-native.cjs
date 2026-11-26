@@ -1318,7 +1318,10 @@ class HookNative{
    this.pastScreen={seq:this.state?.hookSequence,at:this.now(),hidden:true,by:'dates'};this.trace('save or load screen: '+n+' rows with a date, reader line hidden');this.clearChoices?.('save or load screen');this.emit({type:'hookDialog',engine:'pastlines',visible:false});return;}
   if(P?.hidden&&P.by==='dates'){this.pastScreen=null;this.trace('save or load screen left: no dates on the picture');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}}catch{}}
  pastScreenAux(raw){try{
-  const P=this.pastScreen;if(P?.hidden&&this.lastSource&&HookNative.flat(LineOnce.collapse(String(raw||'')).text)===HookNative.flat(this.lastSource)){this.pastScreen=null;this.trace('game screen of past lines left: the current line is drawn again');this.emit({type:'hookDialog',engine:'pastlines',visible:true});return false;}
+  /* the current line drawn again: the screen of past lines is gone, also while its hide is still pending (Codex #1267: closed within
+     PAST_SCREEN_MS, the armed timer would hide the restored dialogue) */
+  const P=this.pastScreen;if(P&&this.lastSource&&HookNative.flat(LineOnce.collapse(String(raw||'')).text)===HookNative.flat(this.lastSource)){this.pastScreen=null;clearTimeout(P.timer);
+   if(P.hidden){this.trace('game screen of past lines left: the current line is drawn again');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}else this.trace('game screen of past lines closed before the hide: the current line is drawn again');return false;}
   /* nothing the side streams draw on that screen is a choice or art */if(P?.hidden)return true;
   const kind=this.pastKind(raw);if(!kind)return false;
   this.trace('past line on a side stream ('+kind+') '+JSON.stringify(String(raw).slice(0,40)));
