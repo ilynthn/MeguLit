@@ -44,4 +44,4 @@ test('cold run: the largest draw skip count of the selected stream lands in run.
 test('adapt-auto: the result carries the count, and the checkout\'s marked hook DLL replaces the install copy',()=>{const A=read('tools/adapt-auto.cjs');
  assert.match(A,/skipped:runInfo\?\.drawSkipped\|\|0/);
  assert.match(A,/buildColdDesk\(root\);buildHookBridge\(root\);useCheckoutHook\(root\);/);
- assert.match(A,/function useCheckoutHook\(root\)\{[^\n]*MeguLitHook32\.dll[^\n]*\n\s*if\(buf\.indexOf\('MeguLit_GDIHIDE armed version=2'\)<0\)continue;/,'an unmarked DLL is never used');});
+ assert.match(A,/const HOOK_MARK='MeguLit_GDIHIDE armed version=2'/);assert.match(A,/if\(buf\.indexOf\(HOOK_MARK\)<0\)return;/,'an unmarked DLL is never used (validation/adapt-auto.test.cjs: which build wins)');});
