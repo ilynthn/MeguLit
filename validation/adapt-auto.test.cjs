@@ -260,3 +260,11 @@ test('hook DLL: a DrawSkip build anywhere in the worktrees beats a GDI-hide-only
  assert.equal(used['MeguLitHook32.dll'].drawSkip,true);assert.equal(used['MeguLitHook64.dll'].src,'install');
  for(const sub of [['native','megulithook'],['runtime','megulithook']])assert.match(fs.readFileSync(path.join(root,...sub,'MeguLitHook32.dll'),'utf8'),/MeguLit_DRAWSKIP ready/);
  assert.ok(A.hookDirs().some(x=>/native[\\/]megulithook$/.test(x)),'this checkout and its worktrees are searched');});
+
+test('driver readPerCharMs: a long line that came whole gets 45 ms a character before the next click (Monochrome Empire)',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,readPerCharMs:45,stallMs:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});d.next({t:10,window:W,lines:1,quietMs:0});
+ assert.equal(d.next({t:2000,window:W,lines:1,quietMs:1200,lineChars:54,lineAgeMs:1200}).length,0,'54 characters: 2.4 s');
+ assert.equal(d.next({t:3300,window:W,lines:1,quietMs:2500,lineChars:54,lineAgeMs:2500}).length,1);
+ assert.equal(d.next({t:4400,window:W,lines:2,quietMs:700,lineChars:10,lineAgeMs:700}).length,1,'a short line: readMinMs and the quiet decide');
+ const e=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,stallMs:1e9,shotLines:[]});e.next({t:0,window:W});e.next({t:10,window:W,lines:1,quietMs:0});
+ assert.equal(e.next({t:2000,window:W,lines:1,quietMs:1200,lineChars:54,lineAgeMs:1200}).length,1,'without readPerCharMs as before');});

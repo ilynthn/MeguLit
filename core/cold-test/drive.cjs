@@ -82,7 +82,10 @@ class Driver{
      reveals it; at 450 ms 3-row lines of オルフレール never completed: Cardinal row) */
   /* readQuietMs (tools/adapt-auto.cjs, owner: DrawText 流静默 ≥600 ms 且距上次点击 ≥1 s 再点): without Ctrl, the next click waits until the
      game drew nothing for readQuietMs (a long line is shown to its end) and readMinMs passed (a short one does not wait for nothing) */
-  const due=!ctrl&&o.readQuietMs>0?(obs.quietMs??1e9)>=o.readQuietMs&&t-this.lastAct>=o.readMinMs:t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery);
+  /* readPerCharMs (tools/adapt-auto.cjs; 2026-11-27 Monochrome Empire: YU-RIS hands the joined line over when its typewriter is done, the
+     click came 1.2 s later, and the reader, which reveals the line again at about 30 characters a second, never finished 10 of 55 lines):
+     at reading pace the line that came last is also given readPerCharMs per character before the next click */
+  const due=!ctrl&&o.readQuietMs>0?(obs.quietMs??1e9)>=o.readQuietMs&&t-this.lastAct>=o.readMinMs&&!(o.readPerCharMs>0&&(obs.lineAgeMs??1e9)<(obs.lineChars|0)*o.readPerCharMs):t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery);
   /* holdBlind (tools/adapt-auto.cjs; 2026-11-26 Monochrome Empire: once InputShim made its input land, the blind advance click at the
      bottom centre of the title opened 「各鑑賞モード」 before the OCR could find 「最初から始める」): while only a few lines came, none for
      confirmAfter and the runner's OCR has not looked at the screen yet (obs.ocr), no blind click / Enter goes to what may be a menu */

@@ -149,7 +149,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    if(sel.hideOnly===true){const c=res.hideConfirmed||(res.hideConfirmed=[]);if(!c.some(x=>x.id===sel.id)){c.push({id:String(sel.id),name:String(sel.name||''),at:new Date(now()).toISOString(),lines:res.lines});}return;}
    if(opts.hideProbe===true&&sel.sample&&sel.embeddable!==true&&hooks?.probing!==true){try{hooks.probeHide?.(true);{const hp=res.hideProbes||(res.hideProbes=[]);if(hp.length<20)hp.push({id:String(sel.id),at:new Date(now()).toISOString()});}}catch{}}};
   /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
-  let hookTextAt=0,threadSig='';
+  let hookTextAt=0,threadSig='',srcChars=0,srcAt=0;
   /* 2026-11-26 (オルフレール krkr-nodraw r1: the kernel's request with the right two options came while the OCR of the request before it
      was running; that older picture's answer took the new request, found nothing and dropped it, so no hookChoiceBoxes): a request is
      answered only from a picture taken after it came (ocrFor), and one the picture does not show stays for LOCATE_TRIES pictures */
@@ -170,7 +170,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{
    const Hook=deps.Hook||require('../core/hook-native.cjs').HookNative;const layout={...(deps.layout||require('../core/layout.cjs')),logs:runDir};
-   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}{const q=/"([\s\S]*)"\s*$/.exec(String(line));if(q&&/[入人][力カ]/.test(q[1]))nameHint=nameOffered(q[1])||nameHint;}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();
+   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const sc=/(?:^|\s)source chars=(\d+)/.exec(String(line));if(sc){srcChars=+sc[1];srcAt=now();}}{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}{const q=/"([\s\S]*)"\s*$/.exec(String(line));if(q&&/[入人][力カ]/.test(q[1]))nameHint=nameOffered(q[1])||nameHint;}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();
     /* a new line: what the OCR read is another screen now (Monochrome Empire: the title's start item, clicked again on its name entry) */
     for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}else if(e.kind==='choice')res.choices++;};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
@@ -223,7 +223,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
    if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;ocrFor=locatePending;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
-   const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,quietMs:hookTextAt?now()-hookTextAt:1e9});
+   const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,quietMs:hookTextAt?now()-hookTextAt:1e9,lineChars:srcChars,lineAgeMs:srcAt?now()-srcAt:1e9});
    if(input)input.tick(t);
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
     if(a.do==='phase'){(res.phases||(res.phases=[])).push({name:String(a.name),at:new Date(now()).toISOString(),lines:res.lines});continue;}
