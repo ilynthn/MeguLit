@@ -50,7 +50,7 @@ test('judge: everything measured and over the gate is pass',()=>{const j=A.judge
 test('judge: not measured is never pass',()=>{
  assert.equal(A.judge({cold:COLD,diff:DIFF,card:CARD({},{choice:false})}).verdict,'inconclusive','no choice reached');
  assert.match(A.judge({cold:COLD,diff:DIFF,card:CARD({},{choice:false})}).reasons.join(' '),/没推进到选项/);
- assert.equal(A.judge({cold:{...COLD,measured:['dropRate']},diff:DIFF,card:CARD()}).verdict,'pass','the cold run's hideVisible is not needed: Cardinal observed the hide');
+ assert.equal(A.judge({cold:{...COLD,measured:['dropRate']},diff:DIFF,card:CARD()}).verdict,'pass','no cold-run hideVisible needed: Cardinal observed the hide');
  {const c=CARD();c.result.detail.leakObservation.observed=false;assert.equal(A.judge({cold:COLD,diff:DIFF,card:c}).verdict,'inconclusive','Cardinal did not observe the hide');}
  assert.equal(A.judge({cold:COLD,diff:DIFF,card:null}).verdict,'inconclusive');
  assert.equal(A.judge({cold:COLD,diff:DIFF,card:{ok:false,why:'x'}}).verdict,'inconclusive');
