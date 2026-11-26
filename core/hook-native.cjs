@@ -163,7 +163,7 @@ class HookNative{
     and even the same size padded with spaces (20->20). Blanking the line in place (hide) is safe. So on a YU-RIS embed stream the game
     only hides the line and MeguLit draws the translation. */
  fixedSizeEmbed(){return (this.state?.hookThreads||[]).some(t=>t.selected&&/^EmbedYURIS/i.test(String(t.name||'')));}
- embedReply(id,trans,o={}){if(!this.process||!Number.isSafeInteger(id))return;const hide=o?.hide===true||!!trans&&this.fixedSizeEmbed();this.send({type:'embedReply',id,trans:hide?'':String(trans||'').slice(0,4000),...(hide?{hide:true}:{})});if(!this.embedModeSent||!(hide||trans))return;
+ embedReply(id,trans,o={}){if(!this.process||!Number.isSafeInteger(id))return;const hide=o?.hide===true||!!trans&&this.fixedSizeEmbed();this.send({type:'embedReply',id,trans:hide?'':String(trans||'').slice(0,4000),...(hide?{hide:true}:{})});if(!this.embedModeSent)return;/* #1128: a line the game keeps as it was (no answer in time, unreadable) is said too, so the overlay translates that line and only that one */if(!(hide||trans)){this.notify({embedLine:{source:String(o?.source||''),text:'',drawn:false}});return;}
   if(hide&&!this.glyphNoted){this.glyphNoted=true;this.trace?.('embed fallback: the game font has no glyphs for the translation; the game hides the line and MeguLit draws it');}
   this.notify({embedTranslating:!hide,embedLine:{source:String(o?.source||''),text:hide?'':String(o?.text||trans||''),drawn:!hide}});}
  tick(){if(this.ownerTestGrant)this.drawSync();
