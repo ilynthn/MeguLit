@@ -109,8 +109,9 @@ function makeProbe(loc,title,outDir){const PF=require('../services/probe-full.cj
 function userDirs(){const Saves=require('../core/cold-test/saves.cjs'),out=new Set();
  for(const r of Saves.userRoots(process.env)){let ents=[];try{ents=fs.readdirSync(r.path,{withFileTypes:true});}catch{}for(const e of ents)if(e.isDirectory())out.add(path.join(r.path,e.name).toLowerCase());}
  return out;}
-function residue(loc,title,before,since){const Saves=require('../core/cold-test/saves.cjs');const removed=[],kept=[];
- let found=[];try{found=Saves.sweep(Saves.locate({exe:loc.exe,engine:loc.engine,title}),since);}catch{}
+/* located: the save places as they were before the run (located after it, a folder the game just made counts as guarded) */
+function residue(located,before,since){const Saves=require('../core/cold-test/saves.cjs');const removed=[],kept=[];
+ let found=[];try{found=Saves.sweep(located,since);}catch{}
  for(const d of found){if(before.has(d.toLowerCase())){kept.push(d);continue;}try{fs.rmSync(d,{recursive:true,force:true});removed.push(d);}catch{kept.push(d);}}
  return {removed,kept};}
 /* Locale Emulator exactly when MeguLit itself would start the game through it (services/locale-launch.cjs: x86 programs unless
@@ -202,12 +203,12 @@ async function run(opts,{log=console.log}={}){
   try{result.gameKey=require('../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
   /* 3 cold test */
   const root=prepareApp(opts.app,path.join(RUNS_ROOT,'_app'));
-  const before=userDirs(),t0=Date.now();
+  const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
   const localeEmulator=localeEmulatorFor(root,loc,title);result.localeEmulator=!!localeEmulator;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
   let cold=null;try{cold=await coldTest(root,loc,title,Math.round(opts.budgetMin*60000),probe?.exeSha256,{visible:opts.foreground,localeEmulator});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}
   if(stopScreen){stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
-  if(cold.runDir){const r=residue(loc,title,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
+  if(cold.runDir&&located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
   result.cold=cold;log('# cold '+cold.verdict+' '+(cold.why||'')+' lines='+(cold.lines|0));
   let runCopy='',runInfo=null;
   if(cold.runDir&&fs.existsSync(cold.runDir)){runCopy=path.join(out,'run');fs.rmSync(runCopy,{recursive:true,force:true});copyTree(cold.runDir,runCopy);

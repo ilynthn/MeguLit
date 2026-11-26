@@ -30,9 +30,10 @@ const loadUrl=url=>{const m=/^file:\/\/\.\/([a-z])(\/.*)$/.exec(url);
 class KrkrModel{
  constructor({pid,tmp=require('node:os').tmpdir(),report=()=>{}}){
   const src=script(),ctl=ctlPathFor(pid,tmp);this.ctl=ctl;this.reports=[];
-  const st=this.st={cfg:{roles:0,embed:0,zh:1},embMap:{},ctlRaw:'',clears:0,report:s=>{this.reports.push(s);report(s);},screen:()=>[800,600]};
+  const st=this.st={cfg:{roles:0,embed:0,zh:1},embMap:{},ctlRaw:'',clears:0,report:s=>{this.reports.push(s);report(s);},screen:()=>[800,600],
+   /* 2026-11-26 st.ctl now resets through st.ctlOff, which also puts embedded lines back (st.embRestore): no layers here */embRestore:()=>{}};
   const global=this.global={__megulitKrkrCtlPath:ctl.url,RegExp};
-  for(const head of ['st.ctl=function(){','st.clearSent=function(rec)','st.choicePage=function(P)','st.uiDraw=function(ll)'])
+  for(const head of ['st.ctlOff=function(){','st.ctl=function(){','st.clearSent=function(rec)','st.choicePage=function(P)','st.uiDraw=function(ll)'])
    {let js;try{js=tjsFunction(src,head);}catch{continue;}/* a build without that function (an older script.inc) */new Function('st','global','__load',toJs(js)+';')(st,global,loadUrl);}
  }
  tick(){this.st.ctl();return this.st.cfg;}

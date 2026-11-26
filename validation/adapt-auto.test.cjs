@@ -114,5 +114,16 @@ test('runOne ocrMenu: a full-size picture goes to OCR and its start button is cl
  const p=R.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true},{spawn:h.spawn,helper:'ColdDesk.exe',Hook:FakeHook,layout:{native:dir},tick:5,now:()=>t+=400,
   ocr:async()=>[{text:'は し め 力 、 ら',x:318,y:94,w:64,h:11}],driver:{introEvery:1e9,introMs:1e9}});
  await new Promise(r=>setTimeout(r,400));h.sent.push('');const r=await Promise.race([p,new Promise(r=>setTimeout(()=>r(null),50))]);void r;
- assert.ok(h.sent.some(l=>/^shot 1280 .*ocr-1\.jpg$/.test(l)),'full-width OCR picture');assert.ok(h.sent.includes('click 350 100'),h.sent.join('|'));
+ assert.ok(h.sent.some(l=>/^shot 1280 .*ocr-1\.png$/.test(l)),'full-width OCR picture');assert.ok(h.sent.includes('click 350 100'),h.sent.join('|'));
  require('../services/cold-test-run.cjs').stopActive();await p;});
+
+test('ocrItems: a name entry keeps the default name — 「決定」 one button step left of 「デフォルト」',()=>{const R=require('../services/cold-test-run.cjs');
+ const L=[{text:'主 人 公 の 名 前 を 入 力 し て く だ さ い',x:168,y:250,w:350,h:19},{text:'デ フ ォ ノ レ ト',x:294,y:451,w:97,h:17}];
+ const [a]=R.ocrItems(L);assert.equal(a.text,'決定');assert.equal(a.estimated,true);assert.equal(Math.round(a.x+a.w/2),149,'twice the label width');
+ const [b]=R.ocrItems([...L,{text:'タ イ ト ル , ペ',x:489,y:447,w:94,h:16}]);assert.equal(Math.round(b.x+b.w/2),149,'the step to 「タイトルへ」');
+ assert.deepEqual(R.ocrItems([L[1]]),[],'「デフォルト」 alone (a config screen) is not a name entry');
+ assert.deepEqual(R.ocrItems([{text:'は い',x:1,y:1,w:9,h:9}]).length,0,'「はい」 alone is never clicked');
+ assert.equal(R.ocrItems([{text:'よ ろ し い で す か',x:1,y:1,w:9,h:9},{text:'は い',x:5,y:50,w:20,h:10}])[0].text,'決定');});
+
+test('krkr-model: st.ctl runs with the script\'s st.ctlOff (Cardinal KiriKiri replays)',()=>{const {KrkrModel}=require('../tools/reader-replay/krkr-model.cjs');
+ const m=new KrkrModel({pid:4294967290,tmp:tmp()});assert.equal(typeof m.st.ctlOff,'function');assert.deepEqual(m.tick(),{roles:0,embed:0,zh:1},'no control file: off');});

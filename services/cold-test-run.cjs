@@ -25,9 +25,18 @@ function menuItem(raw,win){let rec=null;try{rec=require('../core/text-paths.cjs'
    goes through Windows OCR (services/cold-ocr.ps1, Japanese); a line that reads like 「はじめから / New Game」 (OCR is rough on
    decorated fonts: は し め 力 、 ら) becomes a 'button' item for the driver; 「つづきから / ロード」 lines never do */
 const OCR_CONFIRM=/^(決定|[OＯ][KＫ])$/i,OCR_EVERY=20000,OCR_START=/^[はハ][しじシジ]め|^[始最]初から|new.?game|ニューゲ|ゲーム開始|^start$/i,OCR_NOT=/[続つ][づきけ]|ロード|load|continue|コンティ/i;
-function ocrItems(lines){const out=[];for(const l of Array.isArray(lines)?lines:[]){const t=String(l?.text||'').replace(/[\s、。・〃″'"`,.]/g,'');
-  if(!t||OCR_NOT.test(t)||!(l.w>0&&l.h>0))continue;const text=OCR_START.test(t)?'はじめから':OCR_CONFIRM.test(t)?'決定':'';if(!text)continue;
-  out.push({role:'button',text,ocr:t.slice(0,40),x:l.x|0,y:l.y|0,w:l.w|0,h:l.h|0});}
+/* a name entry (オルフレール: 「主人公の名前を入力してください」, buttons 決定 / デフォルト / タイトルへ) keeps the default name: its 「決定」
+   is read, or placed one button step left of 「デフォルト」 on the same row (step = distance to 「タイトルへ」, else twice the label
+   width: decorated 「決 定」 is the one label OCR never reads). 「はい」 only under 「よろしいですか」 */
+const OCR_NAME=/名前?[をの]?.{0,2}[入人][力カ]|名前/,OCR_DEFAULT=/^[デテ][フ][ォオ].{0,3}[トド]$|^default$/i,OCR_TITLE=/^タイト.{0,2}[ヘへペ]$/,OCR_SURE=/よろし|宜し/,OCR_YES=/^はい$/;
+function ocrItems(lines){const out=[],ls=(Array.isArray(lines)?lines:[]).map(l=>({...l,t:String(l?.text||'').replace(/[\s、。・〃″'"`,.]/g,'')})).filter(l=>l.t&&l.w>0&&l.h>0);
+ const item=(l,text,extra={})=>({role:'button',text,ocr:l.t.slice(0,40),x:l.x|0,y:l.y|0,w:l.w|0,h:l.h|0,...extra});
+ for(const l of ls){if(OCR_NOT.test(l.t))continue;if(OCR_START.test(l.t))out.push(item(l,'はじめから'));else if(OCR_CONFIRM.test(l.t))out.push(item(l,'決定'));}
+ if(ls.some(l=>OCR_SURE.test(l.t)))for(const l of ls)if(OCR_YES.test(l.t))out.push(item(l,'決定'));
+ const def=ls.find(l=>OCR_DEFAULT.test(l.t));
+ if(def&&!out.some(i=>i.text==='決定')&&ls.some(l=>OCR_NAME.test(l.t))){const cy=def.y+def.h/2,cx=def.x+def.w/2;
+  const ttl=ls.find(l=>OCR_TITLE.test(l.t)&&Math.abs(l.y+l.h/2-cy)<def.h*1.5&&l.x>def.x);const step=ttl?ttl.x+ttl.w/2-cx:def.w*2;
+  const x=Math.round(cx-step);if(x>0)out.push({role:'button',text:'決定',estimated:true,ocr:def.t,x:x-Math.round(def.w/2),y:def.y|0,w:def.w|0,h:def.h|0});}
  return out;}
 function ocr(file,{spawn=nodeSpawn,timeoutMs=30000}={}){return new Promise(resolve=>{let out='',p;
   try{p=spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(__dirname,'cold-ocr.ps1'),file],{windowsHide:true,stdio:['ignore','pipe','ignore']});}catch{return resolve([]);}
@@ -88,7 +97,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   let ocrBusy=false,ocrAt=0,ocrN=0;
   timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
    if(opts.ocrMenu===true&&!ocrBusy&&res.window&&now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY)){ocrAt=now();ocrBusy=true;
-    send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.jpg'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
+    send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
    const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black});
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
     if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);
