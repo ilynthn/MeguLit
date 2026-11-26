@@ -684,6 +684,9 @@
            and otherwise runs on below the game (the layer spans the work area), never over the page's other lines */
         const userCn = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tomoyo-gal-cn-size')), base = only ? size : (Number.isFinite(userCn) && userCn >= 10 ? userCn : Math.max(12, Math.round(size * .6)));
         set(row, 'font-size', base + 'px');
+        /* RRFZ #1289 review 4: as in placeRow, the translation's own elements take the row's size and spacing; the game style's
+           .tomoyo-cn-output rule (!important) kept its own line height, so a spacing set here only moved the outer row */
+        for (const o of row.querySelectorAll('*')) { set(o, 'font-size', 'inherit'); if (own.lineHeight) set(o, 'line-height', 'inherit'); else o.style.removeProperty('line-height'); }
         if (page.retainedBitmap) {
           // The bitmap keeps neighbouring rows. Give the translation a free band inside the game client.
           const [, top, right, bottom] = mapper(page.client).bounds, gap = Math.ceil(size * .25);

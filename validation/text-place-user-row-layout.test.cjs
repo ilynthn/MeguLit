@@ -28,6 +28,7 @@ test('applyPage uses the user row layout',()=>{
  assert.match(page[0],/const own = userRowLayout\(b\.galPreferences\?\.\(\) \|\| \{\}\), \[L, , R\] = map\.bounds \|\| \[0, 0, innerWidth\];/);
  assert.match(page[0],/set\(row, 'width', \(own\.width > 0 \? userRowWidth\(own, x0, L, R, size\) : Math\.max\(pageRight - x0/);
  assert.match(page[0],/if \(own\.lineHeight\) set\(row, 'line-height', String\(Math\.max\(\.9, 1\.25 \+ own\.lineHeight\)\)\); else row\.style\.removeProperty\('line-height'\);/,'back to the stylesheet when the spacing is reset');
+ assert.match(page[0],/set\(row, 'font-size', base \+ 'px'\);\s*\/\*[\s\S]*?\*\/\s*for \(const o of row\.querySelectorAll\('\*'\)\) \{ set\(o, 'font-size', 'inherit'\); if \(own\.lineHeight\) set\(o, 'line-height', 'inherit'\); else o\.style\.removeProperty\('line-height'\); \}/,'RRFZ #1289 review 4: the translation inside the row inherits the spacing under the game style too');
  assert.match(page[0],/const free = Math\.max\(1, right - x0 - 8\); set\(row, 'width', \(own\.width > 0 \? Math\.min\(free, userRowWidth\(own, x0, L, R, size\)\) : free\) \+ 'px'\);/,'a retained bitmap page keeps its free band as the outer limit');
 });
 test('an overflowing placed row is squeezed to 1.1 only from a taller spacing',()=>{
