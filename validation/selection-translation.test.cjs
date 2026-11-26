@@ -31,3 +31,7 @@ test('the lookup card asks for and shows 选区翻译 for a drag selection only'
  assert.match(s,/card\.append\(top,actions,ai,translated,body,origin\)/,'after the AI result box, so the AI buttons keep reading their own box');
  assert.match(s,/translateSelection\(mine\)\.then\(value=>\{if\(current!==mine\|\|!card\)return;/,'an answer for a closed or replaced card is dropped');
 });
+test('closing the card drops its selection translation, so queued attempts and fallbacks stop (Codex #1175)',()=>{
+ const reader=read('services/reader.cjs');
+ assert.match(reader,/case 'lookupCancel':this\.lookup\+\+;this\.lookupTranslation=\(this\.lookupTranslation\|\|0\)\+1;/);
+});
