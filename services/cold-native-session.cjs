@@ -36,7 +36,7 @@ function runInWorker(opts,{forker=fork,spawner=spawn,stopTimeoutMs=12000,onState
    if(helper||stopping){send({type:'cold-native-error',error:'cold run cancelled before spawn'});return;}
    helperClosed=false;cleanupSafe=false;
    try{const file=require('./cold-test-run.cjs').helperPath(opts.root);if(!file)throw Error('ColdDesk unavailable');
-    helper=spawner(file,['run',opts.exe,'--seconds',String(Math.ceil((opts.budgetMs||360000)/1000)+20),'--parent-pid',String(process.pid)],{windowsHide:true,stdio:['pipe','pipe','ignore']});}
+    helper=spawner(file,['run',opts.exe,'--seconds',String(Math.ceil((opts.budgetMs||360000)/1000)+20),'--parent-pid',String(process.pid),...(opts.ignoreInput===true?['--ignore-input']:[]),...(opts.visible===true?['--visible']:[]),...(opts.localeEmulator?.path&&opts.localeEmulator?.guid?['--locale-emulator',opts.localeEmulator.path,'--le-guid',opts.localeEmulator.guid]:[])],{windowsHide:true,stdio:['pipe','pipe','ignore']});}
    catch(e){helperClosed=true;cleanupSafe=true;failure=String(e?.message||e);send({type:'cold-native-error',error:failure});send({type:'cold-native-close',code:-1,signal:null});requestStop();finish();return;}
    helper.stdin.on?.('error',e=>{failure=String(e?.message||e);requestStop();});
    helper.stdout.on?.('error',e=>{failure=String(e?.message||e);requestStop();});

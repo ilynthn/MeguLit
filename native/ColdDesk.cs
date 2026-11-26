@@ -89,8 +89,8 @@ static class ColdDesk{
  static string Q(string s){var b=new StringBuilder("\"");foreach(var c in s??""){if(c=='"'||c=='\\'){b.Append('\\').Append(c);}else if(c<0x20){b.Append("\\u").Append(((int)c).ToString("x4"));}else b.Append(c);}return b.Append('"').ToString();}
 
  static int Main(string[] a){
-  if(a.Length<1){Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID]");return 2;}
-  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1)return Run(a);}
+  if(a.Length<1){/* --visible (tools/adapt-auto.cjs --foreground, owner away): the game on the user's own desktop, still muted and in the job */Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID] [--ignore-input] [--visible]");return 2;}
+  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1)return Array.IndexOf(a,"--visible")>=2?Run(a,"Default"):Run(a);}
   catch(Exception e){Emit("{\"type\":\"ended\",\"why\":"+Q("error "+e.Message)+"}");return 1;}
   return 2;}
 
@@ -177,6 +177,14 @@ static class ColdDesk{
 
  static bool StopUnassigned(IntPtr process){try{TerminateProcess(process,1);return WaitForSingleObject(process,4000)==0;}catch{return false;}}
  internal static int Run(string[] a,string desktop=DESK,string childArgument=null,Func<IntPtr,int,bool> observe=null,SuspendedLaunch restricted=null,bool readerOnly=false){string exe=Path.GetFullPath(a[1]);int seconds=600,parentPid=0;for(int i=2;i<a.Length-1;i++){if(a[i]=="--seconds")seconds=Math.Max(10,int.Parse(a[i+1]));if(a[i]=="--parent-pid")parentPid=int.Parse(a[i+1]);}
+  /* 2026-11-26 tools/adapt-auto.cjs (unattended pipeline, owner away): --ignore-input keeps the run going when GetLastInputInfo moves
+     (a phantom input source reset it every ~100 ms and every run ended at 0.4 s). Without the switch the user's input still ends the run at once */
+  bool ignoreInput=Array.IndexOf(a,"--ignore-input")>=2;
+  /* --locale-emulator <LEProc.exe> --le-guid <profile>: the game started through Locale Emulator (x86 games on a non-Japanese system
+     quit at once without it: オルフレール shows a Shift-JIS "Information" box). The game is LEProc's child, so it is in the job too;
+     the window event carries the owning pid (the hook attaches to the game, not to LEProc) */
+  string le=null,leGuid=null;for(int i=2;i<a.Length-1;i++){if(a[i]=="--locale-emulator")le=Path.GetFullPath(a[i+1]);if(a[i]=="--le-guid")leGuid=a[i+1];}
+  if(le!=null&&(leGuid==null||!File.Exists(le)))le=null;
   requireObservedAudio=restricted!=null;
   using(var owner=Process.GetCurrentProcess())Emit("{\"type\":\"owner\",\"pid\":"+owner.Id+",\"started\":"+Q(owner.StartTime.ToUniversalTime().Ticks.ToString())+"}");
   ImageName=Path.GetFileNameWithoutExtension(exe);
@@ -187,7 +195,7 @@ static class ColdDesk{
   var si=new STARTUPINFO();si.cb=Marshal.SizeOf(si);si.lpDesktop="WinSta0\\"+desktop;
   const uint CREATE_SUSPENDED=4,CREATE_NO_WINDOW=0x08000000;
   if(restricted!=null)restricted(exe,si.lpDesktop,out pi.hProcess,out pi.hThread,out pi.dwProcessId);
-  else if(!CreateProcess(exe,new StringBuilder("\""+exe+"\""+(childArgument==null?"":" "+childArgument)),IntPtr.Zero,IntPtr.Zero,false,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,Path.GetDirectoryName(exe),ref si,out pi)){Emit("{\"type\":\"ended\",\"why\":\"create "+Marshal.GetLastWin32Error()+"\"}");return 1;}
+  else if(!CreateProcess(le??exe,new StringBuilder(le!=null?"\""+le+"\" -runas "+leGuid+" \""+exe+"\"":"\""+exe+"\""+(childArgument==null?"":" "+childArgument)),IntPtr.Zero,IntPtr.Zero,false,CREATE_SUSPENDED|CREATE_NO_WINDOW,IntPtr.Zero,Path.GetDirectoryName(exe),ref si,out pi)){Emit("{\"type\":\"ended\",\"why\":\"create "+Marshal.GetLastWin32Error()+"\"}");return 1;}
   if(!AssignProcessToJobObject(Job,pi.hProcess)){/* This suspended child is outside the job: only its original handle identifies it safely. */if(!StopUnassigned(pi.hProcess))CleanupSafe=false;Emit("{\"type\":\"ended\",\"why\":\"job\"}");return 1;}
   WatchParent(parentPid);ResumeThread(pi.hThread);CloseHandle(pi.hThread);pi.hThread=IntPtr.Zero;StartedAt=DateTime.UtcNow;
   string started="";try{started=Process.GetProcessById(pi.dwProcessId).StartTime.ToUniversalTime().Ticks.ToString();}catch{}
@@ -199,7 +207,7 @@ static class ColdDesk{
   while(why==""){
    if(Stopping){why="stopped";break;}
    /* the user is back: end now, before anything else */
-   {var li=new LASTINPUTINFO();li.cbSize=(uint)Marshal.SizeOf(li);if(observe==null && GetLastInputInfo(ref li)&&li.dwTime!=baseInput){Emit("{\"type\":\"input\"}");why="input";break;}}
+   {var li=new LASTINPUTINFO();li.cbSize=(uint)Marshal.SizeOf(li);if(observe==null && !ignoreInput && GetLastInputInfo(ref li)&&li.dwTime!=baseInput){Emit("{\"type\":\"input\"}");why="input";break;}}
    string c=null;lock(cmds)if(cmds.Count>0)c=cmds.Dequeue();
    if(c!=null && restricted!=null && RootWindow(pi.dwProcessId)==IntPtr.Zero)throw new IOException("GAME_INPUT_WINDOW_CHANGED");
    if(c!=null){var p=c.Trim().Split(new[]{' '},3);try{switch(p[0]){
@@ -219,8 +227,8 @@ static class ColdDesk{
     foreach(var pr in Process.GetProcessesByName(ImageName)){try{if(pr.StartTime.ToUniversalTime()>StartedAt&&!pids.Contains((uint)pr.Id)&&String.Equals(Path.GetFullPath(pr.MainModule.FileName),exe,StringComparison.OrdinalIgnoreCase)){Emit("{\"type\":\"relaunched\",\"pid\":"+pr.Id+"}");why="relaunched";CleanupSafe=false;}}catch{}finally{pr.Dispose();}}
     if(why!="")break;
     if((DateTime.UtcNow-goneAt).TotalSeconds>12){uint code=0;GetExitCodeProcess(pi.hProcess,out code);Emit("{\"type\":\"exited\",\"code\":"+code+"}");why="exited";break;}}
-   var w=Biggest();if(w!=IntPtr.Zero){RECT r;GetClientRect(w,out r);int cw=r.R-r.L,ch=r.B-r.T;if(w!=lastHwnd||cw!=lastW||ch!=lastH){lastHwnd=w;lastW=cw;lastH=ch;GameWin=w;if(restricted!=null)ReadGameDialog(w);var t=new StringBuilder(256);GetWindowText(w,t,256);Activate();
-     Emit("{\"type\":\"window\",\"hwnd\":"+Q(w.ToInt64().ToString())+",\"w\":"+cw+",\"h\":"+ch+",\"title\":"+Q(t.ToString())+"}");}}
+   var w=Biggest();if(w!=IntPtr.Zero){RECT r;GetClientRect(w,out r);int cw=r.R-r.L,ch=r.B-r.T;if(w!=lastHwnd||cw!=lastW||ch!=lastH){lastHwnd=w;lastW=cw;lastH=ch;GameWin=w;if(restricted!=null)ReadGameDialog(w);var t=new StringBuilder(256);GetWindowText(w,t,256);Activate();uint wpid;GetWindowThreadProcessId(w,out wpid);string wstarted="";try{using(var wp=Process.GetProcessById((int)wpid))wstarted=wp.StartTime.ToUniversalTime().Ticks.ToString();}catch{}
+     Emit("{\"type\":\"window\",\"hwnd\":"+Q(w.ToInt64().ToString())+",\"pid\":"+wpid+",\"started\":"+Q(wstarted)+",\"w\":"+cw+",\"h\":"+ch+",\"title\":"+Q(t.ToString())+"}");}}
    if(!readerOnly && (DateTime.UtcNow-lastMute).TotalMilliseconds>700){lastMute=DateTime.UtcNow;Mute();}
    if((DateTime.UtcNow-lastPower).TotalSeconds>5){lastPower=DateTime.UtcNow;if(Ac()=="false")Emit("{\"type\":\"power\",\"ac\":false}");int q=Quns();bool full=q>=2&&q<=4;if(full&&!wasFull)Emit("{\"type\":\"fullscreen\",\"on\":true}");wasFull=full;}
    if(DateTime.UtcNow>end){Emit("{\"type\":\"timeout\"}");why="timeout";break;}
