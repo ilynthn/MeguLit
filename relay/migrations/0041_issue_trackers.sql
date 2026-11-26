@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS issue_tracker_entries (
  merge_key TEXT NOT NULL DEFAULT '',
  merge_ref INTEGER,
  draft TEXT,
+ creating_at TEXT,
  issue INTEGER,
  tracker_issue INTEGER,
  listed_at TEXT,

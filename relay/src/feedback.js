@@ -4,7 +4,7 @@
    rate limits in worker.js. Bodies are capped, mentions are defused so an issue never pings anyone, and a hidden
    honeypot field catches simple bots. 2026-11-26: a game request is then listed in the [想玩] 汇总 tracker (same game:
    its line, people +1) and its own issue closed (issue-trackers.js). */
-import {settle, trackIssue, nameKey} from './issue-trackers.js';
+import {settle, trackIssue, nameKey, repoFor} from './issue-trackers.js';
 
 export const FEEDBACK_KINDS = { game: { tag: '想玩', label: 'game-request' }, feedback: { tag: '反馈', label: 'website-feedback' } };
 const LANGS = new Set(['zh', 'ja', 'en']);
@@ -67,7 +67,13 @@ async function sync(env, key, entry, ctx) {
   const number = numberOf(url);
   if (entry.kind === 'game' && number) {
     const name = defuse(entry.text.split(/\r?\n/)[0].slice(0, 80));
-    await settle(ctx, trackIssue(env, { id: 'feedback:' + entry.id, tracker: 'game-request', issue: number, name, mergeKey: nameKey(name) }));
+    /* the "opened" webhook may already have resolved and closed the request before its entry existed (its tick found no
+       row): resolveGameRequest stores closed_at before it asks for the tick, so reading it after the insert catches
+       every such ordering */
+    const resolved = () => env.DB.prepare(`UPDATE issue_tracker_entries SET tick_at=COALESCE(tick_at,?) WHERE repo=? AND issue=?
+      AND EXISTS (SELECT 1 FROM game_request_jobs WHERE repo=? AND issue=? AND closed_at IS NOT NULL AND matched_ref IS NOT NULL)`)
+      .bind(new Date().toISOString(), repoFor(env), number, repoFor(env), number).run();
+    await settle(ctx, trackIssue(env, { id: 'feedback:' + entry.id, tracker: 'game-request', issue: number, name, mergeKey: nameKey(name) }, undefined, resolved));
   }
   return url;
 }

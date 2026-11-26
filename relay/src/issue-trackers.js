@@ -10,13 +10,15 @@
 
    GitHub has no atomic append, so every tracker body is rewritten by one worker at a time: entries are queued in D1
    (issue_tracker_entries, 0041) and whoever takes the D1 lease (issue_tracker_locks) drains the queue for that
-   tracker: read the body, add every pending line, PATCH, read again and check each line is really there (a
-   maintainer ticking a box at the same moment makes the check fail and the round runs again on the fresh body).
+   tracker: read the body, add every pending line, read again right before the PATCH (a body changed since, e.g. a
+   maintainer ticking a box, means the round is built again on it), PATCH, read again and check each line is really
+   there (an edit based on an older page that removed our line makes the round run again). What is left is the
+   time of one request between that last read and the PATCH: GitHub offers no conditional write for an issue body.
    After letting the lease go the holder looks once more for rows nobody has tried yet, so an entry queued while the
    lease was taken is never left behind; the 30-minute cron (syncTrackers) retries anything that failed. */
 
 const DEFAULT_REPO = 'ilynthn/MeguLit';
-const LEASE = 60000, BATCH = 8, MAX_ATTEMPTS = 48, ROUNDS = 3;
+const LEASE = 60000, BATCH = 8, MAX_ATTEMPTS = 48, ROUNDS = 3, WRITE_ROUNDS = 5;
 const PENDING = '(closed_at IS NULL OR (tick_at IS NOT NULL AND ticked_at IS NULL))';
 const CHECK = /^- \[([ xX])\] /;
 const PEOPLE = /^- \[[ xX]\] (.+)（(\d+) 人：(#\d+(?: #\d+)*)）\s*$/;
@@ -134,6 +136,19 @@ async function gh(env, route, method = 'GET', body) {
   return r.json();
 }
 
+const entryMarker = id => `<!-- tracker-entry:${id} -->`;
+
+async function findCreated(env, draft, id) {
+  const marker = entryMarker(id);
+  for (let page = 1; page <= 3; page++) {
+    const list = await gh(env, `/issues?state=all&labels=${encodeURIComponent(draft.labels.join(','))}&sort=created&direction=desc&per_page=100&page=${page}`);
+    const found = Array.isArray(list) ? list.find(issue => !issue.pull_request && typeof issue.body === 'string' && issue.body.includes(marker)) : null;
+    if (found) return issueNumber(found);
+    if (!Array.isArray(list) || list.length < 100) break;
+  }
+  return null;
+}
+
 async function acquire(env, key, owner) {
   const t = Date.now();
   const row = await env.DB.prepare(`INSERT INTO issue_tracker_locks(tracker,owner,until) VALUES(?,?,?)
@@ -182,7 +197,7 @@ async function currentTracker(env, repo, tracker, lock, skipCache) {
   return {state: 'open', title: initialTitle(conf), body: `${conf.intro}\n\n${trackerMarker(tracker)}`, ...made};
 }
 
-async function updateTracker(env, repo, tracker, rows, lock, stamp) {
+async function updateTracker(env, repo, tracker, rows, lock, stamp, fixed = null) {
   for (const row of rows) {
     const candidates = [];
     if (row.merge_key) {
@@ -195,11 +210,19 @@ async function updateTracker(env, repo, tracker, rows, lock, stamp) {
   }
   const entries = () => rows.map(row => ({issue: row.issue, name: row.name, day: row.day, section: row.section,
     candidates: row.candidates, list: !row.listed_at, tick: !!row.tick_at && !row.ticked_at}));
-  let issue = await currentTracker(env, repo, tracker, lock, false);
-  for (let round = 0; round < ROUNDS; round++) {
+  /* fixed: a tick for a line already listed goes to the tracker that holds it, open or closed */
+  let issue = fixed ? await gh(env, `/issues/${fixed}`) : await currentTracker(env, repo, tracker, lock, false);
+  for (let round = 0; round < WRITE_ROUNDS; round++) {
     const want = entries(), body = applyEntries(issue.body, tracker, want), title = retitle(issue.title, body, tracker);
     if (body !== issue.body || title !== issue.title) {
       await lock();
+      /* GitHub has no conditional update for an issue body: read once more right before writing, and when anyone
+         (a maintainer ticking a box) wrote since the body this round was built on, build it again on theirs */
+      const fresh = await gh(env, `/issues/${issue.number}`);
+      if (fresh.body !== issue.body || fresh.title !== issue.title || fresh.state !== issue.state) {
+        issue = fixed || usable(fresh, tracker) ? fresh : await currentTracker(env, repo, tracker, lock, true);
+        continue;
+      }
       await gh(env, `/issues/${issue.number}`, 'PATCH', {body, title});
       issue = await gh(env, `/issues/${issue.number}`);
     }
@@ -217,7 +240,7 @@ async function updateTracker(env, repo, tracker, rows, lock, stamp) {
       }
     }
     if (!entries().some(e => e.list || e.tick)) return;
-    if (!usable(issue, tracker)) issue = await currentTracker(env, repo, tracker, lock, true);
+    if (!fixed && !usable(issue, tracker)) issue = await currentTracker(env, repo, tracker, lock, true);
   }
   throw Error('TRACKER_CONFLICT');
 }
@@ -237,16 +260,29 @@ async function work(env, repo, tracker, key, owner, now) {
     try {
       await lock();
       const draft = JSON.parse(row.draft);
-      const number = issueNumber(await gh(env, '/issues', 'POST', {title: draft.title, body: draft.body, labels: draft.labels}));
+      /* an earlier attempt may have created the issue and lost the answer: find it by its entry marker first */
+      let number = row.creating_at ? await findCreated(env, draft, row.id) : null;
+      if (!number) {
+        await env.DB.prepare('UPDATE issue_tracker_entries SET creating_at=COALESCE(creating_at,?) WHERE id=?').bind(stamp, row.id).run();
+        number = issueNumber(await gh(env, '/issues', 'POST', {title: draft.title, body: draft.body, labels: draft.labels}));
+      }
       if (!number) throw Error('DETAIL_ISSUE_NUMBER');
       await env.DB.prepare('UPDATE issue_tracker_entries SET issue=? WHERE id=?').bind(number, row.id).run();
       row.issue = number;
     } catch (error) { await failed(row, error); }
   }
-  const listing = rows.filter(row => row.issue && (!row.listed_at || (row.tick_at && !row.ticked_at)));
-  if (listing.length) {
-    try { await updateTracker(env, repo, tracker, listing, lock, stamp); }
-    catch (error) { for (const row of listing) if (!row.listed_at || (row.tick_at && !row.ticked_at)) await failed(row, error); }
+  /* new lines go to the open tracker; a tick goes to the tracker its line was written to (it may be closed by now) */
+  const open = rows.filter(row => row.issue && (!row.listed_at || (row.tick_at && !row.ticked_at && !row.tracker_issue)));
+  const groups = [[null, open]];
+  for (const row of rows) {
+    if (!row.issue || !row.listed_at || !row.tick_at || row.ticked_at || !row.tracker_issue) continue;
+    const group = groups.find(([number]) => number === row.tracker_issue);
+    if (group) group[1].push(row); else groups.push([row.tracker_issue, [row]]);
+  }
+  for (const [number, group] of groups) {
+    if (!group.length) continue;
+    try { await updateTracker(env, repo, tracker, group, lock, stamp, number); }
+    catch (error) { for (const row of group) if (!row.listed_at || (row.tick_at && !row.ticked_at)) await failed(row, error); }
   }
   for (const row of rows) {
     if (!row.issue || !row.listed_at || row.closed_at) continue;
@@ -288,15 +324,18 @@ export async function registerTrackerEntry(env, entry, now = new Date()) {
     VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
     .bind(entry.id, repoFor(env), entry.tracker, trackerName(entry.name), now.toISOString().slice(0, 10), entry.section ? trackerName(entry.section) : '',
       entry.mergeKey || '', Number.isSafeInteger(entry.mergeRef) ? entry.mergeRef : null,
-      issue ? null : JSON.stringify(entry.draft), issue, now.toISOString()).run();
+      issue ? null : JSON.stringify({...entry.draft, body: `${entry.draft.body}\n\n${entryMarker(entry.id)}`}), issue, now.toISOString()).run();
   return true;
 }
 
 /* register + drain; never throws (the detail issue simply stays open when the tracker cannot be reached, and the cron
    tries again) */
-export async function trackIssue(env, entry, now = new Date()) {
+export async function trackIssue(env, entry, now = new Date(), afterRegister = null) {
   try {
-    if (await registerTrackerEntry(env, entry, now)) return await drainTracker(env, entry.tracker, now);
+    if (await registerTrackerEntry(env, entry, now)) {
+      if (afterRegister) await afterRegister();
+      return await drainTracker(env, entry.tracker, now);
+    }
   } catch (error) { console.error('issue tracker', entry.tracker, error?.message); }
   return null;
 }

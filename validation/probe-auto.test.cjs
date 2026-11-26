@@ -80,7 +80,9 @@ test('quiet upload: sent once in the background, the next player of the same gam
  r=await auto.run(u3.root,u3.db,{...quiet,...ENDPOINTS,fetcher:f3,sampler:sampler(3)});
  assert.deepEqual(r.results,{g1:'sent'});const after=rows('SELECT * FROM probe_games')[0];
  assert.notEqual(after.bundle_id,oldBundle);assert.equal(after.items,4);assert.equal(after.reporters,3);
- assert.equal(rows('SELECT * FROM probe_bundles').length,1,'one probe per game');assert.equal(blobs().length,1);
+ /* 2026-11-26 still one probe per game (probe_games), but the replaced bundle stays: the closed detail issue listed in the
+    [适配探针] 汇总 tracker advertises its download until the link expires */
+ assert.equal(rows('SELECT * FROM probe_bundles').length,2,'the tracker-linked bundle is kept');assert.equal(blobs().length,2);
  assert.equal(github.filter(x=>x.url.endsWith('/issues')).length,2,'the better probe gets its own detail issue');
  assert.equal(rows("SELECT * FROM seed_admin_items WHERE kind='probe-skeleton'").length,1);
 });

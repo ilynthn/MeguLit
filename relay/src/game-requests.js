@@ -156,15 +156,15 @@ export async function resolveGameRequest(env, repo, number, now, github) {
     let closed = false;
     try {
       if (tracked) closed = await requestTrackerTick(env, repo, number, now);
-      else {
-        closed = (await github(env, repo, number, 'PATCH')).ok;
-        if (closed) await requestTrackerTick(env, repo, number, now);
-      }
-      return closed ? 'closed' : 'retry';
+      else closed = (await github(env, repo, number, 'PATCH')).ok;
     } finally {
       await db.prepare(`UPDATE game_request_jobs SET closed_at=?,closing_token=NULL,closing_until=NULL
         WHERE repo=? AND issue=? AND closing_token=?`).bind(closed ? stamp : null, repo, number, token).run();
     }
+    /* closed by PATCH while its tracker entry may still be on the way: the tick is asked only after closed_at is
+       stored, so a registration that finds no tick here reads closed_at instead (feedback.js) */
+    if (closed && !tracked) await requestTrackerTick(env, repo, number, now);
+    return closed ? 'closed' : 'retry';
   }
   return 'open';
 }

@@ -170,14 +170,16 @@ async function probeChunk(request,env,ip,now,url,{json,fail,readJSON,ctx}){
  for(let i=0;i<v.parts;i++)await env.BUCKET.delete?.(`probes/parts/${id}/${i}`).catch(()=>{});
  // Keep historical issue-linked evidence available for its disposition.
  if(stored?.bundle_id){
-  const old=await env.DB.prepare("DELETE FROM probe_bundles WHERE id=? AND issue_url='' RETURNING object_key").bind(stored.bundle_id).first();
+  /* 2026-11-26 a bundle whose download a tracker-listed detail issue advertises stays too (issue-trackers.js) */
+  const old=await env.DB.prepare("DELETE FROM probe_bundles WHERE id=? AND issue_url='' AND NOT EXISTS (SELECT 1 FROM issue_tracker_entries WHERE id='probe:'||probe_bundles.id) RETURNING object_key").bind(stored.bundle_id).first()
+   .catch(error=>/no such table/i.test(error?.message||'')?env.DB.prepare("DELETE FROM probe_bundles WHERE id=? AND issue_url='' RETURNING object_key").bind(stored.bundle_id).first():Promise.reject(error));
   if(old)await env.BUCKET.delete?.(old.object_key).catch(()=>{});
  }
  if(env.GITHUB_TOKEN){const old=/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/issues\/(\d+)$/.exec(String(stored?.issue_url||'')),legacy=old&&old[1]===repoFor(env)?old:null;
   const link=env.LINK_SECRET&&url?`${url.origin}/api/probe/download/${id}?exp=${expires}&sig=${await hmac(env.LINK_SECRET,'probe:'+id+':'+expires)}`:'(LINK_SECRET not set)';
   const detail=probeDetail(bundle,{link,days,sha:v.sha256,size:total});
   await settle(ctx,trackIssue(env,{id:'probe:'+id,tracker:'adapter-probe',name:detail.name,section:detail.section,draft:{title:detail.title,body:detail.body,labels:['adapter-probe']},
-   mergeKey:dd?'probe:'+dd.identity:'',mergeRef:legacy?Number(legacy[1]):undefined},now));}
+   mergeKey:dd?'probe:'+dd.identity:'',mergeRef:legacy?Number(legacy[2]):undefined},now));}
  return finish({ok:true,id,queued:true},201);}
 async function probeDownload(url,env,{fail}){const id=url.pathname.split('/').pop()||'',exp=Number(url.searchParams.get('exp')),sig=url.searchParams.get('sig')||'';
  if(!/^[0-9a-f-]{36}$/.test(id)||!Number.isSafeInteger(exp)||!HEX64.test(sig)||!env.LINK_SECRET)return fail('NOT_FOUND',404);
