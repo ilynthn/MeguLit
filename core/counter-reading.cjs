@@ -100,7 +100,7 @@ const COUNTERS = {
   '月': { base: 'がつ', numbers: { 4: 'し', 7: 'しち', 9: 'く' }, only: n => n >= 1 && n <= 12 },
   // The native count: SudachiDict reads 六つ むいつ.
   'つ': { base: 'つ', only: n => n >= 1 && n <= 9, exact: { 1: 'ひとつ', 2: 'ふたつ', 3: 'みっつ', 4: 'よっつ', 5: 'いつつ', 6: 'むっつ', 7: 'ななつ', 8: 'やっつ', 9: 'ここのつ' } },
-  // 一日 is いちにち or ついたち by meaning: ついたち only right after a month (numberTokens).
+  /* 一日 is いちにち or ついたち by meaning: ついたち only right after a month (numberTokens). */
   '日': { base: 'にち', numbers: { 7: 'しち', 9: 'く' }, lastFour: 'よっか', exact: { 2: 'ふつか', 3: 'みっか', 4: 'よっか', 5: 'いつか', 6: 'むいか', 7: 'なのか', 8: 'ようか', 9: 'ここのか', 10: 'とおか', 20: 'はつか' } },
 };
 /* The last element with a small っ: いち いっ, ろく ろっ, はち はっ, (に)じゅう (に)じゅっ, (さんび)ゃく (さんび)ゃっ. */
