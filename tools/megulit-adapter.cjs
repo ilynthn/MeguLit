@@ -67,6 +67,9 @@ function lunaCaps(caps,gameDir,engine=''){if(caps.known)return caps;let hits=[];
  if(mapped&&!engine)return {...Engines.capabilities(Engines.lunaRule(mapped)),luna:mapped,lunaStatic:true};return names.length?{...caps,luna:names.join(' / ')}:caps;}
 /* 2026-11-27 (E: nearly full): the game's own copy for testing goes to MEGULIT_ADAPTER_GAMES (default H:MeguLit-Workadapter-games),
    never E: or C:; the target drive must keep MIN_FREE free after the copy. A copy already there (same name) is kept */
+/* where a run's pictures and logs go (F: and E: ran out on 11-27): MEGULIT_ADAPTER_OUT, default H:\MeguLit-Work\adapter-runs; the
+   shared game lock and the copied app stay in the cold stage's runs root */
+const OUT_ROOT=()=>process.env.MEGULIT_ADAPTER_OUT||'H:\\MeguLit-Work\\adapter-runs';
 const GAMES_ROOT=()=>process.env.MEGULIT_ADAPTER_GAMES||'H:\\MeguLit-Work\\adapter-games',MIN_FREE=15*2**30;
 function treeBytes(d){let n=0;const walk=x=>{let e=[];try{e=fs.readdirSync(x,{withFileTypes:true});}catch{return;}for(const y of e){const f=path.join(x,y.name);if(y.isDirectory())walk(f);else if(y.isFile())try{n+=fs.statSync(f).size;}catch{}}};walk(d);return n;}
 function copyGame(src,{root=GAMES_ROOT(),statfs=fs.statfsSync,noDrives=process.env.MEGULIT_ADAPTER_NO_DRIVES??'C,E'}={}){const dir=path.join(root,Cold.safeName(Cold.titleOf(src)));
@@ -119,7 +122,7 @@ function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(s
  '## 验证','','- 冷测试 + Cardinal（'+(st.foreground?'前台':'隐藏桌面')+'，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人工确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 阅读层译文只由 Cardinal 回放证明，冷测试截图里没有阅读层（未实机验证译文画面）',''].join('\n');}
 
 async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.resolve(o.dir));log('# own copy '+c.dir+(c.reused?' (kept)':' ('+Math.round(c.bytes/1048576)+' MB)'));o={...o,dir:c.dir};}
- const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(Cold.RUNS_ROOT,Cold.safeName(title)));
+ const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(OUT_ROOT(),Cold.safeName(title)));
  fs.mkdirSync(out,{recursive:true});
  if(!fs.existsSync(dir)){log('# 游戏目录不存在：'+dir+'（Git Bash 的 /e/... 带 [ ] 时不转换，用 E:/...）');return EXIT.inconclusive;}
  const triage=Cold.unsupported(dir);if(triage&&!/光盘/.test(triage)){log('# '+triage);return EXIT.inconclusive;}
