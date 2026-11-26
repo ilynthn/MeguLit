@@ -15,7 +15,7 @@ const {replay}=require('./helpers/hook-replay.cjs');
 test('hook DLL: the selected stream that cannot write back feeds the GDI hide, nothing else does',()=>{
  const t=read('native/megulithook/texthook.cc');
  assert.match(t,/#include "MeguLitGdiHide\.h"/);
- assert.match(t,/TextOutput\(tp, hp, buffer, buff\.size\);[\s\S]{0,200}if \(!\(hp\.type & EMBED_ABLE\) && check_embed_able\(tp\)\)\s*\{?\s*MeguLitGdiHide::Feed\(tp, hp, buff\);/);
+ assert.match(t,/TextOutput\(tp, hp, buffer, buff\.size\);[\s\S]{0,600}if \(!\(hp\.type & EMBED_ABLE\) && check_embed_able\(tp\)\)\s*\{?\s*MeguLitGdiHide::Feed\(tp, hp, buff\);/);
  const h=read('native/megulithook/MeguLitGdiHide.h');
  assert.match(h,/attachFunction\(F_TextOutA \| F_TextOutW \| F_ExtTextOutA \| F_ExtTextOutW \| F_DrawTextA \| F_DrawTextW \| F_DrawTextExA \| F_DrawTextExW\)/);
  assert.match(h,/if \(!armed \|\| !\(hit \|\| ruby\) \|\| !check_embed_able\(tp\)\)\s*return false;/,'never hides once the host switches the stream off');
@@ -29,7 +29,7 @@ test('hook DLL: GDI functions skip only matched dialogue and otherwise pass thro
  assert.match(c,/DT_CALCRECT\) && MeguLitGdiHide::Skip\(/,'measuring calls are never skipped');
  const e=read('native/megulithook/embed_util.cc');
  assert.match(e,/if \(hp\.embed_hook_font\)\s*\{\s*MeguLitGdiHide::FontWanted = true;\s*attachFunction\(hp\.embed_hook_font\);/,'font switching only when an embed hook asked for it, as before');
- for(const f of ['build-x86.cmd','build-x64.cmd'])assert.match(read('native/megulithook/'+f),/for %%F in \(MeguLitGdiHide\.h (MeguLitMarks\.h )?(MeguLitEmbedWait\.h )?texthook\.cc hijackfuns\.cc embed_util\.cc( main\.cc)?( veh_hook\.cpp)?( hookfinder\.cc)?( enginecontrol\.cpp)?\) do copy \/y/,f);});
+ for(const f of ['build-x86.cmd','build-x64.cmd'])assert.match(read('native/megulithook/'+f),/for %%F in \(MeguLitGdiHide\.h (MeguLitDrawSkip\.h )?(MeguLitMarks\.h )?(MeguLitEmbedWait\.h )?texthook\.cc hijackfuns\.cc embed_util\.cc( main\.cc)?( veh_hook\.cpp)?( hookfinder\.cc)?( enginecontrol\.cpp)?\) do copy \/y/,f);});
 test('host: probe on selection, hide-only only after the DLL reports a hidden string',()=>{
  const b=read('native/HookBridge.cs');
  assert.ok(b.includes('static bool Armed(Candidate c){return c!=null&&(c.embed||c.gdiProbe);}'));

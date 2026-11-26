@@ -30,7 +30,7 @@ test('regression: other streams never match the old-BGI rule',()=>{
 test('front end: a hide-only stream never asks the game to draw the translation',()=>{
  const n=read('core/hook-native.cjs'),c=read('core/hook-control.cjs');
  assert.match(n,/const hideOnly=\(this\.state\?\.hookThreads\|\|\[\]\)\.some\(t=>t\.selected&&t\.hideOnly===true\);const want=!!\(this\.process&&this\.enabled&&!hideOnly&&/);
- assert.match(n,/\.\.\.\(t\.hideOnly===true\?\{hideOnly:true\}:\{\}\)\}\)\)\}\);this\.syncEmbedMode\(\);/);
+ assert.match(n,/\.\.\.\(t\.hideOnly===true\?\{hideOnly:true\}:\{\}\)(,\.\.\.\(Number\(t\.drawSkipped\)>0\?\{drawSkipped:[^}]*\}:\{\}\))?\}\)\)\}\);this\.syncEmbedMode\(\);/);
  assert.match(c,/!\(h\.hooks\?\.state\?\.hookThreads\|\|\[\]\)\.some\(t=>t\.selected&&t\.hideOnly===true\)/);});
 test('regression: without hideOnly the embed-mode decision is the same as before',()=>{
  const {HookNative}=require('../core/hook-native.cjs');const h=Object.create(HookNative.prototype);const sent=[];
