@@ -254,7 +254,9 @@
     if(text)translated.replaceChildren(el('strong','',value.provider?label+' · '+value.provider:label),el('div','',text));else translated.hidden=true;place();},
     e=>{if(current!==mine||!card)return;translated.replaceChildren(el('strong','',label),el('div','tomoyo-muted',e.message||'选区翻译失败'));place();});}
   try{result=result||await b.localLookup('lookup_exact',args);if(current!==mine||!card)return;
-   looked=result;renderLocal(result,body);b.decorateWordActions?.(card,args,result,{drag});userDict(result,args,body,mine);if(b.options?.()?.lookupProvider==='weblio')askWeblio();place();}catch(e){if(current===mine&&card){status.textContent=e.message;place();}}
+   looked=result;renderLocal(result,body);b.decorateWordActions?.(card,args,result,{drag});userDict(result,args,body,mine);if(b.options?.()?.lookupProvider==='weblio')askWeblio();place();}catch(e){if(current===mine&&card){status.textContent=e.message;
+    /* the built-in reading parts can fail (offline, Sudachi download): the player's own dictionaries and Weblio still answer for the selection */
+    userDict(null,args,body,mine);if(b.options?.()?.lookupProvider==='weblio')askWeblio();place();}}
  }
  /* ② capture compositor: MeguLit draws the line itself and reports a click on one of its glyphs (screen px, char index
     in the drawn line); the same word card opens there, anchored on the click. */

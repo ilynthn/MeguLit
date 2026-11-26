@@ -69,7 +69,8 @@ test('user dictionaries are wired into the dictionary page, the settings page an
  for(const action of ['user_dict_list','user_dict_import','user_dict_toggle','user_dict_move','user_dict_remove'])assert.ok(bridge.includes(`case '${action}'`),action);
  assert.match(bridge,/user-dictionaries\.cjs'\)\.rows\(root/);
  assert.match(reader,/action==='userDict'/);
- assert.match(card,/const request=b\.v4Request[\s\S]{0,400}request\('userDict'/);assert.match(card,/tomoyo-user-dict/);
+ assert.match(card,/const request=b\.v4Request[\s\S]{0,400}request\('userDict'/);
+ assert.match(card,/catch\(e\)\{if\(current===mine&&card\)\{status\.textContent=e\.message;[\s\S]{0,200}userDict\(null,args,body,mine\)/,'a failed built-in lookup still asks the personal dictionaries (Codex #1280)');assert.match(card,/tomoyo-user-dict/);
  assert.match(settings,/section==='dictionary'[\s\S]{0,200}user-dicts\.js/);
  assert.match(page,/pick_patch_file/);
 });
