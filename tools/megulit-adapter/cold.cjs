@@ -240,8 +240,8 @@ function judge({unsupported:why='',cold=null,diff=null,card=null}={}){const reas
   if(!measured)reasons.push(label+'：量不到（'+detail+'）');else if(!ok){fail=true;reasons.push(label+'：不过（'+detail+'）');}else reasons.push(label+'：过（'+detail+'）');};
  /* 2026-11-26 (owner via 261126总指挥): measured only by Cardinal's own observation of the hide (leakObservation: hide checks, native
     records, the bridge's hide-only confirmation, or an observed read mode); a cold run never measures hideVisible (no reader) */
- const lo=r.detail?.leakObservation||{},hideMeasured=lo.observed===true&&typeof s.leak==='number';
- check('hidden','原文隐藏',s.leak>=GATE.leak,hideMeasured,'leak '+s.leak+(hideMeasured?(lo.read?'，读模式':'')+(lo.checked?'，隐藏检测 '+lo.checked+' 次':'')+(lo.native?'，原生记录':''):'，Cardinal 没观测到隐藏（没有隐藏确认）'));
+ const lo=r.detail?.leakObservation||{},hideMeasured=cold.hideOff!==true&&lo.observed===true&&typeof s.leak==='number';
+ check('hidden','原文隐藏',s.leak>=GATE.leak,hideMeasured,'leak '+s.leak+(hideMeasured?(lo.read?'，读模式':'')+(lo.checked?'，隐藏检测 '+lo.checked+' 次':'')+(lo.native?'，原生记录':''):cold.hideOff===true?'，冷测试里隐藏没打开':'，Cardinal 没观测到隐藏（没有隐藏确认）'));
  check('replaced','译文替换',s.row>=GATE.row&&s.pair>=GATE.pair,!!ap.row&&!!ap.pair,'row '+s.row+' pair '+s.pair);
  check('choice','第一个选项有翻译',s.choice>=GATE.choice,!!ap.choice,ap.choice?'choice '+s.choice:'没推进到选项');
  if(fail)return done('fail');
@@ -370,6 +370,9 @@ async function run(opts,{log=console.log}={}){
    /* the bridge's hide confirmations of this run (cold-test-run hideProbe): when, on which stream */
    result.hide={confirmed:runInfo?.hideConfirmed||[],probes:(runInfo?.hideProbes||[]).length,skipped:runInfo?.drawSkipped||0};
    result.hook=hookUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
+   /* 2026-11-27 every cold run before this read without hiding (services/cold-test-run.cjs hookSetup): a run whose core ended with the hide
+      off says so, and its leak is no hide result */
+   if(runInfo?.hideOn===false){cold.hideOff=true;result.reasons.push('冷测试里原文隐藏没有打开（内核结束时隐藏是关的），游戏原文一直显示：leak 不代表隐藏效果');}
    diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait,lunaEngine:diag.lunaEngine};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
   result.stuck=stuckOf({cold,run:runInfo,diag,engine,visible:opts.foreground===true});

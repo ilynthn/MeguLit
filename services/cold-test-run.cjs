@@ -15,6 +15,11 @@ const InputFallback=require('../core/cold-test/input-fallback.cjs');
 const {parseTrace}=require('../core/self-check.cjs');
 
 let stopActive=null;
+/* 2026-11-27 (ファタモルガーナの館, 千恋＊万花 cold runs: the KiriKiri hook reported every line drawn visible, hidden=0; no cold run since
+   the first ever had 'replacement=True') core hides the game's original only for a bound reader window (core/hook-native.cjs:
+   state.bound, else 'disable reason=reader-unbound'), and the cold run never said it was bound, so every cold run read without hiding.
+   The run is bound to the game window like a played game, with the cover on */
+const hookSetup=(res,started)=>[{hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started,bound:true,coverEnabled:true}];
 const helperPath=root=>{for(const p of [path.join(root||'','native','ColdDesk.exe'),path.join(__dirname,'..','native','ColdDesk.exe')])if(fs.existsSync(p))return p;return '';};
 
 /* engine-draw UI runs (button / menu / choice) in game client px, newest first, for the driver's 「はじめから」 and choice clicks */
@@ -168,7 +173,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/megulit-adapter (cold stage)) the level the input ladder is on */
   const post=a=>{if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);};
   const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint,changed:()=>{for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}}):null;
-  const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
+  const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;/* whether core had the game's original hidden at the end (HookNative.enabled: it sent the bridge 'enable') */if(hooks&&typeof hooks.enabled==='boolean')res.hideOn=hooks.enabled;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
    res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=tapeOfRun(res,undefined,slowTape);if(snap.lines>0){
      /* the versioned tape file (core/cardinal/tape-file.cjs), with what the game's screen showed: the choice the runner's OCR read
@@ -197,7 +202,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
       answers it too; a request for other options still waits for a picture of its own */
    if(opts.choiceLocate===true)hooks.locateChoices=options=>{const o=(Array.isArray(options)?options:[]).map(String).slice(0,12),prev=locatePending,same=!!prev&&o.some(x=>prev.options.includes(x));
     locatePending={options:o,at:now(),tries:same?prev.tries:0,chain:same?prev.chain:{}};if(!same)ocrAt=0;};
-   hooks.configure({hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started});}
+   hooks.configure(...hookSetup(res,started));}
    /* 2026-11-26 processName without .exe, as GalWindowBridge sends it: native/HookTarget.cs Validate compares it with the image name
       without extension, so 'orfre.exe' made every cold run end in 「Bound game process changed」 and six reconnects */
    catch(e){res.errors.push('hook '+String(e?.message||e).slice(0,100));}};
@@ -230,7 +235,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* A failed spawn emits error then close, without exit. Release the foreground barrier on close too. */
   child.on?.('close',()=>{finish('helper-close');resolve(res);});
   let ocrBusy=false,ocrAt=0,ocrN=0;
-  timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
+  /* core decides the hide (its render route) only in a configure that finds its bridge started; in the app GalWindowBridge configures again
+     and again, here the first configure only starts the bridge: once it runs, the run's setup is applied a second time */
+  let routed=false;
+  timer=setInterval(()=>{if(done)return;try{if(hooks&&!routed&&hooks.process&&res.window){routed=true;hooks.configure(...hookSetup(res,started));}}catch{}try{hooks?.tick?.();}catch{}
    if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;ocrFor=locatePending;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
    const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,screenText:res.ocrText||'',quietMs:hookTextAt?now()-hookTextAt:1e9,lineChars:srcChars,lineAgeMs:srcAt?now()-srcAt:1e9});
@@ -244,4 +252,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={tapeOfRun,TAPE_SLOW,TAPE_FAST,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
+module.exports={hookSetup,tapeOfRun,TAPE_SLOW,TAPE_FAST,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
