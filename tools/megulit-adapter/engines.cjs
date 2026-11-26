@@ -87,6 +87,10 @@ const RULES={
 };
 /* the profile engine id (core/profiles engineId) -> the rule id here, where they differ */
 const ALIAS={cs2:'catsystem2',ethornell:'bgi',krkr:'kirikiri',willplus:'advhd',nitropak:'nitroplus',iga:'innocentgrey',paz:'minori',sia:'siasoft',silky:'silkys',stuff:'stuffscript',arcg:'willarcg'};
+/* LunaHook engine class (its runtime 「匹配到 X 引擎」 and its static checks, registry.lunaHook) -> the rule id here; a class not listed
+   stays unknown and the person is asked, with LunaHook's name in the question */
+const LUNA={KiriKiri:'kirikiri',KiriKiriZ:'kirikiri',CatSystem:'catsystem2',BGI:'bgi',littlecheese:'willarcg',Artemis:'artemis',CMVS:'cmvs',Purple:'cmvs',Purple2:'cmvs',Giga:'nexas',QLIE:'qlie',Malie:'malie',Minori:'minori',Nitroplus:'nitroplus',Nitroplus2:'nitroplus',Onscripter:'nscripter',ShinaRio:'shiinario',Silkys:'silkys',SilkysOld:'silkys',Silkyssakura:'silkys',Silkysveryveryold:'silkys',System4x:'system4',WillPlus:'advhd',FVP:'fvp',EntisGLS:'entis',Cotopha:'entis',_5pb:'mages',_5pb_2:'mages',RPGMakerRGSS3:'rgss',RPGMakerRGSS300:'rgss',RpgmXP:'rgss',Siglusold:'siglus',Siglus:'siglus',Leaf:'leaf',Ages3ResT:'rugp',Yuris:'yuris',YU_RIS:'yuris',Majiro:'majiro',SoftPal:'softpal',Reallive:'reallive',RealLive:'reallive',Renpy:'renpy',TyranoScript:'tyrano',Unity:'unity',Mages:'mages'};
+const lunaRule=cls=>LUNA[String(cls||'')]||LUNA[String(cls||'').replace(/\d+$/,'')]||'';
 const ruleId=engine=>{const e=String(engine||'').toLowerCase();if(RULES[e])return e;if(ALIAS[e])return ALIAS[e];try{const id=require('../../core/profiles/index.cjs').engineId(e);if(RULES[id])return id;if(ALIAS[id])return ALIAS[id];}catch{}return '';};
 const exists=(rel,mark)=>{try{const p=path.join(REPO,rel);if(!fs.existsSync(p))return false;return !mark||fs.readFileSync(p,'latin1').includes(mark);}catch{return false;}};
 let readerMemo=null;
@@ -110,4 +114,4 @@ const cell=a=>a.length?a.join('<br>'):'—';
 function markdown(rows=inventory()){const head='| 引擎 | 剧本读取（RRFZ） | 画字钩子 | 引擎级隐藏 | 汉化配对 | seed / 默认设置 |\n|---|---|---|---|---|---|';
  const seeds=s=>{const t=Object.entries(s).map(([k,v])=>k+' '+v).join('，');return t||'—';};
  return head+'\n'+rows.map(r=>'| '+r.label+' | '+cell(r.readers)+' | '+cell(r.draw.map(d=>d.kind+' '+path.basename(d.file)+(d.mark?'#'+d.mark:'')))+' | '+cell(r.hide.map(h=>path.basename(h.file)+(h.mark?'#'+h.mark:'')))+' | '+cell(r.pairing)+' | '+seeds(r.seeds)+(r.defaults?'；引擎默认 core/profiles/engines/'+r.id+'.cjs':'')+' |').join('\n');}
-module.exports={RULES,GENERIC_HIDE,ruleId,capabilities,inventory,markdown};
+module.exports={RULES,GENERIC_HIDE,LUNA,lunaRule,ruleId,capabilities,inventory,markdown};

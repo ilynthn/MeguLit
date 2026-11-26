@@ -138,3 +138,15 @@ test('VNDB: a Steam appid names the release, one Japanese release is taken, seve
  v=await Ident.vndb({title:'x',gameDir:tmp()},{lookup:async()=>{throw Error('METADATA_NETWORK');}});
  assert.deepEqual([v.vndb,v.release,v.error],['','','METADATA_NETWORK']);
  assert.ok(Check.questions({identity:{vndb:v.vndb,release:v.release},caps:{}}).some(q=>q.id==='vndb'));});
+
+test('LunaHook: static checks name an engine only where the registry is silent; the runtime 「匹配到 X 引擎」 line is read from the hook diagnostics',()=>{
+ const R=require('../services/original-engines/registry.cjs'),d=tmp();
+ fs.writeFileSync(path.join(d,'game.exe'),'MZ');fs.mkdirSync(path.join(d,'windata'));fs.writeFileSync(path.join(d,'windata','script_body.bin'),'x');
+ assert.ok(R.lunaHook(d).some(h=>h.cls==='_5pb_2'),'FILE target in a subfolder');assert.equal(R.engineOf(d),null,'the registry itself unchanged');
+ const unknown=Engines.capabilities('');const c=Adapter.lunaCaps(unknown,d,'');assert.equal(c.id,'mages');assert.equal(c.luna,'_5pb_2');
+ const named=Adapter.lunaCaps(Engines.capabilities('ddsystem'),d,'ddsystem');assert.equal(named.known,false,'a registry engine keeps its name');assert.match(named.luna,/_5pb_2/);
+ assert.match(Check.questions({identity:{vndb:'v1',cn:'-',release:'x'},caps:named})[0].ask,/LunaHook 认为是 .*_5pb_2/);
+ const e=tmp(),Cold=require('../tools/megulit-adapter/cold.cjs');fs.mkdirSync(path.join(e,'logs'));const t=new Date().toISOString().replace('Z','0000Z');
+ fs.writeFileSync(path.join(e,'logs','hook-diagnostics.log'),t+' info 0 匹配到 Yuris 引擎\n');
+ const diag=Cold.hookDiagnostics(e,{startedAt:t,endedAt:t},null);assert.equal(diag.lunaEngine,'Yuris');assert.equal(Engines.lunaRule(diag.lunaEngine),'yuris');
+ const j=require('../services/original-engines/lunahook-fingerprints.json');assert.ok(j.rules.length>=150&&j.rules.every(r=>['FILE','FILE_ANY','FILE_ALL'].includes(r.check)&&r.targets.length));});

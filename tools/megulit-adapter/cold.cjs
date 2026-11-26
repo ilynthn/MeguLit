@@ -262,12 +262,14 @@ function engineHook(loc){const t0=Date.now(),done=o=>({...o,ms:Date.now()-t0});
  catch(e){return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits:0,error:String(e.message||e).slice(0,160)});}}
 
 /* the kernel's own diagnostics for the run (the shared hook-diagnostics.log of the copied app, cut to the run's time) */
-function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:''};if(!run?.startedAt)return out;
+function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:'',lunaEngine:''};if(!run?.startedAt)return out;
  const a=Date.parse(run.startedAt)-2000,z=Date.parse(run.endedAt||new Date().toISOString())+2000;let text='';try{text=fs.readFileSync(path.join(root,'logs','hook-diagnostics.log'),'utf8');}catch{return out;}
  const kept=[];for(const l of text.split(/\r?\n/)){const t=Date.parse(l.slice(0,28));if(!(t>=a&&t<=z))continue;kept.push(l);let m;
   if((m=/注入钩子: (.+?) [0-9A-F]{6,}$/.exec(l)))out.injected.push(m[1]);
   if((m=/aux noise (.+?) "(.*)"$/.exec(l))){out.auxNoise++;if(!out.auxSample)out.auxSample=m[1]+': '+m[2].slice(0,40);}
   if(/krkr wait kag/.test(l))out.kagWait=true;
+  /* 2026-11-27 MeguLit-Adapter: LunaHook's own engine match (InfoStrings MatchedEngine, zh / en / ja) */
+  if(!out.lunaEngine&&(m=/(?:匹配到|Matched|一致した)\s*(\S+?)\s*(?:引擎|engine|エンジン)/i.exec(l)))out.lunaEngine=m[1];
   if((m=/auto-select (\S+)/.exec(l)))out.selected=m[1];}
  out.injected=[...new Set(out.injected)];if(dest)try{fs.writeFileSync(dest,kept.join('\n')+'\n');}catch{}
  return out;}
@@ -360,7 +362,7 @@ async function run(opts,{log=console.log}={}){
    /* the bridge's hide confirmations of this run (cold-test-run hideProbe): when, on which stream */
    result.hide={confirmed:runInfo?.hideConfirmed||[],probes:(runInfo?.hideProbes||[]).length,skipped:runInfo?.drawSkipped||0};
    result.hook=hookUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
-   diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait};
+   diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait,lunaEngine:diag.lunaEngine};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
   result.stuck=stuckOf({cold,run:runInfo,diag,engine});
   /* layer 3: the game diff */

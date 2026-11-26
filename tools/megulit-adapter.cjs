@@ -59,10 +59,16 @@ function probe(loc,title,budgetMs){try{const P=require('../services/adapter-prob
 const DISC=/.(iso|mds|mdf|cue|ccd|img|nrg|cdi|chd|b5t|b6t|isz)$/i;
 function discImages(dir,depth=4,out=[]){let ents=[];try{ents=fs.readdirSync(dir,{withFileTypes:true});}catch{return out;}for(const e of ents){const f=path.join(dir,e.name);if(e.isDirectory()){if(depth>0)discImages(f,depth-1,out);}else if(DISC.test(e.name)&&!(/.cue$/i.test(e.name)&&ents.some(x=>/.(wav|flac|ape)$/i.test(x.name))))out.push(f);}return out;}
 const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.push('VNDB 记的引擎是 '+v.engine+'，和认出的不一样：先核对');if(v?.error)p.notes.push('VNDB 没查到（'+v.error+'），作品号 / 发行版问人');return p;};
+/* the registry did not know the engine: LunaHook's static checks name one (only then; an engine the registry named but the rule table
+   lacks keeps its name, 樟脑丸: DDSystem, not LunaHook's loose EntisGLS check) (registry.lunaHook); the first class the rule table maps is
+   taken, the others only go into the question */
+function lunaCaps(caps,gameDir,engine=''){if(caps.known)return caps;let hits=[];try{hits=require('../services/original-engines/registry.cjs').lunaHook(gameDir);}catch{}
+ const names=[...new Set(hits.map(h=>h.cls))];const mapped=names.find(n=>Engines.lunaRule(n));
+ if(mapped&&!engine)return {...Engines.capabilities(Engines.lunaRule(mapped)),luna:mapped,lunaStatic:true};return names.length?{...caps,luna:names.join(' / ')}:caps;}
 const stateFile=out=>path.join(out,'adapter.json');
 const readState=out=>JSON.parse(fs.readFileSync(stateFile(out),'utf8'));
 function saveState(st){st.updatedAt=new Date().toISOString();fs.writeFileSync(stateFile(st.out),JSON.stringify(st,null,1));}
-const coldView=c=>c?{verdict:c.verdict,reasons:c.reasons,checks:c.checks,stuck:c.stuck,phases:c.phases,totalMs:c.totalMs,steps:c.steps,cardinal:c.cardinal,exeSha256:c.exeSha256,hide:c.hide,artifacts:c.artifacts&&{out:c.artifacts.out,diff:c.artifacts.diff,run:c.artifacts.run}}:null;
+const coldView=c=>c?{lunaEngine:c.layers?.engine?.lunaEngine||'',verdict:c.verdict,reasons:c.reasons,checks:c.checks,stuck:c.stuck,phases:c.phases,totalMs:c.totalMs,steps:c.steps,cardinal:c.cardinal,exeSha256:c.exeSha256,hide:c.hide,artifacts:c.artifacts&&{out:c.artifacts.out,diff:c.artifacts.diff,run:c.artifacts.run}}:null;
 function summary(st){const p=st.plan,c=st.cold,i=st.identity;return [
  '引擎：'+st.engine+'（'+(st.caps.label||'规则表没有')+'）',
  '作品：'+(st.answers.vndb||i.vndb||'未知')+'，发行版：'+(st.answers.release||i.release||i.releaseGuess||'未知'),
@@ -109,7 +115,7 @@ async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=C
  const discs=discImages(dir),loc=/光盘/.test(triage)?null:Cold.locate(dir,o.exe);
  if(!loc&&discs.length){const st={tool:'megulit-adapter',out,title,dir,exe:'',engine:'',caps:{known:true},probe:null,identity:{vndb:o.vndb,release:o.release,releaseGuess:'',prints:{},adapted:[]},plan:{source:{kind:'hook',why:'not installed'},align:'hook',pairing:{mode:'machine'},hide:{kind:'generic'},notes:['只有光盘镜像，先安装']},install:discs,steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:true,startedAt:new Date().toISOString()};saveState(st);return finish(st,log);}
  if(!loc){log('# 找不到主程序（用 --exe 指定）');return EXIT.inconclusive;}
- const caps=Engines.capabilities(loc.engine);log('# '+title+' '+loc.engine+' '+loc.exe);
+ let caps=lunaCaps(Engines.capabilities(loc.engine),loc.gameDir,loc.engine);if(caps.lunaStatic)loc.engine=caps.id;log('# '+title+' '+(loc.engine||'?')+(caps.luna?' (LunaHook '+caps.luna+')':'')+' '+loc.exe);
  const pr=probe(loc,title,90000);log('# probe '+pr.step+' '+(pr.detected||'-')+' jp='+pr.japaneseLines+' zh='+pr.chineseLines);
  const readers=[...new Set([pr.detected,...caps.readers].filter(Boolean))];
  const identity=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:loc.engine,title,vndb:o.vndb,release:o.release,chineseBuild:pr.step==='chinese-build',readers});
@@ -122,7 +128,8 @@ async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=C
  saveState(st);
  if((identity.adapted||[]).some(r=>r.same)&&!o.force&&st.answers.again===undefined)return finish(st,log);
  if(!o.offline){const release=await gameLock('megulit-adapter',Cold.safeName(title),{waitMs:o.lockWaitMin*60000,log});if(!release){log('# 游戏锁等不到');st.cold=null;return finish(st,log);}
-  try{const r=await Cold.run({dir,exe:o.exe,out:path.join(out,'cold'),budgetMin:o.budgetMin,app:o.app,foreground:o.foreground,seedOut:'',skip:o.skip},{log});st.cold=coldView(r);st.gameKey=r.gameKey;}
+  try{const r=await Cold.run({dir,exe:o.exe,out:path.join(out,'cold'),budgetMin:o.budgetMin,app:o.app,foreground:o.foreground,seedOut:'',skip:o.skip},{log});st.cold=coldView(r);st.gameKey=r.gameKey;
+   const luna=r.layers?.engine?.lunaEngine||'';if(luna){st.lunaRuntime=luna;const id=Engines.lunaRule(luna);if(!st.caps.known&&id){st.caps={...Engines.capabilities(id),luna,lunaRuntime:true};st.engine=id;st.plan=withVndbNotes(plan({caps:st.caps,probe:st.probe}),st.identity);st.plan.notes.push('引擎由 LunaHook 运行时认出（'+luna+'），写回 engines.cjs / registry');}}}
   catch(e){st.cold={verdict:'inconclusive',reasons:['冷测试出错：'+e.message],checks:{},stuck:'',artifacts:{out:path.join(out,'cold')}};}
   finally{release();}}
  return finish(st,log);}
@@ -158,4 +165,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};

@@ -311,4 +311,16 @@ function identify(f){return ENGINES.find(e=>e.test(f))||null;}
 function engineOf(dir){return identify(listing(dir));}
 /* the readers to try first for a folder: those of the engine the fingerprints name */
 function readersFor(dir){const e=engineOf(dir);return e?e.readers:[];}
-module.exports={ENGINES,READERS,listing,identify,engineOf,readersFor};
+/* 2026-11-27 MeguLit-Adapter: the last fallback, outside ENGINES so the library and the reader choice stay as they were. LunaHook's
+   own static engine checks (lunahook-fingerprints.json, tools/lunahook-fingerprints.cjs; FILE = the first target, FILE_ANY = any,
+   FILE_ALL = all; '*' within one path segment, '/' or '\' between segments, case-insensitive).
+   lunaHook(dir) -> [{cls, arch}] every LunaHook engine class whose files are there, in the data's order */
+let lunaRules=null;
+function lunaHook(dir){if(!lunaRules)try{lunaRules=require('./lunahook-fingerprints.json').rules||[];}catch{lunaRules=[];}
+ const listCache=new Map(),list=d=>{const k=d.toLowerCase();if(!listCache.has(k)){let n=[];try{n=fs.readdirSync(d);}catch{}listCache.set(k,n);}return listCache.get(k);};
+ const seg=s=>new RegExp('^'+s.replace(/[.+?^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*')+'$','i');
+ const has=target=>{const parts=String(target).split(/[\\/]+/).filter(Boolean);let dirs=[dir];
+  for(let i=0;i<parts.length;i++){const re=seg(parts[i]),next=[];for(const d of dirs)for(const n of list(d))if(re.test(n))next.push(path.join(d,n));if(!next.length)return false;dirs=next.slice(0,16);}return true;};
+ const out=[];for(const r of lunaRules){const t=r.targets||[];const ok=r.check==='FILE'?has(t[0]):r.check==='FILE_ANY'?t.some(has):r.check==='FILE_ALL'?t.length>0&&t.every(has):false;if(ok)out.push({cls:r.cls,arch:r.arch});}
+ return out;}
+module.exports={ENGINES,READERS,listing,identify,engineOf,readersFor,lunaHook};

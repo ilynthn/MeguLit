@@ -154,7 +154,7 @@ test('hookDiagnostics: injected hooks, dropped dialogue, the selected stream, cu
  fs.writeFileSync(path.join(root,'logs','hook-diagnostics.log'),['2026-11-26T06:00:00.0000000Z info 0 注入钩子: KiriKiri1 005240D0','2026-11-26T06:23:43.5970284Z info 0 注入钩子: EmbedKrkr2 005E3389',
   '2026-11-26T06:23:45.0137487Z krkr wait kag','2026-11-26T06:24:10.0151891Z auto-select KiriKiri2 (first dialogue stream of 3)','2026-11-26T06:24:37.2574944Z aux noise tTVPNativeBaseBitmap::DrawText "私私もも"'].join('\n'));
  const d=A.hookDiagnostics(root,{startedAt:'2026-11-26T06:23:43Z',endedAt:'2026-11-26T06:24:56Z'},path.join(root,'cut.log'));
- assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2'});
+ assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2',lunaEngine:''});
  assert.equal(fs.readFileSync(path.join(root,'cut.log'),'utf8').split('\n').filter(Boolean).length,4,'only the run\'s lines');});
 
 test('writeSeed: a verified seed entry in The Seed layout, checked by core/profiles/seed.cjs',()=>{const DM=require('../tools/diff-maker/index.cjs');const d=tmp();
