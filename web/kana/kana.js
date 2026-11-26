@@ -140,7 +140,7 @@ export async function mountKana(target,{api,invoke,toast,start='index',openTab,f
   event.preventDefault();go(url);
  });
  /* 按键只在五十音页面可见时生效；输入框、MeguLit 自己的对话框不受影响 */
- const cleanup=()=>{document.removeEventListener('keydown',onKey,true);speech.stop();speech.cancelPrefetch();store.flush();};
+ const cleanup=()=>{for(const h of leaveHandlers.splice(0))try{h();}catch{}document.removeEventListener('keydown',onKey,true);speech.stop();speech.cancelPrefetch();store.flush();};
  const onKey=event=>{
   if(!host.isConnected){cleanup();return;}
   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey)return;

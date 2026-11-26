@@ -152,8 +152,9 @@ function flush(root){save(root);}
 // The voice for a line: {data, mime, source:'scan'|'runtime'} or null. A scanned clip is copied to the cache the first time.
 /* E461 a voice from a scan older than SCAN_VERSION may belong to another line: not played; that game is scanned again
    in the background (once) and the line has its voice when that is done */
-const refreshing=new Set();
-function refresh(root,game){const k=gameKey(game.dir);if(refreshing.has(k)||!fs.existsSync(game.dir))return;refreshing.add(k);scanInWorker(root,game.dir,()=>{});}
+const REFRESH_COOLDOWN_MS=10*60*1000;
+const refreshing=new Map();
+function refresh(root,game){const k=gameKey(game.dir),until=refreshing.get(k)||0;if(until===Infinity||Date.now()<until||!fs.existsSync(game.dir))return;refreshing.set(k,Infinity);scanInWorker(root,game.dir,msg=>{if(msg?.g&&msg?.r)refreshing.delete(k);else refreshing.set(k,Date.now()+REFRESH_COOLDOWN_MS);});}
 function find(root,text){const k=keyOf(text);if(!k)return null;const hit=lines(root).lines[k];if(!hit)return null;const [g,ref,ext]=hit;
  if(ref!=='runtime'){const game=lines(root).games[g];if(game&&game.v!==SCAN_VERSION){try{refresh(root,game);}catch{}return null;}}
  if(ref==='runtime'&&quiet(root).has(k)){delete lines(root).lines[k];try{save(root);fs.unlinkSync(runtimeFile(root,k,ext));}catch{}return null;}
@@ -184,9 +185,9 @@ function scanInWorker(root,start,done,hold=false){scanQueue.push({root,start,don
 async function pump(){if(scanBusy||!scanQueue.length)return;clearTimeout(scanRetry);scanRetry=null;const manual=scanQueue.findIndex(job=>job.hold),job=scanQueue.splice(manual<0?0:manual,1)[0];scanBusy=true;let w;
  let idle=job.hold;try{if(!idle)idle=await require('./background-games.cjs').idle(job.root);}catch{}
  if(!idle){scanBusy=false;scanQueue.push(job);if(scanQueue.some(next=>next.hold))pump();else{scanRetry=setTimeout(pump,30000);scanRetry.unref?.();}return;}
- const finish=msg=>{scanBusy=false;memo=null;if(msg?.g)catalogs.delete(gameKey(msg.g.dir));try{job.done(msg||{});}catch{}pump();};
+ let settled=false;const finish=msg=>{if(settled)return;settled=true;scanBusy=false;memo=null;if(msg?.g)catalogs.delete(gameKey(msg.g.dir));try{job.done(msg||{});}catch{}pump();};
  try{w=new (require('node:worker_threads').Worker)(path.join(__dirname,'game-voice-worker.cjs'),{workerData:{root:job.root,start:job.start}});}catch{return finish(null);}
- w.once('message',finish);w.once('error',()=>finish(null));/* a scan someone awaits (ensureScanned) keeps the process alive */if(!job.hold)w.unref?.();}
+ w.once('message',finish);w.once('error',()=>finish(null));w.once('exit',()=>finish(null));/* a scan someone awaits (ensureScanned) keeps the process alive */if(!job.hold)w.unref?.();}
 function scanLater(root,executable,delay=8000,{cold=false}={}){if(!executable)return;const start=path.dirname(String(executable)),k=gameKey(start);if(running.has(k))return;const seen=Object.values(lines(root).games).find(g=>g.from===k);if(seen&&!stale(seen)&&Date.now()-seen.scanned<7*864e5)return;running.add(k);
  const t=require('./background-budget.cjs').schedule(root,()=>scanInWorker(root,start,({g,r})=>{running.delete(k);if(!g||!r)return;const e=lines(root).games[gameKey(g.dir)];if(e){e.from=k;save(root);}
    if(cold&&r.missing?.length){const vc=require('./voice-cold.cjs');const off=vc.onDone(job=>{if(job.game.dir===g.dir){off();scanInWorker(root,g.dir,()=>{});}});vc.consider(root,{executable:String(executable),dir:g.dir,engine:g.engine},r.missing);}}),{delay});t.unref?.();}
