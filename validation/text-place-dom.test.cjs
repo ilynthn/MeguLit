@@ -140,6 +140,14 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     { await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'今天是，晴天啊'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }); }); await frame(); await frame();
       const rows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });
       assert.deepStrictEqual(rows, ['今天是，', '晴天啊'], 'translation rows follow the Japanese rows');
+      /* one-line Japanese (QQ essence 1145, Codex #1177): no game row breaks while the option is on, back when it is off */
+      const rowBrs = () => page.evaluate(() => document.querySelectorAll('.sentence-text br.megulit-row-br').length);
+      const replace = () => page.evaluate(() => window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }));
+      assert.strictEqual(await rowBrs(), 1, 'two game rows: one row break');
+      await page.evaluate(() => document.body.classList.add('megulit-jp-one-line')); await replace(); await frame(); await frame();
+      assert.strictEqual(await rowBrs(), 0, 'one-line Japanese: no row break');
+      await page.evaluate(() => document.body.classList.remove('megulit-jp-one-line')); await replace(); await frame(); await frame();
+      assert.strictEqual(await rowBrs(), 1, 'option off: the game row break is back');
       /* #1122: closing quote and single trailing character must never be split onto a new row */
       await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'“今天是晴天。”'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }); }); await frame(); await frame();
       const quoteRows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });

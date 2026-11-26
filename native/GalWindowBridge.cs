@@ -737,17 +737,21 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
     [DllImport("user32.dll")] static extern bool GetClipCursor(out Rect rect);
     [DllImport("user32.dll")] static extern bool GetCursorInfo(ref CursorInfo info);
     [DllImport("user32.dll")] static extern int ShowCursor(bool show);
-    static int CursorShown;static bool CursorFreed;
+    [DllImport("user32.dll",EntryPoint="ClipCursor")] static extern bool ClipCursorTo(ref Rect rect);
+    static int CursorShown;static bool CursorFreed;static Rect CursorClip;
     internal static bool ClipIsTight(Rect clip,Rect screen){return clip.Right-clip.Left<screen.Right-screen.Left||clip.Bottom-clip.Top<screen.Bottom-screen.Top;}
+    static Rect VirtualScreen(){return new Rect(GetSystemMetrics(76),GetSystemMetrics(77),GetSystemMetrics(76)+GetSystemMetrics(78),GetSystemMetrics(77)+GetSystemMetrics(79));}
     static void FreeCursorForMenu(bool wanted){
         try{
             if(wanted){
                 Rect clip;
-                if(GetClipCursor(out clip)&&ClipIsTight(clip,new Rect(GetSystemMetrics(76),GetSystemMetrics(77),GetSystemMetrics(76)+GetSystemMetrics(78),GetSystemMetrics(77)+GetSystemMetrics(79)))){ClipCursor(IntPtr.Zero);CursorFreed=true;}
+                if(GetClipCursor(out clip)&&!CursorFreed&&ClipIsTight(clip,VirtualScreen())){CursorClip=clip;ClipCursor(IntPtr.Zero);CursorFreed=true;}
                 CursorInfo info=new CursorInfo();info.Size=Marshal.SizeOf(typeof(CursorInfo));
                 for(int i=0;i<4&&GetCursorInfo(ref info)&&(info.Flags&1)==0;i++){ShowCursor(true);CursorShown++;info.Size=Marshal.SizeOf(typeof(CursorInfo));}
             }else if(CursorShown>0||CursorFreed){
                 while(CursorShown>0){ShowCursor(false);CursorShown--;}
+                /* a game that set its clip once gets it back (Codex #1177); one that set a new clip meanwhile keeps its own */
+                Rect now;if(CursorFreed&&!(GetClipCursor(out now)&&ClipIsTight(now,VirtualScreen())))ClipCursorTo(ref CursorClip);
                 CursorFreed=false;
             }
         }catch{}

@@ -806,7 +806,8 @@
   }
   function rowBreaks(win, shown, rows) {
     const want = new Set(); let prev = -1;
-    shown.forEach((t, j) => { const r = rows.rowOf[j]; if (r < 0) return; if (prev >= 0 && r > prev) { const base = t.closest('.megulit-ruby-base'); const at = base && base.querySelector('.char-token') === t ? base : t; if (!base || at === base) want.add(at); } prev = r; });
+    /* one-line Japanese (QQ essence 1145, Codex #1177): no game row breaks; they come back when the option is off */
+    if (!document.body.classList.contains('megulit-jp-one-line')) shown.forEach((t, j) => { const r = rows.rowOf[j]; if (r < 0) return; if (prev >= 0 && r > prev) { const base = t.closest('.megulit-ruby-base'); const at = base && base.querySelector('.char-token') === t ? base : t; if (!base || at === base) want.add(at); } prev = r; });
     for (const br of win.querySelectorAll('br.megulit-row-br')) if (!want.has(br.nextSibling)) br.remove();
     for (const at of want) if (!(at.previousSibling && at.previousSibling.nodeName === 'BR' && at.previousSibling.classList.contains('megulit-row-br'))) { const br = document.createElement('br'); br.className = 'megulit-row-br'; at.parentNode.insertBefore(br, at); }
     win.classList.toggle('megulit-game-rows', want.size > 0); /* 2026-11-20 (CHAOS;CHILD: a two-row line drawn as three) the game's row breaks only */
@@ -988,7 +989,7 @@
       /* 2026-11-26 (QQ essence 1137: the placed rows locked the translation's wrap width and line spacing): a translation wrap width
          or line spacing the user changed from its default now applies here too; the defaults keep the game-following size */
       const own = userRowLayout(b.galPreferences?.() || {});
-      const [L, T, R, B] = map.bounds, width = Math.max(1, Math.min(R - x0, Math.max(x1 - x0, own.width > 0 ? Math.max(Math.min(R - x0 - 8, size * 20), (R - L) * own.width / 100) : Math.min(R - x0 - 8, size * 20))));
+      const [L, T, R, B] = map.bounds, width = own.width > 0 ? Math.max(1, Math.min(R - x0, Math.max(size * 4, (R - L) * own.width / 100))) /* the width asked for, narrower too (Codex #1177) */ : Math.max(1, Math.min(R - x0, Math.max(x1 - x0, Math.min(R - x0 - 8, size * 20))));
       set(row, 'left', Math.min(Math.max(x0, L), Math.max(L, R - width)) + 'px'); set(row, 'width', width + 'px');
       /* 2026-11-16 (user recording: the translation was small, then suddenly large and over the game's SAVE/LOAD bar, its
          last row out of the window): its size came from the stylesheet and was only made smaller when there was room, so a
