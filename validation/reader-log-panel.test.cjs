@@ -130,5 +130,15 @@ test('reader 对话记录 / Alt+T / 点读卡 open at full size, readable, rows 
    b.hookSourceText='「次の行」';b.onLateSpeaker('血塗れの男');const stale=b.backlogEntries().at(-1).name||'';
    return {narration,quoted,own,stale};})()`);
   assert.deepEqual(late,{narration:'血塗れの男',quoted:'血塗れの男',own:'美亜',stale:'美亜'});
+
+  /* #1136: the open 对话记录 goes to the bridge as a relayed panel (presses kept from a polling game), its scrollbar and the
+     log settings' sliders / drop-downs as native spots inside it */
+  const hit=await cdp.evaluate(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const b=window.__tomoyoChinese;const sent=[];const real=window.__tomoyoTranslateRequest;
+   window.__tomoyoTranslateRequest=s=>{try{const m=JSON.parse(s);if(m.type==='galHitRegions')sent.push(m);}catch{}return real?.(s);};
+   for(let i=0;i<60;i++)b.onSourceText('これは記録を伸ばすための地の文その'+i+'です。');
+   setTimeout(()=>dispatchEvent(new CustomEvent('tome-region-applied',{detail:{surfaceWidth:innerWidth*devicePixelRatio,surfaceHeight:innerHeight*devicePixelRatio}})),0);
+   b.openBacklog();await w(1200);const last=sent.at(-1)?.regions||[];b.closeBacklog();await w(400);window.__tomoyoTranslateRequest=real;
+   return {relay:last.filter(r=>r.relay).length,spots:last.filter(r=>r.nativeSpot).length,spotsMenu:last.filter(r=>r.nativeSpot).every(r=>r.menu)};})()`);
+  assert.ok(hit.relay>=1,'log panel region marked relay: '+JSON.stringify(hit));assert.ok(hit.spots>=1,'the log scrollbar is a native spot: '+JSON.stringify(hit));assert.ok(hit.spotsMenu);
  }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });
