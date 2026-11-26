@@ -12,7 +12,7 @@
    overlay; a game whose capture failed stays on the overlay until it restarts. */
 const path = require('node:path');
 const NAME_PLATE = /^\s*[\[【［][^\]】］]{1,16}[\]】］]\s*/;
-const { CaptureCompositor, strip } = require('../services/capture-compositor.cjs');
+const { CaptureCompositor, strip, rubyToStripped } = require('../services/capture-compositor.cjs');
 
 /* ③ records: game-screen px → client px (engine viewport, else aspect fit centred), as core/text-paths.cjs does. */
 function rectsToClient(rec, cw, ch) {
@@ -141,9 +141,13 @@ class CompositorHost {
     let full = String(source), ruby = list;
     const plate = this.charMarks && full.match(NAME_PLATE);
     if (plate) { const n = [...plate[0]].length; full = full.slice(plate[0].length); ruby = list.map(r => [r[0] - n, r[1] - n, r[2]]).filter(r => r[0] >= 0); }
-    // the compositor's line can carry more before the reader's text (a speaker such as "？？"): re-index onto it
-    const lt = String(this.cc.lines?.get?.(id)?.text || ''), probe = full.slice(0, Math.min(6, full.length)), at = probe ? lt.indexOf(probe) : -1;
-    if (at >= 0) { const n = [...lt.slice(0, at)].length; ruby = ruby.map(r => [r[0] + n, r[1] + n, r[2]]); full = lt; }
+    /* the compositor's line can carry more before the reader's text (a speaker such as "？？"): re-index onto it.
+       2026-11-26 (A 组 ruby 错位, found reading the code: every reading after the game's row break sat one character off): the game's line holds its own row breaks and the reader's text does not (or breaks elsewhere), and the positions were
+       moved onto the game's line as they were, so each break before a word pushed its reading one character on. Positions are
+       counted without blanks on both sides now, the way the compositor counts its cells. */
+    const lt = String(this.cc.lines?.get?.(id)?.text || ''), line = strip(lt).text, mine = strip(full).text;
+    const found = line ? line.indexOf(mine.slice(0, Math.min(6, mine.length))) : -1, n = found > 0 ? [...line.slice(0, found)].length : 0;
+    ruby = rubyToStripped(full, ruby).map(r => [r[0] + n, r[1] + n, r[2]]); full = found >= 0 ? line : mine;
     this.cc.annotate({ id, fullText: full, ruby }); this.trace('ruby for line ' + id + ' spans=' + ruby.length + ' full=' + JSON.stringify(full.slice(0, 30)) + ' line=' + JSON.stringify(String(this.cc.lines?.get?.(id)?.text || '').slice(0, 30)) + ' first=' + JSON.stringify(ruby[0] || null));
   }
   choices(options) {
