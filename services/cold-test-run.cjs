@@ -57,7 +57,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   let lastLineAt=0;const driver=new Driver(deps.driver||{});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
-   res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;try{fs.writeFileSync(path.join(runDir,'run.json'),JSON.stringify(res,null,1));}catch{}if(child.exitCode!==null&&child.exitCode!==undefined)resolve(res);else child.once('exit',()=>resolve(res));};
+   res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=require('../core/cardinal/tape.cjs').snapshot();if(snap.lines>0){fs.writeFileSync(path.join(runDir,'cardinal-tape.jsonl'),snap.rows.map(r=>JSON.stringify(r)).join('\n')+'\n');res.tapeLines=snap.lines;}}catch{}try{fs.writeFileSync(path.join(runDir,'run.json'),JSON.stringify(res,null,1));}catch{}if(child.exitCode!==null&&child.exitCode!==undefined)resolve(res);else child.once('exit',()=>resolve(res));};
   stopActive=()=>{res.stopped='foreground';finish('foreground');};
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{

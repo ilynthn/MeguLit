@@ -69,11 +69,11 @@ const APP_PARTS=[['native'],['runtime','hook'],['runtime','hook-island'],['runti
 function copyTree(from,to,skip=null){const st=fs.statSync(from);if(st.isDirectory()){fs.mkdirSync(to,{recursive:true});for(const n of fs.readdirSync(from))if(!(skip&&skip.test(n)&&fs.existsSync(path.join(to,n))))copyTree(path.join(from,n),path.join(to,n),skip);return;}
  let same=false;try{const d=fs.statSync(to);same=d.size===st.size&&Math.abs(d.mtimeMs-st.mtimeMs)<2000;}catch{}if(!same){fs.copyFileSync(from,to);fs.utimesSync(to,st.atime,st.mtime);}}
 function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk.exe')))throw Error('no ColdDesk.exe under '+app+'\\native (pass --app <MeguLit install>)');
- for(const p of APP_PARTS){const src=path.join(app,...p);if(fs.existsSync(src))copyTree(src,path.join(root,...p),/^ColdDesk\.exe$/i);}
+ for(const p of APP_PARTS){const src=path.join(app,...p);if(fs.existsSync(src))copyTree(src,path.join(root,...p),/^(ColdDesk|HookBridge|D3D9Probe)\.exe$/i);}
  fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
  /* the cold test's own switches: no relay reports, no shot uploads (judge decides; nothing leaves this PC) */
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
- buildColdDesk(root);
+ buildColdDesk(root);buildHookBridge(root);
  return root;}
 /* ColdDesk.exe from this repository's native/ColdDesk.cs (it has --ignore-input; an older install may not): built with the .NET
    Framework csc like Build.ps1, into the copy only, again whenever the source changes */
@@ -85,6 +85,17 @@ function buildColdDesk(root){const src=path.join(REPO,'native','ColdDesk.cs'),ex
  const tmp=exe+'.build.exe';const r=spawnSync(CSC,['/nologo','/target:exe','/optimize+','/platform:x64','/reference:System.Drawing.dll','/out:'+tmp,src],{encoding:'utf8',windowsHide:true,timeout:180000});
  if(r.status!==0)throw Error('ColdDesk build failed: '+String(r.stdout||r.stderr||r.error?.message||'').slice(0,600));
  fs.renameSync(tmp,exe);fs.writeFileSync(mark,h);return exe;}
+/* HookBridge.exe (+ D3D9Probe.exe) from this repository's native sources with native/Build-HookBridge.ps1 (Roslyn; its own
+   --self-test runs), into the copy only, again whenever a source changes: the engine-layer fixes of this checkout are what runs */
+const BRIDGE_SOURCES=['HookBridge.cs','EmbedTextPolicy.cs','HookSourceFrames.cs','WaitRenderHook.cs','HookTarget.cs','HookSignature.cs','TextPathCanary.cs','GpuHideLayer.cs','D3D9Probe.cs'];
+function buildHookBridge(root){const exe=path.join(root,'native','HookBridge.exe'),mark=exe+'.src-sha256',h=crypto.createHash('sha256');
+ for(const f of BRIDGE_SOURCES){h.update(f+'\0');try{h.update(fs.readFileSync(path.join(REPO,'native',f)));}catch{}}
+ const sum=h.digest('hex');let old='';try{old=fs.readFileSync(mark,'utf8');}catch{}
+ if(old===sum&&fs.existsSync(exe))return exe;
+ const r=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(REPO,'native','Build-HookBridge.ps1'),'-OutputPath',exe],
+  {encoding:'utf8',windowsHide:true,timeout:600000,maxBuffer:64<<20,env:{...process.env,MEGULIT_BUILD_TOOLS:process.env.MEGULIT_BUILD_TOOLS||'E:\\Apps\\build-tools'}});
+ if(r.status!==0)throw Error('HookBridge build failed: '+String(r.stderr||r.stdout||r.error?.message||'').slice(-600));
+ fs.writeFileSync(mark,sum);return exe;}
 
 /* ---- one run at a time ------------------------------------------------------------------------------------------------- */
 const alive=pid=>{try{process.kill(pid,0);return true;}catch(e){return e.code==='EPERM';}};
@@ -148,7 +159,9 @@ function makeDiff(probeDir,runDir,outDir){
 function cardinal(runDir,run,loc,exeSha,title,outFile,{timeoutMs=600000}={}){
  if(!run?.startedAt||!run?.endedAt)return {ok:false,why:'run.json has no start/end'};
  const game={pid:run.pid||4242,exe:loc.exe,title,sha:exeSha,engine:loc.engine};
- const r=spawnSync(process.execPath,[path.join(__dirname,'cardinal.cjs'),'--logs',runDir,'--from',run.startedAt,'--to',run.endedAt,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
+ /* the bridges' own records of the run (cold-test-run writes Cardinal's tape) replay every engine; the logs need engine-draw records */
+ const tape=path.join(runDir,'cardinal-tape.jsonl'),source=fs.existsSync(tape)?['--tape',tape]:['--logs',runDir,'--from',run.startedAt,'--to',run.endedAt];
+ const r=spawnSync(process.execPath,[path.join(__dirname,'cardinal.cjs'),...source,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
  const log=String(r.stdout||'')+String(r.stderr||'');
  let o=null;try{o=JSON.parse(fs.readFileSync(outFile,'utf8'));}catch{}
  if(!o?.result)return {ok:false,why:'cardinal produced no result'+(r.error?' ('+r.error.message+')':'')+': '+log.slice(-400),log};
