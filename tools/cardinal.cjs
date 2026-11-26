@@ -47,6 +47,6 @@ const arg=(k,d)=>{const i=process.argv.indexOf('--'+k);return i>0?process.argv[i
  console.log(JSON.stringify({lines:r.lines,...Display.summary(r),applies:r.applies,lag:o.lag},null,1));
  console.log('# hide: '+r.detail.leakObservation.state+(r.detail.leakObservation.state==='unconfirmed'?' (隐藏未确认)':''));
  for(const l of require('../core/cardinal/explain.cjs').lines(r))console.log('# '+l);
- if(flag('verbose'))for(const [k,v] of Object.entries(r.detail))if(v.length)console.log('# '+k+': '+v.slice(0,4).join(' | ').slice(0,600));
+ if(flag('verbose'))for(const [k,v] of Object.entries(r.detail))if(v?.length)console.log('# '+k+': '+v.slice(0,4).join(' | ').slice(0,600));
  if(arg('out'))fs.writeFileSync(arg('out'),JSON.stringify({scenario,result:r,out:o},null,1));
 })();
