@@ -34,9 +34,13 @@ function Read-Lines([string]$file,[double]$scale,[string]$pass,[int]$ox=0,[int]$
   $bitmap=Wait-Op ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
   if($bitmap.PixelWidth -gt [Windows.Media.Ocr.OcrEngine]::MaxImageDimension -or $bitmap.PixelHeight -gt [Windows.Media.Ocr.OcrEngine]::MaxImageDimension){return}
   $result=Wait-Op ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])}finally{$stream.Dispose()}
+ # 2026-11-27 (MeguLit-Adapter, ファタモルガーナの館 title): the engine deskews the picture first (TextAngle 8.5) and its boxes are in that
+ # rotated picture; each box centre is turned back about the picture centre, or the click lands 50 px above 「館の扉を開く」
+ $angle=0.0;if($result.TextAngle -ne $null){$angle=[double]$result.TextAngle};$rad=$angle*[Math]::PI/180;$cx=$bitmap.PixelWidth/2;$cy=$bitmap.PixelHeight/2
  foreach($line in $result.Lines){$ws=@($line.Words);if(-not $ws.Count){continue}
   $x=($ws|ForEach-Object{$_.BoundingRect.X}|Measure-Object -Minimum).Minimum;$y=($ws|ForEach-Object{$_.BoundingRect.Y}|Measure-Object -Minimum).Minimum
   $r=($ws|ForEach-Object{$_.BoundingRect.X+$_.BoundingRect.Width}|Measure-Object -Maximum).Maximum;$b=($ws|ForEach-Object{$_.BoundingRect.Y+$_.BoundingRect.Height}|Measure-Object -Maximum).Maximum
+  if([Math]::Abs($angle) -gt 0.3){$mx=($x+$r)/2-$cx;$my=($y+$b)/2-$cy;$nx=$cx+$mx*[Math]::Cos($rad)-$my*[Math]::Sin($rad);$ny=$cy+$mx*[Math]::Sin($rad)+$my*[Math]::Cos($rad);$hw=($r-$x)/2;$hh=($b-$y)/2;$x=$nx-$hw;$r=$nx+$hw;$y=$ny-$hh;$b=$ny+$hh}
   [pscustomobject]@{text=$line.Text;x=[int]($x/$scale)+$ox;y=[int]($y/$scale)+$oy;w=[int](($r-$x)/$scale);h=[int](($b-$y)/$scale);pass=$pass}}}
 $src=(Resolve-Path -LiteralPath $Picture).Path
 $out=@(Read-Lines $src 1 'plain')
