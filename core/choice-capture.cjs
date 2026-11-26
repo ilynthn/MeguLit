@@ -129,8 +129,8 @@ class ChoiceCapture{
   /* 2026-11-26 (#1118, 死に逝く君、館に芽吹く憎悪: 「男男」 next to the name plate 「血塗れの男」): one glyph drawn twice that ends another
      candidate of the same burst is the last frame of that one being drawn glyph by glyph, not an option (「ママ」「パパ」 end nothing).
      Only with evidence of that drawing: the same stream sent the other candidate drawn twice back to back (Codex #1198: 「いい」 next to
-     「よくない」 is a real choice) */
-  items=items.filter(x=>{const c=[...x.key];return !(c.length===2&&c[0]===c[1]&&items.some(o=>o!==x&&o.key.length>2&&o.key.endsWith(c[0])&&this.drawnTwice?.has(o.key)));});
+     「よくない」 is a real choice). A two-glyph plate counts too (integration live test: 「亜亜」 beside 「美亜」, drawn 「美亜美亜」, went to OCR and was found) */
+  items=items.filter(x=>{const c=[...x.key];return !(c.length===2&&c[0]===c[1]&&items.some(o=>o!==x&&o.key.length>=2&&o.key!==x.key&&o.key.endsWith(c[0])&&this.drawnTwice?.has(o.key)));});
   if(items.length<2||items.length>8)return null;
   /* the dialogue kept typing after the first candidate arrived: these were pieces of it, not a choice screen */
   const first=Math.min(...items.map(x=>x.at));if(this.grewAt&&this.grewAt>=first&&items.every(x=>bare(x.text).length<=3))return null;
