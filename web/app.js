@@ -1333,7 +1333,10 @@ function syncStage(){const main=document.querySelector('#main'),layer=document.q
 let stageWatch=null;function watchStage(){const main=document.querySelector('#main');if(!main||stageWatch?.main===main)return;stageWatch?.observer.disconnect();
  const observer=new MutationObserver(syncStage);observer.observe(main,{childList:true});stageWatch={main,observer};}
 let stopDetailPage=()=>{},torchMonument=null;
-async function renderRoute(){watchStage();
+/* 2026-11-26 (#1090) renderRoute is called without await from clicks, events and timers (24 places); work before its own try (stage, veil,
+   the leaving page's stop, the fade) that threw became an unhandled rejection. Every failure is now a route failure, logged as one */
+function renderRoute(){return renderRouteNow().catch(error=>{window.megulitYuiStage?.('route-failed');console.error('renderRoute',route,error);});}
+async function renderRouteNow(){watchStage();
   stopDetailPage();stopDetailPage=()=>{};
   stopHistoryTranslations();stopHistoryTranslations=()=>{};
   const token=++pageToken,main=document.querySelector('#main');document.documentElement.dataset.stage=stageFor(route);applyVeil(model.preferences);syncStage();{

@@ -97,7 +97,8 @@ function serve(url){let u;try{u=new URL(url);}catch{return 'abort';}if(/^(data|b
  if(u.host==='ipc.localhost')return {status:200,body:'null',headers:{'content-type':'application/json','Tauri-Response':'ok'}};
  return 'abort';}
 return (async()=>{
- const out={work,models,errors:[],console:[],samples:[],sourceEpisodes:[],marks:[],hookSpawned:0,gwbSent:[],hbSent:[],events:[],control:[],choiceOffers:[],hidden:{lines:0,visible:0},krkr:{clears:0,choice:[],cfg:null}};let krkr=null,lastLine=null,browser=null;
+ const out={work,models,errors:[],console:[],samples:[],sourceEpisodes:[],marks:[],hookSpawned:0,gwbSent:[],hbSent:[],events:[],control:[],choiceOffers:[],screenChoices:[],hidden:{lines:0,visible:0},krkr:{clears:0,choice:[],cfg:null}};let krkr=null,lastLine=null,browser=null;
+ const modelCall=fn=>{try{fn();}catch(e){out.krkr.error=String(e?.message||e).slice(0,300);krkr=false;}};
  let disposal=null,stopRequested=false;
  const finish=()=>{if(disposal)return disposal;disposal=(async()=>{
   try{runtime.reader?.gal?.stop?.();}catch{}try{runtime.reader?.stop?.();}catch{}
@@ -145,10 +146,13 @@ return (async()=>{
    if(scenario.sessionIdentity&&!identityChecked&&step.hb?.type==='hookSource'){identityChecked=true;if(!require('./identity.cjs').profileMatches(scenario.sessionIdentity,runtime.reader?.gal?.profile)){sampling=false;await sampler;out.deferred=true;out.errors.push('CARDINAL_IDENTITY_PROFILE');return;}}
    if(step.gwb){if(models&&step.gwb.type==='bound'&&!krkr&&fs.existsSync(path.join(REPO,'native','krkrtext','script.inc')))try{const {KrkrModel}=require(path.join(REPO,'tools','reader-replay','krkr-model.cjs'));krkr=new KrkrModel({pid:step.gwb.gameProcessId,tmp:process.env.TEMP});}catch(e){out.krkr.error=String(e.message||e);krkr=false;}
     /* MODEL (labelled): the game clears its message layer at the click ([cm]); the script's own clearSent reports it when the control file says #clearline */
-    if(step.gwb.type==='readerInput'&&krkr&&lastLine&&step.pageClear!==false){krkr.tick();const n=krkr.reports.length;krkr.st.clearSent(lastLine);for(const r of krkr.reports.slice(n))hb.line({type:'hookChars',line:r});out.krkr.clears+=krkr.reports.length-n;}
+    /* 2026-11-26 a model that throws (a script.inc the rewrite cannot run) is switched off and named in out.krkr.error; the replay goes on */
+    if(step.gwb.type==='readerInput'&&krkr&&lastLine&&step.pageClear!==false)modelCall(()=>{krkr.tick();const n=krkr.reports.length;krkr.st.clearSent(lastLine);for(const r of krkr.reports.slice(n))hb.line({type:'hookChars',line:r});out.krkr.clears+=krkr.reports.length-n;});
     gwb.line(step.gwb);if(step.gwb.type==='bound'&&scenario.sessionIdentity){await sleep(0);const context=scenario.sessionIdentity.context;runtime.reader?.applyGameProfile(scenario.game.exe,{title:context.title,original:JSON.stringify({library:{engine:context.engine,vndbId:context.vndb}})});}}
    if(step.hb){if(step.hb.type==='hookSource')out.sourceEpisodes.push({step:stepIndex,line:step.line,text:step.hb.text,at:elapsed()});hb.line(step.hb);if(step.hb.type==='hookChars'){const m=/ line=(\d+) hidden=\d sw=(\d+) sh=(\d+) .* n=(\d+) /.exec(step.hb.line);if(m&&!/ role=(?!line)/.test(step.hb.line)&&+m[4]>0)lastLine={line:+m[1],sentLine:+m[1],sw:+m[2],sh:+m[3]};}}
-   if(step.choicePage&&krkr){krkr.tick();out.krkr.choice.push({mark:step.choicePage,frame:step.frame||'選択肢',ui:krkr.st.uiDraw({parent:{frameGraphic:step.frame||'選択肢',height:400}}),cfg:JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v))});}
+   /* options the game showed (core/cardinal/timeline.cjs screenRow): only noted, never fed to the reader */
+   if(step.screenChoice)out.screenChoices.push({step:stepIndex,at:elapsed(),texts:step.screenChoice.texts,span:Number.isFinite(step.screenChoice.until)?Math.max(0,step.screenChoice.until-step.t):null});
+   if(step.choicePage&&krkr)modelCall(()=>{krkr.tick();out.krkr.choice.push({mark:step.choicePage,frame:step.frame||'選択肢',ui:krkr.st.uiDraw({parent:{frameGraphic:step.frame||'選択肢',height:400}}),cfg:JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v))});});
    if(step.page)await page.evaluate(typeof step.page==="string"?"("+step.page+")()":step.page).catch(e=>out.errors.push('step page: '+e.message));
    if(step.mark){await sleep(step.settle??150);const s=await page.evaluate(()=>window.__replayProbe()).catch(e=>({error:e.message}));s.mark=step.mark;s.at=elapsed();s.hitRegions=hits();out.samples.push(s);}
    if(step.watch){const until=elapsed()+step.watch;while(elapsed()<until){const s=await page.evaluate(()=>window.__replayProbe()).catch(e=>({error:e.message}));s.mark=step.mark||('watch:'+step.watchName);s.at=elapsed();s.watch=true;s.hitRegions=hits();out.samples.push(s);await sleep(step.every||80);}}
@@ -159,7 +163,7 @@ return (async()=>{
   sampling=false;await sampler;out.timing=timing.finish();measureTime=null;out.lag=Timing.statistics(out.timing.steps,out.timing.probes,scenario.sampleEvery).lag;
   if(scenario.sessionIdentity&&!require('./identity.cjs').profileMatches(scenario.sessionIdentity,runtime.reader?.gal?.profile)){out.deferred=true;out.errors.push('CARDINAL_IDENTITY_PROFILE');return;}
   {const dir=path.join(process.env.TEMP,'MeguLit','draw');const files=fs.existsSync(dir)?fs.readdirSync(dir).filter(f=>/^\d+\.txt$/.test(f)):[];out.control.push({mark:'end',files:files.map(f=>({name:f,text:fs.readFileSync(path.join(dir,f)).slice(2).toString('utf16le')}))});}
-  if(krkr){krkr.tick();out.krkr.cfg=JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v));out.krkr.ctl=krkr.ctl;}
+  if(krkr)modelCall(()=>{krkr.tick();out.krkr.cfg=JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v));out.krkr.ctl=krkr.ctl;});
   out.hookSpawned=hookSpawned;out.gwbSent=gwb.sent.filter(x=>x.m.type!=='hitRegions').slice(-200).map(x=>x.m);out.hbSent=hb.sent.map(x=>({at:x.at-t0,...x.m})).filter(m=>m.type!=='source');
   out.events=events.map(e=>({at:e.at-t0,type:e.m.type,keys:Object.keys(e.m).slice(0,12)})).slice(-400);
 

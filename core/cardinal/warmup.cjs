@@ -24,6 +24,7 @@ function cut(run){const at=until(run);if(!(at>0))return {run,warmup:null};const 
  const steps=(run.steps||[]).map((st,i)=>drop.has(i)&&st?.hb?.type==='hookSource'?{...st,line:undefined,hb:{...st.hb,type:'hookSourceWarmup'}}:st);
  const out={...o,samples:kept,
   hbSent:(o.hbSent||[]).filter(m=>!(Number.isFinite(m?.at)&&m.at<at)),
+  ...(Array.isArray(o.screenChoices)?{screenChoices:o.screenChoices.filter(c=>!(Number.isFinite(c?.at)&&c.at<at))}:{}),
   hookEvents:(o.hookEvents||[]).filter(l=>{const t=atOf(o,l);return !(Number.isFinite(t)&&t<at);}),
   ...(eps?{sourceEpisodes:eps.filter(e=>!drop.has(e.step))}:{})};
  return {run:{...run,steps,o:out},warmup:{until:Math.round(at),droppedSamples:samples.length-kept.length,keptSamples:kept.length,droppedLines:drop.size}};}
