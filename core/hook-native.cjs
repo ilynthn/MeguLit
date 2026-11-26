@@ -19,7 +19,7 @@ function speakerName(raw){const n=String(raw||'').replace(/[\x00-\x1f]/g,'').rep
    名前 line. Returns {name,text}; text is '' when the string was only a name. */
 /* side-stream text waits this long for the dialogue line of the same moment before it may be art text */const AUX_ART_DELAY_MS=120;/* a name-like side-stream text this soon after a quoted line without a speaker is that line's name (noteAuxName) */const AUX_NAME_LATE_MS=400;/* a side-stream line from further back than this many lines, with no line for this long after it, is a screen of past lines (pastScreenAux) */const PAST_LINE_AGE=30,PAST_SCREEN_MS=800;
 /* OCR read lines (2026-11-19): a read group waits this long for the rest of the screen's groups; this many groups at once is a menu or settings page; a hook line this recent is current; the same text again within this long is the same screen */
-const HOOK_RETRY_MAX=6,HOOK_ATTACH_GRACE_MS=45000,OCR_LINE_SETTLE_MS=500,OCR_LINE_MAX_BLOCKS=4,OCR_LINE_QUIET_MS=5000,OCR_LINE_REPEAT_MS=60000,OCR_LINE_STALE_MS=60000;
+const HOOK_RETRY_MAX=6,HOOK_ATTACH_GRACE_MS=45000,OCR_LINE_SETTLE_MS=500,OCR_LINE_MAX_BLOCKS=4,OCR_LINE_QUIET_MS=5000,OCR_LINE_REPEAT_MS=60000,OCR_LINE_STALE_MS=60000,OCR_LINE_HOLD_MS=6000,OCR_LINE_EMPTY_MS=1500;
 const SKIP_BURST_GAP_MS=300,SKIP_BURST_SETTLE_MS=400,SKIP_BURST_MAX_HOLD_MS=800;
 const QUOTE_OPEN='「『（(',QUOTE_CLOSE='」』）)';
 function splitSpeaker(raw,known){const s=String(raw||'');const t=s.replace(/^[\s　]+/,'');if(!t)return {name:'',text:s};
@@ -111,8 +111,8 @@ class HookNative{
  gamePid(){return Number(this.target?.pid||this.windowState?.gameProcessId||this.state?.gameProcessId)||0;}
  resetSourceSession(){
   // Page and OCR history belong to the bound process, even if no HookBridge could start for it.
-  clearTimeout(this.ocr?.timer);
-  this.ocr=null;
+  clearTimeout(this.ocr?.timer);clearTimeout(this.ocr?.emptyTimer);
+  this.ocr=null;this.artScan=null;
   this.pageText=null;
   this.pageSaidSame=false;
   this.hookRecent=[];
@@ -131,7 +131,7 @@ class HookNative{
   this.lastSourceAt=0;
   /* Codex #1267: a screen of past lines (pending or shown) and a dated-screen recheck belong to the old process too; a hidden line
      is shown again so the next game does not start under it */
-  const P=this.pastScreen;this.pastScreen=null;clearTimeout(P?.timer);clearTimeout(this.artRecheck);this.artRecheck=null;
+  const P=this.pastScreen;this.pastScreen=null;clearTimeout(P?.timer);clearTimeout(this.artRecheck);this.artRecheck=null;this.artDates=0;
   if(P?.hidden)this.emit({type:'hookDialog',engine:'pastlines',visible:true});
  }
  configure(preferences,state){if(this.disposed)return;this.preferences=preferences;this.windowState=state;this.capGiveWay();const pid=Number(state.gameProcessId),hwnd=String(state.gameHwnd||'');this.wanted=(preferences.hookAutoStart||['hook','local'].includes(preferences.maskMode))&&preferences.bindEnabled===true&&preferences.hookProfile!=='off';if(this.nativeRuby&&(this.nativeRuby.pid!==pid||this.nativeRuby.started!==String(state.gameStarted||'')))this.clearNativeRuby();
@@ -472,16 +472,30 @@ class HookNative{
    const top=it=>Math.min(...it.rows.map(r=>+r?.y).filter(Number.isFinite),Infinity),text=take.slice().sort((a,b)=>top(a)-top(b)).map(it=>it.text.trim()).join(String.fromCharCode(10)),sw=take[0].sw,sh=take[0].sh;
    this.trace('ocr line '+JSON.stringify(text.slice(0,40)));O.lastText=text;
    const before=this.state?.hookSequence;this.source({type:'hookSource',text,origin:'ocr',hookActive:true,...(box&&sw&&sh?{ocrRect:{...box,sw,sh}}:{})},'ocr');
-   const groups=new Set(take.filter(it=>!it.once).map(it=>it.id));O.current=this.state?.hookSequence!==before&&this.state?.hookSourceOrigin==='ocr'&&groups.size?{groups,sequence:this.state.hookSequence}:null;}
+   const groups=new Set(take.filter(it=>!it.once).map(it=>it.id));O.current=this.state?.hookSequence!==before&&this.state?.hookSourceOrigin==='ocr'?{groups,sequence:this.state.hookSequence,shownAt:now}:null;if(O.current)this.ocrEmptyCheck();}
   if(wait>0)this.ocrSchedule(wait+20);}
  /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run: the warning screen's notice, read by the art scan, stayed on the title screen
     for the 26 s until the first story line; no hook line, no input, so nothing else could clear it). A line the art scan read
     is on the picture: when every group it was made of has left the picture (the scan's hide after two reads without it), the
     reader is cleared the way leaving the dialogue screen clears it (E530), unless a newer line has replaced it meanwhile. A
     group read only once (a card that faded within a second) gives no hide and keeps its line as before. Any engine. */
- ocrGroupGone(id){const O=this.ocr,C=O?.current;if(!C||!C.groups.delete(id)||C.groups.size)return;O.current=null;
+ ocrGroupGone(id){const O=this.ocr,C=O?.current;if(!C||!C.groups.delete(id)||C.groups.size)return;this.ocrClear('ocr line gone from the picture');}
+ /* #1267 (死に逝く君、館に芽吹く憎悪, live 2026-11-27: the warning page fading out was read once as garble 「にけ異カ′シーノ…含まれオの匍洋音」
+    and stayed over the title screen for minutes: a group read once gives no hide, and the title screen read as 0 groups, then as
+    a 4-group menu). The art scan's own count says the picture holds no line: no group at all, or a menu's worth of groups (a
+    title or settings screen, never taken as a line). While it says so for OCR_LINE_EMPTY_MS, a line the scan read (origin ocr,
+    still current) leaves the reader, but only after it was shown OCR_LINE_HOLD_MS, so a card that faded within a second can
+    still be read. Hook lines are never touched (their origin is not ocr). */
+ artScanCount(groups,foreign=0){if(groups==null){this.artScan=null;clearTimeout(this.ocr?.emptyTimer);return;}const n=(Number(groups)||0)+(Number(foreign)||0),now=this.now(),was=this.artScan;
+  this.artScan={empty:n===0||n>=OCR_LINE_MAX_BLOCKS,at:was&&was.empty===(n===0||n>=OCR_LINE_MAX_BLOCKS)?was.at:now};this.ocrEmptyCheck();}
+ ocrEmptyCheck(){const O=this.ocr,C=O?.current,S=this.artScan;clearTimeout(O?.emptyTimer);if(O)O.emptyTimer=null;if(!C||!S?.empty)return;
+  if(this.state?.hookSequence!==C.sequence||this.state?.hookSourceOrigin!=='ocr'){O.current=null;return;}
+  const due=Math.max((C.shownAt||0)+OCR_LINE_HOLD_MS,S.at+OCR_LINE_EMPTY_MS),now=this.now();
+  if(now>=due){this.ocrClear('ocr line gone: the art scan reads no line on the picture');return;}
+  O.emptyTimer=setTimeout(()=>this.ocrEmptyCheck(),due-now);O.emptyTimer.unref?.();}
+ ocrClear(why){const O=this.ocr,C=O?.current;if(!C)return;O.current=null;clearTimeout(O.emptyTimer);O.emptyTimer=null;
   if(this.state?.hookSequence!==C.sequence||this.state?.hookSourceOrigin!=='ocr')return;
-  this.trace('ocr line gone from the picture');this.lastSource='';this.lastSourceAt=0;this.sentencePieces?.reset();
+  this.trace(why);this.lastSource='';this.lastSourceAt=0;this.sentencePieces?.reset();
   this.notify({hookSource:'',hookSpeaker:'',hookSourceOrigin:'leave',hookSequence:(this.state.hookSequence||0)+1,hookMessage:'画面上的文字已消失，已清空阅读器'});}
  static ocrSentence(flat){const t=String(flat||''),n=[...t].length;return n>=12&&/[぀-ヿ]/.test(t)&&(/[。！？!?]/.test(t)||/(ます|ました|ましょう|ません|です|ください)/.test(t));}
  ocrLineRefused(it,now){const f=require('./art-filter.cjs'),t=String(it.text||'').trim(),flat=HookNative.flat(t),n=[...flat].length,O=this.ocr,kana=/[぀-ヿ]/.test(flat);
@@ -678,6 +692,12 @@ class HookNative{
   const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:this.stripHookAnnotations(extracted.text)};
   if(typeof m.text==='string'&&!m.text.trim()&&extracted.text?.trim())return;
   if(this.pageRedraw(this.pageState,m.text)){this.trace('krkr page: hook redraw with the drawn line at its end, skipped chars='+m.text.length);return;}
+  /* #1267 live 2026-11-27 (ファタモルガーナの館（海市蜃楼之馆）, first choice: when the hook picked the choice stream, the reader's line became
+     「選択肢選択肢……おはよう………………」, the choice frame's label drawn twice and the option). heldChoiceParts drops that composite only once
+     the option is a recent choice key, but here the line came 1 ms before the side stream drew the option. A line opening with a
+     profile-declared frame label (choice.pageFrames) twice, with more after it, is the game's choice frame, never the dialogue line,
+     unless the script holds it exactly. Dialogue never doubles the label (the profile names it). */
+  if(this.choiceFrameLine(m.text)){this.trace('choice frame line left to the choice '+JSON.stringify(String(m.text).slice(0,30)));return;}
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
   this.languageCheck(m.text);this.japaneseGuard(m.text);
@@ -1010,6 +1030,12 @@ class HookNative{
  /* a held hook line the reader already has: inside one recent line, or (a page dump) at least 80 % made of recent lines */
  heldCovered(text){const f=HookNative.flat(text),R=(this.recentSources||[]).filter(Boolean);if(!f)return true;if(R.some(r=>r.includes(f)))return true;
   const mark=new Uint8Array(f.length);for(const r of R){if(r.length<4)continue;let at=f.indexOf(r);while(at>=0){mark.fill(1,at,at+r.length);at=f.indexOf(r,at+1);}}let n=0;for(const v of mark)n+=v;return n>=f.length*.8;}
+ choiceFrameLine(text){if(typeof text!=='string')return false;const flat=HookNative.flat(text);
+  for(const f of Profiles.get(this.profile,'choice.pageFrames',[])){const label=/^\^([^\\[\](){}.*+?|^$]+)\$$/.exec(String(f))?.[1];
+   if(!label||!flat.startsWith(label+label)||flat.length<=2*label.length)continue;
+   let exact=false;if(this.originalText){try{exact=this.resolveSource(String(text).trim())?.status==='exact';}catch{}}
+   return !exact;}
+  return false;}
  heldChoiceParts(text){
   const shown=this.choice?.active&&Array.isArray(this.state?.hookChoices?.items)?this.state.hookChoices.items.map(i=>HookNative.flat(i?.text)).filter(Boolean):[];
   const confirmed=HookNative.glued(text,shown);
@@ -1320,6 +1346,10 @@ class HookNative{
  /* the art scan read two or more rows with a date (save slots: native PageLocator DateRows) while no line came for 1.5 s: a save or
     load screen; the line comes back when the dates leave the picture (the scan reads none, or stops for a new line) */
  artScreen(m){try{const n=Number(m?.dates)||0,P=this.pastScreen;clearTimeout(this.artRecheck);this.artRecheck=null;
+  /* #1267 live 2026-11-27 (死に逝く君, LOAD screen with one slot): one date row is too little to call a save screen, but while a screen
+     of past lines is up it is that screen's; when the dates leave the picture the screen is closed and the line comes back */
+  this.artDates=n;if(n>=1&&P)P.dates=true;
+  if(n===0&&P?.hidden&&P.dates&&P.by!=='dates'){this.pastScreen=null;clearTimeout(P.timer);this.trace('game screen of past lines left: no dates on the picture');this.emit({type:'hookDialog',engine:'pastlines',visible:true});return;}
   if(n>=2){if(P?.hidden||this.skipKey||!this.lastSource)return;
    /* Codex #1267: PageLocator reports the dates only when their count changes, so a screen read within 1.5 s of the last line is
       checked again once that time is up, unless the picture changed (another report) or a line came meanwhile */
@@ -1333,9 +1363,13 @@ class HookNative{
   const P=this.pastScreen;if(P&&this.lastSource&&HookNative.flat(LineOnce.collapse(String(raw||'')).text)===HookNative.flat(this.lastSource)){this.pastScreen=null;clearTimeout(P.timer);
    if(P.hidden){this.trace('game screen of past lines left: the current line is drawn again');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}else this.trace('game screen of past lines closed before the hide: the current line is drawn again');return false;}
   /* nothing the side streams draw on that screen is a choice or art */if(P?.hidden)return true;
+  /* #1267 live 2026-11-27 (死に逝く君, LOAD screen with one slot: the preview's last row 「た。」 came 1 ms after the whole line was
+     recognised, too short to be a past line of its own, and became a one-option choice and art text): while a screen of past lines
+     is pending, a piece of the line that started it is that line too */
+  if(P?.line){const k=HookNative.flat(LineOnce.collapse(String(raw||'')).text);if(k&&P.line.includes(k)){this.trace('piece of the past line on a side stream '+JSON.stringify(String(raw).slice(0,40)));return true;}}
   const kind=this.pastKind(raw);if(!kind)return false;
   this.trace('past line on a side stream ('+kind+') '+JSON.stringify(String(raw).slice(0,40)));
-  if(kind==='line'&&!this.skipKey&&!P){const seq=this.state?.hookSequence,at=this.now();const S={seq,at,hidden:false};S.timer=setTimeout(()=>{if(this.pastScreen!==S||this.state?.hookSequence!==seq||this.skipKey||(this.lastSourceAt||0)>at)return;S.hidden=true;this.trace('game screen of past lines: reader line hidden');this.clearChoices?.('game screen of past lines');this.emit({type:'hookDialog',engine:'pastlines',visible:false});},PAST_SCREEN_MS);S.timer.unref?.();this.pastScreen=S;}
+  if(kind==='line'&&!this.skipKey&&!P){const seq=this.state?.hookSequence,at=this.now();const S={seq,at,hidden:false,dates:this.artDates>0,line:HookNative.flat(LineOnce.collapse(String(raw||'')).text)};S.timer=setTimeout(()=>{if(this.pastScreen!==S||this.state?.hookSequence!==seq||this.skipKey||(this.lastSourceAt||0)>at)return;S.hidden=true;this.trace('game screen of past lines: reader line hidden');this.clearChoices?.('game screen of past lines');this.emit({type:'hookDialog',engine:'pastlines',visible:false});},PAST_SCREEN_MS);S.timer.unref?.();this.pastScreen=S;}
   return true;}catch{return false;}}
  /* #141 names seen in a name stream or split from a line; at most 200 are kept. */
  noteSpeaker(n){const K=this.knownSpeakers||(this.knownSpeakers=new Set());if(!n||n.length>16)return;K.delete(n);K.add(n);if(K.size>200)K.delete(K.values().next().value);}

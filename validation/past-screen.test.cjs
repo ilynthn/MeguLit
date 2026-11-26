@@ -97,3 +97,28 @@ test('the art scan counts the LOAD screen rows of the run as dated rows, dialogu
  assert.equal(count(['2026年11月26日 21:43']),1);
  assert.match(src,/Emit\(new \{ type = "artScreen", dates = dates \}\)/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','core','gal-native.cjs'),'utf8'),/message\.type==='artScreen'\)\{this\.hooks\.artScreen/);});
+
+/* #1267 live 2026-11-27 (死に逝く君、館に芽吹く憎悪 汉化硬盘版, PR build, hook-events 19:41:06.675-07.489): the LOAD screen with one save slot.
+   The pieces came first, then the whole preview, then 「た。」 1 ms later; 「た。」 became a choice candidate and art text. The art scan saw
+   one date row (too few for the 2-date rule). After 「前の画面へ戻る」 no stream drew anything, so the reader's line never came back. */
+test('one save slot: the last piece of the preview is no choice or art, and the line comes back when the date leaves (#1267 live)',()=>{
+ const r=rig();const art=[];r.h.artCandidate=t=>art.push(t);try{
+  const t=story(r,2000);
+  r.run(t+11000);r.h.artScreen({dates:1});
+  r.aux(t+12000,'tTVPNativeBaseBitmap::DrawText','当時、街には多く');r.aux(t+12001,'tTVPNativeBaseBitmap::DrawText','の人々が溢れてい');
+  r.aux(t+12002,'KiriKiri2',OLD);r.aux(t+12003,'tTVPNativeBaseBitmap::DrawText','た。');r.aux(t+12003,'KiriKiri1',OLD);
+  assert.deepEqual((r.h.choice?.items||[]).map(x=>x.key),[],'no piece of the preview is a choice');
+  assert.deepEqual(art,[],'no piece of the preview is art text');
+  r.run(t+12900);assert.deepEqual(r.dialog(),[false],'hidden on the LOAD screen');
+  r.run(t+20000);r.h.artScreen({dates:0});
+  assert.deepEqual(r.dialog(),[false,true],'the screen closed (its date left the picture): the line is back');
+ }finally{r.done();}});
+
+test('one date row alone hides nothing, and its leaving does not touch a line hidden for two dates',()=>{
+ const r=rig();try{
+  const t=story(r,2000);
+  r.run(t+3000);r.h.artScreen({dates:1});r.run(t+6000);r.h.artScreen({dates:0});
+  assert.deepEqual(r.dialog(),[],'a line with a date in it (a diary card) is no save screen');
+  r.run(t+9000);r.h.artScreen({dates:2});assert.deepEqual(r.dialog(),[false]);
+  r.h.artScreen({dates:1});assert.deepEqual(r.dialog(),[false,true],'the 2-date rule restores as before');
+ }finally{r.done();}});
