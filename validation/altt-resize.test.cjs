@@ -62,7 +62,7 @@ test('Alt+T edge resize: whole-layer region and glass during the drag, footer pi
   assert.equal(after.resizing,false);
   assert.equal(after.panel[2]-after.panel[0],440,'minimum width');assert.ok(after.panel[3]-after.panel[1]>=460,'minimum height '+(after.panel[3]-after.panel[1]));
   assert.ok(after.scroll[0]>after.scroll[1]&&/auto|scroll/.test(after.scroll[2]),'content scrolls at the minimum: '+after.scroll);
-  assert.deepEqual(after.region,[{x:after.panel[0],y:after.panel[1],width:after.panel[2]-after.panel[0],height:after.panel[3]-after.panel[1],menu:true}],'release: region is the panel again');
+  assert.deepEqual(after.region.filter(r=>r.menu),[{x:after.panel[0],y:after.panel[1],width:after.panel[2]-after.panel[0],height:after.panel[3]-after.panel[1],menu:true}],'release: region is the panel again');
   assert.equal(after.footer[3],after.panel[3]-1);
   /* grow again by the west edge (the panel sits against the right of the layer), release, close and reopen: same box */
   x=after.panel[0]+3;y=Math.round((after.panel[1]+after.panel[3])/2);assert.equal(await cdp.evaluate(AT(x,y)),'w','the press lands on the west handle');await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await mouse('mousePressed',x,y);

@@ -94,10 +94,11 @@ function createSpeech(api,store,toast=()=>{},active=()=>true){
  function stop(){seq++;if(current){current.pause();current=null;}try{speechSynthesis.cancel();}catch{}}
  /* start the voice engine when AI voice is chosen, so the first click already has a voice */
  setTimeout(()=>{if(active()&&voice()==='ai')synth('あ').catch(()=>{});},300);
- let queue=Promise.resolve();
- function prefetch(list){queue=queue.then(async()=>{for(const t of [...new Set(list)].slice(0,120)){if(!active()||offline)return;if(recorded(t))continue;try{await synth(t);}catch{return;}}});return queue;}
+ let queue=Promise.resolve(),prefetchSeq=0;
+ function cancelPrefetch(){prefetchSeq++;}
+ function prefetch(list){const gen=++prefetchSeq;queue=queue.then(async()=>{for(const t of [...new Set(list)].slice(0,120)){if(!active()||offline||gen!==prefetchSeq)return;if(recorded(t))continue;try{await synth(t);}catch{return;}}});return queue;}
  function setVolume(v){if(current)current.volume=v;}
- return {say,prefetch,stop,setVolume};
+ return {say,prefetch,cancelPrefetch,stop,setVolume};
 }
 
 /* ---------- 入口 ---------- */
@@ -126,7 +127,7 @@ export async function mountKana(target,{api,invoke,toast,start='index',openTab,f
  }
  async function show(name,params){
   for(const h of leaveHandlers.splice(0))try{h();}catch{}
-  speech.stop();keyHandlers=[];current={name,params};
+  speech.stop();speech.cancelPrefetch();keyHandlers=[];current={name,params};
   const mod=await import(`./views/${name}.js`);
   const el=document.createElement('div');viewEl.replaceChildren(el);
   try{mod.view(el,{...ctx,params});}catch(error){console.error('[kana]',error);el.textContent='加载失败：'+error.message;}
@@ -139,7 +140,7 @@ export async function mountKana(target,{api,invoke,toast,start='index',openTab,f
   event.preventDefault();go(url);
  });
  /* 按键只在五十音页面可见时生效；输入框、MeguLit 自己的对话框不受影响 */
- const cleanup=()=>{document.removeEventListener('keydown',onKey,true);speech.stop();store.flush();};
+ const cleanup=()=>{for(const h of leaveHandlers.splice(0))try{h();}catch{}document.removeEventListener('keydown',onKey,true);speech.stop();speech.cancelPrefetch();store.flush();};
  const onKey=event=>{
   if(!host.isConnected){cleanup();return;}
   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey)return;

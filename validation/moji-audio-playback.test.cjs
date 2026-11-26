@@ -12,10 +12,16 @@ const HARNESS_SCRIPT=`<script>
 (() => {
  const audios = [];
  const pendingAudio = [];
+ const bootErrors = [];
  let nextAudioMode = 'resolve';
+ let dictCalls = 0;
+ window.addEventListener('error', e => bootErrors.push(String(e?.message || e)));
+ window.addEventListener('unhandledrejection', e => bootErrors.push(String(e?.reason?.message || e?.reason || e)));
  window.__testState = {
   audios,
   pendingAudio,
+  bootErrors,
+  get dictCalls(){ return dictCalls; },
   setAudioMode(m){ nextAudioMode = m; },
   activeAudios(){ return audios.filter(a => a.played && !a.paused); }
  };
@@ -58,6 +64,7 @@ const HARNESS_SCRIPT=`<script>
    case 'jp_auto_notices':
     return [];
    case 'dictionary':
+    dictCalls++;
     return [
      {id:'w1',spelling:'食べる',reading:'たべる',pron:'たべる',definition:'吃'},
      {id:'w2',spelling:'飲む',reading:'のむ',pron:'のむ',definition:'喝'}
@@ -104,31 +111,48 @@ test('MOJi dictionary audio stops previous playback, drops stale responses, and 
  const origin='http://127.0.0.1:'+server.address().port;
 
  await browser.send('Page.navigate',{url:origin+'/__test-dict.html'});
+ const bootDeadline=Date.now()+30000;
+ let booted=false,lastState=null;
+ while(Date.now()<bootDeadline){
+  try{
+   lastState=await browser.evaluate(`({path:location.pathname,readyState:document.readyState,ready:!!window.__TOME_READY__,hasTest:!!window.__megulitTest,errors:(window.__testState?.bootErrors||[]).slice(0,5)})`);
+   if(lastState.path==='/__test-dict.html'&&lastState.readyState==='complete'&&lastState.ready&&lastState.hasTest){booted=true;break;}
+  }catch(e){lastState={evalError:String(e?.message||e)};}
+  await new Promise(r=>setTimeout(r,50));
+ }
+ assert.equal(booted,true,'dict test page did not finish booting within 30s: '+JSON.stringify(lastState));
+
  const report=await browser.evaluate(`(async()=>{
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const waitFor = async (fn, ms = 5000) => {
+  const waitFor = async (fn, label = 'condition', ms = 20000) => {
    const end = Date.now() + ms;
    while (Date.now() < end) { const v = fn(); if (v) return v; await wait(20); }
-   throw new Error('TIMEOUT');
+   throw new Error('TIMEOUT: ' + label);
   };
-  await waitFor(() => window.__TOME_READY__ && window.__megulitTest);
+  await waitFor(() => window.__TOME_READY__ && window.__megulitTest, 'app ready');
   await window.__megulitTest.navigate('learning', 'dictionary');
   const openResults = async q => {
-   const input = await waitFor(() => document.querySelector('#lookup-input'));
+   const input = await waitFor(() => document.querySelector('#lookup-input'), 'lookup input');
    const form = document.querySelector('#lookup-form');
+   const before = window.__testState.dictCalls;
    input.value = q;
    form.requestSubmit(form.querySelector('button[value=moji]'));
-   await waitFor(() => document.querySelector('.esr-d [data-play]'));
-   await wait(30);
+   await waitFor(() => window.__testState.dictCalls > before && document.querySelector('.esr-d [data-play]'), 'dictionary results for ' + q);
   };
   const selectRow = async key => {
-   document.querySelector('.esr-row[data-key="' + key + '"]').click();
-   await wait(40);
+   const row = await waitFor(() => document.querySelector('.esr-row[data-key="' + key + '"]'), 'row ' + key);
+   row.click();
+   await waitFor(() => row.classList.contains('is-cur') && document.querySelector('.esr-d [data-play]:not([disabled])'), 'selected row ' + key);
   };
-  const clickPlay = async () => {
-   const btn = await waitFor(() => document.querySelector('.esr-d [data-play]:not([disabled])'));
+  const clickPlay = async ({expectToast = false} = {}) => {
+   const btn = await waitFor(() => document.querySelector('.esr-d [data-play]:not([disabled])'), 'play button');
+   const beforeAudios = window.__testState.audios.length;
    btn.click();
-   await wait(30);
+   if (expectToast) {
+    await waitFor(() => toastEl().classList.contains('visible'), 'error toast');
+   } else {
+    await waitFor(() => window.__testState.audios.length > beforeAudios && !window.__testState.audios.at(-1).paused, 'audio playing');
+   }
   };
   const toastEl = () => document.querySelector('#toast');
   const clearToast = () => { const el = toastEl(); el.textContent = ''; el.classList.remove('visible'); };
@@ -147,13 +171,13 @@ test('MOJi dictionary audio stops previous playback, drops stale responses, and 
   window.__testState.setAudioMode('defer');
   await selectRow(0);
   document.querySelector('.esr-d [data-play]').click();
-  await waitFor(() => window.__testState.pendingAudio.length === 1);
+  await waitFor(() => window.__testState.pendingAudio.length === 1, 'first deferred audio');
   const slowOk = window.__testState.pendingAudio.shift();
   const a2PausedOnNewReq = a2.paused;
 
   await selectRow(1);
   document.querySelector('.esr-d [data-play]').click();
-  await waitFor(() => window.__testState.pendingAudio.length === 1);
+  await waitFor(() => window.__testState.pendingAudio.length === 1, 'second deferred audio');
   const slowErr = window.__testState.pendingAudio.shift();
 
   window.__testState.setAudioMode('resolve');
@@ -175,12 +199,13 @@ test('MOJi dictionary audio stops previous playback, drops stale responses, and 
 
   // 3. Re-searching pauses currently playing audio
   await openResults('飲む');
+  await waitFor(() => a3.paused, 'a3 paused after search');
   const step3 = {a3PausedAfterSearch: a3.paused, activeCount: window.__testState.activeAudios().length};
 
   // 4. Current playback failure still shows the error toast
   clearToast();
   window.__testState.setAudioMode('play-fail');
-  await clickPlay();
+  await clickPlay({expectToast: true});
   const step4 = {errorToast: toastEl().textContent, toastVisible: toastEl().classList.contains('visible')};
 
   return {step1, step2, step3, step4};
