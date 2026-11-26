@@ -354,7 +354,7 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
  async function paint(){const w=list[cur];if(!w){side.innerHTML='';return;}const mine=++ticket;
   if(!loadDetail||!w.id||cache.has(w.key)){side.innerHTML=body(w,cache.get(w.key));return;}
   side.innerHTML=body(w,null)+`<p class="esr-src ent-wait">${esc(t.loading)}</p>`;
-  let d=null;try{d=await loadDetail(w);}catch{d=null;}cache.set(w.key,d);if(mine!==ticket||!life.live)return;side.innerHTML=body(w,d)+(d?'':`<p class="esr-src">${esc(t.detailFail)}</p>`);}
+  let d=null;try{d=await loadDetail(w);}catch{d=null;}if(d)cache.set(w.key,d);if(mine!==ticket||!life.live)return;side.innerHTML=body(w,d)+(d?'':`<p class="esr-src">${esc(t.detailFail)}</p>`);}
  function reveal(r,smooth){if(!r)return;const top=r.offsetTop,bottom=top+r.offsetHeight,h=vp.clientHeight,st=vp.scrollTop,pad=Math.min(80,h*.2);
   if(top<st+pad)vp.scrollTo({top:Math.max(0,top-pad),behavior:smooth&&!reduced()?'smooth':'auto'});else if(bottom>st+h-pad)vp.scrollTo({top:bottom-h+pad,behavior:smooth&&!reduced()?'smooth':'auto'});}
  const edge=()=>{vp.classList.toggle('at-top',vp.scrollTop<=2);vp.classList.toggle('at-end',vp.scrollTop+vp.clientHeight>=vp.scrollHeight-2);};
@@ -378,7 +378,7 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
   if(e.target.closest('[data-notes-open]')){notesOpen.add(w.key);keep(()=>side.innerHTML=body(w,cache.get(w.key)));return;}
   const m=e.target.closest('[data-notes-more]');if(m&&loadNotes){const k=w.key,got=more.get(k)||{list:[],page:1,hasMore:true};m.disabled=true;m.textContent=t.notesLoading;
    try{const r=await loadNotes(w,got.page+1);more.set(k,{list:[...got.list,...(r?.comments||[])],page:got.page+1,hasMore:Boolean(r?.hasMore)&&(r?.comments||[]).length>0});}
-   catch{more.set(k,{...got,hasMore:false});}if(list[cur]===w&&life.live)keep(()=>side.innerHTML=body(w,cache.get(k)));}});
+   catch{}if(list[cur]===w&&life.live)keep(()=>side.innerHTML=body(w,cache.get(k)));}});
  /* re-rendering the panel keeps its scroll position (expanding notes never jumps back to the headword) */
  const keep=fn=>{const y=side.scrollTop;fn();side.scrollTop=y;};
  const ro=new ResizeObserver(()=>edge());ro.observe(vp);life.off(()=>ro.disconnect());

@@ -28,28 +28,30 @@ function serve({missing,requests=[]}={}){const server=http.createServer((req,res
  res.writeHead(200,{'content-type':TYPES[path.extname(file)]||'application/octet-stream'});res.end(data);});
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
 
-test('Reader reaches ready after the optional font fallback but stops for a required script fallback',{skip:!hasEdge&&'Edge not installed',timeout:60000},async()=>{
+test('Reader reaches ready after the optional font fallback but stops for a required script fallback',{skip:!hasEdge&&'Edge not installed',timeout:90000},async()=>{
  const {modules}=await import('../web/reader/module-list.js');
  const urls=modules.map(name=>'/reader/modules/'+name+'.js');
- const temp=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-reader-bootstrap-'));
+ const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-reader-bootstrap-'));
  const cdp=await startEdge(temp);
  try{
   for(const name of ['local-font','save-sentence']){
    const missing='/reader/modules/'+name+'.js',requests=[],server=await serve({missing,requests});
    try{
-    await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
+    const url=`http://127.0.0.1:${server.address().port}/reader/index.html`;
+    const navigation=await cdp.send('Page.navigate',{url});
+    assert.ok(!navigation.errorText,`Reader navigation failed (${navigation.errorText})`);
     let state;
-    for(let attempt=0;attempt<100;attempt++){
-     state=await cdp.evaluate('({ready:!!window.__TOME_READER_READY__,error:document.querySelector("#reader-status")?.textContent})').catch(()=>null);
-     if(state?.ready||state?.error?.startsWith('Error:'))break;
+    for(const deadline=Date.now()+30000;Date.now()<deadline;){
+     state=await cdp.evaluate(`({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READER_READY__,error:document.querySelector("#reader-status")?.textContent||""})`).catch(()=>null);
+     if(state?.href===url&&(state.ready||state.error.startsWith('Error:')))break;
      await sleep(100);
     }
-    assert.equal(state?.ready,name==='local-font',state?.error);
+    assert.equal(state?.ready,name==='local-font',`${name}: ${JSON.stringify({state,requested:requests.length})}`);
     if(name!=='local-font')assert.match(state.error,/save-sentence.*Unexpected token '<'/);
     assert.deepEqual([...new Set(requests)],name==='local-font'?urls:urls.slice(0,urls.indexOf(missing)+1));
    }finally{server.close();}
   }
- }finally{await cdp.stop();}
+ }finally{await cdp.stop();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });
 
 const TRANSLATION=`(async()=>{window.__tomoyoMode.set('translation');document.body.classList.add('tomoyo-gal-bound');

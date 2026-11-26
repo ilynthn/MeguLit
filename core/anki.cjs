@@ -7,6 +7,7 @@ const CIRCLED='⓪①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
 // kana-only words need none. Dictionary readings may arrive in katakana.
 const KANJI=/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff々〆ヶ]/;
 const hiragana=s=>String(s||'').replace(/[\u30a1-\u30f4]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+const katakana=s=>String(s||'').replace(/[\u3041-\u3094]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));
 const answerReading=(word,reading)=>KANJI.test(String(word||''))?hiragana(reading):'';
 const circled=list=>(list||[]).filter(n=>Number.isInteger(n)&&n>=0&&n<=20).map(n=>CIRCLED[n]).join('');
 // Card design: word + pitch on the front with the context sentence dimmed; back adds reading, meaning,
@@ -93,8 +94,19 @@ class Anki{
   return changed;
  }
  async save(word,c,audio,id,extra={}){const {available,owned}=await this.prepareModel(c);await this.call(c,'createDeck',{deck:c.ankiDeck});
-  const quote=s=>'"'+String(s||'').replace(/([\\"*_])/g,'\\$1')+'"',tag='tomoyo::'+id,found=await this.call(c,'findNotes',{query:'tag:'+tag+' deck:'+quote(c.ankiDeck)+' note:'+quote(c.ankiModel)});if(found.length>1)throw Error('找到多个同步词条，请先在 Anki 中消除重复笔记');
+  const quote=s=>'"'+String(s||'').replace(/([\\"*_])/g,'\\$1')+'"',tag='tomoyo::'+id;
+  let found=await this.call(c,'findNotes',{query:'tag:'+tag+' deck:'+quote(c.ankiDeck)+' note:'+quote(c.ankiModel)});
   const rawWord=String(word.base||word.surface||'').trim();
+  if(!found.length&&!word.cardKey){
+   const rawReading=String(word.reading||''),trimmed=rawReading.trim();
+   for(const altReading of new Set([trimmed,hiragana(trimmed),katakana(trimmed)])){
+    if(!altReading||altReading===rawReading)continue;
+    const altTag='tomoyo::'+createHash('sha256').update(JSON.stringify([rawWord,altReading])).digest('hex');
+    const altFound=await this.call(c,'findNotes',{query:'tag:'+altTag+' deck:'+quote(c.ankiDeck)+' note:'+quote(c.ankiModel)});
+    if(altFound.length){found=altFound;break;}
+   }
+  }
+  if(found.length>1)throw Error('找到多个同步词条，请先在 Anki 中消除重复笔记');
   let allowDuplicate=false;
   if(!found.length){
    if(word.cardKey)allowDuplicate=true;
@@ -102,17 +114,23 @@ class Anki{
     const htmlWord=html(rawWord),wordQuery=htmlWord!==rawWord?'(Word:'+quote(rawWord)+' OR Word:'+quote(htmlWord)+')':'Word:'+quote(rawWord);
     const sameWordIds=await this.call(c,'findNotes',{query:'note:'+quote(c.ankiModel)+' '+wordQuery});
     if(sameWordIds.length){
-     const exact=[];
+     const [inDeckList,cardKeyList]=await Promise.all([
+      this.call(c,'findNotes',{query:'deck:'+quote(c.ankiDeck)+' note:'+quote(c.ankiModel)+' '+wordQuery}),
+      this.call(c,'findNotes',{query:'tag:tomoyo::cardkey note:'+quote(c.ankiModel)+' '+wordQuery}),
+     ]);
+     const inDeckIds=new Set(inDeckList),cardKeyIds=new Set(cardKeyList),exact=[];
      for(let i=0;i<sameWordIds.length;i+=500){
       const infos=await this.call(c,'notesInfo',{notes:sameWordIds.slice(i,i+500)});
       for(const n of infos)if((!n.modelName||n.modelName===c.ankiModel)&&plainText(n.fields?.Word)===rawWord)exact.push(n);
      }
      if(exact.length){
+      const inDeck=exact.filter(n=>inDeckIds.has(n.noteId)&&!cardKeyIds.has(n.noteId));
       const hasKanji=KANJI.test(rawWord),wantReading=hiragana(String(word.reading||'').trim());
       const readingOf=n=>hiragana(plainText(n.fields?.WordReading)||plainText(n.fields?.Reading));
-      const same=exact.find(n=>{const r=readingOf(n);return hasKanji?(r!==''&&r===wantReading):(r===''||r===wantReading);});
+      const same=inDeck.find(n=>{const r=readingOf(n);return hasKanji?(r!==''&&r===wantReading):(r===''||r===wantReading);});
       if(same)return {id:same.noteId,updated:false,screenshotAttached:false};
-      if(hasKanji&&wantReading&&exact.every(n=>{const r=readingOf(n);return r!==''&&r!==wantReading;}))allowDuplicate=true;
+      const deckClear=!inDeck.length||(hasKanji&&wantReading&&inDeck.every(n=>{const r=readingOf(n);return r!==''&&r!==wantReading;}));
+      if(deckClear)allowDuplicate=true;
      }
     }
    }
@@ -133,7 +151,8 @@ class Anki{
    let same=true;try{const [info]=await this.call(c,'notesInfo',{notes:[found[0]]});const old=info?.fields?.Sentence?.value;if(typeof old==='string')same=old.trim()===values.Sentence.trim();}catch{}
    if(same){if(!extra.sentenceAudio)delete values.SentenceAudio;if(!extra.screenshot)delete values.Screenshot;if(!extra.translation){delete values.SentenceTranslation;delete values.TranslationSource;}if(!extra.gameTitle)delete values.Game;}
    else for(const k of ['SentenceAudio','Screenshot','SentenceTranslation','TranslationSource','Game'])if(available.includes(k)&&!(k in values))values[k]='';await this.call(c,'updateNoteFields',{note:{id:found[0],fields:values}});return {id:found[0],updated:true,screenshotAttached:!!extra.screenshot&&available.includes('Screenshot')};}
-  const note=await this.call(c,'addNote',{note:{deckName:c.ankiDeck,modelName:c.ankiModel,fields:values,options:{allowDuplicate},tags:['tomoyo_megumin',tag]}});if(!note)throw Error('Anki 未创建笔记');return {id:note,updated:false,screenshotAttached:!!extra.screenshot&&available.includes('Screenshot')};
+  const tags=word.cardKey?['tomoyo_megumin',tag,'tomoyo::cardkey']:['tomoyo_megumin',tag];
+  const note=await this.call(c,'addNote',{note:{deckName:c.ankiDeck,modelName:c.ankiModel,fields:values,options:{allowDuplicate},tags}});if(!note)throw Error('Anki 未创建笔记');return {id:note,updated:false,screenshotAttached:!!extra.screenshot&&available.includes('Screenshot')};
  }
 }
 module.exports={Anki,answerReading,hiragana,fields,extraFields,html,circled,FRONT,BACK,CSS};

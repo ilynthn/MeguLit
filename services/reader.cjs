@@ -99,7 +99,7 @@ class Reader{
   if(message.type==='waitMarkerDrawn'){this.immersion.markerDrawn();this.gal?.send({type:'markerHookDrawn'});}
   /* 2026-11-16 why the bridge hid or moved the reading layer (menu / cover / dialogue / foreground), once per change: a report of MeguLit's text vanishing is matched against it */if(message.type==='coverDebug'&&typeof message.text==='string'&&message.text!==this.lastCoverDebug){/* every change is kept: the 250 ms limit dropped the hide that followed a z-order move right after the menu closed */this.lastCoverDebug=message.text;this.lastCoverDebugAt=Date.now();this.logVisibility({type:'coverDebug',text:message.text.slice(0,240)});}
   /* Issue 127: Alt+H and its hotkey registration reach the log, so a report shows whether the cover was really switched */if(message.type==='ready')this.logVisibility({type:'readerHotkeys',menu:message.hotkey,cover:message.coverHotkey,mode:message.modeHotkey});if(message.type==='cover'&&typeof message.coverEnabled==='boolean')this.logVisibility({type:'cover',enabled:message.coverEnabled});
-  if(message.type==='ready'){this.gal?.send({type:'dialogConfig',scene:config.immersion===true,auto:config.immersion===true,active:config.immersion&&config.dialogDetection==='visual',marker:config.immersion&&config.dialogDetection==='marker'});this.gal?.setGameAudio(config.ankiGameMedia!==false);}
+  if(message.type==='ready'){this.sendDialogConfig(config);this.gal?.setGameAudio(config.ankiGameMedia!==false);}
   if(message.type==='gameClosed'||message.bound===false)this.immersion.bind('');else if(message.gameHwnd)this.immersion.bind(message.gameHwnd+'|'+message.gameProcessId+'|'+message.gameStarted);
   /* 2026-11-13 (ATRI: the choice overlay was drawn in a reader window hidden as "scene changed"): while choices are on screen the reader stays shown */if(Object.prototype.hasOwnProperty.call(message,'hookChoices'))this.immersion.choices(!!message.hookChoices);
   if(typeof message.hookSource==='string'&&message.hookSource.trim()&&message.hookActive===true&&message.processAttached===true&&!message.hookRecovering&&!message.recovering&&!['history','ocr'].includes(message.hookSourceOrigin)&&!['history','ocr'].includes(message.origin))try{require('./seed-usage.cjs').note(this);}catch{}
@@ -632,11 +632,12 @@ class Reader{
   }
   return {replies:this.active()?replies:[]};
  }
+ sendDialogConfig(config=this.runtime.config()){this.gal?.send?.({type:'dialogConfig',scene:config.immersion===true,auto:config.immersion===true,active:config.immersion&&config.dialogDetection==='visual',marker:config.immersion&&config.dialogDetection==='marker'});}
  async v4(action,args){
   const config=this.runtime.config();
   if(action==='markSentence'){if(!this.sentenceMarks)throw Error('SENTENCE_EXPIRED');return this.sentenceMarks.mark(this.root,this.gameId,args);}
   if(action==='load')return config;
-  if(action==='configure'){atomic(path.join(this.folder,'v4-preferences.json'),{...readJSON(path.join(this.folder,'v4-preferences.json')),...require('../core/v4-config.cjs').cleanV4(args)});this.immersion?.configure(this.runtime.config());const current=this.runtime.config();this.gal?.send({type:'dialogConfig',scene:current.immersion===true,auto:current.immersion===true,active:current.immersion&&current.dialogDetection==='visual',marker:current.immersion&&current.dialogDetection==='marker'});this.gal?.setGameAudio(this.runtime.config().ankiGameMedia!==false);return this.runtime.config();}
+  if(action==='configure'){atomic(path.join(this.folder,'v4-preferences.json'),{...readJSON(path.join(this.folder,'v4-preferences.json')),...require('../core/v4-config.cjs').cleanV4(args)});const current=this.runtime.config();this.immersion?.configure(current);this.sendDialogConfig(current);this.gal?.setGameAudio(current.ankiGameMedia!==false);return current;}
   const mapped={modelStatus:'model_status',modelDownload:'model_download',modelCancel:'model_cancel',runtimeDownload:'runtime_download',runtimeCancel:'runtime_cancel',speakers:'speakers',speakersCached:'speakers_cached',preview:'speech_preview'};
   if(mapped[action])return this.runtime.call({action:mapped[action],...args});
   if(action==='backgroundGet'){const image=require('./assets.cjs').get(this.root,args.slot==='game'?'panels':'home');if(image||args.slot==='game')return {image};
@@ -671,7 +672,7 @@ class Reader{
   if(action==='calibrate'){this.gal?.send({type:'dialogCalibrate',...args});return {pending:true};}
   if(action==='ankiStats'){
    const {pickEntry}=require('./anki-sync.cjs'),linked=new Set((Array.isArray(args.linked)?args.linked:[]).map(Number)),notes=await new(require('../core/anki.cjs').Anki)().stats(config);let resolved=0;
-   for(const note of notes){if(linked.has(note.noteId)||!note.word||resolved>=300)continue;resolved++;try{const text=note.word,result=await this.runtime.learning().request('lookup_exact',{text,start:0,end:[...text].length},'zh'),entry=pickEntry(result.entries,text,note.reading);if(entry)note.entry={id:entry.id,spellings:entry.spellings||[],readings:entry.readings||[],definitions:entry.definitions||(entry.definition_groups||[]).map(g=>g.text),pos:entry.pos||[]};}catch{}}
+   for(const note of notes){if(linked.has(note.noteId)||!note.word||resolved>=300)continue;resolved++;try{const text=note.word,result=await this.runtime.learning().request('lookup_exact',{text,start:0,end:[...text].length},'zh'),entry=pickEntry(result.entries,text,note.reading,result);if(entry)note.entry={id:entry.id,spellings:entry.spellings||[],readings:entry.readings||[],definitions:entry.definitions||(entry.definition_groups||[]).map(g=>g.text),pos:entry.pos||[]};}catch{}}
    return notes;
   }
   if(action==='unityFontStatus')return (this.unityFont??=new(require('../core/unity-font.cjs').UnityFont)(this.root)).status();

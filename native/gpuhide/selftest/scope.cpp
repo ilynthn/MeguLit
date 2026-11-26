@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "../GlyphQuads.h"
 #include "../LittlecheeseRows.h"
+#include "../Sact2Dialogue.h"
 #include <assert.h>
 
 static std::vector<Quad> Row(unsigned count, float left, float top, float height, float v) {
@@ -350,6 +351,44 @@ static void RetainedDialogueRows() {
  assert(rows.Claim(L"新", now).page > prior.page);
 }
 
+static void Sact2DialogueScope() {
+ Sact2::Glyph line[] = {
+  {54,6,0x7981},{74,6,0x6c97},{94,6,0x7a81},
+  {54,36,0x7581},{78,36,0x718d},{54,62,0x9c82},{54,88,0x7681}
+ };
+ const size_t count = sizeof line / sizeof line[0];
+ assert(Sact2::DrawCount(true, 3, 355, line, count) == 3);
+ assert(Sact2::DrawCount(false, 3, 355, line, count) == count);
+ assert(Sact2::DrawCount(true, 0, 0, line, count) == count); // backlog reuses the words
+ assert(Sact2::DrawCount(true, 30, 4, line, count) == count); // map label
+ line[0] = {62,58,0x4081};
+ assert(Sact2::DrawCount(true, 3, 355, line, count) == count); // reward uses the same draw origin
+ line[0] = {54,6,0x7981};
+ line[3].code = 0x4081;
+ assert(Sact2::DrawCount(true, 3, 355, line, count) == count);
+ line[3].code = 0x7781;
+ assert(Sact2::DrawCount(true, 3, 355, line, count) == 3);
+ line[3].code = 0x6981; // （
+ assert(Sact2::DrawCount(true, 3, 355, line, count) == 3);
+ assert(Sact2::DrawCount(true, 3, 355, line + 4, count - 4) == count - 4);
+ line[3].code = 0x738a;
+ assert(Sact2::DrawCount(true, 3, 355, line + 3, count - 3) == 0); // nameless message
+ line[6].y = 112;
+ assert(Sact2::DrawCount(true, 3, 355, line, count) == count);
+
+ Sact2::Glyph bubble[] = {
+  {36,14,0x4383},{50,14,0x4a83},{64,14,0x5b81},{78,14,0x5b81},{92,14,0x5b81},{106,14,0x5b81},
+  {36,30,0x4383},{50,30,0x4a83},{64,30,0x4a83},{78,30,0x4a83},{92,30,0x5b81},{106,30,0x5b81}
+ };
+ assert(Sact2::DrawCount(true, 240, 2, bubble, 12) == 0);
+ assert(Sact2::DrawCount(true, 240, 143, bubble, 12) == 0);
+ assert(Sact2::DrawCount(false, 240, 143, bubble, 12) == 12);
+ assert(Sact2::DrawCount(true, 89, 462, bubble, 12) == 12); // action ticker
+ assert(Sact2::DrawCount(true, 380, 147, bubble, 12) == 12); // attack menu
+ bubble[1].x++;
+ assert(Sact2::DrawCount(true, 240, 143, bubble, 12) == 12);
+}
+
 int main() {
  GlyphLearner g;
  g.Line(L"これは会話です。", 100);
@@ -385,5 +424,6 @@ int main() {
  ReportNewLineWithLateScaledCopy();
  KeepCenteredBandWhileTyping();
  RetainedDialogueRows();
+ Sact2DialogueScope();
  puts("PASS dialogue scope: unclaimed title/menu, foreign target, unmatched ruby kept; confirmed dialogue hides; read/OFF restore");
 }

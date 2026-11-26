@@ -136,10 +136,27 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     await at(0, -200); await frame(); assert.deepStrictEqual((await firstTok()).slice(0, 2), [300, 200], 'another text box: follows');
     await page.evaluate(() => { document.querySelector('.tomoyo-cn-row').textContent = '在百货商店购物，在餐厅用餐，在公园悠闲地度过……'.repeat(3); }); await at(0, 220); await frame();
     { const b = await page.evaluate(() => document.querySelector('.tomoyo-cn-row').getBoundingClientRect().bottom); assert.ok(b <= 720 - 8 + 1, 'anchored: the translation stays on the screen (' + Math.round(b) + ')'); /* 2026-11-19 user: the screen, not the game bar, is the limit */ const fsz = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tomoyo-cn-row')).fontSize)); assert.ok(fsz >= 24 * .6 - 1, 'never under 60 % (' + fsz + ')'); }
+    /* QQ essence 1137 (integration live test, 死に逝く君): the anchored line takes the user's 译文换行宽度 when it differs from the default (75) */
+    { const rowMax = () => page.evaluate(() => parseFloat(document.querySelector('.tomoyo-cn-row').style.maxWidth) || 0);
+      await page.evaluate(() => { document.querySelector('.tomoyo-cn-row').textContent = '今天是晴天'; }); await at(0, 220); await frame();
+      const auto = await rowMax();
+      await page.evaluate(() => { window.__tomoyoChinese.galPreferences = () => ({ translationWidth: 60 }); }); await at(0, 220); await frame();
+      assert.strictEqual(Math.round(await rowMax()), 768, 'anchored: 60 % of a 1280 px client (' + auto + ' before)');
+      await page.evaluate(() => { window.__tomoyoChinese.galPreferences = () => ({ translationWidth: 75 }); }); await at(0, 220); await frame();
+      assert.strictEqual(await rowMax(), auto, 'the default width keeps the Japanese width');
+      await page.evaluate(() => { delete window.__tomoyoChinese.galPreferences; }); }
     /* 2026-11-20 (user, CHAOS;CHILD: 「对应一下每一行的日文」): two game rows give the translation two rows, broken after its comma */
     { await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'今天是，晴天啊'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }); }); await frame(); await frame();
       const rows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });
       assert.deepStrictEqual(rows, ['今天是，', '晴天啊'], 'translation rows follow the Japanese rows');
+      /* one-line Japanese (QQ essence 1145, Codex #1177): no game row breaks while the option is on, back when it is off */
+      const rowBrs = () => page.evaluate(() => document.querySelectorAll('.sentence-text br.megulit-row-br').length);
+      const replace = () => page.evaluate(() => window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }));
+      assert.strictEqual(await rowBrs(), 1, 'two game rows: one row break');
+      await page.evaluate(() => document.body.classList.add('megulit-jp-one-line')); await replace(); await frame(); await frame();
+      assert.strictEqual(await rowBrs(), 0, 'one-line Japanese: no row break');
+      await page.evaluate(() => document.body.classList.remove('megulit-jp-one-line')); await replace(); await frame(); await frame();
+      assert.strictEqual(await rowBrs(), 1, 'option off: the game row break is back');
       /* #1122: closing quote and single trailing character must never be split onto a new row */
       await page.evaluate(() => { const r = document.querySelector('.tomoyo-cn-row'); r.innerHTML = '<div class="tomoyo-cn-output" data-state="ready">' + [...'“今天是晴天。”'].map(c => '<span class="tome-translation-char">' + c + '</span>').join('') + '</div>'; window.__tomoyoChinese.textPlace({ text: '今日は晴れ', client: [1280, 720], rects: [[300, 400, 40, 40], [340, 400, 40, 40], [380, 400, 40, 40], [300, 450, 40, 40], [340, 450, 40, 40]] }); }); await frame(); await frame();
       const quoteRows = await page.evaluate(() => { const o = document.querySelector('.tomoyo-cn-output'); return o.innerHTML.split('<br class="megulit-cn-br">').map(p => p.replace(/<[^>]+>/g, '')); });

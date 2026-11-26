@@ -132,12 +132,16 @@ AnkiReviewer.prototype.practice=async function(deck,advance=false,resume=false){
  if(resume){if(!state?.active||state.index>=state.ids.length)return {done:true};deck=state.deck;}
  else if(!advance||!state||state.deck!==deck){const quote=v=>'"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';const ids=(await this.call('findCards',{query:'deck:'+quote(deck)})).slice(0,500);for(let i=ids.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ids[i],ids[j]]=[ids[j],ids[i]];}state={deck,ids,index:0,active:true};}
  else state.index++;
- if(state.index>=state.ids.length)state.active=false;
- this.db.prepare('INSERT OR REPLACE INTO meta VALUES (?,?)').run('anki-practice',JSON.stringify(state));
- if(state.index>=state.ids.length)return {done:true,practiceDone:true,deck,total:state.ids.length};
- const [card]=await this.call('cardsInfo',{cards:[state.ids[state.index]]});if(!card)return {done:true,practiceDone:true,deck,total:state.ids.length};
- const style=card.css?'<style>'+String(card.css)+'</style>':'';
- return {done:false,practice:true,deck,cardId:Number(card.cardId),position:state.index+1,total:state.ids.length,question:await this.withMedia(style+String(card.question||''),card),answer:await this.withMedia(style+String(card.answer||''),card)};
+ const save=()=>this.db.prepare('INSERT OR REPLACE INTO meta VALUES (?,?)').run('anki-practice',JSON.stringify(state));
+ while(state.index<state.ids.length){
+  const [card]=await this.call('cardsInfo',{cards:[state.ids[state.index]]});
+  if(!card){state.index++;continue;}
+  const style=card.css?'<style>'+String(card.css)+'</style>':'';
+  const out={done:false,practice:true,deck,cardId:Number(card.cardId),position:state.index+1,total:state.ids.length,question:await this.withMedia(style+String(card.question||''),card),answer:await this.withMedia(style+String(card.answer||''),card)};
+  save();return out;
+ }
+ state.active=false;save();
+ return {done:true,practiceDone:true,deck,total:state.ids.length};
 };
 AnkiReviewer.prototype.endPractice=function(){this.db.prepare("DELETE FROM meta WHERE key='anki-practice'").run();return {stopped:true};};
 AnkiReviewer.prototype.deckConfig=async function(deck){const c=await this.call('getDeckConfig',{deck});if(!c||typeof c!=='object')throw Error('ANKI_FAILED');

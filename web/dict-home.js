@@ -6,7 +6,7 @@
    ten words (水没 52→54→55, chart total 470→480→490). Those fetches now carry no operationId (DICT_HOME_PEEK), and
    the panel frame with its final layout is drawn at once, so the search box no longer jumps when the data arrives. */
 import {exAttr} from './example-ruby.js';
-export const DICT_HOME_PEEK=query=>({query,source:'local'});
+export const DICT_HOME_PEEK=(query,locale)=>({query,source:'local',...(locale==='en'?{language:'en'}:{})});
 export function mountDictHome(target,results,{api,esc,number,locale,look}){
   const home=document.createElement('div');home.className='dict-home';results.after(home);
   const DH={zh:{often:'常查的词',oftenSub:'查了好几次的词，释义先放在这里',recent:'最近收进生词本',recentSub:'都来自你读过的台词',none:'还没有记录。在游戏里点生词查一下，就会出现在这里',times:'次',tap:'点一下查释义',more:'全部生词',days:'近两周查词',dayUnit:'次',total:'共'},
@@ -25,7 +25,7 @@ export function mountDictHome(target,results,{api,esc,number,locale,look}){
    if(!home.isConnected)return;
    draw(null);delete home.dataset.loading;
    /* meanings come from the local dictionary (slow on a cold start), so the rows show first and fill in after */
-   const defs=await Promise.all(often.map(w=>api('dictionary',DICT_HOME_PEEK(w.surface)).then(r=>r?.[0]||null).catch(()=>null)));
+   const defs=await Promise.all(often.map(w=>api('dictionary',DICT_HOME_PEEK(w.surface,locale)).then(r=>r?.[0]||null).catch(()=>null)));
    /* filled in place, never rebuilt: replacing the rows between mousedown and mouseup would swallow a click */
    if(home.isConnected)home.querySelectorAll('.dh-often li>button').forEach((b,i)=>{const d=defs[i],s0=b.querySelector('span');if(!d?.definition){if(s0)s0.textContent=DH.tap;return;}
     const r=b.querySelector('i'),s=b.querySelector('span');if(r)r.textContent=d.reading&&d.reading!==often[i].surface?d.reading:'';if(s){s.textContent=d.definition;s.classList.remove('dh-tap');}});

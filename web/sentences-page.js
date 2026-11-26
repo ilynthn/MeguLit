@@ -23,7 +23,7 @@ const L={
   list:'All sentences',search:'Search lines, translations or games',prev:'Previous',next:'Next',noQ:q=>`Nothing matches “${q}”`,today:'Today',yesterday:'Yesterday',unknownGame:'No game'}
 };
 let filter='all',focus='',query='';
-export function focusSentence(text){focus=String(text||'');filter='all';}
+export function focusSentence(text){focus=String(text||'');filter='all';query='';}
 
 const STRIP_CAP=15;
 /* a steady tilt per sentence and side (the collage must not reshuffle on every render) */
@@ -238,7 +238,7 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
   listEl.querySelectorAll('[data-lookup]').forEach(b=>b.addEventListener('click',()=>lookup(b.dataset.lookup)));
   listEl.querySelectorAll('[data-sentence-game]').forEach(b=>b.addEventListener('click',()=>openGame(b.dataset.sentenceGame)));
   listEl.querySelectorAll('.sp-r-ja[data-sp-pick]').forEach(p=>p.addEventListener('click',()=>setHero(byId.get(p.dataset.spPick))));}
- let qTimer=0;input.addEventListener('input',()=>{clearTimeout(qTimer);qTimer=setTimeout(()=>{query=input.value;renderList();},120);});
+ let qTimer=0;input.addEventListener('input',()=>{clearTimeout(qTimer);qTimer=setTimeout(()=>{if(!alive)return;query=input.value;renderList();},120);});offs.push(()=>clearTimeout(qTimer));
  renderList();
 
  fillHero();

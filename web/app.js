@@ -42,7 +42,7 @@ let selectedGameId='',gameOrigin='library',selectedSeriesId='';
 let startupDialogsReady=false;
 /* 2026-11-13 the detail tab a page asked the game page to open on (学习 › 句子 书架 → 收录句子); used once */
 let gameTab='';
-import {renderSettings} from './settings.js';
+import {renderSettings,stopSettings} from './settings.js';
 import {openProfilePanel} from './profile-panel.js';
 import {avatarHTML} from './leaderboard-view.js';
 import {openBackgroundCrop,backgroundGeometry} from './background-crop.js';
@@ -1140,9 +1140,10 @@ function dictionary(target){
   }
   /* 2026-11-15 results use the word page's layout (detail-collect.js mountEntries): headwords left, one row per entry, the current entry on
      the right with its MOJi detail; click / ↑ ↓ switches, rows never move, the wheel scrolls the list */
-  let unmountEntries=()=>{},savedSet=null,wantedEntry='';
+  let unmountEntries=()=>{},savedSet=null,wantedEntry='',audio=null,audioTicket=0;
+  const stopAudio=()=>{audioTicket++;if(audio){audio.pause();audio=null;}};
   const loadSaved=()=>savedSet||(savedSet=api('vocabulary').then(rows=>new Set(rows.map(r=>r.spelling||r.reading).filter(Boolean))).catch(()=>new Set()));
-  const renderList=async()=>{unmountEntries();unmountEntries=()=>{};
+  const renderList=async()=>{stopAudio();unmountEntries();unmountEntries=()=>{};
     if(!lastItems.length){results.innerHTML=empty(text.noDefinition,'word');return;}
     const request=ticket,[{mountEntries},saved]=await Promise.all([import('./detail-collect.js'),loadSaved()]);if(request!==ticket||!results.isConnected)return;
     results.innerHTML='<div class="dict-entries"></div>';const box=results.firstElementChild,wanted=wantedEntry;wantedEntry='';
@@ -1152,7 +1153,11 @@ function dictionary(target){
      loadDetail:lastOnline&&onlineSource==='moji'?async item=>{try{return await api('moji_word',{id:item.id});}catch(error){
       if(String(error?.message||error).includes('MOJI_SESSION_EXPIRED')){toast(L.expiredSession);showStatus({});}throw error;}}:null,
      loadNotes:lastOnline&&onlineSource==='moji'?(item,page)=>api('moji_comments',{id:item.id,page}):null,
-     onPlay:async item=>{try{const r=await api('moji_audio',{id:item.id});await new Audio(r.audio).play();}catch{toast(L.audioFail);}},
+     onPlay:async item=>{stopAudio();const req=audioTicket;let a=null;const clear=()=>{if(audio===a)audio=null;};
+      try{const r=await api('moji_audio',{id:item.id});if(req!==audioTicket)return;
+       a=new Audio(r.audio);audio=a;a.addEventListener('ended',clear,{once:true});a.addEventListener('error',clear,{once:true});
+       await a.play();
+      }catch{clear();if(req===audioTicket)toast(L.audioFail);}},
      onAnki:async(item,example)=>{try{await api('dictionary_anki',{word:item.spelling||item.reading,...example});
       toast(`${{zh:'已加入 Anki',ja:'Anki に追加しました',en:'Added to Anki'}[locale]} · ${item.spelling||item.reading}`);
       savedSet=null;}catch(error){toast(errorMessage(error));throw error;}},
@@ -1162,16 +1167,16 @@ function dictionary(target){
   if(onlineSource==='jisho')account.hidden=true;else api('moji_status').then(state=>{if(account.isConnected&&!account.querySelector('.moji-qr-panel'))showStatus(state);}).catch(()=>showStatus({}));
   target.querySelector('#lookup-form').addEventListener('submit',async event=>{
     event.preventDefault();const query=target.querySelector('#lookup-input').value.trim();if(!query)return;
-    const request=++ticket,online=event.submitter?.value!=='local',wanted=openWanted===query;openWanted='';
+    const request=++ticket,online=event.submitter?.value!=='local',wanted=openWanted===query,language=locale==='en'?'en':'zh';openWanted='';
     /* one search = one look-up: the local fallback reuses the same operationId, so it can never be counted twice */
     const operationId=crypto.randomUUID();
     results.innerHTML=loading();
     try{
       let items,used=online;
-      try{items=await api('dictionary',{query,source:online?onlineSource:'local',operationId});}
-      catch(error){if(!online)throw error;if(request===ticket)toast(L.fail);used=false;items=await api('dictionary',{query,source:'local',operationId});
+      try{items=await api('dictionary',{query,source:online?onlineSource:'local',language,operationId});}
+      catch(error){if(!online)throw error;if(request===ticket)toast(L.fail);used=false;items=await api('dictionary',{query,source:'local',language,operationId});
        }
-      if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',operationId}).catch(()=>[]);if(local.length){
+      if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',language,operationId}).catch(()=>[]);if(local.length){
        items=local;used=false;}}
       if(request!==ticket||!results.isConnected)return;
       lastItems=items;lastOnline=used;wantedEntry=query;renderList();
@@ -1186,19 +1191,24 @@ function dictionary(target){
  async function review(token,target){
   target.innerHTML=`<div class="tabs review-sources"><button class="tab active" data-review-source="anki">${text.ankiReview}</button><button class="tab" data-review-source="local">${text.localReview}</button></div><div id="review-content"></div>`;
   const content=target.querySelector('#review-content');
-  target.querySelectorAll('[data-review-source]').forEach(button=>button.onclick=()=>{target.querySelectorAll('[data-review-source]').forEach(b=>b.classList.toggle('active',
-   b===button));if(button.dataset.reviewSource==='anki')renderAnkiReview({target:content,api,text,esc,isCurrent:()=>token===pageToken&&button.classList.contains('active'),
-   toast,cover:ankiCover,windowAction:ankiWindow}).catch(error=>toast(errorMessage(error)));else localReview(token,content);});
-  await renderAnkiReview({target:content,api,text,esc,isCurrent:()=>token===pageToken&&target.querySelector('[data-review-source="anki"]').classList.contains('active'),
+  let sourceTicket=0;
+  target.querySelectorAll('[data-review-source]').forEach(button=>button.onclick=()=>{const ticket=++sourceTicket;target.querySelectorAll('[data-review-source]').forEach(b=>b.classList.toggle('active',
+   b===button));const isCurrent=()=>token===pageToken&&ticket===sourceTicket&&button.classList.contains('active')&&content.isConnected;
+   if(button.dataset.reviewSource==='anki')renderAnkiReview({target:content,api,text,esc,isCurrent,
+   toast,cover:ankiCover,windowAction:ankiWindow}).catch(error=>toast(errorMessage(error)));else localReview(token,content,isCurrent);});
+  const ankiTicket=++sourceTicket;
+  await renderAnkiReview({target:content,api,text,esc,isCurrent:()=>token===pageToken&&ankiTicket===sourceTicket&&!!target.querySelector('[data-review-source="anki"]')?.classList.contains('active')&&content.isConnected,
    toast,quiet:true,cover:ankiCover,windowAction:ankiWindow});
 }
-async function localReview(token,target){
-  const words=await api('vocabulary');if(token!==pageToken)return;
+async function localReview(token,target,isCurrent=()=>token===pageToken&&target.isConnected){
+  let words;try{words=await api('vocabulary');}catch(error){if(isCurrent())toast(errorMessage(error));return;}
+  if(!isCurrent())return;
   if(!words.length){target.innerHTML=empty(text.emptyWords,'learning');return;}
-  let index=0,revealed=false;
-  function draw(){const word=words[index];if(!word){target.innerHTML=empty(text.reviewDone,'check',String(words.length));return;}
+  let index=0,revealed=false,busy=false;
+  function draw(){if(!isCurrent())return;const word=words[index];if(!word){target.innerHTML=empty(text.reviewDone,'check',String(words.length));return;}
     target.innerHTML=`<section class="panel review-card"><div class="muted">${index+1} / ${words.length}</div><h2>${esc(word.spelling)}</h2>${revealed?`<div class="word-reading">${esc(word.reading)}</div><div class="word-def">${esc(definitions(word.definitions))}</div>`:`<p class="muted">${text.reviewSub}</p>`}<div class="review-controls"><button class="primary" id="review-next">${revealed?text.next:text.showAnswer}</button></div></section>`;
-    target.querySelector('#review-next').addEventListener('click',async()=>{if(revealed){await api('record_review',{id:word.id});index++;revealed=false;}else revealed=true;
+    const nextButton=target.querySelector('#review-next');
+    nextButton.addEventListener('click',async()=>{if(busy)return;if(revealed){busy=true;nextButton.disabled=true;try{await api('record_review',{id:word.id});}catch(error){busy=false;if(isCurrent()&&nextButton.isConnected)nextButton.disabled=false;if(isCurrent())toast(errorMessage(error));return;}busy=false;if(!isCurrent())return;index++;revealed=false;}else revealed=true;
      draw();});
   }draw();
 }
@@ -1209,6 +1219,7 @@ function restoreSettingsScroll(section){const target=settingsScroll.get(section)
  if(c&&c.querySelector('form,section,.panel')){c.classList.remove('g-enter');void c.offsetWidth;c.classList.add('g-enter');if(target)c.scrollTo({top:target,behavior:'smooth'});
  return;}if(++tries<60)requestAnimationFrame(step);};requestAnimationFrame(step);}
 async function settings(token){
+  stopDetailPage=stopSettings;
   await renderSettings({main:document.querySelector('#main'),api,invoke,text,locale,esc,toast,heading,basicSettings,isCurrent:()=>token===pageToken,section:settingsSection,onProfileClose:paintTopProfile,
    setSection:value=>{rememberSettingsScroll();try{localStorage.setItem('megulit-settings-section',value||'');}catch{}settingsSection=value;restoreSettingsScroll(value);
    },profile:settingsProfile,setProfile:value=>settingsProfile=value,onSaved:async result=>{const next=await api('home'),reload=!result?.scope||result.scope==='background-toggle';

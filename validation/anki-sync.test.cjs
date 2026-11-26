@@ -177,3 +177,174 @@ test('kana-only Anki notes with blank WordReading match existing local vocabular
  assert.equal(db.prepare('SELECT note_id FROM anki_links WHERE word_id=601').get().note_id,9001);
  assert.equal(db.prepare('SELECT note_id FROM anki_links WHERE word_id=602').get().note_id,9002);
 });
+
+test('AnkiSync, bridge anki_sync, and reader ankiStats resolve suru verbs, potential forms, conjugations, and normalized variants via LocalLearning/morphology analysis',async t=>{
+ const {db,root}=fixture(t);
+ const {matchesReading}=require('../services/anki-sync.cjs');
+ const {LocalLearning}=require('../core/learning-native.cjs');
+ const {conjugation}=require('../core/morphology.cjs');
+
+ const dictEntries=[
+  {id:1512670,spellings:['勉強'],readings:['べんきょう'],pos:['Noun','Noun or participle which takes the aux. verb suru'],definitions:['study']},
+  {id:1015230,spellings:[],readings:['アクセス'],pos:['Noun','Noun or participle which takes the aux. verb suru'],definitions:['access']},
+  {id:1174340,spellings:['泳ぐ'],readings:['およぐ'],pos:['Godan verb with gu ending'],definitions:['swim']},
+  {id:1465610,spellings:['入れる'],readings:['いれる'],pos:['Ichidan verb'],definitions:['put in']},
+  {id:1465590,spellings:['入る'],readings:['はいる'],pos:['Godan verb with ru ending'],definitions:['enter']},
+  {id:1590000,spellings:['お話'],readings:['おはなし'],pos:['Noun'],definitions:['talk']},
+  {id:1358280,spellings:['食べる'],readings:['たべる'],pos:['Ichidan verb'],definitions:['eat']},
+  {id:1502860,spellings:['分'],readings:['ぶん'],pos:['Noun'],definitions:['part']},
+  {id:101,spellings:['生'],readings:['せい'],pos:['Noun','Noun or participle which takes the aux. verb suru'],definitions:['life']},
+  {id:102,spellings:['生'],readings:['なま'],pos:['Noun'],definitions:['raw']},
+  {id:301,spellings:['汗ばむ'],readings:['あせばむ'],pos:['Godan verb with mu ending'],definitions:['be sweaty']}
+ ];
+ const ll=new LocalLearning(root);
+ const index=new Map(),byId=new Map(),english=new Map();
+ for(const e of dictEntries){byId.set(e.id,e);for(const k of [...e.spellings,...e.readings]){const arr=index.get(k)||[];arr.push(e.id);index.set(k,arr);}}
+ Object.assign(ll,{index,byId,english});
+ ll.load=()=>{};
+ const tokensByWord={
+  '勉強する':[
+   {surface:'勉強',base_form:'勉強',normalized:'勉強',reading:'ベンキョウ',pos:'名詞',grammar:['名詞','普通名詞','サ変可能','*','*','*'],start:0,end:2},
+   {surface:'する',base_form:'する',normalized:'為る',reading:'スル',pos:'動詞',grammar:['動詞','非自立可能','*','*','サ行変格','終止形-一般'],start:2,end:4}
+  ],
+  '勉強した':[
+   {surface:'勉強',base_form:'勉強',normalized:'勉強',reading:'ベンキョウ',pos:'名詞',grammar:['名詞','普通名詞','サ変可能','*','*','*'],start:0,end:2},
+   {surface:'し',base_form:'する',normalized:'為る',reading:'シ',pos:'動詞',grammar:['動詞','非自立可能','*','*','サ行変格','連用形-一般'],start:2,end:3},
+   {surface:'た',base_form:'た',normalized:'た',reading:'タ',pos:'助動詞',grammar:['助動詞','*','*','*','助動詞-タ','終止形-一般'],start:3,end:4}
+  ],
+  'アクセスする':[
+   {surface:'アクセス',base_form:'アクセス',normalized:'アクセス',reading:'アクセス',pos:'名詞',grammar:['名詞','普通名詞','サ変可能','*','*','*'],start:0,end:4},
+   {surface:'する',base_form:'する',normalized:'為る',reading:'スル',pos:'動詞',grammar:['動詞','非自立可能','*','*','サ行変格','終止形-一般'],start:4,end:6}
+  ],
+  '泳げる':[
+   {surface:'泳げる',base_form:'泳げる',normalized:'泳げる',reading:'オヨゲル',pos:'動詞',grammar:['動詞','一般','*','*','下一段-ガ行','終止形-一般'],start:0,end:3}
+  ],
+  '入れる':[
+   {surface:'入れる',base_form:'入れる',normalized:'入れる',reading:'イレル',pos:'動詞',grammar:['動詞','一般','*','*','下一段-ラ行','終止形-一般'],start:0,end:3}
+  ],
+  'お話し':[
+   {surface:'お話し',base_form:'お話し',normalized:'お話',reading:'オハナシ',pos:'名詞',grammar:['名詞','普通名詞','一般','*','*','*'],start:0,end:3}
+  ],
+  '食べた':[
+   {surface:'食べ',base_form:'食べる',normalized:'食べる',reading:'タベ',pos:'動詞',grammar:['動詞','一般','*','*','下一段-バ行','連用形-一般'],start:0,end:2},
+   {surface:'た',base_form:'た',normalized:'た',reading:'タ',pos:'助動詞',grammar:['助動詞','*','*','*','助動詞-タ','終止形-一般'],start:2,end:3}
+  ],
+  '10分':[
+   {surface:'10',base_form:'10',normalized:'10',reading:'',pos:'名詞',grammar:['名詞','数詞','*','*','*','*'],start:0,end:2},
+   {surface:'分',base_form:'分',normalized:'分',reading:'ブン',pos:'名詞',grammar:['名詞','普通名詞','一般','*','*','*'],start:2,end:3}
+  ],
+  '生する':[
+   {surface:'生',base_form:'生',normalized:'生',reading:'セイ',pos:'名詞',grammar:['名詞','普通名詞','サ変可能','*','*','*'],start:0,end:1},
+   {surface:'する',base_form:'する',normalized:'為る',reading:'スル',pos:'動詞',grammar:['動詞','非自立可能','*','*','サ行変格','終止形-一般'],start:1,end:3}
+  ],
+  '汗ばむ手':[
+   {surface:'汗',base_form:'汗',normalized:'汗',reading:'アセ',pos:'名詞',grammar:['名詞','普通名詞','一般','*','*','*'],start:0,end:1},
+   {surface:'ばむ',base_form:'ばむ',normalized:'ばむ',reading:'バム',pos:'接尾辞',grammar:['接尾辞','動詞的','*','*','五段-マ行','終止形-一般'],start:1,end:3},
+   {surface:'手',base_form:'手',normalized:'手',reading:'テ',pos:'名詞',grammar:['名詞','普通名詞','一般','*','*','*'],start:3,end:4}
+  ],
+  '汗ばん':[
+   {surface:'汗',base_form:'汗',normalized:'汗',reading:'アセ',pos:'名詞',grammar:['名詞','普通名詞','一般','*','*','*'],start:0,end:1},
+   {surface:'ばん',base_form:'ばむ',normalized:'ばむ',reading:'バン',pos:'接尾辞',grammar:['接尾辞','動詞的','*','*','五段-マ行','連用形-撥音便'],start:1,end:3}
+  ]
+ };
+ ll.tokenizeWhole=async text=>tokensByWord[text]||[];
+
+ const lookup=async w=>ll.request('lookup_exact',{text:w,start:0,end:[...w].length},'zh');
+ const rSuru=await lookup('勉強する');
+ const rSuruPast=await lookup('勉強した');
+ const rKanaSuru=await lookup('アクセスする');
+ const rPot=await lookup('泳げる');
+ const rIreru=await lookup('入れる');
+ const rOku=await lookup('お話し');
+ const rPast=await lookup('食べた');
+ const rPhrase=await lookup('10分');
+ const rHomographSuru=await lookup('生する');
+ const rPrefixPhrase=await lookup('汗ばむ手');
+ const rWholeCompound=await lookup('汗ばん');
+
+ assert.equal(rSuru.morphology.lookup,'勉強');
+ assert.equal(rSuru.morphology.lookupReading,'べんきょう');
+ assert.equal(rPot.morphology.base,'泳ぐ');
+ assert.equal(rOku.morphology.normalized,'お話');
+ // English morphology carries the same lookup/normalized fields
+ assert.equal(conjugation(ll.groups(tokensByWord['勉強する'])[0],'en').lookup,'勉強');
+
+ assert.equal(pickEntry(rSuru.entries,'勉強する','べんきょうする',rSuru)?.id,1512670);
+ assert.equal(pickEntry(rSuru.entries,'勉強する','べんきょう',rSuru)?.id,1512670);
+ assert.equal(pickEntry(rSuru.entries,'勉強する','',rSuru)?.id,1512670);
+ assert.equal(pickEntry(rSuruPast.entries,'勉強した','べんきょうした',rSuruPast)?.id,1512670);
+ assert.equal(pickEntry(rKanaSuru.entries,'アクセスする','あくせすする',rKanaSuru)?.id,1015230);
+ assert.equal(pickEntry(rPot.entries,'泳げる','およげる',rPot)?.id,1174340);
+ assert.equal(pickEntry(rPot.entries,'泳げる','',rPot)?.id,1174340);
+ assert.equal(pickEntry(rOku.entries,'お話し','おはなし',rOku)?.id,1590000);
+ assert.equal(pickEntry(rPast.entries,'食べた','たべた',rPast)?.id,1358280);
+ assert.equal(pickEntry(rWholeCompound.entries,'汗ばん','あせばむ',rWholeCompound),null);
+ assert.equal(pickEntry(rWholeCompound.entries,'汗ばん','あせばん',rWholeCompound)?.id,301);
+ // Homograph suru stem: explicit reading resolves to matching entry, blank reading still refuses ambiguity even when Sudachi guesses a reading
+ assert.equal(pickEntry(rHomographSuru.entries,'生する','せいする',rHomographSuru)?.id,101);
+ assert.equal(pickEntry(rHomographSuru.entries,'生する','',rHomographSuru),null);
+
+ // 入れる keeps its own entry and never falls back to 入る even if 入れる were missing from candidates
+ assert.equal(pickEntry(rIreru.entries,'入れる','いれる',rIreru)?.id,1465610);
+ assert.equal(pickEntry([dictEntries[4]],'入れる','いれる',rIreru),null);
+
+ // Negative boundaries: phrase subtoken & prefix-only fallbacks, mismatched surface/reading, missing analysis, empty m.reading with wrong r
+ assert.equal(pickEntry(rPhrase.entries,'10分','ぶん',rPhrase),null);
+ assert.equal(pickEntry(rPhrase.entries,'10分','',rPhrase),null);
+ assert.equal(pickEntry(rPrefixPhrase.entries,'汗ばむ手','あせばむて',rPrefixPhrase),null);
+ assert.equal(pickEntry(rPrefixPhrase.entries,'汗ばむ手','',rPrefixPhrase),null);
+ assert.equal(pickEntry(rSuru.entries,'別の語','べんきょうする',rSuru),null);
+ assert.equal(pickEntry(rPot.entries,'泳げる','たべる',rPot),null);
+ assert.equal(pickEntry(rSuru.entries,'勉強する','べんきょうする'),null);
+ assert.equal(pickEntry([dictEntries[0]],'勉強する','まったくちがう',{morphology:{base:'勉強する',lookup:'勉強',lookupReading:'べんきょう',reading:''}}),null);
+ assert.equal(pickEntry([dictEntries[0]],'勉強する','べんきょうする',{morphology:{base:'勉強する',lookup:'勉強',lookupReading:'べんきょう',reading:'べんきょうする'},selection_analysis:{exact:false}}),null);
+ assert.equal(pickEntry([dictEntries[5]],'お話し','ちがう',{morphology:{base:'お話し',normalized:'お話',reading:''}}),null);
+ // Suru stem with explicit lookupReading and non-inflected normalized variants must never fall back to a reading-mismatched entry
+ assert.equal(pickEntry([dictEntries[9]],'生する','せいする',rHomographSuru),null);
+ assert.equal(pickEntry(rHomographSuru.entries,'生する','しょうする',rHomographSuru),null);
+ assert.equal(pickEntry([{id:2001,spellings:['確と'],readings:['しかと']}],'ちゃんと','ちゃんと',{morphology:{base:'ちゃんと',normalized:'確と',reading:'ちゃんと'}}),null);
+ assert.equal(pickEntry([{id:401,spellings:['入る'],readings:['はいる']},{id:402,spellings:['入る'],readings:['いる']}],'入った','はいった',{morphology:{base:'入る',reading:'はいった'}}),null);
+ assert.equal(pickEntry([dictEntries[10]],'汗 ばむ','あせばむ',{morphology:{base:'汗ばむ',surface:'汗 ばむ',reading:'あせばむ'},selection_analysis:{exact:true,parts:[{surface:'汗'},{surface:' '},{surface:'ばむ'}]}}),dictEntries[10]);
+ // Resolved reading symbol only matches the reading verified by morphology
+ const pickedPot=pickEntry(rPot.entries,'泳げる','およげる',rPot);
+ assert.equal(matchesReading(pickedPot,'およげる'),true);
+ assert.equal(matchesReading(pickedPot,'たべる'),false);
+ assert.equal(matchesReading(dictEntries[2],'およげる'),false);
+
+ // End-to-end AnkiSync via bridge anki_sync and reader ankiStats
+ const prevRoot=process.env.MEGULIT_ROOT;
+ const bridgePath=require.resolve('../services/bridge.cjs');
+ delete require.cache[bridgePath];
+ process.env.MEGULIT_ROOT=root;
+ t.after(()=>{delete require.cache[bridgePath];if(prevRoot===undefined)delete process.env.MEGULIT_ROOT;else process.env.MEGULIT_ROOT=prevRoot;});
+ const {Anki}=require('../core/anki.cjs');
+ t.mock.method(Anki.prototype,'stats',async()=>[
+  {noteId:9101,word:'勉強する',reading:'べんきょうする',status:3,reviews:[10000]},
+  {noteId:9102,word:'泳げる',reading:'およげる',status:2,reviews:[20000]},
+  {noteId:9103,word:'お話し',reading:'おはなし',status:4,reviews:[30000]},
+  {noteId:9104,word:'泳げる',reading:'たべる',status:1,reviews:[40000]},
+  {noteId:9105,word:'10分',reading:'ぶん',status:2,reviews:[50000]},
+  {noteId:9106,word:'アクセスする',reading:'あくせすする',status:2,reviews:[60000]}
+ ]);
+ const runtime={config:()=>({}),emit:()=>{},learning:()=>ll};
+ const {dispatch}=require('../services/bridge.cjs');
+ const res=await dispatch({action:'anki_sync'},runtime);
+ assert.equal(res.imported,4);
+ assert.equal(res.skipped,2);
+ const checkDb=openStore(root);
+ try{
+  assert.equal(checkDb.prepare('SELECT note_id FROM anki_links WHERE word_id=1512670').get()?.note_id,9101);
+  assert.equal(checkDb.prepare('SELECT note_id FROM anki_links WHERE word_id=1174340').get()?.note_id,9102);
+  assert.equal(checkDb.prepare('SELECT note_id FROM anki_links WHERE word_id=1590000').get()?.note_id,9103);
+  assert.equal(checkDb.prepare('SELECT spelling,reading FROM vocabulary WHERE id=1015230').get()?.spelling,'アクセス');
+ }finally{checkDb.close();}
+ const {Reader}=require('../services/reader.cjs');
+ const reader=Object.create(Reader.prototype);
+ reader.root=root;reader.runtime=runtime;
+ const stats=await reader.v4('ankiStats',{linked:[]});
+ assert.equal(stats[0].entry?.id,1512670);
+ assert.equal(stats[1].entry?.id,1174340);
+ assert.equal(stats[2].entry?.id,1590000);
+ assert.equal(stats[3].entry,undefined);
+ assert.equal(stats[4].entry,undefined);
+});

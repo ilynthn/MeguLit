@@ -428,7 +428,7 @@ async function dispatch(request,runtime=null) {
     switch(request.action) {
       case 'anki_sync':{
         const {AnkiSync,pickEntry}=require('./anki-sync.cjs'),{Anki}=require('../core/anki.cjs');const config=store.readJSON(path.join(root,'data','config','v4-preferences.json'));
-        const result=await new AnkiSync({db,anki:new Anki(),config,resolveEntry:async(text,reading)=>{if(!runtime)return null;const result=await runtime.learning().request('lookup_exact',{text,start:0,end:[...text].length},'zh');return pickEntry(result.entries,text,reading);}}).run();runtime?.emit('reader-event',{type:'word-status-changed'});return result;
+        const result=await new AnkiSync({db,anki:new Anki(),config,resolveEntry:async(text,reading)=>{if(!runtime)return null;const result=await runtime.learning().request('lookup_exact',{text,start:0,end:[...text].length},'zh');return pickEntry(result.entries,text,reading,result);}}).run();runtime?.emit('reader-event',{type:'word-status-changed'});return result;
       }
       case 'set_word_status':{const id=Number(request.id),status=Number(request.status);if(!Number.isSafeInteger(id)||!Number.isInteger(status)||status<0||status>4)throw Error('INVALID_WORD_STATUS');if(!db.prepare('UPDATE vocabulary SET status=? WHERE id=?').run(status,id).changes)throw Error('WORD_NOT_FOUND');runtime?.emit('reader-event',{type:'word-status-changed'});return {id,status};}
       case 'library_scan':case 'library_find_steam':case 'reader_bootstrap':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.call(request);
@@ -763,7 +763,7 @@ async function dispatch(request,runtime=null) {
         let entries=request.source==='jisho'?await require('./jisho-dictionary.cjs').lookupJisho(query,fetch,{root}):request.source==='moji'?await require('./moji-dictionary.cjs').lookupMoji(query,fetch,{root}):db.prepare('SELECT DISTINCT e.spelling,e.reading,e.definition FROM dictionary_entries e JOIN dictionary_forms f ON e.id=f.entry_id WHERE f.form=? ORDER BY e.frequency LIMIT 20').all(query);
         /* E457 (user, 2026-11-12: 本地查词 found nothing for 爆裂 or 夢): the dictionary_entries table is only filled by a
            developer tool, so it is empty on every install. The local search now asks the same JMdict the lookup card uses. */
-        if(!entries.length&&!online&&runtime){try{const r=await runtime.learning().request('lookup_exact',{text:query,start:0,end:[...query].length},'zh');entries=localEntries(r,query);}catch{}}
+        if(!entries.length&&!online&&runtime){try{const r=await runtime.learning().request('lookup_exact',{text:query,start:0,end:[...query].length},request.language==='en'?'en':'zh');entries=localEntries(r,query);}catch{}}
         if(entries.length&&typeof request.operationId==='string'&&request.operationId.length<100)require('./unknown-words.cjs').recordLookup(root,{surface:query,operationId:request.operationId});
         return entries;
       }
