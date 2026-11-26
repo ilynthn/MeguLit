@@ -101,3 +101,9 @@ test('ChoiceCapture: 「いい」 beside an option ending in い stays a choice;
  const d=new ChoiceCapture(()=>now);d.add('血塗れの男','前。');d.add('血塗れの男血塗れの男','前。');d.add('男男','前。');d.add('館を出る','前。');
  assert.ok(!(d.options()||[]).includes('男男'),'the doubled last glyph of a text this stream draws twice is no option');
 });
+/* integration live test 2026-11-26 (死に逝く君, every line of 美亜): 「美亜」「亜亜」「美亜美亜」 in one burst went to OCR as two options and both were found */
+test('ChoiceCapture: the doubled last glyph of a two-glyph name plate drawn twice is no option either',()=>{
+ let now=0;const c=new ChoiceCapture(()=>now);c.add('美亜','前。');c.add('亜亜','前。');c.add('美亜美亜','前。');
+ assert.equal(c.options(),null);
+ const d=new ChoiceCapture(()=>now);d.add('ああ\nいああ','前。');assert.deepEqual(d.options(),['ああ','いああ'],'no drawn-twice frame: both stay');
+});
