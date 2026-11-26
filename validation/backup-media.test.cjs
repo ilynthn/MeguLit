@@ -77,3 +77,25 @@ test('media allowlist still rejects traversal and unrelated data directories', a
  }
  assert.equal(fs.existsSync(path.join(root, 'escape.jpg')), false);
 });
+
+test('personal dictionaries survive export and restore with their names, switches and order (Codex #1280)', async t => {
+ const U = require('../services/user-dictionaries.cjs');
+ const root = fixture(t), src = path.join(root, 'src');
+ fs.mkdirSync(src);
+ fs.writeFileSync(path.join(src, 'a.tsv'), 'A\tB\tC\n');
+ fs.writeFileSync(path.join(src, 'b.tsv'), 'A\tB\tD\n');
+ U._reset();
+ const a = await U.importDictionary(root, path.join(src, 'a.tsv'));
+ const b = await U.importDictionary(root, path.join(src, 'b.tsv'));
+ U.move(root, b.id, -1); U.setEnabled(root, a.id, false); U.rename(root, b.id, 'renamed');
+ const before = U.list(root).map(({importedAt, ...d}) => d);
+ const file = path.join(root, 'dict.megulitbak');
+ await exportBackup(root, file);
+ U.remove(root, a.id); U.remove(root, b.id);
+ assert.equal(U.list(root).length, 0);
+ applyBackup(root, previewBackup(root, file).id);
+ U._reset();
+ assert.deepEqual(U.list(root).map(({importedAt, ...d}) => d), before);
+ assert.deepEqual(U.lookup(root, 'A').map(h => h.dictionary.name), ['renamed']);
+ U._reset();
+});

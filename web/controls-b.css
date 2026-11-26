@@ -145,17 +145,18 @@ html:not(#mgc1):not(#mgc2):not(#mgc3):not(#mgc4):not(#mgc5):not(#mgc6):not(#mgc7
  &[aria-checked=true],&.on,&.active{background:var(--mgc-red)!important;border-color:var(--mgc-red)!important}}
 
 /* ---------- checkbox & radio (native inputs outside the title bar) ---------- */
+/* 11-27: grimoire-controls.css also skins checkboxes (paper-coloured ::after masked by a check icon); on top of the 4x9 border-check below that mask squeezed the tick into a white blob in the corner, so the ::after drops background and mask here */
 & body :is(.main,dialog,.dev-notice) input[type=checkbox]:not(.switch):not(:has(+.review-switch)){
- appearance:none!important;-webkit-appearance:none!important;position:relative;flex:none;width:17px!important;height:17px!important;margin:0;
+ appearance:none!important;-webkit-appearance:none!important;position:relative;flex:none;width:17px!important;height:17px!important;margin:0;padding:0!important;min-width:17px!important;min-height:17px!important;box-sizing:border-box!important;vertical-align:middle;
  border:1px solid color-mix(in srgb,var(--mgc-ink) 45%,transparent)!important;border-radius:1px!important;background:var(--mgc-well)!important;cursor:pointer;transition:all var(--mgc-t) var(--mgc-ease)!important;
- &::after{content:""!important;position:absolute!important;left:5px!important;top:1.5px!important;width:4px!important;height:9px!important;border:solid #fff!important;border-width:0 1.8px 1.8px 0!important;transform:rotate(45deg) scale(0)!important;transition:transform var(--mgc-t) var(--mgc-ease)!important}
+ &::after{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:4px!important;height:9px!important;margin:0!important;border:solid #fff!important;border-width:0 1.8px 1.8px 0!important;background:transparent!important;-webkit-mask:none!important;mask:none!important;transform:translate(-50%,-62%) rotate(45deg) scale(0)!important;transition:transform var(--mgc-t) var(--mgc-ease)!important}
  &:hover:not(:disabled){border-color:var(--mgc-ink)!important}
  &:checked{background:var(--mgc-red)!important;border-color:var(--mgc-red)!important}
- &:checked::after{transform:rotate(45deg) scale(1)!important}
+ &:checked::after{transform:translate(-50%,-62%) rotate(45deg) scale(1)!important}
  &:disabled{border-style:dashed!important;opacity:.5}
 }
 & body :is(.main,dialog,.dev-notice) input[type=radio]{
- appearance:none!important;-webkit-appearance:none!important;position:relative;flex:none;width:17px!important;height:17px!important;margin:0;
+ appearance:none!important;-webkit-appearance:none!important;position:relative;flex:none;width:17px!important;height:17px!important;margin:0;padding:0!important;min-width:17px!important;min-height:17px!important;box-sizing:border-box!important;vertical-align:middle;
  border:1.5px solid color-mix(in srgb,var(--mgc-ink) 50%,transparent)!important;border-radius:50%!important;background:var(--mgc-well)!important;cursor:pointer;
  &::after{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:7px!important;height:7px!important;margin:-3.5px 0 0 -3.5px!important;transform:rotate(45deg) scale(0)!important;background:var(--mgc-red)!important;transition:transform var(--mgc-t) var(--mgc-ease)!important}
  &:hover:not(:disabled){border-color:var(--mgc-ink)!important}

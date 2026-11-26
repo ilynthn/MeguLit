@@ -49,3 +49,51 @@ test('no bound model: the old default stays', () => {
   assert.equal(m.contextOptions({}, { provider: 'google' }, () => false).provider, 'deepseek');
   assert.equal(m.contextOptions({}, bound, () => false).provider, 'deepseek');
 });
+/* RRFZ #1176 */
+test('a gpt binding without a model explains with the default model; an empty LM Studio model is no binding', () => {
+  const ds = keysFor(['https://api.openai.com/v1', 'https://api.deepseek.com']);
+  const o = m.contextOptions({}, { provider: 'gpt', baseUrl: 'https://api.openai.com/v1' }, ds);
+  assert.equal(o.provider, 'gpt'); assert.equal(o.model, 'gpt-4.1-mini');
+  assert.equal(m.boundModel({ provider: 'gpt', baseUrl: 'https://example.com/v1', model: '   ' }, () => true), null, 'a blank name fails translation too, so it is no binding');
+  assert.equal(m.boundModel({ provider: 'lmstudio' }, () => true), null, 'model "" is no binding');
+  assert.equal(m.boundModel({ provider: 'lmstudio', model: '  ' }, () => true), null);
+  assert.equal(m.boundModel({ provider: 'lmstudio', model: ' qwen ' }, () => true).model, 'qwen', 'trimmed');
+  assert.equal(m.contextOptions({}, { provider: 'lmstudio' }, () => true).provider, 'deepseek', 'falls back to the guided default');
+});
+test('Sakura is never a context source', () => {
+  assert.equal(m.boundModel({ provider: 'sakura' }, () => true), null);
+  assert.equal(m.contextOptions({}, { provider: 'sakura' }, keysFor(['https://api.deepseek.com'])).provider, 'deepseek');
+  assert.equal(m.contextOptions({ contextProvider: 'follow' }, { provider: 'sakura' }, () => true).provider, 'deepseek');
+});
+test('a keyless local engine does not replace the default DeepSeek that has a key', () => {
+  const local = { provider: 'ollama', model: 'qwen2.5:7b' };
+  if (require('../core/engines.cjs').ENGINES.ollama?.keyless !== true) return;
+  const withKey = o => o.provider === 'ollama' || o.baseUrl === 'https://api.deepseek.com';
+  assert.equal(m.contextOptions({}, local, withKey).provider, 'deepseek');
+  assert.equal(m.contextOptions({}, local, o => o.provider === 'ollama').provider, 'ollama', 'no DeepSeek key: the local engine is used');
+  assert.equal(m.contextOptions({ contextProvider: 'follow' }, local, withKey).provider, 'ollama', 'follow still follows');
+});
+test('a picked gpt source on this computer is used without a key instead of silently falling back', () => {
+  const prefs = { contextProvider: 'gpt', lookupProfiles: { gpt: { baseUrl: 'http://127.0.0.1:11434/v1', model: 'qwen2.5:7b' } } };
+  const o = m.contextOptions(prefs, { provider: 'deepseek' }, keysFor(['https://api.deepseek.com']));
+  assert.equal(o.baseUrl, 'http://127.0.0.1:11434/v1'); assert.equal(o.model, 'qwen2.5:7b');
+  const remote = { contextProvider: 'gpt', lookupProfiles: { gpt: { baseUrl: 'https://example.org/v1', model: 'x' } } };
+  assert.equal(m.contextOptions(remote, { provider: 'deepseek' }, keysFor(['https://api.deepseek.com'])).provider, 'deepseek', 'a remote one without a key still gives way');
+});
+test('the lookup request to a local address goes out without a key', async () => {
+  const {createTranslationService, isLocalBase} = require('../core/providers.cjs'), seen = [];
+  assert.equal(isLocalBase('http://127.0.0.1:11434/v1'), true); assert.equal(isLocalBase('https://api.openai.com/v1'), false); assert.equal(isLocalBase('bad'), false);
+  const service = createTranslationService(async (url, init) => { seen.push({ url, auth: init.headers.Authorization }); return { ok: true, json: async () => ({ choices: [{ message: { content: '解释' } }] }) }; });
+  const r = await service.lookup({ selection: '言葉', sentence: '言葉だ', entries: [], mode: 'explain' }, { provider: 'gpt', baseUrl: 'http://127.0.0.1:11434/v1', model: 'qwen2.5:7b' }, () => true);
+  assert.equal(r.text, '解释'); assert.equal(seen[0].url, 'http://127.0.0.1:11434/v1/chat/completions'); assert.equal(seen[0].auth, undefined);
+  await assert.rejects(service.lookup({ selection: '言葉', sentence: '言葉だ', entries: [], mode: 'explain' }, { provider: 'gpt', baseUrl: 'https://example.org/v1', model: 'x' }, () => true), /API Key/);
+});
+/* RRFZ #1289: the key status the settings page shows agrees with lookup: a local address needs no key, a remote one still does */
+test('hasKey (the keyStatus answer) passes a local address without a key, as lookup does', () => {
+  const {createTranslationService} = require('../core/providers.cjs'), service = createTranslationService(async () => ({ ok: true, json: async () => ({}) }));
+  assert.equal(service.hasKey('http://127.0.0.1:11434/v1', 'gpt'), true);
+  assert.equal(service.hasKey('http://localhost:1234/v1', 'gpt'), true);
+  assert.equal(service.hasKey('https://example.org/v1', 'gpt'), false);
+  const settings = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'reader', 'modules', 'settings.js'), 'utf8');
+  assert.match(settings, /local \? '本机地址无需密钥，可留空'/, 'the key field says so instead of asking for a key');
+});

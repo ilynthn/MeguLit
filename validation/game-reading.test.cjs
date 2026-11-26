@@ -63,6 +63,27 @@ test('the reader binds the game’s readings and the speech button reads the lin
  assert.match(learning,/tokens=await this\.tokenizeWhole\(args\.text,options\)/,'a line the game wrapped is one word for the speech button too');
  assert.equal(typeof require('../services/original-text.cjs').scriptRuby,'function');
 });
+/* RRFZ #1192: a short word of an earlier source took the place of a longer one (島 learned cut the script's 島津); a game switched while a
+   line was being tokenized had the old game's readings cached for the new one */
+test('equal lengths keep line > learned > script; a short word alone still applies (the longest-word case is the #1287 test below)',()=>{
+ const raw=line(`島/シマ/${SURNAME} 津/ツ が/ガ/助詞,格助詞,* 来る/クル/動詞,非自立可能,*`);
+ const tie=readingsIn('島津が',{line:[['島津','しまつ']],learned:{'島津':'しまづ'}});
+ assert.equal(shown(gameTokens(raw.slice(0,3),tie)),'島津:しまつ が:ガ','this line’s ruby first');
+ assert.equal(shown(gameTokens(raw,[['島','しま','learned']])),'島:しま 津:ツ が:ガ 来る:クル','alone the short word still applies');
+});
+test('a game switched while a line is tokenized never caches the old game’s readings',async()=>{
+ const raw=line(`島/シマ/${SURNAME} 津/ツ が/ガ/助詞,格助詞,*`);
+ const L=new LocalLearning(path.join(os.tmpdir(),'megulit-game-reading-switch'));L.ready=async()=>{};
+ let answer=null;L.worker={stdin:{write(text){const {id}=JSON.parse(text);answer=()=>{const p=L.pending.get(id);clearTimeout(p.timer);L.pending.delete(id);p.resolve(JSON.parse(JSON.stringify(raw)));};}}};
+ L.load=function(){if(this.index)return;this.index=new Map();this.byId=new Map();this.english=new Map();};
+ L.useGameReadings(()=>({script:new Map([['島津','しまづ']])}));
+ const N={names:true},pending=L.tokenize('島津が',N);
+ for(let i=0;i<50&&!answer;i++)await new Promise(r=>setTimeout(r,5));
+ L.useGameReadings(null);answer();
+ const out=await pending;
+ assert.notEqual(out[0].reading,'しまづ','made with the readings of the game now bound');
+ assert.notEqual((await L.tokenize('島津が',N))[0].reading,'しまづ','and nothing of the old game is in the cache');
+});
 
 test('gameTokens prefers a longer match across sources before shorter higher-priority pieces',()=>{
  const r=readingsIn('島津が来る',{learned:{'島':'しま'},script:new Map([['島津','しまづ']])});

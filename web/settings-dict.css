@@ -104,3 +104,15 @@ html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-content .setti
  html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-content .settings-guide[data-guide=dictionary] .guide-block ol{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){.rpk-row,.rpk-eng,.rpk-eng-pick,.rpk-line .tk,.rpk-row:after{transition:none!important}}
+/* #1099 我的辞典 (web/user-dicts.js) */
+.udict-hint{margin:10px 0 4px;font-size:12.5px;line-height:1.6;color:color-mix(in srgb,var(--t-text) 58%,transparent)}
+.udict-row{display:grid;grid-template-columns:20px minmax(0,1fr) minmax(0,1fr) 56px auto;align-items:center;column-gap:14px;min-height:48px;border-bottom:1px solid color-mix(in srgb,var(--t-text) 12%,transparent)}
+.udict-row:last-child{border-bottom:0}
+.udict-n{font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--t-text) 50%,transparent);font-size:12px}
+.udict-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t-text)}
+.udict-desc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:color-mix(in srgb,var(--t-text) 58%,transparent)}
+.udict-state{font-size:12px;color:var(--t-gold)}.udict-row[data-on="0"] .udict-state{color:color-mix(in srgb,var(--t-text) 45%,transparent)}
+.udict-row[data-on="0"] .udict-name{opacity:.6}
+.udict-acts{display:flex;gap:6px;justify-content:flex-end}
+html:not(#u):not(#v):not(#w):not(#x):not(#y) body .main .settings-content .udict-arrow{min-width:30px;padding:0 6px!important}
+@media (max-width:760px){.udict-row{grid-template-columns:20px minmax(0,1fr) auto;row-gap:4px;padding:8px 0}.udict-desc,.udict-state{display:none}}

@@ -37,7 +37,7 @@ choice('dictionary','contextProvider','上下文解释来源（需自备 AI 的 
  [option('deepseek','DeepSeek（推荐，性价比高）','DeepSeek (recommended, great value)','DeepSeek（推奨・高コスパ）'),option('follow','跟随翻译引擎','Follow translation engine','翻訳エンジンに合わせる'),
  option('gpt','OpenAI / 自定义','OpenAI / custom','OpenAI / カスタム'),option('gemini','Gemini'),...['qwen','kimi','glm'].map(name=>option(name,require('../core/lookup-models.cjs').titles[name]))]);
 choice('dictionary','lookupProvider','点读解释来源','Lookup explanations','辞書解説の取得先',[option('local','本地辞书','Local dictionary','ローカル辞書'),option('moji','MOJi 辞書（联网，可登录账号）',
- 'MOJi dictionary (online, sign-in supported)','MOJi 辞書（オンライン・ログイン可）'),option('follow','跟随翻译引擎','Follow translation engine','翻訳エンジンに合わせる'),option('gpt','OpenAI / 自定义',
+ 'MOJi dictionary (online, sign-in supported)','MOJi 辞書（オンライン・ログイン可）'),option('weblio','Weblio 辞書（联网，国語辞典 + 日中辞典）','Weblio (online, Japanese and Japanese-Chinese dictionaries)','Weblio 辞書（オンライン・国語辞典と日中辞典）'),option('follow','跟随翻译引擎','Follow translation engine','翻訳エンジンに合わせる'),option('gpt','OpenAI / 自定义',
  'OpenAI / custom','OpenAI / カスタム'),option('deepseek','DeepSeek'),option('gemini','Gemini'),...['qwen','kimi','glm'].map(name=>option(name,require('../core/lookup-models.cjs').titles[name]))]);
 for(const name of Object.keys(require('../core/lookup-models.cjs').presets)){field('dictionary',`lookupProfiles.${name}.baseUrl`,`${name} · AI 释义服务地址`,`${name} · AI explanation URL`,
  `${name} · AI 解説 API`);field('dictionary',`lookupProfiles.${name}.model`,`${name} · AI 释义模型`,`${name} · AI explanation model`,`${name} · AI 解説モデル`);}

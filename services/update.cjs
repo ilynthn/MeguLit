@@ -84,7 +84,7 @@ async function installedSize(current,fetcher=fetch){
  try{let r=await releaseFetch(fetcher,'tags/v'+String(current).replace(/^v/,''),10000);if(!r.ok&&base(current)!==String(current).replace(/^v/,''))r=await releaseFetch(fetcher,'tags/v'+base(current),10000);if(!r.ok)return 0;return asset(await r.json()).size||0;}catch{return 0;}
 }
 
-let state={phase:'idle'},job=null,found=null,pendingForced=null;
+let state={phase:'idle'},job=null,found=null,pendingForced=null,launching=null;
 const status=()=>pendingForced?{phase:'downloading',received:0,total:0,hot:false}:{...state};
 
 /* v1.1.8 hotfixes: a release can be replaced in place under the same version. The package this install came from is
@@ -196,16 +196,35 @@ function start(root,current,fetcher=fetch,{forceLatest=false}={}){current=String
    powershell.exe started from MeguLit's service exits at once without running anything, and a plain child dies with
    MeguLit. The script is therefore started by Windows itself through WMI (Win32_Process.Create), outside MeguLit's
    process tree, and the launcher's return code is checked before MeguLit is allowed to quit. */
-function launchScript(root,{run=spawn}={}){
+/* v1.4.25 (player, v1.4.19 -> v1.4.25: "下载失败 · UPDATE_LAUNCH_FAILED", the button did nothing, quitting and reopening
+   MeguLit fixed it): the launcher was given up after a fixed 20 s, but the WMI call alone takes 6-11 s on a warm machine
+   and longer while WmiPrvSE is still cold, so a slow but working launch was reported as failed. The launcher was not
+   stopped and could still start the script late, which then closed MeguLit by itself; each retry started another one.
+   Success is now the script itself saying it started (it writes the mark file first), checked for up to 90 s; a launcher
+   that is still running then is stopped so no late script appears, and one install runs at a time. */
+const LAUNCH={total:90000,afterExit:30000,poll:250};
+function launchScript(root,{run=spawn,limits=LAUNCH}={}){
+ const mark=path.join(path.dirname(state.ps1||path.join(root,'cache','update','apply-update.ps1')),'launched-'+crypto.randomBytes(6).toString('hex'));
  /* v1.1.4: Windows 11 hands console programs to Windows Terminal, which ignores -WindowStyle Hidden and showed the
     script's progress window. conhost --headless runs it with no window at all; the startup info also asks for SW_HIDE. */
- const line=`conhost.exe --headless powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${state.ps1}" -Root "${root}" -Zip "${state.zip}"`;
+ const line=`conhost.exe --headless powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${state.ps1}" -Root "${root}" -Zip "${state.zip}" -Mark "${mark}"`;
  const create='$s=New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ShowWindow=[uint16]0};$r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=$env:MEGULIT_UPDATE_COMMAND;ProcessStartupInformation=$s};exit [int]$r.ReturnValue';
+ /* the full path: the service inherits MeguLit's PATH, which other programs can leave without Windows PowerShell */
+ const shell=process.env.SystemRoot?path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'):'powershell.exe';
+ const began=Date.now();
  return new Promise(resolve=>{
-  let child;try{child=run('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-Command',create],{stdio:'ignore',windowsHide:true,env:{...process.env,MEGULIT_UPDATE_COMMAND:line}});}catch{resolve(false);return;}
-  const timer=setTimeout(()=>resolve(false),20000);
-  child.on('error',()=>{clearTimeout(timer);resolve(false);});
-  child.on('exit',code=>{clearTimeout(timer);resolve(code===0);});
+  let child=null,ended=null,done=false,poll=null;const timers=[];
+  const started=()=>{try{return fs.existsSync(mark);}catch{return false;}};
+  const finish=(ok,why)=>{if(done)return;done=true;timers.forEach(clearTimeout);clearInterval(poll);
+   if(!ok&&ended===null&&child){try{child.kill();}catch{}if(started()){ok=true;why+=', script started';}}
+   try{fs.rmSync(mark,{force:true});}catch{}
+   updateLog(root,'launch '+(ok?'ok':'failed')+' ('+why+', '+(Date.now()-began)+' ms)');resolve(ok);};
+  try{child=run(shell,['-NoProfile','-ExecutionPolicy','Bypass','-Command',create],{stdio:'ignore',windowsHide:true,env:{...process.env,MEGULIT_UPDATE_COMMAND:line}});}catch(error){finish(false,'spawn '+(error?.code||error?.message||error));return;}
+  poll=setInterval(()=>{if(started())finish(true,'script started');},limits.poll);
+  timers.push(setTimeout(()=>finish(false,ended===null?'launcher still running':'script never started'),limits.total));
+  child.on('error',error=>finish(false,'launcher '+(error?.code||error?.message||error)));
+  child.on('exit',code=>{ended=code;if(started())return finish(true,'script started');if(code!==0)return finish(false,'launcher exit '+code);
+   timers.push(setTimeout(()=>{const ok=started();finish(ok,ok?'script started':'launcher exit 0, script never started');},limits.afterExit));});
  });
 }
 /* the page could not finish a silent hot update (hot_reload refused or failed after the files were written) */
@@ -225,14 +244,21 @@ async function install(root,options={}){
  }
  fs.mkdirSync(path.join(root,'logs'),{recursive:true});
  if(!/^[^"]+$/.test(root+state.ps1+state.zip))throw Error('UPDATE_PATH_REJECTED');
- if(!await launchScript(root,options))throw Error('UPDATE_LAUNCH_FAILED');
- writeInstalled(root,{version:state.version,digest:state.sha256});
- state={...state,phase:'installing'};return status();
+ /* a second click while the first launch is still waiting gets the same answer instead of a second script */
+ if(launching)return launching;
+ launching=(async()=>{try{
+  if(!await launchScript(root,options))throw Error('UPDATE_LAUNCH_FAILED');
+  writeInstalled(root,{version:state.version,digest:state.sha256});
+  state={...state,phase:'installing'};return status();
+ }finally{launching=null;}})();
+ return launching;
 }
 async function apply(root,current,fetcher=fetch){await start(root,current,fetcher);return {...await install(root),staged:true};}
 
 /* Runs after MeguLit has exited: only files that exist in the zip are copied. */
-function script(){return `param([string]$Root,[string]$Zip)
+function script(){return `param([string]$Root,[string]$Zip,[string]$Mark)
+# first: tells MeguLit the script is running (services/update.cjs launchScript waits for this file)
+if($Mark){try{[IO.File]::WriteAllText($Mark,[string]$PID)}catch{}}
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $log=Join-Path $Root 'logs\\update.log'
@@ -280,5 +306,5 @@ try{
  }
 }catch{ Log ('rollback check failed: '+$_) }
 `;}
-function reset(){state={phase:'idle'};job=null;found=null;pendingForced=null;}
+function reset(){state={phase:'idle'};job=null;found=null;pendingForced=null;launching=null;}
 module.exports={hotFail,hotFailed,refreshIcons,tidyRollback,sources,check,start,status,install,apply,newer,latest,installedSize,reset,launchScript,policy,downloadGroups};

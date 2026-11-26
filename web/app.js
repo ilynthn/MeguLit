@@ -1098,8 +1098,8 @@ function dictionary(target){
      refresh:'QR コードを更新',bind:'先に MOJi アプリで電話番号を登録してください',cancel:'キャンセル',back:'結果に戻る',examples:'例文',detailFail:'詳細を開けません',expiredSession:'MOJi のログインが切れました'}}[locale];
   /* 2026-11-13 English interface: online lookups use Jisho (English definitions); Chinese keeps MOJi, Japanese the existing MOJi path */
   const onlineSource=locale==='en'?'jisho':'moji';
-  let ticket=0,poll=0,lastItems=[],lastOnline=false;
-  target.innerHTML=`<div class="moji-account" id="moji-account"></div><form class="lookup-form" id="lookup-form"><input type="search" id="lookup-input" autocomplete="off" spellcheck="false" placeholder="${text.lookupHint}" aria-label="${text.dictionary}" maxlength="100"><button type="submit" value="moji" class="primary">${L.online}</button><button type="submit" value="local" class="secondary">${L.local}</button></form><div id="lookup-results"></div>`;
+  let ticket=0,poll=0,lastItems=[],lastOnline=false,lastWeblio=false;
+  target.innerHTML=`<div class="moji-account" id="moji-account"></div><form class="lookup-form" id="lookup-form"><input type="search" id="lookup-input" autocomplete="off" spellcheck="false" placeholder="${text.lookupHint}" aria-label="${text.dictionary}" maxlength="100"><button type="submit" value="moji" class="primary">${L.online}</button><button type="submit" value="local" class="secondary">${L.local}</button><button type="submit" value="weblio" class="secondary" title="Weblio 国語辞典 / 日中中日辞典">Weblio</button></form><div id="lookup-results"></div>`;
   const account=target.querySelector('#moji-account'),results=target.querySelector('#lookup-results');
   if(pendingDictionaryQuery){const word=pendingDictionaryQuery,form=target.querySelector('#lookup-form');pendingDictionaryQuery='';target.querySelector('#lookup-input').value=word;
    setTimeout(()=>{if(form.isConnected)(form.querySelector('button[type=submit]:not([value=local])')||form.querySelector('button[value=local]')).click();},0);}
@@ -1148,8 +1148,8 @@ function dictionary(target){
     const request=ticket,[{mountEntries},saved]=await Promise.all([import('./detail-collect.js'),loadSaved()]);if(request!==ticket||!results.isConnected)return;
     results.innerHTML='<div class="dict-entries"></div>';const box=results.firstElementChild,wanted=wantedEntry;wantedEntry='';
     /* local text goes through formatDefinition: clean senses, no →英和 or (n,vs) tags, one sense per line */
-    const items=lastOnline?lastItems:lastItems.map(w=>({...w,definition:formatDefinition(w.definition).map(g=>g.glosses.join('；')).join('\n')||w.definition}));
-    unmountEntries=mountEntries(box,{items,source:lastOnline?onlineSource:'local',locale,esc,wanted,savedSpellings:saved,
+    const items=lastOnline?lastItems:lastItems.map(w=>w.source==='user'?w:({...w,definition:formatDefinition(w.definition).map(g=>g.glosses.join('；')).join('\n')||w.definition}));
+    unmountEntries=mountEntries(box,{items,source:lastOnline?onlineSource:'local',...(lastWeblio?{source:'weblio'}:{}),locale,esc,wanted,savedSpellings:saved,
      loadDetail:lastOnline&&onlineSource==='moji'?async item=>{try{return await api('moji_word',{id:item.id});}catch(error){
       if(String(error?.message||error).includes('MOJI_SESSION_EXPIRED')){toast(L.expiredSession);showStatus({});}throw error;}}:null,
      loadNotes:lastOnline&&onlineSource==='moji'?(item,page)=>api('moji_comments',{id:item.id,page}):null,
@@ -1168,19 +1168,20 @@ function dictionary(target){
   target.querySelector('#lookup-form').addEventListener('submit',async event=>{
     event.preventDefault();const query=target.querySelector('#lookup-input').value.trim();if(!query)return;
     stopAudio();
-    const request=++ticket,online=event.submitter?.value!=='local',wanted=openWanted===query,language=locale==='en'?'en':'zh';openWanted='';
+    const request=++ticket,online=event.submitter?.value!=='local',viaWeblio=event.submitter?.value==='weblio',wanted=openWanted===query,language=locale==='en'?'en':'zh';openWanted='';
     /* one search = one look-up: the local fallback reuses the same operationId, so it can never be counted twice */
     const operationId=crypto.randomUUID();
     results.innerHTML=loading();
     try{
       let items,used=online;
-      try{items=await api('dictionary',{query,source:online?onlineSource:'local',language,operationId});}
-      catch(error){if(!online)throw error;if(request===ticket)toast(L.fail);used=false;items=await api('dictionary',{query,source:'local',language,operationId});
+      /* #1110 the Weblio button asks Weblio 国語辞典 / 日中中日辞典; a failure falls back to the local dictionary like MOJi */
+      try{items=await api('dictionary',{query,source:viaWeblio?'weblio':online?onlineSource:'local',language,operationId});}
+      catch(error){if(!online)throw error;if(request===ticket)toast(viaWeblio?{zh:/WEBLIO_TIMEOUT/.test(error?.message)?'Weblio 响应超时，先显示本地词典':'暂时连不上 Weblio，先显示本地词典',ja:'Weblio に接続できません。ローカル辞書を表示します',en:'Could not reach Weblio; showing the offline dictionary'}[locale]:L.fail);used=false;items=await api('dictionary',{query,source:'local',language,operationId});
        }
       if(online&&used&&!items.length){const local=await api('dictionary',{query,source:'local',language,operationId}).catch(()=>[]);if(local.length){
        items=local;used=false;}}
       if(request!==ticket||!results.isConnected)return;
-      lastItems=items;lastOnline=used;wantedEntry=query;renderList();
+      lastWeblio=viaWeblio&&used;lastItems=items;lastOnline=used;wantedEntry=query;renderList();
       api('home').then(next=>{if(request===ticket&&results.isConnected)model=next;}).catch(()=>{});
     }catch(error){if(request===ticket&&results.isConnected)results.innerHTML=empty(online?L.fail:text.serviceFailed,'word');}
   });

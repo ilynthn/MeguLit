@@ -503,14 +503,19 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
     static uint BacklogMods,BacklogKey,BacklogHeldMods,BacklogHeldKey;
     internal static bool BacklogKeyValid(uint mods,uint key){return key>=0x41&&key<=0x5A&&(mods&~7u)==0&&(mods&3)!=0;}
     internal static bool BacklogKeyWanted(bool configured,bool translation,bool bound,bool gameInFront){return configured&&translation&&bound&&gameInFront;}
+    /* RRFZ #1175: a combination another program already holds is tried again only every 1.5 s, not on every 16 ms tick; a newly chosen one is tried at once */
+    static uint BacklogFailedMods,BacklogFailedKey;static DateTime BacklogRetryAt=DateTime.MinValue;
+    internal static bool BacklogRetryWait(uint mods,uint key,uint failedMods,uint failedKey,DateTime now,DateTime retryAt){return key!=0&&key==failedKey&&mods==failedMods&&now<retryAt;}
     static void BacklogHotkeyConfigure(Dictionary<string,object> d){uint mods=(uint)Math.Max(0,Math.Min(255,Num(d,"modifiers",0))),key=(uint)Math.Max(0,Math.Min(255,Num(d,"key",0)));
         if(!BacklogKeyValid(mods,key)){mods=0;key=0;}BacklogMods=mods;BacklogKey=key;}
     static void BacklogHotkeyTick(bool noHotkeys){
-        var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,2);
-        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,2)||front==Overlay));
+        var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,3);
+        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,3)||Overlay!=IntPtr.Zero&&front==GetAncestor(Overlay,3)));
         if(want&&BacklogHeldKey==BacklogKey&&BacklogHeldMods==BacklogMods||!want&&BacklogHeldKey==0)return;
         if(BacklogHeldKey!=0){UnregisterHotKey(IntPtr.Zero,0x544);BacklogHeldKey=0;BacklogHeldMods=0;}
-        if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;}
+        if(!want||BacklogRetryWait(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime.UtcNow,BacklogRetryAt))return;
+        if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;BacklogFailedKey=0;BacklogFailedMods=0;}
+        else{BacklogFailedKey=BacklogKey;BacklogFailedMods=BacklogMods;BacklogRetryAt=DateTime.UtcNow.AddMilliseconds(1500);}
     }
     static void ToggleCover(){
         if((DateTime.UtcNow-LastCoverToggle).TotalMilliseconds<180)return;
@@ -729,27 +734,29 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
     }
     /* 2026-11-26 (QQ essence 1144, Danganronpa V3 and other games that hide and lock the mouse: with the Alt+T panel open the pointer
        stayed locked to the game and invisible, so no setting could be changed). While the panel (or a word card) is open the cursor
-       clip is lifted and the cursor made visible; both are given back to the game when the panel closes. Guess: a game that also
-       re-centres the pointer itself every frame (SetCursorPos) is not helped by this, it needs the hook layer. */
-    [StructLayout(LayoutKind.Sequential)] struct CursorInfo { public int Size,Flags; public IntPtr Cursor; public int X,Y; }
+       clip is lifted; it is given back to the game when the panel closes. Guess: a game that also
+       re-centres the pointer itself every frame (SetCursorPos) is not helped by this, it needs the hook layer.
+       RRFZ #1177: ShowCursor only counts for the calling thread, so it never showed a cursor the game hid and only piled up a count
+       on every 16 ms tick; it is gone. The clip is touched only in translation mode with a
+       bound game while the game or the reader layer is in front; leaving for another program forgets the saved clip, the game
+       sets its own again when it is activated. */
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")] static extern bool ClipCursor(IntPtr rect);
     [DllImport("user32.dll")] static extern bool GetClipCursor(out Rect rect);
-    [DllImport("user32.dll")] static extern bool GetCursorInfo(ref CursorInfo info);
-    [DllImport("user32.dll")] static extern int ShowCursor(bool show);
     [DllImport("user32.dll",EntryPoint="ClipCursor")] static extern bool ClipCursorTo(ref Rect rect);
-    static int CursorShown;static bool CursorFreed;static Rect CursorClip;
+    static bool CursorFreed;static Rect CursorClip;
+    /* 0 nothing, 1 lift the clip, 2 give the saved clip back, 3 forget it (another program is in front) */
+    internal static int CursorStep(bool panel,bool ours,bool freed){return !ours?(freed?3:0):panel?(freed?0:1):(freed?2:0);}
     internal static bool ClipIsTight(Rect clip,Rect screen){return clip.Right-clip.Left<screen.Right-screen.Left||clip.Bottom-clip.Top<screen.Bottom-screen.Top;}
     static Rect VirtualScreen(){return new Rect(GetSystemMetrics(76),GetSystemMetrics(77),GetSystemMetrics(76)+GetSystemMetrics(78),GetSystemMetrics(77)+GetSystemMetrics(79));}
-    static void FreeCursorForMenu(bool wanted){
+    static void FreeCursorForMenu(bool wanted,bool ours){
         try{
-            if(wanted){
+            int step=CursorStep(wanted,ours,CursorFreed);
+            if(step==3)CursorFreed=false;
+            else if(step==1){
                 Rect clip;
-                if(GetClipCursor(out clip)&&!CursorFreed&&ClipIsTight(clip,VirtualScreen())){CursorClip=clip;ClipCursor(IntPtr.Zero);CursorFreed=true;}
-                CursorInfo info=new CursorInfo();info.Size=Marshal.SizeOf(typeof(CursorInfo));
-                for(int i=0;i<4&&GetCursorInfo(ref info)&&(info.Flags&1)==0;i++){ShowCursor(true);CursorShown++;info.Size=Marshal.SizeOf(typeof(CursorInfo));}
-            }else if(CursorShown>0||CursorFreed){
-                while(CursorShown>0){ShowCursor(false);CursorShown--;}
+                if(GetClipCursor(out clip)&&ClipIsTight(clip,VirtualScreen())){CursorClip=clip;ClipCursor(IntPtr.Zero);CursorFreed=true;}
+            }else if(step==2){
                 /* a game that set its clip once gets it back (Codex #1177); one that set a new clip meanwhile keeps its own */
                 Rect now;if(CursorFreed&&!(GetClipCursor(out now)&&ClipIsTight(now,VirtualScreen())))ClipCursorTo(ref CursorClip);
                 CursorFreed=false;
@@ -760,7 +767,7 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         if(HookVerifier!=null)HookVerifier.Tick();
         FindOverlay();if(Overlay==IntPtr.Zero)return;
         if(CheckGameExit())return;
-        FreeCursorForMenu(MenuOpen||LookupOpen);
+        {IntPtr front=GetAncestor(GetForegroundWindow(),3);FreeCursorForMenu(MenuOpen||LookupOpen,TranslationMode&&Target!=IntPtr.Zero&&front!=IntPtr.Zero&&(front==GetAncestor(Target,3)||front==GetAncestor(Overlay,3)));}
         // Demote inherited/older topmost state in every mode, including minimised or foreign-application states.
         bool foregroundGame=TranslationMode&&Target!=IntPtr.Zero&&IsWindow(Target)&&!IsIconic(Overlay)&&GetAncestor(GetForegroundWindow(),3)==GetAncestor(Target,3);
         Layer=DecideLayer();
@@ -917,6 +924,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
             /* the log key: Alt/Ctrl + a letter only; held only for a bound game in front in translation mode */
             if(!BacklogKeyValid(1,0x4C)||!BacklogKeyValid(3,0x4C)||BacklogKeyValid(4,0x4C)||BacklogKeyValid(0,0x4C)||BacklogKeyValid(1,0x54+0x20)||BacklogKeyValid(9,0x4C)||
                !BacklogKeyWanted(true,true,true,true)||BacklogKeyWanted(false,true,true,true)||BacklogKeyWanted(true,false,true,true)||BacklogKeyWanted(true,true,false,true)||BacklogKeyWanted(true,true,true,false))return 11;
+            {var t0=new DateTime(2026,1,1,0,0,0,DateTimeKind.Utc);if(!BacklogRetryWait(1,0x4C,1,0x4C,t0,t0.AddMilliseconds(1500))||BacklogRetryWait(1,0x4C,1,0x4C,t0.AddMilliseconds(1500),t0.AddMilliseconds(1500))||BacklogRetryWait(3,0x4C,1,0x4C,t0,t0.AddSeconds(1))||BacklogRetryWait(1,0x42,1,0x4C,t0,t0.AddSeconds(1))||BacklogRetryWait(0,0,0,0,t0,t0.AddSeconds(1)))return 11;}
             Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",1},{"key",0x4C}});if(BacklogKey!=0x4C||BacklogMods!=1)return 11;
             Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",0},{"key",0x4C}});if(BacklogKey!=0)return 11;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","translation"}});
@@ -930,6 +938,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         if(args.Length>0&&args[0]=="--focus-self-test"){
             if(!ReadingVisible(true,false,false,true,true,false)||!ReadingVisible(true,false,false,false,false,true)||ReadingVisible(false,false,false,true,true,true)||ReadingVisible(true,true,false,true,true,true)||ReadingVisible(true,false,true,true,true,true)||ReadingVisible(true,false,false,false,true,false))return 5;
             if(!CoversMonitor(0,0,1920,1080,0,0,1920,1080)||CoversMonitor(0,0,1280,720,0,0,1920,1080)||!CoversMonitor(-8,-8,1928,1088,0,0,1920,1080)||OverlayMayActivate(true,true,true)||!OverlayMayActivate(false,true,true)||OverlayMayActivate(false,true,false))return 6;
+            if(CursorStep(true,true,false)!=1||CursorStep(true,true,true)!=0||CursorStep(false,true,true)!=2||CursorStep(false,true,false)!=0||CursorStep(true,false,true)!=3||CursorStep(true,false,false)!=0||CursorStep(false,false,true)!=3)return 9;
             if(!ClipIsTight(new Rect(960,540,961,541),new Rect(0,0,1920,1080))||ClipIsTight(new Rect(0,0,1920,1080),new Rect(0,0,1920,1080))||!ClipIsTight(new Rect(0,0,1280,720),new Rect(0,0,1920,1080)))return 9;
             Emit(new{type="focus-selftest",passed=true,fullscreenGameKeepsForeground=true,foreignApplicationsYield=true,minimizedWindowPreserved=true});return 0;
         }

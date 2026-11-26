@@ -761,15 +761,24 @@ async function dispatch(request,runtime=null) {
       case 'dictionary':{
         const query=String(request.query||'').trim().slice(0,100);
         if(!query)return [];
-        const online=request.source==='moji'||request.source==='jisho';/* 2026-11-13 English UI: Jisho (services/jisho-dictionary.cjs) */
-        let entries=request.source==='jisho'?await require('./jisho-dictionary.cjs').lookupJisho(query,fetch,{root}):request.source==='moji'?await require('./moji-dictionary.cjs').lookupMoji(query,fetch,{root}):db.prepare('SELECT DISTINCT e.spelling,e.reading,e.definition FROM dictionary_entries e JOIN dictionary_forms f ON e.id=f.entry_id WHERE f.form=? ORDER BY e.frequency LIMIT 20').all(query);
+        const online=request.source==='moji'||request.source==='jisho'||request.source==='weblio';/* 2026-11-13 English UI: Jisho (services/jisho-dictionary.cjs) */
+        /* #1110 Weblio 国語辞典 / 日中中日辞典 public pages (services/weblio-dictionary.cjs) */
+        let entries=request.source==='weblio'?await require('./weblio-dictionary.cjs').lookupWeblio(query,fetch,{root,language:request.language==='en'?'en':'zh'}):request.source==='jisho'?await require('./jisho-dictionary.cjs').lookupJisho(query,fetch,{root}):request.source==='moji'?await require('./moji-dictionary.cjs').lookupMoji(query,fetch,{root}):db.prepare('SELECT DISTINCT e.spelling,e.reading,e.definition FROM dictionary_entries e JOIN dictionary_forms f ON e.id=f.entry_id WHERE f.form=? ORDER BY e.frequency LIMIT 20').all(query);
         /* E457 (user, 2026-11-12: 本地查词 found nothing for 爆裂 or 夢): the dictionary_entries table is only filled by a
            developer tool, so it is empty on every install. The local search now asks the same JMdict the lookup card uses. */
         if(!entries.length&&!online&&runtime){try{const r=await runtime.learning().request('lookup_exact',{text:query,start:0,end:[...query].length},request.language==='en'?'en':'zh');entries=localEntries(r,query);}catch{}}
+        /* #1099 the player's own dictionaries are asked with the built-in one; each row carries its dictionary's name */
+        if(!online){try{entries=[...entries,...require('./user-dictionaries.cjs').rows(root,[query])];}catch{}}
         if(entries.length&&typeof request.operationId==='string'&&request.operationId.length<100)require('./unknown-words.cjs').recordLookup(root,{surface:query,operationId:request.operationId});
         return entries;
       }
       case 'dictionary_related':{/* 2026-11-13 related words for the dictionary field (services/dict-related.cjs) */const vocab=db.prepare('SELECT spelling,reading,status,definitions FROM vocabulary ORDER BY created_at DESC LIMIT 2000').all();return require('./dict-related.cjs').related({query:String(request.query||'').slice(0,40),reading:String(request.reading||'').slice(0,40),definition:String(request.definition||'').slice(0,400)},{vocab});}
+      case 'user_dict_list':return require('./user-dictionaries.cjs').list(root);
+      case 'user_dict_import':return await require('./user-dictionaries.cjs').importDictionary(root,String(request.path||''),{name:request.name});
+      case 'user_dict_toggle':return require('./user-dictionaries.cjs').setEnabled(root,String(request.id||''),request.enabled!==false);
+      case 'user_dict_move':return require('./user-dictionaries.cjs').move(root,String(request.id||''),Number(request.delta)||0);
+      case 'user_dict_rename':return require('./user-dictionaries.cjs').rename(root,String(request.id||''),request.name);
+      case 'user_dict_remove':return require('./user-dictionaries.cjs').remove(root,String(request.id||''));
       case 'moji_status':return require('./moji-dictionary.cjs').status({root});
       case 'moji_login_start':return await require('./moji-dictionary.cjs').loginStart({root});
       case 'moji_login_poll':return await require('./moji-dictionary.cjs').loginPoll(String(request.qrcodeId||''),{root});

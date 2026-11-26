@@ -108,7 +108,9 @@
         text.style.setProperty('--megulit-jp-one-line-scale', '1');
         const range = document.createRange(); range.selectNodeContents(text);
         const natural = range.getBoundingClientRect(), area = bridge.gameArea?.();
-        const right = area ? area.left + area.width : window.innerWidth, room = right - natural.left - 4;
+        /* RRFZ #1177: the nearer of the game's right edge and the reading box's, so a narrow box never lets the line run out of it */
+        const box = text.closest('.sentence-window')?.getBoundingClientRect(), gameRight = area ? area.left + area.width : window.innerWidth;
+        const right = box && box.width > 0 ? Math.min(gameRight, box.right) : gameRight, room = right - natural.left - 4;
         const scale = natural.width > 1 && room > 0 && natural.width > room ? Math.max(.4, room / natural.width) : 1;
         text.style.setProperty('--megulit-jp-one-line-scale', scale.toFixed(3));
       }
@@ -131,6 +133,8 @@
     // reading layer hidden until the viewport has the size these coordinates were computed for (600 ms at most).
     if (surfaceMismatch(layout)) { holdSurface(); return; }
     releaseSurface(); placeLayers(); apply();bridge.islandPage?.refresh();
+    /* RRFZ #1177: a resized game (no resize event on the layer) refits the one-line Japanese */
+    if (preferences.japaneseOneLine === true) bridge.japaneseOneLineFit?.();
   };
   let surfaceTimer = 0;
   const surfaceMismatch = layout => { const dpr = Math.max(.5, Number(window.devicePixelRatio)||1); return Number.isFinite(layout?.surfaceWidth) && Number.isFinite(layout?.surfaceHeight) && (Math.abs(window.innerWidth*dpr - layout.surfaceWidth) > 80 || Math.abs(window.innerHeight*dpr - layout.surfaceHeight) > 80);
@@ -553,11 +557,11 @@
       bridge.textPlaceLayoutChanged?.();
     }
     /* one-line Japanese (QQ essence 1145): no wrapping, a line that does not fit shrinks as a whole (--megulit-jp-one-line-scale) */
-    if (document.body.classList.contains('megulit-jp-one-line') !== (preferences.japaneseOneLine === true)) {
-      document.body.classList.toggle('megulit-jp-one-line', preferences.japaneseOneLine === true);
-      bridge.japaneseOneLineFit?.();
-      bridge.textPlaceLayoutChanged?.();
-    }
+    /* RRFZ #1177: refit on every apply while it is on (a larger Japanese size changes no text, so the observer never sees it) */
+    const oneLine = preferences.japaneseOneLine === true, oneLineChanged = document.body.classList.contains('megulit-jp-one-line') !== oneLine;
+    if (oneLineChanged) document.body.classList.toggle('megulit-jp-one-line', oneLine);
+    if (oneLineChanged || oneLine) bridge.japaneseOneLineFit?.();
+    if (oneLineChanged) bridge.textPlaceLayoutChanged?.();
     const insets=appearance.insets(preferences);
     root.setProperty('--tomoyo-gal-pad-x', scaled(insets.padX));
     root.setProperty('--tomoyo-gal-pad-y', scaled(insets.padY));

@@ -132,8 +132,8 @@ class LocalLearning{
  async tokenize(text,{names=false}={}){
   /* the game's own readings (core/game-reading.cjs) apply to the reader page only, like names; they can grow while the game
      runs, so the ones found in this text are part of the cache key */
-  const game=names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[];
-  const key=(names?'names\u0000':'')+(game.length?JSON.stringify(game)+'\u0000':'')+text;
+  const found=()=>names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[],keyOf=list=>(names?'names\u0000':'')+(list.length?JSON.stringify(list)+'\u0000':'')+text;
+  const key=keyOf(found());
   if(this.cache.has(key))return this.cache.get(key);await this.ready();
   const tokens=await this.raw(text);
   /* 2026-11-23 (user: the speech button said わたくし and ぶん where furigana showed わたし and ふん): furigana, the speech
@@ -141,8 +141,11 @@ class LocalLearning{
      once instead of in the reader page only. Numbers first: JMdict would otherwise join the counter with what follows
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
+  /* RRFZ #1192: read after the last await, like the names: a game switched meanwhile (useGameReadings) never gets the old game's
+     readings, and the result is kept under the key of the readings it was made with */
+  const game=found();
   const own=names?unknownNames(this.withNames(gameTokens(plain,game))):plain;
-  const corrected=this.withRuby(contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own))))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const corrected=this.withRuby(contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own))))));this.cache.set(keyOf(game),corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}
@@ -312,14 +315,25 @@ class LocalLearning{
  entries(token,language){
   this.load();const keys=[token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean);
   const spelled=key=>(this.index.get(key)||[]).filter(id=>this.byId.get(id)?.spellings?.includes(key));
-  let ids=[],homophones=[];for(const key of keys){ids=spelled(key);if(ids.length)break;}
+  let ids=[],homophones=[],lemma=[],hit='';for(const key of keys){ids=spelled(key);if(ids.length){hit=key;break;}}
+  /* RRFZ #1192 (めっちゃ→目茶, やっぱり→矢張り, ちっちゃい→小さい, すっごく→凄い): Sudachi normalizes a colloquial kana word to a kanji lemma read
+     otherwise; that lemma heads the card only when it is read as the word is. Otherwise the entries read exactly as the kana word keep
+     the head, and the word itself is never listed as its own homophone. */
+  /* RRFZ #1289 review 2 (イイ→イイ Iran-Iraq, ちょ→著, よー→嘿, いふ→畏怖, こひ→虎皮): the word's own entry is looked up in hiragana too
+     (メッチャ, ヤッパリ) and must be the same part of speech as the token; a noun, interjection or old-spelling noun read alike stays a
+     homophone and the lemma keeps the head. The lemma follows the word's own entry rather than disappearing (イイ keeps 良い). */
+  const sameKana=key=>[...new Set([...(this.index.get(key)||[]),...(this.index.get(kana(key))||[])])];
+  if(hit&&hit===token.normalized&&hit!==token.base_form&&/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(token.base_form||'')){
+   const said=new Set([kana(token.reading||''),kana(token.base_form)].filter(Boolean)),reads=id=>(this.byId.get(id)?.readings||[]).some(r=>said.has(kana(r)));
+   if(!ids.some(reads)){const own=sameKana(token.base_form).filter(id=>reads(id)&&samePos(token.pos,this.byId.get(id)?.pos));if(own.length){lemma=ids;ids=own;}}
+  }
   if(!ids.length)for(const key of keys){ids=this.index.get(key)||[];if(ids.length)break;}
-  else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=(this.index.get(written)||[]).filter(id=>!ids.includes(id));}
+  else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=sameKana(written).filter(id=>!ids.includes(id)&&!lemma.includes(id));}
   const reading=kana(token.reading||''),order=list=>[...list].sort((a,b)=>{
    const left=this.byId.get(a),right=this.byId.get(b),match=e=>e.readings.some(r=>kana(r)===reading)?0:1;
    return match(left)-match(right)||(left.freq_rank||999999)-(right.freq_rank||999999);
   });
-  const reached=new Set(homophones);ids=[...order(ids),...order(homophones)];
+  const reached=new Set(homophones);ids=[...order(ids),...order(lemma),...order(homophones)];
   return ids.slice(0,20).map(id=>{if(reached.has(id))return {...this.entryFor(id,token,language),match:'reading'};return this.entryFor(id,token,language);});
  }
  entryFor(id,token,language){
@@ -436,6 +450,11 @@ function validReadings(entry,spelling){
  return [...new Set((entry.readings||[]).filter((r,k)=>!entry.re_nokanji?.[k]&&!(entry.re_restr?.[k]?.length&&!entry.re_restr[k].includes(spelling))&&!(entry.re_inf?.[k]||[]).some(x=>['ik','ok','sk','rk'].includes(x))).map(kana))];
 }
 /* The reading a selection has by itself (see word()): kana as written, or the one dictionary reading of an entry spelled so. */
+/* Sudachi part of speech -> the JMdict tags an entry needs to be the same word class; a class not listed here (nouns, interjections)
+   never takes a kana word's own entry over its lemma. A token without a part of speech accepts any entry that is not only a noun or
+   an interjection. */
+const posClasses={'形容詞':/adjective \(keiyoushi\)|'(ku|shiku)' adjective/,'副詞':/^adverb/,'動詞':/(Godan|Ichidan|Nidan|Yodan|Kuru) verb|suru verb|su verb|irregular (ru|nu) verb/,'形状詞':/keiyodoshi|'taru' adjective|na-adjective/,'連体詞':/pre-noun adjectival/,'助動詞':/auxiliary|copula/,'接続詞':/conjunction/};
+function samePos(tokenPos,entryPos){const tags=entryPos||[];if(!tokenPos)return !tags.length||tags.some(p=>!/noun|interjection|expressions|suffix|prefix|counter|numeric|unclassified/.test(p));const want=posClasses[tokenPos];return !!want&&tags.some(p=>want.test(p));}
 function selectedReading(text,entry){const t=String(text||'').trim();if(!t)return null;if(/^[\p{Script=Hiragana}\p{Script=Katakana}ー～〜]+$/u.test(t))return {reading:t,form:'kana'};
  const readings=[...new Set((entry?.readings||[]).map(kana).filter(Boolean))];return entry?.spellings?.includes(t)&&readings.length===1?{reading:readings[0],form:'dictionary'}:null;}
 module.exports={LocalLearning,chinesePos,selectedReading};

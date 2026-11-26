@@ -17,7 +17,10 @@ const NAME=/^(【[^】]{1,16}】|〔[^〕]{1,16}〕|［[^］]{1,16}］|《[^》]
 const bare=s=>plain(s).replace(/[「」『』（）()【】〔〕［］《》<>、。，．！？!?…‥ー〜～・]/g,'');
 function partOf(line,dialogue){const key=plain(line),d=plain(dialogue);if(!key||!d)return false;
  /* only quoted pieces: an unquoted short choice (はい) may well begin the line or occur in it */
- if(!/^[「『（(]/.test(line.trim()))return false;if(d.startsWith(key))return true;const a=bare(line),b=bare(dialogue);if(!a||!b||a.length>b.length)return false;let j=0;for(const c of b){if(c===a[j])j++;if(j===a.length)return true;}return false;}
+ if(!/^[「『（(]/.test(line.trim()))return false;if(d.startsWith(key))return true;const a=bare(line),b=bare(dialogue);if(!a||!b||a.length>b.length)return false;
+ /* RRFZ #1198: a short choice (under 6 characters) is a piece of the line only as its beginning or as at least half of it: 「学校」 and
+    「自宅」 are real choices under 「今日は学校に行くか、それとも家に帰るか……」, their characters occur in it all the same */
+ if(a.length<6)return b.startsWith(a)||a.length*2>=b.length&&b.includes(a);let j=0;for(const c of b){if(c===a[j])j++;if(j===a.length)return true;}return false;}
 /* 2026-11-13 live choice screens (CLANNAD, Summer Pockets, ATRI, ファタモルガーナの館): engines hand the choice texts over in
    shapes the old reader never split. Every shape below is engine-independent:
    - bullet separators: 「♪・傷ついた渡り鳥♪・歌を忘れたカナリア」, 「上書きで何か吹き込む／」 -> one candidate per piece

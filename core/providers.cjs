@@ -12,6 +12,9 @@ function normalizeBase(value = 'https://api.openai.com/v1') {
   return url.toString().replace(/\/$/, '');
 }
 
+/* a service on this computer (Ollama, LM Studio, a local OpenAI-compatible server) needs no key */
+function isLocalBase(value) { try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(String(value)).hostname); } catch { return false; } }
+
 function parseCompletion(body) {
   const content = body?.choices?.[0]?.message?.content;
   const text = typeof content === 'string' ? content : Array.isArray(content)
@@ -64,7 +67,8 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     if (typeof key !== 'string' || key.length > 10000 || /[\r\n]/.test(key)) throw new Error('API 密钥格式无效');
     if (key.trim()) keys.set(base, key.trim());
   }
-  function hasKey(base, provider) { return keyless(provider) || !!keyFor(normalizeBase(base)); }
+  /* RRFZ #1289: a service on this computer needs no key for translation, lookup and the key status alike */
+  function hasKey(base, provider) { const b = normalizeBase(base); return keyless(provider) || isLocalBase(b) || !!keyFor(b); }
   async function translate(text, options = {}, isCurrent = () => true, foreground) {
     if (typeof text !== 'string' || !text.trim() || text.length > 4000) throw new Error('台词为空或过长');
     options = resolveOptions(options);
@@ -93,7 +97,7 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     const engine = ENGINES[options.provider];
     const model = (options.model || (engine ? engine.model : 'gpt-4.1-mini') || '').trim();
     if ((!model && isLLM(options.provider)) || model.length > 200 || /[\r\n]/.test(model)) throw new Error('请填写有效的模型名');
-    const apiKey = keyFor(base) || (keyless(options.provider) ? 'none' : '');
+    const apiKey = keyFor(base) || (keyless(options.provider) || isLocalBase(base) ? 'none' : '');
     if (!apiKey) throw new Error('请在翻译设置中填写 API Key 并保存');
     const fingerprint = createHash('sha256').update(apiKey).digest('hex');
     const extra=isLLM(options.provider)&&typeof options.translationPrompt==='string'?options.translationPrompt.trim().slice(0,2000):'';
@@ -179,7 +183,7 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     const selection=String(input.selection||'').trim(),sentence=String(input.sentence||'');if(!selection||selection.length>1000||sentence.length>4000)throw Error('选区为空或过长');if(!isCurrent())throw Error('选区已变化');options=resolveOptions(options);const llm=isLLM(options.provider),engine=ENGINES[options.provider],mode=input.mode==='summary'?'summary':'explain';
     if(mode==='summary'&&!llm)throw Error('当前引擎只提供翻译，请在「学习与辞书」选择一个大模型进行归纳');
     if(options.provider==='google')return {text:await google(selection,isCurrent),kind:'translation',provider:'google'};
-    const base=normalizeBase(options.baseUrl),key=keyFor(base)||(keyless(options.provider)?'none':'');if(!key)throw Error('这个学习模型还没有 API Key，请在「学习与辞书」配置；本地查词仍可直接使用');
+    const base=normalizeBase(options.baseUrl),key=keyFor(base)||(keyless(options.provider)||isLocalBase(base)?'none':'');if(!key)throw Error('这个学习模型还没有 API Key，请在「学习与辞书」配置；本地查词仍可直接使用');
     const dictionary=(input.entries||[]).slice(0,8).map(e=>({spellings:e.spellings?.slice(0,8),readings:e.readings?.slice(0,8),pos:e.pos,definitions:(e.definitions||[]).slice(0,40).map(s=>String(s).slice(0,800))}));while(dictionary.length>1&&JSON.stringify(dictionary).length>16000)dictionary.pop();const previous=history.filter(h=>h.source!==sentence).slice(-8).map(h=>({source:h.source,...(h.translation?{translation:h.translation}:{})}));while(previous.length&&JSON.stringify(previous).length>8000)previous.shift();
     const cacheKey=JSON.stringify([mode,selection,sentence,dictionary,previous,input.morphology,options.provider,base,options.model,options.learnerLanguage,createHash('sha256').update(key).digest('hex')]);if(lookupCache.has(cacheKey))return lookupCache.get(cacheKey);if(lookupPending.has(cacheKey))return lookupPending.get(cacheKey);
     const pending=(async()=>{if(!isCurrent())throw Error('选区已变化');let response,result;
@@ -192,4 +196,4 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
   }
   return { translate, lookup, setKey, hasKey, observeSource, clearContext };
 }
-module.exports = { normalizeBase, parseCompletion, resolveOptions, createTranslationService, isKnownProvider };
+module.exports = { normalizeBase, isLocalBase, parseCompletion, resolveOptions, createTranslationService, isKnownProvider };
