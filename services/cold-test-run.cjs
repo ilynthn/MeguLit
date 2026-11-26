@@ -21,7 +21,7 @@ const helperPath=root=>{for(const p of [path.join(root||'','native','ColdDesk.ex
 function menuItem(raw,win){let rec=null;try{rec=require('../core/text-paths.cjs').parseChars(String(raw||''));}catch{}if(!rec||!rec.role||rec.role==='line'||!rec.box||!win)return null;
  const sx=rec.sw>0?win.w/rec.sw:1,sy=rec.sh>0?win.h/rec.sh:1;const [x,y,w,h]=rec.box;return {role:rec.role,text:String(rec.text||'').slice(0,40),x:Math.round(x*sx),y:Math.round(y*sy),w:Math.round(w*sx),h:Math.round(h*sy)};}
 
-/* 2026-11-26 (tools/adapt-auto.cjs, オルフレール: a KiriKiri title screen draws no engine-draw button, the run ended no-lines at the
+/* 2026-11-26 (tools/megulit-adapter (cold stage), オルフレール: a KiriKiri title screen draws no engine-draw button, the run ended no-lines at the
    title) opts.ocrMenu: while no line has come and the engine reported no start item, a full-size client picture every OCR_EVERY ms
    goes through Windows OCR (services/cold-ocr.ps1, Japanese); a line that reads like 「はじめから / New Game」 (OCR is rough on
    decorated fonts: は し め 力 、 ら) becomes a 'button' item for the driver; 「つづきから / ロード」 lines never do */
@@ -57,7 +57,7 @@ function ocr(file,{spawn=nodeSpawn,timeoutMs=30000}={}){return new Promise(resol
   const t=setTimeout(()=>{try{p.kill();}catch{}},timeoutMs);t.unref?.();p.stdout.on('data',d=>out+=d);p.on('error',()=>{clearTimeout(t);resolve([]);});
   p.on('close',()=>{clearTimeout(t);let v=[];try{v=JSON.parse(out.trim()||'[]');}catch{}resolve(Array.isArray(v)?v:v?[v]:[]);});});}
 
-/* 2026-11-26 (tools/adapt-auto.cjs only; Monochrome Empire, YU-RIS, took no posted click on its title) the input ladder of
+/* 2026-11-26 (tools/megulit-adapter (cold stage) only; Monochrome Empire, YU-RIS, took no posted click on its title) the input ladder of
    core/cold-test/input-fallback.cjs over a running game: 'post' through ColdDesk, 'inputctl' and 'sendinput' through
    services/cold-input.ps1 (one PowerShell for the run). A watched click gets a 160 px picture before it and one waitMs after it;
    res.input records the level, the sends per level, every check and every step up.
@@ -139,7 +139,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   if(!helper){res.end='no-helper';return resolve(res);}
   let child;try{child=spawn(helper,['run',exe,'--seconds',String(Math.ceil(budgetMs/1000)+20),...(opts.ignoreInput===true?['--ignore-input']:[]),...(opts.visible===true?['--visible']:[]),...(opts.localeEmulator?.path&&opts.localeEmulator?.guid?['--locale-emulator',opts.localeEmulator.path,'--le-guid',opts.localeEmulator.guid]:[])],{windowsHide:true,stdio:['pipe','pipe','ignore']});}catch(e){res.end='spawn '+String(e?.message||e).slice(0,80);return resolve(res);}
   const send=line=>{try{child.stdin.write(line+'\n');}catch{}};
-  /* 2026-11-26 opts.hideProbe (tools/adapt-auto.cjs): what core/hook-control.cjs does for a played game (E578): while the selected stream
+  /* 2026-11-26 opts.hideProbe (tools/megulit-adapter (cold stage)): what core/hook-control.cjs does for a played game (E578): while the selected stream
    carries text and cannot write back, the kernel is asked to probe the hide (hooks.probeHide(true)); the bridge then reports a hidden draw
    and lists the stream hide-only. A cold run has no HookControl, so the probe was never asked for and the confirmation came only by
    chance. Every confirmation is kept with its time (res.hideConfirmed) */
@@ -155,7 +155,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
      answered only from a picture taken after it came (ocrFor), and one the picture does not show stays for LOCATE_TRIES pictures */
   let locatePending=null,ocrFor=null;
   let nameHint='',lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new (deps.Driver||Driver)({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
-  /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/adapt-auto.cjs) the level the input ladder is on */
+  /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/megulit-adapter (cold stage)) the level the input ladder is on */
   const post=a=>{if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);};
   const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint,changed:()=>{for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}}):null;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
@@ -178,7 +178,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    hooks=new Hook(layout,e=>{if(e&&Array.isArray(e.hookThreads)){hideProbe(e.hookThreads);const sig=e.hookThreads.map(x=>x&&x.sample||'').join('|');if(sig!==threadSig){threadSig=sig;hookTextAt=now();}}if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
    const drawLog=hooks.drawLog?.bind(hooks);if(drawLog)hooks.drawLog=raw=>{const m=menuItem(raw,res.window);if(m){menu.unshift(m);menu.length=Math.min(menu.length,12);}return drawLog(raw);};
    try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' attach '+JSON.stringify({pid:res.pid,launcherPid:res.launcherPid||0,hwnd:res.window.hwnd,started})+'\n');}catch{}
-   /* 2026-11-26 opts.choiceLocate (tools/adapt-auto.cjs): the kernel asks the host to locate the options it has (hooks.locateChoices; in the
+   /* 2026-11-26 opts.choiceLocate (tools/megulit-adapter (cold stage)): the kernel asks the host to locate the options it has (hooks.locateChoices; in the
       app GalWindowBridge answers with its OCR as 'hookChoiceBoxes'). A cold run has no reader, so this runner answers with its own OCR
       rows; the answer also goes on Cardinal's tape as the gwb record the app would have */
    /* 2026-11-26 (オルフレール, merged branch: the kernel asked for the two options, 1.2 s later again with a third piece 「らね」; the picture

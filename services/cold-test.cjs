@@ -104,7 +104,7 @@ let current=null;
 function stopNow(why){const c=current;if(!c?.stop)return false;c.stop(why).catch(()=>{});return true;}
 
 /* -> {verdict, why, ...}; deps for tests: {runner(opts)->result, report, upload, now} */
-/* ignoreInput / visible (tools/adapt-auto.cjs only, unattended): ColdDesk does not end the run on GetLastInputInfo changes / runs the game on the visible desktop */
+/* ignoreInput / visible (tools/megulit-adapter (cold stage) only, unattended): ColdDesk does not end the run on GetLastInputInfo changes / runs the game on the visible desktop */
 async function testOne(root,game,{budgetMs,ignoreInput=false,visible=false,localeEmulator=null,ocrMenu=false,driver=null,hideProbe=false,choiceLocate=false,inputFallback=null,deps={}}={}){const s=load(root),id=game.exeKey||'id:'+game.id,now=deps.now||Date.now;const t0=now();
  const block=(why)=>{const st=load(root);st.blocked[id]={why,at:new Date(now()).toISOString(),title:game.title};note(st,{game:game.title,blocked:why});save(root,st);return {verdict:'blocked',why};};
  const steam=steamOf(game);

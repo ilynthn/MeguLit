@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-/* 2026-11-26 tools/adapt-auto.cjs without a game: arguments, folder triage (Switch / disc image / no exe), exe + engine lookup on a
+/* 2026-11-26 tools/megulit-adapter/cold.cjs (the cold stage of MeguLit-Adapter, formerly tools/adapt-auto.cjs) without a game: arguments, folder triage (Switch / disc image / no exe), exe + engine lookup on a
    temp KiriKiri-shaped folder, the one-run lock, and judge(): the cold self-check + Cardinal scores → pass / fail / inconclusive,
    where anything not measured stays inconclusive. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const A=require('../tools/adapt-auto.cjs');
+const A=require('../tools/megulit-adapter/cold.cjs');
 /* the cold runner ticks on real timers: wait for what a test expects instead of a fixed time (a busy machine runs it late) */
 const until=async(cond,ms=10000)=>{const end=Date.now()+ms;while(!cond()&&Date.now()<end)await new Promise(r=>setTimeout(r,20));return cond();};
 const tmp=()=>fs.mkdtempSync(path.join(process.env.MEGULIT_TMP||os.tmpdir(),'adapt-auto-'));
@@ -236,7 +236,7 @@ test('driver choiceQuietMs: the first try waits until fast-forward stopped drawi
 test('run: stage records (core/yui-run.cjs) say where a run stopped',async()=>{const d=tmp();
  const sw=path.join(d,'[GAME]Garden[01009DB022BC6000]');put(path.join(sw,'game.nsp'));const out=path.join(d,'out');
  const r=await A.run({dir:sw,out,budgetMin:1,app:''},{log:()=>{}});const y=require('../core/yui-run.cjs').read(out);
- assert.equal(r.artifacts.yui,path.join(out,'yui-run.log'));assert.equal(y.kind,'adapt-auto');assert.equal(y.state,'failed');assert.equal(y.failed.stage,'verdict-inconclusive');assert.match(y.failed.reason,/Switch/);
+ assert.equal(r.artifacts.yui,path.join(out,'yui-run.log'));assert.equal(y.kind,'megulit-adapter');assert.equal(y.state,'failed');assert.equal(y.failed.stage,'verdict-inconclusive');assert.match(y.failed.reason,/Switch/);
  assert.ok(y.events.some(e=>e.stage==='triage'));});
 
 test('locateAnswer: the options the kernel wants located get the OCR rows that are theirs; GalWindowBridge\'s answer shape',()=>{const R=require('../services/cold-test-run.cjs');
@@ -269,5 +269,5 @@ test('driver readPerCharMs: a long line that came whole gets 45 ms a character b
  const e=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,stallMs:1e9,shotLines:[]});e.next({t:0,window:W});e.next({t:10,window:W,lines:1,quietMs:0});
  assert.equal(e.next({t:2000,window:W,lines:1,quietMs:1200,lineChars:54,lineAgeMs:1200}).length,1,'without readPerCharMs as before');});
 
-test('coldTest: the per-character wait is for engines that hand lines over whole (YU-RIS), not KiriKiri',()=>{const src=fs.readFileSync(path.join(__dirname,'..','tools','adapt-auto.cjs'),'utf8');
+test('coldTest: the per-character wait is for engines that hand lines over whole (YU-RIS), not KiriKiri',()=>{const src=fs.readFileSync(path.join(__dirname,'..','tools','megulit-adapter','cold.cjs'),'utf8');
  assert.match(src,/const WHOLE_LINE=new Set\(\['yuris'\]\);/);assert.match(src,/readPerCharMs:WHOLE_LINE\.has\(loc\.engine\)\?45:0/);});

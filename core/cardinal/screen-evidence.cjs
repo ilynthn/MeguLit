@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-/* 2026-11-26 Cardinal's second hide evidence: pictures of the real screen (adapt-auto --foreground screen/*.png, the cold test's
+/* 2026-11-26 Cardinal's second hide evidence: pictures of the real screen (megulit-adapter --foreground screen/*.png, the cold test's
    run/shot-*.jpg, or any capture) read by Windows OCR (services/cold-ocr.ps1), against the dialogue line the hook had at that moment.
    Everything here is pure: frames come in already read, each {at (epoch ms, the tape's clock), ocr:[{text,x,y,w,h}], exclude?:[rects]}.
      exclude  rectangles on the picture that are MeguLit's own reader rows (its Japanese row is drawn where the original was); OCR

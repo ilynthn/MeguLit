@@ -3,7 +3,7 @@
 /* 2026-11-26 source no-draw for KiriKiri without KAG3 (オルフレール). The hook DLL (native/megulithook/MeguLitDrawSkip.h, self-test
    selftest/drawskip.cpp) hands a switched-on layer DrawText an empty text; HookBridge locks the dialogue contexts behind the no-KAG
    gate and counts what was not drawn (DrawSkipSelfTest, run by native/Build-HookBridge.ps1). Here: the wire between them, the count
-   reaching the cold run's run.json and adapt-auto's result, and the checkout's own hook DLL being the one adapt-auto runs. */
+   reaching the cold run's run.json and MeguLit-Adapter's result, and the checkout's own hook DLL being the one MeguLit-Adapter runs. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {EventEmitter}=require('node:events'),{PassThrough}=require('node:stream');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
@@ -41,7 +41,7 @@ test('cold run: the largest draw skip count of the selected stream lands in run.
  assert.equal(r.drawSkipped,340);assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'run','run.json'),'utf8')).drawSkipped,340);
  assert.ok((r.hideConfirmed||[]).some(x=>x.id==='52c3a7:0:1c'),'the hide-only stream is a hide confirmation as before');});
 
-test('adapt-auto: the result carries the count, and the checkout\'s marked hook DLL replaces the install copy',()=>{const A=read('tools/adapt-auto.cjs');
+test('MeguLit-Adapter cold stage: the result carries the count, and the checkout\'s marked hook DLL replaces the install copy',()=>{const A=read('tools/megulit-adapter/cold.cjs');
  assert.match(A,/skipped:runInfo\?\.drawSkipped\|\|0/);
  assert.match(A,/buildColdDesk\(root\);buildHookBridge\(root\);useCheckoutHook\(root\);/);
- assert.match(A,/const HOOK_MARK='MeguLit_GDIHIDE armed version=2'/);assert.match(A,/if\(buf\.indexOf\(HOOK_MARK\)<0\)return;/,'an unmarked DLL is never used (validation/adapt-auto.test.cjs: which build wins)');});
+ assert.match(A,/const HOOK_MARK='MeguLit_GDIHIDE armed version=2'/);assert.match(A,/if\(buf\.indexOf\(HOOK_MARK\)<0\)return;/,'an unmarked DLL is never used (validation/megulit-adapter-cold.test.cjs: which build wins)');});

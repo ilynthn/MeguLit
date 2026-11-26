@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-/* 2026-11-26 Yui-style stage records for a run that is not the desktop app: a cold test, an automatic adaptation (tools/adapt-auto.cjs)
+/* 2026-11-26 Yui-style stage records for a run that is not the desktop app: a cold test, an automatic adaptation (tools/megulit-adapter (cold stage))
    or any tool that wants "how far did it get and where did it stop" when it fails. Same shape as the desktop's logs/yui sessions
    (services/yui.cjs sessions()): one line "<ms> <stage>" per stage into <dir>/yui-run.log, ms from the run's start, so a run that
    died without a word still says its last stage, and read() calls it interrupted. Local only: nothing here sends anything, and

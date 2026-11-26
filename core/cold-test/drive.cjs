@@ -25,7 +25,7 @@ class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
  next(obs){const o=this.o,t=obs.t|0,out=[];const end=why=>{if(this.phase==='advance'&&(this.o.slowLines>0?this.fast:this.o.skip!==false))out.push({do:'keyup',vk:VK.ctrl});this.phase='end';out.push({do:'end',why});return out;};
   if(this.phase==='end')return out;
-  /* hoverStart (tools/adapt-auto.cjs): a start item is hovered first and clicked choiceHover later (Monochrome Empire's title buttons took no bare click) */
+  /* hoverStart (tools/megulit-adapter (cold stage)): a start item is hovered first and clicked choiceHover later (Monochrome Empire's title buttons took no bare click) */
   if(this.pendingClick&&t>=this.pendingClick.at){const c=this.pendingClick;this.pendingClick=null;out.push({do:'click',x:c.x,y:c.y,watch:'start'});return out;}
   if(obs.deadline&&t>=obs.deadline)return end(this.phase==='advance'?'time':'time-'+this.phase);
   if(this.phase==='boot'){if(obs.window&&obs.window.w>0&&obs.window.h>0){this.phase='intro';this.introAt=t;this.lastAct=t;}else if(t>=o.bootMs)return end('no-window');else return out;}
@@ -44,12 +44,12 @@ class Driver{
     return out;}}
   /* advance */
   if(this.lastLines>=o.targetLines)return end('enough');
-  /* afterChoice (tools/adapt-auto.cjs: run until the first choice): end this many lines after the first choice was answered */
+  /* afterChoice (tools/megulit-adapter (cold stage): run until the first choice): end this many lines after the first choice was answered */
   if(o.afterChoice>0&&this.choiceLine!=null&&this.lastLines>=this.choiceLine+o.afterChoice)return end('choice');
   if(t-this.lastLineAt>=o.stallMs)return end('stalled');
   for(const n of o.shotLines)if(this.lastLines>=n&&!this.shotsTaken.has(n)){this.shotsTaken.add(n);out.push({do:'shot',tag:'line-'+n});}
   if((obs.choices|0)>this.lastChoices){this.lastChoices=obs.choices|0;this.choiceAt=t;if(this.choiceLine==null){this.choiceLine=this.lastLines;if(this.fast){this.fast=false;out.push({do:'keyup',vk:VK.ctrl},{do:'phase',name:'choice'});}}}
-  /* slowLines (tools/adapt-auto.cjs): reading pace for the first slowLines lines (the samples a diff is made from), then fast-forward
+  /* slowLines (tools/megulit-adapter (cold stage)): reading pace for the first slowLines lines (the samples a diff is made from), then fast-forward
      (held Ctrl) until the first choice, then reading pace again for the choice and afterChoice lines */
   if(o.slowLines>0&&!this.fast&&this.choiceLine==null&&this.lastLines>=o.slowLines){this.fast=true;this.lastCtrl=t;out.push({do:'phase',name:'fast'},{do:'keydown',vk:VK.ctrl});}
   /* 2026-11-26 second pass (both オルフレール runs: the hover + click 8 s after Ctrl was released worked, the one at 1.5 s and the keyboard did
@@ -75,18 +75,18 @@ class Driver{
    if(item){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at,watch:'start'});}return out;}}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
   if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2),watch:'confirm'});return out;}
-  /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
+  /* skip:false (tools/megulit-adapter (cold stage) --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
   const ctrl=o.slowLines>0?this.fast:o.skip!==false;
   if(ctrl&&t-this.lastCtrl>=o.ctrlEvery){this.lastCtrl=t;out.push({do:'keydown',vk:VK.ctrl});}
-  /* readEvery (tools/adapt-auto.cjs): the advance interval without Ctrl, so a long line is shown to its end before the next one (the reader
+  /* readEvery (tools/megulit-adapter (cold stage)): the advance interval without Ctrl, so a long line is shown to its end before the next one (the reader
      reveals it; at 450 ms 3-row lines of オルフレール never completed: Cardinal row) */
-  /* readQuietMs (tools/adapt-auto.cjs, owner: DrawText 流静默 ≥600 ms 且距上次点击 ≥1 s 再点): without Ctrl, the next click waits until the
+  /* readQuietMs (tools/megulit-adapter (cold stage), owner: DrawText 流静默 ≥600 ms 且距上次点击 ≥1 s 再点): without Ctrl, the next click waits until the
      game drew nothing for readQuietMs (a long line is shown to its end) and readMinMs passed (a short one does not wait for nothing) */
-  /* readPerCharMs (tools/adapt-auto.cjs; 2026-11-27 Monochrome Empire: YU-RIS hands the joined line over when its typewriter is done, the
+  /* readPerCharMs (tools/megulit-adapter (cold stage); 2026-11-27 Monochrome Empire: YU-RIS hands the joined line over when its typewriter is done, the
      click came 1.2 s later, and the reader, which reveals the line again at about 30 characters a second, never finished 10 of 55 lines):
      at reading pace the line that came last is also given readPerCharMs per character before the next click */
   const due=!ctrl&&o.readQuietMs>0?(obs.quietMs??1e9)>=o.readQuietMs&&t-this.lastAct>=o.readMinMs&&!(o.readPerCharMs>0&&(obs.lineAgeMs??1e9)<(obs.lineChars|0)*o.readPerCharMs):t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery);
-  /* holdBlind (tools/adapt-auto.cjs; 2026-11-26 Monochrome Empire: once InputShim made its input land, the blind advance click at the
+  /* holdBlind (tools/megulit-adapter (cold stage); 2026-11-26 Monochrome Empire: once InputShim made its input land, the blind advance click at the
      bottom centre of the title opened 「各鑑賞モード」 before the OCR could find 「最初から始める」): while only a few lines came, none for
      confirmAfter and the runner's OCR has not looked at the screen yet (obs.ocr), no blind click / Enter goes to what may be a menu */
   if(due&&o.holdBlind&&this.lastLines<=3&&t-this.lastLineAt>=o.confirmAfter&&!((obs.ocr|0)>0))return out;

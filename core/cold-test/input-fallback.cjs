@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-/* 2026-11-26 (tools/adapt-auto.cjs only; Monochrome Empire, YU-RIS: the title's 「最初から始める」 OCR found took neither a posted click nor a
+/* 2026-11-26 (tools/megulit-adapter (cold stage) only; Monochrome Empire, YU-RIS: the title's 「最初から始める」 OCR found took neither a posted click nor a
    hover + click) the cold test's input ladder. Level 0 is ColdDesk's PostMessage (what the app's idle cold test always uses); a
    watched action (the driver's start / confirm click) that changed neither the lines nor the picture within waitMs goes up one level
    and is sent again there: 'inputctl' (the testbed's InputShim injected into the game: fake foreground, cursor, GetAsyncKeyState,

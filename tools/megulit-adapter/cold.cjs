@@ -1,7 +1,7 @@
-#!/usr/bin/env node
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-/* 2026-11-26 unattended adaptation of one game folder (owner: QQ 群文件 → adapt.ps1 解压识别 → 这里自动适配 → 回执).
+/* 2026-11-27 the cold stage of MeguLit-Adapter (tools/megulit-adapter.cjs; this was tools/adapt-auto.cjs, merged so there is one entry).
+   2026-11-26 unattended adaptation of one game folder (owner: QQ 群文件 → adapt.ps1 解压识别 → 这里自动适配 → 回执).
    Strings the existing parts together, nothing re-implemented:
      1 game folder → main exe + engine       core/library.cjs findGame/engineOf, services/engine-fingerprint.cjs fingerprint
      2 probe (no game run)                   services/probe-full.cjs collect + unpack → <out>/probe (tools/diff-maker/README.md layout)
@@ -9,7 +9,7 @@
      4 diff                                  tools/diff-maker make/write over the probe + the cold run's logs (never --write-repo)
      5 Cardinal                              tools/cardinal.cjs --logs <run>: the cold run replayed into the headless reader
      6 verdict                               judge(): cold self-check + Cardinal; anything not measured → inconclusive, never a guessed pass
-   Usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N] [--app <MeguLit install>] [--foreground] [--seed-out <dir>]
+   Usage (through the one entry): node tools/megulit-adapter.cjs cold <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N] [--app <MeguLit install>] [--foreground] [--seed-out <dir>]
      --budget-min  the whole game, every step (default 10); result.steps has each step's ms, result.stuck where it stopped
      --skip        hold Ctrl (fast-forward) while advancing; default is reading pace (a per-character draw stream fast-forwarded
                    arrives in pieces: オルフレール 23 lines row 0.235 with Ctrl, 60 lines row 0.8 without)
@@ -20,7 +20,7 @@
    Never writes into the game folder (the save snapshot/restore of the cold test is the only thing that touches its saves), never
    writes .adapt-result.json (that file sends the group receipt and deletes the game). One run at a time (a lock in the runs root). */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{spawnSync}=require('node:child_process');
-const REPO=path.join(__dirname,'..');
+const REPO=path.join(__dirname,'..','..');
 const RUNS_ROOT=process.env.MEGULIT_ADAPT_RUNS||'F:\\Agent\\work\\adapt-auto-runs';
 /* the testbed's InputCtl32/64.exe + InputShim32/64.dll: the input ladder's second level (services/cold-test-run.cjs inputLadder) */
 const INPUTCTL_DIR=process.env.MEGULIT_INPUTCTL_DIR||'F:\\Agent\\work\\megu-testbed';
@@ -34,7 +34,7 @@ function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin
  for(let i=0;i<a.length;i++){const k=a[i];
   if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';else if(k==='--no-skip')o.skip=false;else if(k==='--skip')o.skip=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
- if(!o.dir)throw Error('usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N]');
+ if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs cold <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N]');
  if(!(o.budgetMin>0&&o.budgetMin<=60))throw Error('--budget-min must be 1..60');
  return o;}
 
@@ -55,15 +55,15 @@ function unsupported(dir,files=walk(dir,4)){
  if(!exes.length)return '目录里没有 exe';
  return '';}
 /* the engine id core/profiles knows: library registry name first, then the archive fingerprint over the folder's files */
-function engineOfGame(gameDir){const Profiles=require('../core/profiles/index.cjs');
- try{const e=require('../core/library.cjs').engineOf(gameDir);const id=e&&Profiles.engineId(e.name);if(id)return {engine:id,why:'library '+e.name};}catch{}
- try{const F=require('../services/engine-fingerprint.cjs');const markers=[],archives=[];
+function engineOfGame(gameDir){const Profiles=require('../../core/profiles/index.cjs');
+ try{const e=require('../../core/library.cjs').engineOf(gameDir);const id=e&&Profiles.engineId(e.name);if(id)return {engine:id,why:'library '+e.name};}catch{}
+ try{const F=require('../../services/engine-fingerprint.cjs');const markers=[],archives=[];
   for(const f of walk(gameDir,2)){const name=path.relative(gameDir,f).replace(/\\/g,'/'),base=path.basename(f);const m=F.markerOf(base);if(m)markers.push(m);
    if(/\.(xp3|arc|pac|npa|dat|pfs|int|ypf|cpz|rpa|rgss3a|rgss2a|rgssad|pck|bin|dpm|gxp)$/i.test(base)){let magic='';try{const fd=fs.openSync(f,'r'),b=Buffer.alloc(8);fs.readSync(fd,b,0,8,0);fs.closeSync(fd);magic=b.toString('hex');}catch{}archives.push({name,magic});}}
   const fp=F.fingerprint({markers,archives});const id=fp&&Profiles.engineId(fp.engine);if(id)return {engine:id,why:'fingerprint '+fp.engine+' ('+fp.evidence+')'};}catch{}
  return {engine:'',why:'engine unknown'};}
 /* --exe wins; else core/library findGame, which looks up to four folders down (Monochrome Empire: game\Win専用…\ゲーム版ver.1.0) */
-function locate(dir,exeRel=''){const L=require('../core/library.cjs');let exe='';
+function locate(dir,exeRel=''){const L=require('../../core/library.cjs');let exe='';
  if(exeRel){exe=path.resolve(dir,exeRel);if(!fs.existsSync(exe))throw Error('--exe not found: '+exe);}
  else{const g=L.findGame(dir,4);exe=g?.exe||'';}
  if(!exe)return null;const gameDir=path.dirname(exe);return {exe,gameDir,...engineOfGame(gameDir)};}
@@ -134,9 +134,9 @@ function lock(file){fs.mkdirSync(path.dirname(file),{recursive:true});
  return null;}
 
 /* ---- 2 probe ------------------------------------------------------------------------------------------------------------ */
-function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../services/probe-full.cjs');
+function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../../services/probe-full.cjs');
  const work=path.join(outDir,'probe-work');fs.rmSync(work,{recursive:true,force:true});
- const c=PF.collect({dir:loc.gameDir,executable:loc.exe,result:{detected:loc.engine||null},out:work,title,app:'adapt-auto',packedMax:16<<20,rawMax:96<<20,budgetMs});
+ const c=PF.collect({dir:loc.gameDir,executable:loc.exe,result:{detected:loc.engine||null},out:work,title,app:'megulit-adapter',packedMax:16<<20,rawMax:96<<20,budgetMs});
  if(!c||c.empty)throw Error('probe-full collected nothing');
  const dir=path.join(outDir,'probe');fs.rmSync(dir,{recursive:true,force:true});PF.unpack(c.file,dir);
  /* the diff maker reads manifest.engine / detected; probe-full keeps the exe path relative to the game folder */
@@ -148,19 +148,19 @@ function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../s
 /* ---- 3 cold test -------------------------------------------------------------------------------------------------------- */
 /* user-folder save places the game created during the run (Saves.sweep finds them; the snapshot could not know them): a folder
    that was not there before the run is test residue and goes; one that was there stays and is only reported */
-function userDirs(){const Saves=require('../core/cold-test/saves.cjs'),out=new Set();
+function userDirs(){const Saves=require('../../core/cold-test/saves.cjs'),out=new Set();
  for(const r of Saves.userRoots(process.env)){let ents=[];try{ents=fs.readdirSync(r.path,{withFileTypes:true});}catch{}for(const e of ents)if(e.isDirectory())out.add(path.join(r.path,e.name).toLowerCase());}
  return out;}
 /* located: the save places as they were before the run (located after it, a folder the game just made counts as guarded) */
-function residue(located,before,since){const Saves=require('../core/cold-test/saves.cjs');const removed=[],kept=[];
+function residue(located,before,since){const Saves=require('../../core/cold-test/saves.cjs');const removed=[],kept=[];
  let found=[];try{found=Saves.sweep(located,since);}catch{}
  for(const d of found){if(before.has(d.toLowerCase())){kept.push(d);continue;}try{fs.rmSync(d,{recursive:true,force:true});removed.push(d);}catch{kept.push(d);}}
  return {removed,kept};}
 /* Locale Emulator exactly when MeguLit itself would start the game through it (services/locale-launch.cjs: x86 programs unless
    the profile says otherwise); -> {path, guid} | null */
-function localeEmulatorFor(root,loc,title){try{const P=require('../core/profiles/index.cjs'),LE=require('../core/locale-emulator.cjs');
+function localeEmulatorFor(root,loc,title){try{const P=require('../../core/profiles/index.cjs'),LE=require('../../core/locale-emulator.cjs');
  const profile=P.profileFor({engine:loc.engine,exe:loc.exe,title,folder:loc.gameDir});
- if(LE.steamApi(loc.exe)||!require('../services/locale-launch.cjs').useJapanese(profile,{},loc.exe))return null;
+ if(LE.steamApi(loc.exe)||!require('../../services/locale-launch.cjs').useJapanese(profile,{},loc.exe))return null;
  const dir=path.join(root,'runtime','locale-emulator'),guid=LE.profile(dir);return LE.complete(dir)&&guid?{path:path.join(dir,'LEProc.exe'),guid}:null;}catch{return null;}}
 /* reading pace for this many lines (the diff's samples), then fast-forward to the first choice (owner: 先阅读速度采够 60 句 → 按 Ctrl
    快进直到第一个选项 → 选项出现时恢复正常速度采选项和后 5 句) */
@@ -169,10 +169,10 @@ const SLOW_LINES=60;
    it then: the next click waits 45 ms a character (driver readPerCharMs). KiriKiri no-KAG comes piece by piece while it types (オルフレール
    r5 with it: cold 230 s -> 306 s, total 554 s, nothing gained) */
 const WHOLE_LINE=new Set(['yuris']);
-async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../services/cold-test.cjs');
+async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||''};
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
@@ -199,7 +199,7 @@ function makeDiff(probeDir,runDir,outDir,window=null){
  const rt=path.join(probeDir,'runtime');fs.mkdirSync(rt,{recursive:true});
  {const mf=path.join(probeDir,'manifest.json');const man=JSON.parse(fs.readFileSync(mf,'utf8'));if(window)man.runtime=window;else delete man.runtime;fs.writeFileSync(mf,JSON.stringify(man,null,1));}
  for(const f of fs.readdirSync(runDir))if(RUN_LOGS.test(f))fs.copyFileSync(path.join(runDir,f),path.join(rt,f));
- const DM=require('./diff-maker/index.cjs');const m=DM.make(probeDir);const written=DM.write(m,{out:path.join(outDir,'diff'),repo:false});
+ const DM=require('../diff-maker/index.cjs');const m=DM.make(probeDir);const written=DM.write(m,{out:path.join(outDir,'diff'),repo:false});
  const b=m.result.best;return {ok:true,gameKey:m.key,engine:m.probe.engine,mode:b.params.hideMethod,cost:b.cost,over:b.over,lines:m.result.lines,dir:written[0]};}
 
 /* ---- 5 Cardinal -------------------------------------------------------------------------------------------------------- */
@@ -212,7 +212,7 @@ function cardinal(runDir,run,loc,exeSha,title,outFile,{timeoutMs=600000,shots=''
     read by Windows OCR inside Cardinal; only once the recorder has written them all). --lines: the whole tape (the cold run cut it to the
     reading-pace lines and the Ctrl span; Cardinal's default, the profile's last 60 lines, was Ctrl only on Monochrome Empire r6) */
  const runFile=path.join(runDir,'run.json'),extra=[...(fs.existsSync(runFile)?['--run',runFile]:[]),...(fs.existsSync(tape)&&run.tapeLines>0?['--lines',String(run.tapeLines)]:[]),...(shots&&fs.existsSync(shots)&&fs.readdirSync(shots).some(f=>/\.png$/i.test(f))?['--shots',shots]:[])];
- const r=spawnSync(process.execPath,[path.join(__dirname,'cardinal.cjs'),...source,...extra,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
+ const r=spawnSync(process.execPath,[path.join(__dirname,'..','cardinal.cjs'),...source,...extra,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
  const log=String(r.stdout||'')+String(r.stderr||'');
  let o=null;try{o=JSON.parse(fs.readFileSync(outFile,'utf8'));}catch{}
  if(!o?.result)return {ok:false,why:'cardinal produced no result'+(r.error?' ('+r.error.message+')':'')+': '+log.slice(-400),log};
@@ -255,9 +255,9 @@ function judge({unsupported:why='',cold=null,diff=null,card=null}={}){const reas
    before the game is started: no hit there means the native matcher will not hit either. */
 const SIG_OF={catsystem2:'cs2',cs2:'cs2',advhd:'advhd',bgi:'bgi',cmvs:'cmvs',fvp:'fvp',mages:'mages',majiro:'majiro',siglus:'siglus',yuris:'yuris'};
 function engineHook(loc){const t0=Date.now(),done=o=>({...o,ms:Date.now()-t0});
- if(loc.engine==='kirikiri'){let bits=0;try{bits=require('../core/locale-emulator.cjs').x86(loc.exe)?32:64;}catch{}return done({route:'krkr',hook:'MeguLitKrkr'+(bits||'')+'.dll + kernel KiriKiri hooks'});}
+ if(loc.engine==='kirikiri'){let bits=0;try{bits=require('../../core/locale-emulator.cjs').x86(loc.exe)?32:64;}catch{}return done({route:'krkr',hook:'MeguLitKrkr'+(bits||'')+'.dll + kernel KiriKiri hooks'});}
  const id=SIG_OF[loc.engine];if(!id)return done({route:'kernel',hook:'kernel hooks only (no engine draw signature for '+(loc.engine||'unknown')+')'});
- const file=path.join(__dirname,'engine-sigs',id+'-draw.cjs');if(!fs.existsSync(file))return done({route:'kernel',hook:'kernel hooks only'});
+ const file=path.join(__dirname,'..','engine-sigs',id+'-draw.cjs');if(!fs.existsSync(file))return done({route:'kernel',hook:'kernel hooks only'});
  try{const r=require(file).scanFile(loc.exe);const hits=Array.isArray(r?.hits)?r.hits.length:Array.isArray(r)?r.length:r?.hit?1:0;return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits});}
  catch(e){return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits:0,error:String(e.message||e).slice(0,160)});}}
 
@@ -291,11 +291,11 @@ function stuckOf({cold,run,diag,engine,minLines=8}){const lines=cold?.lines|0,en
 /* ---- layer 4: the seed entry (The Seed/<engine>/<slug>/game.json + versions/<sha>.json), local only ---------------------------
    From the game layer diff-maker made, plus the seed fields (README of The Seed), checked with core/profiles/seed.cjs like
    seed-all.cjs. Written only for a pass (status verified); never into the repository, never uploaded. */
-function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const SeedFormat=require('../core/profiles/seed.cjs'),Probe=require('./diff-maker/probe.cjs');
+function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
  const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));const gf=fs.readdirSync(diffDir).find(f=>/^game-.*\.json$/.test(f)),vf=fs.readdirSync(diffDir).find(f=>/^version-[0-9a-f]{64}\.json$/.test(f));
  if(!gf||!vf)throw Error('diff has no game/version document');
  const doc=read(path.join(diffDir,gf)),ver=read(path.join(diffDir,vf));const settings=JSON.parse(JSON.stringify(doc.settings||{}));delete settings.calibrate;settings.lang={ja:{annotation:'ruby'}};
- let slugs={};try{slugs=read(path.join(__dirname,'diff-maker','slugs.json'));}catch{}
+ let slugs={};try{slugs=read(path.join(__dirname,'..','diff-maker','slugs.json'));}catch{}
  const slug=[slugs[title+'|'+exeName],slugs[title]].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
  const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[title]},sourceLangs:['ja'],rev:1};
  const version={...ver,rev:1};
@@ -318,7 +318,7 @@ async function run(opts,{log=console.log}={}){
   layers:{kernel:'MeguLitHook（不改）',engine:null,game:null,seed:null},artifacts:{out},startedAt:new Date().toISOString(),
   proof:{offline:['原文隐藏：Cardinal 只回放阅读层；游戏画面上原生字是否真的被盖住，冷测试只有钩子自报的 hideVisible，没有屏幕像素比对','译文替换和选项翻译：回放的翻译来源是固定的假译文（不联网），证明的是阅读层画出了译文，不是译文质量'],screenshots:'run/shot-*.jpg 是游戏客户区；--foreground 时 screen/screen-*.png 是整块屏幕。两者都没有 MeguLit 阅读层（本工具只开钩子，不开 MeguLit.exe），所以截图证明不了译文画上、选项有翻译，只能看游戏原生字和推进到哪'}};
  /* stage records (core/yui-run.cjs, <out>/yui-run.log): a run that stops says at which stage and why */
- const yui=require('../core/yui-run.cjs').start(out,{kind:'adapt-auto'});result.artifacts.yui=yui.file;
+ const yui=require('../../core/yui-run.cjs').start(out,{kind:'megulit-adapter'});result.artifacts.yui=yui.file;
  const stageOf=name=>String(name).replace(/[A-Z]/g,c=>'-'+c.toLowerCase());
  const step=async(name,fn)=>{const t=Date.now();yui.mark(stageOf(name));try{return await fn();}catch(e){yui.fail(stageOf(name),String(e?.message||e));throw e;}finally{result.steps[name]=Date.now()-t;}};
  const write=()=>{result.endedAt=new Date().toISOString();result.totalMs=Date.now()-T0;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,1));};
@@ -339,11 +339,11 @@ async function run(opts,{log=console.log}={}){
   let probe=null;
   await step('probe',()=>{try{probe=makeProbe(loc,title,out,{budgetMs:Math.max(30000,Math.min(PROBE_MS,left()-RESERVE_MS-120000))});result.artifacts.probe=probe.dir;result.exeSha256=probe.exeSha256;log('# probe '+probe.items+' items');}
    catch(e){result.reasons.push('探针：'+e.message);}});
-  try{result.gameKey=require('../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
+  try{result.gameKey=require('../../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
   if(overtime('冷测试'))return finish(judge({cold:null}));
   /* cold test: what is left of the budget, less the reserve for diff + Cardinal */
   const root=await step('prepareApp',()=>prepareApp(opts.app,path.join(RUNS_ROOT,'_app')));
-  const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
+  const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
   const localeEmulator=localeEmulatorFor(root,loc,title);result.localeEmulator=!!localeEmulator;
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
@@ -382,15 +382,17 @@ async function run(opts,{log=console.log}={}){
   return finish(j);}
  finally{release();}}
 
+/* the entry (tools/megulit-adapter.cjs) runs this under node >= 24 with MEGULIT_ROOT on the copied app (prepareRuntime) */
 async function main(argv){let opts;try{opts=parseArgs(argv);}catch(e){console.error(e.message);return EXIT.inconclusive;}
- /* Node 22 fs.cpSync segfaults on Windows when the source path is not ASCII (core/cold-test/saves.cjs snapshots
-    Documents\A'sRing\オルフレール; node 22.22.3 exit 139, the shell saw 127). Run under the app's own runtime node, the one the
-    cold test runs under in MeguLit anyway */
- if(process.platform==='win32'&&Number(process.versions.node.split('.')[0])<24&&!process.env.MEGULIT_ADAPT_REEXEC){const node=path.join(opts.app,'runtime','node.exe');
-  if(fs.existsSync(node)){const r=spawnSync(node,[__filename,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}}
- /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
- if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');
  try{const r=await run(opts);console.log(r.verdict+' '+path.join(r.artifacts.out,'result.json'));for(const x of r.reasons)console.log('  '+x);return EXIT[r.verdict]??2;}
- catch(e){console.error('adapt-auto: '+(e.stack||e.message));return EXIT.inconclusive;}}
-if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,lock,run,main,GATE,EXIT};
+ catch(e){console.error('megulit-adapter cold: '+(e.stack||e.message));return EXIT.inconclusive;}}
+/* Node 22 fs.cpSync segfaults on Windows when the source path is not ASCII (core/cold-test/saves.cjs snapshots
+   Documents\A'sRing\オルフレール; node 22.22.3 exit 139, the shell saw 127): the entry re-runs itself under the app's own runtime node, the
+   one the cold test runs under in MeguLit anyway. -> the exit code of the re-run, or null when this process may go on */
+function reexecIfOldNode(entry,argv,app){
+ if(process.platform!=='win32'||Number(process.versions.node.split('.')[0])>=24||process.env.MEGULIT_ADAPT_REEXEC)return null;
+ const node=path.join(app||APP_DEFAULT,'runtime','node.exe');if(!fs.existsSync(node))return null;
+ const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
+/* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
+function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
+module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,lock,run,main,GATE,EXIT};

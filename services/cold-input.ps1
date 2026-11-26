@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# 2026-11-26 the cold test's input fallback (services/cold-test-run.cjs, tools/adapt-auto.cjs only): one line in, one JSON line out.
+# 2026-11-26 the cold test's input fallback (services/cold-test-run.cjs, tools/megulit-adapter (cold stage) only): one line in, one JSON line out.
 #   init <pid> <hwnd> <bits> <inputctl dir>   InputCtl<bits>.exe inject <pid> (the testbed's InputShim: fake foreground, cursor,
 #                                             GetAsyncKeyState and DirectInput inside the game), then its shared state is opened here
 #   shim click|move <x> <y> | shim key|down|up <vk hex>   what InputCtl.exe does, with the hwnd ColdDesk found (InputCtl looks the
 #                                             window up with EnumWindows, which never sees the hidden desktop)
 #   fg click|move <x> <y> | fg key|down|up <vk hex>       real input (SendInput) to the game made the foreground window; only for a
-#                                             visible run (adapt-auto --foreground, owner away): it moves the real cursor
+#                                             visible run (megulit-adapter --foreground, owner away): it moves the real cursor
 #   dialog <pid> [name]                     a standard dialog of the game asking for text (YU-RIS name entry): an empty Edit gets
 #                                             name, OK is pressed; any other dialog is only reported
 #   quit
