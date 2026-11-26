@@ -155,16 +155,22 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
       return parseCompletion(await response.json());
     });
     queue = pending.catch(() => {});
-    inFlight.set(cacheKey, pending);
-    try {
-      const result = require('./translation-format.cjs').normalizeTranslation(await pending);
+    /* Codex #1284: a second caller of the same line shares this checked promise, not the raw answer, so the guards below
+       hold for it too */
+    const checked = pending.then(raw => {
+      const result = require('./translation-format.cjs').normalizeTranslation(raw);
       /* a reply about the line (asks for the original, calls it garbled, cannot translate) is no translation: nothing is shown or cached */
       if (sanity.metaReply(result, text)) return '';
       /* an answer that slipped into another script (Hangul in a Chinese or English line) is no translation either */
       if (sanity.foreignScript(result, text)) return '';
-      entry.translation=result;
       cache.set(cacheKey, result);
       if (cache.size > 400) cache.delete(cache.keys().next().value);
+      return result;
+    });
+    inFlight.set(cacheKey, checked);
+    try {
+      const result = await checked;
+      if (result) entry.translation = result;
       return result;
     } finally { inFlight.delete(cacheKey); }
   }

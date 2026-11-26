@@ -67,3 +67,11 @@ test('a stored translation in another script is not shown; the line goes to the 
  cached.set(JA,BAD);assert.equal(reader.localTranslation(JA,'zh',{}),'');
  reader.gal.hooks.scriptTranslation=()=>GOOD;assert.equal(reader.localTranslation(JA,'zh',{}),GOOD);
 });
+
+test('a caller sharing an in-flight request gets the checked answer too (Codex #1284)',async()=>{
+ const {s,calls}=service(BAD),opts={provider:'gpt',baseUrl:'https://api.example.com/v1',model:'m',contextEnabled:false};
+ assert.deepEqual(await Promise.all([s.translate(JA,opts),s.translate(JA,opts)]),['','']);
+ assert.equal(calls.length,1,'one request shared by both callers');
+ const ok=service(' '+GOOD+' ');
+ assert.deepEqual(await Promise.all([ok.s.translate(JA,opts),ok.s.translate(JA,opts)]),[GOOD,GOOD],'the shared answer is normalized for both');
+});
