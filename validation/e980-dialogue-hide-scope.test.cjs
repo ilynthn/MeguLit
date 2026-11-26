@@ -8,10 +8,10 @@ function fixture(){
  const st={trT:undefined,trOp:undefined,trRec:undefined,trOwner:undefined,trText:'',trKey:'',trLine:0,charsSent:0,
   trLayer:()=>layer,screen:()=>[640,480],shown:()=>true,abs:()=>[0,280],hideOn:()=>true,report:s=>out.push(s)};
  const ctx=vm.createContext({st,int:Math.trunc});
- for(const name of ['trOwn','trRestore','trUi','trHide','trNote','trClear','trDone','trParkOf','trResume','trTwin']){
+ for(const name of ['trOwn','trRestore','trUi','trHide','trNote','trClear','trDone','trTwin']){
   const body=new RegExp('st\\.'+name+'=function\\(([^)]*)\\)\\{([\\s\\S]*?)\\} incontextof st;').exec(script);
   assert.ok(body,name);
-  const source=body[2].replace(/%\[\]/g,'({})').replace(/'Object'/g,"'object'").replace(/\.count\b/g,'.length').replace(/\.add\(/g,'.push(').replace(/\bvoid\b/g,'undefined').replace(/isvalid this\.trT/g,'this.trT.valid!==false').replace(/\(inst\.getCharacters incontextof inst\)/g,'inst.getCharacters.bind(inst)').replace(/\(pk\.inst\.getCharacters incontextof pk\.inst\)/g,'pk.inst.getCharacters.bind(pk.inst)').replace(/return %\[([^\]]*)\];/g,(m,x)=>'return ({'+x.replace(/=>/g,':')+'});');
+  const source=body[2].replace(/%\[\]/g,'({})').replace(/'Object'/g,"'object'").replace(/\.count\b/g,'.length').replace(/\.add\(/g,'.push(').replace(/\bvoid\b/g,'undefined').replace(/isvalid this\.trT/g,'this.trT.valid!==false').replace(/\(inst\.getCharacters incontextof inst\)/g,'inst.getCharacters.bind(inst)');
   vm.runInContext('st.'+name+'=function('+body[1]+'){'+source+'};',ctx);
  }
  const renderer=target=>({textLayer:target.textLayer,getCharacters:()=>[..."これは台詞です"].map((text,i)=>({text,x:20*i,y:0,cw:20,size:24}))});
@@ -133,41 +133,6 @@ test('TextRender retirement reaches real HookNative parsing and OverlayPlacement
  }
 });
 
-/* #1124 #1125 (owner 2026-11-24 06:16:27.811 / 06:16:28.104, engine-draw.log: line 100211 drawn hidden=1, then retired n=0 hidden=0
-   0.3 s later with no new render; the same on every line of 血塗れの男 (100129 100135 100138 100221-100223)): the text window left
-   being the shown current layer for a moment and came back with the same text. The tick retires the line once (as before) and hides
-   it again, with the same line number, when the layer is back and lays out exactly that text. */
-test('a line retired by the hide tick comes back hidden when its layer returns with the same text',()=>{
- for(const [away,back] of [[f=>{f.st.shown=()=>false;},f=>{f.st.shown=()=>true;}],[f=>{f.saved=f.layer;f.layer={height:200,textLayer:{opacity:127}};},f=>{f.layer=f.saved;}]]){
-  const f=fixture();f.layer.textLayer.opacity=192;f.st.trDone(f.renderer(f.layer));const line=f.st.trRec[1],own=f.layer;
-  away(f);f.st.trHide();assert.equal(own.textLayer.opacity,192,'retired: the game draws it');assert.equal(f.st.trRec,undefined);
-  assert.ok(f.out.some(s=>s.includes('line='+line+' hidden=0')&&s.endsWith('n=0 rects= text=')));
-  const n=f.out.length;f.st.trHide();assert.equal(f.out.length,n,'nothing while the layer is away');
-  back(f);f.st.trHide();
-  assert.equal(own.textLayer.opacity,0,'hidden again');assert.equal(f.st.trRec[1],line,'same line number');
-  const again=f.out.slice(n).filter(s=>s.startsWith('ToMe_CHARS'));assert.equal(again.length,1,JSON.stringify(f.out.slice(n)));
-  assert.ok(again[0].includes('line='+line+' hidden=1')&&/ n=7 rects=0,280,20,24;/.test(again[0])&&again[0].endsWith('text=これは台詞です'),again[0]);
-  const m=f.out.length;f.st.trHide();assert.equal(f.out.length,m,'reported once');
- }
-});
-test('a parked line does not come back with other text, after a clear, on a link layer or in read mode',()=>{
- const park=()=>{const f=fixture();const r=f.renderer(f.layer);f.st.trDone(r);f.st.shown=()=>false;f.st.trHide();f.st.shown=()=>true;return {f,r};};
- const chars=()=>f=>f.out.filter(s=>s.startsWith('ToMe_CHARS')).length;
- {const {f,r}=park();r.getCharacters=()=>[..."別の台詞"].map((text,i)=>({text,x:20*i,y:0,cw:20,size:24}));const n=chars()(f);f.st.trHide();assert.equal(f.st.trRec,undefined);assert.equal(chars()(f),n);assert.equal(f.layer.textLayer.opacity,255);}
- {const {f}=park();f.st.trClear(f.layer);const n=chars()(f);f.st.trHide();assert.equal(f.st.trRec,undefined);assert.equal(chars()(f),n,'cleared: gone for good');}
- {const {f}=park();f.layer.numLinks=1;const n=chars()(f);f.st.trHide();assert.equal(f.layer.textLayer.opacity,255,'links stay native');assert.equal(chars()(f),n);}
- {const {f}=park();f.st.hideOn=()=>false;f.st.trHide();assert.equal(f.layer.textLayer.opacity,255,'read mode: not hidden');}
-});
-test('a resumed line reaches OverlayPlacement as placed again after its gone',()=>{
- const {HookNative}=require('../core/hook-native.cjs'),{OverlayPlacement}=require('../core/overlay-placement.cjs');
- const sent=[],placement=new OverlayPlacement({send:m=>sent.push(m)});
- placement.configure({textRenderer:'compositor'},{bound:true,layout:{clientWidth:640,clientHeight:480}});
- const hook=Object.create(HookNative.prototype);Object.assign(hook,{drawLog(){},engineDrawLine(){},gamePid:()=>123,now:()=>1,emit:m=>placement.hook(m)});
- const f=fixture();f.st.trDone(f.renderer(f.layer));let seen=0;const feed=()=>{for(const raw of f.out.slice(seen))if(raw.startsWith('ToMe_CHARS'))hook.charRects(raw);seen=f.out.length;};feed();
- f.st.shown=()=>false;f.st.trHide();feed();assert.ok(sent.some(m=>m.type==='textPlace'&&m.gone===true));
- const k=sent.length;f.st.shown=()=>true;f.st.trHide();feed();
- assert.ok(sent.slice(k).some(m=>m.type==='textPlace'&&m.rects?.length===7&&!m.gone),'placed again: '+JSON.stringify(sent.slice(k)));
-});
 /* 2026-11-26 (integration live test, 死に逝く君、館に芽吹く憎悪: every 血塗れの男 line, trwhy switch cur=f0 owner=b0): the line is rendered on the back
    page and [trans] copies it onto the front twin; the record moves there and the front copy is hidden instead of the line being retired */
 test('a line rendered on the back page moves to its front twin after the transition and stays hidden',()=>{
