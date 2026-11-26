@@ -35,7 +35,7 @@ test('host: probe on selection, hide-only only after the DLL reports a hidden st
  assert.ok(b.includes('static bool Armed(Candidate c){return c!=null&&(c.embed||c.gdiProbe);}'));
  assert.ok(b.includes('static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(c.code)&&c.role!=2&&c.role!=3&&!LoadUnsafe().ContainsKey(UnsafeKey(c.name,c.role));}'),'never the name stream, never a stream marked unsafe');
  assert.ok(b.includes('if(GdiProbeable(c)){c.gdiProbe=true;'));
- assert.ok(b.includes('if(key==Selected)return Armed(c)&&(ReplacementEnabled||ProbeWanted&&c.gdiProbe)&&!DotsOwn(c);')&&b.includes('MarkEmbedDirty(id);')&&b.includes('finally{FlushEmbedSync();}'),'switched on with replacement on or as a hide probe, outside Gate (E560); not in glyph dot mode (docs/text-architecture.md)');
+ assert.ok(b.includes('if(key==Selected)return Armed(c)&&(ReplacementEnabled||ProbeWanted&&c.gdiProbe)&&(!DotsOwn(c)||YurisGdiOwn(key));')&&b.includes('MarkEmbedDirty(id);')&&b.includes('finally{FlushEmbedSync();}'),'switched on with replacement on or as a hide probe, outside Gate (E560); not in glyph dot mode (docs/text-architecture.md)');
  assert.ok(b.includes('ReplacementEnabled=false;ReplacementCallback=false;if(Selected!="")MarkEmbedDirty(Selected);')&&b.includes('FlushEmbedSync();Diagnostic("replacement disabled;'),'switched off with replacement unless the reader still probes (computed by WantEmbed)');
  assert.ok(b.includes('if(Selected==""||!Candidates.TryGetValue(Selected,out c)||!c.gdiProbe||c.embed)return;c.embed=true;c.hideOnly=true;List();'));
  assert.ok(b.includes('if((s??"").StartsWith("MeguLit_GDIHIDE hit",StringComparison.Ordinal))GdiHideHit(s.Substring(20));'));
@@ -94,8 +94,8 @@ test('hook-native sends the probe once per state and forgets it with the process
 test('host: the probe switches the probed stream on without replacement, keeps it through a read-mode disable, and feeds the glyph hide',()=>{
  const b=read('native/HookBridge.cs');
  assert.ok(b.includes('else if(type=="probe"){object pv;ProbeWanted=d.TryGetValue("on",out pv)&&Convert.ToBoolean(pv);Probe();}'));
- assert.ok(b.includes('!c.gdiProbe)return;on=(ReplacementEnabled||ProbeWanted)&&!DotsOwn(c);name=c.name;MarkEmbedDirty(Selected);}FlushEmbedSync();'),'only the stream the GDI hide probes');
- assert.ok(b.includes('if(key==Selected)return Armed(c)&&(ReplacementEnabled||ProbeWanted&&c.gdiProbe)&&!DotsOwn(c);'));
+ assert.ok(b.includes('!c.gdiProbe)return;on=(ReplacementEnabled||ProbeWanted)&&(!DotsOwn(c)||YurisGdiOwn(Selected));name=c.name;MarkEmbedDirty(Selected);}FlushEmbedSync();'),'only the stream the GDI hide probes');
+ assert.ok(b.includes('if(key==Selected)return Armed(c)&&(ReplacementEnabled||ProbeWanted&&c.gdiProbe)&&(!DotsOwn(c)||YurisGdiOwn(key));'));
  const onConnect=b.slice(b.indexOf('static void OnConnect('),b.indexOf('static void OnDisconnect('));
  assert.match(onConnect,/if\(pid!=Pid\)return;Connected=true;ReattachHooks\(\);ApplySettings\(\);StartGuard\(\);\s*lock\(Gate\)\{[\s\S]*?if\(Selected!=""\)MarkEmbedDirty\(Selected\);\s*\}\s*FlushEmbedSync\(\);/,'on connect too');
  assert.match(b,/static bool GlyphWanted\(\)\{lock\(Gate\)\{Candidate c;return !GpuSact2Ready&&!HookTarget\.ChineseText&&!GlyphCached&&Enabled&&\(ReplacementEnabled\|\|ProbeWanted\)&&Selected!=""/,'glyph hide lines are pushed while probing unless the engine has its own painter or displays Chinese');});
