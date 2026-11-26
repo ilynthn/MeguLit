@@ -313,6 +313,9 @@ function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const 
 /* ---- main ---------------------------------------------------------------------------------------------------------------- */
 /* the whole game within --budget-min (default 10): every step timed (result.steps, ms); out of time → inconclusive, naming the step */
 const RESERVE_MS=150000,PROBE_MS=120000;
+/* 2026-11-27 (千恋＊万花: a 101-line cold pass thrown away, Cardinal killed at 60 s ETIMEDOUT): the replay always gets this long, even past
+   the budget; a finished cold run is worth more than the minutes */
+const CARDINAL_MIN_MS=420000;
 async function run(opts,{log=console.log}={}){
  const T0=Date.now(),budget=Math.round(opts.budgetMin*60000),left=()=>budget-(Date.now()-T0);
  const dir=path.resolve(opts.dir),title=titleOf(dir);
@@ -379,7 +382,7 @@ async function run(opts,{log=console.log}={}){
   /* Cardinal (only when the cold run has lines to replay) */
   let card=null;
   if(runCopy&&(cold.lines|0)>0){if(overtime('Cardinal 回放'))return finish(judge({cold,diff,card:null}));
-   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(60000,left()),shots:result.foreground?shotSample(path.join(out,'screen'),path.join(out,'screen-sample'),20):''});if(card.ok)result.artifacts.cardinal=file;
+   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(CARDINAL_MIN_MS,left()),shots:result.foreground?shotSample(path.join(out,'screen'),path.join(out,'screen-sample'),20):''});if(card.ok)result.artifacts.cardinal=file;
     fs.writeFileSync(path.join(out,'cardinal.log'),card.log||'');result.cardinal=card.ok?{scores:card.result.scores,applies:card.result.applies,total:card.result.total,lines:card.result.lines,errors:card.errors}:{why:card.why};
     log('# cardinal '+(card.ok?JSON.stringify(card.result.scores):card.why));});}
   const j=judge({cold,diff,card});
