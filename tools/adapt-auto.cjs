@@ -11,6 +11,8 @@
      6 verdict                               judge(): cold self-check + Cardinal; anything not measured → inconclusive, never a guessed pass
    Usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N] [--app <MeguLit install>] [--foreground] [--seed-out <dir>]
      --budget-min  the whole game, every step (default 10); result.steps has each step's ms, result.stuck where it stopped
+     --skip        hold Ctrl (fast-forward) while advancing; default is reading pace (a per-character draw stream fast-forwarded
+                   arrives in pieces: オルフレール 23 lines row 0.235 with Ctrl, 60 lines row 0.8 without)
      --seed-out    on a pass, the seed entry <dir>/<engine>/<slug>/{game.json,versions/<sha>.json,lines.json} (local only)
      --foreground  the game on the visible desktop (owner away only; still muted, still in ColdDesk's job) and whole-screen
                    pictures (every 4 s for the first 16 s, then every 15 s) into <out>/screen/ (the hidden desktop's shots are the game's client area only)
@@ -26,9 +28,9 @@ const EXIT={pass:0,fail:1,inconclusive:2};
 const GATE={leak:0.98,row:0.9,pair:0.9,choice:1};
 
 /* ---- 0 arguments ------------------------------------------------------------------------------------------------------ */
-function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin:10,app:APP_DEFAULT,foreground:false,seedOut:''};
+function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin:10,app:APP_DEFAULT,foreground:false,seedOut:'',skip:false};
  for(let i=0;i<a.length;i++){const k=a[i];
-  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';
+  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';else if(k==='--no-skip')o.skip=false;else if(k==='--skip')o.skip=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N]');
  if(!(o.budgetMin>0&&o.budgetMin<=60))throw Error('--budget-min must be 1..60');
@@ -133,10 +135,10 @@ function localeEmulatorFor(root,loc,title){try{const P=require('../core/profiles
  const profile=P.profileFor({engine:loc.engine,exe:loc.exe,title,folder:loc.gameDir});
  if(LE.steamApi(loc.exe)||!require('../services/locale-launch.cjs').useJapanese(profile,{},loc.exe))return null;
  const dir=path.join(root,'runtime','locale-emulator'),guid=LE.profile(dir);return LE.complete(dir)&&guid?{path:path.join(dir,'LEProc.exe'),guid}:null;}catch{return null;}}
-async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null}={}){const Cold=require('../services/cold-test.cjs');
+async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||''};
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,driver:{targetLines:1000,afterChoice:5,...(skip===false?{skip:false}:{})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$args[0];$stop=Join-Path $d 'stop';$i=0;
@@ -273,7 +275,7 @@ async function run(opts,{log=console.log}={}){
  const why=await step('triage',()=>unsupported(dir));if(why)return finish(judge({unsupported:why}));
  const loc=await step('locate',()=>locate(dir,opts.exe));if(!loc)return finish(judge({unsupported:'找不到主程序（用 --exe 指定）'}));
  if(inside(out,loc.gameDir))throw Error('--out must not be inside the game folder');
- result.exe=loc.exe;result.engine=loc.engine;result.engineWhy=loc.why;log('# '+title+' '+loc.engine+' '+loc.exe);
+ result.skip=opts.skip===true;result.exe=loc.exe;result.engine=loc.engine;result.engineWhy=loc.why;log('# '+title+' '+loc.engine+' '+loc.exe);
  const release=lock(path.join(RUNS_ROOT,'adapt-auto.lock'));if(!release)return finish(judge({unsupported:'另一部游戏正在自动适配（一次只跑一部）'}));
  try{
   /* layer 2: the engine's draw hook */
@@ -291,7 +293,7 @@ async function run(opts,{log=console.log}={}){
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
   let cold=null;
-  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
+  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
   if(stopScreen){stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
   if(cold.runDir&&located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
   result.cold=cold;log('# cold '+cold.verdict+' '+(cold.why||'')+' lines='+(cold.lines|0));
