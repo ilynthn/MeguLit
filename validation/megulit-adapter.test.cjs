@@ -150,3 +150,15 @@ test('LunaHook: static checks name an engine only where the registry is silent; 
  fs.writeFileSync(path.join(e,'logs','hook-diagnostics.log'),t+' info 0 匹配到 Yuris 引擎\n');
  const diag=Cold.hookDiagnostics(e,{startedAt:t,endedAt:t},null);assert.equal(diag.lunaEngine,'Yuris');assert.equal(Engines.lunaRule(diag.lunaEngine),'yuris');
  const j=require('../services/original-engines/lunahook-fingerprints.json');assert.ok(j.rules.length>=150&&j.rules.every(r=>['FILE','FILE_ANY','FILE_ALL'].includes(r.check)&&r.targets.length));});
+
+test('second opinion: GalTransl detect names the engine and the file to port; an extractor runs only with game + output folders; failures are notes, not stops',()=>{
+ const S=require('../tools/megulit-adapter/second-opinion.cjs'),skill=tmp();fs.mkdirSync(path.join(skill,'python','engines'),{recursive:true});fs.writeFileSync(path.join(skill,'python','detect.py'),'');fs.writeFileSync(path.join(skill,'python','engines','yuris.py'),'');
+ const out=tmp(),calls=[];
+ const run=(py,args)=>{calls.push(args);if(args[0]==='-I')return {status:0,stdout:JSON.stringify({next_steps:[{engine:'yuris',strongest_evidence:'probe',matched_files:9,engine_page:'engines/yuris.md',extract_commands:['python -m python.engines.yuris_extract extract "<游戏目录>" "<输出目录>" --archive <剧本包相对路径>.ypf','python -m python.engines.yuris_extract extract "<游戏目录>" "<输出目录>" [--verify-edits]']}],candidates:{yuris:[{evidence:'YPF archive version 500'}]}}),stderr:''};
+  const dest=args[args.indexOf('extract')+2];fs.mkdirSync(path.join(dest,'gt_input'),{recursive:true});fs.writeFileSync(path.join(dest,'gt_input','a.json'),JSON.stringify([{message:'「こんにちは」'},{name:'A',message:'はい'},{message:''}]));return {status:0,stdout:'',stderr:''};};
+ const o=S.secondOpinion({gameDir:'G:/game',out,skill},{run});
+ assert.equal(o.ok,true);assert.equal(o.port,'python/engines/yuris.py');assert.equal(o.extracted.lines,2,'two lines with text');
+ assert.equal(calls.length,2,'the command that needs a script archive path is skipped');assert.ok(calls[1].includes('G:/game')&&calls[1].some(a=>a.startsWith(path.join(out,'external'))),'game folder in, output under out/external');
+ assert.match(S.note(o),/yuris.*YPF archive version 500.*读出 2 句.*python\/engines\/yuris\.py/);
+ assert.equal(S.secondOpinion({gameDir:'G:/game',out,skill:tmp()},{run}).error.length>0,true,'no skill: an error, not a throw');
+ assert.equal(S.wanted({probe:{step:'ok'},caps:{known:true}}),false);assert.equal(S.wanted({probe:{step:'parse-failed'},caps:{known:true}}),true);});

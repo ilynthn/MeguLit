@@ -19,18 +19,18 @@
    Exit codes: 0 done, 1 fail, 2 inconclusive, 3 waiting for a person (<out>/review.html shows each question with its pictures).
    State: <out>/adapter.json (everything decided, every answer); nothing is written into the game folder. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
-const Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
+const SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
 const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs');
 const REPO=path.join(__dirname,'..');
 const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
 const STALE_MS=20*60000,STALE_ONCE_MS=180*60000;
 
-function parseRun(argv){const a=argv.slice(2),o={net:true,dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
+function parseRun(argv){const a=argv.slice(2),o={external:true,dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -125,6 +125,8 @@ async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=C
   if(v.vndb)identity.adapted=Ident.sameRelease(Ident.adaptedRows(Ident.handoffText()),identity.vndb,identity.release||identity.releaseGuess);}
  const st={tool:'megulit-adapter',out,title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
  if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.cn)st.answers.cn=st.answers.cn||o.cn;if(o.release)st.answers.release=st.answers.release||o.release;
+ /* our readers read nothing: GalTransl's detect + extractor as a second opinion (evidence and a porting pointer, never the text) */
+ if(o.external&&SecondOpinion.wanted({probe:pr,caps})){st.external={galtransl:SecondOpinion.secondOpinion({gameDir:loc.gameDir,out})};const n=SecondOpinion.note(st.external.galtransl);if(n)st.plan.notes.push(n);log('# second opinion '+(n||st.external.galtransl.error));}
  saveState(st);
  if((identity.adapted||[]).some(r=>r.same)&&!o.force&&st.answers.again===undefined)return finish(st,log);
  if(!o.offline){const release=await gameLock('megulit-adapter',Cold.safeName(title),{waitMs:o.lockWaitMin*60000,log});if(!release){log('# 游戏锁等不到');st.cold=null;return finish(st,log);}
