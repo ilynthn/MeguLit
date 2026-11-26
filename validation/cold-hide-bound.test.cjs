@@ -35,3 +35,13 @@ test('the cold stage: a run whose hide was off says so, and its leak is no hide 
  const cold={verdict:'pass',why:'',lines:40,measured:[],restored:true,near:0.2},diff={ok:true,mode:'hide',cost:0,over:[]};
  const on=A.judge({cold:{...cold},diff,card});assert.equal(on.checks.hidden.measured,true);assert.equal(on.checks.hidden.ok,false,'a hide that was on and leaked fails');
  const off=A.judge({cold:{...cold,hideOff:true},diff,card});assert.equal(off.checks.hidden.measured,false);assert.match(off.checks.hidden.detail,/隐藏没打开/);});
+
+/* 千恋＊万花, visible run (the owner away): the game opened full screen; once it was the top window Windows reported a full-screen
+   app and the run stopped after 5 s. On the hidden desktop a full-screen app is still the user playing: the run stops */
+async function fullscreenRun(visible){const R=require('../services/cold-test-run.cjs');const dir=fs.mkdtempSync(path.join(process.env.MEGULIT_TMP||os.tmpdir(),'cold-full-'));
+ class Hook{constructor(){}configure(){}tick(){}stop(){}drawLog(){}}
+ const h=fakeHelper(emit=>{emit({type:'started',pid:7,started:'1'});emit({type:'window',hwnd:'9',w:1920,h:1080});setTimeout(()=>emit({type:'fullscreen',on:true}),30);});
+ const p=R.runOne({exe:'C:/g/SenrenBanka.exe',runDir:path.join(dir,'run'),budgetMs:600000,visible},{spawn:h.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:5});
+ await new Promise(r=>setTimeout(r,400));R.stopActive();const res=await p;fs.rmSync(dir,{recursive:true,force:true});return res;}
+test('visible run: the game\'s own full screen does not stop the run',async()=>{const r=await fullscreenRun(true);assert.notEqual(r.end,'fullscreen');assert.notEqual(r.stopped,'fullscreen');});
+test('hidden desktop: a full-screen app (the user playing) still stops the run',async()=>{const r=await fullscreenRun(false);assert.equal(r.end,'fullscreen');});

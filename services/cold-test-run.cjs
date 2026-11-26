@@ -224,7 +224,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     case 'dialog':if(input){const d=input.ladder.record.dialogs||(input.ladder.record.dialogs=[]);if(d.length<10)d.push({t:now()-t0,what:String(m.what||'').slice(0,200),via:'colddesk'});}break;
     case 'input':res.stopped='input';finish('input');break;
     case 'power':if(m.ac===false){res.stopped='battery';finish('battery');}break;
-    case 'fullscreen':if(m.on===true){res.stopped='fullscreen';finish('fullscreen');}break;
+    /* 2026-11-27 (千恋＊万花, visible run: the game opens full screen at 1920x1080; once it was the top window, Windows reported a full-screen
+       app and the run ended after 5 s with 0 lines) a full-screen app on the user's desktop means the user is playing, unless the run
+       is on that desktop itself (opts.visible: the owner is away), where the full-screen window is the game */
+    case 'fullscreen':if(m.on===true){if(opts.visible===true){res.fullscreenGame=(res.fullscreenGame|0)+1;break;}res.stopped='fullscreen';finish('fullscreen');}break;
     case 'relaunched':res.relaunched=true;finish('relaunched');break;
     case 'exited':res.exited=true;finish('exited');break;
     case 'timeout':finish('timeout');break;
