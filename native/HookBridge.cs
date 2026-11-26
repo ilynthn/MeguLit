@@ -210,14 +210,16 @@ static void FinishEmbed(long id,string trans,bool hide=false){PendingEmbed p;loc
  internal static string InterleavedTwin(string key,string text){lock(CleanLines){string best=null;var cutoff=DateTime.UtcNow.AddSeconds(-2.5);foreach(var e in CleanLines){if(e.Key<cutoff)continue;string c=e.Value;string from;if(CleanStreamOf.TryGetValue(c,out from)&&from==key)continue;if(Interleaves(text,c)&&(best==null||c.Length>best.Length))best=c;}return best;}}
  /* 2026-11-27 (ファタモルガーナの館 prologue, cold run: 「深い絶望を抱き……」 from KiriKiri2, then 「深い深絶望深いを絶抱望い深をき深絶…」 from the
     selected KiriKiri1 reached the reader): a clean line was remembered only when DialogueLike (8 kana / kanji), so a short clean line
-    never cleaned its interleaved twin. Any clean line of 4 kana / kanji or more is remembered now (Interleaves needs 4 characters) */
- static bool CleanCandidate(string text){return text!=null&&text.Length<=600&&System.Text.RegularExpressions.Regex.IsMatch(text,"[぀-ヿ]")&&System.Text.RegularExpressions.Regex.Matches(text,"[぀-ヿ一-鿿]").Count>=4;}
+    never cleaned its interleaved twin (「……けれど……」 has 3). Any clean line of 3 kana / kanji or more is remembered now (Interleaves needs 4 characters) */
+ static bool CleanCandidate(string text){return text!=null&&text.Length<=600&&System.Text.RegularExpressions.Regex.IsMatch(text,"[぀-ヿ]")&&System.Text.RegularExpressions.Regex.Matches(text,"[぀-ヿ一-鿿]").Count>=3;}
  /* the clean line a per-glyph frame interleaves, or the text itself (remembered as a clean line when it looks like one) */
  internal static string CleanOrRemember(string key,string text){string clean=InterleavedTwin(key,text);if(clean!=null)return clean;if(CleanCandidate(text))RememberClean(key,text);return text;}
  public static bool InterleaveSelfTest(){lock(CleanLines){CleanLines.Clear();CleanStreamOf.Clear();}
   /* the prologue line: 7 kana / kanji, clean on KiriKiri2, interleaved on KiriKiri1 */
   if(CleanOrRemember("kk2","深い絶望を抱き……")!="深い絶望を抱き……")return false;
   if(CleanOrRemember("kk1","深い深絶望深いを絶抱望い深をき深絶…い望抱を…絶き望…抱を…き望…抱を…き…抱…き……")!="深い絶望を抱き……")return false;
+  if(CleanOrRemember("kk2","……けれど……")!="……けれど……")return false;
+  if(CleanOrRemember("kk1","………けれ……どけ…れ…………どけ…れ…どけ……れ…どけ……れど……")!="……けれど……")return false;
   /* a dialogue-length line, as before */
   if(CleanOrRemember("kk2","その瞬間、私は死体を見下ろしていた。")!="その瞬間、私は死体を見下ろしていた。")return false;
   if(CleanOrRemember("kk1","そその瞬の瞬間間、、私は私は死体を死体を見下ろ見下ろしていたしていた。。")!="その瞬間、私は死体を見下ろしていた。")return false;
