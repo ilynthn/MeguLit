@@ -49,3 +49,14 @@ test('no bound model: the old default stays', () => {
   assert.equal(m.contextOptions({}, { provider: 'google' }, () => false).provider, 'deepseek');
   assert.equal(m.contextOptions({}, bound, () => false).provider, 'deepseek');
 });
+/* RRFZ #1176 */
+test('a gpt binding without a model explains with the default model; an empty LM Studio model is no binding', () => {
+  const ds = keysFor(['https://api.openai.com/v1', 'https://api.deepseek.com']);
+  const o = m.contextOptions({}, { provider: 'gpt', baseUrl: 'https://api.openai.com/v1' }, ds);
+  assert.equal(o.provider, 'gpt'); assert.equal(o.model, 'gpt-4.1-mini');
+  assert.equal(m.boundModel({ provider: 'gpt', baseUrl: 'https://example.com/v1', model: '   ' }, () => true), null, 'a blank name fails translation too, so it is no binding');
+  assert.equal(m.boundModel({ provider: 'lmstudio' }, () => true), null, 'model "" is no binding');
+  assert.equal(m.boundModel({ provider: 'lmstudio', model: '  ' }, () => true), null);
+  assert.equal(m.boundModel({ provider: 'lmstudio', model: ' qwen ' }, () => true).model, 'qwen', 'trimmed');
+  assert.equal(m.contextOptions({}, { provider: 'lmstudio' }, () => true).provider, 'deepseek', 'falls back to the guided default');
+});

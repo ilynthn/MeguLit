@@ -11,8 +11,10 @@ function cleanLookup(value={}){const provider=['local','follow','moji',...Object
 function lookupOptions(settings,main={}){const value=cleanLookup(settings);if(value.lookupProvider==='local')return null;if(value.lookupProvider==='follow')return resolveOptions(main);if(value.lookupProvider==='moji')return {provider:'moji'};const p=value.lookupProfiles[value.lookupProvider];return resolveOptions({...main,provider:value.lookupProvider==='deepseek'?'deepseek':'gpt',baseUrl:p.baseUrl,model:p.model});}
 /* Context explanations follow the translation API the player has bound (#1117): the same provider, base address, model and key. Only a context
    source the player picked on purpose, and has its own key for, is used instead. hasKey(options) tells whether a key is saved for those options. */
+/* RRFZ #1176: a gpt binding without a model name translates with the default
+   model, so it explains with it too; a model name that is empty after trimming (LM Studio's default) is no binding */
 const isModel=o=>!!o&&(['gpt','deepseek'].includes(o.provider)||ENGINES[o.provider]?.kind==='llm');
-function boundModel(main,hasKey){try{const o=resolveOptions(main||{});return isModel(o)&&(!hasKey||hasKey(o))?o:null;}catch{return null;}}
+function boundModel(main,hasKey){try{const r=resolveOptions(main||{}),model=String(r.model||(r.provider==='gpt'?presets.gpt.model:'')).trim(),o={...r,model};return isModel(o)&&model&&(!hasKey||hasKey(o))?o:null;}catch{return null;}}
 function contextOptions(settings,main={},hasKey){const value=cleanLookup(settings),chosen=value.contextProvider,explicit=settings?.contextProviderPicked===true||CONTEXT.includes(settings?.contextProvider)&&settings.contextProvider!=='deepseek',bound=boundModel(main,hasKey);const build=name=>{const p=value.lookupProfiles[name];return resolveOptions({...main,provider:name==='deepseek'?'deepseek':'gpt',baseUrl:p.baseUrl,model:p.model});};
  if(chosen==='follow')return bound||build('deepseek');
  /* the DeepSeek default is written into preferences by every save, so it only counts as a choice with contextProviderPicked (set when the player
