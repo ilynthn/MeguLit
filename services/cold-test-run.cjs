@@ -39,7 +39,14 @@ function ocrItems(lines){const out=[],ls=(Array.isArray(lines)?lines:[]).map(l=>
  if(def&&!out.some(i=>i.text==='決定')&&ls.some(l=>OCR_NAME.test(l.t))){const cy=def.y+def.h/2,cx=def.x+def.w/2;
   const ttl=ls.find(l=>OCR_TITLE.test(l.t)&&Math.abs(l.y+l.h/2-cy)<def.h*1.5&&l.x>def.x);const step=ttl?ttl.x+ttl.w/2-cx:def.w*2;
   const x=Math.round(cx-step);if(x>0)out.push({role:'button',text:'決定',estimated:true,ocr:def.t,x:x-Math.round(def.w/2),y:def.y|0,w:def.w|0,h:def.h|0});}
+ /* 2026-11-27 (MeguLit-Adapter, ファタモルガーナの館: 「館の扉を開く / 記を辿る / 調整を行う / 情報頁 / 別メニュー」, no start word, the run
+    stalled on the title): a title menu of at least three short rows stacked in one column with no start word gets its topmost row,
+    unless that row is continue / load / config / extra / quit */
+ if(!out.length){const rows=ls.filter(l=>l.t.length>=2&&l.t.length<=12).sort((a,b)=>a.y-b.y),cx=l=>l.x+l.w/2;
+  const col=rows.filter(l=>rows.filter(m=>Math.abs(cx(m)-cx(l))<Math.max(l.w,m.w)).length>=3);
+  const top=col[0];if(top&&!OCR_NOT.test(top.t)&&!OCR_NOT_START.test(top.t))out.push(item(top,'はじめから',{guessed:true}));}
  return out;}
+const OCR_NOT_START=/設定|環境|コンフィグ|config|option|オプション|おまけ|extra|鑑賞|ギャラリー|gallery|終了|exit|quit|システム|system/i;
 /* OCR rows that are pieces of the hook's option text: most of a row's characters appear in it, at least 5 of them; topmost first */
 const plainOf=t=>String(t||'').replace(/[\s、。・…‥〃″'"`,.！？!?「」『』（）()]/g,'');
 function choiceItems(lines,aux){const a=plainOf(aux);if(a.length<8)return [];const out=[];

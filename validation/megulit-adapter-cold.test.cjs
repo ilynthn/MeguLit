@@ -281,3 +281,12 @@ test('cold test Steam check: a Steam emulator build runs without the Steam clien
  assert.equal(C.steamOf({exe:mk('MZ emu build')}),null,'no Valve name');
  assert.equal(C.steamOf({exe:mk(Buffer.concat([Buffer.from('MZ'),Buffer.from('Valve Corporation','utf16le')]),'SteamEmu')}),null,'SteamEmu folder');
  const real=C.steamOf({exe:mk(Buffer.concat([Buffer.from('MZ'),Buffer.from('Valve Corporation','utf16le')])),steamAppId:'1144400'});assert.equal(real.appid,'1144400','a genuine steam_api still goes through Steam');});
+
+test('ocrItems: a title menu with no start word gets its topmost row (ファタモルガーナの館); a menu that starts with continue or config, or loose text, does not',()=>{
+ const R=require('../services/cold-test-run.cjs');const row=(text,y,x=600)=>({text,x,y,w:180,h:30});
+ const fata=['館の扉を開く','記を辿る','調整を行う','情報頁','別メニュー'].map((t,i)=>row(t,400+i*50));
+ const got=R.ocrItems(fata);assert.equal(got.length,1);assert.equal(got[0].text,'はじめから');assert.equal(got[0].ocr,'館の扉を開く');assert.equal(got[0].guessed,true);
+ assert.deepEqual(R.ocrItems([row('続きから',400),row('環境設定',450),row('終了',500)]),[]);
+ assert.deepEqual(R.ocrItems([row('システム設定',400),row('おまけ',450),row('終了',500)]),[]);
+ assert.deepEqual(R.ocrItems([row('今日はいい天気',400,100),row('だね',400,900)]),[],'not a column');
+ assert.equal(R.ocrItems([row('はじめから',400),row('つづきから',450)])[0].ocr,'はじめから','a start word wins as before');});
