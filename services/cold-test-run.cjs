@@ -11,6 +11,7 @@
 const fs=require('node:fs'),path=require('node:path'),{spawn:nodeSpawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {Driver}=require('../core/cold-test/drive.cjs');
+const InputFallback=require('../core/cold-test/input-fallback.cjs');
 const {parseTrace}=require('../core/self-check.cjs');
 
 let stopActive=null;
@@ -55,6 +56,51 @@ function ocr(file,{spawn=nodeSpawn,timeoutMs=30000}={}){return new Promise(resol
   const t=setTimeout(()=>{try{p.kill();}catch{}},timeoutMs);t.unref?.();p.stdout.on('data',d=>out+=d);p.on('error',()=>{clearTimeout(t);resolve([]);});
   p.on('close',()=>{clearTimeout(t);let v=[];try{v=JSON.parse(out.trim()||'[]');}catch{}resolve(Array.isArray(v)?v:v?[v]:[]);});});}
 
+/* 2026-11-26 (tools/adapt-auto.cjs only; Monochrome Empire, YU-RIS, took no posted click on its title) the input ladder of
+   core/cold-test/input-fallback.cjs over a running game: 'post' through ColdDesk, 'inputctl' and 'sendinput' through
+   services/cold-input.ps1 (one PowerShell for the run). A watched click gets a 160 px picture before it and one waitMs after it;
+   res.input records the level, the sends per level, every check and every step up.
+   cfg: {inputCtlDir (the testbed folder with InputCtl32/64.exe + InputShim32/64.dll), foreground (visible run: sendinput allowed), ladder} */
+const SHOT_W=160;
+function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(cfg.inputCtlDir||'');
+ const hasCtl=!!dir&&fs.existsSync(path.join(dir,'InputCtl32.exe'))&&fs.existsSync(path.join(dir,'InputShim32.dll'));
+ const ladder=new InputFallback.Ladder(InputFallback.ladder({inputCtl:hasCtl,foreground:cfg.foreground===true}),cfg.ladder||{});
+ if(dir&&!hasCtl)ladder.record.errors.push('no InputCtl32.exe / InputShim32.dll in '+dir);
+ let helper=null,inited=false,shotN=0,shotA=null,queued=null,cur=ladder.level,closed=false;const held=new Set();
+ const bits=()=>{try{return require('../core/locale-emulator.cjs').x86(ctx.exe)?32:64;}catch{return 32;}};
+ const err=why=>{if(ladder.record.errors.length<20)ladder.record.errors.push(String(why).slice(0,160));};
+ const write=line=>{try{helper.stdin.write(line+'\n');}catch(e){err('helper: '+e.message);}};
+ const start=()=>{if(helper)return;
+  try{helper=ctx.spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(__dirname,'cold-input.ps1')],{windowsHide:true,stdio:['pipe','pipe','pipe']});}
+  catch(e){err('helper: '+e.message);helper={stdin:{write(){}},kill(){}};return;}
+  helper.on?.('error',e=>err('helper: '+e.message));
+  createInterface({input:helper.stdout}).on('line',line=>{let m;try{m=JSON.parse(line);}catch{return;}
+   if(m.type==='init'){ladder.record.inject={ok:m.ok===true,why:String(m.why||''),bits:bits()};if(m.ok!==true)ladder.drop('inputctl',String(m.why||'init failed'));}
+   else if(m.type==='error'||m.type==='done'&&m.ok===false)err(String(m.cmd||'')+': '+String(m.why||''));});
+  write('hwnd '+String(res.window?.hwnd||0));};
+ const via=(level,a)=>{ladder.sent(level);if(level==='post')return post(a);start();
+  if(level==='inputctl'&&!inited){inited=true;write('init '+(res.pid|0)+' '+String(res.window?.hwnd||0)+' '+bits()+' '+dir);}
+  const cmd=a.do==='keydown'?'down':a.do==='keyup'?'up':a.do;write((level==='inputctl'?'shim ':'fg ')+cmd+' '+(a.x!=null?(a.x|0)+' '+(a.y|0):(a.vk|0).toString(16)));};
+ const act=(a,t)=>{const lv=ladder.level;
+  /* a held key (Ctrl fast-forward) moves to the new level with it */
+  if(lv!==cur){for(const vk of held){via(cur,{do:'keyup',vk});via(lv,{do:'keydown',vk});}cur=lv;}
+  if(a.do==='keydown')held.add(a.vk);else if(a.do==='keyup')held.delete(a.vk);
+  if(a.watch&&a.do==='click'&&ladder.start(a,t,{lines:res.lines,choices:res.choices})){shotA=null;
+   /* ColdDesk takes its commands in order: a posted click comes after the picture; another level waits for the picture first */
+   if(lv!=='post')queued={a,lv,at:t};send('shot '+SHOT_W+' '+path.join(runDir,'inp-'+(++shotN)+'-a.png'));if(lv==='post')via(lv,a);return;}
+  via(lv,a);};
+ const read=file=>{try{return InputFallback.pngGray(fs.readFileSync(file));}catch{return null;}};
+ return {ladder,act,
+  shot(m){const name=path.basename(String(m.path));
+   if(/-a\.png$/i.test(name)){shotA=m.ok?read(m.path):null;if(queued){const q=queued;queued=null;via(q.lv,q.a);}}
+   else if(/-b\.png$/i.test(name))ladder.screen(m.ok?InputFallback.screenChange(shotA,read(m.path)):null);},
+  tick(t){if(queued&&t-queued.at>=1000){const q=queued;queued=null;via(q.lv,q.a);}
+   const r=ladder.tick(t,{lines:res.lines,choices:res.choices});
+   if(r?.need==='shot')send('shot '+SHOT_W+' '+path.join(runDir,'inp-'+shotN+'-b.png'));
+   else if(r?.resend)act(r.resend,t);
+   else if(!r)ladder.stall(t,ctx.since(),{advancing:res.lines>0});},
+  close(){if(closed)return;closed=true;if(!helper)return;write('quit');const h=helper;setTimeout(()=>{try{h.kill();}catch{}},2000).unref?.();}};}
+
 /* opts: {root, exe, runDir, budgetMs, profile, shotWidth, ocrMenu}; deps for tests: {spawn, Hook, now, tick, layout} -> result */
 function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=null,shotWidth=960}=opts;
  const spawn=deps.spawn||nodeSpawn,now=deps.now||Date.now,TICK=deps.tick||250;
@@ -76,8 +122,11 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
   let hookTextAt=0,threadSig='';
   let locatePending=null;
-  let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new Driver({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
-  const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;try{hooks?.stop?.();}catch{}send('kill');
+  let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new (deps.Driver||Driver)({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
+  /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/adapt-auto.cjs) the level the input ladder is on */
+  const post=a=>{if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);};
+  const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0}):null;
+  const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
    res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=require('../core/cardinal/tape.cjs').snapshot();if(snap.lines>0){
      /* the versioned tape file (core/cardinal/tape-file.cjs), with what the game's screen showed: the choice the runner's OCR read
@@ -110,7 +159,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
      /* started through Locale Emulator: the window's owner is the game, the started pid was LEProc (the hook goes to the game) */
      if(!hooks&&m.pid>0&&(m.pid|0)!==res.pid){res.launcherPid=res.pid;res.pid=m.pid|0;if(m.started)started=String(m.started);}
      attach();break;
-    case 'shot':if(m.ok&&m.path&&/^ocr-/i.test(path.basename(m.path))){ocrBusy=true;(deps.ocr||ocr)(m.path).then(lines=>{ocrBusy=false;const items=ocrItems(lines);res.ocr=(res.ocr||0)+1;res.ocrText=(Array.isArray(lines)?lines:[]).map(l=>String(l?.text||'').replace(/\s+/g,'')).filter(Boolean).join(' ').slice(0,300);for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);
+    case 'shot':if(input&&m.path&&/^inp-/i.test(path.basename(m.path))){input.shot(m);break;}if(m.ok&&m.path&&/^ocr-/i.test(path.basename(m.path))){ocrBusy=true;(deps.ocr||ocr)(m.path).then(lines=>{ocrBusy=false;const items=ocrItems(lines);res.ocr=(res.ocr||0)+1;res.ocrText=(Array.isArray(lines)?lines:[]).map(l=>String(l?.text||'').replace(/\s+/g,'')).filter(Boolean).join(' ').slice(0,300);for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);
       if(items.length){res.ocrStart=items[0].ocr;for(const it of items)menu.unshift(it);menu.length=Math.min(menu.length,12);}
       /* options the hook saw (its last 'choice aux' text, since the lines stopped) and OCR finds as separate rows: a choice; the kernel
          confirms choices with the reader's OCR, which a cold run has not (オルフレール: "choice locate unavailable", the run stalled on
@@ -135,9 +184,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
    const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,quietMs:hookTextAt?now()-hookTextAt:1e9});
+   if(input)input.tick(t);
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
     if(a.do==='phase'){(res.phases||(res.phases=[])).push({name:String(a.name),at:new Date(now()).toISOString(),lines:res.lines});continue;}
-    if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);
+    if(/^(click|move|key|keydown|keyup)$/.test(a.do)){if(input)input.act(a,t);else post(a);}
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 

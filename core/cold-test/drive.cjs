@@ -7,7 +7,7 @@
 
    obs: {t ms since start, window:{w,h}|null, lines (hook lines so far), choices (choice events so far),
          menu:[{text, role, x, y, w, h}] (engine-draw button / menu / choice runs on screen now), black (last picture was black)}
-   actions: {do:'click', x, y} (client px) | {do:'key', vk} | {do:'keydown'|'keyup', vk} | {do:'shot', tag} | {do:'end', why}
+   actions: {do:'click', x, y, watch?} (client px; watch 'start' | 'confirm': the input ladder of core/cold-test/input-fallback.cjs checks it took) | {do:'key', vk} | {do:'keydown'|'keyup', vk} | {do:'shot', tag} | {do:'end', why}
 
    phases  boot     wait for the game's window (polled)
            intro    logos / opening / title: click, Enter, Esc (first seconds only), Ctrl in turn; a 「はじめから / New Game」 item
@@ -26,7 +26,7 @@ class Driver{
  next(obs){const o=this.o,t=obs.t|0,out=[];const end=why=>{if(this.phase==='advance'&&(this.o.slowLines>0?this.fast:this.o.skip!==false))out.push({do:'keyup',vk:VK.ctrl});this.phase='end';out.push({do:'end',why});return out;};
   if(this.phase==='end')return out;
   /* hoverStart (tools/adapt-auto.cjs): a start item is hovered first and clicked choiceHover later (Monochrome Empire's title buttons took no bare click) */
-  if(this.pendingClick&&t>=this.pendingClick.at){const c=this.pendingClick;this.pendingClick=null;out.push({do:'click',x:c.x,y:c.y});return out;}
+  if(this.pendingClick&&t>=this.pendingClick.at){const c=this.pendingClick;this.pendingClick=null;out.push({do:'click',x:c.x,y:c.y,watch:'start'});return out;}
   if(obs.deadline&&t>=obs.deadline)return end(this.phase==='advance'?'time':'time-'+this.phase);
   if(this.phase==='boot'){if(obs.window&&obs.window.w>0&&obs.window.h>0){this.phase='intro';this.introAt=t;this.lastAct=t;}else if(t>=o.bootMs)return end('no-window');else return out;}
   const W=obs.window||{w:0,h:0};const center={do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.6)};
@@ -38,7 +38,7 @@ class Driver{
     if(obs.black&&since>=o.blackAfter)return end('black');
     if(since>=o.introMs)return end('no-lines');
     const item=(obs.menu||[]).find(m=>m&&START.test(String(m.text||'').trim())&&!NOT_START.test(String(m.text||''))&&m.w>0&&m.h>0);
-    if(item&&t-this.clickedStart>2500){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at});}return out;}
+    if(item&&t-this.clickedStart>2500){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at,watch:'start'});}return out;}
     if(t-this.lastAct>=o.introEvery){this.lastAct=t;const k=this.step++%4;
      if(k===0)out.push(center);else if(k===1)out.push({do:'key',vk:VK.enter});else if(k===2)out.push(since<o.escUntil?{do:'key',vk:VK.esc}:{do:'key',vk:VK.space});else out.push({do:'key',vk:VK.ctrl});}
     return out;}}
@@ -72,9 +72,9 @@ class Driver{
      and never clicked 「最初から始める」 on the title): while only a few lines came and none for confirmAfter, a start item on screen is still
      clicked, as in the intro */
   if(this.lastLines<=3&&t-this.lastLineAt>=o.confirmAfter&&t-this.clickedStart>2500){const item=(obs.menu||[]).find(m=>m&&START.test(String(m.text||'').trim())&&!NOT_START.test(String(m.text||''))&&m.w>0&&m.h>0);
-   if(item){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at});}return out;}}
+   if(item){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at,watch:'start'});}return out;}}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
-  if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2)});return out;}
+  if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2),watch:'confirm'});return out;}
   /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
   const ctrl=o.slowLines>0?this.fast:o.skip!==false;
   if(ctrl&&t-this.lastCtrl>=o.ctrlEvery){this.lastCtrl=t;out.push({do:'keydown',vk:VK.ctrl});}

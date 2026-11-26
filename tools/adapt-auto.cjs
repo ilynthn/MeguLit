@@ -22,6 +22,8 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{spawnSync}=require('node:child_process');
 const REPO=path.join(__dirname,'..');
 const RUNS_ROOT=process.env.MEGULIT_ADAPT_RUNS||'F:\\Agent\\work\\adapt-auto-runs';
+/* the testbed's InputCtl32/64.exe + InputShim32/64.dll: the input ladder's second level (services/cold-test-run.cjs inputLadder) */
+const INPUTCTL_DIR=process.env.MEGULIT_INPUTCTL_DIR||'F:\\Agent\\work\\megu-testbed';
 const APP_DEFAULT=process.env.MEGULIT_APP||'E:\\MeguLit';
 const EXIT={pass:0,fail:1,inconclusive:2};
 /* what Cardinal must reach for each of the three checks (scores 0..1, core/cardinal/score.cjs) */
@@ -144,7 +146,7 @@ const SLOW_LINES=60;
 async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||''};
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
@@ -326,6 +328,8 @@ async function run(opts,{log=console.log}={}){
   let runCopy='',runInfo=null,diag=null;
   if(cold.runDir&&fs.existsSync(cold.runDir)){runCopy=path.join(out,'run');fs.rmSync(runCopy,{recursive:true,force:true});copyTree(cold.runDir,runCopy);
    try{runInfo=JSON.parse(fs.readFileSync(path.join(runCopy,'run.json'),'utf8'));}catch{}
+   /* which input the game took (services/cold-test-run.cjs inputLadder): the level it ended on, sends per level, every check and step up */
+   if(runInfo?.input){result.input=runInfo.input;log('# input '+runInfo.input.level+' '+JSON.stringify(runInfo.input.sent)+(runInfo.input.escalations.length?' up: '+runInfo.input.escalations.map(e=>e.from+'>'+e.to).join(','):''));}
    /* the bridge's hide confirmations of this run (cold-test-run hideProbe): when, on which stream */
    result.hide={confirmed:runInfo?.hideConfirmed||[],probes:(runInfo?.hideProbes||[]).length};
    diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait};

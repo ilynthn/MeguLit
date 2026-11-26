@@ -101,7 +101,7 @@ test('driver: a confirm button is clicked once lines stop; never while lines com
  const d=new Driver({confirmAfter:1000,advanceEvery:100000,ctrlEvery:100000,stallMs:60000});const ok={role:'button',text:'決定',x:40,y:440,w:60,h:20};
  d.next({t:0,window:{w:1280,h:720}});d.next({t:100,window:{w:1280,h:720},lines:1});
  assert.ok(!d.next({t:500,window:{w:1280,h:720},lines:1,menu:[ok]}).some(a=>a.do==='click'),'too soon');
- assert.deepEqual(d.next({t:1300,window:{w:1280,h:720},lines:1,menu:[ok]}),[{do:'click',x:70,y:450}]);});
+ assert.deepEqual(d.next({t:1300,window:{w:1280,h:720},lines:1,menu:[ok]}),[{do:'click',x:70,y:450,watch:'confirm'}]);});
 
 test('runOne: switches reach ColdDesk; the hook gets the window owner (Locale Emulator) and the name without .exe',async()=>{const R=require('../services/cold-test-run.cjs');const dir=tmp();
  const h=fakeHelper(emit=>{emit({type:'started',pid:100,started:'1'});emit({type:'window',hwnd:'77',pid:200,started:'2',w:1280,h:720});setTimeout(()=>emit({type:'exited'}),60);});
@@ -247,5 +247,5 @@ test('locateAnswer: the options the kernel wants located get the OCR rows that a
 test('driver: a start item on screen is still clicked when a system text counted as the first line',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
  const d=new Driver({confirmAfter:1000,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[]});const W={w:10,h:10},start={role:'button',text:'はじめから',x:100,y:200,w:100,h:30};
  d.next({t:0,window:W});d.next({t:10,window:W,lines:1});assert.ok(!d.next({t:500,window:W,lines:1,menu:[start]}).some(a=>a.do==='click'),'too soon');
- assert.deepEqual(d.next({t:1200,window:W,lines:1,menu:[start]}),[{do:'click',x:150,y:215}]);
+ assert.deepEqual(d.next({t:1200,window:W,lines:1,menu:[start]}),[{do:'click',x:150,y:215,watch:'start'}]);
  const late=new Driver({confirmAfter:1000,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[]});late.next({t:0,window:W});late.next({t:10,window:W,lines:10});assert.ok(!late.next({t:2000,window:W,lines:10,menu:[start]}).some(a=>a.do==='click'),'not once the story runs');});
