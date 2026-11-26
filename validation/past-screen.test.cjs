@@ -77,6 +77,16 @@ test('the current line drawn again before the hide fires cancels the pending hid
   assert.equal(r.h.pastScreen,null);
  }finally{r.done();}});
 
+test('a session reset drops the pending hide and shows a hidden line again (Codex #1267)',()=>{
+ const r=rig();try{
+  let t=story(r,2000);r.aux(t+5000,'KiriKiri2',OLD);r.h.resetSourceSession();r.run(t+8000);
+  assert.deepEqual(r.dialog(),[],'no stale hide after the reset');
+  t=story(r,t+9000);r.aux(t+5000,'KiriKiri2',OLD);r.run(t+6000);assert.deepEqual(r.dialog(),[false]);
+  r.h.resetSourceSession();assert.deepEqual(r.dialog(),[false,true],'the line hidden for the old game is shown again');
+  r.say(t+7000,NOW);r.run(t+7100);r.h.artScreen({type:'artScreen',dates:3});r.h.resetSourceSession();r.run(t+10000);
+  assert.deepEqual(r.dialog(),[false,true],'no dated-screen recheck after the reset');
+ }finally{r.done();}});
+
 test('the art scan counts the LOAD screen rows of the run as dated rows, dialogue rows not',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','native','PageLocator.cs'),'utf8');
  const m=/Regex DateRow = new System\.Text\.RegularExpressions\.Regex\(@"([^"]+)"\)/.exec(src);assert.ok(m,'DateRow pattern');

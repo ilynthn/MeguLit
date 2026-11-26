@@ -129,6 +129,10 @@ class HookNative{
   this.unityBox=null;
   this.lastSource='';
   this.lastSourceAt=0;
+  /* Codex #1267: a screen of past lines (pending or shown) and a dated-screen recheck belong to the old process too; a hidden line
+     is shown again so the next game does not start under it */
+  const P=this.pastScreen;this.pastScreen=null;clearTimeout(P?.timer);clearTimeout(this.artRecheck);this.artRecheck=null;
+  if(P?.hidden)this.emit({type:'hookDialog',engine:'pastlines',visible:true});
  }
  configure(preferences,state){if(this.disposed)return;this.preferences=preferences;this.windowState=state;this.capGiveWay();const pid=Number(state.gameProcessId),hwnd=String(state.gameHwnd||'');this.wanted=(preferences.hookAutoStart||['hook','local'].includes(preferences.maskMode))&&preferences.bindEnabled===true&&preferences.hookProfile!=='off';if(this.nativeRuby&&(this.nativeRuby.pid!==pid||this.nativeRuby.started!==String(state.gameStarted||'')))this.clearNativeRuby();
   const previous=this.target;
