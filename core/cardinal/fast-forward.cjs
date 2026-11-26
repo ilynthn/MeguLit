@@ -20,7 +20,7 @@ function cut(run){const steps=run?.steps||[],sp=spans(steps);if(!sp.length)retur
  const clocks=sp.map(s=>({from:clockAt(o,s.fromStep),to:s.toStep>=steps.length?Infinity:clockAt(o,s.toStep)}));
  const drop=new Set();steps.forEach((st,i)=>{if(st?.hb?.type==='hookSource'&&inSpan(i))drop.add(i);});
  const samples=Array.isArray(o.samples)?o.samples:[],kept=samples.filter(s=>!clocks.some(c=>Number.isFinite(s?.at)&&s.at>=c.from&&s.at<c.to));
- const out={...o,samples:kept,...(Array.isArray(o.sourceEpisodes)?{sourceEpisodes:o.sourceEpisodes.filter(e=>!drop.has(e.step))}:{})};
+ const out={...o,fastFrom:Math.min(...clocks.map(c=>c.from)),samples:kept,...(Array.isArray(o.sourceEpisodes)?{sourceEpisodes:o.sourceEpisodes.filter(e=>!drop.has(e.step))}:{})};
  const st2=steps.map((st,i)=>drop.has(i)?{...st,line:undefined,hb:{...st.hb,type:'hookSourceFast'}}:st);
  return {run:{...run,steps:st2,o:out},fast:{spans:sp.length,droppedLines:drop.size,droppedSamples:samples.length-kept.length,
   why:'Ctrl 快进段不计分：快进时钩子整段吐字、跨句拼接，不代表玩家阅读时看到的样子'}};}

@@ -65,3 +65,13 @@ test('warmup: read samples just after core left read mode belong to the start-up
  assert.equal(r.detail.leakObservation.read,false);
  const late=S.score(mk(true),D.cardinal);assert.equal(late.detail.leakObservation.read,true,'read mode later in the run still counts');
  assert.equal(W.FOLLOW_MS,1000);});
+
+/* ISLAND: the game draws a line at its page record, which can come after Ctrl was held; the reader was right to show it then */
+function intoCtrl(skipped){const d=SENREN.map(([ja],i)=>({t:1000+i*2500,text:ja})),fast=[{t:11000,text:'「快進の一行目」'},{t:11050,text:'「快進の二行目」'}];
+ const r=run([...d,...fast],[{from:1100,to:3500,source:d[0].text},{from:3600,to:6000,source:d[1].text},...(skipped?[{from:6100,to:11000,source:d[3].text}]:[{from:6100,to:8500,source:d[2].text},{from:8600,to:11000,source:d[2].text},{from:11000,to:12000,source:d[3].text}])]);
+ r.steps.splice(4,0,{t:10999,phase:'fast'});r.o.sourceEpisodes=r.o.sourceEpisodes.map(e=>e.step>=4?{...e,step:e.step+1}:e);return r;}
+test('a reading-pace line the game drew only after Ctrl was held is left out with the Ctrl span',()=>{
+ const r=S.score(intoCtrl(false),D.cardinal);assert.ok(r.fastForward,'a Ctrl span');
+ assert.equal(r.detail.sourceCoverage.expected,3,'the fourth line was still to come when Ctrl was held');assert.equal(r.scores.row,1);});
+test('a line the reader passed over before Ctrl still counts as missed',()=>{
+ const r=S.score(intoCtrl(true),D.cardinal);assert.equal(r.detail.sourceCoverage.expected,4);assert.ok(r.scores.row<1);});

@@ -54,13 +54,17 @@ function lines(run,t){t=opts(t);const o=run.o,episodes=o.sourceEpisodes;
    if(samples.at(-1).at-samples[0].at>=t.lineMs)out.push({line:st.line,text:st.text,t:st.t,from:samples[0].at,to:samples.at(-1).at,samples});}return out;}
  /* the reader may take the line after its record (ISLAND shows a line when the game draws it, up to two records later): the line is
     looked for from its record until the reader shows a later line, or AHEAD new lines later */
- const news=newLines(run);
+ /* 2026-11-27 (ISLAND: the game draws a line at its page record, up to two records after the line came; the last reading-pace lines were
+    drawn after Ctrl was held) a line the reader had neither held nor left when the Ctrl span began (o.fastFrom,
+    core/cardinal/fast-forward.cjs) was shown at Ctrl pace: it is not scored, like the lines of the span (out.intoFast) */
+ const news=newLines(run),fastFrom=Number.isFinite(o.fastFrom)?o.fastFrom:Infinity;out.intoFast=new Set();
  for(const st of expectedLines(run,t)){const k=news.indexOf(st),later=news.slice(k+1),start=timeOf(st),stop=later[AHEAD-1]?timeOf(later[AHEAD-1]):Infinity;
   const l={line:st.line,text:st.text,t:st.t,from:start,to:stop,samples:[]};if(!Number.isFinite(start)||later[AHEAD-1]&&!Number.isFinite(stop))continue;
-  let run2=[];for(const sample of all){if(sample.at<start)continue;if(sample.at>=stop)break;
+  let run2=[],moved=false;for(const sample of all){if(sample.at<start)continue;if(sample.at>=stop)break;
    if(sameLine(sample.hookSource,st.text))run2.push(sample);
-   else{if(run2.length){if(run2.at(-1).at-run2[0].at>=t.lineMs)break;run2=[];}if(later.some(x=>sameLine(sample.hookSource,x.text)&&!sameLine(sample.hookSource,st.text)))break;}}
-  if(run2.length&&run2.at(-1).at-run2[0].at>=t.lineMs){l.samples=run2;l.source=st.text;l.text=String(run2[0].hookSource);l.to=run2.at(-1).at;out.push(l);}}
+   else{if(run2.length){if(run2.at(-1).at-run2[0].at>=t.lineMs)break;run2=[];}if(later.some(x=>sameLine(sample.hookSource,x.text)&&!sameLine(sample.hookSource,st.text))){moved=true;break;}}}
+  if(run2.length&&run2.at(-1).at-run2[0].at>=t.lineMs){l.samples=run2;l.source=st.text;l.text=String(run2[0].hookSource);l.to=run2.at(-1).at;out.push(l);}
+  else if(!moved&&start<fastFrom&&stop>fastFrom)out.intoFast.add(st.line);}
  return out;}
 
 /* per line: 1 the Japanese row is there and clickable, 2 it keeps its place (the Chinese under it, the row's y does not move),

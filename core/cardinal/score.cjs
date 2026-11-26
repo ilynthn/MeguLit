@@ -17,7 +17,7 @@ const r3=x=>Math.round(Math.max(0,Math.min(1,x))*1000)/1000;
 function score(run,rules={}){const cut=require('./warmup.cjs').cut(run);run=cut.run;const t={...C.T0,...(rules.thresholds||{})},w=rules.weights||{};
  /* the Ctrl fast-forward spans of a cold-test tape leave the line scores (core/cardinal/fast-forward.cjs); leak and choice keep the whole run */
  const ff=require('./fast-forward.cjs').cut(run),full=run;run=ff.run;
- const pl=C.perLine(run,t),ls=pl.lines,n=ls.length,expectedList=C.expectedLines(run,t),expected=expectedList.length;
+ const pl=C.perLine(run,t),ls=pl.lines,n=ls.length,expectedList=C.expectedLines(run,t).filter(st=>!ls.intoFast?.has(st.line)),expected=expectedList.length;
  /* the expected lines the reader never held for lineMs: the row coverage loss, by line */
  const seenLines=new Set(ls.map(l=>l.line)),unseen=expectedList.filter(st=>!seenLines.has(st.line)).slice(0,6).map(st=>(run.name||'run')+' line '+st.line+' 「'+String(st.text).slice(0,24)+'」 never the reader line for '+t.lineMs+' ms'+(require('./responsive.cjs').during(require('./responsive.cjs').spans(run.o),(run.o.sourceEpisodes||[]).find(e=>e.line===st.line)?.at??NaN)?' (the reader page did not answer)':''));
  const sourceCoverage={expected,observed:n,rate:expected?Math.min(1,n/expected):0};
