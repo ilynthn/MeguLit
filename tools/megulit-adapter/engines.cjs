@@ -8,7 +8,8 @@
                originalLines (the Japanese under a Chinese layer); read from the reader objects of scenes.cjs
      draw      the engine-draw hook (native/megulithook/<X>Draw.h + tools/engine-sigs/<x>-draw.cjs): 'roles' reads text with its
                role, 'input' is a diagnostic raw-input pin, 'sites' is a DrawSites GDI signature
-     hide      engine-level hides (docs/hide-layers.md layers 1 and 2, and engine paths in the GDI / GPU layers): file + what it does
+     hide      engine-level hides (docs/hide-layers.md layers 1 and 2, and engine paths in the GDI / GPU layers): file + what it does;
+               caveat: what it is known to break (the plan shows it, the person looks at that picture)
      seeds     The Seed/<engine>/ by status; defaults: core/profiles/engines/<id>.cjs
    Interface: capabilities(engine) -> one row (an unknown engine gets an empty row, never a guess); inventory() -> every row;
    markdown(rows) -> the table for a PR or the skill. A new engine trait learned while adapting a game goes into RULES here (or a
@@ -44,7 +45,7 @@ const RULES={
   draw:[{kind:'roles',file:'native/megulithook/MagesDraw.h',sig:'tools/engine-sigs/mages-draw.cjs'}],hide:[]},
  yuris:{label:'YU-RIS',registry:['YU-RIS'],seed:['yuris'],
   draw:[{kind:'roles',file:'native/megulithook/YurisDraw.h',sig:'tools/engine-sigs/yuris-draw.cjs'}],
-  hide:[{how:'folded YU-RIS2 TextOutA stream: the GDI hide drops the call (source no-draw; options share it, Monochrome Empire)',file:'native/HookBridge.cs',mark:'YurisGdiOwn'},
+  hide:[{how:'folded YU-RIS2 TextOutA stream: the GDI hide drops the call (source no-draw)',file:'native/HookBridge.cs',mark:'YurisGdiOwn',caveat:'YU-RIS2 的选项和台词走同一个 TextOutA：这个隐藏会把选项字也藏掉（Monochrome Empire），要看选项截图'},
    {how:'euphoria HD 4.74 exact build: dialogue raster compositing suppressed',file:'native/megulithook/EuphoriaHD474Draw.h'}]},
  bgi:{label:'BGI / Ethornell',registry:['BGI / Ethornell'],seed:['bgi'],
   draw:[{kind:'roles',file:'native/megulithook/BgiDraw.h',sig:'tools/engine-sigs/bgi-draw.cjs'}],hide:[]},

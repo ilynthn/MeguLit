@@ -7,6 +7,7 @@
      release    nobody named the release and nothing guessed it                evidence: the title picture
      again      HANDOFF already lists this VNDB id + release                    evidence: none (the row)
      engine     no engine rule matched                                          evidence: the title picture
+     install    only disc images, no installed game                            evidence: none (the image names)
      dialogue   the cold test passed: is the original really gone on screen     evidence: dialogue pictures (hidden desktops lied before)
      choice     the first choice was reached: does it read right                evidence: the choice picture
      stuck      the run stopped on a screen (title, name entry, black)          evidence: the last pictures
@@ -26,7 +27,9 @@ function evidence(coldOut,cold){const P=pictures(coldOut),all=[...P.screen,...P.
  const tc=phaseAt(cold,'choice');const near=arr=>arr.filter(f=>mtime(f)>=tc-1000).sort((a,b)=>mtime(a)-mtime(b))[0]||'';
  const choice=tc?near(P.screen)||near(P.ocr)||'':'';
  return {title,dialogue:[...new Set(dialogue)],choice,last:all.sort((a,b)=>mtime(a)-mtime(b)).slice(-2)};}
-function questions({identity={},caps={},cold=null,coldOut='',force=false}={}){const q=[],ev=coldOut?evidence(coldOut,cold):{title:'',dialogue:[],choice:'',last:[]};const pic=x=>[x].flat().filter(Boolean);
+function questions({identity={},caps={},cold=null,coldOut='',force=false,install=[]}={}){const q=[],ev=coldOut?evidence(coldOut,cold):{title:'',dialogue:[],choice:'',last:[]};const pic=x=>[x].flat().filter(Boolean);
+ /* only disc images (アイキス3 sexy: iso+mds and an update folder): installing needs a mount and the installer, a person's step */
+ if(install.length)q.push({id:'install',ask:'只有光盘镜像（'+install.map(f=>path.basename(f)).slice(0,3).join('、')+'），要先挂载安装。装好后回 install=<装好的游戏目录>，再对那个目录重跑',evidence:[],free:true});
  if(!identity.vndb)q.push({id:'vndb',ask:'这是哪部作品？回 VNDB 作品号（v 开头）',evidence:pic(ev.title),free:true});
  /* AGENTS.md: public text names a work 「原名（中文名）」; '-' when it has no Chinese name */
  if(!identity.cn)q.push({id:'cn',ask:'这部作品的中文名？（VNDB 中文标题或通行译名；没有就回 -）',evidence:[],free:true});

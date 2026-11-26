@@ -116,3 +116,10 @@ test('publish text: the PR body has 问题 / 改动 / 验证 and names the work 
  const body=Adapter.prBody(st);for(const h of ['## 问题','## 改动','## 验证'])assert.ok(body.includes(h),h);
  assert.match(body,/千恋＊万花（千恋万花）（VNDB v19073，Steam 版）/);assert.match(body,/原文藏住了吗 → yes/);assert.doesNotMatch(body,/[A-Za-z]:[\\/]/,'no local path');
  assert.equal(Adapter.handoffRow(st),'| 千恋＊万花 | v19073 | Steam 版 | KiriKiri | verified | 魚魚棟 · Claude | kirikiri/senren-banka（MeguLit-Adapter） |');});
+
+test('samples: disc images ask for an install (soundtrack .cue beside .wav does not); a YU-RIS hide carries its choice caveat; a reader that failed to parse says so',()=>{
+ const d=tmp();fs.mkdirSync(path.join(d,'pkg'));fs.writeFileSync(path.join(d,'pkg','Disc.iso'),'');fs.writeFileSync(path.join(d,'pkg','Disc.mds'),'');fs.mkdirSync(path.join(d,'ost'));fs.writeFileSync(path.join(d,'ost','a.cue'),'');fs.writeFileSync(path.join(d,'ost','a.wav'),'');
+ assert.deepEqual(Adapter.discImages(d).map(f=>path.basename(f)).sort(),['Disc.iso','Disc.mds']);
+ assert.equal(Check.questions({install:Adapter.discImages(d),identity:{vndb:'v1',cn:'-',release:'x'},caps:{}})[0].id,'install');
+ const y=plan({caps:Engines.capabilities('yuris'),probe:{step:'parse-failed',detail:'yuris',detected:null}});
+ assert.ok(y.notes.some(n=>/选项/.test(n)),'caveat shown');assert.ok(y.notes.some(n=>/读取器/.test(n)),'parse-failed is a reader gap');});

@@ -18,7 +18,7 @@ function plan({caps={},probe=null}={}){const notes=[],align=alignOf(caps);
  let source;
  if(detected&&jp>=MIN_JP&&(step==='ok'||step==='chinese-build'&&probe.original))source={kind:'script',reader:detected,lines:probe.lines|0,japaneseLines:jp,...(probe.original?{original:probe.original}:{})};
  else{source={kind:'hook',via:align,why:step?step+(probe?.detail?':'+probe.detail:''):'no probe'};
-  if(step==='decrypt-failed'||step==='unknown-pack'||step==='unsupported-engine')notes.push('剧本读不出（'+source.why+'）：这是引擎层读取器的活（services/original-engines），先用钩子流');}
+  if(step==='decrypt-failed'||step==='unknown-pack'||step==='unsupported-engine'||step==='parse-failed')notes.push('剧本读不出（'+source.why+'）：这是引擎层读取器的活（services/original-engines），先用钩子流');}
  /* a Chinese build: the probe says so, or Chinese lines are a real share of the Japanese (a Japanese script always has some Han-only
     lines: names, labels; 千恋＊万花 241 of 53k, ISLAND 321 of 42k are not a Chinese build) */
  const chinese=probe?.chineseLines|0,zhBuild=step==='chinese-build'||chinese>=Math.max(MIN_JP,jp*ZH_SHARE);
@@ -29,6 +29,7 @@ function plan({caps={},probe=null}={}){const notes=[],align=alignOf(caps);
  else if(source.kind==='script')pairing={mode:'script',reader:source.reader,chineseLines:0,how:'zero-latency script lines, translated'};
  else pairing={mode:'machine',reader:'',chineseLines:0,how:'no script: live lines translated'};
  const eh=(caps.hide||[])[0];
+ if(eh?.caveat)notes.push(eh.caveat);
  const hide=eh?{kind:'engine',how:eh.how,file:eh.file}:{kind:'generic',how:(caps.genericHide||[]).map(h=>h.how).join(' / ')||'GDI / GPU glyph layers'};
  if(!eh)notes.push('这个引擎没有引擎级隐藏：靠通用 GDI / GPU 层，过不了就只能读模式');
  if(caps.known===false)notes.push('规则表里没有这个引擎：学到的特征写回 tools/megulit-adapter/engines.cjs RULES');

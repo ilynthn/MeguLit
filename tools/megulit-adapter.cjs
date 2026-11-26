@@ -54,6 +54,10 @@ function probe(loc,title,budgetMs){try{const P=require('../services/adapter-prob
   return {step:r.step,detail:r.detail,detected:r.detected,lines:r.lines,japaneseLines:r.japaneseLines,dialogueLines:r.dialogueLines,chineseLines:r.chineseLines,original:r.original,restore:r.restore,tried:r.tried,ms:r.ms,engines:(r.engines||[]).map(e=>({id:e.id,lines:e.lines,japaneseLines:e.japaneseLines,chineseLines:e.chineseLines,error:e.error||undefined}))};}
  catch(e){return {step:'error',detail:String(e.message||e).slice(0,200),detected:null,lines:0,japaneseLines:0,chineseLines:0};}}
 
+/* disc images under the folder (four levels): a game that ships as an image has to be installed first; a .cue beside .wav / .flac is a
+   soundtrack, not a game disc */
+const DISC=/.(iso|mds|mdf|cue|ccd|img|nrg|cdi|chd|b5t|b6t|isz)$/i;
+function discImages(dir,depth=4,out=[]){let ents=[];try{ents=fs.readdirSync(dir,{withFileTypes:true});}catch{return out;}for(const e of ents){const f=path.join(dir,e.name);if(e.isDirectory()){if(depth>0)discImages(f,depth-1,out);}else if(DISC.test(e.name)&&!(/.cue$/i.test(e.name)&&ents.some(x=>/.(wav|flac|ape)$/i.test(x.name))))out.push(f);}return out;}
 const stateFile=out=>path.join(out,'adapter.json');
 const readState=out=>JSON.parse(fs.readFileSync(stateFile(out),'utf8'));
 function saveState(st){st.updatedAt=new Date().toISOString();fs.writeFileSync(stateFile(st.out),JSON.stringify(st,null,1));}
@@ -65,7 +69,7 @@ function summary(st){const p=st.plan,c=st.cold,i=st.identity;return [
  '配对：'+p.pairing.mode+(p.pairing.chineseLines?'（中文 '+p.pairing.chineseLines+' 行）':'')+'；隐藏：'+(p.hide.kind==='engine'?'引擎级 '+p.hide.file:'通用层'),
  '冷测试：'+(c?c.verdict+'；'+(c.reasons||[]).slice(0,4).join('；'):st.offline?'没跑（--offline）':'没跑'),
  ...p.notes];}
-function finish(st,log){const qs=Check.questions({identity:{...st.identity,vndb:st.answers.vndb||st.identity.vndb,release:st.answers.release||st.identity.release,cn:st.answers.cn||st.identity.cn},caps:st.caps,cold:st.cold,coldOut:st.cold?.artifacts?.out||'',force:st.force});
+function finish(st,log){const qs=Check.questions({install:st.install||[],identity:{...st.identity,vndb:st.answers.vndb||st.identity.vndb,release:st.answers.release||st.identity.release,cn:st.answers.cn||st.identity.cn},caps:st.caps,cold:st.cold,coldOut:st.cold?.artifacts?.out||'',force:st.force});
  st.questions=qs;const open=Check.open(qs,st.answers);st.review=Check.review(path.join(st.out,'review.html'),{title:'MeguLit-Adapter：'+st.title,summary:summary(st)},qs,st.answers);
  if(open.length){st.state='waiting';saveState(st);log('# 等人确认（'+open.length+' 个）：'+st.review);for(const q of open)log('  '+q.id+'：'+q.ask+(q.evidence.length?'  证据 '+q.evidence.join(' , '):''));return EXIT.human;}
  if(st.answers.again!==undefined&&!Check.yes(st.answers.again)){st.state='skipped';saveState(st);log('# 已适配过，不重做');return EXIT.done;}
@@ -99,8 +103,11 @@ function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(s
 
 async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(Cold.RUNS_ROOT,Cold.safeName(title)));
  fs.mkdirSync(out,{recursive:true});
- const triage=Cold.unsupported(dir);if(triage){log('# '+triage);return EXIT.inconclusive;}
- const loc=Cold.locate(dir,o.exe);if(!loc){log('# 找不到主程序（用 --exe 指定）');return EXIT.inconclusive;}
+ if(!fs.existsSync(dir)){log('# 游戏目录不存在：'+dir+'（Git Bash 的 /e/... 带 [ ] 时不转换，用 E:/...）');return EXIT.inconclusive;}
+ const triage=Cold.unsupported(dir);if(triage&&!/光盘/.test(triage)){log('# '+triage);return EXIT.inconclusive;}
+ const discs=discImages(dir),loc=/光盘/.test(triage)?null:Cold.locate(dir,o.exe);
+ if(!loc&&discs.length){const st={tool:'megulit-adapter',out,title,dir,exe:'',engine:'',caps:{known:true},probe:null,identity:{vndb:o.vndb,release:o.release,releaseGuess:'',prints:{},adapted:[]},plan:{source:{kind:'hook',why:'not installed'},align:'hook',pairing:{mode:'machine'},hide:{kind:'generic'},notes:['只有光盘镜像，先安装']},install:discs,steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:true,startedAt:new Date().toISOString()};saveState(st);return finish(st,log);}
+ if(!loc){log('# 找不到主程序（用 --exe 指定）');return EXIT.inconclusive;}
  const caps=Engines.capabilities(loc.engine);log('# '+title+' '+loc.engine+' '+loc.exe);
  const pr=probe(loc,title,90000);log('# probe '+pr.step+' '+(pr.detected||'-')+' jp='+pr.japaneseLines+' zh='+pr.chineseLines);
  const readers=[...new Set([pr.detected,...caps.readers].filter(Boolean))];
@@ -146,4 +153,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
