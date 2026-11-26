@@ -44,7 +44,7 @@ test('a key another program holds is retried every 1.5 s, not every tick; the fr
  assert.ok(!/GetAncestor\([^)]*,2\)/.test(tick[1]),'no GA_ROOT left in the front check');
  assert.match(tick[1],/GetAncestor\(front,3\)/);
  assert.match(tick[1],/front==GetAncestor\(Target,3\)/,'an owned dialog of the game keeps the key');
- assert.match(tick[1],/BacklogRetryWait\(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime\.UtcNow,BacklogRetryAt\)\)return;\s*if\(RegisterHotKey/,'no RegisterHotKey while waiting');
+ assert.match(tick[1],/BacklogRetryWait\(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime\.UtcNow,BacklogRetryAt\)\)return;\s*if\(want&&!noHotkeys&&RegisterHotKey/,'no RegisterHotKey while waiting');
  assert.match(tick[1],/else\{BacklogFailedKey=BacklogKey;BacklogFailedMods=BacklogMods;BacklogRetryAt=DateTime\.UtcNow\.AddMilliseconds\(1500\);\}/);
  const wait=/internal static bool BacklogRetryWait\(uint mods,uint key,uint failedMods,uint failedKey,DateTime now,DateTime retryAt\)\{return ([^;]+);\}/.exec(bridge);
  assert.ok(wait);

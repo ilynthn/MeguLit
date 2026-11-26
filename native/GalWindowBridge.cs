@@ -513,8 +513,8 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,3)||Overlay!=IntPtr.Zero&&front==GetAncestor(Overlay,3)));
         if(want&&BacklogHeldKey==BacklogKey&&BacklogHeldMods==BacklogMods||!want&&BacklogHeldKey==0)return;
         if(BacklogHeldKey!=0){UnregisterHotKey(IntPtr.Zero,0x544);BacklogHeldKey=0;BacklogHeldMods=0;}
-        if(!want||noHotkeys||BacklogRetryWait(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime.UtcNow,BacklogRetryAt))return;
-        if(RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;BacklogFailedKey=0;BacklogFailedMods=0;}
+        if(!want||BacklogRetryWait(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime.UtcNow,BacklogRetryAt))return;
+        if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;BacklogFailedKey=0;BacklogFailedMods=0;}
         else{BacklogFailedKey=BacklogKey;BacklogFailedMods=BacklogMods;BacklogRetryAt=DateTime.UtcNow.AddMilliseconds(1500);}
     }
     static void ToggleCover(){
