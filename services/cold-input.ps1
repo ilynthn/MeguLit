@@ -87,8 +87,11 @@ public static class ColdInput{
    if(ok!=IntPtr.Zero&&edit!=IntPtr.Zero)SendMessage(ok,0xF5,IntPtr.Zero,IntPtr.Zero);
    o.Append((o.Length>0?" | ":"")+"\""+Txt(d)+"\" "+string.Join("/",labels)+(edit!=IntPtr.Zero?" edit=\""+(filled?name:had)+"\"":"")+(ok==IntPtr.Zero?" no-ok":edit!=IntPtr.Zero?" ok":" left"));}
   return o.ToString();}
- public static string Fg(long hwnd,string cmd,int a,int b){W=(IntPtr)hwnd;bool front=Front();
-  if(cmd=="move"||cmd=="click"){var p=new PT();p.X=a;p.Y=b;ClientToScreen(W,ref p);SetCursorPos(p.X,p.Y);Thread.Sleep(120);
+ /* 2026-11-27 (ファタモルガーナの館: the game stayed under another window and every SendInput click went to that window): no real input
+    at all unless the game is the foreground window and the point is on one of its windows */
+ [DllImport("user32.dll")]static extern IntPtr WindowFromPoint(PT p);
+ public static string Fg(long hwnd,string cmd,int a,int b){W=(IntPtr)hwnd;bool front=Front();if(!front)return "not foreground";
+  if(cmd=="move"||cmd=="click"){var p=new PT();p.X=a;p.Y=b;ClientToScreen(W,ref p);var at=WindowFromPoint(p);if(at==IntPtr.Zero||PidOf(at)!=PidOf(W))return "covered";SetCursorPos(p.X,p.Y);Thread.Sleep(120);
    if(cmd=="click"){Mouse(2);Thread.Sleep(90);Mouse(4);Thread.Sleep(60);}}
   else{int vk=a&255;if(cmd!="up")Key(vk,false);if(cmd=="key")Thread.Sleep(90);if(cmd!="down")Key(vk,true);}
   return front?"":"not foreground";}
