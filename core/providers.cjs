@@ -62,7 +62,8 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     if (typeof key !== 'string' || key.length > 10000 || /[\r\n]/.test(key)) throw new Error('API 密钥格式无效');
     if (key.trim()) keys.set(base, key.trim());
   }
-  function hasKey(base, provider) { return keyless(provider) || !!keyFor(normalizeBase(base)); }
+  /* RRFZ #1289: a service on this computer needs no key for translation, lookup and the key status alike */
+  function hasKey(base, provider) { const b = normalizeBase(base); return keyless(provider) || isLocalBase(b) || !!keyFor(b); }
   async function translate(text, options = {}, isCurrent = () => true, foreground) {
     if (typeof text !== 'string' || !text.trim() || text.length > 4000) throw new Error('台词为空或过长');
     options = resolveOptions(options);
@@ -88,7 +89,7 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     const engine = ENGINES[options.provider];
     const model = (options.model || (engine ? engine.model : 'gpt-4.1-mini') || '').trim();
     if ((!model && isLLM(options.provider)) || model.length > 200 || /[\r\n]/.test(model)) throw new Error('请填写有效的模型名');
-    const apiKey = keyFor(base) || (keyless(options.provider) ? 'none' : '');
+    const apiKey = keyFor(base) || (keyless(options.provider) || isLocalBase(base) ? 'none' : '');
     if (!apiKey) throw new Error('请在翻译设置中填写 API Key 并保存');
     const fingerprint = createHash('sha256').update(apiKey).digest('hex');
     const extra=isLLM(options.provider)&&typeof options.translationPrompt==='string'?options.translationPrompt.trim().slice(0,2000):'';

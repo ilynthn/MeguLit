@@ -88,3 +88,12 @@ test('the lookup request to a local address goes out without a key', async () =>
   assert.equal(r.text, '解释'); assert.equal(seen[0].url, 'http://127.0.0.1:11434/v1/chat/completions'); assert.equal(seen[0].auth, undefined);
   await assert.rejects(service.lookup({ selection: '言葉', sentence: '言葉だ', entries: [], mode: 'explain' }, { provider: 'gpt', baseUrl: 'https://example.org/v1', model: 'x' }, () => true), /API Key/);
 });
+/* RRFZ #1289: the key status the settings page shows agrees with lookup: a local address needs no key, a remote one still does */
+test('hasKey (the keyStatus answer) passes a local address without a key, as lookup does', () => {
+  const {createTranslationService} = require('../core/providers.cjs'), service = createTranslationService(async () => ({ ok: true, json: async () => ({}) }));
+  assert.equal(service.hasKey('http://127.0.0.1:11434/v1', 'gpt'), true);
+  assert.equal(service.hasKey('http://localhost:1234/v1', 'gpt'), true);
+  assert.equal(service.hasKey('https://example.org/v1', 'gpt'), false);
+  const settings = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'web', 'reader', 'modules', 'settings.js'), 'utf8');
+  assert.match(settings, /local \? '本机地址无需密钥，可留空'/, 'the key field says so instead of asking for a key');
+});
