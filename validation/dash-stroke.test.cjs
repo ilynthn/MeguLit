@@ -60,15 +60,6 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     const d = placed.filter(t => t.c === '―');
     assert.deepStrictEqual(d.map(t => t.box.map(Math.round)), [[132, 500, 16, 41], [148, 500, 16, 41]], 'in place: on the game\'s cells');
     assert.ok(d[0].stroke[0] <= 132 && d[1].stroke[1] >= 164, 'in place: one line across both half cells (a full cell long)');
-    /* 4. #1119 (owner, 死に逝く君、館に芽吹く憎悪: 「込み上げて来て――――」 unread, its dash in the read yellow): the line's read state
-       (body.tome-line-read) lands after its tokens; the stroke follows the glyph colour of the state the line ends up in */
-    await page.addStyleTag({ content: 'body.tome-line-read .sentence-text .char-token{-webkit-text-fill-color:rgb(250,220,40)}' });
-    await page.evaluate(t => { document.body.classList.add('tome-line-read'); document.querySelector('.sentence-text').innerHTML = t; }, tokens); await frame();
-    assert.ok((await strokes()).filter(t => t.c === '―').every(t => t.bg === 'rgb(250, 220, 40)'), 'read line: read colour');
-    await page.evaluate(() => document.body.classList.remove('tome-line-read')); await frame();
-    check(await strokes(), 'read state cleared after the tokens');
-    await page.evaluate(() => document.body.classList.add('tome-line-read')); await frame();
-    assert.ok((await strokes()).filter(t => t.c === '―').every(t => t.bg === 'rgb(250, 220, 40)'), 'read again: read colour');
     console.log('PASS dash stroke');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

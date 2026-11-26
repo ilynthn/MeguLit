@@ -483,24 +483,10 @@
   }
   let reveal = { id: 0, n: 0, t: 0 };
   /* tags a dash token (see the style rule); the stroke takes the colour the glyph was filled with */
-  /* 2026-11-26 (#1119, owner, 死に逝く君、館に芽吹く憎悪: an unread 「――――」 drawn in the read yellow next to white text): the colour was
-     taken once, when the token was added, and the line's read state (body.tome-line-read / tome-line-color) arrives after its tokens:
-     the stroke kept the previous line's colour. It is read again from the glyph's own fill (inline transparent lifted for the read)
-     whenever the line's paint changes; a reader without the inline override reads the same colour as before. */
-  function dashColor(t) {
-    const kept = t.style.getPropertyValue('-webkit-text-fill-color'), prio = t.style.getPropertyPriority('-webkit-text-fill-color'), tagged = t.classList.contains('megulit-dash');
-    if (kept) t.style.removeProperty('-webkit-text-fill-color'); if (tagged) t.classList.remove('megulit-dash');
-    const cs = getComputedStyle(t), fill = cs.webkitTextFillColor, color = fill && fill !== 'rgba(0, 0, 0, 0)' && fill !== 'transparent' ? fill : cs.color;
-    if (tagged) t.classList.add('megulit-dash'); if (kept) t.style.setProperty('-webkit-text-fill-color', kept, prio);
-    return color;
-  }
-  function repaintDashes() {
-    for (const t of document.querySelectorAll('.sentence-text .char-token.megulit-dash')) { const c = dashColor(t); if (t.style.getPropertyValue('--megulit-dash-color') !== c) t.style.setProperty('--megulit-dash-color', c); }
-  }
-  b.textPlaceRepaintDashes = repaintDashes;
   function markDash(t) {
     if (t.classList.contains('megulit-dash') || !DASH.test(t.textContent || '')) return;
-    t.style.setProperty('--megulit-dash-color', dashColor(t)); t.classList.add('megulit-dash');
+    const cs = getComputedStyle(t), fill = cs.webkitTextFillColor, color = fill && fill !== 'rgba(0, 0, 0, 0)' ? fill : cs.color;
+    t.style.setProperty('--megulit-dash-color', color); t.classList.add('megulit-dash');
     /* 2026-11-16 (user: 「──」 drawn as two lines of different widths): a game style's own fill / outline rules outranked
        the dash rule, so the glyph was painted under the drawn line. Inline !important wins over every stylesheet. */
     for (const [p, v] of [['-webkit-text-fill-color', 'transparent'], ['-webkit-text-stroke-width', '0px'], ['text-shadow', 'none'], ['paint-order', 'normal']]) t.style.setProperty(p, v, 'important');
@@ -1107,9 +1093,6 @@
   const markAll = root => { for (const t of (root.querySelectorAll ? root.querySelectorAll('.sentence-text .char-token:not(.megulit-dash)') : [])) markDash(t); };
   new MutationObserver(records => { for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1) { if (n.matches?.('.char-token') && n.closest('.sentence-text')) markDash(n); else markAll(n); } }).observe(document.documentElement, { subtree: true, childList: true });
   markAll(document);
-  /* the line's paint (read / unread, its sampled colour) lives on body classes and root variables: dashes follow it (#1119) */
-  new MutationObserver(() => { if (document.querySelector('.sentence-text .char-token.megulit-dash')) repaintDashes(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
-  if (document.body) new MutationObserver(() => { if (document.querySelector('.sentence-text .char-token.megulit-dash')) repaintDashes(); }).observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
   addEventListener('resize', schedule);
   new MutationObserver(() => { if (on && (anchor || page || bandWindow)) schedule(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
   addEventListener('megulit-profile', schedule);
