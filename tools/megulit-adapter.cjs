@@ -26,9 +26,9 @@ const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
 const STALE_MS=20*60000,STALE_ONCE_MS=180*60000;
 
-function parseRun(argv){const a=argv.slice(2),o={dir:'',exe:'',vndb:'',release:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
+function parseRun(argv){const a=argv.slice(2),o={dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
-  if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--out')o.out=v();
+  if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
   else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
@@ -65,7 +65,7 @@ function summary(st){const p=st.plan,c=st.cold,i=st.identity;return [
  '配对：'+p.pairing.mode+(p.pairing.chineseLines?'（中文 '+p.pairing.chineseLines+' 行）':'')+'；隐藏：'+(p.hide.kind==='engine'?'引擎级 '+p.hide.file:'通用层'),
  '冷测试：'+(c?c.verdict+'；'+(c.reasons||[]).slice(0,4).join('；'):st.offline?'没跑（--offline）':'没跑'),
  ...p.notes];}
-function finish(st,log){const qs=Check.questions({identity:{...st.identity,vndb:st.answers.vndb||st.identity.vndb,release:st.answers.release||st.identity.release},caps:st.caps,cold:st.cold,coldOut:st.cold?.artifacts?.out||'',force:st.force});
+function finish(st,log){const qs=Check.questions({identity:{...st.identity,vndb:st.answers.vndb||st.identity.vndb,release:st.answers.release||st.identity.release,cn:st.answers.cn||st.identity.cn},caps:st.caps,cold:st.cold,coldOut:st.cold?.artifacts?.out||'',force:st.force});
  st.questions=qs;const open=Check.open(qs,st.answers);st.review=Check.review(path.join(st.out,'review.html'),{title:'MeguLit-Adapter：'+st.title,summary:summary(st)},qs,st.answers);
  if(open.length){st.state='waiting';saveState(st);log('# 等人确认（'+open.length+' 个）：'+st.review);for(const q of open)log('  '+q.id+'：'+q.ask+(q.evidence.length?'  证据 '+q.evidence.join(' , '):''));return EXIT.human;}
  if(st.answers.again!==undefined&&!Check.yes(st.answers.again)){st.state='skipped';saveState(st);log('# 已适配过，不重做');return EXIT.done;}
@@ -91,7 +91,11 @@ function writeSeed(st,status){const SeedFormat=require('../core/profiles/seed.cj
  fs.writeFileSync(gf,JSON.stringify(g,null,1)+'\n');return dir;}
 function handoffRow(st){const g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));const vndb=st.answers.vndb||st.identity.vndb||'待补',release=st.answers.release||st.identity.release||st.identity.releaseGuess||'待补';
  return '| '+st.title+' | '+vndb+' | '+release+' | '+(st.caps.label||st.engine)+' | '+(g.status==='verified'?'verified':g.status==='read'?'read':'进行中')+' | 魚魚棟 · Claude | '+st.engine+'/'+g.slug+'（MeguLit-Adapter） |';}
-function prBody(st){const c=st.cold||{};return ['## '+st.title+'（MeguLit-Adapter）','',...summary(st).map(s=>'- '+s),'','### Cardinal','',...(c.reasons||[]).map(r=>'- '+r),'','### 人工确认','',...(st.questions||[]).map(q=>'- '+q.ask+' → '+(st.answers[q.id]??'未答')),'','只改 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据）',''].join('\n');}
+/* AGENTS.md: Chinese, three parts 问题 / 改动 / 验证, a work named 「原名（中文名）」, only what was verified */
+const workName=st=>{const cn=String(st.answers.cn||'').trim();return st.title+(cn&&cn!=='-'?'（'+cn+'）':'');};
+function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
+ '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status '+g.status+'），由 MeguLit-Adapter 生成：',...summary(st).map(s=>'- '+s),'- 版本层另记 exe 头尾 / PE 版本 / 剧本指纹 / 主封包指纹（`ext.versionPrints`，`source.versionMatch: prints`），补丁和汉化后的 exe 也认得','',
+ '## 验证','','- 冷测试 + Cardinal（'+(st.foreground?'前台':'隐藏桌面')+'，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人工确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 阅读层译文只由 Cardinal 回放证明，冷测试截图里没有阅读层（未实机验证译文画面）',''].join('\n');}
 
 async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(Cold.RUNS_ROOT,Cold.safeName(title)));
  fs.mkdirSync(out,{recursive:true});
@@ -101,8 +105,8 @@ async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=C
  const pr=probe(loc,title,90000);log('# probe '+pr.step+' '+(pr.detected||'-')+' jp='+pr.japaneseLines+' zh='+pr.chineseLines);
  const readers=[...new Set([pr.detected,...caps.readers].filter(Boolean))];
  const identity=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:loc.engine,title,vndb:o.vndb,release:o.release,chineseBuild:pr.step==='chinese-build',readers});
- const st={tool:'megulit-adapter',out,title,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:plan({caps,probe:pr}),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
- if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.release)st.answers.release=st.answers.release||o.release;
+ const st={tool:'megulit-adapter',out,title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:plan({caps,probe:pr}),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
+ if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.cn)st.answers.cn=st.answers.cn||o.cn;if(o.release)st.answers.release=st.answers.release||o.release;
  saveState(st);
  if((identity.adapted||[]).some(r=>r.same)&&!o.force&&st.answers.again===undefined)return finish(st,log);
  if(!o.offline){const release=await gameLock('megulit-adapter',Cold.safeName(title),{waitMs:o.lockWaitMin*60000,log});if(!release){log('# 游戏锁等不到');st.cold=null;return finish(st,log);}
@@ -123,8 +127,8 @@ function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(p
  if(!go){log('# dry run (add --go):');for(const p of plan)log('  '+p);return EXIT.done;}
  const branch=sh('git',['rev-parse','--abbrev-ref','HEAD'],repo);if(/^(main|master|HEAD)$/.test(branch))throw Error('the checkout is on '+branch+': make a branch first');
  fs.mkdirSync(dest,{recursive:true});fs.cpSync(st.seed,dest,{recursive:true});
- sh('git',['add','--',path.relative(repo,dest)],repo);sh('git',['commit','-m','The Seed: '+st.title+'（MeguLit-Adapter）'],repo);sh('git',['push','-u','origin','HEAD'],repo);
- const url=sh('gh',['pr','create','--title','The Seed: '+st.title+'（MeguLit-Adapter）','--body-file',path.join(st.out,'pr-body.md')],repo);log('# PR '+url);
+ sh('git',['add','--',path.relative(repo,dest)],repo);sh('git',['commit','-m','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）'],repo);sh('git',['push','-u','origin','HEAD'],repo);
+ const url=sh('gh',['pr','create','--title','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）','--body-file',path.join(st.out,'pr-body.md')],repo);log('# PR '+url);
  const wt=path.join(st.out,'handoff-wt');sh('git',['fetch','origin','main'],repo);sh('git',['worktree','add','--detach',wt,'origin/main'],repo);
  try{const f=path.join(wt,'HANDOFF.md');fs.writeFileSync(f,addHandoffRow(fs.readFileSync(f,'utf8'),st.handoffRow.replace(/（MeguLit-Adapter） \|$/,'（MeguLit-Adapter）'+url.replace(/.*\/pull\//,' PR #')+' |')));
   sh('git',['commit','-am','HANDOFF.md：登记 '+st.title+'（MeguLit-Adapter）'],wt);sh('git',['push','origin','HEAD:main'],wt);}
@@ -142,4 +146,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,writeSeed,finish,main,EXIT};
+module.exports={parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};

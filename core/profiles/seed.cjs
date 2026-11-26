@@ -98,6 +98,7 @@ function versionFor({exeSha256='',gameKey='',prints={},fallback=false}={},s=seed
  if(!fallback||!gameKey)return null;
  for(const kind of PRINT_KINDS){const v=String(prints?.[kind]||'').toLowerCase();if(!v)continue;const sha=s.byPrint?.get(gameKey+'|'+kind+'|'+v);if(sha&&s.versions.has(sha))return {doc:s.versions.get(sha),match:kind};}
  return null;}
-function seeds(){return cache||(cache=load());}
+/* MEGULIT_SEED_DIR: another The Seed folder (tests of the matching rules run against their own seeds, never the repository's) */
+function seeds(){return cache||(cache=load(process.env.MEGULIT_SEED_DIR||SEED_DIR));}
 function reload(){cache=null;}
 module.exports={SEED_DIR,SEED_FORMAT,STATUS,check,known,load,seeds,reload,versionFor,PRINT_KINDS,versionOf:key=>seeds().versions.get(String(key||''))||null};

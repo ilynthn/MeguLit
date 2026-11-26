@@ -43,7 +43,7 @@ test('checkpoints: unknown work and release are asked; a pass asks for the dialo
  const d=tmp(),run=path.join(d,'run');fs.mkdirSync(run);for(const f of ['shot-1-intro.jpg','shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
  const cold={verdict:'pass',checks:{choice:{measured:true,ok:true}},phases:[]};
  const qs=Check.questions({identity:{vndb:'',release:'',releaseGuess:'',adapted:[]},caps:{known:true},cold,coldOut:d});
- assert.deepEqual(qs.map(q=>q.id),['vndb','release','dialogue','choice']);
+ assert.deepEqual(qs.map(q=>q.id),['vndb','cn','release','dialogue','choice']);
  assert.ok(qs.find(q=>q.id==='dialogue').evidence.every(f=>/line-\d+/.test(f)));
  assert.equal(Check.status({cold},{dialogue:'yes',choice:'yes'}),'verified');assert.equal(Check.status({cold},{dialogue:'no'}),'skeleton');assert.equal(Check.status({cold},{}),'');
  const fail={verdict:'fail',checks:{hidden:{measured:true,ok:false,detail:'leak 0'}}};
@@ -91,3 +91,28 @@ test('entry: one command line, the old adapt-auto is the cold stage behind it',(
  assert.equal(fs.existsSync(path.join(REPO,'tools','adapt-auto.cjs')),false,'one entry: tools/megulit-adapter.cjs');
  const src=fs.readFileSync(path.join(REPO,'tools','megulit-adapter.cjs'),'utf8')+fs.readdirSync(path.join(REPO,'tools','megulit-adapter')).map(f=>fs.readFileSync(path.join(REPO,'tools','megulit-adapter',f),'utf8')).join('\n');
  assert.equal(/(^|[^:'"\\])\/\/(?!\s*SPDX)/m.test(src.replace(/'[^'\n]*'|"[^"\n]*"|`[^`]*`|\/[^/\n*][^/\n]*\/[a-z]*/g,'')),false,'no // comments');});
+
+test('profileFor: a no-DVD exe of a seeded build gets its version layer low (seed-version~head) only when the game says prints',()=>{
+ const d=tmp(),seedDir=path.join(d,'seed'),game=path.join(d,'game'),sha='a'.repeat(64),slug='adapter-fixture';fs.mkdirSync(game);
+ const exe=path.join(game,'fixture.exe');fs.writeFileSync(exe,Buffer.concat([Buffer.from('MZ'),Buffer.alloc(70000,1)]));
+ const GP=require('../core/game-print.cjs'),head=GP.headTail(exe,64<<10);
+ const write=(versionMatch)=>{const dir=path.join(seedDir,'kirikiri',slug);fs.rmSync(seedDir,{recursive:true,force:true});fs.mkdirSync(path.join(dir,'versions'),{recursive:true});
+  fs.writeFileSync(path.join(dir,'versions',sha+'.json'),JSON.stringify({schema:'megulit.game-diff',version:1,key:sha,layer:'version',source:'official',settings:{draw:{embed:true}},exe:'fixture.exe',engine:'kirikiri'}));
+  fs.writeFileSync(path.join(dir,'game.json'),JSON.stringify({schema:'megulit.game-diff',version:1,key:'e'.repeat(64),layer:'game',source:'official',mode:'hide',settings:{source:{versionMatch}},engine:'kirikiri',prints:{title:GP.titleHash('Adapter Fixture')},status:'verified',slug,builds:[sha],match:{titles:['Adapter Fixture']},ext:{versionPrints:{[sha]:{head}}}}));};
+ const P=require('../core/profiles/index.cjs'),old=process.env.MEGULIT_SEED_DIR;process.env.MEGULIT_SEED_DIR=seedDir;
+ try{const input={engine:'kirikiri',exe,folder:game,title:'Adapter Fixture',exeSha256:'c'.repeat(64)};
+  write('prints');P.reload();let p=P.profileFor(input);
+  assert.equal(p.gameKey,slug);assert.equal(p.versionMatch,'head');assert.match(p.layers,/seed-version~head/);assert.equal(p.draw.embed,true,'the build\'s version keys reach the patched exe');
+  write('exe');P.reload();p=P.profileFor(input);
+  assert.equal(p.versionMatch,'');assert.doesNotMatch(p.layers,/seed-version/);assert.equal(p.draw.embed,false,'default: the exe hash only, as before');
+  write('prints');P.reload();p=P.profileFor({...input,exeSha256:sha});
+  assert.equal(p.versionMatch,'exe');assert.match(p.layers,/\+seed(\+|$)/);assert.doesNotMatch(p.layers,/seed-version~/);}
+ finally{if(old===undefined)delete process.env.MEGULIT_SEED_DIR;else process.env.MEGULIT_SEED_DIR=old;P.reload();}});
+
+test('publish text: the PR body has 问题 / 改动 / 验证 and names the work 「原名（中文名）」; the HANDOFF row has VNDB + release',()=>{
+ const d=tmp(),seed=path.join(d,'seed','kirikiri','senren-banka');fs.mkdirSync(seed,{recursive:true});fs.writeFileSync(path.join(seed,'game.json'),JSON.stringify({status:'verified',slug:'senren-banka'}));
+ const st={title:'千恋＊万花',engine:'kirikiri',seed,caps:{label:'KiriKiri'},answers:{cn:'千恋万花',release:'Steam 版',dialogue:'yes'},identity:{vndb:'v19073',prints:{}},foreground:false,
+  plan:{source:{kind:'script',reader:'kirikiri-cx',japaneseLines:53137},align:'kag',pairing:{mode:'script',chineseLines:0},hide:{kind:'engine',file:'native/krkrtext/script.inc'},notes:[]},cold:{verdict:'pass',reasons:['原文隐藏：过']},questions:[{id:'dialogue',ask:'原文藏住了吗'}]};
+ const body=Adapter.prBody(st);for(const h of ['## 问题','## 改动','## 验证'])assert.ok(body.includes(h),h);
+ assert.match(body,/千恋＊万花（千恋万花）（VNDB v19073，Steam 版）/);assert.match(body,/原文藏住了吗 → yes/);assert.doesNotMatch(body,/[A-Za-z]:[\\/]/,'no local path');
+ assert.equal(Adapter.handoffRow(st),'| 千恋＊万花 | v19073 | Steam 版 | KiriKiri | verified | 魚魚棟 · Claude | kirikiri/senren-banka（MeguLit-Adapter） |');});

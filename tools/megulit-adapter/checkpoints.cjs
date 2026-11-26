@@ -3,6 +3,7 @@
 /* 2026-11-27 MeguLit-Adapter, where a person has to look (owner: 需要人看的地方停下来，给出截图和一句话问题，让人确认).
    questions(state) -> [{id, ask, evidence:[absolute picture paths], options:[...], free?}] for what the machine cannot settle:
      vndb       the work id is not known (no seed, no HANDOFF row)             evidence: the title picture
+     cn         the Chinese name for public text 「原名（中文名）」 (AGENTS.md)  evidence: none
      release    nobody named the release and nothing guessed it                evidence: the title picture
      again      HANDOFF already lists this VNDB id + release                    evidence: none (the row)
      engine     no engine rule matched                                          evidence: the title picture
@@ -27,6 +28,8 @@ function evidence(coldOut,cold){const P=pictures(coldOut),all=[...P.screen,...P.
  return {title,dialogue:[...new Set(dialogue)],choice,last:all.sort((a,b)=>mtime(a)-mtime(b)).slice(-2)};}
 function questions({identity={},caps={},cold=null,coldOut='',force=false}={}){const q=[],ev=coldOut?evidence(coldOut,cold):{title:'',dialogue:[],choice:'',last:[]};const pic=x=>[x].flat().filter(Boolean);
  if(!identity.vndb)q.push({id:'vndb',ask:'这是哪部作品？回 VNDB 作品号（v 开头）',evidence:pic(ev.title),free:true});
+ /* AGENTS.md: public text names a work 「原名（中文名）」; '-' when it has no Chinese name */
+ if(!identity.cn)q.push({id:'cn',ask:'这部作品的中文名？（VNDB 中文标题或通行译名；没有就回 -）',evidence:[],free:true});
  if(!identity.release&&!identity.releaseGuess)q.push({id:'release',ask:'这是哪个发行版？（例：DL 版、Steam 版、DVD 版、汉化硬盘版）',evidence:pic(ev.title),free:true});
  const same=(identity.adapted||[]).filter(r=>r.same);
  if(same.length&&!force)q.push({id:'again',ask:'HANDOFF 已登记过这个作品和发行版（'+same.map(r=>r.status+' '+r.ref).join('；')+'），还要重新适配吗？',evidence:[],options:['yes','no']});
