@@ -34,7 +34,7 @@ test('lookups are cached on disk, shared while in flight and spaced apart',async
 
 test('English interface asks Jisho on the dictionary page and the Anki lookup; Chinese keeps MOJi',()=>{
  const app=fs.readFileSync(path.join(__dirname,'../web/app.js'),'utf8'),anki=fs.readFileSync(path.join(__dirname,'../web/anki-review.js'),'utf8'),bridge=fs.readFileSync(path.join(__dirname,'../services/bridge.cjs'),'utf8');
- assert.match(app,/onlineSource=locale==='en'\?'jisho':'moji'/);assert.match(app,/source:online\?onlineSource:'local'/);
+ assert.match(app,/onlineSource=locale==='en'\?'jisho':'moji'/);assert.match(app,/source:viaWeblio\?'weblio':online\?onlineSource:'local'/,'#1110: the Weblio button asks Weblio; otherwise English asks Jisho, Chinese MOJi');
  assert.match(anki,/q\(locale==='en'\?'jisho':'moji'\)[\s\S]{0,200}catch\(\(\)=>q\('local'\)\)/);
  assert.match(bridge,/request\.source==='jisho'\?await require\('\.\/jisho-dictionary\.cjs'\)\.lookupJisho/);
 });
