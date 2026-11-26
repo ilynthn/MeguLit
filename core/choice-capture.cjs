@@ -56,6 +56,8 @@ class ChoiceCapture{
  add(text,dialogue='',speaker=''){
   const now=this.now(),skip=new Set([plain(dialogue),plain(speaker)]);this.items=this.items.filter(x=>now-x.at<1500);
   if(plain(speaker))this.names.add(plain(speaker));
+  /* a frame that is one text drawn twice back to back (「血塗れの男血塗れの男」): this stream draws that text glyph by glyph, twice (#1118) */
+  {const k=[...plain(text)];if(k.length>=4&&k.length%2===0&&k.slice(0,k.length/2).join('')===k.slice(k.length/2).join('')){(this.drawnTwice??=new Set()).add(k.slice(0,k.length/2).join(''));if(this.drawnTwice.size>32)this.drawnTwice.delete(this.drawnTwice.values().next().value);}}
   const added=[];
   for(const m of String(text||'').matchAll(/【([^】]{1,16})】/g))this.names.add(m[1]);/* bracketed names on any stream are speaker names */
   /* 2026-11-19 (千恋＊万花: 「■自動車（車内／走行）」 split at ■ and ／ into the "options" 「自動車（車内」「走行）」) a whole script stage note
@@ -125,8 +127,10 @@ class ChoiceCapture{
      other options remain; a screen of names only is a route choice and stays */
   let items=this.items;{const other=items.filter(x=>!this.onlyNames(x.key));if(other.length>=2)items=other;}
   /* 2026-11-26 (#1118, 死に逝く君、館に芽吹く憎悪: 「男男」 next to the name plate 「血塗れの男」): one glyph drawn twice that ends another
-     candidate of the same burst is the last frame of that one being drawn glyph by glyph, not an option (「ママ」「パパ」 end nothing) */
-  items=items.filter(x=>{const c=[...x.key];return !(c.length===2&&c[0]===c[1]&&items.some(o=>o!==x&&o.key.length>2&&o.key.endsWith(c[0])));});
+     candidate of the same burst is the last frame of that one being drawn glyph by glyph, not an option (「ママ」「パパ」 end nothing).
+     Only with evidence of that drawing: the same stream sent the other candidate drawn twice back to back (Codex #1198: 「いい」 next to
+     「よくない」 is a real choice) */
+  items=items.filter(x=>{const c=[...x.key];return !(c.length===2&&c[0]===c[1]&&items.some(o=>o!==x&&o.key.length>2&&o.key.endsWith(c[0])&&this.drawnTwice?.has(o.key)));});
   if(items.length<2||items.length>8)return null;
   /* the dialogue kept typing after the first candidate arrived: these were pieces of it, not a choice screen */
   const first=Math.min(...items.map(x=>x.at));if(this.grewAt&&this.grewAt>=first&&items.every(x=>bare(x.text).length<=3))return null;
