@@ -13,7 +13,8 @@
 const C=require('./checks.cjs');
 const KEYS=['row','stable','clean','clear','choice','pair','leak'];
 const r3=x=>Math.round(Math.max(0,Math.min(1,x))*1000)/1000;
-function score(run,rules={}){const t={...C.T0,...(rules.thresholds||{})},w=rules.weights||{};
+/* the start-up segment before the kernel leaves its initial read mode is not scored (core/cardinal/warmup.cjs; result.warmup says what was left out) */
+function score(run,rules={}){const cut=require('./warmup.cjs').cut(run);run=cut.run;const t={...C.T0,...(rules.thresholds||{})},w=rules.weights||{};
  const pl=C.perLine(run,t),ls=pl.lines,n=ls.length,expected=C.expectedLines(run,t).length;
  const sourceCoverage={expected,observed:n,rate:expected?Math.min(1,n/expected):0};
  const contentCoverage={expected,complete:pl.complete.lines,rate:expected?Math.min(1,pl.complete.lines/expected):0};
@@ -37,7 +38,7 @@ function score(run,rules={}){const t={...C.T0,...(rules.thresholds||{})},w=rules
  const visibility={...pl.visibility,rate:r3(Math.min(sourceCoverage.rate,contentCoverage.rate,pl.visibility.expected?pl.visibility.shown/pl.visibility.expected:1))};
  const total=wsum?r3(Math.min(sum/wsum,visibility.rate)):0;
  const below=KEYS.filter(k=>applies[k]&&Number.isFinite(rules.floor?.[k])&&scores[k]<rules.floor[k]);
- return {scores,total,lines:n,applies,below,detail:{pair:{...pairs},pairObservation:{reliable:pairs.source==='live-display'&&pairs.reliable===true,source:pairs.source||'replay-layout'},timeline:C.deliveryClock(run),sourceCoverage,contentCoverage,visibility,row:pl.row.slice(0,6),stable:pl.stable.slice(0,6),owner:pl.owner.slice(0,6),dup:pl.dup.slice(0,6),white:wh.bad.slice(0,6),flash:fl.bad.slice(0,6),clear:cl.bad,choice:ch.bad,choiceObservation:{reliable:ch.reliable,unobserved:ch.unobserved},leak:lk.bad,leakObservation:{observed:lk.observed,checked:lk.checked,native:lk.nativeObserved,read:lk.readObserved}}};}
+ return {scores,total,lines:n,applies,below,warmup:cut.warmup,detail:{pair:{...pairs},pairObservation:{reliable:pairs.source==='live-display'&&pairs.reliable===true,source:pairs.source||'replay-layout'},timeline:C.deliveryClock(run),sourceCoverage,contentCoverage,visibility,row:pl.row.slice(0,6),stable:pl.stable.slice(0,6),owner:pl.owner.slice(0,6),dup:pl.dup.slice(0,6),white:wh.bad.slice(0,6),flash:fl.bad.slice(0,6),clear:cl.bad,choice:ch.bad,choiceObservation:{reliable:ch.reliable,unobserved:ch.unobserved},leak:lk.bad,leakObservation:{observed:lk.observed,checked:lk.checked,native:lk.nativeObserved,read:lk.readObserved}}};}
 /* several runs of one game: the scores weighted by each run's lines */
 function combine(results,rules={}){const w=rules.weights||{};const tot=results.reduce((a,r)=>a+Math.max(1,r.lines),0)||1;const scores={},applies={};
  for(const k of KEYS){const rs=results.filter(r=>r.applies[k]);applies[k]=rs.length>0;const d=rs.reduce((a,r)=>a+Math.max(1,r.lines),0);scores[k]=rs.length?r3(rs.reduce((a,r)=>a+r.scores[k]*Math.max(1,r.lines),0)/d):1;}
