@@ -33,10 +33,10 @@ function questions({identity={},caps={},cold=null,coldOut='',force=false,install
  if(!identity.vndb)q.push({id:'vndb',ask:'这是哪部作品？回 VNDB 作品号（v 开头）',evidence:pic(ev.title),free:true});
  /* AGENTS.md: public text names a work 「原名（中文名）」; '-' when it has no Chinese name */
  if(!identity.cn)q.push({id:'cn',ask:'这部作品的中文名？（VNDB 中文标题或通行译名；没有就回 -）',evidence:[],free:true});
- if(!identity.release&&!identity.releaseGuess)q.push({id:'release',ask:'这是哪个发行版？（例：DL 版、Steam 版、DVD 版、汉化硬盘版）',evidence:pic(ev.title),free:true});
+ if(!identity.release&&!identity.releaseGuess)q.push({id:'release',ask:'这是哪个发行版？'+((identity.releaseCandidates||[]).length?'VNDB 候选：'+identity.releaseCandidates.join('、'):'（例：DL 版、Steam 版、DVD 版、汉化硬盘版）'),evidence:pic(ev.title),free:true});
  const same=(identity.adapted||[]).filter(r=>r.same);
  if(same.length&&!force)q.push({id:'again',ask:'HANDOFF 已登记过这个作品和发行版（'+same.map(r=>r.status+' '+r.ref).join('；')+'），还要重新适配吗？',evidence:[],options:['yes','no']});
- if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'），这是什么引擎？',evidence:pic(ev.title),free:true});
+ if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'）'+(identity.vndbLookup?.engine?'，VNDB 记的是 '+identity.vndbLookup.engine:'')+(caps.luna?'，LunaHook 认为是 '+caps.luna:'')+'，这是什么引擎？',evidence:pic(ev.title),free:true});
  const v=cold?.verdict||'';
  if(v==='pass'){q.push({id:'dialogue',ask:'这几张对话画面里，游戏原文藏住了、没有残影吗？',evidence:pic(ev.dialogue),options:['yes','no']});
   if(cold.checks?.choice?.measured)q.push({id:'choice',ask:'这张是第一个选项：选项文字还在、能点吗？',evidence:pic(ev.choice||ev.last),options:['yes','no']});}

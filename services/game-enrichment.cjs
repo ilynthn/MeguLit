@@ -31,7 +31,7 @@ function pickVn(results,title){
   ||results.find(v=>all(v).some(n=>plain(n)===q))
   ||(loose.length>=6?results.find(v=>all(v).some(n=>normalize(n)===loose)):null)||null;
 }
-async function json(fetcher,url,options={}){const r=await fetcher(url,{...options,signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('METADATA_NETWORK');return r.json();}
+async function json(fetcher,url,options={},timeoutMs=10000){const r=await fetcher(url,{...options,signal:AbortSignal.timeout(timeoutMs)});if(!r.ok)throw Error('METADATA_NETWORK');return r.json();}
 const post=body=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 // A VNDB entry typed by the user: "v12345", "12345" or a vndb.org link. Empty clears it; anything else is refused.
 function vndbIdFrom(value){const text=String(value??'').trim();if(!text)return '';const m=/^(?:https?:\/\/(?:www\.)?vndb\.org\/)?v?(\d{1,7})(?:[/?#].*)?$/i.exec(text);if(!m||!Number(m[1]))throw Error('INVALID_VNDB_ID');return 'v'+Number(m[1]);}
@@ -118,4 +118,20 @@ class GameEnrichment{
  saveCover(id,src){const m=/^data:image\/(png|jpeg);base64,(.+)$/s.exec(src);if(!m)return '';const file='enriched-'+crypto.createHash('sha256').update(id).digest('hex').slice(0,16)+(m[1]==='png'?'.png':'.jpg'),folder=path.join(this.root,'data/assets/covers');fs.mkdirSync(folder,{recursive:true});fs.writeFileSync(path.join(folder,file),Buffer.from(m[2],'base64'));return file;}
  result(id,locale,value){const db=require('./store.cjs').openStore(this.root);try{const result=require('./game-detail.cjs').detail(db,this.root,id,locale);result.reception={vndb:value.vndb,steam:value.steam,critic:value.critic,reviews:value.reviews?.[locale]||[],at:value.at};return result;}finally{db.close();}}
 }
-module.exports={layoutFromTags,GameEnrichment,candidates,steamAppidFor,pickVn,vndbIdFrom,cleanTitle,jpForm};
+/* 2026-11-27 MeguLit-Adapter (tools/megulit-adapter/identify.cjs): the work and its releases from VNDB, one owner for VNDB queries.
+   vndbReleases({titles, appid, vnid}, fetcher, {timeoutMs}) -> {vnid, how:'given'|'steam'|'title', title, zh:'<Chinese title>',
+   releases:[{rid, title, engine, langs, patch, official, released, platforms, ext:{steam, dlsite, dmm}}]} | null. A title match counts only
+   through pickVn (the library's rules); nothing is guessed. Network errors and timeouts throw, so the caller can ask a person */
+async function vndbReleases({titles=[],appid='',vnid=''}={},fetcher=globalThis.fetch,{timeoutMs=8000}={}){
+ let id=/^v?\d+$/.test(String(vnid||''))?(String(vnid).startsWith('v')?String(vnid):'v'+vnid):'',how=id?'given':'';let vn=null;
+ const VN_FIELDS='title,alttitle,titles.title,titles.lang,aliases';
+ if(!id&&/^\d+$/.test(String(appid||''))){const r=await json(fetcher,'https://api.vndb.org/kana/release',post({filters:['extlink','=',['steam',Number(appid)]],fields:'vns.id',results:5}),timeoutMs);id=r.results?.flatMap(x=>x.vns||[])[0]?.id||'';if(id)how='steam';}
+ if(!id)for(const t of titles){const r=await json(fetcher,'https://api.vndb.org/kana/vn',post({filters:['search','=',t],fields:VN_FIELDS,results:8,sort:'searchrank'}),timeoutMs);vn=pickVn(r.results||[],t);if(vn){id=vn.id;how='title';break;}}
+ if(!id)return null;
+ if(!vn){const r=await json(fetcher,'https://api.vndb.org/kana/vn',post({filters:['id','=',id],fields:VN_FIELDS}),timeoutMs);vn=r.results?.[0]||null;}
+ const r=await json(fetcher,'https://api.vndb.org/kana/release',post({filters:['vn','=',['id','=',id]],fields:'title,engine,languages.lang,patch,official,released,platforms,extlinks.url',results:100}),timeoutMs);
+ const ext=urls=>{const u=(urls||[]).map(x=>x.url||'');return {steam:(/store\.steampowered\.com\/app\/(\d+)/.exec(u.find(x=>/steampowered/.test(x))||'')||[])[1]||'',dlsite:u.find(x=>/dlsite\.com/.test(x))||'',dmm:u.find(x=>/dmm\.(co\.jp|com)/.test(x))||''};};
+ const releases=(r.results||[]).map(x=>({rid:x.id,title:x.title||'',engine:x.engine||'',langs:(x.languages||[]).map(l=>l.lang),patch:!!x.patch,official:!!x.official,released:x.released||'',platforms:x.platforms||[],ext:ext(x.extlinks)}));
+ const zh=(vn?.titles||[]).find(t=>/^zh/.test(t.lang||''))?.title||'';
+ return {vnid:id,how,title:vn?.title||'',zh,releases};}
+module.exports={layoutFromTags,GameEnrichment,candidates,steamAppidFor,pickVn,vndbIdFrom,cleanTitle,jpForm,vndbReleases};

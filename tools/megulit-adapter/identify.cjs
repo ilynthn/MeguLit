@@ -44,3 +44,26 @@ function identify({gameDir,exe,engine='',title='',vndb='',release='',chineseBuil
  if(out.vndb)out.adapted=sameRelease(rows,out.vndb,out.release||out.releaseGuess);
  return out;}
 module.exports={identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB};
+/* 2026-11-27 VNDB (services/game-enrichment.cjs vndbReleases, the one owner of VNDB queries): the work id, its releases, the release
+   this copy most likely is, the Chinese title and the engine VNDB records. Only an unambiguous answer is taken; otherwise the
+   candidates go into the question. vndb({title, gameDir, vnid, chineseBuild, engine}, {lookup}) -> {vndb, how, cn, release, releaseHow,
+   candidates:[label], releases, vndbEngine, engineDiffers, error} */
+const RELEASE_LABEL=[[/download|ダウンロード|dl版|dl edition/i,'DL 版'],[/package|パッケージ/i,'パッケージ版'],[/steam/i,'Steam 版'],[/renewal|hd|remaster|リマスター/i,'HD / リニューアル版']];
+const labelOf=r=>{for(const [re,l] of RELEASE_LABEL)if(re.test(r.title))return l+'（'+r.rid+'）';return r.title+'（'+r.rid+'）';};
+async function vndb({title='',gameDir='',vnid='',chineseBuild=false,engine=''}={},{lookup=null,timeoutMs=8000}={}){
+ const E=require('../../services/game-enrichment.cjs');lookup=lookup||E.vndbReleases;const appid=steamOf(gameDir);const out={vndb:'',how:'',cn:'',release:'',releaseHow:'',candidates:[],releases:[],vndbEngine:'',engineDiffers:false,error:''};
+ let r;try{r=await lookup({titles:[...new Set([title,E.cleanTitle(title),E.jpForm(E.cleanTitle(title))].filter(Boolean))],appid,vnid},undefined,{timeoutMs});}catch(e){out.error=String(e.message||e).slice(0,120);return out;}
+ if(!r)return out;out.vndb=r.vnid;out.how=r.how;out.cn=r.zh||'';
+ const win=r.releases.filter(x=>!x.platforms.length||x.platforms.includes('win')),trial=x=>/trial|体験版|demo/i.test(x.title);out.releases=win;
+ const steam=appid&&win.find(x=>x.ext.steam===appid);
+ const zh=chineseBuild?win.filter(x=>x.patch&&x.langs.some(l=>/^zh/.test(l))):[];
+ const ja=win.filter(x=>x.official&&!x.patch&&!trial(x)&&x.langs.includes('ja'));
+ if(steam){out.release='Steam 版（'+steam.rid+'）';out.releaseHow='steam appid';}
+ else if(chineseBuild&&zh.length===1){out.release='汉化版（'+zh[0].rid+'）';out.releaseHow='zh patch';}
+ else if(!chineseBuild&&ja.length===1){out.release=labelOf(ja[0]);out.releaseHow='only Japanese Windows release';}
+ else out.candidates=(chineseBuild?zh:ja).slice(0,8).map(labelOf);
+ const engines=[...new Set(win.map(x=>x.engine).filter(Boolean))];out.vndbEngine=engines.join(' / ');
+ if(engine&&engines.length){const En=require('./engines.cjs'),fold=n=>String(n||'').toLowerCase().replace(/engine|[^a-z0-9]/g,''),id=En.ruleId(engine)||engine,mine=[fold(id),fold(En.RULES[id]?.label),...(En.RULES[id]?.registry||[]).map(fold)].filter(Boolean);
+  out.engineDiffers=!engines.some(n=>{const f=fold(n),r=En.ruleId(n);return r===id||mine.some(m=>f&&(f.startsWith(m)||m.startsWith(f)));});}
+ return out;}
+module.exports.vndb=vndb;module.exports.labelOf=labelOf;

@@ -123,3 +123,18 @@ test('samples: disc images ask for an install (soundtrack .cue beside .wav does 
  assert.equal(Check.questions({install:Adapter.discImages(d),identity:{vndb:'v1',cn:'-',release:'x'},caps:{}})[0].id,'install');
  const y=plan({caps:Engines.capabilities('yuris'),probe:{step:'parse-failed',detail:'yuris',detected:null}});
  assert.ok(y.notes.some(n=>/选项/.test(n)),'caveat shown');assert.ok(y.notes.some(n=>/读取器/.test(n)),'parse-failed is a reader gap');});
+
+test('VNDB: a Steam appid names the release, one Japanese release is taken, several become the question; an error asks a person',async()=>{
+ const d=tmp();fs.writeFileSync(path.join(d,'steam_appid.txt'),'1144400');
+ const rel=(rid,title,o={})=>({rid,title,engine:'KiriKiri',langs:['ja'],patch:false,official:true,platforms:['win'],ext:{steam:'',dlsite:'',dmm:''},...o});
+ const lookup=async()=>({vnid:'v19073',how:'title',zh:'千恋万花',releases:[rel('r45245','Senren * Banka - Package Edition'),rel('r49530','Senren * Banka - Download Edition'),rel('r52360','Senren * Banka',{ext:{steam:'1144400'}}),rel('r46927','Senren * Banka - Trial Edition')]});
+ let v=await Ident.vndb({title:'千恋＊万花',gameDir:d,engine:'kirikiri'},{lookup});
+ assert.deepEqual([v.vndb,v.cn,v.release,v.engineDiffers],['v19073','千恋万花','Steam 版（r52360）',false]);
+ v=await Ident.vndb({title:'千恋＊万花',gameDir:tmp(),engine:'kirikiri'},{lookup});
+ assert.equal(v.release,'');assert.deepEqual(v.candidates,['パッケージ版（r45245）','DL 版（r49530）','Senren * Banka（r52360）'],'no trial among them');
+ assert.ok(Check.questions({identity:{vndb:'v19073',cn:'x',release:'',releaseCandidates:v.candidates},caps:{}}).find(q=>q.id==='release').ask.includes('DL 版（r49530）'));
+ v=await Ident.vndb({title:'x',gameDir:tmp(),engine:'kirikiri'},{lookup:async()=>({vnid:'v1',how:'title',zh:'',releases:[rel('r1','Only',{engine:'Artemis Engine'})]})});
+ assert.equal(v.release,'Only（r1）');assert.equal(v.engineDiffers,true,'VNDB says Artemis, we say KiriKiri');
+ v=await Ident.vndb({title:'x',gameDir:tmp()},{lookup:async()=>{throw Error('METADATA_NETWORK');}});
+ assert.deepEqual([v.vndb,v.release,v.error],['','','METADATA_NETWORK']);
+ assert.ok(Check.questions({identity:{vndb:v.vndb,release:v.release},caps:{}}).some(q=>q.id==='vndb'));});

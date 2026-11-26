@@ -26,11 +26,11 @@ const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
 const STALE_MS=20*60000,STALE_ONCE_MS=180*60000;
 
-function parseRun(argv){const a=argv.slice(2),o={dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
+function parseRun(argv){const a=argv.slice(2),o={net:true,dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -58,6 +58,7 @@ function probe(loc,title,budgetMs){try{const P=require('../services/adapter-prob
    soundtrack, not a game disc */
 const DISC=/.(iso|mds|mdf|cue|ccd|img|nrg|cdi|chd|b5t|b6t|isz)$/i;
 function discImages(dir,depth=4,out=[]){let ents=[];try{ents=fs.readdirSync(dir,{withFileTypes:true});}catch{return out;}for(const e of ents){const f=path.join(dir,e.name);if(e.isDirectory()){if(depth>0)discImages(f,depth-1,out);}else if(DISC.test(e.name)&&!(/.cue$/i.test(e.name)&&ents.some(x=>/.(wav|flac|ape)$/i.test(x.name))))out.push(f);}return out;}
+const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.push('VNDB 记的引擎是 '+v.engine+'，和认出的不一样：先核对');if(v?.error)p.notes.push('VNDB 没查到（'+v.error+'），作品号 / 发行版问人');return p;};
 const stateFile=out=>path.join(out,'adapter.json');
 const readState=out=>JSON.parse(fs.readFileSync(stateFile(out),'utf8'));
 function saveState(st){st.updatedAt=new Date().toISOString();fs.writeFileSync(stateFile(st.out),JSON.stringify(st,null,1));}
@@ -112,7 +113,11 @@ async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=C
  const pr=probe(loc,title,90000);log('# probe '+pr.step+' '+(pr.detected||'-')+' jp='+pr.japaneseLines+' zh='+pr.chineseLines);
  const readers=[...new Set([pr.detected,...caps.readers].filter(Boolean))];
  const identity=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:loc.engine,title,vndb:o.vndb,release:o.release,chineseBuild:pr.step==='chinese-build',readers});
- const st={tool:'megulit-adapter',out,title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:plan({caps,probe:pr}),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
+ /* VNDB: the work, the release, the Chinese title, VNDB's engine (an answer only when unambiguous; --no-net or an error asks a person) */
+ if(o.net){const v=await Ident.vndb({title,gameDir:loc.gameDir,vnid:o.vndb||identity.vndb,chineseBuild:pr.step==='chinese-build',engine:loc.engine});identity.vndbLookup={how:v.how,release:v.release,releaseHow:v.releaseHow,candidates:v.candidates,engine:v.vndbEngine,engineDiffers:v.engineDiffers,error:v.error,releases:v.releases.map(r=>({rid:r.rid,title:r.title,engine:r.engine,langs:r.langs,patch:r.patch,official:r.official,ext:r.ext}))};
+  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(!identity.release&&v.release)identity.release=v.release;identity.releaseCandidates=v.candidates;
+  if(v.vndb)identity.adapted=Ident.sameRelease(Ident.adaptedRows(Ident.handoffText()),identity.vndb,identity.release||identity.releaseGuess);}
+ const st={tool:'megulit-adapter',out,title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
  if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.cn)st.answers.cn=st.answers.cn||o.cn;if(o.release)st.answers.release=st.answers.release||o.release;
  saveState(st);
  if((identity.adapted||[]).some(r=>r.same)&&!o.force&&st.answers.again===undefined)return finish(st,log);
