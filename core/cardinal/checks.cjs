@@ -146,6 +146,12 @@ function choices(run,t){t=opts(t);const name=run.name||'run',o=run.o,bad=[];let 
  for(const l of o.hookEvents||[]){const m=/ choice ocr found found=[1-9]\d* boxes=(\[.*?\]) missed=/.exec(l);if(!m)continue;const at=Date.parse(String(l).slice(0,24))-(o.t0||0);if(!Number.isFinite(at)||at-lastAsk<t.choiceMs)continue;lastAsk=at;
   /* given to the reader within choiceMs, or still there from before (the bridge reports one choice again and again) */
   if(offered.some(c=>c.at<=at+t.choiceMs&&(c.until==null||c.until>=at-200)))continue;n++;if(bad.length<6)bad.push(name+' @'+at+' options '+m[1].slice(0,60)+' never reached the reader');}
+ /* 2026-11-26 options the game's screen showed (o.screenChoices: the cold test's own OCR of the choice screen, core/cardinal/timeline.cjs
+    screenRow), counted like the bridge's OCR above: given to the reader within choiceMs or still there from before, else unseen by the
+    player. One already counted above within choiceMs is not counted twice */
+ const asked=[];for(const l of o.hookEvents||[]){if(/ choice ocr found found=[1-9]/.test(l)){const at=Date.parse(String(l).slice(0,24))-(o.t0||0);if(Number.isFinite(at))asked.push(at);}}
+ for(const sc of o.screenChoices||[]){const at=sc?.at;if(!Number.isFinite(at)||!Array.isArray(sc.texts)||!sc.texts.length)continue;if(asked.some(a=>Math.abs(a-at)<t.choiceMs))continue;
+  if(offered.some(c=>c.at<=at+t.choiceMs&&(c.until==null||c.until>=at-200)))continue;n++;if(bad.length<6)bad.push(name+' @'+at+' options on the game screen ('+sc.texts.map(x=>String(x).slice(0,24)).join(' / ')+') never reached the reader');}
  for(const c of o.krkr?.choice||[]){n++;if(c.ui==='choice')ok++;else if(bad.length<6)bad.push(name+' '+c.mark+' choice frame not kept for the game');}
  return {bad,n,ok,unobserved,reliable:unobserved===0};}
 
@@ -169,8 +175,11 @@ function leaks(run,t,ls){t=opts(t);const name=run.name||'run',o=run.o,bad=[];ls=
  const rates=[checked&&visible?visible/checked:0,nativeObserved?h.visible/h.lines:0,ls.length?during.length/ls.length:0,readObserved||off.length&&!during.length?1:0];
  if(visible)bad.push(name+' hide check read Japanese on '+visible+'/'+checked+' lines');if(nativeObserved&&h.visible)bad.push(name+' '+h.visible+'/'+h.lines+' dialogue records drawn visible while hidden');
  for(const l of during.slice(0,4))bad.push(name+' line '+l.line+' shown while the hide was off ('+(off.find(s=>s.from<l.samples.at(-1).at&&s.to>l.samples[0].at)?.why||'')+')');
- if(!observed)bad.push(name+' original visibility unobserved: no valid native dialogue records or four distinct hide checks');
- return {bad,rate:observed?Math.min(1,Math.max(...rates)):1,observed,checked,visible,records:h,nativeObserved,readObserved,during:during.length,off};}
+ /* 2026-11-26 state says it in one word: visible (the original showed), hidden (an observation that it was hidden), unconfirmed (隐藏未确认:
+    nothing on the tape says either way; the score stays 0, it is not a pass) */
+ const state=failed?'visible':observed?'hidden':'unconfirmed';
+ if(!observed)bad.push(name+' hide unconfirmed (隐藏未确认): no valid native dialogue records, four distinct hide checks or a hide-only confirmation of the selected stream');
+ return {bad,rate:observed?Math.min(1,Math.max(...rates)):1,observed,state,hideConfirmed,checked,visible,records:h,nativeObserved,readObserved,during:during.length,off};}
 /* when the original could show, on the run's clock: from a disable / probeHide off / give way until core enables again, and from a switch
    to read mode until the switch away from it; a span still open runs to the end */
 /* the kernel's preflight (hide.preflight: the original shown once and checked before the hide, hook-events 'check baseline') is a

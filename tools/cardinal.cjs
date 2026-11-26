@@ -19,6 +19,7 @@ const arg=(k,d)=>{const i=process.argv.indexOf('--'+k);return i>0?process.argv[i
  const rules={...Profiles.DEFAULTS.cardinal,...(profile.cardinal||{}),...JSON.parse(arg('rules','{}'))};const n=+arg('lines',rules.lines);
  let steps,models=true;
  if(arg('tape')){const rows=fs.readFileSync(arg('tape'),'utf8').split(/\r?\n/).filter(Boolean).map(l=>{try{return JSON.parse(l);}catch{return null;}}).filter(Boolean);
+  if(arg('run'))rows.push(...require('../core/cardinal/screen-run.cjs').screenRows(JSON.parse(fs.readFileSync(arg('run'),'utf8'))));
   /* the last n dialogue lines, like the app's snapshot */
   const all=L.fromTape(rows,game);const idx=all.map((s,i)=>s.hb?.type==='hookSource'?i:-1).filter(i=>i>=0);const cut=idx.length>n?idx[idx.length-n]:0;
   const head=all.slice(0,cut).filter(s=>s.gwb&&['ready','bound','layout'].includes(s.gwb.type)||s.hb&&['hookProcess','hookThreads'].includes(s.hb.type));
@@ -31,6 +32,7 @@ const arg=(k,d)=>{const i=process.argv.indexOf('--'+k);return i>0?process.argv[i
  if((o.errors||[]).length)console.log('# replay errors: '+JSON.stringify(o.errors).slice(0,800));
  const r=S.score({name:'session',steps,o},rules);
  console.log(JSON.stringify({lines:r.lines,...Display.summary(r),applies:r.applies,lag:o.lag},null,1));
+ console.log('# hide: '+r.detail.leakObservation.state+(r.detail.leakObservation.state==='unconfirmed'?' (隐藏未确认)':''));
  for(const [k,v] of Object.entries(r.detail))if(v.length)console.log('# '+k+': '+v.slice(0,4).join(' | ').slice(0,600));
  if(arg('out'))fs.writeFileSync(arg('out'),JSON.stringify({scenario,result:r,out:o},null,1));
 })();
