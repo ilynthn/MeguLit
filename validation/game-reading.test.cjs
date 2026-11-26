@@ -65,11 +65,8 @@ test('the reader binds the game’s readings and the speech button reads the lin
 });
 /* RRFZ #1192: a short word of an earlier source took the place of a longer one (島 learned cut the script's 島津); a game switched while a
    line was being tokenized had the old game's readings cached for the new one */
-test('the longest game word at a place wins; equal lengths keep line > learned > script',()=>{
+test('equal lengths keep line > learned > script; a short word alone still applies (the longest-word case is the #1287 test below)',()=>{
  const raw=line(`島/シマ/${SURNAME} 津/ツ が/ガ/助詞,格助詞,* 来る/クル/動詞,非自立可能,*`);
- const found=readingsIn('島津が来る',{learned:{'島':'しま'},script:new Map([['島津','しまづ']])});
- assert.deepEqual(found,[['島','しま','learned'],['島津','しまづ','script']]);
- assert.equal(shown(gameTokens(raw,found)),'島津:しまづ が:ガ 来る:クル');
  const tie=readingsIn('島津が',{line:[['島津','しまつ']],learned:{'島津':'しまづ'}});
  assert.equal(shown(gameTokens(raw.slice(0,3),tie)),'島津:しまつ が:ガ','this line’s ruby first');
  assert.equal(shown(gameTokens(raw,[['島','しま','learned']])),'島:しま 津:ツ が:ガ 来る:クル','alone the short word still applies');
