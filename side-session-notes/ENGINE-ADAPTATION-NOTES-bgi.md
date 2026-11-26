@@ -10,3 +10,8 @@
 - The root-authorized hidden run reached a Direct3D initialization error before dialogue; stop that launch route and keep its screenshot rather than moving to the foreground or counting static rows as live input
 - A real audio guard failure before ready/capture-only means no mute mutation and no audio recovery pass; preserve both facts, stop the owned game, and release its slot only after confirming exit
 - Building the current Hook DLL with a matching source header hash is useful freshness evidence, but this failed launch never attached that DLL and supplies no real I/G/H/D/U proof
+
+# 2026-11-26 バトラーズ～召しませお嬢様 (BGI.exe, 2006-10-04 build): the 13 s exit is the copy protection, not us
+- BGI.exe is wrapped by SETTEC Alpha-ROM: unnamed sections at entropy 7.4-8.0, entry 0xB3000, strings SETTEC0000SETTEC1111, AlphaROM, C:\AlphaDiscLog.txt, CD001, WnASPI32.dll / SCSI for WIN32, CdRom%d, [DRIVE_NAME] DriveCount=%d (a disc check over the drives). Autorun.exe next to it is the Buriko installer/disc menu (Uninstall key, InstalledFolder), not a launcher the game needs
+- Started by hand on the visible desktop, no hook, no ColdDesk, no Locale Emulator: BGI.exe starts a second BGI.exe as its child and the parent dies within 7 s with 0xC0000005, Application Error 1000 "Faulting module name: unknown, Fault offset: 0x0019fec7" (code on the stack), WER bucket type BEX. Through LEProc the same: everything gone in 4.5 s, no window. So neither the hidden desktop, the injection nor the missing Japanese locale causes it
+- Cold test / adapt-auto can only report it ("游戏自己退出了"); the game needs its disc (or a cracked/no-disc exe), which the cold test does not do. Not reverse-engineered
