@@ -426,7 +426,7 @@ class HookNative{
     settings page with its sample text), logos and OCR noise (art-filter), stacked short rows (a list), unreadable text, a part
     of the hook line, and the same text again within a minute. The line goes through source(), so line-once applies as to any line. */
  ocrLine(m){try{if(!m||m.source!=='ocr'||m.foreign===true||m.id==null)return;const O=this.ocr||(this.ocr={shown:new Map(),said:new Map(),done:new Set(),timer:null,lastText:''});
-  if(m.visible!==true||typeof m.text!=='string'){O.shown.delete(m.id);return;}
+  if(m.visible!==true||typeof m.text!=='string'){O.shown.delete(m.id);this.ocrGroupGone(m.id);return;}
   /* a group is taken once, when its reading has stopped changing (a fade in or out reads as garble); later readings of the same group are ignored */
   if(O.done.has(m.id))return;const was=O.shown.get(m.id),now=this.now();
   const rowTexts=Array.isArray(m.rows)&&m.rows.length?m.rows.map(r=>String(r?.text||'')):[m.text];
@@ -457,8 +457,18 @@ class HookNative{
   if(take.length){const box=take.flatMap(it=>it.rows).reduce((b,r)=>{const x=+r?.x,y=+r?.y,w=+r?.w,h=+r?.h;if(![x,y,w,h].every(Number.isFinite))return b;return b?{x0:Math.min(b.x0,x),y0:Math.min(b.y0,y),x1:Math.max(b.x1,x+w),y1:Math.max(b.y1,y+h)}:{x0:x,y0:y,x1:x+w,y1:y+h};},null);
    const top=it=>Math.min(...it.rows.map(r=>+r?.y).filter(Number.isFinite),Infinity),text=take.slice().sort((a,b)=>top(a)-top(b)).map(it=>it.text.trim()).join(String.fromCharCode(10)),sw=take[0].sw,sh=take[0].sh;
    this.trace('ocr line '+JSON.stringify(text.slice(0,40)));O.lastText=text;
-   this.source({type:'hookSource',text,origin:'ocr',hookActive:true,...(box&&sw&&sh?{ocrRect:{...box,sw,sh}}:{})},'ocr');}
+   const before=this.state?.hookSequence;this.source({type:'hookSource',text,origin:'ocr',hookActive:true,...(box&&sw&&sh?{ocrRect:{...box,sw,sh}}:{})},'ocr');
+   const groups=new Set(take.filter(it=>!it.once).map(it=>it.id));O.current=this.state?.hookSequence!==before&&this.state?.hookSourceOrigin==='ocr'&&groups.size?{groups,sequence:this.state.hookSequence}:null;}
   if(wait>0)this.ocrSchedule(wait+20);}
+ /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run: the warning screen's notice, read by the art scan, stayed on the title screen
+    for the 26 s until the first story line; no hook line, no input, so nothing else could clear it). A line the art scan read
+    is on the picture: when every group it was made of has left the picture (the scan's hide after two reads without it), the
+    reader is cleared the way leaving the dialogue screen clears it (E530), unless a newer line has replaced it meanwhile. A
+    group read only once (a card that faded within a second) gives no hide and keeps its line as before. Any engine. */
+ ocrGroupGone(id){const O=this.ocr,C=O?.current;if(!C||!C.groups.delete(id)||C.groups.size)return;O.current=null;
+  if(this.state?.hookSequence!==C.sequence||this.state?.hookSourceOrigin!=='ocr')return;
+  this.trace('ocr line gone from the picture');this.lastSource='';this.lastSourceAt=0;this.sentencePieces?.reset();
+  this.notify({hookSource:'',hookSpeaker:'',hookSourceOrigin:'leave',hookSequence:(this.state.hookSequence||0)+1,hookMessage:'画面上的文字已消失，已清空阅读器'});}
  static ocrSentence(flat){const t=String(flat||''),n=[...t].length;return n>=12&&/[぀-ヿ]/.test(t)&&(/[。！？!?]/.test(t)||/(ます|ました|ましょう|ません|です|ください)/.test(t));}
  ocrLineRefused(it,now){const f=require('./art-filter.cjs'),t=String(it.text||'').trim(),flat=HookNative.flat(t),n=[...flat].length,O=this.ocr,kana=/[぀-ヿ]/.test(flat);
   if(it.dialogSeen)return 'the dialogue line is on the picture';
