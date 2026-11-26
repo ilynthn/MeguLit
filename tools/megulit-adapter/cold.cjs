@@ -353,7 +353,9 @@ async function run(opts,{log=console.log}={}){
   let cold=null;
   await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true,steamAppId:opts.steamAppId||'',vndb:opts.vndb||''});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
   if(stopScreen){await stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
-  if(cold.runDir&&located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
+  /* 2026-11-27 also after a blocked run (オルフレール 02:56: cleanup unconfirmed, no run folder): its Documents\A'sRing save with the read
+     flags stayed, every later run started with the text already read (shown at once, Cardinal row 0.95 -> 0.6) */
+  if(located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
   result.cold=cold;log('# cold '+cold.verdict+' '+(cold.why||'')+' lines='+(cold.lines|0));
   let runCopy='',runInfo=null,diag=null;
   if(cold.runDir&&fs.existsSync(cold.runDir)){runCopy=path.join(out,'run');fs.rmSync(runCopy,{recursive:true,force:true});copyTree(cold.runDir,runCopy);
