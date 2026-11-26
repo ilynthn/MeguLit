@@ -251,7 +251,14 @@ class LocalLearning{
  entries(token,language){
   this.load();const keys=[token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean);
   const spelled=key=>(this.index.get(key)||[]).filter(id=>this.byId.get(id)?.spellings?.includes(key));
-  let ids=[],homophones=[];for(const key of keys){ids=spelled(key);if(ids.length)break;}
+  let ids=[],homophones=[],hit='';for(const key of keys){ids=spelled(key);if(ids.length){hit=key;break;}}
+  /* RRFZ #1192 (めっちゃ→目茶, やっぱり→矢張り, ちっちゃい→小さい, すっごく→凄い): Sudachi normalizes a colloquial kana word to a kanji lemma read
+     otherwise; that lemma heads the card only when it is read as the word is. Otherwise the entries read exactly as the kana word keep
+     the head, and the word itself is never listed as its own homophone. */
+  if(hit&&hit===token.normalized&&hit!==token.base_form&&/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(token.base_form||'')){
+   const said=new Set([kana(token.reading||''),kana(token.base_form)].filter(Boolean)),reads=id=>(this.byId.get(id)?.readings||[]).some(r=>said.has(kana(r)));
+   if(!ids.some(reads)){const own=(this.index.get(token.base_form)||[]).filter(reads);if(own.length)ids=own;}
+  }
   if(!ids.length)for(const key of keys){ids=this.index.get(key)||[];if(ids.length)break;}
   else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=(this.index.get(written)||[]).filter(id=>!ids.includes(id));}
   const reading=kana(token.reading||''),order=list=>[...list].sort((a,b)=>{
