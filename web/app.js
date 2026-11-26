@@ -1036,8 +1036,8 @@ async function learning(token){
   if(subtab==='readwords'){commit();try{const {mountReadingInsights}=await import('./reading-insights.js');if(token===pageToken)await mountReadingInsights(target,
    {api,locale,esc,number,toast,isCurrent:()=>token===pageToken,enhance:enhanceSelects});}catch(error){target.textContent=String(error?.message||error);}return;
    }
-  if(subtab==='kana'){commit();try{const {mountKana}=await import('./kana/kana.js');if(token===pageToken)await mountKana(target,{api,invoke,toast,start:'index',
-   focus:kanaFocus,openTab:tab=>navigate('learning',tab)});}catch(error){target.textContent=String(error?.message||error);}return;}
+  if(subtab==='kana'){commit();try{const {mountKana}=await import('./kana/kana.js');if(token===pageToken){const k=await mountKana(target,{api,invoke,toast,start:'index',
+   focus:kanaFocus,openTab:tab=>navigate('learning',tab)});if(token===pageToken)stopDetailPage=()=>k?.stop?.();else k?.stop?.();}}catch(error){target.textContent=String(error?.message||error);}return;}
   /* 2026-11-14 a failing review (Anki HUD) shows its own retry inside the tab; it never takes the whole learning page down */
   if(subtab==='review'){try{await review(token,target);}catch(error){console.error('learning review',error);learningFailed(target,error,token);}
    if(token===pageToken){try{enhanceSelects(target);}catch(error){console.error('learning review selects',error);}commit();}return;}
@@ -1141,7 +1141,7 @@ function dictionary(target){
   /* 2026-11-15 results use the word page's layout (detail-collect.js mountEntries): headwords left, one row per entry, the current entry on
      the right with its MOJi detail; click / ↑ ↓ switches, rows never move, the wheel scrolls the list */
   let unmountEntries=()=>{},savedSet=null,wantedEntry='';
-  const loadSaved=()=>savedSet||(savedSet=api('vocabulary').then(rows=>new Set(rows.flatMap(r=>[r.spelling,r.reading]).filter(Boolean))).catch(()=>new Set()));
+  const loadSaved=()=>savedSet||(savedSet=api('vocabulary').then(rows=>new Set(rows.map(r=>r.spelling||r.reading).filter(Boolean))).catch(()=>new Set()));
   const renderList=async()=>{unmountEntries();unmountEntries=()=>{};
     if(!lastItems.length){results.innerHTML=empty(text.noDefinition,'word');return;}
     const request=ticket,[{mountEntries},saved]=await Promise.all([import('./detail-collect.js'),loadSaved()]);if(request!==ticket||!results.isConnected)return;
@@ -1157,7 +1157,7 @@ function dictionary(target){
       toast(`${{zh:'已加入 Anki',ja:'Anki に追加しました',en:'Added to Anki'}[locale]} · ${item.spelling||item.reading}`);
       savedSet=null;}catch(error){toast(errorMessage(error));throw error;}},
      onSave:async item=>{try{const r=await api('reading_save_word',{key:item.spelling||item.reading,base:item.spelling||item.reading});
-      toast(`${{zh:'已加入单词本',ja:'単語帳に追加しました',en:'Added to your words'}[locale]} · ${r?.spelling||item.spelling}`);}catch(error){toast(errorMessage(error));throw error;}}});
+      toast(`${{zh:'已加入单词本',ja:'単語帳に追加しました',en:'Added to your words'}[locale]} · ${r?.spelling||item.spelling||item.reading}`);savedSet=null;}catch(error){toast(errorMessage(error));throw error;}}});
   };
   if(onlineSource==='jisho')account.hidden=true;else api('moji_status').then(state=>{if(account.isConnected&&!account.querySelector('.moji-qr-panel'))showStatus(state);}).catch(()=>showStatus({}));
   target.querySelector('#lookup-form').addEventListener('submit',async event=>{

@@ -117,7 +117,7 @@ function resolve(ok,why,detail){
   fb.innerHTML=ok?`<span class="ok">正确</span>${detail?" · "+detail:""}<span class="pts judge j-${jg.split(" ").join("-").toLowerCase()}">${brk?"BREAK · ":""}${jg}</span>`:
     `<b>${why==="超时"?"超时":"不对"}</b> · ${q.explain}<span class="pts judge j-miss">${brk?"BREAK · ":""}MISS</span>`;
   if(ok&&q.speak)say(q.speak);
-  setTimeout(next,ok?700:1900);
+  clearTimeout(nextTimer);nextTimer=setTimeout(next,ok?700:1900);
 }
 function next(){
   if(st.over)return;
@@ -205,7 +205,7 @@ function submitSeq(val,btn){
   if(!ok){locked=true;return resolve(false,w==="prev"?"前一个错":"后一个错")}
   q.slot++;
   if(q.slot<q.need.length){const nw=q.need[q.slot];$("#slot-"+nw).classList.add("active");
-    setTimeout(()=>{if(C.input){const inp=$("#ans");inp.value="";inp.placeholder=`再填${nw==="prev"?"前":"后"}一个`;inp.classList.remove("right");inp.focus()}else seqOptions()},350);return}
+    clearTimeout(slotTimer);slotTimer=setTimeout(()=>{if(st.over)return;if(C.input){const inp=$("#ans");inp.value="";inp.placeholder=`再填${nw==="prev"?"前":"后"}一个`;inp.classList.remove("right");inp.focus()}else seqOptions()},350);return}
   locked=true;resolve(true,"",q.explain);
 }
 
@@ -267,11 +267,14 @@ function renderVK(){
   vk.querySelector("[data-act=bs]").onclick=()=>{const inp=$("#ans");inp.value=[...inp.value].slice(0,-1).join("");inp.focus()};
   vk.querySelector("[data-act=ok]").onclick=()=>{const inp=$("#ans");(G==="seq"?submitSeq:submitConv)(inp.value)};
 }
-function toggleVK(){vkOpen=!vkOpen;el.querySelector(".sheet").style.minHeight=vkOpen?"0":"";if(vkOpen)setTimeout(()=>$("#vk").scrollIntoView({block:"nearest",behavior:"smooth"}),50);$("#vk").classList.toggle("show",vkOpen);const i=$("#ans");if(i)i.focus()}
+function toggleVK(){vkOpen=!vkOpen;el.querySelector(".sheet").style.minHeight=vkOpen?"0":"";clearTimeout(vkTimer);if(vkOpen)vkTimer=setTimeout(()=>{if(!st.over)$("#vk")?.scrollIntoView({block:"nearest",behavior:"smooth"})},50);$("#vk").classList.toggle("show",vkOpen);const i=$("#ans");if(i)i.focus()}
 
 /* ================= 结束（完整结算在下一阶段） ================= */
+let nextTimer=0,slotTimer=0,vkTimer=0;
+function stop(){st.over=true;cancelAnimationFrame(raf);clearTimeout(nextTimer);clearTimeout(slotTimer);clearTimeout(vkTimer);}
+ctx.onLeave?.(stop);
 function finish(){
-  if(st.over)return;st.over=true;cancelAnimationFrame(raf);$("#vk").classList.remove("show");
+  if(st.over)return;stop();$("#vk").classList.remove("show");
   const secs=(performance.now()-st.start)/1000;
   const run={id:Date.now(),at:new Date().toISOString(),G,D,script,only:ONLY,score:KD.achievement(st.log).pct,secs:+secs.toFixed(1),best:st.best,log:st.log,ended:D==="chal"?(st.lives<=0?"错满 3 次":"时间到"):"答完"};
   ctx.store.addRun(run);ctx.lastRun=run;

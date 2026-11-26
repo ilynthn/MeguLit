@@ -30,3 +30,39 @@ test('switching back to translation retries an incomplete article without reopen
  })()`);
  assert.deepEqual(result,{lines:['First','Second'],calls:2,initialCalls:1,notices:1});
 });
+
+test('daily reader in Edge reuses reader/modules/furigana.js splitReading and drops <rt> on phrase selection',{skip:!hasEdge},async t=>{
+ const http=require('node:http'),webRoot=path.join(__dirname,'../web');
+ const srv=http.createServer((req,res)=>{
+  if(req.url==='/probe.html'){
+   res.writeHead(200,{'content-type':'text/html;charset=utf-8'});
+   res.end('<!doctype html><link rel="stylesheet" href="/daily.css"><script src="/reader/modules/furigana.js"></script><div id="out"></div>');
+   return;
+  }
+  const f=path.join(webRoot,req.url.slice(1));
+  if(!fs.existsSync(f)){res.writeHead(404);res.end();return;}
+  res.writeHead(200,{'content-type':f.endsWith('.css')?'text/css;charset=utf-8':'text/javascript;charset=utf-8'});
+  res.end(fs.readFileSync(f));
+ });
+ await new Promise(r=>srv.listen(0,'127.0.0.1',r));
+ const profile=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-daily-ruby-'));
+ let browser;
+ t.after(async()=>{srv.close();try{await browser?.stop();}finally{await fs.promises.rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:150});}});
+ browser=await startEdge(profile);
+ await browser.send('Page.navigate',{url:`http://127.0.0.1:${srv.address().port}/probe.html`});
+ await new Promise(r=>setTimeout(r,200));
+ const res=await browser.evaluate(`(async()=>{
+  const {paragraphHTML,selectionText}=await import('/daily-view.js');
+  const esc=s=>String(s);
+  const html=paragraphHTML({text:'新しい発表',tokens:[{s:'新しい',b:'新しい',r:'あたらしい'},{s:'発表',b:'発表',r:'はっぴょう'}]},esc);
+  const out=document.getElementById('out');
+  out.innerHTML='<p class="rd-ja">'+html+'</p>';
+  const range=document.createRange();range.selectNodeContents(out.firstChild);
+  const sel=getSelection();sel.removeAllRanges();sel.addRange(range);
+  return {hasSplit:typeof window.TomoyoFurigana?.splitReading,html,picked:selectionText(sel),raw:String(sel).trim()};
+ })()`);
+ assert.equal(res.hasSplit,'function');
+ assert.match(res.html,/<ruby>新<rt>あたら<\/rt><\/ruby>しい/);
+ assert.equal(res.picked,'新しい発表');
+ assert.equal(res.raw,'新しい発表','user-select:none on .rd-ja rt also keeps native selection clean');
+});

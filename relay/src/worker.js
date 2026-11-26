@@ -13,6 +13,8 @@ import {handleAccounts,isAccountsPath,authenticate,ROTATED} from './accounts.js'
 /* website game-request and feedback forms → GitHub issues */
 import {yuiPost,syncYui} from './yui.js';
 import {feedbackPost,syncPendingFeedback} from './feedback.js';
+/* 2026-11-26 one open tracker issue per kind, detail issues closed (relay/src/issue-trackers.js) */
+import {settle,trackIssue,issueNumber,syncTrackers} from './issue-trackers.js';
 /* E397 public profiles, follows, 同好 */
 import {profileOwn,profileCard,followEdit,followingFeed,kindred,socialDeletes,profileReport,profileAppeal} from './social.js';
 import {avatarUpload,avatarDelete,avatarGet,avatarReport,avatarsFor,avatarStatus,avatarAppeal,avatarReview,signReview,cleanupAvatars,hotStatements,hotWordsGet,settleDue} from './community.js';
@@ -214,7 +216,7 @@ export async function adaptationQuery(request,env,ip,now=new Date()){
 }
 
 /* ---- diagnostics ----------------------------------------------------------------------------------------------- */
-export async function diagnosticsPost(request,env,ip,url,now=new Date()){
+export async function diagnosticsPost(request,env,ip,url,now=new Date(),ctx){
  if(env.DIAG_TOKEN&&!sameText(request.headers.get('authorization')||'','Bearer '+env.DIAG_TOKEN))return fail('UNAUTHORIZED',401);
  if(!await hit(env,'diag',ip,now.getTime()))return fail('RATE_LIMITED',429);
  if(Number(request.headers.get('content-length')||0)>LIMITS.zip+LIMITS.meta+64*1024)return fail('PAYLOAD_TOO_LARGE',413);
@@ -235,14 +237,15 @@ export async function diagnosticsPost(request,env,ip,url,now=new Date()){
  const days=Math.max(1,Math.min(90,Number(env.LINK_DAYS)||30)),expires=Math.floor(now.getTime()/1000)+days*86400;
  const link=env.LINK_SECRET?`${url.origin}/api/diagnostics/download/${id}?exp=${expires}&sig=${await hmac(env.LINK_SECRET,id+':'+expires)}`:'(LINK_SECRET not set — ask the maintainer)';
  const summary={...meta.value,size:bytes.length,sha256:digest};
- let issueUrl='';
+ let issueUrl='',issue=null;
  if(env.GITHUB_TOKEN){
   const repo=/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPO||'')?env.GITHUB_REPO:'ilynthn/MeguLit';
   const title=`[诊断] ${summary.game.title||'未知游戏'} · v${summary.version||'?'}`.slice(0,200);
   const r=await (env.fetch||fetch)(`https://api.github.com/repos/${repo}/issues`,{method:'POST',headers:{authorization:'Bearer '+env.GITHUB_TOKEN,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'megulit-relay','content-type':'application/json'},body:JSON.stringify({title,body:issueBody(summary,link,days),labels:['diagnostics']})});
-  if(r.ok){const data=await r.json().catch(()=>({}));issueUrl=typeof data.html_url==='string'?data.html_url:'';}
+  if(r.ok){const data=await r.json().catch(()=>({}));issueUrl=typeof data.html_url==='string'?data.html_url:'';issue=issueNumber(data);}
  }
  await env.DB.prepare('INSERT INTO diagnostics(id,object_key,issue_url,ip_hash,size,sha256,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)').bind(id,objectKey,issueUrl,ip,bytes.length,digest,Math.floor(now.getTime()/1000),expires).run();
+ if(issue)await settle(ctx,trackIssue(env,{id:'diagnostics:'+id,tracker:'diagnostics',issue,name:`${summary.game.title||'未知游戏'} · v${summary.version||'?'}`},now));
  return json({ok:true,id,issueUrl},201);
 }
 export async function diagnosticsDownload(url,env,ip,now=new Date()){
@@ -311,8 +314,8 @@ export async function handle(request,env,now=new Date(),ctx=null){
   else if(path==='/api/adaptation')response=request.method==='POST'?await adaptationPost(request,env,ip,now):request.method==='GET'?await adaptationGet(url,env,ip,now):fail('METHOD_NOT_ALLOWED',405);
   else if(path==='/api/adaptation/query')response=request.method==='POST'?await adaptationQuery(request,env,ip,now):fail('METHOD_NOT_ALLOWED',405);
   else if(path==='/api/yui')response=request.method==='POST'?await yuiPost(request,env,{readJSON,fail,json,hit},ip,now):fail('METHOD_NOT_ALLOWED',405);
-  else if(path==='/api/feedback')response=request.method==='POST'?await feedbackPost(request,env,{readJSON,fail,json,hit},ip,now):fail('METHOD_NOT_ALLOWED',405);
-  else if(path==='/api/diagnostics')response=request.method==='POST'?await diagnosticsPost(request,env,ip,url,now):fail('METHOD_NOT_ALLOWED',405);
+  else if(path==='/api/feedback')response=request.method==='POST'?await feedbackPost(request,env,{readJSON,fail,json,hit,ctx},ip,now):fail('METHOD_NOT_ALLOWED',405);
+  else if(path==='/api/diagnostics')response=request.method==='POST'?await diagnosticsPost(request,env,ip,url,now,ctx):fail('METHOD_NOT_ALLOWED',405);
   else if(path.startsWith('/api/diagnostics/download/')&&request.method==='GET')response=await diagnosticsDownload(url,env,ip,now);
   /* 2026-11-15 adaptation contribution packages, consented in the app (relay/src/contrib.js) */
   else if(path.startsWith('/api/contrib/'))response=await contribRoute(request,env,ip,now,url,path,{json,fail,hit,readJSON})||fail('NOT_FOUND',404);
@@ -335,7 +338,7 @@ export async function handle(request,env,now=new Date(),ctx=null){
   else if(path.startsWith('/api/cardinal/'))response=await cardinalRoute(request,env,ip,now,url,path,{json,fail,hit,readJSON})||fail('NOT_FOUND',404);
   else if(path==='/api/game-profile'||path.startsWith('/api/game-profile/'))response=await profileRoute(request,env,ip,now,url,path,{json,fail,hit,readJSON,ctx})||fail('NOT_FOUND',404);
   else if(path==='/api/probe/issue-webhook')response=await probeIssueWebhook(request,env,now,{json,fail});
-  else if(path.startsWith('/api/adapters/')||path==='/api/probe'||path.startsWith('/api/probe/'))response=await adaptersRoute(request,env,ip,now,url,path,{json,fail,hit,readJSON})||fail('NOT_FOUND',404);
+  else if(path.startsWith('/api/adapters/')||path==='/api/probe'||path.startsWith('/api/probe/'))response=await adaptersRoute(request,env,ip,now,url,path,{json,fail,hit,readJSON,ctx})||fail('NOT_FOUND',404);
   else response=fail('NOT_FOUND',404);
   /* 2026-11-16 live-usage pulse: a MeguLit client touched the relay (probe-stats.js); aggregate, no identity kept */
   if(/MeguLit/.test(request.headers.get('user-agent')||'')&&path.startsWith('/api/')){const job=pulse(env,ip,now);if(ctx?.waitUntil)ctx.waitUntil(job);else job.catch(()=>{});}
@@ -349,7 +352,7 @@ export async function scheduled(event,env,ctx){
  if(event?.cron==='*/30 * * * *'&&env.ORDINARY_SCAN_URL){const retry=retryJobs(env,new Date(event.scheduledTime||Date.now()));if(ctx?.waitUntil)ctx.waitUntil(retry);else await retry;}
  /* every 30 minutes: website feedback still waiting for its GitHub issue; the weekly cron settles hot words */
  if(event?.cron==='20 21 * * *'){const job=refreshDaily(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
- if(event?.cron==='*/30 * * * *'){const job=Promise.all([syncYui(env).catch(()=>0),syncPendingFeedback(env).catch(()=>0),refreshRelease(env,'latest').catch(()=>null),cleanupForumImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupContrib(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeFull(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeStats(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshSeedStatsSafe(env,new Date(event?.scheduledTime||Date.now()))]);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
+ if(event?.cron==='*/30 * * * *'){const job=Promise.all([syncYui(env).catch(()=>0),syncPendingFeedback(env).catch(()=>0),syncTrackers(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshRelease(env,'latest').catch(()=>null),cleanupForumImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupContrib(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeFull(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeStats(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshSeedStatsSafe(env,new Date(event?.scheduledTime||Date.now()))]);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
  const when=new Date(event?.scheduledTime||Date.now());const job=settleDue(env,when).then(async done=>{await cleanupAvatars(env,when).catch(()=>0);return done;});if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
 /* a token rotated while answering any request goes back on that answer, whichever endpoint it was */
 export default {fetch:async(request,env,ctx)=>{const response=await handle(request,env,new Date(),ctx);const token=ROTATED.get(request);if(!token||response.headers.get('x-megulit-token'))return response;const copy=new Response(response.body,response);copy.headers.set('x-megulit-token',token);return copy;},scheduled};

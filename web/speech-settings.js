@@ -21,17 +21,18 @@ export function configureSpeech({content,form,api,locale,esc,toast}){
   content.append(pack);
  const v4=async(action,args={})=>{const key=++requestId,result=await api('reader_message',{message:{type:'v4',id:key,action,args}}),reply=result.replies?.find(reply=>reply.method==='v4Deliver');
   if(!reply||reply.args[2])throw Error(reply?.args[2]||'SPEECH_FAILED');return reply.args[1];};
+ let syncing=false;
  function fill(list){if(stopped||!panel.isConnected)return;if(!Array.isArray(list))return;if(!list.length){speakers=[];voice.replaceChildren(new Option(w.empty,
-  ''));emotion.replaceChildren(new Option('—',''));voice.disabled=emotion.disabled=true;return;}speakers=list;const selected=list.findIndex(s=>s.styles?.some(style=>style.id===Number(id.value)));
-  voice.replaceChildren(...list.map((speaker,index)=>new Option(speaker.name,String(index))));voice.disabled=false;voice.value=String(selected<0?0:selected);if(selected<0)feedback.textContent=w.unknown;
+  ''));emotion.replaceChildren(new Option('—',''));voice.disabled=emotion.disabled=true;feedback.textContent='';delete feedback.dataset.state;return;}speakers=list;const selected=list.findIndex(s=>s.styles?.some(style=>style.id===Number(id.value)));
+  voice.replaceChildren(...list.map((speaker,index)=>new Option(speaker.name,String(index))));voice.disabled=false;voice.value=String(selected<0?0:selected);feedback.textContent=selected<0&&Number(id.value)!==0?w.unknown:'';delete feedback.dataset.state;
   styles(false);enhanceSelects(panel);}
- function styles(change){const current=speakers[Number(voice.value)],list=current?.styles||[];emotion.replaceChildren(...list.map(style=>new Option(styleLabel(style.name,
+ function styles(change){syncing=true;try{const current=speakers[Number(voice.value)],list=current?.styles||[];emotion.replaceChildren(...list.map(style=>new Option(styleLabel(style.name,
   locale),String(style.id))));emotion.disabled=!list.length;const saved=list.find(style=>style.id===Number(id.value));if(saved)emotion.value=String(saved.id);if(change&&list.length){
-  id.value=emotion.value;id.dispatchEvent(new Event('change',{bubbles:true}));}voice.dispatchEvent(new Event('change-ui'));emotion.dispatchEvent(new Event('change'));
-  }
- voice.onchange=()=>styles(true);emotion.onchange=()=>{if(emotion.value&&id.value!==emotion.value&&speakers.some(s=>s.styles?.some(style=>style.id===Number(id.value)))){
-  id.value=emotion.value;id.dispatchEvent(new Event('change',{bubbles:true}));}};
- async function load(){const button=panel.querySelector('[data-refresh]');button.disabled=true;try{fill(await api('speakers'));feedback.textContent='';delete feedback.dataset.state;
+  id.value=emotion.value;feedback.textContent='';delete feedback.dataset.state;id.dispatchEvent(new Event('change',{bubbles:true}));}voice.dispatchEvent(new Event('change-ui'));emotion.dispatchEvent(new Event('change'));
+  }finally{syncing=false;}}
+ voice.onchange=()=>styles(true);emotion.onchange=()=>{if(syncing||!emotion.value||id.value===emotion.value)return;
+  id.value=emotion.value;feedback.textContent='';delete feedback.dataset.state;id.dispatchEvent(new Event('change',{bubbles:true}));};
+ async function load(){const button=panel.querySelector('[data-refresh]');button.disabled=true;try{const list=await api('speakers');if(!Array.isArray(list))throw Error();fill(list);
   }catch{feedback.textContent=w.failed;feedback.dataset.state='error';}finally{button.disabled=false;}}
  panel.querySelector('[data-refresh]').onclick=load;api('speakers_cached').then(fill).catch(()=>{});
  function stop(){if(audio){audio.pause();audio=null;}if(url){URL.revokeObjectURL(url);url='';}preview.textContent=w.preview;}

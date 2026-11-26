@@ -122,7 +122,7 @@ a:hover .dl-plate i:nth-child(2){transform:translate(8%,-6%) rotate(45deg)}
 .dl-facts dt{color:var(--g-t3);letter-spacing:.06em}
 .dl-facts dd{margin:0;color:var(--g-t2)}
 .dl-facts em{margin-left:8px;font-style:normal;font-size:10.5px;color:var(--g-t3)}
-.dl-term rt{font-size:10px;letter-spacing:.08em;color:var(--g-t3);font-family:var(--g-sans,inherit)}
+.dl-term rt{font-size:10px;letter-spacing:.08em;color:var(--g-t3);font-family:var(--g-sans,inherit);user-select:none;-webkit-user-select:none}
 .dl-traffic{grid-column:3;grid-row:1;font-size:10.5px;color:var(--g-t3);font-variant-numeric:tabular-nums;letter-spacing:.04em;transition:opacity .2s}
 .dl-go{grid-column:3;grid-row:1;font-size:11px;letter-spacing:.14em;color:var(--dl-gold);opacity:0;transform:translateX(-6px);transition:opacity .2s,transform .3s var(--dl-ease);white-space:nowrap}
 .dl-word-main:hover .dl-traffic{opacity:0}
@@ -206,7 +206,7 @@ a:hover .dl-plate i:nth-child(2){transform:translate(8%,-6%) rotate(45deg)}
 .rd-t{cursor:pointer;transition:background .15s,color .15s;background:linear-gradient(var(--dl-gold),var(--dl-gold)) 0 100%/0 1px no-repeat}
 .rd-t:hover{background-size:100% 1px;color:var(--dl-gold)}
 .rd-t.on{background:color-mix(in srgb,var(--dl-gold) 18%,transparent)}
-.rd-ja rt{font-size:.5em;color:var(--g-t3);letter-spacing:0}
+.rd-ja rt{font-size:.5em;color:var(--g-t3);letter-spacing:0;user-select:none;-webkit-user-select:none}
 .rd-ja ::selection{background:color-mix(in srgb,var(--dl-red) 55%,transparent);color:#fff}
 .rd-wait{color:var(--g-t3);font-size:13px}
 .rd-shimmer{display:block;height:12px;width:80%;background:linear-gradient(90deg,var(--dl-hair),color-mix(in srgb,var(--dl-gold) 18%,transparent),var(--dl-hair)) 0 0/200% 100%;animation:rd-sh 1.2s linear infinite}

@@ -69,7 +69,7 @@ const SCORE={
  adv:["满分 101.0000%：基础 100% + BREAK 奖励 1%","限时更短：35% 内 CRITICAL PERFECT，60% 内 PERFECT","易混假名出现得更多，BREAK 越多，最后 1% 越难拿满"],
  chal:["满分 101.0000%：基础 100% + BREAK 奖励 1%","2 秒内 CRITICAL PERFECT，4 秒内 PERFECT，再慢 GREAT","总计 90 秒，错满 3 次结束"]
 };
-const KD=ctx.data,BEST={},BESTV={};for(const r of ctx.store.get(ctx.store.KEY.r,[])){if(r.only&&r.only.length||!r.log.length)continue;const key=r.G+"-"+r.D,A=KD.achievement(r.log);if(BESTV[key]===undefined||BESTV[key]<A.pct){BESTV[key]=A.pct;BEST[key]=KD.fmtPct(A.pct);}}
+const KD=ctx.data,BEST={},BESTV={};for(const r of ctx.store.get(ctx.store.KEY.r,[])){if(r.only&&r.only.length||!r.log.length)continue;const key=r.G+"-"+r.D,A=KD.achievement(r.log);if(BESTV[key]===undefined||BESTV[key]<A.pct){BESTV[key]=A.pct;BEST[key]={score:KD.fmtPct(A.pct),acc:Math.round(r.log.filter(l=>l.ok).length/r.log.length*100)+'%'};}}
 
 function poolOf(p){
   const has=x=>p.includes(x)||p==="all";
@@ -84,8 +84,8 @@ function poolOf(p){
 let g=0,d=0,script="h";
 const $=s=>el.querySelector(s);
 function renderGames(){
-  $("#games").innerHTML=GAMES.map((x,i)=>{const bests=DIFFS.map(y=>BEST[x.id+"-"+y.id]).filter(Boolean);
-    return `<button class="game${i===g?" on":""}" data-g="${i}"><div class="no">${x.no}</div><div><h3>${x.name}<kbd>${i+1}</kbd></h3><p>${x.desc}</p><div class="sample">${x.sample}</div><div class="best">${bests.length?`已玩 ${bests.length} 个难度 · 最佳 <b>${BEST[x.id+"-std"]||BEST[x.id+"-intro"]}</b>`:"还没玩过"}</div></div></button>`}).join("");
+  $("#games").innerHTML=GAMES.map((x,i)=>{const played=DIFFS.map(y=>x.id+"-"+y.id).filter(k=>BEST[k]),topKey=played.reduce((a,k)=>!a||BESTV[k]>BESTV[a]?k:a,null);
+    return `<button class="game${i===g?" on":""}" data-g="${i}"><div class="no">${x.no}</div><div><h3>${x.name}<kbd>${i+1}</kbd></h3><p>${x.desc}</p><div class="sample">${x.sample}</div><div class="best">${played.length?`已玩 ${played.length} 个难度 · 最佳 <b>${BEST[topKey].score}</b>`:"还没玩过"}</div></div></button>`}).join("");
   el.querySelectorAll(".game").forEach(b=>b.onclick=()=>{g=+b.dataset.g;render()});
 }
 let prev={};
@@ -115,7 +115,7 @@ function renderCfg(){
      <label class="check"><input type="checkbox" ${d<2?"checked":""}> 答完播放发音</label>
      <label class="check"><input type="checkbox"> 只练薄弱假名</label>
    </div>
-   <div class="start-row"><span class="best">${best?`<b class="num">${best.split(" · ")[0]}</b>个人最佳 · ${best.split(" · ")[1]}`:"这个难度还没有成绩"}</span>
+   <div class="start-row"><span class="best">${best?`<b class="num">${best.score}</b>个人最佳 · 正确率 ${best.acc}`:"这个难度还没有成绩"}</span>
      <button class="btn lg" id="go">开始 <kbd style="opacity:.8">Enter</kbd></button></div>`;
   el.querySelectorAll(".diff").forEach(b=>b.onclick=()=>{d=+b.dataset.d;render()});
   el.querySelectorAll("#scr button").forEach(b=>b.onclick=()=>{script=b.dataset.v;renderCfg()});

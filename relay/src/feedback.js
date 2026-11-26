@@ -2,7 +2,9 @@
 /* Website feedback: the game-request and feedback forms on megulit.com post here, and each one becomes a GitHub
    issue (same GITHUB_TOKEN and GITHUB_REPO as diagnostics). Nothing is stored; the IP is only used, hashed, for the
    rate limits in worker.js. Bodies are capped, mentions are defused so an issue never pings anyone, and a hidden
-   honeypot field catches simple bots. */
+   honeypot field catches simple bots. 2026-11-26: a game request is then listed in the [想玩] 汇总 tracker (same game:
+   its line, people +1) and its own issue closed (issue-trackers.js). */
+import {settle, trackIssue, nameKey, repoFor} from './issue-trackers.js';
 
 export const FEEDBACK_KINDS = { game: { tag: '想玩', label: 'game-request' }, feedback: { tag: '反馈', label: 'website-feedback' } };
 const LANGS = new Set(['zh', 'ja', 'en']);
@@ -52,19 +54,31 @@ const ghIssue = async (env, issue) => {
   const data = await r.json().catch(() => ({}));
   return typeof data.html_url === 'string' ? data.html_url : '';
 };
+const numberOf = url => Number(/\/issues\/(\d+)$/.exec(url)?.[1]) || null;
 
 /* Relay first, GitHub second: every submission is written to R2 (feedback/pending/...) before the issue is opened, so
    a GitHub outage or a bad token never loses one. Synced entries move to feedback/done/ with their issue link; the
    cron in worker.js retries whatever is still pending. */
 const PENDING = 'feedback/pending/', DONE = 'feedback/done/';
-async function sync(env, key, entry) {
+async function sync(env, key, entry, ctx) {
   const url = await ghIssue(env, feedbackIssue(entry));
   await env.BUCKET.put(DONE + key.slice(PENDING.length), JSON.stringify({ ...entry, issueUrl: url, syncedAt: new Date().toISOString() }), { httpMetadata: { contentType: 'application/json' } });
   await env.BUCKET.delete(key);
+  const number = numberOf(url);
+  if (entry.kind === 'game' && number) {
+    const name = defuse(entry.text.split(/\r?\n/)[0].slice(0, 80));
+    /* the "opened" webhook may already have resolved and closed the request before its entry existed (its tick found no
+       row): resolveGameRequest stores closed_at before it asks for the tick, so reading it after the insert catches
+       every such ordering */
+    const resolved = () => env.DB.prepare(`UPDATE issue_tracker_entries SET tick_at=COALESCE(tick_at,?) WHERE repo=? AND issue=?
+      AND EXISTS (SELECT 1 FROM game_request_jobs WHERE repo=? AND issue=? AND closed_at IS NOT NULL AND matched_ref IS NOT NULL)`)
+      .bind(new Date().toISOString(), repoFor(env), number, repoFor(env), number).run();
+    await settle(ctx, trackIssue(env, { id: 'feedback:' + entry.id, tracker: 'game-request', issue: number, name, mergeKey: nameKey(name) }, undefined, resolved));
+  }
   return url;
 }
 
-export async function feedbackPost(request, env, { readJSON, fail, json, hit }, ip, now = new Date()) {
+export async function feedbackPost(request, env, { readJSON, fail, json, hit, ctx }, ip, now = new Date()) {
   if (!await hit(env, 'feedback', ip, now.getTime()) || !await hit(env, 'feedback-day', ip, now.getTime())) return fail('RATE_LIMITED', 429);
   const body = await readJSON(request, 8 * 1024);
   if (body.error) return fail(body.error, body.error === 'PAYLOAD_TOO_LARGE' ? 413 : 400);
@@ -76,7 +90,7 @@ export async function feedbackPost(request, env, { readJSON, fail, json, hit }, 
   const entry = { ...checked.value, id, ipHash: ip, createdAt: now.toISOString() };
   await env.BUCKET.put(key, JSON.stringify(entry), { httpMetadata: { contentType: 'application/json' } });
   let url = '';
-  if (env.GITHUB_TOKEN) { try { url = await sync(env, key, entry); } catch (e) { console.error('feedback sync', e?.message); } }
+  if (env.GITHUB_TOKEN) { try { url = await sync(env, key, entry, ctx); } catch (e) { console.error('feedback sync', e?.message); } }
   return json({ ok: true, id, url, queued: !url }, 201);
 }
 

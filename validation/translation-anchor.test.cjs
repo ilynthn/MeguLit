@@ -37,7 +37,9 @@ function anchored({ center = false, grows = false, y = 560, jpHeight = 40 } = {}
     window: { MeguLitProfile: { get: () => grows } },
     getComputedStyle: n => ({ fontSize: n.style.getPropertyValue('font-size') || '24px', lineHeight: '32px', marginTop: '0px', getPropertyValue: () => '' })
   });
-  vm.runInContext(setters + '\n' + pin + '\nglobalThis.invoke = pin;', context);
+  /* pin() reads the user's translation wrap width through userRowLayout (QQ essence 1137) */
+  const own = /  const userRowLayout = prefs => \{[\s\S]*?\n  \};/.exec(source)[0];
+  vm.runInContext(own + '\n' + setters + '\n' + pin + '\nglobalThis.invoke = pin;', context);
   return { show(h) { height = h; context.invoke(win, sentence); return { jp: top(), jpHeight: sentence.getBoundingClientRect().height, cn: row.getBoundingClientRect(), cap: row.style.getPropertyValue('max-height'), scroll: row.style.getPropertyValue('overflow-y') }; } };
 }
 
