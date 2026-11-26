@@ -111,3 +111,12 @@ test('other kanji spellings: SudachiDict reads them right, these four are fixed'
  for(const [w,r] of [['兎に角','トニカク'],['矢張り','ヤハリ'],['流石','サスガ'],['勿論','モチロン'],['成程','ナルホド'],['暫く','シバラク'],['一体','イッタイ'],['何故','ナゼ'],['此処','ココ'],['其処','ソコ']])
   assert.equal(read(line(`${w}/${r}/${ADV}`)),`${w}:${r}`);
 });
+/* RRFZ #1192 (SudachiDict Full: 1ヶ月1日かかった。): a month count is no month name, its 1日 stays いちにち */
+test('a day after a month count is いちにち, not the first of a month',()=>{
+ const NUM='名詞,数詞,*',CTR='接尾辞,名詞的,助数詞';
+ for(const month of ['ヶ月','か月','カ月','箇月','ケ月']){
+  const t=numberTokens(line(`1/イチ/${NUM} ${month}/カゲツ/${CTR} 1/イチ/${NUM} 日/ニチ/${CTR} かかっ/カカッ/動詞,一般,*`));
+  assert.deepEqual(t.slice(0,2).map(x=>x.reading),['いっかげつ','いちにち'],month);
+ }
+ assert.equal(numberTokens(line(`1/イチ/${NUM} 月/ガツ/${CTR} 1/イチ/${NUM} 日/ニチ/${CTR}`))[1].reading,'ついたち','1月1日 stays');
+});
