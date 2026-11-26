@@ -272,8 +272,10 @@ class LocalLearning{
    groups.push(group);
   }return groups;
  }
+ /* #1131 (user 2026-11-24: the speech button, the furigana and the lookup card each said another reading): the line is read
+    as furigana and lookup read it, without the game's line breaks (tokenizeWhole), so a word the game wrapped is one word here too. */
  async word(args,entryId,options){
-  const result=await this.request('lookup_exact',args,'zh',options),tokens=await this.tokenize(args.text,options),token=tokens.find(t=>t.start===args.start&&t.end===args.end),head=tokens.find(t=>t.start===args.start),entry=result.entries?.find(e=>e.id===entryId)||result.entries?.[0],m=result.morphology||{};
+  const result=await this.request('lookup_exact',args,'zh',options),tokens=await this.tokenizeWhole(args.text,options),token=tokens.find(t=>t.start===args.start&&t.end===args.end),head=tokens.find(t=>t.start===args.start),entry=result.entries?.find(e=>e.id===entryId)||result.entries?.[0],m=result.morphology||{};
   let chosen=token,reading=token?.reading||m.reading||'',surface=result.surface,pronunciationForm='surface';
   if(!chosen&&head?.lexeme?.base===m.base&&entry?.readings?.some(r=>kana(r)===kana(head.lexeme.reading))){chosen=head;reading=head.lexeme.reading;surface=m.base;pronunciationForm='lemma';}
   /* 2026-11-19 (user, 千恋＊万花: うたたね could not be mined, 「当前词没有确定读音」): Sudachi cut the line うたた｜ねし, so a selection
@@ -296,7 +298,9 @@ class LocalLearning{
     surface = selected; chosen = null; phrase = true; pronunciationForm = 'phrase';
   }
   // A VNDB character name is the reading even where the dictionary entry is another word (希 まれ for Nozomi).
-  const ambiguous=!reading||!!chosen?.reading_ambiguous||!phrase&&!fixed&&chosen?.readingSource!=='name'&&chosen?.readingSource!=='game'&&!!entry&&!entry.readings?.some(r=>kana(r)===kana(reading));
+  /* #1131: the word's own token is what the furigana shows, so the speech button says that reading even when the card's
+     dictionary entry spells it otherwise; only the lemma path (a token the selection does not match) is checked against the entry */
+  const ambiguous=!reading||!!chosen?.reading_ambiguous||!phrase&&!fixed&&!(chosen&&chosen===token)&&chosen?.readingSource!=='name'&&chosen?.readingSource!=='game'&&!!entry&&!entry.readings?.some(r=>kana(r)===kana(reading));
   /* A piece of a number word (分 of 10分): the furigana reads the whole word (じゅっぷん), so the speech button says that word;
      the card keeps the selected word. */
   const number=!token&&tokens.find(t=>(t.readingSource==='number'||t.readingSource==='name'||t.readingSource==='game')&&t.start<=args.start&&args.end<=t.end);

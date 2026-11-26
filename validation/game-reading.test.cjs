@@ -59,5 +59,7 @@ test('the reader binds the game’s readings and the speech button reads the lin
  assert.match(reader,/learning\.useNames\(null\);this\.bindReadings\(learning,game\);/);
  assert.match(reader,/hooks\?\.sourceRuby/);assert.match(reader,/gameRuby\?\.dict\(this\.gal\?\.styleSync\?\.profileKey\)/);assert.match(reader,/scriptRuby\(this\.root,exe,game\?\.id\)/);
  assert.equal(reader.match(/useGameReadings\?\.\(null\)/g)?.length,2,'game change and game exit');
+ const learning=fs.readFileSync(path.join(__dirname,'..','core','learning-native.cjs'),'utf8');
+ assert.match(learning,/tokens=await this\.tokenizeWhole\(args\.text,options\)/,'a line the game wrapped is one word for the speech button too');
  assert.equal(typeof require('../services/original-text.cjs').scriptRuby,'function');
 });
