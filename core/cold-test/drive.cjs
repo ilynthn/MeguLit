@@ -19,7 +19,7 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,choiceWait:1500,choiceHover:300,choiceRetry:3000});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,readEvery:0,choiceWait:1500,choiceHover:300,choiceRetry:3000});
 
 class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
@@ -67,7 +67,9 @@ class Driver{
   /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
   const ctrl=o.slowLines>0?this.fast:o.skip!==false;
   if(ctrl&&t-this.lastCtrl>=o.ctrlEvery){this.lastCtrl=t;out.push({do:'keydown',vk:VK.ctrl});}
-  if(t-this.lastAct>=o.advanceEvery){this.lastAct=t;out.push(this.step++%2?{do:'key',vk:VK.enter}:{do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.85)});}
+  /* readEvery (tools/adapt-auto.cjs): the advance interval without Ctrl, so a long line is shown to its end before the next one (the reader
+     reveals it; at 450 ms 3-row lines of オルフレール never completed: Cardinal row) */
+  if(t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery)){this.lastAct=t;out.push(this.step++%2?{do:'key',vk:VK.enter}:{do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.85)});}
   return out;}
 }
 module.exports={Driver,DEFAULTS,VK,START,NOT_START,CONFIRM};

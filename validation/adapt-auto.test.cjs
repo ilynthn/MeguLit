@@ -202,3 +202,7 @@ test('driver: a choice is answered by hover + click after Ctrl is released, then
  assert.deepEqual(d.next({t:2100,window:W,lines:2,choices:1,menu:[opt]}),[{do:'click',x:500,y:320}]);
  assert.deepEqual(d.next({t:5200,window:W,lines:2,choices:1,menu:[opt]}),[{do:'phase',name:'choice-try-2'},{do:'key',vk:VK.down},{do:'key',vk:VK.enter}]);
  assert.deepEqual(d.next({t:5300,window:W,lines:3,choices:1,menu:[opt]}),[{do:'phase',name:'choice-done',try:2}]);});
+
+test('driver readEvery: without Ctrl the game is advanced at reading pace; with Ctrl at advanceEvery',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({skip:false,slowLines:100,readEvery:1500,advanceEvery:450,stallMs:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});d.next({t:10,window:W,lines:1});
+ assert.equal(d.next({t:500,window:W,lines:1}).length,0,'not after 450 ms');assert.equal(d.next({t:1600,window:W,lines:1}).length,1,'after 1.5 s');});
