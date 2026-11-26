@@ -77,9 +77,17 @@ function parseTable(text,ext){
   if(term&&definition.length)rows.push([term,reading&&reading!==term?reading:'',definition]);}
  return rows;
 }
+/* Not UTF-8: Shift-JIS and GB18030 both decode most legacy tables without an error, so decoding is not identification.
+   Japanese read as GB18030 turns its kana into rare ideographs (猫 ねこ → 擫 偹偙); Chinese read as Shift-JIS turns
+   its lead bytes into half-width katakana. So Shift-JIS wins when it yields more full-width kana than GB18030 and
+   more of them than half-width katakana; otherwise GB18030. */
+const fullKana=s=>(s.match(/[ぁ-ゖァ-ヺー]/g)||[]).length,halfKana=s=>(s.match(/[ｦ-ﾟ]/g)||[]).length;
 function decodeText(buffer){
  try{return new TextDecoder('utf-8',{fatal:true}).decode(buffer);}catch{}
- for(const enc of ['gb18030','shift_jis']){try{return new TextDecoder(enc,{fatal:true}).decode(buffer);}catch{}}
+ const tryDecode=enc=>{try{return new TextDecoder(enc,{fatal:true}).decode(buffer);}catch{return null;}};
+ const gb=tryDecode('gb18030'),sj=tryDecode('shift_jis');
+ if(gb!=null&&sj!=null)return fullKana(sj)>fullKana(gb)&&fullKana(sj)>halfKana(sj)?sj:gb;
+ if(gb!=null)return gb;if(sj!=null)return sj;
  throw Error('USER_DICT_BAD_ENCODING');
 }
 async function readYomitan(file){
@@ -153,4 +161,4 @@ function lookup(root,words,options={}){
 const rows=(root,words)=>lookup(root,words).map(h=>({spelling:h.term,reading:h.reading,pron:h.reading,definition:h.definitions.join('\n'),source:'user',dictionary:h.dictionary.name}));
 function _reset(){state={root:'',mtime:-1,list:[]};loaded.clear();}
 
-module.exports={importDictionary,list:publicList,setEnabled,rename,move,remove,lookup,rows,parseTermBank,parseTable,glossText,readFile,_reset,folder};
+module.exports={importDictionary,list:publicList,setEnabled,rename,move,remove,lookup,rows,parseTermBank,parseTable,glossText,readFile,decodeText,_reset,folder};

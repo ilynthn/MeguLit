@@ -51,6 +51,18 @@ test('import, look up with the dictionary name, toggle, reorder and delete; data
  U._reset();fs.rmSync(root,{recursive:true,force:true});fs.rmSync(src,{recursive:true,force:true});
 });
 
+function legacy(text,label){const m=new Map();for(let a=0x81;a<=0xfe;a++)for(let b=0x40;b<=0xfe;b++){try{const c=new TextDecoder(label,{fatal:true}).decode(Buffer.from([a,b]));if(c.length===1&&!m.has(c))m.set(c,Buffer.from([a,b]));}catch{}}
+ return Buffer.concat(Array.from(text,c=>c.charCodeAt(0)<0x80?Buffer.from(c):m.get(c)));}
+test('a Shift-JIS table that also decodes as GB18030 is read as Shift-JIS; GB18030 tables stay Chinese (Codex #1280)',async()=>{
+ const src=tmp(),sj=path.join(src,'sjis.tsv'),gb=path.join(src,'gb.tsv'),gbKana=path.join(src,'gb-kana.tsv');
+ const sjBytes=legacy('猫\tねこ\tcat\n','shift_jis');assert.doesNotThrow(()=>new TextDecoder('gb18030',{fatal:true}).decode(sjBytes),'the bytes are valid GB18030 too');
+ fs.writeFileSync(sj,sjBytes);fs.writeFileSync(gb,legacy('猫\t猫咪\n爆裂\t爆炸\n','gb18030'));fs.writeFileSync(gbKana,legacy('猫\tねこ\t猫咪\n','gb18030'));
+ assert.deepEqual((await U.readFile(sj)).rows,[['猫','ねこ',['cat']]]);
+ assert.deepEqual((await U.readFile(gb)).rows,[['猫','',['猫咪']],['爆裂','',['爆炸']]]);
+ assert.deepEqual((await U.readFile(gbKana)).rows,[['猫','ねこ',['猫咪']]]);
+ fs.rmSync(src,{recursive:true,force:true});
+});
+
 test('user dictionaries are wired into the dictionary page, the settings page and the lookup card',()=>{
  const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
  const bridge=read('services/bridge.cjs'),reader=read('services/reader.cjs'),card=read('web/reader/modules/selection.js'),settings=read('web/settings.js'),page=read('web/user-dicts.js');
