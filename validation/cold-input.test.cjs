@@ -104,3 +104,20 @@ test('ladder: a level a watched click proved is not raised by stalled lines (オ
  const L=new F.Ladder(['post','inputctl'],{waitMs:1000,stallMs:5000});const click={do:'click',x:1,y:2,watch:'start'};
  L.start(click,0,{lines:0});L.tick(1000,{lines:0});L.screen(0.9);assert.deepEqual(L.tick(1100,{lines:0}),{done:true,changed:true});
  assert.deepEqual(L.record.verified,['post']);assert.equal(L.stall(30000,0),false);assert.equal(L.level,'post');});
+
+test('run: a choice-locate request that came while an older OCR ran is answered from the next picture, not dropped (オルフレール r1)',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
+ const A=['私はここで生まれ、家はとても貧しい','両親と幸せに暮らしていた'],B=['……本当は、お優しい方なのかしら','……本当に、几帳面な方なのね'];const answers=[];
+ class LocHook{configure(){setTimeout(()=>this.locateChoices(A),20);setTimeout(()=>this.locateChoices(B),80);}choiceBoxes(a){answers.push(a);}tick(){}stop(){}}
+ const rows=opts=>opts.map((t,i)=>({text:t,x:100,y:300+i*60,w:500,h:40}));let n=0;
+ const ocr=()=>new Promise(r=>{const k=n++;setTimeout(()=>r(k===0?[{text:'まったく関係のない背景の文字です',x:10,y:10,w:300,h:30}]:rows(B)),150);});
+ class Wait{next(obs){return obs.t>=1500?[{do:'end',why:'test'}]:[];}}
+ const desk=fakeDesk();
+ const r=await alive(run.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true,choiceLocate:true},{spawn:desk.spawn,helper:'ColdDesk.exe',Hook:LocHook,layout:{native:dir},tick:20,Driver:Wait,ocr}));
+ assert.equal(answers.length,1,'one answer');assert.deepEqual(answers[0].items.map(i=>i.text),B);assert.equal(r.choiceLocates,1);assert.ok(n>=2,'a second picture was taken for the newer request');});
+
+test('run: a locate request the pictures never show is given up after three and recorded',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
+ class LocHook{configure(){setTimeout(()=>this.locateChoices(['……本当は、お優しい方なのかしら','……本当に、几帳面な方なのね']),20);}choiceBoxes(){}tick(){}stop(){}}
+ let n=0;const ocr=()=>{n++;return Promise.resolve([{text:'まったく関係のない背景の文字です',x:10,y:10,w:300,h:30}]);};
+ class Wait{next(obs){return obs.t>=7500?[{do:'end',why:'test'}]:[];}}
+ const r=await alive(run.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true,choiceLocate:true},{spawn:fakeDesk().spawn,helper:'ColdDesk.exe',Hook:LocHook,layout:{native:dir},tick:20,Driver:Wait,ocr}));
+ assert.equal(n,3);assert.equal(r.choiceLocates,undefined);assert.equal(r.choiceLocateMisses.length,1);});

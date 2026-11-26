@@ -25,6 +25,7 @@ function menuItem(raw,win){let rec=null;try{rec=require('../core/text-paths.cjs'
    title) opts.ocrMenu: while no line has come and the engine reported no start item, a full-size client picture every OCR_EVERY ms
    goes through Windows OCR (services/cold-ocr.ps1, Japanese); a line that reads like 「はじめから / New Game」 (OCR is rough on
    decorated fonts: は し め 力 、 ら) becomes a 'button' item for the driver; 「つづきから / ロード」 lines never do */
+const LOCATE_TRIES=3;
 const OCR_CONFIRM=/^(決定|[OＯ][KＫ])$/i,OCR_EVERY=20000,OCR_START=/^[はハ][しじシジ]め|^[始最]初から|new.?game|ニューゲ|ゲーム開始|^start$/i,OCR_NOT=/[続つ][づきけ]|ロード|load|continue|コンティ/i;
 /* a name entry (オルフレール: 「主人公の名前を入力してください」, buttons 決定 / デフォルト / タイトルへ) keeps the default name: its 「決定」
    is read, or placed one button step left of 「デフォルト」 on the same row (step = distance to 「タイトルへ」, else twice the label
@@ -131,7 +132,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    if(opts.hideProbe===true&&sel.sample&&sel.embeddable!==true&&hooks?.probing!==true){try{hooks.probeHide?.(true);{const hp=res.hideProbes||(res.hideProbes=[]);if(hp.length<20)hp.push({id:String(sel.id),at:new Date(now()).toISOString()});}}catch{}}};
   /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
   let hookTextAt=0,threadSig='';
-  let locatePending=null;
+  /* 2026-11-26 (オルフレール krkr-nodraw r1: the kernel's request with the right two options came while the OCR of the request before it
+     was running; that older picture's answer took the new request, found nothing and dropped it, so no hookChoiceBoxes): a request is
+     answered only from a picture taken after it came (ocrFor), and one the picture does not show stays for LOCATE_TRIES pictures */
+  let locatePending=null,ocrFor=null;
   let nameHint='',lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new (deps.Driver||Driver)({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   /* every input the driver asks for: ColdDesk's PostMessage, or (opts.inputFallback, tools/adapt-auto.cjs) the level the input ladder is on */
   const post=a=>{if(a.do==='click')send('click '+(a.x|0)+' '+(a.y|0));else if(a.do==='move')send('move '+(a.x|0)+' '+(a.y|0));else if(a.do==='key')send('key '+a.vk);else if(a.do==='keydown')send('keydown '+a.vk);else if(a.do==='keyup')send('keyup '+a.vk);};
@@ -159,7 +163,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    /* 2026-11-26 opts.choiceLocate (tools/adapt-auto.cjs): the kernel asks the host to locate the options it has (hooks.locateChoices; in the
       app GalWindowBridge answers with its OCR as 'hookChoiceBoxes'). A cold run has no reader, so this runner answers with its own OCR
       rows; the answer also goes on Cardinal's tape as the gwb record the app would have */
-   if(opts.choiceLocate===true)hooks.locateChoices=options=>{locatePending={options:(Array.isArray(options)?options:[]).map(String).slice(0,12),at:now()};ocrAt=0;};
+   if(opts.choiceLocate===true)hooks.locateChoices=options=>{locatePending={options:(Array.isArray(options)?options:[]).map(String).slice(0,12),at:now(),tries:0};ocrAt=0;};
    hooks.configure({hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started});}
    /* 2026-11-26 processName without .exe, as GalWindowBridge sends it: native/HookTarget.cs Validate compares it with the image name
       without extension, so 'orfre.exe' made every cold run end in 「Bound game process changed」 and six reconnects */
@@ -176,7 +180,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
       /* options the hook saw (its last 'choice aux' text, since the lines stopped) and OCR finds as separate rows: a choice; the kernel
          confirms choices with the reader's OCR, which a cold run has not (オルフレール: "choice locate unavailable", the run stalled on
          its first choice with Ctrl held) */
-      if(locatePending){const ans=locateAnswer(lines,locatePending.options,res.window);locatePending=null;if(ans){res.choiceLocates=(res.choiceLocates||0)+1;try{require('../core/cardinal/tape.cjs').record('gwb',ans);}catch{}try{hooks?.choiceBoxes?.(ans);}catch{}}}
+      const req=ocrFor;ocrFor=null;if(req&&req===locatePending){const ans=locateAnswer(lines,req.options,res.window);if(ans||++req.tries>=LOCATE_TRIES){locatePending=null;if(!ans){const mi=res.choiceLocateMisses||(res.choiceLocateMisses=[]);if(mi.length<10)mi.push({at:new Date(req.at).toISOString(),options:req.options.slice(0,4)});}}if(ans){res.choiceLocates=(res.choiceLocates||0)+1;try{require('../core/cardinal/tape.cjs').record('gwb',ans);}catch{}try{hooks?.choiceBoxes?.(ans);}catch{}}}
       {const opts=choiceItems(lines,choiceAuxAt>=lastLineAt-1000?choiceAux:'');if(opts.length>=2){for(let i=menu.length-1;i>=0;i--)if(menu[i].role==='choice')menu.splice(i,1);for(const it of opts.slice().reverse())menu.unshift(it);res.choices++;res.ocrChoices=opts.map(o=>o.text);}}});break;}
      if(m.ok&&m.path){res.shots.push(path.basename(m.path));if(m.black===true)res.black=true;else res.black=false;}break;
     case 'input':res.stopped='input';finish('input');break;
@@ -193,7 +197,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   child.on?.('close',()=>{finish('helper-close');resolve(res);});
   let ocrBusy=false,ocrAt=0,ocrN=0;
   timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
-   if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;
+   if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;ocrFor=locatePending;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
    const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,quietMs:hookTextAt?now()-hookTextAt:1e9});
    if(input)input.tick(t);
