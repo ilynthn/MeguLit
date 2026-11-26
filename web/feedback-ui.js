@@ -22,7 +22,7 @@ const T = {
     upd: (y, m, d, title) => `${y}年${m}月${d}日 完善了《${title}》的内嵌使用`, updNote: '以上游戏只在作者本地做过部分测试，实际游玩中如果还有问题，欢迎继续反馈，会跟进修复',
     gamePlaceholder: '完整的游戏名（日文原名或商店里的名字）', gameRule: '请写完整、准确的游戏名：日文原名，或 Steam、DLsite 商店里的名字都可以。不要写缩写、简称或昵称（比如「夏天」「GG」），缩写很难找到是哪部游戏', gameShort: '这个名字很短，可能是缩写或简称。请写完整的游戏名；确定这就是全名的话，再点一次提交', submit: '提交', gameSent: '收到了，会尽快适配',
     noticeMore: '遇到问题了，可以在「关于」页点「一键上传问题反馈」，写一下原因，简短或详细都可以，日志会一起发过来。有什么建议，或者只是想留句话，也都很欢迎。谢谢支持！',
-    report: '一键上传问题反馈', noticeOff: '以后不再提示', noticeOffTip: '勾上后启动时不再弹出这个窗口。更新日志和使用教程随时可以在顶栏「教程」里看', ok: '知道了', next: '下一步：使用教程', back: '上一步', done: '完成', guideKicker: 'guide', guide: '教程',
+    report: '一键上传问题反馈', noticeOff: '当前版本不再提示', noticeOffTip: '勾上后，这个版本启动时不再弹出这个窗口；更新到新版本会再提示一次。更新日志和使用教程随时可以在顶栏「教程」里看', ok: '知道了', next: '下一步：使用教程', back: '上一步', done: '完成', guideKicker: 'guide', guide: '教程',
     tabUpdates: '更新日志', tabGuide: '使用教程', tabReport: '问题反馈', tabGame: '想玩的游戏', reportText: '写一下原因，简短或详细都可以，最近的日志会一起发给作者。', gameText: '想玩什么游戏，把名字写在下面点提交，快的话半天，最晚一周内就能支持', close: '关闭', noUpdates: '暂时读不到更新日志，联网后再试',
   },
   ja: {
@@ -35,7 +35,7 @@ const T = {
     upd: (y, m, d, title) => `${y}年${m}月${d}日 「${title}」の埋め込み表示を改善しました`, updNote: '上のゲームは作者の手元で一部しか確認していません。実際に遊んで問題があれば、引き続き知らせてください。修正していきます',
     gamePlaceholder: '正式なゲーム名（原題やストアの表記）', gameRule: '正式なゲーム名をそのまま書いてください。原題や Steam・DLsite のストア表記がおすすめです。略称やあだ名だと、どの作品か特定できないことがあります', gameShort: '名前が短く、略称かもしれません。正式なタイトルを書いてください。これが正式名なら、もう一度送信してください', submit: '送信', gameSent: '受け取りました。できるだけ早く対応します',
     noticeMore: '困ったときは「について」ページの「不具合をまとめて送る」から、原因をひとこと書いて送ってください（短くても詳しくても OK）。ログも一緒に届きます。ご意見やひとことも大歓迎です',
-    report: '不具合をまとめて送る', noticeOff: '次回から表示しない', noticeOffTip: 'チェックすると起動時にこの画面を出しません。更新履歴と使い方は上のバーの「チュートリアル」からいつでも見られます', ok: 'わかった', next: '次へ：使い方', back: '戻る', done: '完了', guideKicker: 'guide', guide: 'チュートリアル',
+    report: '不具合をまとめて送る', noticeOff: 'このバージョンでは表示しない', noticeOffTip: 'チェックすると起動時にこの画面を出しません。更新履歴と使い方は上のバーの「チュートリアル」からいつでも見られます', ok: 'わかった', next: '次へ：使い方', back: '戻る', done: '完了', guideKicker: 'guide', guide: 'チュートリアル',
     tabUpdates: '更新履歴', tabGuide: '使い方', tabReport: '不具合を送る', tabGame: '遊びたいゲーム', reportText: '原因をひとこと書いてください。最近のログも一緒に作者へ届きます。', gameText: '遊びたいゲームの名前を入れて送信してください。早ければ半日、遅くとも一週間以内に対応します', close: '閉じる', noUpdates: '更新履歴を読み込めません。オンラインで再度お試しください',
   },
   en: {
@@ -48,7 +48,7 @@ const T = {
     upd: (y, m, d, title) => `${new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })} · embedded mode for ${title} improved`, updNote: 'These were only partly tested on the author’s own machine. If anything still goes wrong when you play, please keep telling us and we’ll fix it',
     gamePlaceholder: 'Full game title (original or store name)', gameRule: 'Please write the full, exact title: the original Japanese title or the name on Steam or DLsite. Avoid abbreviations and nicknames, they make it hard to find the right game. For an exact build, use VNDB ID | engine | source language | EXE SHA-256 | script SHA-256', gameShort: 'This name is very short and may be an abbreviation. Please write the full title; if this is the full title, press Submit again', submit: 'Submit', gameSent: 'Got it; support is on the way',
     noticeMore: 'If something goes wrong, open About and use Report a problem: say what happened, briefly or in detail, and the logs come along. Ideas or just a hello are welcome too. Thanks for the support!',
-    report: 'Report a problem', noticeOff: "Don't show this again", noticeOffTip: 'When ticked, this window no longer opens at start-up. Updates and the tutorial stay under Tutorial in the top bar', ok: 'Got it', next: 'Next: how to use', back: 'Back', done: 'Done', guideKicker: 'guide', guide: 'Tutorial',
+    report: 'Report a problem', noticeOff: "Don't show again for this version", noticeOffTip: 'When ticked, this window no longer opens at start-up. Updates and the tutorial stay under Tutorial in the top bar', ok: 'Got it', next: 'Next: how to use', back: 'Back', done: 'Done', guideKicker: 'guide', guide: 'Tutorial',
     tabUpdates: 'Updates', tabGuide: 'How to use', tabReport: 'Report', tabGame: 'Request a game', reportText: 'Say what went wrong, briefly or in detail; recent logs go to the author with it.', gameText: 'Type a game you want to play and submit it; it usually takes half a day, a week at most', close: 'Close', noUpdates: 'Could not load the updates; try again when online',
   },
 };
@@ -125,8 +125,10 @@ let shownThisLaunch = false;
 const launchNoticeKey = 'megulit.startupNoticeShown';
 /* the reader ticked 以后不再提示 on the start notice: it no longer opens by itself (the top-bar guide still has everything) */
 const noticeOffKey = 'megulit.startupNoticeOff';
-export const noticeOff = (store = globalThis.localStorage) => { try { return store?.getItem(noticeOffKey) === '1'; } catch { return false; } };
-const setNoticeOff = on => { try { if (on) globalThis.localStorage?.setItem(noticeOffKey, '1'); else globalThis.localStorage?.removeItem(noticeOffKey); } catch { /* storage blocked: the box just does not stick */ } };
+/* 2026-11-26 (user: 显示的是当前版本不再提示): the box remembers the version it was ticked on, so a new version shows the notice once more */
+let noticeVersion = '';
+export const noticeOff = (store = globalThis.localStorage, version = noticeVersion) => { try { const v = store?.getItem(noticeOffKey); return !!v && v === (version || '1'); } catch { return false; } };
+const setNoticeOff = on => { try { if (on) globalThis.localStorage?.setItem(noticeOffKey, noticeVersion || '1'); else globalThis.localStorage?.removeItem(noticeOffKey); } catch { /* storage blocked: the box just does not stick */ } };
 try { shownThisLaunch = globalThis.sessionStorage?.getItem(launchNoticeKey) === '1'; } catch { /* storage disabled */ }
 /* (user 2026-11-13: the list appeared only after a while and opening the notice stuttered) the last list is kept in
    localStorage and drawn in the first frame; the service answer (its own cache, then the site) replaces it only when it differs.
@@ -165,12 +167,13 @@ async function fillUpdates(dialog, locale, api, cached = cachedUpdates()) {
 }
 
 export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', force = false, canShow = () => true }) {
+  noticeVersion = String(version || '');
   if (((shownThisLaunch || noticeOff()) && !force) || document.querySelector('.dev-notice') || !canShow()) return;
   const t = words(locale), dialog = document.createElement('dialog');
   const loadingUpdates = { zh: '正在读取更新日志…', ja: '更新履歴を読み込み中…', en: 'Loading update notes…' };
   dialog.className = 'game-dialog dev-notice seed-flow startup-notice';
   dialog.setAttribute('aria-label', t.noticeTitle);
-  dialog.innerHTML = `<button type="button" class="startup-notice-close" data-notice-close autofocus title="${esc(t.close)} (Esc)">${esc(t.close)}</button>
+  dialog.innerHTML = `<button type="button" class="startup-notice-close" data-notice-close autofocus title="${esc(t.close)} (Esc)" aria-label="${esc(t.close)}">×</button>
 <div class="dev-notice-page" data-page="1"><div class="dev-notice-top"><span>${esc(t.noticeKicker)}</span><span>${esc(t.noticeTag)}</span></div>
 <h2>${esc(t.noticeTitle)}</h2><h2 class="dev-notice-title2">${esc(t.noticeTitle2)}</h2>${successHTML(locale, esc)}<p class="dev-notice-text">${esc(t.noticeText)}</p>
 <form class="dev-notice-form"><input class="dev-notice-game" maxlength="256" placeholder="${esc(t.gamePlaceholder)}"><button type="submit" class="secondary">${esc(t.submit)}</button></form><p class="dev-notice-rule">${esc(t.gameRule)}</p>
