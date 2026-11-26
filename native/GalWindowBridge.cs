@@ -588,7 +588,7 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
             RefreshReaderPointer();}
         else if(type=="glass")GlassCommand(d);
         else if(type=="lookup"){bool open=Bool(d,"open");LookupOpen=open&&TranslationMode&&CoverEnabled;if(!open){LookupDragRegion=0;LookupGrip=null;}RefreshReaderPointer();}
-        else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"));}
+        else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"),Bool(d,"panelUp"));}
         else if(type=="quit")Running=false;
     }
     static bool ReaderMouseDown,ReaderSpaceDown,ReaderEnterDown,ReaderSkipHeld;

@@ -198,14 +198,19 @@ internal sealed class ReaderPointerGate {
         return true;
     }
 
-    internal void ResolveWheel(int id,bool panel){
+    /* 2026-11-26 (QQ #1130: wheel up over MeguLit's line no longer opened the log). Every wheel over the line was posted to the
+       game, so the page's own wheel-up-opens-the-log never saw one. The page now also says when only an upward wheel is its
+       own (panelUp: the log setting is on and the pointer is on the line); a downward wheel there still reaches the game. */
+    internal static bool WheelToPanel(bool panel,bool panelUp,int message,int delta){return panel||panelUp&&message==Wheel&&delta>0;}
+
+    internal void ResolveWheel(int id,bool panel,bool panelUp=false){
         PendingWheel wheel;
         if(!pendingWheels.TryRemove(id,out wheel)||unchecked(GetTickCount()-wheel.At)>500)return;
         var context=Current;
         if(context==null||context.Overlay!=wheel.Context.Overlay||context.Game!=wheel.Context.Game||!IsWindowVisible(context.Overlay))return;
         var under=GetAncestor(WindowFromPoint(wheel.Mouse.Position),2);
         if(under!=context.Overlay&&under!=context.Game)return;
-        if(panel){
+        if(WheelToPanel(panel,panelUp,wheel.Message,unchecked((short)(wheel.Mouse.Data>>16)))){
             int delta=unchecked((short)(wheel.Mouse.Data>>16));
             events.Add(new{type="readerPointer",kind="mouseWheel",x=wheel.Local.X,y=wheel.Local.Y,button=-1,buttons=0,modifiers=wheel.Modifiers,
                 deltaX=wheel.Message==HorizontalWheel?delta:0,deltaY=wheel.Message==Wheel?-delta:0});
@@ -297,6 +302,8 @@ internal sealed class ReaderPointerGate {
         var lookup=new Context(IntPtr.Zero,IntPtr.Zero,client,true,hits,hits,hits);
         if(!line.Hit(300,620)||line.Hit(800,620)||line.Hit(900,600)||lookup.Hit(900,600)||lookup.Hit(-1,600)||lookup.Hit(1920,600))return false;
         if(!lookup.Hit(300,620)||lookup.NativeMenu(300,620)||!lookup.InMenu(300,620))return false;
+        if(!WheelToPanel(true,false,Wheel,-120)||!WheelToPanel(false,true,Wheel,120)||WheelToPanel(false,true,Wheel,-120)||
+           WheelToPanel(false,true,HorizontalWheel,120)||WheelToPanel(false,false,Wheel,120))return false;
         /* only a press on the game itself, while the card is open and the game is in front, is a dismissal */
         if(!DismissOutside(true,false,false,true,true,true)||DismissOutside(false,false,false,true,true,true)||DismissOutside(true,true,false,true,true,true)||
            DismissOutside(true,false,true,false,true,true)||DismissOutside(true,false,false,true,false,true)||DismissOutside(true,false,false,true,true,false))return false;

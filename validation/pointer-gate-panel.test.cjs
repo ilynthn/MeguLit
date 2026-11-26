@@ -17,7 +17,7 @@ test('the live DOM resolves ambiguous wheel events before the bridge forwards th
  assert.match(g,/NeedsWheelHitTest\(false,false,true,false,true\)/,'a stale native rectangle still needs a DOM hit test on the reader window');
  assert.match(g,/NeedsWheelHitTest\(true,false,false,true,true\)/,'a moved lookup card needs a live hit test even when Windows reports the game below it');
  assert.match(g,/kind="wheelHitTest"/);
- assert.match(g,/if\(panel\)\{[\s\S]+?kind="mouseWheel"/);
+ assert.match(g,/if\(WheelToPanel\(panel,panelUp,wheel\.Message,[^{]+\{[\s\S]+?kind="mouseWheel"/);
  assert.match(g,/else\{\s*var foreground=GetAncestor\(GetForegroundWindow\(\),2\);[\s\S]+?PostGameWheel\(context\.Game,wheel\);/);
  assert.match(g,/PostMessage\(game,\(uint\)wheel\.Message,/);
  assert.match(r,/window\.__megulitResolveWheel/);
