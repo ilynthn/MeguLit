@@ -26,11 +26,11 @@ const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
 const STALE_MS=20*60000,STALE_ONCE_MS=180*60000;
 
-function parseRun(argv){const a=argv.slice(2),o={external:true,dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
+function parseRun(argv){const a=argv.slice(2),o={copy:false,net:true,external:true,dir:'',exe:'',vndb:'',release:'',cn:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--copy')o.copy=true;else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -65,6 +65,16 @@ const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.pus
 function lunaCaps(caps,gameDir,engine=''){if(caps.known)return caps;let hits=[];try{hits=require('../services/original-engines/registry.cjs').lunaHook(gameDir);}catch{}
  const names=[...new Set(hits.map(h=>h.cls))];const mapped=names.find(n=>Engines.lunaRule(n));
  if(mapped&&!engine)return {...Engines.capabilities(Engines.lunaRule(mapped)),luna:mapped,lunaStatic:true};return names.length?{...caps,luna:names.join(' / ')}:caps;}
+/* 2026-11-27 (E: nearly full): the game's own copy for testing goes to MEGULIT_ADAPTER_GAMES (default H:MeguLit-Workadapter-games),
+   never E: or C:; the target drive must keep MIN_FREE free after the copy. A copy already there (same name) is kept */
+const GAMES_ROOT=()=>process.env.MEGULIT_ADAPTER_GAMES||'H:\\MeguLit-Work\\adapter-games',MIN_FREE=15*2**30;
+function treeBytes(d){let n=0;const walk=x=>{let e=[];try{e=fs.readdirSync(x,{withFileTypes:true});}catch{return;}for(const y of e){const f=path.join(x,y.name);if(y.isDirectory())walk(f);else if(y.isFile())try{n+=fs.statSync(f).size;}catch{}}};walk(d);return n;}
+function copyGame(src,{root=GAMES_ROOT(),statfs=fs.statfsSync,noDrives=process.env.MEGULIT_ADAPTER_NO_DRIVES??'C,E'}={}){const dir=path.join(root,Cold.safeName(Cold.titleOf(src)));
+ const drive=(/^([A-Za-z]):/.exec(path.resolve(dir))||[])[1]||'';if(drive&&String(noDrives).toUpperCase().split(/[,\s]+/).includes(drive.toUpperCase()))throw Error('copies never go to C: or E: ('+dir+'); set MEGULIT_ADAPTER_GAMES');
+ if(fs.existsSync(dir)&&fs.readdirSync(dir).length)return {dir,reused:true,bytes:0};
+ const bytes=treeBytes(src);fs.mkdirSync(root,{recursive:true});const st=statfs(root),free=Number(st.bavail)*Number(st.bsize);
+ if(free-bytes<MIN_FREE)throw Error('not enough space on '+root+': '+Math.round(free/2**30)+' GB free, the copy needs '+Math.round(bytes/2**30)+' GB and 15 GB must stay free');
+ fs.cpSync(src,dir,{recursive:true});return {dir,reused:false,bytes};}
 const stateFile=out=>path.join(out,'adapter.json');
 const readState=out=>JSON.parse(fs.readFileSync(stateFile(out),'utf8'));
 function saveState(st){st.updatedAt=new Date().toISOString();fs.writeFileSync(stateFile(st.out),JSON.stringify(st,null,1));}
@@ -108,7 +118,8 @@ function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(s
  '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status '+g.status+'），由 MeguLit-Adapter 生成：',...summary(st).map(s=>'- '+s),'- 版本层另记 exe 头尾 / PE 版本 / 剧本指纹 / 主封包指纹（`ext.versionPrints`，`source.versionMatch: prints`），补丁和汉化后的 exe 也认得','',
  '## 验证','','- 冷测试 + Cardinal（'+(st.foreground?'前台':'隐藏桌面')+'，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人工确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 阅读层译文只由 Cardinal 回放证明，冷测试截图里没有阅读层（未实机验证译文画面）',''].join('\n');}
 
-async function run(o,{log=console.log}={}){const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(Cold.RUNS_ROOT,Cold.safeName(title)));
+async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.resolve(o.dir));log('# own copy '+c.dir+(c.reused?' (kept)':' ('+Math.round(c.bytes/1048576)+' MB)'));o={...o,dir:c.dir};}
+ const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(Cold.RUNS_ROOT,Cold.safeName(title)));
  fs.mkdirSync(out,{recursive:true});
  if(!fs.existsSync(dir)){log('# 游戏目录不存在：'+dir+'（Git Bash 的 /e/... 带 [ ] 时不转换，用 E:/...）');return EXIT.inconclusive;}
  const triage=Cold.unsupported(dir);if(triage&&!/光盘/.test(triage)){log('# '+triage);return EXIT.inconclusive;}
@@ -167,4 +178,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};

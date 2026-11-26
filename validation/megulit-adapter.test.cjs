@@ -162,3 +162,10 @@ test('second opinion: GalTransl detect names the engine and the file to port; an
  assert.match(S.note(o),/yuris.*YPF archive version 500.*读出 2 句.*python\/engines\/yuris\.py/);
  assert.equal(S.secondOpinion({gameDir:'G:/game',out,skill:tmp()},{run}).error.length>0,true,'no skill: an error, not a throw');
  assert.equal(S.wanted({probe:{step:'ok'},caps:{known:true}}),false);assert.equal(S.wanted({probe:{step:'parse-failed'},caps:{known:true}}),true);});
+
+test('own copy: goes under MEGULIT_ADAPTER_GAMES, never C: or E:, and only while 15 GB stay free; an existing copy is kept',()=>{
+ const src=tmp(),root=tmp();fs.mkdirSync(path.join(src,'g'));fs.writeFileSync(path.join(src,'g','game.exe'),'MZ');
+ const big={bavail:1,bsize:4096};const no='';assert.throws(()=>Adapter.copyGame(src,{root,statfs:()=>big,noDrives:no}),/15 GB must stay free/);
+ const roomy={bavail:2**40/4096,bsize:4096};const c=Adapter.copyGame(src,{root,statfs:()=>roomy,noDrives:no});assert.equal(c.reused,false);assert.ok(fs.existsSync(path.join(c.dir,'g','game.exe')));
+ assert.equal(Adapter.copyGame(src,{root,statfs:()=>big,noDrives:no}).reused,true);
+ assert.throws(()=>Adapter.copyGame(src,{root:'E:\games',statfs:()=>roomy}),/never go to C: or E:/);});
