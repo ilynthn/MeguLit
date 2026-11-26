@@ -14,6 +14,9 @@
      YU-RIS  native/megulithook/YurisDraw.h   ToMe_DRAWRUN engine=yuris run=N n= x0= y0= x1= y1= size= text=
              an EmbedYURIS stream cannot take a written-back text of any size (core/hook-native.cjs fixedSizeEmbed, 2026-11-13 euphoria:
              「テキスト内部エラーです」): an embedReply with text on it is a fault the game would stop on
+     BGI     native/megulithook/BgiDraw.h     ToMe_DRAWRUN engine=bgi run=N row=K n= ... color= via= [role=] text= / end run=N rows=K
+             a hide-only stream (old per-character hook, E417) cannot draw a translation: embedMode translate or a reply with text on it
+             is a fault
    generic   every other engine without a model of its own: nothing of the game side is modeled; the scores come from the tape's own
              hook lines, choices and hide evidence only, and the result says so (label 通用模型). */
 const os=require('node:os');
@@ -34,6 +37,18 @@ class YurisModel extends Base{
  sent(m){if(m?.type!=='embedReply')return;const s=this.selected();if(!s||!/^EmbedYURIS/i.test(String(s.name||'')))return;
   if(m.hide!==true&&String(m.trans||'').length)this.fault('embedReply wrote text into the YU-RIS line '+m.id+' (fixed-size embed: the engine stops on any written-back text)');}
 }
+class BgiModel extends Base{
+ constructor(o){super(o);C.source('bgi');this.name='bgi';this.label='BGI 模型';this.roles=[];this.via='';}
+ tick(){const raw=C.read(this.pid,this.tmp),c=raw?C.bgi(raw):{on:false,roles:[]};this.roles=c.roles;this.cfg={roles:c.on?1:0,viaRoles:c.roles.length};
+  /* the dialogue's via: the map's line entry (this game's diff), else none (a row without a role, as the native logs it) */
+  this.via=(c.roles.find(r=>r.role==='line')||{}).via||'';return this.cfg;}
+ line(text){this.lines++;this.tick();if(!this.cfg.roles||!String(text||'').trim())return [];this.runs++;const n=[...String(text)].length,role=this.via?C.roleOf(this.roles,this.via):null;
+  const rows=['ToMe_DRAWRUN engine=bgi run='+this.runs+' row=0 n='+n+' x0=0 y0=0 x1='+(n-1)*24+' y1=0 size=24 color=ffffffff via='+this.via+(role?' role='+role:'')+' text='+cut120(text),'ToMe_DRAWRUN engine=bgi end run='+this.runs+' rows=1'];
+  for(const r of rows)this.emit(r);return rows;}
+ sent(m){const s=this.selected();if(!s||s.hideOnly!==true)return;
+  if(m?.type==='embedMode'&&m.mode==='translate')this.fault('embedMode translate on the hide-only BGI stream '+s.id+' (it cannot draw a translation)');
+  if(m?.type==='embedReply'&&m.hide!==true&&String(m.trans||'').length)this.fault('embedReply with text on the hide-only BGI stream '+s.id);}
+}
 class GenericModel extends Base{
  constructor(o){super(o);this.name='generic';this.label='通用模型';}
  tick(){return this.cfg;}line(){this.lines++;return [];}sent(){}
@@ -41,6 +56,6 @@ class GenericModel extends Base{
 }
 /* which model: the game's engine (profile / library), else the bridge's stream names; KiriKiri stays with krkr-model.cjs */
 function pick({engine='',threads=[]}={}){const e=String(engine||'').toLowerCase(),names=(threads||[]).map(t=>String(t?.name||'')).join(' ');
- if(/kirikiri|krkr/.test(e))return 'krkr';if(/yu-?ris/.test(e)||/\bEmbedYURIS|\bYURIS/i.test(names))return 'yuris';return 'generic';}
-const MODELS={yuris:YurisModel,generic:GenericModel};
-module.exports={YurisModel,GenericModel,pick,MODELS};
+ if(/kirikiri|krkr/.test(e))return 'krkr';if(/yu-?ris/.test(e)||/\bEmbedYURIS|\bYURIS/i.test(names))return 'yuris';if(/\bbgi\b|ethornell/.test(e)||/\bBGI/.test(names))return 'bgi';return 'generic';}
+const MODELS={yuris:YurisModel,bgi:BgiModel,generic:GenericModel};
+module.exports={YurisModel,BgiModel,GenericModel,pick,MODELS};
