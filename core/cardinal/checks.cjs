@@ -156,9 +156,16 @@ function leaks(run,t,ls){t=opts(t);const name=run.name||'run',o=run.o,bad=[];ls=
  const h=o.hidden||{lines:0,visible:0},nativeObserved=require('./native-hide.cjs').validCounts(h);const off=offSpans(run,t);
  /* a line shown while the hide was off (disabled, given way) or the reader was in read mode: the original showed */
  const during=ls.filter(l=>{const a=l.samples[0].at,b=l.samples.at(-1).at;return off.some(s=>s.from<b&&s.to>a);});
- const readObserved=(o.samples||[]).some(s=>s.readMode===true||s.hookProfile==='read');
+ /* 2026-11-26 (owner via 261126总指挥: 按屏幕上原文是不是真被藏住判，不按 profile 名字判): the Hook mode 'read' (读取原文) is the
+    only mode of a read-only stream. With the hide on AND the bridge's own confirmation on the tape that the selected stream's
+    original is hidden (HookBridge GdiHideHit: the selected thread listed hideOnly, "gdi hide confirmed … hide-only"), its samples
+    are not read mode. Without that confirmation, or with the hide off, 'read' stays an observed manual read, as before. */
+ const hideConfirmed=(run.steps||[]).some(st=>st?.hb?.type==='hookThreads'&&(st.hb.hookThreads||[]).some(x=>x&&x.selected===true&&x.hideOnly===true));
+ const readObserved=(o.samples||[]).some(s=>s.readMode===true||s.hookProfile==='read'&&!(s.hookHide===true&&hideConfirmed));
  const failed=visible>0||nativeObserved&&h.visible>0||during.length>0||readObserved||off.length>0;
- const observed=failed||checked>=4||nativeObserved;
+ /* the bridge's confirmation that the selected stream's original is hidden, while the reader had the hide on, is an observation of the hide too */
+ const confirmedHidden=hideConfirmed&&(o.samples||[]).some(s=>s.hookHide===true);
+ const observed=failed||checked>=4||nativeObserved||confirmedHidden;
  const rates=[checked&&visible?visible/checked:0,nativeObserved?h.visible/h.lines:0,ls.length?during.length/ls.length:0,readObserved||off.length&&!during.length?1:0];
  if(visible)bad.push(name+' hide check read Japanese on '+visible+'/'+checked+' lines');if(nativeObserved&&h.visible)bad.push(name+' '+h.visible+'/'+h.lines+' dialogue records drawn visible while hidden');
  for(const l of during.slice(0,4))bad.push(name+' line '+l.line+' shown while the hide was off ('+(off.find(s=>s.from<l.samples.at(-1).at&&s.to>l.samples[0].at)?.why||'')+')');

@@ -25,6 +25,12 @@ test('valid native observations or four distinct valid hide checks can establish
 test('manual read is observed failure and never scores higher than unknown hiding',()=>{
  const run=empty();run.o.samples=[{at:0,hookProfile:'read',hookHide:true,glyphs:[]}];const result=C.leaks(run);assert.equal(result.observed,true);assert.equal(result.rate,1);assert.equal(S.score(run,D.cardinal).scores.leak,0);
 });
+test('read-only stream with the hide confirmed by the bridge is not manual read; without the confirmation it still is',()=>{
+ const confirmed={t:1,hb:{type:'hookThreads',hookThreads:[{id:'52c3a7:0:1c',name:'KiriKiri2',selected:true,hideOnly:true,embeddable:true}]}};
+ const run=empty();run.o.samples=[{at:0,hookProfile:'read',hookHide:true,glyphs:[]}];run.steps=[confirmed];const r=C.leaks(run);assert.equal(r.readObserved,false);assert.equal(r.observed,true);assert.equal(r.rate,0);
+ const other=empty();other.o.samples=[{at:0,hookProfile:'read',hookHide:true,glyphs:[]}];other.steps=[{t:1,hb:{type:'hookThreads',hookThreads:[{id:'x',selected:false,hideOnly:true},{id:'y',selected:true,hideOnly:false}]}}];assert.equal(C.leaks(other).rate,1,'a hide-only thread that is not the selected one proves nothing');
+ const off=empty();off.o.samples=[{at:0,hookProfile:'read',hookHide:false,glyphs:[]}];off.steps=[confirmed];assert.equal(C.leaks(off).rate,1,'read with the hide off is manual read');
+});
 test('deleting real failure evidence cannot improve the existing faulty session',()=>{
  const baseline=S.score(fixture.run,D.cardinal);assert.equal(baseline.total,.257);assert.equal(baseline.scores.leak,0);
  const run=structuredClone(fixture.run);run.o.hookEvents=[];run.o.hbSent=[];run.o.hidden={lines:0,visible:0};for(const sample of run.o.samples){delete sample.readMode;delete sample.hookHide;delete sample.hookProfile;}
