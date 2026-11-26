@@ -207,3 +207,12 @@ test('driver: a choice is answered by hover + click after Ctrl is released, then
 test('driver readEvery: without Ctrl the game is advanced at reading pace; with Ctrl at advanceEvery',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
  const d=new Driver({skip:false,slowLines:100,readEvery:1500,advanceEvery:450,stallMs:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});d.next({t:10,window:W,lines:1});
  assert.equal(d.next({t:500,window:W,lines:1}).length,0,'not after 450 ms');assert.equal(d.next({t:1600,window:W,lines:1}).length,1,'after 1.5 s');});
+
+test('runOne hideProbe: a selected read-only stream with text gets the hide probe; its hide-only confirmation is kept with its time',async()=>{const R=require('../services/cold-test-run.cjs');const dir=tmp();const probes=[];
+ const h=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:10,h:10});setTimeout(()=>emit({type:'exited'}),80);});
+ class Hook{constructor(l,on){this.on=on;}configure(){this.on({type:'hook',hookThreads:[{id:'a',name:'KiriKiri2',selected:true,sample:'台詞',embeddable:false}]});setTimeout(()=>this.on({type:'hook',hookThreads:[{id:'a',name:'KiriKiri2',selected:true,sample:'台詞',embeddable:true,hideOnly:true}]}),20);}
+  probeHide(on){probes.push(on);this.probing=on;}tick(){}stop(){}drawLog(){}}
+ const r=await R.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,hideProbe:true},{spawn:h.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:10});
+ assert.deepEqual(probes,[true]);assert.equal(r.hideConfirmed.length,1);assert.equal(r.hideConfirmed[0].name,'KiriKiri2');
+ const h2=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:10,h:10});setTimeout(()=>emit({type:'exited'}),40);});probes.length=0;
+ await R.runOne({exe:'C:/g/x.exe',runDir:path.join(dir,'run2'),budgetMs:60000},{spawn:h2.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:10});assert.deepEqual(probes,[],'off unless asked');});

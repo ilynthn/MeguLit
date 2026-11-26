@@ -60,6 +60,13 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   if(!helper){res.end='no-helper';return resolve(res);}
   let child;try{child=spawn(helper,['run',exe,'--seconds',String(Math.ceil(budgetMs/1000)+20),...(opts.ignoreInput===true?['--ignore-input']:[]),...(opts.visible===true?['--visible']:[]),...(opts.localeEmulator?.path&&opts.localeEmulator?.guid?['--locale-emulator',opts.localeEmulator.path,'--le-guid',opts.localeEmulator.guid]:[])],{windowsHide:true,stdio:['pipe','pipe','ignore']});}catch(e){res.end='spawn '+String(e?.message||e).slice(0,80);return resolve(res);}
   const send=line=>{try{child.stdin.write(line+'\n');}catch{}};
+  /* 2026-11-26 opts.hideProbe (tools/adapt-auto.cjs): what core/hook-control.cjs does for a played game (E578): while the selected stream
+   carries text and cannot write back, the kernel is asked to probe the hide (hooks.probeHide(true)); the bridge then reports a hidden draw
+   and lists the stream hide-only. A cold run has no HookControl, so the probe was never asked for and the confirmation came only by
+   chance. Every confirmation is kept with its time (res.hideConfirmed) */
+  const hideProbe=threads=>{const sel=threads.find(t=>t&&t.selected);if(!sel)return;
+   if(sel.hideOnly===true){const c=res.hideConfirmed||(res.hideConfirmed=[]);if(!c.some(x=>x.id===sel.id)){c.push({id:String(sel.id),name:String(sel.name||''),at:new Date(now()).toISOString(),lines:res.lines});}return;}
+   if(opts.hideProbe===true&&sel.sample&&sel.embeddable!==true&&hooks?.probing!==true){try{hooks.probeHide?.(true);{const hp=res.hideProbes||(res.hideProbes=[]);if(hp.length<20)hp.push({id:String(sel.id),at:new Date(now()).toISOString()});}}catch{}}};
   let lastLineAt=0,choiceAux='',choiceAuxAt=0;const driver=new Driver({...(opts.driver&&typeof opts.driver==='object'?opts.driver:{}),...(deps.driver||{})});const menu=[];let hooks=null,timer=null,done=false,started='',shotN=0;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
@@ -71,7 +78,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    Hook.traceTap=line=>{{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();}else if(e.kind==='choice')res.choices++;};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
    const statusLog=path.join(runDir,'hook-status.log');let statusN=0;
-   hooks=new Hook(layout,e=>{if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
+   hooks=new Hook(layout,e=>{if(e&&Array.isArray(e.hookThreads))hideProbe(e.hookThreads);if(statusN>=400||!e||e.type==='line'||e.type==='source')return;statusN++;try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' '+JSON.stringify(e).slice(0,400)+'\n');}catch{}});if(profile)hooks.profile=profile;
    const drawLog=hooks.drawLog?.bind(hooks);if(drawLog)hooks.drawLog=raw=>{const m=menuItem(raw,res.window);if(m){menu.unshift(m);menu.length=Math.min(menu.length,12);}return drawLog(raw);};
    try{fs.appendFileSync(statusLog,new Date(now()).toISOString()+' attach '+JSON.stringify({pid:res.pid,launcherPid:res.launcherPid||0,hwnd:res.window.hwnd,started})+'\n');}catch{}
    hooks.configure({hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started});}
