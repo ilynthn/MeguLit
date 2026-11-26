@@ -4,6 +4,7 @@ const {createReadingResolver}=require('./reading.cjs');
 const {kana,contextual}=require('./furigana.js');
 const {numberTokens}=require('./counter-reading.cjs');
 const {nameTokens}=require('./name-reading.cjs');
+const {contextReadings}=require('./context-reading.cjs');
 const {InstallProgress}=require('./install-progress.cjs');
 const {conjugation}=require('./morphology.cjs');
 const {definitionGroups}=require('./definitions.cjs');
@@ -136,7 +137,7 @@ class LocalLearning{
      once instead of in the reader page only. Numbers first: JMdict would otherwise join the counter with what follows
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
-  const corrected=contextual(text,this.readings.settle(this.dictionaryWords(numberTokens(names?this.withNames(plain):plain))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(names?this.withNames(plain):plain)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}
