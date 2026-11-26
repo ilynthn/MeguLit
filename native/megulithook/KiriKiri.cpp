@@ -70,6 +70,8 @@ namespace kirikiri
 // MeguLit (MeguLitDrawSkip.h): the layer-level DrawText found below is a Borland register call: eax = the layer, edx = x, ecx = y,
 // then text, color, opa, aa, shadow... on the stack (orfre.exe 2014: the text is the ttstr at stack[9], its length decides
 // whether anything is drawn). An empty ttstr (Ptr == nullptr) is TJS's empty string: the call returns without drawing.
+// Live オルフレール: one layer repeats (41 of 99 sampled hits, many of them on lines not switched on yet) besides many short-lived
+// per-character layers; the switched-on streams (one per y) cover those.
 static kirikiri::ttstr KrkrEmptyText = {};
 static uintptr_t KrkrDrawSelf(hook_context *context) { return context->eax; }
 static int KrkrDrawEmpty(hook_context *, uintptr_t *stack)
