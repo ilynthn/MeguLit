@@ -158,7 +158,7 @@
  function svg(paths){return '<svg viewBox="0 0 24 24" aria-hidden="true">'+paths+'</svg>';}
  function decorate(){
   for(const b of document.querySelectorAll('.tomoyo-menu-tabs button[data-menu-key]:not([data-mg-icon])')){const icon=icons[b.dataset.menuKey];if(!icon)continue;b.dataset.mgIcon='1';b.insertAdjacentHTML('afterbegin',svg(icon));}
-  for(const h of document.querySelectorAll('.tomoyo-menu-header small:not([data-mg-keys])')){h.dataset.mgKeys='1';h.innerHTML='<span><kbd>Alt+M</kbd>绑定窗口</span><span><kbd>Alt+T</kbd>开关菜单</span><span><kbd>Alt+H</kbd>开关内嵌 / 覆盖</span><span><kbd>L</kbd>打开日志</span><span>拖动滑块即时预览</span><span>在台词上拖选文字：查词、加 Anki 或收藏句子</span>';}
+  for(const h of document.querySelectorAll('.tomoyo-menu-header small:not([data-mg-keys])')){h.dataset.mgKeys='1';h.innerHTML='<span><kbd>Alt+M</kbd>绑定窗口</span><span><kbd>Alt+T</kbd>开关菜单</span><span><kbd>Alt+H</kbd>开关内嵌 / 覆盖</span><span><kbd>Alt+L</kbd>打开日志（记录页可改）</span><span>拖动滑块即时预览</span><span>在台词上拖选文字：查词、加 Anki 或收藏句子</span>';}
   for(const s of document.querySelectorAll('.tomoyo-speak-button:not([data-mg-icon])')){s.dataset.mgIcon='1';s.innerHTML=svg(speaker);}
   // Selection card: AI buttons become pills with icons and show which result is open / loading.
   for(const card of document.querySelectorAll('.tomoyo-selection-card')){

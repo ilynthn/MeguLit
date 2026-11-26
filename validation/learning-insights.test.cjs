@@ -156,3 +156,63 @@ test('the learning page lists 读过的词 in zh/ja/en and renders coverage and 
  assert.match(html,/这周读到的生词/);assert.match(html,/data-save="払う"/);assert.match(html,/100%/);assert.match(html,/Game One/);
  assert.match(readingInsightsHTML({lines:0,pending:0},{locale:'en',esc,number}),/No lines read yet/);
 });
+
+test('JLPT word dialog keeps loading readings and meanings across rapid scrolls and retries after transient errors',async t=>{
+ const {startEdge}=require('./library-views-perf.cjs');
+ const hasEdge=[process.env.MEGULIT_EDGE,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].some(p=>p&&fs.existsSync(p));
+ if(!hasEdge)return t.skip('Edge not available');
+ const profile=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-jlpt-scroll-'));
+ let browser;
+ t.after(async()=>{try{await browser?.stop();}finally{await fs.promises.rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:150});}});
+ browser=await startEdge(profile);
+ const source=fs.readFileSync(path.join(__dirname,'../web/jlpt-words.js'),'base64');
+ const result=await browser.evaluate(`(async()=>{
+  const {openJlptWords,JW_ROW}=await import('data:text/javascript;base64,${source}');
+  const words=Array.from({length:60},(_,i)=>({key:'w'+i,base:'語'+i,reading:'',meaning:'',count:60-i,saved:false,known:false}));
+  const asked=[];let failNext=false;
+  const api=async(cmd,args)=>{
+   if(cmd==='jlpt_words')return {words,gameTitle:''};
+   if(cmd==='jlpt_describe'){
+    const keys=args.items.map(x=>x.key);asked.push(keys);
+    if(failNext){failNext=false;throw Error('TEMP_FAIL');}
+    return args.items.map(x=>Number(x.key.slice(1))>=40?{key:x.key,meaning:'',reading:''}:{key:x.key,meaning:'释义-'+x.key,reading:'ヨミ-'+x.key});
+   }
+  };
+  const dlg=await openJlptWords({api,locale:'zh',esc:String,number:String,level:'N1'});
+  const scroll=dlg.querySelector('[data-jw-scroll]');
+  scroll.style.cssText='height:300px;overflow:auto;display:block;';
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  const waitFor=async(fn,ms=1500)=>{const end=Date.now()+ms;while(!fn()){if(Date.now()>end)break;await wait(15);}};
+  // Wait for first rAF draw so space.style.height is set
+  await waitFor(()=>!!dlg.querySelector('.jw-row'));
+  void scroll.offsetHeight;
+  await waitFor(()=>asked.length>=1);
+  // Two rapid scrolls 20ms apart (strictly inside the 120ms debounce window): w20..w24 are visible in BOTH frames
+  const beforeRapid=asked.length;
+  scroll.scrollTop=JW_ROW*20;scroll.dispatchEvent(new Event('scroll'));
+  await waitFor(()=>!!dlg.querySelector('[data-key="w20"]'));
+  scroll.scrollTop=JW_ROW*22;scroll.dispatchEvent(new Event('scroll'));
+  await waitFor(()=>asked.length>beforeRapid&&dlg.querySelector('[data-key="w22"] .jw-def')?.textContent==='释义-w22');
+  const afterRapidDom=dlg.querySelector('[data-key="w22"] .jw-def')?.textContent==='释义-w22'&&dlg.querySelector('[data-key="w22"] i')?.textContent==='よみ-w22';
+  // Scrolling over rows that returned empty meaning must NOT re-ask them endlessly (state.asked)
+  const emptyAskedBefore=asked.length;
+  scroll.scrollTop=JW_ROW*45;scroll.dispatchEvent(new Event('scroll'));
+  await waitFor(()=>asked.length>emptyAskedBefore);
+  const countAfterEmpty=asked.length;
+  scroll.scrollTop=JW_ROW*45;scroll.dispatchEvent(new Event('scroll'));
+  await wait(220);
+  const noDuplicateEmptyAsk=asked.length===countAfterEmpty;
+  // Transient jlpt_describe failure must not permanently mark rows as asked
+  failNext=true;
+  scroll.scrollTop=JW_ROW*35;scroll.dispatchEvent(new Event('scroll'));
+  await waitFor(()=>!failNext);
+  await wait(30);
+  scroll.scrollTop=JW_ROW*36;scroll.dispatchEvent(new Event('scroll'));
+  await waitFor(()=>dlg.querySelector('[data-key="w36"] .jw-def')?.textContent==='释义-w36');
+  const afterRetryDom=dlg.querySelector('[data-key="w36"] .jw-def')?.textContent==='释义-w36';
+  dlg.querySelector('[data-jw-close]').click();
+  return {afterRapidDom,noDuplicateEmptyAsk,afterRetryDom};
+ })()`);
+ assert.deepEqual(result,{afterRapidDom:true,noDuplicateEmptyAsk:true,afterRetryDom:true});
+});

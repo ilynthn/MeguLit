@@ -199,7 +199,7 @@ const sceneOf=(node,list=SCENES)=>Math.max(0,list.findIndex(s=>s.pieces.some(p=>
 function nodeStats(node,prog){const pts=N5.filter(p=>nodeFor(p)===node.id||nodesFor(p).includes(node.id));return {pts,learned:pts.filter(p=>prog?.[p.id]?.learned).length};
  }
 export function sentenceHTML(scene,esc,{open='',piece=-1,mini=false}={}){
- return `<p class="gm-sentence${mini?' mini':''}${open?' focus':''}" lang="ja"${exAttr(scene.pieces.map(p=>p[0]).join(''),scene.ruby,esc)}>${scene.pieces.map(([t,role,n],i)=>t==='、'||t==='。'||!role?`<span class="gm-punct">${esc(t)}</span>`:mini?`<span class="gm-piece n-${n}">${esc(t)}</span>`:`<button type="button" class="gm-piece n-${n}${n===open?' on':''}${i===piece?' picked':''}" data-piece="${i}" data-node="${n}" aria-pressed="${i===piece}" style="--i:${i}"><i class="gm-piece-no">${romanOf(n)}</i><b>${esc(t)}</b><small>${esc(role)}</small></button>`).join('')}</p>`;
+ return `<p class="gm-sentence${mini?' mini':''}${open?' focus':''}" lang="ja"${exAttr(scene.pieces.map(p=>p[0]).join(''),scene.ruby,esc)}>${scene.pieces.map(([t,role,n],i)=>t==='、'||t==='。'||!role?`<span class="gm-punct">${esc(t)}</span>`:mini?`<span class="gm-piece n-${n}">${esc(t)}</span>`:`<button type="button" class="gm-piece n-${n}${n===open?' on':''}${i===piece?' picked':''}" data-piece="${i}" data-node="${n}" aria-pressed="${i===piece}" style="--i:${i}"><i class="gm-piece-no" data-exr-skip>${romanOf(n)}</i><b>${esc(t)}</b><small data-exr-skip>${esc(role)}</small></button>`).join('')}</p>`;
 }
 function mapPanel(progress,{locale,esc,open,scene,piece}){
  const w=grammarMessages[locale]||grammarMessages.zh,prog=progress||{};
@@ -602,7 +602,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
     sub:n?`下一课：${loc(n.title,locale).split(/\s*——\s*/)[0]}`:'',r:rr,esc});}
    if(on)keepStep(point.id,step,STEPS.length);if(n){memo.groupOf={...(memo.groupOf||{}),[lv]:n.group};openPoint(n.id);}else renderLesson();}catch(error){toast?.(String(error?.message||error));}};
   root.querySelectorAll('[data-anki]').forEach(b=>b.onclick=async()=>{const e=real[Number(b.dataset.anki)];b.disabled=true;try{await api('grammar_anki',{point:point.id,
-   title:loc(point.title,'zh'),gist:loc(point.gist,'zh'),example:e});b.textContent=w.ankiDone;}catch{b.disabled=false;toast?.(w.ankiFail);}});
+   level:levelOf(point),title:loc(point.title,'zh'),gist:loc(point.gist,'zh'),example:e});b.textContent=w.ankiDone;}catch{b.disabled=false;toast?.(w.ankiFail);}});
   root.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>speak(b.dataset.speak,b));labelSpeak(root);
   root.querySelectorAll('[data-explain]').forEach(m=>{m.onclick=e=>{e.stopPropagation();explain(m);};m.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();
    explain(m);}};m.onmouseenter=()=>explain(m);});

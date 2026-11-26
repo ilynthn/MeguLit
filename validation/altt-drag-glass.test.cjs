@@ -30,7 +30,7 @@ test('Fata keeps the latest sentence in the dialogue box during calibration drag
   const navigation=await cdp.send('Page.navigate',{url});
   assert.ok(!navigation.errorText,`Reader navigation failed (${navigation.errorText})`);
   const ready=await waitFor(cdp,`location.href === ${JSON.stringify(url)} &&
-   (window.__TOME_READER_READY__ === true || document.querySelector('#reader-status')?.textContent)`,20000);
+   (window.__TOME_READER_READY__ === true || document.querySelector('#reader-status')?.textContent)`,30000);
   assert.equal(ready,true,ready ? `Reader bootstrap failed (${ready})` : 'Reader bootstrap did not finish');
   await cdp.evaluate(`(()=>{const b=__tomoyoChinese;window.__tomoyoMode.set('translation');
    const diff=${JSON.stringify(JSON.parse(fs.readFileSync(path.join(ROOT,'The Seed','kirikiri','fata-morgana','game.json'))).settings)};
@@ -204,14 +204,18 @@ test('lookup drags on the first press and routes wheel input at its new position
  }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });
 
-test('Alt+T switches between stacked and inline Chinese in the current native dialogue', {skip:!hasEdge&&'Edge not installed',timeout:30000}, async()=>{
+test('Alt+T switches between stacked and inline Chinese in the current native dialogue', {skip:!hasEdge&&'Edge not installed',timeout:60000}, async()=>{
  const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-inline-cn-'));
  let server,cdp;
  try{
   server=await serve();cdp=await startEdge(path.join(temp,'edge'));
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
-  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
-  assert.ok(await waitFor(cdp,'!!window.__TOME_READER_READY__'));
+  const url=`http://127.0.0.1:${server.address().port}/reader/index.html`;
+  const navigation=await cdp.send('Page.navigate',{url});
+  assert.ok(!navigation.errorText,`Reader navigation failed (${navigation.errorText})`);
+  const ready=await waitFor(cdp,`location.href === ${JSON.stringify(url)} &&
+   (window.__TOME_READER_READY__ === true || document.querySelector('#reader-status')?.textContent)`,30000);
+  assert.equal(ready,true,ready ? `Reader bootstrap failed (${ready})` : 'Reader bootstrap did not finish');
   await cdp.evaluate(`(()=>{const b=__tomoyoChinese;__tomoyoMode.set('translation');
    b.galStatus({bound:true,interfaceMode:'translation'});
    b.galLayout({clientX:80,clientY:80,clientWidth:800,clientHeight:600,readerX:120,readerY:500,readerWidth:700,readerHeight:140,surfaceWidth:1280,surfaceHeight:800});

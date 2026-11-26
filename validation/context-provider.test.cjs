@@ -15,7 +15,7 @@ test('context source defaults to DeepSeek and stays separate from the lookup sou
 
 test('AI modes use the context source and a missing key shows the setup hint; the card is a click panel',()=>{
  const reader=fs.readFileSync(path.join(__dirname,'..','services','reader.cjs'),'utf8'),sel=fs.readFileSync(path.join(__dirname,'..','web','reader','modules','selection.js'),'utf8');
- assert.match(reader,/context\?models\.contextOptions\(main,main\):models\.lookupOptions\(main,main\)/);assert.match(reader,/CONTEXT_KEY_REQUIRED/);
+ assert.match(reader,/context\?models\.contextOptions\(main,main,keyed\):models\.lookupOptions\(main,main\)/);assert.match(reader,/CONTEXT_KEY_REQUIRED/);
  assert.match(sel,/推荐 DeepSeek/);assert.doesNotMatch(sel,/点读解释来源现在是「本地辞书」/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','web','reader','modules','interaction.js'),'utf8'),/const MENUS='[^']*\.tomoyo-selection-card'/);
 });

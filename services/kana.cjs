@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
    Kana learning module: local progress file and example lines from the player's own reading history. */
 const fs=require('fs'),path=require('path');
+const {plainWithRuby}=require('../core/example-ruby.cjs');
 const FILE=root=>path.join(root,'data','kana-progress.json');
 const MAX_BYTES=4*1024*1024;
 
@@ -28,7 +29,7 @@ function gameWords(db,words){
  const list=[...new Set((Array.isArray(words)?words:[]).map(String).filter(w=>/^[ぁ-ゖァ-ヺー]{1,12}$/u.test(w)))].slice(0,150);
  if(!list.length)return {words:{}};
  const rows=db.prepare('SELECT e.text,e.read_at,g.title FROM reading_events e LEFT JOIN games g ON e.game_id=g.id ORDER BY e.read_at DESC,e.id DESC LIMIT 20000').all();
- for(const row of rows){if(/[\u3099\u309a]/u.test(row.text))row.text=row.text.normalize('NFC');}
+ for(const row of rows){row.text=plainWithRuby(row.text,true).text;if(/[\u3099\u309a]/u.test(row.text))row.text=row.text.normalize('NFC');}
  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  const out={};
  for(const w of list){

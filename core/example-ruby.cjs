@@ -20,12 +20,16 @@ function plainWithRuby(raw,stripTags=false){return extractSourceRuby(raw,true,st
 /* The span for one word: okurigana outside, the kanji core inside; '' when the reading does not fit the word. */
 function coreSpan(chars,start,end,reading){
   const surface=chars.slice(start,end).join(''),r=hira(reading);if(!r||!KANJI.test(surface)||r===hira(surface))return null;
-  const head=(surface.match(/^[ぁ-ゖ]*/)||[''])[0],tail=(surface.match(/[ぁ-ゖ]*$/)||[''])[0];
-  if(head.length+tail.length>=surface.length)return null;
-  if((head||tail)&&r.startsWith(head)&&r.endsWith(tail)&&r.length>head.length+tail.length)
-    return {start:start+[...head].length,end:end-[...tail].length,reading:r.slice(head.length,r.length-tail.length)};
-  if(head||tail)return null;
-  return {start,end,reading:r};
+  const strip=(headRe,tailRe)=>{
+    const head=(surface.match(headRe)||[''])[0],tail=(surface.match(tailRe)||[''])[0];
+    if(!head&&!tail)return {start,end,reading:r};
+    if(head.length+tail.length>=surface.length)return null;
+    const hh=hira(head),th=hira(tail);
+    if(r.startsWith(hh)&&r.endsWith(th)&&r.length>hh.length+th.length)
+      return {start:start+[...head].length,end:end-[...tail].length,reading:r.slice(hh.length,r.length-th.length)};
+    return null;
+  };
+  return strip(/^[ぁ-ゖァ-ヴー]*/,/([ぁ-ゖァ-ヴー]*)$/)||strip(/^[ぁ-ゖ]*/,/([ぁ-ゖ]*)$/);
 }
 
 /* text: plain line; tokens: resolved tokens (learning.readings.resolve(tokenize(text))); pairs: game ruby [[base,reading]] */

@@ -7,6 +7,7 @@ function fixture(t){
  t.after(()=>{if(appdata===undefined)delete process.env.APPDATA;else process.env.APPDATA=appdata;fs.rmSync(root,{recursive:true,force:true});});
  fs.mkdirSync(path.join(root,'logs'));
  fs.mkdirSync(path.join(root,'Anki2','addons21','2055492159'),{recursive:true});
+ fs.writeFileSync(path.join(root,'Anki2','addons21','2055492159','__init__.py'),'# AnkiConnect');
  delete require.cache[require.resolve('../core/anki-installer.cjs')];
  return {root,m:require('../core/anki-installer.cjs')};
 }
@@ -152,6 +153,9 @@ test('the install dialog shows the failed Anki directory and a way forward',asyn
   await renderAnkiReview({target,api,text:{},esc:String,isCurrent:()=>true,toast:assert.fail,quiet:true});
   for(const [value,expected] of [
    ['ANKI_INSTALL_TARGET_FAILED E:\\Anki (1603)',message],['ANKI_INSTALL_FAILED 1603',generic[language]],
+   ['ANKI_RUNNING',{zh:/请先关闭 Anki/,en:/close Anki first/,ja:/先に Anki を閉じて/}[language]],
+   ['ANKICONNECT_DOWNLOAD_FAILED: HTTP 502',{zh:/AnkiConnect 插件下载或安装失败/,en:/Could not download or install AnkiConnect/,ja:/AnkiConnect のダウンロードまたは導入に失敗/}[language]],
+   ['ANKICONNECT_INSTALL_FAILED: target exists',{zh:/AnkiConnect 插件下载或安装失败/,en:/Could not download or install AnkiConnect/,ja:/AnkiConnect のダウンロードまたは導入に失敗/}[language]],
    [1603,generic[language]],[undefined,generic[language]],
   ]){
    error=value;
@@ -197,4 +201,146 @@ test('the bridge connects an existing Anki using the runtime path',async t=>{
  assert.deepEqual(await dispatch({action:'anki_find'}),{path:exe});
  assert.deepEqual(await dispatch({action:'anki_install_connect'}),{already:true});
  assert.equal(connectPath,exe);
+});
+
+function fakeAddonZip(){
+ return Buffer.concat([Buffer.from([0x50,0x4b,0x03,0x04]),Buffer.alloc(4100)]);
+}
+function unpackFiles(files){
+ return (_zip,out)=>{
+  fs.mkdirSync(out,{recursive:true});
+  for(const [name,content] of Object.entries(files)){
+   const file=path.join(out,name);
+   fs.mkdirSync(path.dirname(file),{recursive:true});
+   fs.writeFileSync(file,content);
+  }
+ };
+}
+
+test('one-click Anki surfaces AnkiConnect install failures instead of falling through to ANKI_OFFLINE',async t=>{
+ const {root,m}=fixture(t),anki=require('../core/anki-process.cjs');
+ for(const failure of ['ANKI_RUNNING','ANKICONNECT_DOWNLOAD_FAILED: HTTP 502']){
+  let startCalls=0;
+  t.mock.method(anki,'installAnkiConnect',async()=>{throw Error(failure);});
+  const runtime={ankiProcess:()=>({online:async()=>false,start:async()=>{startCalls++;throw Error('ANKI_OFFLINE');}})};
+  m.start(root,{runtime,find:()=>'C:\\Anki\\anki.exe',china:false});
+  await wait(m,'error');
+  assert.equal(m.status().phase,'error');
+  assert.equal(m.status().error,failure);
+  assert.equal(startCalls,0,'should not try to start Anki when AnkiConnect failed to install');
+  t.mock.restoreAll();
+ }
+ let installCalls=0,startCalls=0;
+ t.mock.method(anki,'installAnkiConnect',async()=>{installCalls++;return {installed:true};});
+ const runtime={ankiProcess:()=>({online:async()=>true,start:async()=>{startCalls++;}})};
+ m.start(root,{runtime,find:()=>'C:\\Anki\\anki.exe',china:false});
+ await wait(m,'done');
+ assert.equal(m.status().phase,'done');
+ assert.equal(installCalls,0,'already online Anki skips add-on installation');
+ assert.equal(startCalls,0,'already online Anki skips launching again');
+});
+
+test('installAnkiConnect stages atomically, cleans up partial copies, and rechecks state before publishing',async t=>{
+ const anki=require('../core/anki-process.cjs');
+ const work=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-ac-stage-'));
+ t.after(()=>fs.rmSync(work,{recursive:true,force:true}));
+ const payload='# AnkiConnect web.WebServer\n';
+ const validZip=fakeAddonZip();
+ const validExtract=unpackFiles({'__init__.py':payload,'config.json':'{"webBindAddress":"127.0.0.1"}'});
+ const noCfgExtract=unpackFiles({'__init__.py':payload});
+
+ // 1. Partial copy failure leaves no target and no staging folder, allowing a clean retry.
+ const app1=path.join(work,'app1'),env1={APPDATA:app1,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app1,'Anki2','addons21'),{recursive:true});
+ const origCp=fs.cpSync;
+ let failOnce=true;
+ t.mock.method(fs,'cpSync',(src,dest,opts)=>{
+  if(failOnce){failOnce=false;fs.mkdirSync(dest,{recursive:true});fs.writeFileSync(path.join(dest,'config.json'),'{}');throw Error('EIO copy failed');}
+  return origCp(src,dest,opts);
+ });
+ await assert.rejects(anki.installAnkiConnect(env1,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract}),/EIO copy failed/);
+ assert.equal(anki.ankiConnectInstalled(env1),false,'failed copy must not count as installed');
+ assert.deepEqual(fs.readdirSync(path.join(app1,'Anki2','addons21')),[],'target and staging folders are both cleaned up');
+ const retry=await anki.installAnkiConnect(env1,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract});
+ assert.equal(retry.installed,true);assert.equal(retry.already,undefined);
+ assert.equal(anki.ankiConnectInstalled(env1),true);
+ t.mock.restoreAll();
+
+ // 2. Anki starting during download/extraction is caught before publishing.
+ const app2=path.join(work,'app2'),env2={APPDATA:app2,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app2,'Anki2','addons21'),{recursive:true});
+ let isRunning=false;
+ await assert.rejects(anki.installAnkiConnect(env2,{locate:()=>'C:\\Anki\\anki.exe',running:()=>isRunning,fetcher:async()=>{isRunning=true;return new Response(validZip,{status:200});},extract:validExtract}),/ANKI_RUNNING/);
+ assert.equal(anki.ankiConnectInstalled(env2),false);
+ assert.deepEqual(fs.readdirSync(path.join(app2,'Anki2','addons21')),[]);
+
+ // 3. Concurrent installation completing during download (even under an alternate AnkiConnect folder name) returns already:true without overwriting.
+ const app3=path.join(work,'app3'),env3={APPDATA:app3,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app3,'Anki2','addons21'),{recursive:true});
+ const existing=path.join(app3,'Anki2','addons21','AnkiConnect');
+ const concurrent=await anki.installAnkiConnect(env3,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>{
+  fs.mkdirSync(existing,{recursive:true});fs.writeFileSync(path.join(existing,'__init__.py'),'# existing');
+  return new Response(validZip,{status:200});
+ },extract:validExtract});
+ assert.deepEqual(concurrent,{installed:true,already:true});
+ assert.equal(fs.readFileSync(path.join(existing,'__init__.py'),'utf8'),'# existing');
+ assert.deepEqual(fs.readdirSync(path.join(app3,'Anki2','addons21')),['AnkiConnect']);
+
+ // 4. Legacy incomplete directory is replaced on retry; a regular file at target is rejected; missing config.json fails cleanly.
+ const app4=path.join(work,'app4'),env4={APPDATA:app4,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app4,'Anki2','addons21','2055492159'),{recursive:true});
+ fs.writeFileSync(path.join(app4,'Anki2','addons21','2055492159','config.json'),'{}');
+ assert.equal(anki.ankiConnectInstalled(env4),false);
+ await assert.rejects(anki.installAnkiConnect(env4,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:noCfgExtract}),/ANKICONNECT_DOWNLOAD_FAILED: unexpected package/);
+ const recovered=await anki.installAnkiConnect(env4,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract});
+ assert.equal(recovered.installed,true);
+ assert.equal(anki.ankiConnectInstalled(env4),true);
+
+ const app5=path.join(work,'app5'),env5={APPDATA:app5,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app5,'Anki2','addons21'),{recursive:true});
+ fs.writeFileSync(path.join(app5,'Anki2','addons21','2055492159'),'not a folder');
+ assert.equal(anki.ankiConnectInstalled(env5),false);
+ await assert.rejects(anki.installAnkiConnect(env5,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract}),/ANKICONNECT_INSTALL_FAILED: target exists/);
+ assert.equal(fs.readFileSync(path.join(app5,'Anki2','addons21','2055492159'),'utf8'),'not a folder');
+
+ // 5. Network, HTTP status, bad payload, and extraction timeout errors wrap cleanly; fresh install works when Anki2 does not yet exist.
+ const app6=path.join(work,'app6'),env6={APPDATA:app6,WINDIR:process.env.WINDIR};
+ let freshFetch=0;
+ await assert.rejects(anki.installAnkiConnect(env6,{locate:()=>'C:\\Anki\\anki.exe',fresh:true,running:()=>true,fetcher:async()=>{freshFetch++;return new Response(validZip,{status:200});},extract:validExtract}),/ANKI_RUNNING/);
+ assert.equal(freshFetch,0);assert.equal(fs.existsSync(path.join(app6,'Anki2')),false);
+ await assert.rejects(anki.installAnkiConnect(env6,{locate:()=>'C:\\Anki\\anki.exe',fresh:true,running:()=>false,fetcher:async()=>{throw new TypeError('fetch failed');},extract:validExtract}),/ANKICONNECT_DOWNLOAD_FAILED: fetch failed/);
+ await assert.rejects(anki.installAnkiConnect(env6,{locate:()=>'C:\\Anki\\anki.exe',fresh:true,running:()=>false,fetcher:async()=>new Response('bad',{status:502}),extract:validExtract}),/ANKICONNECT_DOWNLOAD_FAILED: HTTP 502/);
+ await assert.rejects(anki.installAnkiConnect(env6,{locate:()=>'C:\\Anki\\anki.exe',fresh:true,running:()=>false,fetcher:async()=>new Response('not-a-zip',{status:200}),extract:validExtract}),/ANKICONNECT_DOWNLOAD_FAILED: not an add-on package/);
+ await assert.rejects(anki.installAnkiConnect(env6,{locate:()=>'C:\\Anki\\anki.exe',fresh:true,running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:()=>{throw Object.assign(Error('spawnSync powershell.exe ETIMEDOUT'),{code:'ETIMEDOUT'});}}),/ANKICONNECT_INSTALL_FAILED:.*ETIMEDOUT/);
+ assert.equal(fs.existsSync(path.join(app6,'Anki2')),false);
+ const freshOk=await anki.installAnkiConnect(env6,{locate:()=>'C:\\Anki\\anki.exe',fresh:true,running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract});
+ assert.equal(freshOk.installed,true);assert.equal(anki.ankiConnectInstalled(env6),true);
+
+ // 6. Junction at target is never deleted; renameSync race returns already:true, while real renameSync errors propagate.
+ if(process.platform==='win32'){
+  const app7=path.join(work,'app7'),env7={APPDATA:app7,WINDIR:process.env.WINDIR};
+  const jTarget=path.join(work,'j-target');fs.mkdirSync(jTarget,{recursive:true});fs.writeFileSync(path.join(jTarget,'keep.txt'),'stay');
+  fs.mkdirSync(path.join(app7,'Anki2','addons21'),{recursive:true});
+  fs.symlinkSync(jTarget,path.join(app7,'Anki2','addons21','2055492159'),'junction');
+  await assert.rejects(anki.installAnkiConnect(env7,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract}),/ANKICONNECT_INSTALL_FAILED: target exists/);
+  assert.equal(fs.readFileSync(path.join(jTarget,'keep.txt'),'utf8'),'stay');
+ }
+ const app8=path.join(work,'app8'),env8={APPDATA:app8,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app8,'Anki2','addons21'),{recursive:true});
+ t.mock.method(fs,'renameSync',(from,to)=>{
+  fs.mkdirSync(to,{recursive:true});fs.writeFileSync(path.join(to,'__init__.py'),'# raced');
+  throw Object.assign(Error('EEXIST'),{code:'EEXIST'});
+ });
+ const raced=await anki.installAnkiConnect(env8,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract});
+ t.mock.restoreAll();
+ assert.deepEqual(raced,{installed:true,already:true});
+ assert.equal(fs.readFileSync(path.join(app8,'Anki2','addons21','2055492159','__init__.py'),'utf8'),'# raced');
+ assert.deepEqual(fs.readdirSync(path.join(app8,'Anki2','addons21')),['2055492159']);
+
+ const app9=path.join(work,'app9'),env9={APPDATA:app9,WINDIR:process.env.WINDIR};
+ fs.mkdirSync(path.join(app9,'Anki2','addons21'),{recursive:true});
+ t.mock.method(fs,'renameSync',()=>{throw Object.assign(Error('EPERM rename'),{code:'EPERM'});});
+ await assert.rejects(anki.installAnkiConnect(env9,{locate:()=>'C:\\Anki\\anki.exe',running:()=>false,fetcher:async()=>new Response(validZip,{status:200}),extract:validExtract}),/EPERM rename/);
+ t.mock.restoreAll();
+ assert.deepEqual(fs.readdirSync(path.join(app9,'Anki2','addons21')),[]);
 });

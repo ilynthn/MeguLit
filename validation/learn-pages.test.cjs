@@ -66,6 +66,94 @@ test('a cached sentence clip plays without starting the speech engine',t=>{
  assert.ok(line.indexOf('cachedClip')>0&&line.indexOf('cachedClip')<line.indexOf('ensureSpeech'),'cache checked before the engine starts');
 });
 
+test('sentence_voice hits the cached clip without starting AivisSpeech when aivisSpeaker is default 0',async t=>{
+ const {Runtime}=require('../services/runtime.cjs');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-sv-default-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const makeWav=tag=>{const b=Buffer.alloc(48);b.write('RIFF',0,'ascii');b.write('WAVE',8,'ascii');b.write(tag,44,'ascii');return b;};
+ const initialSpeakers=[{name:'まお',styles:[{id:888753760,name:'ノーマル'},{id:888753761,name:'上機嫌'}]}];
+ const makeFetch=(speakers,tag,onCall)=>async(url)=>{
+  onCall?.(url);
+  const u=new URL(url);
+  if(u.pathname==='/speakers')return {ok:true,json:async()=>speakers};
+  if(u.pathname==='/audio_query')return {ok:true,json:async()=>({accent_phrases:[],kana:''})};
+  if(u.pathname==='/synthesis')return {ok:true,arrayBuffer:async()=>makeWav(tag)};
+  throw Error('unexpected '+url);
+ };
+
+ // Cold run with default aivisSpeaker=0: fetches /speakers once, remembers speakers via onSpeakers, writes clip under 888753760
+ let starts1=0,speakerCalls1=0;
+ const r1=new Runtime(root);
+ r1.services().ensureSpeech=async()=>{starts1++;};
+ r1.speech().fetch=makeFetch(initialSpeakers,'OLD1',url=>{if(new URL(url).pathname==='/speakers')speakerCalls1++;});
+ const first=await r1.call({action:'sentence_voice',text:'けれど水も星も綺麗な、'});
+ assert.equal(starts1,1);
+ assert.equal(speakerCalls1,1,'must not fetch /speakers twice during synthesis');
+ assert.equal(first.source,'synthesized');assert.equal(first.cached,false);
+
+ // Next session (fresh Runtime, engine stopped): replays cached clip without calling ensureSpeech or fetching
+ let starts2=0,fetches2=0;
+ const r2=new Runtime(root);
+ r2.services().ensureSpeech=async()=>{starts2++;throw Error('engine must not cold-start for a cached clip');};
+ r2.speech().fetch=makeFetch(initialSpeakers,'NOPE',()=>{fetches2++;});
+ const second=await r2.call({action:'sentence_voice',text:'けれど水も星も綺麗な、'});
+ assert.equal(starts2,0);assert.equal(fetches2,0);
+ assert.equal(second.source,'synthesized');assert.equal(second.cached,true);
+ assert.equal(second.data,first.data);
+
+ // When installed voices change so a new voice becomes first, default speaker 0 must NOT hit the old 888753760 clip
+ const updatedSpeakers=[{name:'コハク',styles:[{id:999000001,name:'ノーマル'}]},...initialSpeakers];
+ let startsChanged=0;
+ const rChanged=new Runtime(root);
+ rChanged.services().rememberSpeakers(updatedSpeakers);
+ rChanged.services().ensureSpeech=async()=>{startsChanged++;};
+ rChanged.speech().fetch=makeFetch(updatedSpeakers,'NEW2');
+ const changed=await rChanged.call({action:'sentence_voice',text:'けれど水も星も綺麗な、'});
+ assert.equal(startsChanged,1,'first installed speaker changed so old default clip must not be replayed');
+ assert.equal(changed.cached,false);
+ assert.notEqual(changed.data,first.data);
+
+ // Explicit non-zero speaker (888753761) must NOT wrongly hit default speaker's cached clip
+ fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
+ fs.writeFileSync(path.join(root,'data','config','v4-preferences.json'),JSON.stringify({aivisSpeaker:888753761}));
+ let starts3=0;
+ const r3=new Runtime(root);
+ r3.services().ensureSpeech=async()=>{starts3++;};
+ r3.speech().fetch=makeFetch(updatedSpeakers,'EXP3');
+ const third=await r3.call({action:'sentence_voice',text:'けれど水も星も綺麗な、'});
+ assert.equal(starts3,1,'different explicit speaker must synthesize its own clip');
+ assert.equal(third.cached,false);
+
+ // Edge guards on resolveSpeaker, onSpeakers dedup/isolation, and null options
+ const {Speech,resolveSpeaker}=require('../core/speech.cjs'),{cleanV4}=require('../core/v4-config.cjs');
+ const base=cleanV4({aivisSpeaker:0});
+ // VOICEVOX-style real style id 0 not in first position stays 0
+ assert.equal(resolveSpeaker(base,[{styles:[{id:2},{id:0}]}]).aivisSpeaker,0);
+ // Explicit non-zero speaker absent from cachedSpeakers stays unchanged (must not fall back to first style) in loose mode, throws in strict mode
+ const missing=cleanV4({aivisSpeaker:555555});
+ assert.equal(resolveSpeaker(missing,initialSpeakers).aivisSpeaker,555555);
+ assert.throws(()=>resolveSpeaker(missing,initialSpeakers,{strict:true}),/所选 AivisSpeech 话者不存在/);
+ // Malformed or empty styles throw in strict mode and keep c in loose mode
+ for(const bad of [[],[{styles:null}],[{styles:'bad'}],[{styles:[null,{},{id:-1}]}]]){
+  assert.equal(resolveSpeaker(base,bad).aivisSpeaker,0);
+  assert.throws(()=>resolveSpeaker(base,bad,{strict:true}),/尚未安装话者模型/);
+ }
+ // Passing null options to Speech constructor does not throw; onSpeakers fires once for unchanged speakers, skips invalid speakers, and never aborts synthesis if callback throws
+ assert.doesNotThrow(()=>new Speech(path.join(root,'null-opt'),makeFetch(initialSpeakers,'NULL'),null));
+ let remembered=0;
+ const sDedup=new Speech(path.join(root,'dedup'),makeFetch(initialSpeakers,'DEDU'),{onSpeakers:()=>{remembered++;}});
+ await sDedup.synthesize({surface:'一',reading:'',pitch:[]},{aivisSpeaker:0});
+ await sDedup.synthesize({surface:'一',reading:'',pitch:[]},{aivisSpeaker:0});
+ assert.equal(remembered,1,'unchanged speakers list must only invoke onSpeakers once');
+ let brokenRemembered=0;
+ const sBroken=new Speech(path.join(root,'broken'),makeFetch([{styles:[]}],'BRKN'),{onSpeakers:()=>{brokenRemembered++;}});
+ await assert.rejects(()=>sBroken.synthesize({surface:'一',reading:'',pitch:[]},{aivisSpeaker:0}),/尚未安装话者模型/);
+ assert.equal(brokenRemembered,0,'empty/invalid speaker list must not overwrite cached speakers');
+ const sThrow=new Speech(path.join(root,'throw-cb'),makeFetch(initialSpeakers,'THRW'),{onSpeakers:()=>{throw Error('disk full');}});
+ const okRes=await sThrow.synthesize({surface:'二',reading:'',pitch:[]},{aivisSpeaker:0});
+ assert.equal(okRes.cached,false);
+});
+
 test('朗读 shows a busy state instead of a dead grey button; arrows hide when nothing scrolls',()=>{
  const js=web('sentences-page.js'),play=js.slice(js.indexOf(' async function play(b)'),js.indexOf(' async function remove(b)'));
  assert.doesNotMatch(play,/disabled/);assert.match(play,/aria-busy/);

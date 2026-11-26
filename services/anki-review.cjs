@@ -41,11 +41,17 @@ class AnkiReviewer{
   // A deck with nothing left today: Anki refuses or shows its congratulations screen. Report it as finished.
   const opened=await this.call('guiDeckReview',{name:deck});this.saveSession(null);
   const result=await this.snapshot(null,{recover:true}).catch(error=>{if(opened)throw error;return {done:true};});
-  if(result.done){let total=0;try{const stats=Object.values(await this.call('getDeckStats',{decks:[deck]}))[0];total=Number(stats?.total_in_deck)||0;}catch{}return {done:true,finished:true,deck,total,...await this.dayInfo(deck)};}
+  if(result.done)return this.finishedInfo(deck);
   return result;
+ }
+ async finishedInfo(deck){
+  const out={done:true,finished:true,deck};
+  if(deck){let total=0;try{const stats=Object.values(await this.call('getDeckStats',{decks:[deck]}))[0];total=Number(stats?.total_in_deck)||0;}catch{}out.total=total;}
+  return {...out,...await this.dayInfo(deck)};
  }
  // 2026-11-13: for the finished screen, cards reviewed today and when this deck has cards due again (first day with any, up to a month)
  async dayInfo(deck){const out={};try{out.reviewedToday=Number(await this.call('getNumCardsReviewedToday'))||0;}catch{}
+  if(!deck)return out;
   try{const q='"deck:'+String(deck).replace(/"/g,'')+'" -is:suspended prop:due=';for(const days of [1,2,3,4,5,6,7]){const ids=await this.call('findCards',{query:q+days});if(ids?.length){out.nextDue={days,count:ids.length};return out;}}
    const later=await this.call('findCards',{query:'"deck:'+String(deck).replace(/"/g,'')+'" -is:suspended prop:due>7 prop:due<=30'});out.nextDue=later?.length?{days:8,count:later.length}:null;}catch{}return out;}
  async showAnswer(id){
@@ -68,7 +74,7 @@ class AnkiReviewer{
    if(!await this.call('guiAnswerCard',{ease}))throw Error('ANKI_FAILED');
    this.db.prepare('INSERT INTO anki_review_events VALUES (?,?,?,?)').run(operationId,cardId,ease,Math.floor(Date.now()/1000));
    this.saveSession(null);
-   const result=await this.snapshot();if(result.done){result.finished=true;result.deck=card.deckName||'';}
+   let result=await this.snapshot();if(result.done)result=await this.finishedInfo(card.deckName||'');
    this.db.prepare("UPDATE anki_actions SET status='done',result=? WHERE operation_id=?").run(JSON.stringify(result),operationId);return result;
   }catch(error){throw Error(error.message==='ANKI_CARD_CHANGED'?error.message:'ANKI_RATING_UNCERTAIN');}
   finally{activeRatings.delete(operationId);}
@@ -80,9 +86,9 @@ class AnkiReviewer{
   let card;try{card=await this.call('guiCurrentCard');}catch(error){throw Error(error.message==='ANKI_REVIEW_INACTIVE'?'ANKI_MEDIA_MISSING':error.message);}
   if(!card||Number(card.cardId)!==id)throw Error('ANKI_CARD_CHANGED');if(await this.call('guiPlayAudio')===false)throw Error('ANKI_FAILED');return {played:true};}
  /* the clips of one card in template order (answer side, which holds the question's too), as data: URLs */
- async cardClips(id){const [card]=await this.call('cardsInfo',{cards:[id]});if(!card)return [];const audio=require('./anki-media.cjs'),html=String(card.answer||'');
-  let names=[];if(/\[anki:play:a:\d+\]/.test(html)){try{const play=audio.playMap(card,await this.call('modelTemplates',{modelName:card.modelName}),html);names=[...html.matchAll(/\[anki:play:a:(\d+)\]/g)].map(m=>play.get('a:'+m[1]));}catch{}}
-  if(!names.length||names.some(n=>!n))names=[...audio.sounds(html),...Object.values(card.fields||{}).sort((a,b)=>(a?.order??0)-(b?.order??0)).flatMap(f=>audio.sounds(f?.value))];
+ async cardClips(id){const [card]=await this.call('cardsInfo',{cards:[id]});if(!card)return [];const audio=require('./anki-media.cjs'),state=this.session(),frontOnly=state?.cardId===id&&state.answerShown===false,html=String((frontOnly?card.question:card.answer)||'');
+  let names=[];if(/\[anki:play:[qa]:\d+\]/.test(html)){try{const play=audio.playMap(card,await this.call('modelTemplates',{modelName:card.modelName}),html);names=[...html.matchAll(/\[anki:play:([qa]):(\d+)\]/g)].map(m=>play.get(m[1]+':'+m[2]));}catch{}}
+  if(!names.length||names.some(n=>!n))names=frontOnly?audio.sounds(html):[...audio.sounds(html),...Object.values(card.fields||{}).sort((a,b)=>(a?.order??0)-(b?.order??0)).flatMap(f=>audio.sounds(f?.value))];
   const out=[];for(const name of [...new Set(names)].filter(n=>n&&!/[\\/]/.test(n)).slice(0,6)){const data=await this.mediaFile(name);if(!data)continue;const cache=require('../core/anki-media-cache.cjs'),clip={name,src:'data:'+cache.mimeOf(data,name)+';base64,'+data};if(cache.isSynth(this.mediaDir,name))clip.channel='sentence';out.push(clip);}return out;}
  /* one media file: MeguLit's own copy first, then Anki's media folder (copied here for next time) */
  async mediaFile(name){const cache=require('../core/anki-media-cache.cjs');const local=cache.read(this.mediaDir,name);if(local)return local;
@@ -91,7 +97,7 @@ class AnkiReviewer{
   const audio=require('./anki-media.cjs');let play=new Map();if(card&&/\[anki:play:[qa]:\d+\]/.test(html)){try{play=audio.playMap(card,await this.call('modelTemplates',{modelName:card.modelName}),html);}catch{}}
   const names=new Set([...play.values()].filter(name=>name&&!/[\\/]/.test(name)));for(const match of html.matchAll(/\[sound:([^\]\r\n]+)\]|(?:src|href)\s*=\s*["']([^"']+)["']/gi)){const name=match[1]||match[2];if(name&&!/^(?:https?:|data:|javascript:|#)/i.test(name)&&!/[\\/]/.test(name))names.add(name);}
   const media=new Map();
-  for(const name of [...names].slice(0,12)){try{const data=await this.mediaFile(name);if(!data)continue;const ext=name.split('.').pop().toLowerCase();let mime={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',mp4:'video/mp4',woff:'font/woff',woff2:'font/woff2'}[ext];if(/^(?:wav|mp3|ogg)$/.test(ext))mime=require('../core/anki-media-cache.cjs').mimeOf(data,name);if(mime)media.set(name,'data:'+mime+';base64,'+data);}catch{}}
+  for(const name of [...names].slice(0,12)){try{const data=await this.mediaFile(name);if(!data)continue;const ext=name.split('.').pop().toLowerCase();let mime={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',opus:'audio/ogg',m4a:'audio/mp4',webm:'audio/webm',flac:'audio/flac',aac:'audio/aac',mp4:'video/mp4',woff:'font/woff',woff2:'font/woff2'}[ext];if(/^(?:wav|mp3|ogg|opus|m4a|webm|flac|aac)$/.test(ext))mime=require('../core/anki-media-cache.cjs').mimeOf(data,name);if(mime)media.set(name,'data:'+mime+';base64,'+data);}catch{}}
   /* (user 2026-11-12) a game-voice clip that is silent (music recorded under an unvoiced line, then separated) is
      replaced, once, by the synthesized sentence under the same media name, so the card plays the line again */
   const cache=require('../core/anki-media-cache.cjs');
@@ -110,7 +116,7 @@ class AnkiReviewer{
    if(!this.speak||cache.isSynth(this.mediaDir,name))continue;
    const voice=await this.speak(text);if(!voice?.data)continue;await this.call('storeMediaFile',{filename:name,data:voice.data});cache.write(this.mediaDir,name,voice.data);cache.markSynth(this.mediaDir,name);media.set(name,'data:audio/wav;base64,'+voice.data);}catch{}}
   const ch=name=>cache.isSynth(this.mediaDir,name)?'sentence':undefined;
-  return html.replace(/<audio controls preload="none" src="(tomoyo_[a-f0-9_gs]+\.wav)"><\/audio>/gi,(all,name)=>media.has(name)?audio.player(media.get(name),name,ch(name)):all)
+  return html.replace(/<audio controls preload="none" src="(tomoyo_[a-f0-9_gs]+\.(?:wav|ogg|mp3|m4a))"><\/audio>/gi,(all,name)=>media.has(name)?audio.player(media.get(name),name,ch(name)):all)
    .replace(/\[anki:play:([qa]):(\d+)\]/g,(_,side,index)=>{const name=play.get(side+':'+index),src=media.get(name);return src?audio.player(src,name,ch(name)):audio.replay();}).replace(/\[sound:([^\]\r\n]+)\]/g,(_,name)=>media.has(name)?audio.player(media.get(name),name,ch(name)):'').replace(/\b(src|href)\s*=\s*(["'])([^"']+)\2/gi,(all,key,quote,name)=>media.has(name)?key+'='+quote+media.get(name)+quote:all);
  }
 }
@@ -126,12 +132,16 @@ AnkiReviewer.prototype.practice=async function(deck,advance=false,resume=false){
  if(resume){if(!state?.active||state.index>=state.ids.length)return {done:true};deck=state.deck;}
  else if(!advance||!state||state.deck!==deck){const quote=v=>'"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';const ids=(await this.call('findCards',{query:'deck:'+quote(deck)})).slice(0,500);for(let i=ids.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ids[i],ids[j]]=[ids[j],ids[i]];}state={deck,ids,index:0,active:true};}
  else state.index++;
- if(state.index>=state.ids.length)state.active=false;
- this.db.prepare('INSERT OR REPLACE INTO meta VALUES (?,?)').run('anki-practice',JSON.stringify(state));
- if(state.index>=state.ids.length)return {done:true,practiceDone:true,deck,total:state.ids.length};
- const [card]=await this.call('cardsInfo',{cards:[state.ids[state.index]]});if(!card)return {done:true,practiceDone:true,deck,total:state.ids.length};
- const style=card.css?'<style>'+String(card.css)+'</style>':'';
- return {done:false,practice:true,deck,cardId:Number(card.cardId),position:state.index+1,total:state.ids.length,question:await this.withMedia(style+String(card.question||''),card),answer:await this.withMedia(style+String(card.answer||''),card)};
+ const save=()=>this.db.prepare('INSERT OR REPLACE INTO meta VALUES (?,?)').run('anki-practice',JSON.stringify(state));
+ while(state.index<state.ids.length){
+  const [card]=await this.call('cardsInfo',{cards:[state.ids[state.index]]});
+  if(!card){state.index++;continue;}
+  const style=card.css?'<style>'+String(card.css)+'</style>':'';
+  const out={done:false,practice:true,deck,cardId:Number(card.cardId),position:state.index+1,total:state.ids.length,question:await this.withMedia(style+String(card.question||''),card),answer:await this.withMedia(style+String(card.answer||''),card)};
+  save();return out;
+ }
+ state.active=false;save();
+ return {done:true,practiceDone:true,deck,total:state.ids.length};
 };
 AnkiReviewer.prototype.endPractice=function(){this.db.prepare("DELETE FROM meta WHERE key='anki-practice'").run();return {stopped:true};};
 AnkiReviewer.prototype.deckConfig=async function(deck){const c=await this.call('getDeckConfig',{deck});if(!c||typeof c!=='object')throw Error('ANKI_FAILED');

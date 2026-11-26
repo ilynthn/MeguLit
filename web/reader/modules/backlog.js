@@ -9,23 +9,30 @@
  if(!document.documentElement||!document.body||!window.__tomoyoChinese){document.addEventListener('DOMContentLoaded',installBacklog,{once:true});return;}
  const b=window.__tomoyoChinese;if(b.backlogInstalled)return;b.backlogInstalled=true;
  const KEY='tomoyo-backlog-session',SETTINGS='tome-log-settings';
- const DEFAULTS={jpFont:'game',cnFont:'game',jpSize:18,trSize:14.5,lineHeight:1.75,showTr:true,showName:true,showTime:false,compact:false,width:800,height:88,opacity:100,keep:true,max:500,wheel:true,keyL:true};
+ const DEFAULTS={jpFont:'game',cnFont:'game',jpSize:18,trSize:14.5,lineHeight:1.75,showTr:true,showName:true,showTime:false,compact:false,width:800,height:88,opacity:100,keep:true,max:500,wheel:true,keyL:true,hotkey:'Alt+L'};
+ /* 2026-11-26 (QQ #1130: plain L is many games' own shortcut). The log's global key is a combination the game does not use,
+    chosen here; plain L only works while the Alt+T menu (or the log) is open. '' = no global key. */
+ const HOTKEYS=['Alt+L','Ctrl+Alt+L','Alt+Shift+L','Alt+B',''];
+ const hotkeySpec=name=>{const parts=String(name||'').split('+'),letter=parts.pop()||'';if(!/^[A-Z]$/.test(letter))return {modifiers:0,key:0};
+  return {modifiers:(parts.includes('Alt')?1:0)|(parts.includes('Ctrl')?2:0)|(parts.includes('Shift')?4:0),key:letter.charCodeAt(0)};};
  const T={
   zh:{title:'对话记录',count:'{n} 条',empty:'还没有记录。游戏里出现的台词和译文会保存在这里。',noMatch:'没有找到包含「{q}」的台词',hint:'滚轮向上打开 · Esc / 右键关闭',search:'搜索台词或译文',close:'关闭',settings:'记录设置',copy:'复制原文',copyTr:'复制译文',copied:'已复制',pending:'翻译中…',none:'未翻译',narration:'旁白',
    page:'对话记录（LOG）',pageNote:'调整 LOG 的外观和保存方式，改动立即生效。',open:'打开对话记录',preview:'预览',fonts:'字体',jpFont:'原文字体',cnFont:'译文字体',followGame:'跟随游戏原文字体',followCn:'跟随汉化 / 译文字体',followJp:'与原文相同',current:'当前：{f}',jpSize:'原文字号',trSize:'译文字号',lineHeight:'行距',
-   display:'显示',showTr:'显示译文',showName:'显示说话人',showTime:'显示时间',compact:'紧凑排列',panel:'面板',width:'宽度',height:'高度（占窗口）',opacity:'背景不透明度',keeping:'记录',keep:'重启后保留记录',max:'最多保留',wheel:'在台词上滚轮向上打开',keyL:'翻译模式下按 L 打开',copyAll:'复制全部记录',clear:'清空记录',cleared:'已清空',confirmClear:'再点一次确认清空',
+   display:'显示',showTr:'显示译文',showName:'显示说话人',showTime:'显示时间',compact:'紧凑排列',panel:'面板',width:'宽度',height:'高度（占窗口）',opacity:'背景不透明度',keeping:'记录',keep:'重启后保留记录',max:'最多保留',wheel:'在台词上滚轮向上打开',keyL:'Alt+T 菜单开着时按 L 打开',hotkey:'打开 LOG 的快捷键',hotkeyOff:'不用快捷键',copyAll:'复制全部记录',clear:'清空记录',cleared:'已清空',confirmClear:'再点一次确认清空',
    sampleName:'司',sampleSrc:'「ゆきはここでどんな表情でいるんだろ……」',sampleTr:'“雪在这里会是什么样的表情呢……”',sampleSrc2:'空がとても青かった。',sampleTr2:'天空非常蓝。'},
   en:{title:'Backlog',count:'{n} lines',empty:'Nothing yet. Lines from the game and their translations are kept here.',noMatch:'No line contains “{q}”',hint:'Scroll up to open · Esc or right-click to close',search:'Search lines or translations',close:'Close',settings:'Log settings',copy:'Copy line',copyTr:'Copy translation',copied:'Copied',pending:'Translating…',none:'Not translated',narration:'Narration',
    page:'Backlog (LOG)',pageNote:'How the log looks and what it keeps; changes apply at once.',open:'Open backlog',preview:'Preview',fonts:'Fonts',jpFont:'Original text font',cnFont:'Translation font',followGame:'Follow the game text font',followCn:'Follow the translation (patch) font',followJp:'Same as original',current:'now: {f}',jpSize:'Original size',trSize:'Translation size',lineHeight:'Line height',
-   display:'Display',showTr:'Show translations',showName:'Show speakers',showTime:'Show times',compact:'Compact',panel:'Panel',width:'Width',height:'Height (of window)',opacity:'Background opacity',keeping:'History',keep:'Keep the log after restarting',max:'Keep at most',wheel:'Wheel up over the line opens it',keyL:'L opens it in translation mode',copyAll:'Copy whole log',clear:'Clear log',cleared:'Cleared',confirmClear:'Click again to clear',
+   display:'Display',showTr:'Show translations',showName:'Show speakers',showTime:'Show times',compact:'Compact',panel:'Panel',width:'Width',height:'Height (of window)',opacity:'Background opacity',keeping:'History',keep:'Keep the log after restarting',max:'Keep at most',wheel:'Wheel up over the line opens it',keyL:'L opens it while the Alt+T menu is open',hotkey:'Shortcut to open the log',hotkeyOff:'No shortcut',copyAll:'Copy whole log',clear:'Clear log',cleared:'Cleared',confirmClear:'Click again to clear',
    sampleName:'Tsukasa',sampleSrc:'「ゆきはここでどんな表情でいるんだろ……」',sampleTr:'“I wonder what kind of face Yuki makes here…”',sampleSrc2:'空がとても青かった。',sampleTr2:'The sky was very blue.'},
   ja:{title:'バックログ',count:'{n} 件',empty:'まだ記録はありません。ゲームのセリフと訳がここに残ります。',noMatch:'「{q}」を含むセリフはありません',hint:'ホイール上で開く · Esc / 右クリックで閉じる',search:'セリフや訳文を検索',close:'閉じる',settings:'ログ設定',copy:'原文をコピー',copyTr:'訳文をコピー',copied:'コピーしました',pending:'翻訳中…',none:'未翻訳',narration:'地の文',
    page:'バックログ（LOG）',pageNote:'ログの見た目と保存方法。変更はすぐ反映されます。',open:'バックログを開く',preview:'プレビュー',fonts:'フォント',jpFont:'原文フォント',cnFont:'訳文フォント',followGame:'ゲームの本文フォントに合わせる',followCn:'訳文（パッチ）フォントに合わせる',followJp:'原文と同じ',current:'現在：{f}',jpSize:'原文サイズ',trSize:'訳文サイズ',lineHeight:'行間',
-   display:'表示',showTr:'訳文を表示',showName:'話者を表示',showTime:'時刻を表示',compact:'詰めて表示',panel:'パネル',width:'幅',height:'高さ（ウィンドウ比）',opacity:'背景の不透明度',keeping:'記録',keep:'再起動後も残す',max:'最大件数',wheel:'セリフ上でホイール上で開く',keyL:'翻訳モードで L キーで開く',copyAll:'全件コピー',clear:'ログを消去',cleared:'消去しました',confirmClear:'もう一度押すと消去',
+   display:'表示',showTr:'訳文を表示',showName:'話者を表示',showTime:'時刻を表示',compact:'詰めて表示',panel:'パネル',width:'幅',height:'高さ（ウィンドウ比）',opacity:'背景の不透明度',keeping:'記録',keep:'再起動後も残す',max:'最大件数',wheel:'セリフ上でホイール上で開く',keyL:'Alt+T メニューが開いている間は L キーで開く',hotkey:'ログを開くショートカット',hotkeyOff:'ショートカットなし',copyAll:'全件コピー',clear:'ログを消去',cleared:'消去しました',confirmClear:'もう一度押すと消去',
    sampleName:'司',sampleSrc:'「ゆきはここでどんな表情でいるんだろ……」',sampleTr:'“雪在这里会是什么样的表情呢……”',sampleSrc2:'空がとても青かった。',sampleTr2:'天空非常蓝。'}};
  const t=(k,v={})=>{const lang=window.__tomeI18n?.get?.()||'zh';let s=(T[lang]||T.zh)[k]??T.zh[k]??k;for(const [a,x] of Object.entries(v))s=s.replace('{'+a+'}',x);return s;};
  let cfg={...DEFAULTS};try{cfg={...DEFAULTS,...JSON.parse(localStorage.getItem(SETTINGS)||'{}')};}catch{}
+ if(!HOTKEYS.includes(cfg.hotkey))cfg.hotkey=DEFAULTS.hotkey;
  const saveCfg=()=>{try{localStorage.setItem(SETTINGS,JSON.stringify(cfg));}catch{}};
+ const sendHotkey=()=>{try{window.__tomoyoTranslateRequest(JSON.stringify({type:'galBacklogHotkey',...hotkeySpec(cfg.hotkey)}));}catch{}};
  const store=()=>cfg.keep?localStorage:sessionStorage;
  function normalizeTranslation(value){
  return typeof value==='string'?value.replace(/\\r\\n|\\n|<br\s*\/?>/gi,'\n'):value;
@@ -33,12 +40,16 @@
  let entries=[];try{const saved=JSON.parse(store().getItem(KEY)||sessionStorage.getItem(KEY)||'[]');if(Array.isArray(saved))entries=saved.filter(e=>e&&typeof e.src==='string').slice(-cfg.max).map(e=>({...e,tr:normalizeTranslation(e.tr)}));}catch{}
  let saveTimer=0;const persist=()=>{clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{store().setItem(KEY,JSON.stringify(entries));(cfg.keep?sessionStorage:localStorage).removeItem(KEY);}catch{}},300);};
  const norm=v=>String(v||'').replace(/\s+/g,'');
- function record(src){const body=String(src||'').trim(),raw=b.hookActive&&typeof b.hookSourceText==='string'&&norm(split(b.hookSourceText).text)===norm(body)?b.hookSourceText:body;const text=raw.trim();if(!text)return;const last=entries.at(-1);if(last&&norm(last.src)===norm(text))return;/* 2026-11-20 (CHAOS;CHILD, core/page-text.cjs) the rest of a sentence the last entry left open with a comma: that entry, grown, not a second one */if(last&&/[、，,]$/.test(String(last.src).trim())&&norm(text).startsWith(norm(last.src))&&norm(text)!==norm(last.src)){last.src=text;last.tr='';last.at=Date.now();persist();refreshLog();return;}const speaker=raw===b.hookSourceText&&!split(text).name&&typeof b.hookSpeaker==='string'?b.hookSpeaker:'';entries.push(speaker?{src:text,tr:'',at:Date.now(),name:speaker}:{src:text,tr:'',at:Date.now()});if(entries.length>cfg.max)entries.splice(0,entries.length-cfg.max);persist();refreshLog();}
- function translated(src,text){const key=norm(split(src).text);for(let i=entries.length-1;i>=Math.max(0,entries.length-20);i--)if(norm(split(entries[i].src).text)===key){entries[i].tr=String(text||'');persist();refreshLog();return;}}
+ function record(src){const body=String(src||'').trim(),raw=b.hookActive&&typeof b.hookSourceText==='string'&&norm(split(b.hookSourceText).text)===norm(body)?b.hookSourceText:body;const text=raw.trim();if(!text)return;const last=entries.at(-1);if(last&&norm(last.src)===norm(text))return;/* 2026-11-20 (CHAOS;CHILD, core/page-text.cjs) the rest of a sentence the last entry left open with a comma: that entry, grown, not a second one */if(last&&/[、，,]$/.test(String(last.src).trim())&&norm(text).startsWith(norm(last.src))&&norm(text)!==norm(last.src)){last.src=text;last.tr='';last.at=Date.now();persist();refreshLog();return;}const speaker=raw===b.hookSourceText&&!split(text).name&&typeof b.hookSpeaker==='string'?b.hookSpeaker:'';entries.push(speaker?{src:text,tr:'',at:Date.now(),name:speaker}:{src:text,tr:'',at:Date.now()});if(entries.length>cfg.max)entries.splice(0,entries.length-cfg.max);persist();refreshLog();scheduleAsk();}
+ function translated(src,text,keep){const key=norm(split(src).text);for(let i=entries.length-1;i>=Math.max(0,entries.length-200);i--)if(norm(split(entries[i].src).text)===key){if(keep&&entries[i].tr)return;entries[i].tr=String(text||'');persist();refreshLog();return;}}
  const source=b.onSourceText;b.onSourceText=text=>{source?.(text);record(text);};
  if(b.sourceText)record(b.sourceText);
  // Page translation (ISLAND) delivers per sentence instead of through b.current.
  b.backlogTranslated=translated;const deliver=b.deliver;b.deliver=(id,text,error,message)=>{const src=b.current;deliver?.(id,text,error,message);if(!error&&id===b.serial&&src&&typeof text==='string'&&text.trim())translated(src,text);};
+ /* #1129: a line the log holds without a translation (narration the reader never asked for, a line skipped past, an answer that came late) is filled: every late or fallback answer lands in the log, and the missing ones are asked by their text (the reader's translateGuard) */
+ const backfill=b.deliverBackfill;b.deliverBackfill=(source,text,kind,context)=>{backfill?.(source,text,kind,context);if(typeof text==='string'&&text.trim()&&source&&b.acceptTranslationTarget?.(context)!==false)translated(source,text,kind!=='better');};
+ var asked=new Set(),askTimer=0;function askMissing(){askTimer=0;if(!cfg.showTr||b.isEnabled?.()===false||b.isTranslationVisible?.()===false)return;let n=0;for(let i=entries.length-2;i>=Math.max(0,entries.length-40)&&n<6;i--){const e=entries[i];if(e.tr)continue;const t=split(e.src).text.trim(),k=norm(t);if(!t||t.length>4000||asked.has(k))continue;asked.add(k);if(asked.size>400)asked.delete(asked.values().next().value);n++;send({type:'translateGuard',text:t});}/* a full batch: the next six are asked a moment later, until none is missing (Codex #1176) */if(n>=6)scheduleAsk(4000);}
+ function scheduleAsk(ms){clearTimeout(askTimer);askTimer=setTimeout(askMissing,ms||3000);}b.backlogAskMissing=askMissing;
  b.backlogEntries=()=>entries.slice();
  // "司\n「……」" (BGI and many engines put the speaker on its own line) or "司「……」": speaker and line apart.
  // "[千春]……" / "【千春】……" without 「」 (BRUNS): the bracket is the speaker.
@@ -243,7 +254,7 @@
   panel.addEventListener('contextmenu',e=>{if(e.target.closest('input'))return;e.preventDefault();close();});
   const list=panel.querySelector('.tome-log-list');
   // The log stays open at either edge; wheel momentum must never fall through to the game.
-  const opening=panel;opening.style.opacity='0';document.body.append(opening);opening.setAttribute('data-open','');opening.style.animation='none';send({type:'galMenu',open:true});render();window.__tomeWaitForSurface(opening,()=>{if(panel!==opening)return;opening.style.removeProperty('opacity');opening.style.removeProperty('animation');opening.focus({preventScroll:true});settle(opening);},220);
+  const opening=panel;opening.style.opacity='0';document.body.append(opening);opening.setAttribute('data-open','');opening.style.animation='none';send({type:'galMenu',open:true});render();asked.clear();askMissing();window.__tomeWaitForSurface(opening,()=>{if(panel!==opening)return;opening.style.removeProperty('opacity');opening.style.removeProperty('animation');opening.focus({preventScroll:true});settle(opening);},220);
  }
  // The open animation always ends in the final state (user, 2026-11-14: on beta38 the log stayed a 70 px translucent strip
  // with squashed rows: the 推镜 GSAP push on the same element read the running keyframe scale, baked it into an inline
@@ -262,9 +273,12 @@
  // While the log is open it scrolls the wheel that lands on it or on the game/text (momentum never falls through), but
  // never one over another panel: with the Alt+T menu open beside it, the menu has to scroll under the pointer.
  const OTHER_PANELS='.tomoyo-cn-dialog,.tomoyo-selection-card,.lookup-tooltip,.mg-select-pop,.tome-color-panel';
+ /* 2026-11-26 (QQ #1130): in translation mode the bridge holds the real wheel and asks the page whose it is (interaction.js
+    __megulitResolveWheel). 'all': the open log scrolls it; 'up': an upward wheel opens the log (a downward one stays the game's). */
+ b.backlogWheelTarget=target=>{if(panel)return !target?.closest?.('.tome-backlog')&&target?.closest?.(OTHER_PANELS)?'':'all';if(!cfg.wheel)return '';const win=target?.closest?.('.sentence-window');return win&&!target.closest('.lookup-tooltip,.tomoyo-selection-card,.tomoyo-cn-dialog')?'up':'';};
  document.addEventListener('wheel',e=>{if(panel){if(!e.target?.closest?.('.tome-backlog')&&e.target?.closest?.(OTHER_PANELS))return;e.preventDefault();e.stopImmediatePropagation();const list=panel.querySelector('.tome-log-list');list.scrollTop+=e.deltaY*(e.deltaMode===1?24:e.deltaMode===2?list.clientHeight:1);return;}if(!cfg.wheel||e.deltaY>=0||e.ctrlKey)return;const win=e.target?.closest?.('.sentence-window');if(!win||e.target.closest('.lookup-tooltip,.tomoyo-selection-card,.tomoyo-cn-dialog'))return;e.preventDefault();e.stopImmediatePropagation();open();},{capture:true,passive:false});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){if(e.target?.closest?.('.tome-log-search input')&&e.target.value){e.target.value='';query='';render();e.preventDefault();e.stopImmediatePropagation();return;}e.preventDefault();e.stopImmediatePropagation();close();return;}
-  if(cfg.keyL&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.repeat&&(e.key==='l'||e.key==='L')&&!e.target?.closest?.('input,textarea,select,[contenteditable]')&&document.body.classList.contains('tomoyo-ui-translation')){e.preventDefault();b.toggleBacklog();}},true);
+  if(cfg.keyL&&(panel||menuOpen())&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.repeat&&(e.key==='l'||e.key==='L')&&!e.target?.closest?.('input,textarea,select,[contenteditable]')&&document.body.classList.contains('tomoyo-ui-translation')){e.preventDefault();b.toggleBacklog();}},true);
 
  // ── The 记录 page of the Alt+T menu: preview and every LOG option ───────────────────────────────────────────────
  function openSettings(){if(!menuOpen())b.openSettings?.();let n=0;const go=()=>{const tab=document.querySelector('.tomoyo-cn-dialog[open] [data-menu-key=log]');if(tab){tab.click();return;}if(++n<40)setTimeout(go,50);};go();}
@@ -284,6 +298,7 @@
   const row=(label,control,extra)=>{const r=el('label','tome-log-row');r.append(el('span',null,label),control);if(extra)r.append(extra);return r;};
   const range=(key,min,max,step,fmt)=>{const i=el('input');i.type='range';i.min=min;i.max=max;i.step=step;i.value=cfg[key];const o=el('output');const show=()=>{o.textContent=fmt(Number(i.value));};show();i.oninput=()=>{cfg[key]=Number(i.value);show();changed();};return [i,o];};
   const toggle=(key,label)=>{const l=el('label');const c=el('input');c.type='checkbox';c.checked=!!cfg[key];c.onchange=()=>{cfg[key]=c.checked;if(key==='keep')persist();changed();};l.append(c,label);return l;};
+  const hotkey=el('select');for(const name of HOTKEYS)hotkey.add(new Option(name||t('hotkeyOff'),name));hotkey.value=cfg.hotkey;hotkey.onchange=()=>{cfg.hotkey=hotkey.value;changed();sendHotkey();};
   const toggles=(...items)=>{const g=el('div','tome-log-toggles');g.append(...items);return g;};
   const [jpSize,jpOut]=range('jpSize',12,30,.5,v=>v+'px'),[trSize,trOut]=range('trSize',10,26,.5,v=>v+'px'),[lh,lhOut]=range('lineHeight',1.3,2.4,.05,v=>v.toFixed(2));
   const [width,wOut]=range('width',520,1400,10,v=>v+'px'),[height,hOut]=range('height',40,100,1,v=>v+'%'),[opacity,oOut]=range('opacity',50,100,1,v=>v+'%');
@@ -296,7 +311,7 @@
    el('h4',null,t('fonts')),row(t('jpFont'),fontSelect('jp')),row(t('cnFont'),fontSelect('cn')),row(t('jpSize'),jpSize,jpOut),row(t('trSize'),trSize,trOut),row(t('lineHeight'),lh,lhOut),
    el('h4',null,t('display')),toggles(toggle('showTr',t('showTr')),toggle('showName',t('showName')),toggle('showTime',t('showTime')),toggle('compact',t('compact'))),
    el('h4',null,t('panel')),row(t('width'),width,wOut),row(t('height'),height,hOut),row(t('opacity'),opacity,oOut),
-   el('h4',null,t('keeping')),toggles(toggle('keep',t('keep')),toggle('wheel',t('wheel')),toggle('keyL',t('keyL'))),row(t('max'),max),actions);
+   el('h4',null,t('keeping')),toggles(toggle('keep',t('keep')),toggle('wheel',t('wheel')),toggle('keyL',t('keyL'))),row(t('hotkey'),hotkey),row(t('max'),max),actions);
   host.replaceChildren(box);drawPreview();
  }
  // A LOG button in the Alt+T menu header opens this page; the page is (re)built whenever the menu is.
@@ -304,7 +319,7 @@
   if(header&&!header.querySelector('.tome-menu-close')){const btn=document.createElement('button');btn.type='button';btn.className='tome-menu-close';btn.dataset.noI18n='';btn.textContent='×';btn.title=t('close');btn.setAttribute('aria-label',t('close'));btn.onclick=e=>{e.stopPropagation();dialog.dispatchEvent(new Event('cancel',{cancelable:true}));};header.append(btn);}
   const host=dialog.querySelector('[data-menu-category=log]');if(host&&!host.querySelector('.tome-log-settings'))settingsPage(host);
   const tab=dialog.querySelector('[data-menu-key=log]');dialog.toggleAttribute('data-log-page',tab?.getAttribute('aria-selected')==='true');}
- new MutationObserver(decorate).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-selected']});decorate();
+ new MutationObserver(decorate).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-selected']});decorate();sendHotkey();
  addEventListener('tome-language-change',()=>{render();const host=document.querySelector('.tomoyo-cn-dialog[open] [data-menu-category=log]');if(host)settingsPage(host);});
- const status=b.galStatus;if(status)b.galStatus=m=>{status(m);if(m?.type==='backlogHotkey')b.toggleBacklog();if(m?.interfaceMode&&panel&&m.type==='interfaceMode')close();};
+ const status=b.galStatus;if(status)b.galStatus=m=>{status(m);if(m?.type==='ready')sendHotkey();if(m?.type==='backlogHotkey')b.toggleBacklog();if(m?.interfaceMode&&panel&&m.type==='interfaceMode')close();};
 })();

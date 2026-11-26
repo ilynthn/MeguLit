@@ -92,7 +92,7 @@ test('reconnecting to a game an earlier MeguLit injected: HookBridge connects fi
  assert.match(hb,/Luna_DetachProcess\(Pid\)/,'a clean exit detaches, so the next start injects a fresh hook');
  const font=read('native/fontprobe/FontProbe.cpp');assert.match(font,/if \(pipe == INVALID_HANDLE_VALUE\) \{ pipe = CreateFileW\(name[^\n]*continue; fresh = true; \}/,'FontProbe redials and replays to a new HookBridge');
  assert.match(font,/CloseHandle\(p\); InterlockedExchange\(&CtlConnected, 0\); Command\("OFF"\)/,'with HookBridge gone nothing stays hidden');
- assert.match(read('native/gpuhide/GpuHide.cpp'),/if \(pipe == INVALID_HANDLE_VALUE\) \{ pipe = CreateFileW\(name/);
+ assert.match(read('native/gpuhide/GpuHide.cpp'),/if \(pipe == INVALID_HANDLE_VALUE\) \{\s*pipe = CreateFileW\(name/);
  /* perf/inject-hotpath: the pipe is dialled by the background Writer (never on the game thread), at most every 2 s */assert.match(read('native/fontdot/FontDot.cpp'),/if \(Pipe == INVALID_HANDLE_VALUE\) \{\s*DWORD now = GetTickCount\(\); if \(!first && now - tried < 2000\) continue;[^\n]*\n\s*Pipe = CreateFileA\(name/);
 });
 

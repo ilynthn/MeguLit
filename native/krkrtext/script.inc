@@ -348,7 +348,11 @@ LR"MGLT((function(){
     try {
      if(typeof this.trRolesOff=='Object') this.trRolesOff();
      var L=this.trLayer();
-     if(this.trRec!==void && (L===void || this.trOwner!==L || !this.shown(L))) {this.trClear(this.trOwner);return;}
+     /* 2026-11-26 (integration live test, 死に逝く君、館に芽吹く憎悪, every line of 血塗れの男: trwhy switch cur=f0 owner=b0): the game writes the
+        line on the back page and [trans] copies that page onto the front one, so the glyphs on screen are the front twin's, never rendered
+        there. The record moves to the front twin and that one is hidden (same line, same boxes) instead of the line being retired */
+     if(this.trRec!==void && L!==void && this.trOwner!==L && this.shown(L) && this.trTwin(this.trOwner,L)) {this.trRestore();this.trOwner=L;if(this.trAllL!==void) {this.trAllL=L;try {L.__mgTrAll=this.trAll;} catch(e) {}}this.trNote('carry');}
+     if(this.trRec!==void && (L===void || this.trOwner!==L || !this.shown(L))) {this.trNote(L===void?'away':(this.trOwner!==L?'switch':'unshown'));this.trClear(this.trOwner);return;}
      if(L===void || this.trOwner!==L || this.trRec===void) {this.trRestore();return;}
      if(this.trUi(L)) {this.trClear(L);return;}
      var T=L.textLayer,on=this.hideOn() && !(typeof this.cfg=='Object' && this.cfg.embed);
@@ -363,6 +367,8 @@ LR"MGLT((function(){
      if(this.trRec!==void && h!=this.trRec[0]) {this.trRec[0]=h;var r=this.trRec;this.trKey='';this.report('ToMe_CHARS engine=krkr line='+r[1]+' hidden='+h+r[2]);}
     } catch(e) {}
    } incontextof st;
+)MGLT", LR"MGLT(
+   st.trTwin=function(a,b){try {var bk=this.kag.back.messages,fr=this.kag.fore.messages;for(var i=0;i<bk.count && i<fr.count;i++) if(bk[i]===a) return fr[i]===b;} catch(e) {}return false;} incontextof st;
    st.trNote=function(k){
     try {if(typeof this.trWhy!='Object' || this.trWhy===void) this.trWhy=%[];var n=(+this.trWhy[k])+1;this.trWhy[k]=n;
      if(n==1 || n==2 || n==4 || n==8 || n==16 || n==64 || n==256) this.report('ToMe_KRKR status trwhy '+k+'='+n+' sent='+(+this.charsSent));} catch(e) {}

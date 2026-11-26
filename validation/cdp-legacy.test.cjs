@@ -74,11 +74,13 @@ async function discoveryServer(t,respond){
 }
 test('Luise NW SDK entry in the saved session is counted as an excluded page before any socket opens',async t=>{
  const f=socketFixture(t);
+ let clock=0;
  const port=await discoveryServer(t,(req,res)=>{
   assert.equal(req.url,'/json/list');
+  clock=250;
   res.end(JSON.stringify([{id:'game',type:'page',url:'chrome-extension://njgcanhfjdabfmnlmpmdedalocpafnhl/index.html',webSocketDebuggerUrl:'ws://fixture'}]));
  });
- const p=new WebTextPath({port});
+ const p=new WebTextPath({port,now:()=>clock});
  assert.equal(await p.attach({timeout:250}),false);
  assert.deepEqual(p.discovery,{phase:'no-page',attempts:1,targets:1,pages:1,extensionPages:1,eligible:0});
  assert.equal(f.sockets.length,0);

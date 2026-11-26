@@ -55,3 +55,33 @@ test('review page names the real Anki failure in zh/ja/en and plays returned cli
  for(const code of ['ANKI_REVIEW_INACTIVE','ANKI_MEDIA_MISSING','ANKI_TIMEOUT','ANKI_UNAVAILABLE','ANKI_FAILED'])assert.equal((src.match(new RegExp(code+':','g'))||[]).length>=3,true,code);
  assert.match(src,/playClips\(r\.clips\)/);assert.match(src,/text\.ankiFailed\+'（'/);
 });
+
+test('managed game-voice clips in ogg, mp3, and m4a render with custom player, game channel, and local cache',async t=>{
+ const samples=[
+  {name:'tomoyo_g_0123456789abcdef.ogg',bytes:Buffer.from('OggS\x00\x02\x00\x00\x00\x00\x00\x00'),mime:'audio/ogg'},
+  {name:'tomoyo_g_1123456789abcdef.mp3',bytes:Buffer.from('ID3\x03\x00\x00\x00\x00\x00\x00\x00\x00'),mime:'audio/mpeg'},
+  {name:'tomoyo_g_2123456789abcdef.m4a',bytes:Buffer.from('\x00\x00\x00\x18ftypM4A \x00\x00\x00\x00'),mime:'audio/mp4'}
+ ];
+ for(const sample of samples){
+  const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT)');t.after(()=>db.close());
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'anki-ext-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const audioTag='<audio controls preload="none" src="'+sample.name+'"></audio>';
+  const card={cardId:42,modelName:'MeguLit',ord:0,deckName:'MeguLit',css:'',question:'台詞',answer:'台詞 '+audioTag,
+   fields:{Word:{value:'台詞',order:0},SentenceAudio:{value:audioTag,order:1}}};
+  const fetcher=async(_url,options)=>{
+   const r=JSON.parse(options.body);let result=null,error=null;
+   if(r.action==='findCards')result=[card.cardId];
+   else if(r.action==='cardsInfo')result=[card];
+   else if(r.action==='retrieveMediaFile')result=sample.bytes.toString('base64');
+   else error='unexpected '+r.action;
+   return {ok:true,headers:{get:()=>'application/json'},json:async()=>({result,error})};
+  };
+  const reviewer=new AnkiReviewer({db,fetcher,mediaDir:dir});
+  const practiced=await reviewer.practice('MeguLit');
+  assert.match(practiced.answer,/data-anki-media/,sample.name+' must use custom player wrapper');
+  assert.match(practiced.answer,/data-anki-play/,sample.name+' must have custom play button');
+  assert.match(practiced.answer,/data-anki-channel="game"/,sample.name+' must tag game audio channel for mixer/autoplay');
+  assert.match(practiced.answer,new RegExp('src="data:'+sample.mime+';base64,'),sample.name+' must inline data URL with right MIME');
+  assert.equal(fs.existsSync(path.join(dir,sample.name)),true,sample.name+' must be cached locally');
+ }
+});

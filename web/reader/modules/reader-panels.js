@@ -94,7 +94,10 @@ ${R} .tomoyo-cn-dialog .tomoyo-menu-tabs button{padding-block:7px!important}
 ${R} .tomoyo-selection-card .tomoyo-word-heading strong{font-weight:800!important}
 ${R} .tomoyo-selection-card .tomoyo-word-heading strong::after{display:none!important}
 ${R} .tomoyo-selection-card .tomoyo-word-reading{margin-top:8px!important;color:var(--tome-picture-reading,#d9b46a)!important}
-${R} .tomoyo-selection-card .tomoyo-card-meta,${R} .tomoyo-selection-card .tomoyo-card-meta *{opacity:1!important;color:var(--ink3)!important}
+${R} .tomoyo-selection-card .tomoyo-card-meta,${R} .tomoyo-selection-card .tomoyo-card-meta :not(.tomoyo-mark-sentence){opacity:1!important;color:var(--ink3)!important}
+${R} .tomoyo-selection-card .tomoyo-card-meta .tomoyo-mark-sentence{color:var(--ink3)!important;border-color:var(--line)!important;border-radius:var(--mgc-r,2px)!important}
+${R} .tomoyo-selection-card .tomoyo-card-meta .tomoyo-mark-sentence:hover:not(:disabled){color:var(--ink)!important;border-color:var(--red)!important;background:rgba(243,239,232,.08)!important}
+${R} .tomoyo-selection-card .tomoyo-card-meta .tomoyo-mark-sentence:disabled{opacity:.55!important;border-style:dashed!important}
 /* backlog: no stripes at all; current line = speaker in red + brighter text */
 ${R} .tome-backlog .tome-log-item,${R} .tome-backlog .tome-log-item:last-of-type{border-left:0!important;box-shadow:none!important;background-image:none!important;background-color:transparent!important;outline:0!important}
 ${R} .tome-backlog .tome-log-item::before,${R} .tome-backlog .tome-log-item::after{display:none!important;content:none!important}

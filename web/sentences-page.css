@@ -112,6 +112,7 @@ html:not(#sp1):not(#sp2):not(#sp3):not(#sp4):not(#sp5):not(#sp6):not(#sp7):not(#
  & .sp-list{margin-top:14px}
  & .sp-r-ja{cursor:pointer}
  & .sp-r.is-cur{border-color:var(--t-red)}
+ & .sentence-actions [data-sentence-play].is-game-voice{display:inline-flex;align-items:center;justify-content:center;width:auto;min-width:30px;height:30px;padding:0 8px;white-space:nowrap;font-size:12px;line-height:1}
 
  @media (max-width:900px){& .sp-hero.has-cg{grid-template-columns:minmax(0,1fr)}& .sp-cg{max-width:340px;margin:28px 0 0 auto}& .sp-meta{margin-left:0}}
 }

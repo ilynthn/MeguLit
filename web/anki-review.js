@@ -34,11 +34,11 @@ const hudCopy={
 /* (user 2026-11-14) say why Anki could not do it, instead of the catch-all 「暂时无法完成此操作」 */
 const ankiReasons={
  zh:{ANKI_REVIEW_INACTIVE:'Anki 现在不在复习界面，这一步只能在 Anki 复习中进行',ANKI_MEDIA_MISSING:'这张卡没有找到音频文件（MeguLit 和 Anki 媒体库里都没有）',ANKI_TIMEOUT:'AnkiConnect 超时：Anki 可能卡在弹窗或同步中',
-  ANKI_UNAVAILABLE:'连接 AnkiConnect 失败，请确认 Anki 已打开',ANKI_INVALID_RESPONSE:'AnkiConnect 返回了无法识别的结果，请更新插件',ANKI_INVALID_CARD:'卡片编号无效，请刷新',ANKI_FAILED:'Anki 拒绝了这个操作（AnkiConnect 返回错误）'},
+  ANKI_UNAVAILABLE:'连接 AnkiConnect 失败，请确认 Anki 已打开',ANKI_INVALID_RESPONSE:'AnkiConnect 返回了无法识别的结果，请更新插件',ANKI_INVALID_CARD:'卡片编号无效，请刷新',ANKI_FAILED:'Anki 拒绝了这个操作（AnkiConnect 返回错误）',ANKI_CLOSE_REQUIRED:'Anki 尚未关闭（可能正在保存、同步或等待确认），已为你显示 Anki 窗口，请关闭后再重试'},
  ja:{ANKI_REVIEW_INACTIVE:'Anki が復習画面ではありません。この操作は Anki の復習中だけ使えます',ANKI_MEDIA_MISSING:'このカードの音声ファイルが見つかりません（MeguLit にも Anki のメディアにもありません）',ANKI_TIMEOUT:'AnkiConnect がタイムアウトしました。Anki がダイアログや同期で止まっている可能性があります',
-  ANKI_UNAVAILABLE:'AnkiConnect に接続できません。Anki が起動しているか確認してください',ANKI_INVALID_RESPONSE:'AnkiConnect の応答を読めません。プラグインを更新してください',ANKI_INVALID_CARD:'カード番号が無効です。再読み込みしてください',ANKI_FAILED:'Anki がこの操作を拒否しました（AnkiConnect のエラー）'},
+  ANKI_UNAVAILABLE:'AnkiConnect に接続できません。Anki が起動しているか確認してください',ANKI_INVALID_RESPONSE:'AnkiConnect の応答を読めません。プラグインを更新してください',ANKI_INVALID_CARD:'カード番号が無効です。再読み込みしてください',ANKI_FAILED:'Anki がこの操作を拒否しました（AnkiConnect のエラー）',ANKI_CLOSE_REQUIRED:'Anki を閉じられませんでした（保存・同期中または確認画面が表示中の可能性があります）。Anki を閉じてから再試行してください'},
  en:{ANKI_REVIEW_INACTIVE:'Anki is not in review, and this only works during an Anki review',ANKI_MEDIA_MISSING:'No audio file was found for this card (neither in MeguLit nor in Anki media)',ANKI_TIMEOUT:'AnkiConnect timed out; Anki may be stuck on a dialog or syncing',
-  ANKI_UNAVAILABLE:'Could not reach AnkiConnect; make sure Anki is open',ANKI_INVALID_RESPONSE:'AnkiConnect sent a reply MeguLit cannot read; update the add-on',ANKI_INVALID_CARD:'Invalid card id; refresh the page',ANKI_FAILED:'Anki refused this action (AnkiConnect error)'}};
+  ANKI_UNAVAILABLE:'Could not reach AnkiConnect; make sure Anki is open',ANKI_INVALID_RESPONSE:'AnkiConnect sent a reply MeguLit cannot read; update the add-on',ANKI_INVALID_CARD:'Invalid card id; refresh the page',ANKI_FAILED:'Anki refused this action (AnkiConnect error)',ANKI_CLOSE_REQUIRED:'Anki stayed open (it may be saving, syncing or waiting on a dialog). Close Anki and try again'}};
 const mixKey='tome-anki-audio-mix',mixChannels=['master','word','sentence','game'];
 const mixLabels={
  zh:['音量混音器','总音量','单词读音','合成例句','游戏原声','控制 MeguLit 卡片内播放的声音'],
@@ -118,15 +118,15 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  /* 2026-11-12 (user: must be a foolproof one-click install) no Anki on this computer: download, install, AnkiConnect, connect */
  const INST={zh:{ask:'还没装 Anki？一键安装',title:'还没有安装 Anki',text:'点一下就好：MeguLit 会下载 Anki 官方安装包（约 190 MB）并装好，再自动装上 AnkiConnect 插件、启动并连接，全程不用自己找路径。',tips:['Windows 弹窗问「是否允许更改」时，点「是」',
   'Anki 首次启动时如提示选择语言，请在 Anki 窗口中确认','装好后这里会自动连上，就可以开始复习了'],go:'一键安装 Anki',downloading:'正在下载 Anki',installing:'正在安装（稍等一下，Windows 可能会询问权限）',connecting:'正在启动 Anki 并连接…',
-  done:'装好了，正在连接',failed:'没有装成功',targetFailed:'无法安装到 {folder}。请确认目录为空且可写，或手动安装 Anki。',retry:'重试',cancelled:'安装被取消了：Windows 询问权限时请点「是」'},
+  done:'装好了，正在连接',failed:'没有装成功',targetFailed:'无法安装到 {folder}。请确认目录为空且可写，或手动安装 Anki。',running:'Anki 正在运行，请先关闭 Anki 再点重试，以便安装 AnkiConnect 插件',addonFailed:'AnkiConnect 插件下载或安装失败，请检查网络后重试，或在 设置 → Anki 里安装',retry:'重试',cancelled:'安装被取消了：Windows 询问权限时请点「是」'},
   ja:{ask:'Anki がまだ？ワンクリックで導入',title:'Anki がインストールされていません',text:'押すだけ：MeguLit が Anki 公式インストーラー（約 190 MB）をダウンロードしてインストールし、AnkiConnect も入れて起動・接続します。パスを探す必要はありません。',
    tips:['Windows が「変更を許可しますか」と聞いたら「はい」','初回起動で言語を聞かれたら、Anki の画面で選択して確定します','終わるとここで自動的に接続され、復習を始められます'],go:'Anki をワンクリックで導入',downloading:'Anki をダウンロード中',
-   installing:'インストール中（Windows が許可を求めることがあります）',connecting:'Anki を起動して接続しています…',done:'完了。接続しています',failed:'インストールできませんでした',targetFailed:'{folder} にインストールできませんでした。フォルダーが空で書き込み可能か確認するか、Anki を手動でインストールしてください。',retry:'再試行',cancelled:'キャンセルされました：Windows の確認では「はい」を押してください'},
+   installing:'インストール中（Windows が許可を求めることがあります）',connecting:'Anki を起動して接続しています…',done:'完了。接続しています',failed:'インストールできませんでした',targetFailed:'{folder} にインストールできませんでした。フォルダーが空で書き込み可能か確認するか、Anki を手動でインストールしてください。',running:'Anki が起動中です。AnkiConnect を入れるため、先に Anki を閉じてから再試行してください',addonFailed:'AnkiConnect のダウンロードまたは導入に失敗しました。ネットワークを確認して再試行するか、設定 → Anki から導入してください',retry:'再試行',cancelled:'キャンセルされました：Windows の確認では「はい」を押してください'},
   en:{ask:'No Anki yet? Install it in one click',title:'Anki is not installed',text:'One click: MeguLit downloads the official Anki installer (about 190 MB), installs it, adds AnkiConnect, starts Anki and connects. No paths to look for.',
    tips:['When Windows asks to allow changes, choose Yes','If Anki asks you to choose a language on first launch, confirm it in the Anki window','When it is done this page connects by itself and you can start reviewing'],
    go:'Install Anki',downloading:'Downloading Anki',installing:'Installing (Windows may ask for permission)',connecting:'Starting Anki and connecting…',done:'Installed, connecting',
-   failed:'The installation did not complete',targetFailed:'Could not install to {folder}. Check that the folder is empty and writable, or install Anki manually.',retry:'Try again',cancelled:'Cancelled: choose Yes when Windows asks for permission'}}[locale]||null;
- const inst=()=>INST||{ask:'',title:'',text:'',tips:[],go:'',downloading:'',installing:'',connecting:'',done:'',failed:'',targetFailed:'',retry:'',cancelled:''};
+   failed:'The installation did not complete',targetFailed:'Could not install to {folder}. Check that the folder is empty and writable, or install Anki manually.',running:'Anki is running; close Anki first and try again so AnkiConnect can be installed',addonFailed:'Could not download or install AnkiConnect; check your connection and try again, or install it from Settings → Anki',retry:'Try again',cancelled:'Cancelled: choose Yes when Windows asks for permission'}}[locale]||null;
+ const inst=()=>INST||{ask:'',title:'',text:'',tips:[],go:'',downloading:'',installing:'',connecting:'',done:'',failed:'',targetFailed:'',running:'',addonFailed:'',retry:'',cancelled:''};
  function showInstall(){const t=inst();if(landing.parentElement!==target)target.replaceChildren(landing);
   landing.innerHTML='<h2>'+esc(t.title)+'</h2><p class="muted">'+esc(t.text)+'</p><ol class="anki-install-tips">'+t.tips.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol><div class="anki-install-bar" hidden><i></i></div><p class="muted u-status" data-install-state hidden></p><div class="review-controls"><button class="primary" data-install-go>'+esc(t.go)+'</button></div>';
   const go=landing.querySelector('[data-install-go]'),bar=landing.querySelector('.anki-install-bar'),fill=bar.querySelector('i'),line=landing.querySelector('[data-install-state]');
@@ -134,6 +134,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
    error=String(error??'');
    const prefix='ANKI_INSTALL_TARGET_FAILED ';
    if (error.startsWith(prefix)) return t.targetFailed.replace('{folder}',error.slice(prefix.length));
+   if (error==='ANKI_RUNNING') return t.running;
+   if (error.startsWith('ANKICONNECT_DOWNLOAD_FAILED')||error.startsWith('ANKICONNECT_INSTALL_FAILED')) return t.addonFailed;
    return /CANCELLED/.test(error)?t.cancelled:error==='ANKI_OFFLINE'?reason(error):t.failed+'（'+error+'）';
   };
   const paint=r=>{bar.hidden=false;line.hidden=false;const pct=r.total?Math.min(100,Math.round(r.received/r.total*100)):0;fill.style.width=(r.phase==='downloading'?pct:100)+'%';
@@ -411,7 +413,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  function key(k){
   const s=stage();if(!s||!isCurrent())return;const controls=s.querySelector('[data-controls]'),ratings=[...controls.querySelectorAll('.anki-rating')].map(b=>Number(b.dataset.ease));
   const action=ankiKeyAction(k,{answerShown:ratings.length>0,ratings,editing,immersive});if(!action)return false;
-  if(action==='fullscreen')setImmersive(!immersive);else if(action==='layout')setEditing(!editing);else if(action==='replay')s.querySelector('[data-replay]')?.click();
+  if(action==='fullscreen')setImmersive(!immersive);else if(action==='layout')setEditing(!editing);else if(action==='replay'){const b=s.querySelector('[data-replay]');if(b&&!b.hidden)b.click();}
   else if(action==='primary')controls.querySelector('button.hud-primary:not(:disabled),button.primary:not(:disabled)')?.click();else controls.querySelector('.rating-'+action.slice(5)+':not(:disabled)')?.click();
   return true;
  }
@@ -438,7 +440,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   toolbar(s,(card.hasAudio?'<button class="text-button" data-replay>'+copy.play+'</button>':'')+'<button class="text-button" data-fit aria-pressed="'+fit+'">'+(fit?copy.fit:copy.original)+'</button><button class="text-button" data-reload>'+text.ankiRefresh+'</button><button class="text-button" data-stop>'+copy.stop+'</button>');
   progress(s,'<span class="anki-hud-deck">Anki · '+esc(card.deck)+'</span>'+(reviewed?'<b>'+esc(hc.reviewed.replace('{n}',reviewed))+'</b>':''));
   mountFrame(s,{...card,when:card.answerShown?'flip':'next'});s.querySelector('[data-reload]').onclick=reload;s.querySelector('[data-stop]').onclick=stopStudy;
-  const play=s.querySelector('[data-replay]');if(play)play.onclick=()=>card.manualAudio?playCardAudio(card):replay(card,play);
+  const play=s.querySelector('[data-replay]');if(play)play.onclick=()=>playCardAudio(card);
   s.querySelector('[data-fit]').onclick=event=>{fit=!fit;event.currentTarget.textContent=fit?copy.fit:copy.original;event.currentTarget.setAttribute('aria-pressed',
    String(fit));currentFrame.contentWindow.postMessage({type:'tome-anki-fit',nonce:currentFrame.dataset.nonce,fit},'*');};
   const controls=s.querySelector('[data-controls]');controls.replaceChildren();requestAnimationFrame(placeBlocks);
@@ -459,7 +461,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   if(!status.connected){landing.innerHTML='<h2>'+text.ankiOffline+'</h2><p class="muted">'+esc(reason(status.reason))+'</p><p class="muted u-status" data-state="off">AnkiConnect'+(status.url?' · '+esc(status.url):'')+'</p><div class="review-controls"><button class="primary" data-launch>'+copy.launch+'</button><button class="secondary" data-connect>'+text.reconnect+'</button></div>'+(INST?'<p class="anki-install-ask"><button type="button" class="text-button" data-install-ask>'+esc(inst().ask)+'</button></p>':'');
    target.querySelector('[data-install-ask]')?.addEventListener('click',showInstall);/* Reconnect repairs the connection (user): closes programs holding AnkiConnect's port, cold-starts Anki, then reloads */
    target.querySelector('[data-connect]').onclick=async event=>{const button=event.currentTarget;target.querySelectorAll('.review-controls button').forEach(b=>b.disabled=true);
-    button.setAttribute('aria-busy','true');button.textContent=copy.repairing;try{await api('anki_repair');}catch(error){failed(error);}if(isCurrent())renderAnkiReview({
+    button.setAttribute('aria-busy','true');button.textContent=copy.repairing;try{await api('anki_repair');}catch(error){failed(error);if(String(error?.message||error)==='ANKI_EXECUTABLE_MISSING'&&INST)return;}if(isCurrent())renderAnkiReview({
     target,api,text,esc,isCurrent,toast,cover,windowAction});};
    target.querySelector('[data-launch]').onclick=async event=>{const button=event.currentTarget;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent=copy.launching;
     try{await api('anki_launch',{reason:status.reason});}catch(error){failed(error);if(String(error?.message||error)==='ANKI_EXECUTABLE_MISSING'&&INST)return;}status=await api('anki_status').catch(()=>status);
@@ -491,15 +493,16 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   target.querySelector('[data-custom]')?.addEventListener('click',event=>openAnki('custom',card.deck,event.currentTarget));
   target.querySelector('[data-limits]')?.addEventListener('click',()=>drawLimits(card.deck,()=>drawDone(card)));
  }
- async function practice(deck,advance){try{const card=await api('anki_practice',{deck,advance});if(isCurrent())card.done?drawDone(card):drawPractice(card);}catch(error){
-  failed(error);}}
+ async function practice(deck,advance){try{const card=await api('anki_practice',{deck,advance});if(isCurrent())card.done?drawDone(card):drawPractice(card);return true;}catch(error){
+  failed(error);return false;}}
  function drawPractice(card){
   if(!isCurrent())return;currentCard=card;let shown=false;
-  const s=shell();toolbar(s,'<button class="text-button" data-stop>'+copy.endPractice+'</button>');
+  const s=shell();toolbar(s,'<button class="text-button" data-replay hidden>'+copy.play+'</button><button class="text-button" data-stop>'+copy.endPractice+'</button>');
+  const play=s.querySelector('[data-replay]');play.onclick=()=>playCardAudio(card);
   progress(s,'<span class="anki-hud-deck">'+esc(copy.practiceTag)+' · '+esc(card.deck)+'</span><b class="anki-hud-count">'+esc(card.position)+' / '+esc(card.total)+'</b>');
-  const show=()=>{mountFrame(s,{html:shown?card.answer:card.question,when:shown?'flip':'next'});
+  const show=()=>{const html=shown?card.answer:card.question;play.hidden=!/<audio\b|data-anki-play|data-anki-replay/i.test(html);mountFrame(s,{html,when:shown?'flip':'next'});
    const controls=s.querySelector('[data-controls]');controls.replaceChildren();requestAnimationFrame(placeBlocks);const button=document.createElement('button');button.className='primary';button.textContent=shown?copy.next:text.showAnswer;
-   button.onclick=()=>{if(shown)practice(card.deck,true);else{shown=true;show();}};controls.append(button);};
+   button.onclick=async()=>{if(!shown){shown=true;show();return;}button.disabled=true;if(!await practice(card.deck,true)&&button.isConnected)button.disabled=false;};controls.append(button);};
   s.querySelector('[data-stop]').onclick=async()=>{try{await api('anki_practice',{end:true});}catch{}drawDecks();};show();
  }
  async function drawLimits(deck,back){

@@ -56,10 +56,18 @@ function start(root,{runtime=null,fetcher=fetch,install=runInstaller,china=inChi
    if(!find()){const file=await download(root,fetcher);state.phase='installing';await install(root,file);}
    state.phase='connecting';
    if(!find())throw Error('ANKI_EXECUTABLE_MISSING');
-   await ankiProcess.installAnkiConnect(process.env,{locate:find,fresh:true}).then(r=>log(root,'ankiconnect '+(r.already?'already there':'installed'))).catch(e=>log(root,'ankiconnect '+e.message));
+   const runner=runtime?.ankiProcess?.();
+   if(typeof runner?.online==='function'&&await runner.online()){log(root,'already online');state.phase='done';log(root,'done');return;}
+   try{
+    const r=await ankiProcess.installAnkiConnect(process.env,{locate:find,fresh:true});
+    log(root,'ankiconnect '+(r.already?'already there':'installed'));
+   }catch(e){
+    log(root,'ankiconnect '+e.message);
+    throw e;
+   }
    // An existing Anki 25.x launcher can still need packages on first start.
    if(china){process.env.UV_DEFAULT_INDEX??='https://pypi.tuna.tsinghua.edu.cn/simple';process.env.UV_INDEX_URL??='https://pypi.tuna.tsinghua.edu.cn/simple';}
-   if(runtime?.ankiProcess)await runtime.ankiProcess().start({hide:false});
+   if(runner)await runner.start({hide:false});
    state.phase='done';log(root,'done');
   }catch(e){state.phase='error';const message=String(e.message||e);state.error=message.startsWith('ANKI_INSTALL_TARGET_FAILED ')?message:message.slice(0,120);log(root,'error '+state.error);}finally{job=null;}})();
  return status();

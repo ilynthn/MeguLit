@@ -114,7 +114,7 @@ const STEP=40;
 export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc,state,animate=false,onLookup,onLaunch,canLaunch=true,scope='game',onStatus,onDelete,enhance,onGame,peek}){
  const t=tx(locale,scope),life=lifecycle(target);
  const all=words.map(w=>({...w,means:meanings(w.definitions),met:Number(w.met)||0})),extra=lookupOnly.map(w=>({...w,means:meanings(w.definitions),met:0}));
- const oftenCount=scope==='all'?all.filter(w=>w.lookups).length+extra.length:0;
+ let oftenCount=scope==='all'?all.filter(w=>w.lookups).length+extra.length:0;
  const byStatus=counts?.byStatus||null,groupCount=k=>byStatus?Object.entries(byStatus).filter(([s])=>group(s)===k).reduce((a,[,n])=>a+Number(n||0),0):all.filter(w=>group(w.status)===k).length;
  let total=Number(counts?.total)||all.length;
  state.filter??='all';state.q??='';state.shown??=STEP;state.open=false;
@@ -123,13 +123,13 @@ export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc
  const matches=w=>{if(state.filter==='often'?!w.lookups:state.filter!=='all'&&group(w.status)!==state.filter)return false;const q=state.q.trim().toLowerCase();if(!q)return true;
   return String(w.spelling||'').toLowerCase().includes(q)||String(w.reading||'').toLowerCase().includes(q)||hira(w.reading).includes(hira(q))||w.means.some(m=>m.toLowerCase().includes(q));};
  let list=[];const curWord=()=>list.find(w=>w.id===state.cur)||null;
-
- if(!all.length&&!extra.length){
+ function renderEmpty(intro){
   target.innerHTML=`<section class="esr is-empty" aria-label="${esc(t.words)}"><header class="esr-h"><div class="esr-hl"><span class="esr-tot"><span class="esr-k">${esc(t.total)}</span><b>0</b></span></div></header>
    <div class="esr-none" role="status"><span class="esr-w esr-w-none" lang="${locale==='en'?'en':'zh'}">${esc(t.noWords)}</span><p>${esc(t.noWordsSub)}</p>${canLaunch&&onLaunch?`<div class="esr-act"><button type="button" class="primary" data-launch>${esc(t.launch)}</button></div>`:''}</div></section>`;
   target.querySelector('[data-launch]')?.addEventListener('click',e=>onLaunch(e.currentTarget));
-  const gsap=animate&&motion();if(gsap)life.add(()=>{gsap.timeline({defaults:{duration:.6,ease:'power3.out'}}).from(target.querySelectorAll('.esr-h > *, .esr-none > *'),{y:18,opacity:0,stagger:.08});});
-  return life.stop;}
+  const gsap=intro&&animate&&motion();if(gsap)life.add(()=>{gsap.timeline({defaults:{duration:.6,ease:'power3.out'}}).from(target.querySelectorAll('.esr-h > *, .esr-none > *'),{y:18,opacity:0,stagger:.08});});
+ }
+ if(!all.length&&!extra.length){renderEmpty(true);return life.stop;}
 
  const chips=()=>[['all',t.all,total],...t.groups.map((name,i)=>[String(i),name,groupCount(String(i))]),...(oftenCount?[['often',t.often,oftenCount]]:[])].map(([key,name,n])=>
   `<button type="button" role="tab" class="esr-fb${state.filter===key?' on':''}" data-f="${key}" aria-selected="${state.filter===key}" tabindex="${state.filter===key?0:-1}">${esc(name)}<b>${n}</b></button>`).join('');
@@ -251,7 +251,10 @@ export function mountWords(target,{words=[],lookupOnly=[],counts,locale='zh',esc
  function paintChips(){const f=root.querySelector('.esr-f');f.innerHTML=chips();root.querySelector('.esr-tot b').textContent=total;}
  /* after a delete: the word leaves the list, the next one (or the previous at the end) becomes current */
  function removeWord(w){const i=list.findIndex(x=>x.id===w.id),k=all.findIndex(x=>x.id===w.id);if(k<0)return;all.splice(k,1);total=Math.max(0,total-1);
+  if(scope==='all'&&w.lookups)oftenCount=Math.max(0,oftenCount-1);
   if(byStatus)byStatus[level(w.status)]=Math.max(0,Number(byStatus[level(w.status)]||0)-1);
+  if(!all.length&&!extra.length){state.cur=null;state.filter='all';renderEmpty(false);return;}
+  if(state.filter==='often'&&!oftenCount)state.filter='all';
   const nextWord=list[i+1]||list[i-1];state.cur=nextWord?nextWord.id:null;paintChips();renderList();}
  /* lookup-only words have no saved meaning: the local dictionary fills meaning and reading in place (no lookup is recorded) */
  if(peek&&extra.length)(async()=>{for(const w of extra.slice(0,100)){if(!life.live)return;let d=null;try{d=await peek(w.spelling);}catch{}if(!d||!life.live)continue;
@@ -313,7 +316,8 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
   <header class="esr-h"><div class="esr-hl"><span class="esr-tot"><span class="esr-k">${esc(label)}</span><b>${list.length}</b></span></div><div class="esr-hr"><p class="esr-k">${esc(t.order)}</p></div></header>
   <div class="esr-body"><div class="esr-lw"><div class="esr-vp"><ul class="esr-list" role="listbox" aria-label="${esc(t.results)}" aria-activedescendant="ent-o-${cur}">${list.map(row).join('')}</ul></div></div><aside class="esr-d" aria-live="polite"></aside></div></section>`;
  const root=target.querySelector('.esr'),vp=root.querySelector('.esr-vp'),side=root.querySelector('.esr-d'),l=root.querySelector('.esr-list');
- const has=w=>savedSpellings?.has(w.spelling)||savedSpellings?.has(w.reading);
+ const wordKey=w=>w.spelling||w.reading;
+ const has=w=>{const k=wordKey(w);return !!k&&!!savedSpellings?.has(k);};
  const fmt=n=>Number(n).toLocaleString(locale==='en'?'en-US':locale==='ja'?'ja-JP':'zh-CN');
  /* JLPT level, part of speech and 常用度 on one line under the bar; a MOJi entry without a JLPT tag shows none (never a guess) */
  function meta(h){const lv=String(h.jlpt||'').match(/^N([1-5])$/),step=usageStep(h.views),pos=tags(h);if(!lv&&step<0&&!pos.length)return '';
@@ -353,7 +357,7 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
  async function paint(){const w=list[cur];if(!w){side.innerHTML='';return;}const mine=++ticket;
   if(!loadDetail||!w.id||cache.has(w.key)){side.innerHTML=body(w,cache.get(w.key));return;}
   side.innerHTML=body(w,null)+`<p class="esr-src ent-wait">${esc(t.loading)}</p>`;
-  let d=null;try{d=await loadDetail(w);}catch{d=null;}cache.set(w.key,d);if(mine!==ticket||!life.live)return;side.innerHTML=body(w,d)+(d?'':`<p class="esr-src">${esc(t.detailFail)}</p>`);}
+  let d=null;try{d=await loadDetail(w);}catch{d=null;}if(d)cache.set(w.key,d);if(mine!==ticket||!life.live)return;side.innerHTML=body(w,d)+(d?'':`<p class="esr-src">${esc(t.detailFail)}</p>`);}
  function reveal(r,smooth){if(!r)return;const top=r.offsetTop,bottom=top+r.offsetHeight,h=vp.clientHeight,st=vp.scrollTop,pad=Math.min(80,h*.2);
   if(top<st+pad)vp.scrollTo({top:Math.max(0,top-pad),behavior:smooth&&!reduced()?'smooth':'auto'});else if(bottom>st+h-pad)vp.scrollTo({top:bottom-h+pad,behavior:smooth&&!reduced()?'smooth':'auto'});}
  const edge=()=>{vp.classList.toggle('at-top',vp.scrollTop<=2);vp.classList.toggle('at-end',vp.scrollTop+vp.clientHeight>=vp.scrollHeight-2);};
@@ -368,16 +372,16 @@ export function mountEntries(target,{items=[],source='local',locale='zh',esc,loa
   if(next==null)return;e.preventDefault();select(Math.max(0,Math.min(n,next)),{focus:true,scroll:true});});
  vp.addEventListener('scroll',edge,{passive:true});
  side.addEventListener('click',async e=>{const w=list[cur];if(!w)return;
-  const s=e.target.closest('[data-save]');if(s&&onSave){s.disabled=true;try{await onSave(w);savedSpellings?.add(w.spelling);side.innerHTML=body(w,cache.get(w.key));}catch{s.disabled=false;}return;}
+  const s=e.target.closest('[data-save]');if(s&&onSave){s.disabled=true;try{await onSave(w);const k=wordKey(w);if(k)savedSpellings?.add(k);side.innerHTML=body(w,cache.get(w.key));}catch{s.disabled=false;}return;}
   /* 加入 Anki: the card's example is the first example of this entry (MOJi detail), with its translation; none for a local entry */
   const a=e.target.closest('[data-anki]');if(a&&onAnki){const d=cache.get(w.key),ex=d?.meanings?.flatMap(m=>m.examples||[]).find(x=>x?.ja)||null;
    a.disabled=true;const label=a.innerHTML;a.innerHTML=ACT.anki+`<span>${esc(t.ankiBusy)}</span>`;
-   try{await onAnki(w,ex?{sentence:ex.ja,translation:ex.zh||''}:{});carded.add(w.key);savedSpellings?.add(w.spelling);side.innerHTML=body(w,d);}catch{a.disabled=false;a.innerHTML=label;}return;}
+   try{await onAnki(w,ex?{sentence:ex.ja,translation:ex.zh||''}:{});carded.add(w.key);const k=wordKey(w);if(k)savedSpellings?.add(k);side.innerHTML=body(w,d);}catch{a.disabled=false;a.innerHTML=label;}return;}
   const p=e.target.closest('[data-play]');if(p&&onPlay){p.disabled=true;try{await onPlay(w);}finally{p.disabled=false;}return;}
   if(e.target.closest('[data-notes-open]')){notesOpen.add(w.key);keep(()=>side.innerHTML=body(w,cache.get(w.key)));return;}
   const m=e.target.closest('[data-notes-more]');if(m&&loadNotes){const k=w.key,got=more.get(k)||{list:[],page:1,hasMore:true};m.disabled=true;m.textContent=t.notesLoading;
    try{const r=await loadNotes(w,got.page+1);more.set(k,{list:[...got.list,...(r?.comments||[])],page:got.page+1,hasMore:Boolean(r?.hasMore)&&(r?.comments||[]).length>0});}
-   catch{more.set(k,{...got,hasMore:false});}if(list[cur]===w&&life.live)keep(()=>side.innerHTML=body(w,cache.get(k)));}});
+   catch{}if(list[cur]===w&&life.live)keep(()=>side.innerHTML=body(w,cache.get(k)));}});
  /* re-rendering the panel keeps its scroll position (expanding notes never jumps back to the headword) */
  const keep=fn=>{const y=side.scrollTop;fn();side.scrollTop=y;};
  const ro=new ResizeObserver(()=>edge());ro.observe(vp);life.off(()=>ro.disconnect());

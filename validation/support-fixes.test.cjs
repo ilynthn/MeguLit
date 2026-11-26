@@ -4,14 +4,22 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const anki=require('../core/anki-process.cjs');
 
-test('AnkiConnect is detected by its AnkiWeb code folder',()=>{
+test('AnkiConnect is detected only when its add-on folder has an entry script',()=>{
  const app=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-anki-'));
  try{
   const env={APPDATA:app};
   assert.equal(anki.ankiConnectInstalled(env),null,'no Anki profile yet');
   fs.mkdirSync(path.join(app,'Anki2','addons21','123'),{recursive:true});
   assert.equal(anki.ankiConnectInstalled(env),false);
-  fs.mkdirSync(path.join(app,'Anki2','addons21','2055492159'));
+  const addon=path.join(app,'Anki2','addons21','2055492159');
+  fs.mkdirSync(addon);
+  assert.equal(anki.ankiConnectInstalled(env),false,'empty directory is not a complete add-on');
+  fs.writeFileSync(path.join(addon,'config.json'),'{}');
+  assert.equal(anki.ankiConnectInstalled(env),false,'partial folder without __init__.py is not installed');
+  fs.mkdirSync(path.join(addon,'__init__.py'));
+  assert.equal(anki.ankiConnectInstalled(env),false,'__init__.py directory is not a valid entry file');
+  fs.rmSync(path.join(addon,'__init__.py'),{recursive:true,force:true});
+  fs.writeFileSync(path.join(addon,'__init__.py'),'# AnkiConnect');
   assert.equal(anki.ankiConnectInstalled(env),true);
  }finally{fs.rmSync(app,{recursive:true,force:true});}
 });

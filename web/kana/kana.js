@@ -70,7 +70,7 @@ function createStore(api,data){
 }
 
 /* ---------- 发音：走 MeguLit 的 AivisSpeech（词典读音 + UniDic 音调），连不上退回系统语音 ---------- */
-function createSpeech(api,store,toast=()=>{}){
+function createSpeech(api,store,toast=()=>{},active=()=>true){
  const cache=new Map();let current=null,seq=0,offline=false;
  const volume=()=>{const p=store.get(KEY.p,{});return Number.isFinite(p.volume)?p.volume:0.4;};
  const readingOf=t=>{for(const w of Object.values(D.WORD_H))if(w[0]===t)return w[1];return '';};
@@ -83,7 +83,7 @@ function createSpeech(api,store,toast=()=>{}){
  const voice=()=>(store.get(KEY.p,{}).voice)||'female';
  const recorded=text=>{const v=voice();if(v==='ai')return '';const k=toHira(text);return RECORDED[v]&&RECORDED[v].includes(','+k+',')?BASE+'audio/'+v+'/'+[...k].map(c=>c.codePointAt(0).toString(16).padStart(4,'0')).join('-')+'.'+RECORDED.ext/* ASCII file names: the release zip and updater stay encoding-safe */:'';};
  async function say(text){
-  const my=++seq;stop();
+  stop();const my=seq;
   {const url=recorded(text);if(url){try{current=new Audio(url);current.volume=volume();await current.play();return;}catch{if(my!==seq)return;}}}
   /* v1.1.6 (user: the speaker button stayed silent until a voice preview in Settings had started the engine): a cold
      AivisSpeech refuses the first requests for a few seconds; keep retrying up to ~20 s instead of going offline at once */
@@ -91,11 +91,11 @@ function createSpeech(api,store,toast=()=>{}){
    if(my!==seq)return;offline=true;setTimeout(()=>{offline=false;},15000);}
   if(my===seq)system(text);
  }
- function stop(){if(current){current.pause();current=null;}try{speechSynthesis.cancel();}catch{}}
- /* start the voice engine as soon as the kana module opens, so the first click already has a voice */
- setTimeout(()=>{synth('あ').catch(()=>{});},300);
+ function stop(){seq++;if(current){current.pause();current=null;}try{speechSynthesis.cancel();}catch{}}
+ /* start the voice engine when AI voice is chosen, so the first click already has a voice */
+ setTimeout(()=>{if(active()&&voice()==='ai')synth('あ').catch(()=>{});},300);
  let queue=Promise.resolve();
- function prefetch(list){queue=queue.then(async()=>{for(const t of [...new Set(list)].slice(0,120)){if(offline)return;if(recorded(t))continue;try{await synth(t);}catch{return;}}});return queue;}
+ function prefetch(list){queue=queue.then(async()=>{for(const t of [...new Set(list)].slice(0,120)){if(!active()||offline)return;if(recorded(t))continue;try{await synth(t);}catch{return;}}});return queue;}
  function setVolume(v){if(current)current.volume=v;}
  return {say,prefetch,stop,setVolume};
 }
@@ -111,7 +111,7 @@ export async function mountKana(target,{api,invoke,toast,start='index',openTab,f
  target.replaceChildren(host);
  const root=shadow.querySelector('.kana-root'),viewEl=shadow.querySelector('.kn-view');
  const data=await api('kana_progress').catch(()=>({mastery:{},boxes:{},runs:[],applied:[],lessons:{},prefs:{volume:0.4}}));
- const store=createStore(api,data),speech=createSpeech(api,store,(...a)=>(toast||(()=>{}))(...a));liveStore=store;
+ const store=createStore(api,data),speech=createSpeech(api,store,(...a)=>(toast||(()=>{}))(...a),()=>host.isConnected);liveStore=store;
  let gameWordsCache=null;
  const gameWords=()=>gameWordsCache??=api('kana_game_words',{words:D.GAME_WORDS}).then(r=>r.words||{}).catch(()=>({}));
  let keyHandlers=[],leaveHandlers=[],current={name:'index',params:{}};
@@ -139,8 +139,9 @@ export async function mountKana(target,{api,invoke,toast,start='index',openTab,f
   event.preventDefault();go(url);
  });
  /* 按键只在五十音页面可见时生效；输入框、MeguLit 自己的对话框不受影响 */
+ const cleanup=()=>{document.removeEventListener('keydown',onKey,true);speech.stop();store.flush();};
  const onKey=event=>{
-  if(!host.isConnected){document.removeEventListener('keydown',onKey,true);speech.stop();store.flush();return;}
+  if(!host.isConnected){cleanup();return;}
   if(event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey)return;
   const path=event.composedPath(),inner=path[0];
   if(!path.includes(host)&&inner!==document.body&&inner!==document.documentElement)return;
@@ -161,5 +162,5 @@ export async function mountKana(target,{api,invoke,toast,start='index',openTab,f
  document.addEventListener('keydown',onKey,true);
  window.addEventListener('beforeunload',()=>store.flush());
  await show(start==='games'?'index':start,focus||start==='games'?{focus:'practice'}:{});
- return {flush:()=>store.flush()};
+ return {flush:()=>store.flush(),stop:cleanup};
 }

@@ -1,18 +1,31 @@
 'use strict';
 const sounds=value=>[...String(value||'').matchAll(/\[sound:([^\]\r\n]+)\]/g)].map(m=>m[1]);
-// Enumerate audio in template order, not note-field order. Unsupported filters keep the native replay fallback.
+const TTS_RE=/\[anki:tts|\{\{tts:/i,AUDIO_RE=/\[sound:|\[anki:tts|\{\{tts:/i;
+const SAFE_FILTERS=new Set(['text','furigana','kanji','kana']),META_FILTERS=new Set(['hint','type','cloze','cloze-only','nc','edit']);
+// Enumerate audio in template order, not note-field order. Ambiguous, TTS, or unknown filter audio keeps the native replay fallback.
 function templateSounds(template,fields){
- const stack=[{active:true}],parts=[];let last=0,safe=true;
- for(const m of String(template||'').matchAll(/\{\{([^{}]+)\}\}/g)){
-  if(stack.at(-1).active)parts.push(template.slice(last,m.index));last=m.index+m[0].length;const tag=m[1].trim(),kind=tag[0],name=tag.slice(1).trim();
-  if(kind==='#'||kind==='^'){if(!Object.hasOwn(fields,name))safe=false;const present=!!String(fields[name]?.value??'').trim();stack.push({name,active:stack.at(-1).active&&(kind==='#'?present:!present)});continue;}
-  if(kind==='/'){if(stack.length===1||stack.at(-1).name!==name){safe=false;continue;}stack.pop();continue;}
-  if(!stack.at(-1).active||tag==='FrontSide')continue;
-  const bits=tag.split(':'),field=bits.pop();if(bits.some(filter=>!['text','furigana','kanji','kana'].includes(filter))){safe=false;continue;}
-  if(Object.hasOwn(fields,field))parts.push(String(fields[field]?.value??''));
+ const stack=[{active:true,uncertain:false}],parts=[];let last=0,safe=true;
+ const text=String(template||'');
+ for(const m of text.matchAll(/\{\{([^{}]+)\}\}/g)){
+  const top=stack.at(-1),chunk=text.slice(last,m.index);last=m.index+m[0].length;
+  if(top.active)parts.push(chunk);else if(top.uncertain&&AUDIO_RE.test(chunk))safe=false;
+  const tag=m[1].trim(),kind=tag[0],name=tag.slice(1).trim();
+  if(kind==='#'||kind==='^'){
+   if(Object.hasOwn(fields,name)){const present=!!String(fields[name]?.value??'').trim(),on=kind==='#'?present:!present;stack.push({name,active:top.active&&on,uncertain:top.uncertain&&on});}
+   else stack.push({name,active:false,uncertain:top.active||top.uncertain});
+  }else if(kind==='/'){if(stack.length===1||top.name!==name)safe=false;else stack.pop();}
+  else if((top.active||top.uncertain)&&tag!=='FrontSide'){
+   const bits=tag.split(':').map(s=>s.trim()),field=bits.pop();
+   if(bits.some(f=>!SAFE_FILTERS.has(f)&&!META_FILTERS.has(f))){safe=false;continue;}
+   const hasField=Object.hasOwn(fields,field),val=hasField?String(fields[field]?.value??''):'';
+   if(bits.some(f=>META_FILTERS.has(f))){if(!hasField||AUDIO_RE.test(val))safe=false;continue;}
+   if(top.active)parts.push(val);else if(AUDIO_RE.test(val))safe=false;
+  }
  }
- if(stack.at(-1).active)parts.push(String(template||'').slice(last));if(stack.length!==1)safe=false;
- const rendered=parts.join('');if(/\[anki:tts|\{\{tts:/i.test(rendered))safe=false;
+ const tail=text.slice(last),top=stack.at(-1);
+ if(top.active)parts.push(tail);
+ if(stack.length!==1)safe=false;
+ const rendered=parts.join('');if(TTS_RE.test(rendered))safe=false;
  return {safe,names:sounds(rendered)};
 }
 function playMap(card,templates,html){

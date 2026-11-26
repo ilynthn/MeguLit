@@ -72,18 +72,26 @@ async function readPrefs(){
   document.documentElement.style.setProperty('--exr-rt',String(prefs.scale));document.documentElement.classList.toggle('exr-off',!prefs.on);
   return prefs;
 }
+const BATCH=120;
 const keyOf=(text,ruby)=>text+'\u0001'+(ruby||'');
+const pendingEls=()=>[...document.querySelectorAll('[data-exr]')].filter(el=>el.isConnected&&el.dataset.exrDone!==keyOf(el.dataset.exr,el.dataset.exrRuby));
 async function flush(){
-  queued=null;const list=[...document.querySelectorAll('[data-exr]')].filter(el=>el.dataset.exrDone!==el.dataset.exr&&el.isConnected);
+  queued=null;const list=pendingEls();
   if(!list.length)return;const p=await readPrefs();if(!p.on)return;
   const need=[];for(const el of list){const k=keyOf(el.dataset.exr,el.dataset.exrRuby);if(!cache.has(k)&&!waiting.has(k)){waiting.set(k,true);let ruby=[];if(el.dataset.exrRuby==='none')ruby=false;else try{ruby=JSON.parse(el.dataset.exrRuby||'[]');}catch{}need.push({k,text:el.dataset.exr,ruby});}}
-  if(need.length&&api){try{const r=await api('example_ruby',{items:need.map(x=>({text:x.text,ruby:x.ruby}))});
-      need.forEach((x,i)=>{const it=r?.items?.[i];if(it&&!it.retry&&(r.ready||it.spans?.length))cache.set(x.k,{text:it.text??x.text,spans:it.spans||[]});});}catch{}
-    /* the tokenizer was still starting (or busy): ask again a little later, a few times at most */
-    const again=need.filter(x=>!cache.has(x.k)&&(tries.set(x.k,(tries.get(x.k)||0)+1).get(x.k))<4);if(again.length)setTimeout(hydrateExamples,4000);
-    need.forEach(x=>waiting.delete(x.k));}
-  for(const el of list){const k=keyOf(el.dataset.exr,el.dataset.exrRuby);if(!cache.has(k)||!el.isConnected)continue;
-    if(el.dataset.exrDone===el.dataset.exr)continue;const result=cache.get(k);el.dataset.exrDone=el.dataset.exr;if(applySpans(el,result.text,result.spans))roomForRuby(el);}
+  if(need.length&&api){
+    try{
+      for(let offset=0;offset<need.length;offset+=BATCH){
+        const chunk=need.slice(offset,offset+BATCH);
+        try{const r=await api('example_ruby',{items:chunk.map(x=>({text:x.text,ruby:x.ruby}))});
+          chunk.forEach((x,i)=>{const it=r?.items?.[i];if(it&&!it.retry&&(r.ready||it.spans?.length))cache.set(x.k,{text:it.text??x.text,spans:it.spans||[]});});}catch{}
+      }
+      /* the tokenizer was still starting (or busy): ask again a little later, a few times at most */
+      const again=need.filter(x=>!cache.has(x.k)&&(tries.set(x.k,(tries.get(x.k)||0)+1).get(x.k))<4);if(again.length)setTimeout(hydrateExamples,4000);
+    }finally{need.forEach(x=>waiting.delete(x.k));}
+  }
+  for(const el of pendingEls()){const k=keyOf(el.dataset.exr,el.dataset.exrRuby);if(!cache.has(k))continue;
+    const result=cache.get(k);el.dataset.exrDone=k;if(applySpans(el,result.text,result.spans))roomForRuby(el);}
 }
 /* hydrate now (pages that build off-document can call it after attaching) */
 export function hydrateExamples(){if(!queued)queued=setTimeout(()=>flush().catch(()=>{}),30);}
@@ -101,7 +109,7 @@ export function installExampleRuby(options={}){
     /* the page rewrote a line in place: give it ruby again */
     if(r.type==='childList'&&r.removedNodes.length){const host=(r.target.nodeType===1?r.target:r.target.parentElement)?.closest?.('[data-exr]');if(host){delete host.dataset.exrDone;hydrateExamples();return;}}
     if(r.type==='attributes'||[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('[data-exr]')||n.querySelector?.('[data-exr]')))){hydrateExamples();return;}}});
-  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-exr']});
+  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-exr','data-exr-ruby']});
   document.addEventListener('megulit-settings-saved',()=>{prefsAt=0;readPrefs().then(hydrateExamples);});
   hydrateExamples();
 }

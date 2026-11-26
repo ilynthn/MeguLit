@@ -396,6 +396,23 @@ An authenticated producer or maintainer binds verified work/build identity throu
 
 The relay persists the exact match before asking GitHub to close. The authenticated `GET /api/seed-admin/game-request-evidence?issue=<number>` returns the resolution kind, source reference and recorded closure time. Evidence registration wakes every matching pending job. Redelivery of a failed registration or issue event retries the same durable record. Existing issues enter this flow only through a verified event or delivery replay.
 
+### Issue trackers (one open issue per kind)
+
+Migration `0041_issue_trackers.sql`, code `src/issue-trackers.js`. Adapter probes, game requests, diagnostics packages and new Yui failure types each still get a detail issue (key, download link, SHA-256 and counts stay there), but the relay lists it as one checkbox line in the open tracker of its kind and then comments 「已登记到汇总 #N」 and closes the detail issue (`not_planned`):
+
+| Kind | Tracker title | Labels | Body marker |
+|---|---|---|---|
+| probe upload | `[适配探针] 汇总` | `adapter-probe` | `<!-- tracker:adapter-probe -->` |
+| game request (both forms) | `[想玩] 汇总` | `game-request` | `<!-- tracker:game-request -->` |
+| diagnostics package | `[诊断] 汇总` | `diagnostics` | `<!-- tracker:diagnostics -->` |
+| Yui failure type | `[Yui] 汇总` | `yui-report`, `diagnostics` | `<!-- tracker:yui-report -->` |
+
+The tracker is the oldest open issue with those labels whose body holds the marker; with none open the relay opens one and pins it (a failed pin is ignored). Lines: `- [ ] <name> · <date> · 详情和下载 #<n>`; probes go under the `###` section of their reason (a new reason gets a new section); a newer probe of the same game joins its earlier line. Game requests use `- [ ] <game>（N 人：#a #b）`: the same game (name compared after NFKC, case and spaces folded) joins its line and N goes up. Joining a ticked line unticks it. Section and title counts are recomputed on every write. A game request resolved through the evidence API ticks its line instead of closing the (already closed) issue. Website feedback and avatar or profile reports keep their own open issues.
+
+GitHub has no atomic append, so the entries are queued in D1 and the body is rewritten by one worker at a time under a D1 lease per tracker (`issue_tracker_locks`): read, add every pending line, PATCH, read again and check every line is there (a maintainer edit landing in between makes the round run again on the fresh body). A worker that finds the lease taken leaves its row to the holder, who looks again after letting go; the 30-minute cron retries whatever failed (the detail issue stays open until then). Right before each PATCH the body is read once more and the round is rebuilt when anyone (a maintainer ticking a box) wrote since; GitHub has no conditional write for an issue body, so only the time of that one request stays open to a lost edit. A tick goes to the tracker its line was written to, even when that tracker has been closed since. A probe detail issue carries an entry marker (<!-- tracker-entry:<id> -->): when GitHub created it but the answer was lost, the retry finds it instead of opening a second one. A bundle listed through a probe detail issue is not deleted when a better probe of the same game replaces it, so the advertised download keeps working until the link expires. A game request already resolved by the opened webhook before its tracker entry existed is listed ticked. The webhook ignores the new probe detail issues: their body does not start with the legacy probe intro, and the Seed drafts are queued by the upload itself.
+
+Rollout: apply the migration before deploying the code (`npx wrangler d1 migrations apply megulit-relay --remote`, then `npx wrangler deploy`). Code deployed without the table keeps working the old way (detail issues simply stay open) and logs `issue tracker` errors.
+
 Deploy (once):
 
 ```bash

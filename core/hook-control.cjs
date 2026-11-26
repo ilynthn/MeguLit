@@ -9,6 +9,7 @@ const MANUAL_SAMPLE_MS=25000,MANUAL_ADVANCE_MS=90000;
 class HookControl{
  /* the original is kept off screen another way than write-back (or shown on purpose): the status line for it, else '' */
  hiddenWithoutEmbed(){const h=this.host,k=h.hooks||{};if(h.textEffectsHold)return READ_ON_PURPOSE(h.textEffectsHold.why);
+  if(k.sact2Hidden?.(k.lastSource))return '当前句的游戏原文已由引擎绘制层隐藏';
   if(k.enabled===true&&k.route!=='read'&&(k.ownTextFn?.()===true||k.compositedFn?.()===true))return HIDDEN_REDRAWN;return '';}
  constructor(host,now=Date.now){this.host=host;this.now=now;this.seq=0;this.baseline=false;this.plan='read';this.running=false;this.lastIdentity='';}
  status(value){if('hookEmbedUnsupported' in value)this.unsupported=value.hookEmbedUnsupported===true;if(this.diagnosticEpisode&&['verified','visible'].includes(value.hookCheckState)&&this.diagnosticEpisode===this.host.sentenceDiagnosticEpisode)this.host.onEvent?.({type:'sentenceHideObservation',episode:this.diagnosticEpisode,original:value.hookCheckState==='verified'?'hidden':'visible'});if(value.hookCheckState)this.host.hooks.trace?.('check '+value.hookCheckState+' '+(value.hookCheckMessage||''));this.host.notify({type:'hookCheck',hookProfile:this.plan,hookAutoOcr:!!this.autoOcr,...value});}
@@ -92,6 +93,7 @@ class HookControl{
  check(){const h=this.host;if(!this.running){this.start(h.preferences.hookProfile==='off'?'read':h.preferences.hookProfile);return;}if(h.hooks.lastSource)this.source(h.hooks.lastSource);else this.status({hookCheckMessage:'还没有台词，请在游戏里推进一句'});}
  source(text){
   if(!this.running||!text.trim())return;
+  this.checkedSource=text;
   /* 2026-11-19 (user, 素晴らしき日々: double text while calibrating): from the first line the game draws in the original during a
      calibration until the calibration ends, the reader's own Japanese and translation step aside (gameStyleReveal), so the
      original is never covered by a second text; while the calibration only waits for that line the reader stays */
@@ -117,7 +119,9 @@ class HookControl{
   /* E477 (player: a new game in a small window kept its original under MeguLit's text after many tries). A baseline screen check that
      fails outright (capture or OCR error, a window too small to read) returned here without counting, so preflight (original shown,
      writeback off) never ended. It now counts as a miss for its line, like a check that found nothing. */
-  if(!m.valid){if(m.stage==='baseline'&&!this.styleCalibration){this.baselineMiss(m.sequence);if(this.stage==='switching')return;}this.status({hookCheckState:'unverified',hookVisualVerified:false,hookCheckMessage:'画面未确认：'+String(m.error||'画面读取失败')});return;}
+  if(!m.valid){if(m.stage==='baseline'&&!this.styleCalibration){this.baselineMiss(m.sequence);if(this.stage==='switching')return;}
+   if(h.hooks.sact2Hidden?.(this.checkedSource)){this.status({hookCheckState:'verified',hookVisualVerified:true,hookEmbedUnsupported:false,hookCheckMessage:'当前句的游戏原文已由引擎绘制层隐藏'});return;}
+   this.status({hookCheckState:'unverified',hookVisualVerified:false,hookCheckMessage:'画面未确认：'+String(m.error||'画面读取失败')});return;}
   if(m.sourceCharacters<4){this.status({hookCheckState:'waiting',hookCheckMessage:'台词太短，等待下一句较长台词完成画面检查'});return;}
   if(m.stage==='baseline'){
    if(this.styleCalibration&&!m.matched)return; // Mask OCR failure must not cancel the independent style probe

@@ -80,6 +80,7 @@ class HookNative{
  get preflight(){const o=this.profile?.hide?.preflight;return this._preflight===true&&this.flowPage!==true&&((typeof o==='boolean'?o:this.pageMode?.engine!=='krkr')||this.calibrating===true);}
  /* E472: the game itself draws the current line invisible (KiriKiri page DLL): calibration has to wait for the next line. */
  get drawsHidden(){const o=this.profile?.hide?.drawsHidden;return this.enabled===true&&(typeof o==='boolean'?o:this.pageMode?.engine==='krkr');}
+ sact2Hidden(text){const p=this.sact2Paint;return this.enabled===true&&!this.skipKey&&p?.serial===this.serial&&p.line===HookNative.flat(text);}
  set preflight(v){this._preflight=v===true;}
  /* E410: where a flow line sits on the page, from the game's own scripts (null when unknown). */
  flowLayout(text){try{const provider=this.originalText;if(!provider?.flowLayout)return null;const r=this.resolveSource(text);if(!r||r.method==='same-text'/* E520: the place of a repeated line is unknown */||!(r.status==='exact'||r.status==='high'||r.method==='untranslated'))return null;return provider.flowLayout(r.indices)||null;}catch{return null;}}
@@ -124,6 +125,7 @@ class HookNative{
   clearTimeout(this.boxBlink?.timer);
   this.boxBlink=null;
   this.engineDialog=undefined;
+  this.sact2Paint=null;
   this.unityBox=null;
   this.lastSource='';
   this.lastSourceAt=0;
@@ -223,6 +225,14 @@ class HookNative{
    if(m.type==='hookRender'){this.notify({hookDrawCount:Number(m.count)||0,hookDrawAt:Number(m.at)||0});return;}
    if(m.type==='waitMarkerDrawn'){this.emit({type:'waitMarkerDrawn'});return;}
    if(m.type==='waitMarkerStatus'){this.notify({waitMarkerMessage:String(m.message||'').slice(0,300),waitMarkerHookActive:m.active===true});return;}
+   if(m.type==='hookSact2Mode'){this.sact2DrawSerial=m.active===true?serial:null;this.sact2Paint=null;return;}
+   if(m.type==='hookSact2Paint'){
+    if(this.sact2DrawSerial!==serial||!this.enabled||this.skipKey||this.streamProbe||typeof m.text!=='string'||!m.text||m.text.length>128)return;
+    this.sact2Paint={serial,line:HookNative.flat(m.text)};
+    // Battle balloons and nameless messages can arrive on an auxiliary hook stream.
+    if(m.kind==='battle'||m.kind==='narration')this.source({text:m.text,sourceName:'System40',bridgeSerial:serial},name);
+    return;
+   }
    if(m.type==='hookSource'&&typeof m.text==='string'&&m.text.length<=4000){
     if(this.streamProbe&&(m.streamProbe!==this.streamProbe.id||m.origin==='history'))return;
     if(!require('./danganronpa-pc-source.cjs').receive(this,m,name))this.sourcePage({...m,bridgeSerial:serial},name);return;}

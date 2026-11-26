@@ -41,7 +41,7 @@ export async function openJlptWords({api,locale,esc,number,toast,level,gameId=''
  document.body.append(dlg);dlg.showModal();try{enhance(dlg);}catch{}
  const $=s=>dlg.querySelector(s),scroll=$('[data-jw-scroll]'),space=$('[data-jw-space]');
  const state={filter:'all',query:'',sort:'count',busy:new Set(),selected:new Set(),asked:new Set(),view:[]};let words=[],changed=false,closed=false,liveTimer=0;
- const close=()=>{if(closed)return;closed=true;dlg.close();dlg.remove();if(changed)onChange();};
+ const close=()=>{if(closed)return;closed=true;clearTimeout(askTimer);clearTimeout(liveTimer);dlg.close();dlg.remove();if(changed)onChange();};
  $('[data-jw-close]').onclick=close;dlg.addEventListener('cancel',e=>{e.preventDefault();close();});dlg.addEventListener('click',e=>{if(e.target===dlg)close();});
  const byKey=new Map();
  const row=(w,i)=>{const busy=state.busy.has(w.key),from=w.games?.[0]?.title;
@@ -59,9 +59,20 @@ export async function openJlptWords({api,locale,esc,number,toast,level,gameId=''
   const n=state.selected.size;$('[data-jw-selected]').textContent=n?t.selected.replace('{n}',number(n)):'';dlg.querySelectorAll('[data-jw-bulk]').forEach(b=>b.disabled=!n);
   const all=$('[data-jw-all]');all.checked=!!state.view.length&&state.view.every(w=>state.selected.has(w.key));all.indeterminate=!all.checked&&state.view.some(w=>state.selected.has(w.key));};
  const refilter=()=>{state.view=filterJlptWords(words,state);counts();redraw();};
- /* meanings for rows on screen that have none yet, asked in small batches */
- let askTimer=0;const askMeanings=list=>{const need=list.filter(w=>!w.meaning&&!state.asked.has(w.key));if(!need.length)return;need.forEach(w=>state.asked.add(w.key));clearTimeout(askTimer);
-  askTimer=setTimeout(()=>api('jlpt_describe',{items:need.slice(0,40).map(w=>({key:w.key,base:w.base}))}).then(r=>{if(closed)return;let any=false;for(const m of r||[]){const w=byKey.get(m.key);if(w&&m.meaning){w.meaning=m.meaning;if(m.reading)w.reading=kata2hira(m.reading);any=true;}}if(any)redraw();}).catch(()=>{}),120);};
+ /* meanings for rows on screen that have none yet, asked in small batches after scrolling settles */
+ let askTimer=0,lastVisible=[];
+ const askMeanings=list=>{lastVisible=list;clearTimeout(askTimer);
+  askTimer=setTimeout(()=>{
+   if(closed)return;
+   const batch=lastVisible.filter(w=>!w.meaning&&!state.asked.has(w.key)).slice(0,40);
+   if(!batch.length)return;
+   batch.forEach(w=>state.asked.add(w.key));
+   api('jlpt_describe',{items:batch.map(w=>({key:w.key,base:w.base}))}).then(r=>{
+    if(closed)return;let any=false;
+    for(const m of r||[]){const w=byKey.get(m.key);if(!w)continue;if(m.meaning){w.meaning=m.meaning;any=true;}if(m.reading){w.reading=kata2hira(m.reading);any=true;}}
+    if(any)redraw();
+   }).catch(()=>{batch.forEach(w=>state.asked.delete(w.key));});
+  },120);};
  /* one action on one word; returns true when it changed */
  async function act(w,kind,{quiet=false}={}){if(state.busy.has(w.key))return false;state.busy.add(w.key);redraw();
   try{if(kind==='save'){if(w.saved&&!w.known&&w.vocabId!=null){await api('delete_word',{id:w.vocabId});w.saved=false;w.vocabId=null;}

@@ -6,7 +6,9 @@
   }
   if (window.__tomoyoChinese) return;
   const bridge = window.__tomoyoChinese = { current: '', serial: 0, timer: null };
-  bridge.refresh = () => { bridge.cardinalPair?.refresh();bridge.choiceOverlay?.refresh();if(bridge.refreshPageTranslations?.())return;bridge.current = ''; bridge.serial++; clearTimeout(bridge.timer); schedule(); };
+  let guardTimers = [], guardText = '', sourcePreview = false;
+  function resetGuard() { guardText = ''; for (const t of guardTimers) clearTimeout(t); guardTimers = []; }
+  bridge.refresh = () => { bridge.cardinalPair?.refresh();bridge.choiceOverlay?.refresh();resetGuard();if(bridge.refreshPageTranslations?.())return;bridge.current = ''; bridge.serial++; clearTimeout(bridge.timer); schedule(); };
   bridge.sourceText = '';
   let row, output, parent;
   let translationVisible = true;
@@ -14,10 +16,10 @@
   bridge.setTranslationVisible = value => {
     if (translationVisible === !!value) return;
     translationVisible = !!value;
-    bridge.cardinalPair?.refresh();
-    bridge.refresh();
     if (output) output.hidden = !enabled || !translationVisible;
+    bridge.serial++;
     try { window.__tomoyoTranslateRequest(JSON.stringify({ id: bridge.serial, disabled: !translationVisible })); } catch {}
+    bridge.refresh();
   };
   let enabled = localStorage.getItem('tomoyo-chinese-enabled') !== 'false';
   bridge.isEnabled = () => enabled;
@@ -28,6 +30,7 @@
     bridge.choiceOverlay?.refresh();
     bridge.cardinalPair?.refresh();
     localStorage.setItem('tomoyo-chinese-enabled', String(enabled));
+    resetGuard();
     bridge.current = '';
     bridge.serial++;
     clearTimeout(bridge.timer);
@@ -195,7 +198,6 @@
   /* 2026-11-21 translation guard: 600 ms, 1.5 s and 3 s after a line is shown, a line still without a translation is asked again by its
      text (services/reader.cjs translateGuard: cache, script, fallback chain), past the "already asked" check and the request serial; after 3 s
      a faint 「翻译中…」 stands where the translation will go, never an empty row */
-  let guardTimers = [], guardText = '', sourcePreview = false;
   bridge.setHookSourcePreview = preview => {
     if (preview === sourcePreview) return;
     sourcePreview = preview;
@@ -203,14 +205,14 @@
       bridge.serial++;
       bridge.current = '';
     }
-    guardText = '';
+    resetGuard();
     schedule();
   };
   const guardNote = (what, text) => { try { window.__tomoyoTranslateRequest(JSON.stringify({ type: 'layoutDiagnostic', kind: 'translationGuard', what, text: String(text).slice(0, 40) })); } catch {} };
   const hasTranslation = () => output?.isConnected && output.dataset.state === 'ready' && !!output.textContent.trim() && output.textContent !== '翻译中…' && !bridge.lastTranslationError;
   function guard(text) {
+    if (sourcePreview || !text || !enabled || !translationVisible) { resetGuard(); return; }
     if (text === guardText) return; guardText = text; for (const t of guardTimers) clearTimeout(t); guardTimers = [];
-    if (sourcePreview || !text || !enabled || !translationVisible) return;
     for (const [ms, last] of [[600, false], [1500, false], [3000, true]]) guardTimers.push(setTimeout(() => {
       if (sourcePreview || guardText !== text || !sameLine(bridge.sourceText, text) || hasTranslation()) return;
       guardNote(last ? 'still-missing' : 'retry', text);

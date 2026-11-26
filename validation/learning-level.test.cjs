@@ -81,7 +81,7 @@ test('the system map is real lines to take apart, covering all nine parts, in th
  const used=new Set(g.SCENES.flatMap(s=>s.pieces.map(p=>p[2])));for(const n of MAP)assert.ok(used.has(n.id),n.id+' appears in some line');
  for(const s of g.SCENES)assert.equal(s.pieces.map(p=>p[0]).join(''),s.ja,'pieces spell the line');
  const html=g.mapHTML({progress:{}},{locale:'zh',esc,open:'conjugation',piece:8});
- assert.match(html,/gm-piece n-conjugation on picked" data-piece="8"/);assert.match(html,/<i class="gm-piece-no">IV<\/i><b>読み<\/b>/);assert.match(html,/词干不动，只换尾巴/,'Megumin explains the tapped piece');
+ assert.match(html,/gm-piece n-conjugation on picked" data-piece="8"/);assert.match(html,/<i class="gm-piece-no" data-exr-skip>IV<\/i><b>読み<\/b>/);assert.match(html,/词干不动，只换尾巴/,'Megumin explains the tapped piece');
  assert.match(html,/megulit · grammar lab/);assert.match(g.mapHTML({progress:{}},{locale:'zh',esc,open:'clauses'}),/gm-scene active" data-scene="3"/,'a part opens the line it is in');
  for(const k of ['invert','glitch','push','focus','type','burst'])assert.equal(typeof g.fx[k],'function');
  assert.match(fs.readFileSync(path.join(__dirname,'..','web','grammar.css'),'utf8'),/--mg-red:#c8323c/);

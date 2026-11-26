@@ -28,13 +28,15 @@
   const row=node?.closest('.megulit-anchor-window .tomoyo-cn-row');
   return row?.style.translate&&row.style.overflowY==='auto'?row:null;
  }
+ /* 2026-11-26 (QQ #1130, p0: the wheel over the lookup popup advanced the game; wheel up over the line no longer opened the log):
+    every lookup popup (the card and the word tooltip) owns the wheel over its box; over the line the log decides (backlog.js) */
+ const LOOKUPS='.tomoyo-selection-card,.lookup-tooltip';
  window.__megulitResolveWheel=(id,x,y)=>{
-  const lookup=document.querySelector('.tomoyo-selection-card');
-  const box=lookup&&getComputedStyle(lookup).visibility==='visible'?lookup.getBoundingClientRect():null;
-  const inLookup=box&&x>=box.left&&x<box.right&&y>=box.top&&y<box.bottom;
-  const at=document.elementFromPoint(x,y),scroll=movedTranslationScroll(at);
-  const panel=!!(inLookup||at?.closest(MENUS)||scroll&&scroll.scrollHeight>scroll.clientHeight);
-  window.__tomoyoTranslateRequest(JSON.stringify({type:'galWheelDecision',id,panel}));
+  const inLookup=[...document.querySelectorAll(LOOKUPS)].some(node=>{const style=getComputedStyle(node);if(style.visibility!=='visible'||style.display==='none')return false;
+   const box=node.getBoundingClientRect();return box.width&&box.height&&x>=box.left&&x<box.right&&y>=box.top&&y<box.bottom;});
+  const at=document.elementFromPoint(x,y),scroll=movedTranslationScroll(at),log=inLookup?'':window.__tomoyoChinese?.backlogWheelTarget?.(at)||'';
+  const panel=!!(inLookup||at?.closest(MENUS)||at?.closest(LOOKUPS)||scroll&&scroll.scrollHeight>scroll.clientHeight||log==='all');
+  window.__tomoyoTranslateRequest(JSON.stringify({type:'galWheelDecision',id,panel,panelUp:!panel&&log==='up'}));
  };
  /* 2026-11-26 (オルフレール, Ctrl fast-forward: one hooked line of 3996 characters, 8000 char tokens on the page; Cardinal r1/r2: the
     reader stopped answering for good after 89 s). Every mutation ran a report in a microtask and a report reads every token's style and

@@ -78,6 +78,10 @@ function openStore(root) {
     const images=db.prepare('UPDATE vocabulary SET image=? WHERE id=?');for(const row of db.prepare('SELECT id,image FROM vocabulary WHERE image IS NOT NULL').all())images.run(brand.relocated(row.image,root),row.id);
     db.prepare('INSERT INTO meta(key,value) VALUES(?,?)').run('megulit-path-migration',root);
   }
+  if(!db.prepare("SELECT value FROM meta WHERE key='kana-word-spelling-backfill-v1'").get()){
+    db.exec("UPDATE vocabulary SET spelling=reading WHERE spelling='' AND reading!=''");
+    db.prepare('INSERT INTO meta(key,value) VALUES(?,?)').run('kana-word-spelling-backfill-v1','1');
+  }
   if(!db.prepare('PRAGMA table_info(games)').all().some(column=>column.name==='removed_at'))db.exec('ALTER TABLE games ADD COLUMN removed_at INTEGER');
   if(!db.prepare('PRAGMA table_info(games)').all().some(column=>column.name==='hidden_at'))db.exec('ALTER TABLE games ADD COLUMN hidden_at INTEGER');
   require('./saved-sentences.cjs').migrate(db);

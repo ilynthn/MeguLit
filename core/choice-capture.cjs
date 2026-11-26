@@ -50,12 +50,14 @@ class ChoiceCapture{
  /* every dialogue line (and its speaker) as the hook delivers it; a line that extends the previous one is typing */
  noteDialogue(text,speaker=''){const t=plain(text);if(!t)return;
   if(this.dialogue&&t!==this.dialogue&&t.startsWith(this.dialogue))this.grewAt=this.now();
-  this.dialogue=t;if(!this.lines.includes(t)){this.lines.push(t);if(this.lines.length>40)this.lines.shift();}
+  this.dialogue=t;this.speakerNow=plain(speaker).replace(/^[【〔［《<]|[】〕］》>]$/g,'');if(!this.lines.includes(t)){this.lines.push(t);if(this.lines.length>40)this.lines.shift();}
   const n=plain(speaker);if(n){this.names.add(n);this.names.add(n.replace(/^[【〔［《<]|[】〕］》>]$/g,''));if(this.names.size>64)this.names.delete(this.names.values().next().value);}}
  /* text: one stream frame (may hold several choices separated by line breaks); dialogue/speaker: the current line and name. */
  add(text,dialogue='',speaker=''){
   const now=this.now(),skip=new Set([plain(dialogue),plain(speaker)]);this.items=this.items.filter(x=>now-x.at<1500);
   if(plain(speaker))this.names.add(plain(speaker));
+  /* a frame that is one text drawn twice back to back (「血塗れの男血塗れの男」): this stream draws that text glyph by glyph, twice (#1118) */
+  {const k=[...plain(text)];if(k.length>=4&&k.length%2===0&&k.slice(0,k.length/2).join('')===k.slice(k.length/2).join('')){(this.drawnTwice??=new Set()).add(k.slice(0,k.length/2).join(''));if(this.drawnTwice.size>32)this.drawnTwice.delete(this.drawnTwice.values().next().value);}}
   const added=[];
   for(const m of String(text||'').matchAll(/【([^】]{1,16})】/g))this.names.add(m[1]);/* bracketed names on any stream are speaker names */
   /* 2026-11-19 (千恋＊万花: 「■自動車（車内／走行）」 split at ■ and ／ into the "options" 「自動車（車内」「走行）」) a whole script stage note
@@ -124,6 +126,11 @@ class ChoiceCapture{
   /* 2026-11-13 (CLANNAD 「朋也」「春原春原朋也」 next to its two options): speaker names, alone or run together, go when two or more
      other options remain; a screen of names only is a route choice and stays */
   let items=this.items;{const other=items.filter(x=>!this.onlyNames(x.key));if(other.length>=2)items=other;}
+  /* 2026-11-26 (#1118, 死に逝く君、館に芽吹く憎悪: 「男男」 next to the name plate 「血塗れの男」): one glyph drawn twice that ends another
+     candidate of the same burst is the last frame of that one being drawn glyph by glyph, not an option (「ママ」「パパ」 end nothing).
+     Only with evidence of that drawing: the same stream sent the other candidate drawn twice back to back (Codex #1198: 「いい」 next to
+     「よくない」 is a real choice). A two-glyph plate counts too (integration live test: 「亜亜」 beside 「美亜」, drawn 「美亜美亜」, went to OCR and was found) */
+  items=items.filter(x=>{const c=[...x.key];return !(c.length===2&&c[0]===c[1]&&items.some(o=>o!==x&&o.key.length>=2&&o.key!==x.key&&o.key.endsWith(c[0])&&this.drawnTwice?.has(o.key)));});
   if(items.length<2||items.length>8)return null;
   /* the dialogue kept typing after the first candidate arrived: these were pieces of it, not a choice screen */
   const first=Math.min(...items.map(x=>x.at));if(this.grewAt&&this.grewAt>=first&&items.every(x=>bare(x.text).length<=3))return null;
@@ -131,7 +138,12 @@ class ChoiceCapture{
   const order=this.order||[],rank=x=>{const i=order.indexOf(x.key);return i<0?order.length+items.indexOf(x):i;};
   return items.slice().sort((a,b)=>rank(a)-rank(b)).map(x=>x.text);}
  /* keep: candidates younger than this many ms survive (the choices often arrive in the same instant as the line before them) */
- reset(keep=0,line=''){if(!keep)this.siglusFrames=[];const now=this.now(),l=plain(line);this.items=keep>0?this.items.filter(x=>now-x.at<keep&&x.key!==l&&!(x.key.length>6&&l.includes(x.key))):[];/* the line itself, sent on a side stream a moment earlier, is not kept */if(!this.items.length)this.order=null;this.active=false;}
+ /* 2026-11-26 (#1118, owner, 死に逝く君、館に芽吹く憎悪: the side stream's 「X…」　「X…」　 frame came 4 ms before the dialogue line 「X……」, the
+    copies differ only in the ellipsis, so the kept candidate became an "option" next to the name plate and OCR found both: the game's own
+    line was annotated as a choice and the hide let go). The line's copy is told by its letters (punctuation and ellipses ignored) or as a
+    quoted piece of it; the name plate of the same moment (the line's speaker) is no option either. */
+ sameLine(x,line){const l=plain(line);if(!l)return false;if(x.key===l||x.key.length>6&&l.includes(x.key))return true;const a=bare(x.text),b=bare(line);return a.length>=4&&a===b||partOf(x.text,line);}
+ reset(keep=0,line=''){if(!keep)this.siglusFrames=[];const now=this.now(),sp=plain(line)?this.speakerNow||'':'';this.items=keep>0?this.items.filter(x=>now-x.at<keep&&!this.sameLine(x,line)&&!(sp&&x.key===sp)):[];/* the line itself, sent on a side stream a moment earlier, is not kept */if(!this.items.length)this.order=null;this.active=false;}
 }
 /* OCR boxes -> the boxes drawn. Boxes that cover one another keep the shorter text (a glued list over its own options).
    When the options' order is known (a separated list) and two or more were found on evenly spaced rows, a missed option
