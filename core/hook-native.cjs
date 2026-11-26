@@ -697,7 +697,7 @@ class HookNative{
      the option is a recent choice key, but here the line came 1 ms before the side stream drew the option. A line opening with a
      profile-declared frame label (choice.pageFrames) twice, with more after it, is the game's choice frame, never the dialogue line,
      unless the script holds it exactly. Dialogue never doubles the label (the profile names it). */
-  if(this.choiceFrameLine(m.text)){this.trace('choice frame line left to the choice '+JSON.stringify(String(m.text).slice(0,30)));return;}
+  if(this.choiceFrameLine(m.text)){this.trace('choice frame line left to the choice layer '+JSON.stringify(String(m.text).slice(0,30)));return;}
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
   this.languageCheck(m.text);this.japaneseGuard(m.text);
