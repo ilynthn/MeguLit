@@ -19,12 +19,14 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,hoverStart:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000});
 
 class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
  next(obs){const o=this.o,t=obs.t|0,out=[];const end=why=>{if(this.phase==='advance'&&(this.o.slowLines>0?this.fast:this.o.skip!==false))out.push({do:'keyup',vk:VK.ctrl});this.phase='end';out.push({do:'end',why});return out;};
   if(this.phase==='end')return out;
+  /* hoverStart (tools/adapt-auto.cjs): a start item is hovered first and clicked choiceHover later (Monochrome Empire's title buttons took no bare click) */
+  if(this.pendingClick&&t>=this.pendingClick.at){const c=this.pendingClick;this.pendingClick=null;out.push({do:'click',x:c.x,y:c.y});return out;}
   if(obs.deadline&&t>=obs.deadline)return end(this.phase==='advance'?'time':'time-'+this.phase);
   if(this.phase==='boot'){if(obs.window&&obs.window.w>0&&obs.window.h>0){this.phase='intro';this.introAt=t;this.lastAct=t;}else if(t>=o.bootMs)return end('no-window');else return out;}
   const W=obs.window||{w:0,h:0};const center={do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.6)};
@@ -36,7 +38,7 @@ class Driver{
     if(obs.black&&since>=o.blackAfter)return end('black');
     if(since>=o.introMs)return end('no-lines');
     const item=(obs.menu||[]).find(m=>m&&START.test(String(m.text||'').trim())&&!NOT_START.test(String(m.text||''))&&m.w>0&&m.h>0);
-    if(item&&t-this.clickedStart>2500){this.clickedStart=t;this.lastAct=t;out.push({do:'click',x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)});return out;}
+    if(item&&t-this.clickedStart>2500){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at});}return out;}
     if(t-this.lastAct>=o.introEvery){this.lastAct=t;const k=this.step++%4;
      if(k===0)out.push(center);else if(k===1)out.push({do:'key',vk:VK.enter});else if(k===2)out.push(since<o.escUntil?{do:'key',vk:VK.esc}:{do:'key',vk:VK.space});else out.push({do:'key',vk:VK.ctrl});}
     return out;}}
@@ -70,7 +72,7 @@ class Driver{
      and never clicked 「最初から始める」 on the title): while only a few lines came and none for confirmAfter, a start item on screen is still
      clicked, as in the intro */
   if(this.lastLines<=3&&t-this.lastLineAt>=o.confirmAfter&&t-this.clickedStart>2500){const item=(obs.menu||[]).find(m=>m&&START.test(String(m.text||'').trim())&&!NOT_START.test(String(m.text||''))&&m.w>0&&m.h>0);
-   if(item){this.clickedStart=t;this.lastAct=t;out.push({do:'click',x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)});return out;}}
+   if(item){this.clickedStart=t;this.lastAct=t;{const at={x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)};if(o.hoverStart){out.push({do:'move',...at});this.pendingClick={...at,at:t+o.choiceHover};}else out.push({do:'click',...at});}return out;}}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
   if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2)});return out;}
   /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
