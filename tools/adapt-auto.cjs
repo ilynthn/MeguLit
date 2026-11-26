@@ -151,7 +151,9 @@ const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$
 while(-not (Test-Path $stop)){if($i -lt 4){Start-Sleep -Seconds 4}else{Start-Sleep -Seconds 15};if(Test-Path $stop){break};$i++;$b=[System.Windows.Forms.SystemInformation]::VirtualScreen;
 $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height;$g=[System.Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.X,$b.Y,0,0,$bmp.Size);
 $bmp.Save((Join-Path $d ('screen-{0:D2}.png' -f $i)),[System.Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$bmp.Dispose()}`;
-function screenRecorder(dir){fs.rmSync(dir,{recursive:true,force:true});fs.mkdirSync(dir,{recursive:true});
+/* the previous run's recorder can still hold the folder for up to 15 s after it was told to stop (runs back to back: EPERM): its old
+   pictures are removed one by one where possible, and a run never fails over them */
+function screenRecorder(dir){try{fs.rmSync(dir,{recursive:true,force:true});}catch{try{for(const f of fs.readdirSync(dir))try{fs.rmSync(path.join(dir,f),{force:true});}catch{}}catch{}}fs.mkdirSync(dir,{recursive:true});
  const p=require('node:child_process').spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','& {'+SCREEN_PS+'}',dir],{windowsHide:true,stdio:'ignore'});
  return ()=>{try{fs.writeFileSync(path.join(dir,'stop'),'');}catch{}setTimeout(()=>{try{p.kill();}catch{}},20000).unref();};}
 
