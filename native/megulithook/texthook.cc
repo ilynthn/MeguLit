@@ -4,6 +4,7 @@
 #include "veh_hook.h"
 #include "lunarpc.h"
 #include "MeguLitGdiHide.h"
+#include "MeguLitDrawSkip.h"
 #include "MeguLitMarks.h"
 int MeguLitEmbedArm(HookParam &hp, TextBuffer &buff, const ThreadParam &tp);
 extern WinMutex viewMutex;
@@ -399,6 +400,10 @@ void TextHook::Send(hook_context *context)
 		}
 
 		TextOutput(tp, hp, buffer, buff.size);
+		/* MeguLit (MeguLitDrawSkip.h): an engine draw call that registered how to draw nothing does so for a stream the host switched on, and for
+		   the other lines of the same drawing object while that lock is fresh; every other hook returns at once */
+		if (!(hp.type & EMBED_ABLE))
+			MeguLitDrawSkip::Run((uintptr_t)address, context, check_embed_able(tp));
 		/* MeguLit: a stream that cannot write back is hidden where the game draws it through GDI (MeguLitGdiHide.h) */
 		if (!(hp.type & EMBED_ABLE) && check_embed_able(tp))
 		{

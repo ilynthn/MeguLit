@@ -128,6 +128,8 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    and lists the stream hide-only. A cold run has no HookControl, so the probe was never asked for and the confirmation came only by
    chance. Every confirmation is kept with its time (res.hideConfirmed) */
   const hideProbe=threads=>{const sel=threads.find(t=>t&&t.selected);if(!sel)return;
+   /* the source no-draw count (HookBridge DrawSkipHit, MeguLitHook MeguLitDrawSkip.h): characters the game was told not to draw */
+   if(Number(sel.drawSkipped)>(res.drawSkipped||0))res.drawSkipped=Math.floor(Number(sel.drawSkipped));
    if(sel.hideOnly===true){const c=res.hideConfirmed||(res.hideConfirmed=[]);if(!c.some(x=>x.id===sel.id)){c.push({id:String(sel.id),name:String(sel.name||''),at:new Date(now()).toISOString(),lines:res.lines});}return;}
    if(opts.hideProbe===true&&sel.sample&&sel.embeddable!==true&&hooks?.probing!==true){try{hooks.probeHide?.(true);{const hp=res.hideProbes||(res.hideProbes=[]);if(hp.length<20)hp.push({id:String(sel.id),at:new Date(now()).toISOString()});}}catch{}}};
   /* when the hook last saw game text (any stream): obs.quietMs for the driver's readQuietMs */
