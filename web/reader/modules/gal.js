@@ -747,6 +747,11 @@
     embedSync();if(!embedFrame){embedFrame=requestAnimationFrame(embedSync);setTimeout(embedSync,160);}
   }
   bridge.embedTranslatedSync=embedSync;
+  /* Codex #1268: the reader may paint a new line well after the status that decided it (cs2 / krkr / renpy / ocr wait up to 1.2 s
+     for the page report), so the per-line decision is taken again whenever a sentence window's content changes */
+  if(typeof MutationObserver==='function'){let embedWatch=0;new MutationObserver(records=>{if(embedWatch||!(embedOn||embedLines.size))return;
+   if(!records.some(r=>(r.target.nodeType===1?r.target:r.target.parentElement)?.closest?.('.sentence-window')))return;
+   embedWatch=requestAnimationFrame(()=>{embedWatch=0;embedSync();});}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
   bridge.galStatus = message => {
     if (typeof message.hookSourcePreview === 'boolean') bridge.setHookSourcePreview?.(message.hookSourcePreview);
     if ('hookSource' in message || message.type==='gameClosed') {

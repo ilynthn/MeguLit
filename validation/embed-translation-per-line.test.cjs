@@ -91,3 +91,16 @@ test('#1268 review: a per-line hide reply keeps the other lines\' results (A dra
  assert.equal(await cdp.evaluate(SHOWN),true,'B was never drawn by the game: its overlay translation stays when C turns write-back on again');
 });
 
+test('#1268 review: a line painted late (page report wait) gets its own per-line decision',{skip:!hasEdge&&'Edge not installed',timeout:60000},async t=>{
+ const cdp=await reader(t,fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-1268b-')));
+ await cdp.evaluate(`__tomoyoChinese.restoreGalSettings({display:'bilingual',translationBlur:false,furigana:false})`);
+ const A='それならば、せめて苦痛のないままに死んでしまったほうが、',B='よほど利口な選択と言えるはずだった。';
+ await cdp.evaluate(LINE(A,'既然如此，至少在毫无痛苦之中死去，'));
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedTranslating:true,embedLine:{source:${JSON.stringify(A)},text:'那样的话，至少毫无痛苦地死去，',drawn:true}})`);await settle(cdp);
+ assert.equal(await cdp.evaluate(SHOWN),false);
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedLine:{source:${JSON.stringify(B)},text:'',drawn:false}})`);
+ await cdp.evaluate(`__tomoyoChinese.galStatus({hookSource:${JSON.stringify(B)}})`);await sleep(600);
+ await cdp.evaluate(LINE(B,'这本该是更明智的选择。'));await nextFrame(cdp);await nextFrame(cdp);
+ assert.equal(await cdp.evaluate(SHOWN),true,'the window painted after the status delays shows B\'s overlay translation');
+});
+
