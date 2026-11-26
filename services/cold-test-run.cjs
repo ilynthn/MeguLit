@@ -113,9 +113,17 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
   close(){if(closed)return;closed=true;if(!helper)return;write('quit');const h=helper;setTimeout(()=>{try{h.kill();}catch{}},2000).unref?.();}};}
 
 /* opts: {root, exe, runDir, budgetMs, profile, shotWidth, ocrMenu}; deps for tests: {spawn, Hook, now, tick, layout} -> result */
+/* 2026-11-26 Monochrome Empire r4: the tape kept the in-memory default of the last 60 dialogue lines, and after 60 lines at reading pace
+   the run held Ctrl for 40 more, so every line on the tape was in the fast span, which Cardinal does not score: "scored 0 lines"
+   although the run read 60 at reading pace. The worker keeps up to TAPE_KEEP lines, and the file gets the Ctrl span plus the
+   TAPE_SLOW reading-pace lines before it (all of them when there was no Ctrl span) */
+const TAPE_KEEP=400,TAPE_SLOW=60;
+function tapeOfRun(res,tape=require('../core/cardinal/tape.cjs')){const fast=(Array.isArray(res?.phases)?res.phases:[]).find(p=>p?.name==='fast');
+ const all=tape.snapshot(TAPE_KEEP);const from=fast?Date.parse(fast.at):NaN;if(!Number.isFinite(from))return all;
+ const fastLines=all.rows.filter(r=>r.hb?.type==='hookSource'&&r.t>=from).length;return fastLines+TAPE_SLOW>=all.lines?all:tape.snapshot(fastLines+TAPE_SLOW);}
 function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=null,shotWidth=960}=opts;
  const spawn=deps.spawn||nodeSpawn,now=deps.now||Date.now,TICK=deps.tick||250;
- fs.mkdirSync(runDir,{recursive:true});
+ fs.mkdirSync(runDir,{recursive:true});try{require('../core/cardinal/tape.cjs').keep(TAPE_KEEP);}catch{}
  /* an explicit helper (even '' = none) wins over the installed ColdDesk.exe: a test asking for no helper must never start the real one */
  const helper='helper' in deps?deps.helper:helperPath(root);
  return new Promise(resolve=>{
@@ -144,7 +152,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint,changed:()=>{for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}}):null;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
-   res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=require('../core/cardinal/tape.cjs').snapshot();if(snap.lines>0){
+   res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=tapeOfRun(res);if(snap.lines>0){
      /* the versioned tape file (core/cardinal/tape-file.cjs), with what the game's screen showed: the choice the runner's OCR read
         ({t, screen:{type:'choices', texts, until}}, core/cardinal/screen-run.cjs) */
      const screen=require('../core/cardinal/screen-run.cjs').screenRows(res);
@@ -209,4 +217,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
+module.exports={tapeOfRun,TAPE_SLOW,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
