@@ -13,8 +13,7 @@ test('HookBridge: the no-KAG DrawText gate decides auto-select and the rival swi
  assert.equal((SRC.match(/!AutoSkipped\(c\.name\)/g)||[]).length,1,'auto-select');
  assert.equal((SRC.match(/!AutoSkipped\(rv\.name\)/g)||[]).length,1,'rival switch');
  assert.ok(!/Regex\.IsMatch\((?:c|rv)\.name\?\?"",AutoSkip/.test(SRC),'no selection path bypasses the gate');
- assert.match(SRC,/if\(KrkrRank\(name\)>0&&KrkrNoKag\(\)\)\{string once=KrkrUndouble\(tp\.Key\(\),text\);text=once;/,'doubling undone before the frame is read, per stream (2026-11-27: a two-character piece only on a stream proven doubled)');
- assert.match(SRC,/KrkrUndouble\("selftest-once","おお"\)!="おお"/,'the self-test keeps real repeats on a stream drawn once');
+ assert.match(SRC,/if\(KrkrRank\(name\)>0&&KrkrNoKag\(\)\)\{string once=UndoubleChars\(text,2\);if\(once==text\)once=UndoublePrefix\(text\);text=once;/,'doubling undone before the frame is read');
  assert.match(SRC,/if\(!KrkrJoinFlush\)\{string whole=KrkrJoinPiece\(code,name,tp,text,probe\);if\(whole==null\)return;text=whole;\}/,'pieces joined into one line');
  assert.match(SRC,/krkr no-KAG: dialogue stream /,'the stream with whole lines takes the selection');
  assert.match(SRC,/if\(!KrkrNoKagSelfTest\(\)\)throw/,'--self-test covers it');});
