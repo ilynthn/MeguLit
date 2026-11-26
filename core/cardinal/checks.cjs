@@ -168,18 +168,21 @@ function leaks(run,t,ls){t=opts(t);const name=run.name||'run',o=run.o,bad=[];ls=
     are not read mode. Without that confirmation, or with the hide off, 'read' stays an observed manual read, as before. */
  const hideConfirmed=(run.steps||[]).some(st=>st?.hb?.type==='hookThreads'&&(st.hb.hookThreads||[]).some(x=>x&&x.selected===true&&x.hideOnly===true));
  const readObserved=(o.samples||[]).some(s=>s.readMode===true||s.hookProfile==='read'&&!(s.hookHide===true&&hideConfirmed));
- const failed=visible>0||nativeObserved&&h.visible>0||during.length>0||readObserved||off.length>0;
+ /* 2026-11-26 the real screen (core/cardinal/screen-evidence.cjs: OCR of captures against the hook's line), a second evidence of either kind */
+ const sc=require('./screen-evidence.cjs').valid(o.screen)?o.screen:null,screenVisible=!!sc&&sc.state==='visible',screenObserved=!!sc&&sc.state!=='unconfirmed';
+ const failed=visible>0||nativeObserved&&h.visible>0||during.length>0||readObserved||off.length>0||screenVisible;
  /* the bridge's confirmation that the selected stream's original is hidden, while the reader had the hide on, is an observation of the hide too */
  const confirmedHidden=hideConfirmed&&(o.samples||[]).some(s=>s.hookHide===true);
- const observed=failed||checked>=4||nativeObserved||confirmedHidden;
- const rates=[checked&&visible?visible/checked:0,nativeObserved?h.visible/h.lines:0,ls.length?during.length/ls.length:0,readObserved||off.length&&!during.length?1:0];
+ const observed=failed||checked>=4||nativeObserved||confirmedHidden||screenObserved;
+ const rates=[checked&&visible?visible/checked:0,nativeObserved?h.visible/h.lines:0,ls.length?during.length/ls.length:0,readObserved||off.length&&!during.length?1:0,screenVisible?sc.visible/sc.usable:0];
  if(visible)bad.push(name+' hide check read Japanese on '+visible+'/'+checked+' lines');if(nativeObserved&&h.visible)bad.push(name+' '+h.visible+'/'+h.lines+' dialogue records drawn visible while hidden');
+ if(screenVisible)for(const i of (sc.items||[]).filter(i=>i.verdict==='visible').slice(0,4))bad.push(name+' screen '+(i.name||'@'+i.at)+' shows the original: OCR 「'+String(i.read||'').slice(0,30)+'」 ~ 「'+String(i.text||'').slice(0,30)+'」');
  for(const l of during.slice(0,4))bad.push(name+' line '+l.line+' shown while the hide was off ('+(off.find(s=>s.from<l.samples.at(-1).at&&s.to>l.samples[0].at)?.why||'')+')');
  /* 2026-11-26 state says it in one word: visible (the original showed), hidden (an observation that it was hidden), unconfirmed (隐藏未确认:
     nothing on the tape says either way; the score stays 0, it is not a pass) */
  const state=failed?'visible':observed?'hidden':'unconfirmed';
- if(!observed)bad.push(name+' hide unconfirmed (隐藏未确认): no valid native dialogue records, four distinct hide checks or a hide-only confirmation of the selected stream');
- return {bad,rate:observed?Math.min(1,Math.max(...rates)):1,observed,state,hideConfirmed,checked,visible,records:h,nativeObserved,readObserved,during:during.length,off};}
+ if(!observed)bad.push(name+' hide unconfirmed (隐藏未确认): no valid native dialogue records, four distinct hide checks, a hide-only confirmation of the selected stream or '+require('./screen-evidence.cjs').MIN_FRAMES+' usable screen pictures');
+ return {bad,rate:observed?Math.min(1,Math.max(...rates)):1,observed,state,hideConfirmed,screen:sc?{state:sc.state,usable:sc.usable,visible:sc.visible,hidden:sc.hidden}:null,checked,visible,records:h,nativeObserved,readObserved,during:during.length,off};}
 /* when the original could show, on the run's clock: from a disable / probeHide off / give way until core enables again, and from a switch
    to read mode until the switch away from it; a span still open runs to the end */
 /* the kernel's preflight (hide.preflight: the original shown once and checked before the hide, hook-events 'check baseline') is a
