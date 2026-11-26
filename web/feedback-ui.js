@@ -75,6 +75,51 @@ async function report({ api, reason, contact, locale, version }) {
   return text?.ok ? 'text' : '';
 }
 
+/* 2026-11-27 (user: 就单纯加个提取日志的按钮吧 说明是 针对修复 QQ群内专用) 提取日志: the same scrubbed whole-app package,
+   saved on the desktop (services/log-export.cjs) for the reader to send to the QQ group by hand; nothing is uploaded */
+const EXPORT = {
+  zh: { button: '提取日志', note: '针对修复 · QQ群内专用', working: '正在提取日志…', ask: '遇到了什么问题？', askHint: '会写进压缩包里的「问题说明.txt」，也会加进文件名', askPlaceholder: '例：点读层不显示 / 读音错了', askEmpty: '请先写一下遇到的问题，一句话也可以', go: '提取', cancel: '取消', saved: name => `日志已保存到桌面：${name}，发到 QQ 群里给作者，发完可以删掉`, reveal: '打开所在文件夹',
+    failed: why => `提取日志失败：${why}`, reasons: { desktop: '找不到桌面文件夹', denied: '没有权限写入桌面（可能被安全软件拦住了）', full: '磁盘空间不足', busy: '桌面上的文件正被占用，请稍后再试', build: '打包日志时出错', other: '未知错误' } },
+  ja: { button: 'ログを書き出す', note: '修正用・QQグループ専用', working: 'ログを書き出しています…', ask: 'どんな問題がありましたか？', askHint: 'ZIP の中の「问题说明.txt」とファイル名に入ります', askPlaceholder: '例：タップ読みレイヤーが出ない／読みが間違っている', askEmpty: '問題をひとこと書いてください', go: '書き出す', cancel: 'キャンセル', saved: name => `ログをデスクトップに保存しました：${name}。QQ グループで作者に送ってください。送ったら削除して大丈夫です`, reveal: 'フォルダーを開く',
+    failed: why => `ログを書き出せませんでした：${why}`, reasons: { desktop: 'デスクトップのフォルダーが見つかりません', denied: 'デスクトップに書き込む権限がありません（セキュリティソフトにブロックされた可能性があります）', full: 'ディスクの空き容量が足りません', busy: 'デスクトップのファイルが使用中です。少し待ってからお試しください', build: 'ログをまとめる途中でエラーが起きました', other: '不明なエラー' } },
+  en: { button: 'Export logs', note: 'For fixes · QQ group only', working: 'Exporting logs…', ask: 'What went wrong?', askHint: 'It goes into the note file inside the zip and into the file name', askPlaceholder: 'e.g. the lookup layer does not show / wrong reading', askEmpty: 'Please say what went wrong; one sentence is fine', go: 'Export', cancel: 'Cancel', saved: name => `Logs saved to the desktop: ${name}. Send it to the author in the QQ group; you can delete it afterwards`, reveal: 'Open folder',
+    failed: why => `Could not export the logs: ${why}`, reasons: { desktop: 'the Desktop folder was not found', denied: 'no permission to write to the Desktop (security software may have blocked it)', full: 'the disk is full', busy: 'a file on the Desktop is in use; try again shortly', build: 'packing the logs failed', other: 'unknown error' } },
+};
+export const exportWords = locale => EXPORT[locale] || EXPORT.zh;
+/* the service error (a code, sometimes with a short detail) → why, in the reader's language */
+export function exportReason(error, locale = 'zh') {
+  const raw = String(error?.message || error || ''), r = exportWords(locale).reasons;
+  const why = /DESKTOP_NOT_FOUND|ENOENT/.test(raw) ? r.desktop : /EACCES|EPERM/.test(raw) ? r.denied : /ENOSPC/.test(raw) ? r.full : /EBUSY|DESKTOP_NAME_TAKEN/.test(raw) ? r.busy : /LOG_BUILD_FAILED/.test(raw) ? r.build : r.other;
+  const code = (/[A-Z][A-Z_]{3,}/.exec(raw) || [''])[0];
+  return code && why === r.other ? `${why}（${code}）` : why;
+}
+/* asks for the problem (required); resolves the trimmed text, or '' when cancelled */
+export function askProblem({ locale = 'zh', esc, initial = '' }) {
+  const w = exportWords(locale), ask = document.createElement('dialog');
+  ask.className = 'game-dialog feedback-dialog feedback-export-ask';
+  ask.innerHTML = `<div class="game-dialog-head"><span class="game-dialog-kicker">${esc(w.note)}</span><h2>${esc(w.ask)}</h2><p>${esc(w.askHint)}</p></div>
+<input class="feedback-contact" data-problem maxlength="300" placeholder="${esc(w.askPlaceholder)}">
+<p class="feedback-status" role="status" aria-live="polite"></p>
+<div class="dialog-actions"><button type="button" class="text-button" data-ask-cancel>${esc(w.cancel)}</button><button type="button" class="primary" data-ask-go>${esc(w.go)}</button></div>`;
+  document.body.append(ask);
+  const input = ask.querySelector('[data-problem]'), status = ask.querySelector('.feedback-status');
+  input.value = initial;
+  return new Promise(resolve => {
+    let answer = '';
+    ask.addEventListener('close', () => { ask.remove(); resolve(answer); }, { once: true });
+    const go = () => { const value = input.value.trim(); if (!value) { status.textContent = w.askEmpty; status.dataset.state = 'bad'; input.focus(); return; } answer = value; ask.close(); };
+    ask.querySelector('[data-ask-go]').onclick = go;
+    ask.querySelector('[data-ask-cancel]').onclick = () => ask.close();
+    input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); go(); } });
+    ask.showModal(); input.focus();
+  });
+}
+export async function exportLogs({ api, locale = 'zh', version = '', problem = '' }) {
+  const w = exportWords(locale);
+  try { const result = await api('logs_export_desktop', { problem, version }); return { ok: true, name: result.name, path: result.path, text: w.saved(result.name) }; }
+  catch (error) { return { ok: false, text: w.failed(exportReason(error, locale)) }; }
+}
+
 /* E563 after a problem report: check the library on this PC; anything found is uploaded only after the user confirms it */
 const probeAfterReport = ({ api, locale, esc, toast }) => import('./adapter-probe-ui.js').then(m => m.openProbeUpload({ api, locale, esc, toast, reason: 'feedback' })).catch(() => {});
 
@@ -93,7 +138,8 @@ export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
 <input class="feedback-contact" maxlength="120" placeholder="${esc(t.contact)}">
 <p class="feedback-privacy">${esc(t.privacy)}</p>
 <p class="feedback-status" role="status" aria-live="polite"></p>
-<div class="dialog-actions"><button type="button" class="text-button" data-cancel>${esc(t.cancel)}</button><button type="button" class="primary" data-send>${esc(t.send)}</button></div>`;
+<p class="feedback-export-result" role="status" aria-live="polite" hidden><span></span> <button type="button" class="text-button" data-export-reveal hidden>${esc(exportWords(locale).reveal)}</button></p>
+<div class="dialog-actions"><span class="feedback-export"><button type="button" class="text-button" data-export>${esc(exportWords(locale).button)}</button><small>${esc(exportWords(locale).note)}</small></span><button type="button" class="text-button" data-cancel>${esc(t.cancel)}</button><button type="button" class="primary" data-send>${esc(t.send)}</button></div>`;
   document.body.append(dialog);
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   dialog.showModal();
@@ -104,6 +150,20 @@ export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
   const issues = [...dialog.querySelectorAll('.feedback-issue')];
   for (const issue of issues) issue.onclick = () => issue.setAttribute('aria-pressed', String(issue.getAttribute('aria-pressed') !== 'true'));
   dialog.querySelector('[data-cancel]').onclick = () => dialog.close();
+  const exportButton = dialog.querySelector('[data-export]'), exportResult = dialog.querySelector('.feedback-export-result'), reveal = dialog.querySelector('[data-export-reveal]');
+  exportButton.onclick = async () => {
+    const w = exportWords(locale);
+    const typed = [issues.filter(issue => issue.getAttribute('aria-pressed') === 'true').map(issue => issue.textContent).join(' / '), text.value.trim()].filter(Boolean).join(' / ');
+    const problem = await askProblem({ locale, esc, initial: typed.slice(0, 300) });
+    if (!problem || !dialog.isConnected) return;
+    exportButton.disabled = true; exportButton.textContent = w.working; reveal.hidden = true;
+    const result = await exportLogs({ api, locale, version, problem });
+    if (!dialog.isConnected) return;
+    exportButton.disabled = false; exportButton.textContent = w.button;
+    exportResult.hidden = false; exportResult.dataset.state = result.ok ? 'ok' : 'bad'; exportResult.firstElementChild.textContent = result.text;
+    reveal.hidden = !result.ok;
+    reveal.onclick = () => api('logs_export_reveal', { path: result.path }).catch(() => {});
+  };
   send.onclick = async () => {
     const selected = issues.filter(issue => issue.getAttribute('aria-pressed') === 'true').map(issue => issue.textContent);
     const reason = [selected.join(' / '), text.value.trim()].filter(Boolean).join('\n\n');

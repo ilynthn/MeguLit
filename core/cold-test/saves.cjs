@@ -66,6 +66,8 @@ function locate(game,env=process.env){const exe=String(game?.exe||'');if(!exe)re
  const u=unityInfo(exe);if(u&&roots.locallow)put(path.join(roots.locallow,u.company,u.product),'locallow',{predicted:true});
  const rd=renpyDir(folder);if(rd&&env.APPDATA)put(path.join(env.APPDATA,'RenPy',rd),'roaming',{predicted:true});
  if(/kirikiri|krkr/.test(engine))put(path.join(folder,'savedata'),'game',{predicted:true});
+ /* 2026-11-26 (バトラーズ～召しませお嬢様: no save place, the cold test refused) BGI / Ethornell writes UserData next to the program on a first start */
+ if(/^bgi|ethornell/.test(engine))put(path.join(folder,'UserData'),'game',{predicted:true});
  /* loose save and settings files in the game folder itself */
  const loose=list(folder).filter(e=>e.isFile()&&LOOSE_SAVE.test(e.name)&&!NEVER.test(e.name)).map(e=>e.name);
  const usable=places.filter(p=>p.exists||p.predicted);

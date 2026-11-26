@@ -122,14 +122,15 @@ test('E350: hovering the control bar (tooltips run together) never reaches the p
  assert.deepEqual(g.reselectStream(true),{selected:'a',name:undefined});
 });
 
-test('E352: a full-screen page with the game\'s own translation table is written back by the game (translate embed); others keep their setting',t=>{
+test('QQ #1141: a full-screen page with the game\'s own translation table stays bilingual (hide + MeguLit draws both); the game draws the translation only when the player asks',t=>{
  const f=fixture(t);const sent=[];f.hook.process=hookBridgeChild();f.hook.send=m=>sent.push(m);f.hook.enabled=true;f.hook.preferences={embedTranslation:false};
  f.hook.syncEmbedMode();assert.deepEqual(sent.filter(m=>m.type==='embedMode').map(m=>m.mode),['hide'],'no script table yet: hide as set');
  f.hook.originalText={kind:'patch',resolve:()=>({status:'exact'}),tableDrawable:()=>true};f.hook.scriptAllowed=()=>true;
  f.line('　もっとも、それは夏だけの話。');f.tick(100);
- assert.deepEqual(sent.filter(m=>m.type==='embedMode').map(m=>m.mode),['hide','translate'],'the official table is there: the game draws the translation');
- f.hook.scriptAllowed=()=>false;f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'hide','零延迟翻译 off: back to hiding');
- f.hook.flowPage=false;f.hook.scriptAllowed=()=>true;f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'hide','ADV games keep the user\'s choice');
+ assert.deepEqual(sent.filter(m=>m.type==='embedMode').map(m=>m.mode),['hide'],'the official table is there: still hide, the Japanese stays on the page');
+ f.hook.preferences={embedTranslation:true};f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'translate','the player turned on game-drawn translation');
+ f.hook.preferences={embedTranslation:true,translationBlur:true};f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'hide','a blurred translation stays MeguLit\'s own');
+ f.hook.flowPage=false;f.hook.preferences={embedTranslation:false};f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'hide','ADV games keep the user\'s choice');
 });
 
 test('E352 wiring: writeback keeps indent and engine codes; embed lookups drop ruby markup; MeguLit draws nothing over a page the game translates',()=>{
@@ -144,11 +145,12 @@ test('E352 wiring: writeback keeps indent and engine codes; embed lookups drop r
 
 // E358 (user report on 1.2.8, WoH prologue: the Chinese the game drew had a blank for every third character). The game
 // draws from its own bitmap font, which in Japanese holds only the characters of the Japanese script.
-test('E358: a translation the game font cannot draw is hidden in the game and drawn by MeguLit; WoH is not switched to translate mode',t=>{
+test('E358: a translation the game font cannot draw is hidden in the game and drawn by MeguLit; WoH is never switched to translate mode by itself',t=>{
  const f=fixture(t);const sent=[];f.hook.process=hookBridgeChild();f.hook.send=m=>sent.push(m);f.hook.enabled=true;f.hook.preferences={embedTranslation:false};f.hook.scriptAllowed=()=>true;
  f.hook.originalText={kind:'patch',resolve:()=>({status:'exact'}),tableDrawable:()=>false,drawable:()=>false};
  f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'hide','the game font cannot draw the official table: hide + overlay');
- f.hook.originalText.tableDrawable=()=>true;f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'translate','a font that has the glyphs: the game draws');
+ f.hook.originalText.tableDrawable=()=>true;f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'hide','a font that has the glyphs: still hide + overlay, the Japanese stays (QQ #1141)');
+ f.hook.preferences={embedTranslation:true};f.hook.syncEmbedMode();assert.equal(sent.filter(m=>m.type==='embedMode').at(-1).mode,'translate','the player turned on game-drawn translation');
  f.events.length=0;f.hook.embedReply(7,'',{hide:true,source:'　数分後。',text:'　几分钟后。'});
  assert.deepEqual(sent.at(-1),{type:'embedReply',id:7,trans:'',hide:true});
  const n=f.events.filter(m=>m.embedLine).at(-1);assert.equal(n.embedTranslating,false);assert.deepEqual(n.embedLine,{source:'　数分後。',text:'',drawn:false});
@@ -339,7 +341,7 @@ test('E414: a page game by its own script turns on every page rule; a game whose
  f.hook.preflight=true;assert.equal(f.hook.preflight,false,'no baseline preflight on a page game');
  f.line('　窓は暗い。');f.tick(500);const s=f.events.filter(m=>typeof m.hookSource==='string'&&m.hookSource).at(-1);
  assert.equal(s.hookSourceEngine,'nvl');assert.equal(s.hookFlowGrid,'','no grid: the calibrated box');
- f.hook.originalText={kind:'patch',resolve:()=>({status:'exact'})};f.hook.scriptAllowed=()=>true;assert.equal(f.hook.autoTranslateEmbed(),false,'the game draws translations only when its glyphs are known to cover them');
+ assert.equal(typeof f.hook.autoTranslateEmbed,'undefined','a page game is never switched to game-drawn translation by itself (QQ #1141)');
 });
 
 test('E414 real data: The House in Fata Morgana (multilingual KiriKiri) reads Japanese with the release\'s Chinese and its pages',t=>{

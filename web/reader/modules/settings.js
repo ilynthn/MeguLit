@@ -108,7 +108,8 @@
   }
   bridge.keyStatus = result => {
     if (!keyField?.isConnected) return;
-    keyField.placeholder = result?.current ? '✓ 已保存密钥（Windows 加密），留空即继续使用' : '尚未保存此服务的密钥，请填写后保存';
+    let local = false; try { local = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(String(keyOptions?.()?.baseUrl || '')).hostname); } catch {}
+    keyField.placeholder = local ? '本机地址无需密钥，可留空' : result?.current ? '✓ 已保存密钥（Windows 加密），留空即继续使用' : '尚未保存此服务的密钥，请填写后保存';
     keyField.dataset.saved = result?.current ? '1' : '0';
   };
   bridge.openSettings = () => {

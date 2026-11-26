@@ -62,7 +62,9 @@ const gwb=fakeProc('GalWindowBridge');let hookSpawned=0;
 /* HookBridge: a new process per start (core/hook-native.cjs start), the newest one gets the timeline's lines. Like the real bridge it
    says it is alive every second (hookHeartbeat). With models on it also follows core's hide switch (see the MODEL above) */
 const hbs=[];let hideOn=false;const hbAll={sent:[]};const hidden=require('../../core/cardinal/native-hide.cjs').collector({modeled:models});
-function newHook(){const p=fakeProc('HookBridge');p.stdin.on('data',()=>{for(const x of p.sent.splice(0)){hbAll.sent.push(x);if(x.m.type==='enable')hideOn=true;if(x.m.type==='disable')hideOn=false;}});
+/* the game side of a non-KiriKiri engine (tools/reader-replay/engine-models.cjs): sees what core sends the bridge */
+let engineModel=null;
+function newHook(){const p=fakeProc('HookBridge');p.stdin.on('data',()=>{for(const x of p.sent.splice(0)){hbAll.sent.push(x);try{engineModel?.sent(x.m);}catch{}if(x.m.type==='enable')hideOn=true;if(x.m.type==='disable')hideOn=false;}});
  p.beat=setInterval(()=>{if(p.exitCode===null)p.line({type:'hookHeartbeat',hookActive:true,processAttached:true,streamSelected:true,receivedText:true,replacementState:'callback-acknowledged'});},1000);p.beat.unref?.();
  p.kill=()=>{clearInterval(p.beat);p.exitCode=0;p.emit('exit',0);};p.stdin.on('finish',()=>{});hbs.push(p);return p;}
 const hb={line:o=>{const p=hbs.at(-1);if(!p||p.exitCode!==null)return;
@@ -97,7 +99,8 @@ function serve(url){let u;try{u=new URL(url);}catch{return 'abort';}if(/^(data|b
  if(u.host==='ipc.localhost')return {status:200,body:'null',headers:{'content-type':'application/json','Tauri-Response':'ok'}};
  return 'abort';}
 return (async()=>{
- const out={work,models,errors:[],console:[],samples:[],sourceEpisodes:[],marks:[],hookSpawned:0,gwbSent:[],hbSent:[],events:[],control:[],choiceOffers:[],hidden:{lines:0,visible:0},krkr:{clears:0,choice:[],cfg:null}};let krkr=null,lastLine=null,browser=null;
+ const out={work,models,errors:[],console:[],samples:[],sourceEpisodes:[],marks:[],hookSpawned:0,gwbSent:[],hbSent:[],events:[],control:[],choiceOffers:[],screenChoices:[],hidden:{lines:0,visible:0},krkr:{clears:0,choice:[],cfg:null}};let krkr=null,lastLine=null,browser=null;
+ const modelCall=fn=>{try{fn();}catch(e){out.krkr.error=String(e?.message||e).slice(0,300);krkr=false;}};
  let disposal=null,stopRequested=false;
  const finish=()=>{if(disposal)return disposal;disposal=(async()=>{
   try{runtime.reader?.gal?.stop?.();}catch{}try{runtime.reader?.stop?.();}catch{}
@@ -143,12 +146,20 @@ return (async()=>{
    if(!settled&&step.hb?.type==='hookSource'){settled=true;clock+=scenario.attachSettleMs;}
    if(step.t!=null){if(prevT!=null){const gap=Math.min(maxGap,Math.max(0,step.t-prevT));clock+=gap;}prevT=step.t;let wait=clock-elapsed();while(wait>0){await sleep(wait);wait=clock-elapsed();}timing.step(stepIndex,clock);}
    if(scenario.sessionIdentity&&!identityChecked&&step.hb?.type==='hookSource'){identityChecked=true;if(!require('./identity.cjs').profileMatches(scenario.sessionIdentity,runtime.reader?.gal?.profile)){sampling=false;await sampler;out.deferred=true;out.errors.push('CARDINAL_IDENTITY_PROFILE');return;}}
-   if(step.gwb){if(models&&step.gwb.type==='bound'&&!krkr&&fs.existsSync(path.join(REPO,'native','krkrtext','script.inc')))try{const {KrkrModel}=require(path.join(REPO,'tools','reader-replay','krkr-model.cjs'));krkr=new KrkrModel({pid:step.gwb.gameProcessId,tmp:process.env.TEMP});}catch(e){out.krkr.error=String(e.message||e);krkr=false;}
+   /* 2026-11-26 the game-side model by engine: KiriKiri's script (models on: a timeline from logs), YU-RIS, BGI, or the generic one
+      that models nothing (a tape of any other engine; a KiriKiri tape, whose bridge records are the game side already) */
+   if(step.gwb?.type==='bound'&&!engineModel&&!krkr){const E=require(path.join(REPO,'tools','reader-replay','engine-models.cjs'));let kind=E.pick({engine:scenario.game?.engine,threads:scenario.steps.find(x=>x.hb?.type==='hookThreads')?.hb.hookThreads});if(kind==='generic'&&models)kind='krkr';
+    if(kind==='krkr'&&!models)kind='generic';if(kind!=='krkr')try{engineModel=new E.MODELS[kind]({pid:step.gwb.gameProcessId,tmp:process.env.TEMP});}catch(e){out.modelError=String(e?.message||e).slice(0,300);engineModel=new E.MODELS.generic({pid:step.gwb.gameProcessId,tmp:process.env.TEMP});}}
+   if(step.gwb){if(models&&step.gwb.type==='bound'&&!krkr&&!engineModel&&fs.existsSync(path.join(REPO,'native','krkrtext','script.inc')))try{const {KrkrModel}=require(path.join(REPO,'tools','reader-replay','krkr-model.cjs'));krkr=new KrkrModel({pid:step.gwb.gameProcessId,tmp:process.env.TEMP});}catch(e){out.krkr.error=String(e.message||e);krkr=false;}
     /* MODEL (labelled): the game clears its message layer at the click ([cm]); the script's own clearSent reports it when the control file says #clearline */
-    if(step.gwb.type==='readerInput'&&krkr&&lastLine&&step.pageClear!==false){krkr.tick();const n=krkr.reports.length;krkr.st.clearSent(lastLine);for(const r of krkr.reports.slice(n))hb.line({type:'hookChars',line:r});out.krkr.clears+=krkr.reports.length-n;}
+    /* 2026-11-26 a model that throws (a script.inc the rewrite cannot run) is switched off and named in out.krkr.error; the replay goes on */
+    if(step.gwb.type==='readerInput'&&krkr&&lastLine&&step.pageClear!==false)modelCall(()=>{krkr.tick();const n=krkr.reports.length;krkr.st.clearSent(lastLine);for(const r of krkr.reports.slice(n))hb.line({type:'hookChars',line:r});out.krkr.clears+=krkr.reports.length-n;});
     gwb.line(step.gwb);if(step.gwb.type==='bound'&&scenario.sessionIdentity){await sleep(0);const context=scenario.sessionIdentity.context;runtime.reader?.applyGameProfile(scenario.game.exe,{title:context.title,original:JSON.stringify({library:{engine:context.engine,vndbId:context.vndb}})});}}
+   if(step.hb&&engineModel){try{if(step.hb.type==='hookThreads')engineModel.threads(step.hb.hookThreads);if(step.hb.type==='hookSource')engineModel.line(step.hb.text);}catch(e){out.modelError=String(e?.message||e).slice(0,300);}}
    if(step.hb){if(step.hb.type==='hookSource')out.sourceEpisodes.push({step:stepIndex,line:step.line,text:step.hb.text,at:elapsed()});hb.line(step.hb);if(step.hb.type==='hookChars'){const m=/ line=(\d+) hidden=\d sw=(\d+) sh=(\d+) .* n=(\d+) /.exec(step.hb.line);if(m&&!/ role=(?!line)/.test(step.hb.line)&&+m[4]>0)lastLine={line:+m[1],sentLine:+m[1],sw:+m[2],sh:+m[3]};}}
-   if(step.choicePage&&krkr){krkr.tick();out.krkr.choice.push({mark:step.choicePage,frame:step.frame||'選択肢',ui:krkr.st.uiDraw({parent:{frameGraphic:step.frame||'選択肢',height:400}}),cfg:JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v))});}
+   /* options the game showed (core/cardinal/timeline.cjs screenRow): only noted, never fed to the reader */
+   if(step.screenChoice)out.screenChoices.push({step:stepIndex,at:elapsed(),texts:step.screenChoice.texts,span:Number.isFinite(step.screenChoice.until)?Math.max(0,step.screenChoice.until-step.t):null});
+   if(step.choicePage&&krkr)modelCall(()=>{krkr.tick();out.krkr.choice.push({mark:step.choicePage,frame:step.frame||'選択肢',ui:krkr.st.uiDraw({parent:{frameGraphic:step.frame||'選択肢',height:400}}),cfg:JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v))});});
    if(step.page)await page.evaluate(typeof step.page==="string"?"("+step.page+")()":step.page).catch(e=>out.errors.push('step page: '+e.message));
    if(step.mark){await sleep(step.settle??150);const s=await page.evaluate(()=>window.__replayProbe()).catch(e=>({error:e.message}));s.mark=step.mark;s.at=elapsed();s.hitRegions=hits();out.samples.push(s);}
    if(step.watch){const until=elapsed()+step.watch;while(elapsed()<until){const s=await page.evaluate(()=>window.__replayProbe()).catch(e=>({error:e.message}));s.mark=step.mark||('watch:'+step.watchName);s.at=elapsed();s.watch=true;s.hitRegions=hits();out.samples.push(s);await sleep(step.every||80);}}
@@ -159,7 +170,8 @@ return (async()=>{
   sampling=false;await sampler;out.timing=timing.finish();measureTime=null;out.lag=Timing.statistics(out.timing.steps,out.timing.probes,scenario.sampleEvery).lag;
   if(scenario.sessionIdentity&&!require('./identity.cjs').profileMatches(scenario.sessionIdentity,runtime.reader?.gal?.profile)){out.deferred=true;out.errors.push('CARDINAL_IDENTITY_PROFILE');return;}
   {const dir=path.join(process.env.TEMP,'MeguLit','draw');const files=fs.existsSync(dir)?fs.readdirSync(dir).filter(f=>/^\d+\.txt$/.test(f)):[];out.control.push({mark:'end',files:files.map(f=>({name:f,text:fs.readFileSync(path.join(dir,f)).slice(2).toString('utf16le')}))});}
-  if(krkr){krkr.tick();out.krkr.cfg=JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v));out.krkr.ctl=krkr.ctl;}
+  out.model=engineModel?engineModel.summary():krkr?{name:'krkr',label:'KiriKiri 模型',cfg:{...krkr.st.cfg},bad:out.krkr.error?[out.krkr.error]:[]}:krkr===false?{name:'krkr',label:'KiriKiri 模型（出错已关）',bad:[String(out.krkr.error||'')]}:{name:'generic',label:'通用模型',bad:[]};if(out.modelError)out.model.bad=[...(out.model.bad||[]),'model error: '+out.modelError];
+  if(krkr)modelCall(()=>{krkr.tick();out.krkr.cfg=JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v));out.krkr.ctl=krkr.ctl;});
   out.hookSpawned=hookSpawned;out.gwbSent=gwb.sent.filter(x=>x.m.type!=='hitRegions').slice(-200).map(x=>x.m);out.hbSent=hb.sent.map(x=>({at:x.at-t0,...x.m})).filter(m=>m.type!=='source');
   out.events=events.map(e=>({at:e.at-t0,type:e.m.type,keys:Object.keys(e.m).slice(0,12)})).slice(-400);
 

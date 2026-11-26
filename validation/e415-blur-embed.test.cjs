@@ -10,6 +10,6 @@ test('translationBlur survives the service-side preference cleaner',()=>{
 test('blur on: the game is not asked to draw the translation',()=>{
  const h=read('core/hook-native.cjs'),c=read('core/hook-control.cjs');
  assert.match(h,/preferences\.embedTranslation===true&&preferences\.translationBlur!==true\)/);
- assert.match(h,/this\.preferences\?\.embedTranslation===true&&this\.preferences\?\.translationBlur!==true\|\|this\.autoTranslateEmbed\(\)/);
- assert.match(h,/autoTranslateEmbed\(\)\{return this\.flowPage===true&&[^;]*this\.preferences\?\.translationBlur!==true/);
+ assert.match(h,/!hideOnly&&this\.preferences\?\.embedTranslation===true&&this\.preferences\?\.translationBlur!==true\);/);
+ assert.doesNotMatch(h,/autoTranslateEmbed/,'QQ #1141: no page game is switched to game-drawn translation by itself');
  assert.match(c,/embedTranslation===true&&h\.preferences\?\.translationBlur!==true/);});

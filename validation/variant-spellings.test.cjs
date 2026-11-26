@@ -34,8 +34,20 @@ test('a word written in kana is found by the spelling of its lemma; words that o
 
 test('the lookup card lists the entry’s own spellings as 异表记 and keeps homophones apart',()=>{
  assert.match(src,/function spellings\(result,entry,parent\)\{const list=\[\.\.\.new Set\(entry\?\.spellings\|\|\[\]\)\];if\(list\.length<2\)return;/);
- assert.match(src,/el\('label','tomoyo-alternative tomoyo-spellings','异表记 '\)/);
+ assert.match(src,/el\('label','tomoyo-spellings','异表记 '\)/);
  assert.match(src,/if\(entry\)\{senses\(entry,sub\);spellings\(result,entry,sub\);\}/,'shown under the senses of the card’s entry');
  assert.match(src,/senses\(replacement\.entries\[0\],sub\);spellings\(replacement,replacement\.entries\[0\],sub\)/,'and of an entry picked from the list');
  assert.match(src,/\['同音词（只是读音相同）',result\.entries\.map\(\(e,i\)=>\[e,i\]\)\.filter\(\(\[e\]\)=>e\.match==='reading'\)\]/);
+});
+/* RRFZ #1192: sharing .tomoyo-alternative made '.tomoyo-alternative select' find the 异表记 list instead of the 其他同形词条 one (#1154),
+   and a value it does not hold blanked the headword */
+test('the 异表记 list has its own class, styled like the other list, and never blanks the headword',()=>{
+ assert.doesNotMatch(src,/'tomoyo-alternative tomoyo-spellings'/);
+ assert.match(src,/\.tomoyo-alternative,\.tomoyo-spellings\{display:block;/);
+ assert.match(src,/\.tomoyo-alternative select,\.tomoyo-spellings select\{/);
+ const m=/select\.onchange=\(\)=>\{(const head=parent\.querySelector\('\.tomoyo-word-heading strong'\);if\(head&&select\.value\)head\.textContent=select\.value;)\};/.exec(src);
+ assert.ok(m,'guarded');
+ const head={textContent:'聞く'},run=value=>new Function('parent','select',m[1])({querySelector:()=>head},{value});
+ run('');assert.equal(head.textContent,'聞く','an empty value leaves the headword');
+ run('聴く');assert.equal(head.textContent,'聴く');
 });

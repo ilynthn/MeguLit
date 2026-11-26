@@ -394,15 +394,18 @@ class Reader{
  }
  localTranslation(text,language,returned={}){
   const strict=this.zeroLatencyEnabled?.(language);
-  const script=language==='en'?'':this.gal?.hooks?.scriptTranslation?.(text,returned);
+  /* QQ #1116: a stored translation (script track, patch, an earlier machine answer) in another script (Hangul) is no translation of this line */
+  const sane=value=>value&&!require('../core/text-sanity.cjs').foreignScript(value,text)?value:'';
+  let script=language==='en'?'':this.gal?.hooks?.scriptTranslation?.(text,returned);
+  if(script&&!sane(script)){script='';delete returned.source;}
   if(script&&(!strict||script.trim()!==text.trim()&&[undefined,'script','patch','official','group'].includes(returned.source))){returned.source??="script";this.embedCached(text,script,{language,source:returned.source});return script;}
   if(strict){
    const parts=this.gal?.hooks?.piecedTranslation?.(text);
-   if(parts?.text&&!parts.machine&&!parts.filled){returned.source='patch';return parts.text;}
-   if(!script&&this.gal?.hooks?.scriptAllowed?.()!==false)return this.embedCached(text,undefined,{language,returned,verified:true})||'';
+   if(sane(parts?.text)&&!parts.machine&&!parts.filled){returned.source='patch';return parts.text;}
+   if(!script&&this.gal?.hooks?.scriptAllowed?.()!==false)return sane(this.embedCached(text,undefined,{language,returned,verified:true}))||'';
    return '';
   }
-  return this.embedCached(text,undefined,{language,returned})||'';
+  return sane(this.embedCached(text,undefined,{language,returned}))||'';
  }
  recordTranslation(role,result,index){
   if(!this.gameId||!index||result.target!=='zh')return;
@@ -453,7 +456,7 @@ class Reader{
  /* One translation per line: a later, better answer replaces the compositor's copy too, so the overlay row and the compositor never show two different translations of one sentence (#1128) */
  compositorText(text,translation,language){try{if(this.active()&&language===this.targetLanguage()&&translation)this.gal?.compositor?.text?.(String(text||''),translation);}catch{}}
  /* One line through the fallback chain (services/translation-chain.cjs). options: the reader's resolved options. */
- async chainTranslate(text,options,{id=null,current:previous=()=>true,foreground,quiet=false}={}){if(!this.active())throw Error('READER_DISABLED');const current=()=>this.active()&&previous();const requestLanguage=this.targetLanguage(options),cacheLanguage=requestLanguage;const chain=require('./translation-chain.cjs');this.loadKeys();
+ async chainTranslate(text,options,{id=null,current:previous=()=>true,foreground,quiet=false,detached=quiet}={}){if(!this.active())throw Error('READER_DISABLED');const current=()=>this.active()&&previous();const requestLanguage=this.targetLanguage(options),cacheLanguage=requestLanguage;const chain=require('./translation-chain.cjs');this.loadKeys();
   let localInstalled=false;try{localInstalled=!!this.runtime.local().status().installed&&this.runtime.models().status().models.some(m=>m.installed);}catch{}
   const strict=this.zeroLatencyEnabled(requestLanguage);
   const profiles=strict&&this.folder?readJSON(path.join(this.folder,'translation-profiles.json')):{};
@@ -473,9 +476,9 @@ class Reader{
   const generation=this.visualGeneration,game=this.gameId;
   return chain.translate(text,list,async o=>{
    if(o.provider==='filled')return reviewed;
-   const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage,...(quiet?{detached:true}:{})};
+   const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage,...(detached?{detached:true}:{})};
    // Reuse an exact MT answer only after all higher-ranked providers have been tried.
-   const key=strict&&chain.isMt(o.provider)?JSON.stringify([game,requestLanguage,o.provider,text]):null;
+   const key=!quiet&&strict&&chain.isMt(o.provider)?JSON.stringify([game,requestLanguage,o.provider,text]):null;
    if(key&&this.strictMtCache?.has(key)){cachedProvider=o.provider;return this.strictMtCache.get(key);}
    if(chain.isLocal(opts.provider))await this.localReady(opts,id,current);
    const value=normalizeTranslation(await this.translator().translate(text,opts,current,foreground));
@@ -484,7 +487,7 @@ class Reader{
     if(this.strictMtCache.size>800)this.strictMtCache.delete(this.strictMtCache.keys().next().value);
    }
    return value;
-  },{isCurrent:current,budgetMs:strict?0:2500,trace:t=>{try{this.gal?.hooks?.trace?.(t);}catch{}},onLate:r=>{if(quiet||!this.active()||this.visualGeneration!==generation)return;this.embedCached(text,r.text,{language:cacheLanguage,source:r.source,provider:r.provider});this.compositorText(text,r.text,cacheLanguage);try{this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,r.text,'better',{target:cacheLanguage,source:r.source,provider:r.provider}]});}catch{}}}).then(r=>{if(r.provider==='filled')return {...r,source:'filled',provider:''};if(cachedProvider===r.provider)r.cached=true;/* E415 (user: 提示用户是微软机翻): said once per reader session when machine translation stood in for the chosen engine */if(r.source==='mt'&&!chain.isMt(options.provider)&&!this.mtNoticed){this.mtNoticed=true;this.emit('reader-event',{type:'call',method:'mtNotice',args:[]});}return r;});}
+  },{isCurrent:current,budgetMs:strict?0:2500,trace:t=>{try{this.gal?.hooks?.trace?.(t);}catch{}},onLate:r=>{if(quiet||!this.active()||this.visualGeneration!==generation)return;this.embedCached(text,r.text,{language:cacheLanguage,source:r.source,provider:r.provider});this.compositorText(text,r.text,cacheLanguage);try{this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,r.text,'better',{target:cacheLanguage,source:r.source,provider:r.provider}]});}catch{}}}).then(r=>{if(r.provider==='filled')return {...r,source:'filled',provider:''};if(cachedProvider===r.provider)r.cached=true;/* E415 (user: 提示用户是微软机翻): said once per reader session when machine translation stood in for the chosen engine */if(!quiet&&r.source==='mt'&&!chain.isMt(options.provider)&&!this.mtNoticed){this.mtNoticed=true;this.emit('reader-event',{type:'call',method:'mtNotice',args:[]});}return r;});}
  /* The reader's own options (preferences, display language, work prompt) */
  baseOptions(language){const options=this.requestOptions();return language?{...options,learnerLanguage:language}:options;}
  translationRetries(){return this.retryQueue??=new(require('./translation-chain.cjs').Retries)((text,c)=>{
@@ -562,14 +565,14 @@ class Reader{
     break;
    /* 2026-11-21 (owner: 「再加个兜底的检测有没有译文，没有的话就再查赶紧补上」): the reader's translation guard asks for a line still without a
       translation by its text. A visible line also supplies its serial for queue priority. The answer can still fill an earlier row. */
-   case 'translateGuard':{const text=String(r.text||'');if(!text.trim()||text.length>4000)break;const tr=x=>{try{g?.hooks?.trace?.('translation guard '+x+' '+JSON.stringify(text.slice(0,24)));}catch{}};
+   case 'translateGuard':{const text=String(r.text||''),detached=r.detached===true;/* RRFZ #1176: the log's background fills (backlog.js askMissing) are old lines: translated with the recent lines as context, never written into it */if(!text.trim()||text.length>4000)break;const tr=x=>{try{g?.hooks?.trace?.('translation guard '+x+' '+JSON.stringify(text.slice(0,24)));}catch{}};
     const generation=this.visualGeneration,current=()=>this.active()&&this.visualGeneration===generation;
     const serial=Number.isSafeInteger(r.visibleSerial)?r.visibleSerial:null;
     // The guard can be the first request to reach the host for the visible line.
     if(serial!==null&&serial>this.latest)this.latest=serial;
     const foreground=serial===null?undefined:()=>this.latest===serial;
     (async()=>{const cacheLanguage=this.targetLanguage();const returned={};let t=this.localTranslation(text,cacheLanguage,returned);
-     if(t){tr('fill cache');}else{tr('retry chain');try{const result=await this.chainTranslate(text,this.baseOptions(cacheLanguage),{current,foreground});if(!current())return;t=result.text;Object.assign(returned,{source:result.source,provider:result.provider});if(t)this.embedCached(text,t,{language:cacheLanguage,...returned});}catch(e){if(current())tr('still-missing '+String(e?.message||e).slice(0,40));}}
+     if(t){tr('fill cache');}else{tr('retry chain');try{const result=await this.chainTranslate(text,this.baseOptions(cacheLanguage),{current,foreground,detached});if(!current())return;t=result.text;Object.assign(returned,{source:result.source,provider:result.provider});if(t)this.embedCached(text,t,{language:cacheLanguage,...returned});}catch(e){if(current())tr('still-missing '+String(e?.message||e).slice(0,40));}}
      if(t&&current())this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,t,'guard',{target:cacheLanguage,...returned}]});})();break;}
    case 'engineGiveWay':g?.hooks?.giveWay?.(r.ms);break; /* 2026-11-21: a hidden line the reader cannot draw goes back to the game */
    case 'hookSelect':g?.hooks.select(r.id,true);break;

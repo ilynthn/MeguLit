@@ -119,6 +119,9 @@
     const width = Number(prefs?.translationWidth), spacing = Number(prefs?.translationLineHeight);
     return { width: Number.isFinite(width) && width > 0 && width <= 100 && width !== 75 ? width : 0, lineHeight: Number.isFinite(spacing) ? Math.max(-.8, Math.min(3, spacing)) : 0 };
   };
+  /* the user width on a placed row (RRFZ #1177: one rule for the line rows and the page rows): the width asked for, narrower than the
+     automatic one too (Codex #1177), inside the room right of the row, never under four characters */
+  const userRowWidth = (own, x0, L, R, size) => Math.max(1, Math.min(R - x0, Math.max(size * 4, (R - L) * own.width / 100)));
   const median = list => { const v = list.filter(n => n > 0).sort((x, y) => x - y); return v.length ? v[v.length >> 1] : 0; };
   function target() {
     const own = document.querySelector('.sentence-window.tomoyo-hook-reader');
@@ -672,16 +675,22 @@
         /* as wide as the page from the start: the row was as wide as what had been typed so far (at least 20 characters),
            so a longer translation was cut off at that edge until the Japanese caught up (2026-11-15, the last flicker) */
         const pageRight = Math.max(...page.lines.flatMap(l => l.rects).map(map).filter(Boolean).map(r => r[0] + r[2]));
-        set(row, 'width', Math.max(pageRight - x0, x1 - x0, Math.min(innerWidth - x0 - 8, size * 34)) + 'px');
+        /* RRFZ #1177: the user's translation wrap width and line spacing (userRowLayout) apply to the page's rows as to a placed line */
+        const own = userRowLayout(b.galPreferences?.() || {}), [L, , R] = map.bounds || [0, 0, innerWidth];
+        set(row, 'width', (own.width > 0 ? userRowWidth(own, x0, L, R, size) : Math.max(pageRight - x0, x1 - x0, Math.min(innerWidth - x0 - 8, size * 34))) + 'px');
+        if (own.lineHeight) set(row, 'line-height', String(Math.max(.9, 1.25 + own.lineHeight))); else row.style.removeProperty('line-height');
         /* issue 468 (寒蝉, full-page NVL): the page's translation was always 60 % of the Japanese, whatever the user set. It is the user's
            translation size, as on a single placed line; under a sentence at the bottom of the page it is made smaller once (at most 15 %)
            and otherwise runs on below the game (the layer spans the work area), never over the page's other lines */
         const userCn = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tomoyo-gal-cn-size')), base = only ? size : (Number.isFinite(userCn) && userCn >= 10 ? userCn : Math.max(12, Math.round(size * .6)));
         set(row, 'font-size', base + 'px');
+        /* RRFZ #1289 review 4: as in placeRow, the translation's own elements take the row's size and spacing; the game style's
+           .tomoyo-cn-output rule (!important) kept its own line height, so a spacing set here only moved the outer row */
+        for (const o of row.querySelectorAll('*')) { set(o, 'font-size', 'inherit'); if (own.lineHeight) set(o, 'line-height', 'inherit'); else o.style.removeProperty('line-height'); }
         if (page.retainedBitmap) {
           // The bitmap keeps neighbouring rows. Give the translation a free band inside the game client.
           const [, top, right, bottom] = mapper(page.client).bounds, gap = Math.ceil(size * .25);
-          set(row, 'width', Math.max(1, right - x0 - 8) + 'px');
+          const free = Math.max(1, right - x0 - 8); set(row, 'width', (own.width > 0 ? Math.min(free, userRowWidth(own, x0, L, R, size)) : free) + 'px');
           const others = page.lines.filter(l => l !== cur).flatMap(l => l.rects).map(map).filter(Boolean).sort((a, b) => a[1] - b[1]);
           const height = row.offsetHeight || base * 1.25, limit = bottom - size * 1.3;
           let after = y1 + gap, above = y0 - gap - height;
@@ -993,7 +1002,7 @@
       /* 2026-11-26 (QQ essence 1137: the placed rows locked the translation's wrap width and line spacing): a translation wrap width
          or line spacing the user changed from its default now applies here too; the defaults keep the game-following size */
       const own = userRowLayout(b.galPreferences?.() || {});
-      const [L, T, R, B] = map.bounds, width = own.width > 0 ? Math.max(1, Math.min(R - x0, Math.max(size * 4, (R - L) * own.width / 100))) /* the width asked for, narrower too (Codex #1177) */ : Math.max(1, Math.min(R - x0, Math.max(x1 - x0, Math.min(R - x0 - 8, size * 20))));
+      const [L, T, R, B] = map.bounds, width = own.width > 0 ? userRowWidth(own, x0, L, R, size) : Math.max(1, Math.min(R - x0, Math.max(x1 - x0, Math.min(R - x0 - 8, size * 20))));
       set(row, 'left', Math.min(Math.max(x0, L), Math.max(L, R - width)) + 'px'); set(row, 'width', width + 'px');
       /* 2026-11-16 (user recording: the translation was small, then suddenly large and over the game's SAVE/LOAD bar, its
          last row out of the window): its size came from the stylesheet and was only made smaller when there was room, so a
@@ -1004,7 +1013,8 @@
       /* 2026-11-19 (user: 中文不要随便调尺寸, 只有显示不下才小): the standard size is the user's translation size, the same for every line;
          it is made smaller only when this line's translation does not fit, once, and the result is kept for the line (key: its text) */
       const floor = Math.max(10, Math.round(base * .85));
-      set(row, 'font-size', base + 'px'); set(row, 'line-height', String(Math.max(.9, 1.25 + own.lineHeight)));
+      const lineHeight = Math.max(.9, 1.25 + own.lineHeight);
+      set(row, 'font-size', base + 'px'); set(row, 'line-height', String(lineHeight));
       /* 2026-11-16 (1.4.16 live: the row was 10px, its text 32px and over the SAVE/LOAD bar): the translation's own elements carry the
          game style's size rule; inline, they take the row's size and line height */
       for (const o of row.querySelectorAll('*')) { set(o, 'font-size', 'inherit'); set(o, 'line-height', 'inherit'); }
@@ -1021,7 +1031,8 @@
       const below = y1 + size * .2, room = limit - (only ? y0 : below);
       row.style.removeProperty('max-height'); row.style.removeProperty('overflow');
       let rh = row.offsetHeight || base * 1.25;
-      if (rh > room) { set(row, 'line-height', '1.1'); rh = row.offsetHeight || rh; }
+      /* RRFZ #1177: only a taller spacing is squeezed to 1.1; a tighter one the user chose is never opened up */
+      if (rh > room && lineHeight > 1.1) { set(row, 'line-height', '1.1'); rh = row.offsetHeight || rh; }
       /* wider first (fewer rows), as far as the game's right edge */
       if (rh > room && R - x0 - 8 > width) { set(row, 'width', (R - x0 - 8) + 'px'); rh = row.offsetHeight || rh; }
       for (let fs = base; rh > room && fs > floor;) { fs = Math.max(floor, Math.floor(fs * Math.max(.5, room / rh))); set(row, 'font-size', fs + 'px'); rh = row.offsetHeight || rh; }

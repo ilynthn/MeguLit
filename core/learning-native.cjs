@@ -132,8 +132,8 @@ class LocalLearning{
  async tokenize(text,{names=false}={}){
   /* the game's own readings (core/game-reading.cjs) apply to the reader page only, like names; they can grow while the game
      runs, so the ones found in this text are part of the cache key */
-  const game=names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[];
-  const key=(names?'names\u0000':'')+(game.length?JSON.stringify(game)+'\u0000':'')+text;
+  const found=()=>names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[],keyOf=list=>(names?'names\u0000':'')+(list.length?JSON.stringify(list)+'\u0000':'')+text;
+  const key=keyOf(found());
   if(this.cache.has(key))return this.cache.get(key);await this.ready();
   const tokens=await this.raw(text);
   /* 2026-11-23 (user: the speech button said わたくし and ぶん where furigana showed わたし and ふん): furigana, the speech
@@ -141,8 +141,11 @@ class LocalLearning{
      once instead of in the reader page only. Numbers first: JMdict would otherwise join the counter with what follows
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
+  /* RRFZ #1192: read after the last await, like the names: a game switched meanwhile (useGameReadings) never gets the old game's
+     readings, and the result is kept under the key of the readings it was made with */
+  const game=found();
   const own=names?unknownNames(this.withNames(gameTokens(plain,game))):plain;
-  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const corrected=this.withRuby(contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own))))));this.cache.set(keyOf(game),corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}
@@ -176,35 +179,82 @@ class LocalLearning{
  /* fn(text) → {line, learned, script}: the running game's own readings (services/reader.cjs bindReadings); null when no game is bound */
  useGameReadings(fn){this.gameReadings=typeof fn==='function'?fn:null;this.cache.clear();}
  withNames(tokens){return nameTokens(tokens,this.names);}
- // Whole adjacent tokens that together spell one JMdict word with a single reading are that word: Sudachi split
- // 後一歩 into 後一 (ゴイチ) + 歩 (アユミ, a given name), so furigana and speech said ごいちあゆみ while the dictionary card
- // knew あといっぽ (user, 2026-11-03). Only when the joined guess differs from the dictionary reading; up to 4 tokens,
- // longest first, never across punctuation or a gap.
+ /* Adjacent tokens that together spell one JMdict word are that word (user 2026-11-03: Sudachi split 後一歩 into 後一 ゴイチ +
+    歩 アユミ; 2026-11-27: 何時の間にか was 何時 の 間 に か, read なんじのあいだにか, 「把这种用法一次性全部做好」). One general path for
+    idioms, 熟字訓 and 当て字, written in kanji or kanji + kana (いつの間にか):
+    - longest first, up to 12 tokens / 24 characters (proverbs), never across punctuation, a gap, a game ruby or a character name;
+    - the word is found under any spelling JMdict lists for it (何時の間にか is the second spelling of いつの間にか), entries headed by
+      the spelling first; a reading restricted to other spellings (re_restr), a kana-only one, or one marked irregular / outdated /
+      rare / search-only does not count;
+    - several readings: when the tokens already read as one of them nothing changes; otherwise the entries' first reading when
+      they agree, or the one of the only entry JMdict marks common (news1 ichi1 spec1 spec2 gai1); else unchanged;
+    - one word with particles or endings (今日は こんにちは, 正面に まともに, 後に のちに, 誰が たが in JMdict) is mostly that word and
+      its particles as SudachiDict chose: it becomes the JMdict word only when the entry is common (何より, 他にも, 時には) or a
+      noun made with ず (役立たず), never under a spelling JMdict marks rare or irregular (外に ほかに, 私か ひそか), and an
+      interjection (今日は) only when it is the whole line;
+    - never from the middle of a word (聖女様に, 病院側から: 様 and 側 are suffixes), never an inflected verb taken for a noun
+      spelled the same (説明し, 説き明かし: the verb 説明する);
+    - an emphatic っ after the word (いつの間にっ) stays after the dictionary reading.
+    The ruby is cut back onto each kanji by JmdictFurigana (withRuby) or splitReading (何時 いつ, 間 ま). Checked on the whole
+    game corpus: see validation/dictionary-phrases.test.cjs. */
  dictionaryWords(tokens){
   if(!Array.isArray(tokens)||tokens.length<2)return tokens;this.load();const out=[];
   for(let i=0;i<tokens.length;i++){let best=null,stop=i;
-   for(let j=Math.min(tokens.length,i+4)-1;j>i&&!best;j--){const part=tokens.slice(i,j+1);
-    if(part.some((t,k)=>!t.surface?.trim()||t.pos==='補助記号'||t.readingSource==='game'||(k&&part[k-1].end!==t.start)))continue;
-    const surface=part.map(t=>t.surface).join('');if(!/[\p{Script=Han}々]/u.test(surface))continue;
-    const [reading,base]=this.idiomReading(part,surface);
-    if(!reading||kana(part.map(t=>t.reading||'').join(''))===reading)continue;
-    best={...tokens[i],surface,base_form:base,normalized:base,end:tokens[j].end,reading,reading_source:'JMdict 词语读音',subtokens:part};stop=j;}
+   for(let j=Math.min(tokens.length,i+12)-1;j>i&&!best;j--){const part=tokens.slice(i,j+1);
+    if(part.some((t,k)=>!t.surface?.trim()||t.pos==='補助記号'||t.readingSource==='game'||t.readingSource==='name'||(k&&part[k-1].end!==t.start)))continue;
+    const surface=part.map(t=>t.surface).join('');if(!/[\p{Script=Han}々]/u.test(surface)||[...surface].length>24)continue;
+    const before=tokens[i-1];if(part[0].grammar?.[0]==='接尾辞'&&before?.end===part[0].start&&(['名詞','接頭辞','接尾辞'].includes(before.grammar?.[0])||/[\p{Script=Han}々]$/u.test(before.surface||'')))continue;
+    const particle=t=>['助詞','助動詞'].includes(t.grammar?.[0]||t.pos),words=part.filter(t=>!particle(t)&&!/^[っッー～]+$/u.test(t.surface)).length;if(!words)continue;
+    const said=kana(part.map(t=>t.reading||'').join(''));
+    const [reading,base]=this.idiomReading(part,surface,said,{single:words<2,particles:part.some(particle),verbForm:part.find((t,k)=>['動詞','形容詞'].includes(t.grammar?.[0])&&t.base_form!==t.surface&&part.slice(k+1).every(particle))?.grammar||null,endsAux:part.some(t=>t.grammar?.[0]==='助動詞'&&['ず','ぬ'].includes(t.surface)),noun:part.at(-1).grammar?.[0]==='動詞'&&part.at(-1).base_form!=='する'&&/^連用形-一般/.test(part.at(-1).grammar?.[5]||''),standalone:tokens.slice(0,i).every(t=>t.pos==='補助記号'||!t.surface?.trim())&&(!tokens[j+1]||/^[。！？!?」』]/u.test(tokens[j+1].surface||''))});
+    if(!reading||said===reading)continue;
+    best={...tokens[i],surface,base_form:base,normalized:base,end:tokens[j].end,reading,reading_source:'JMdict 词语读音',readingSource:'dictionary',pitch:[],lexeme:null,reading_ambiguous:false,subtokens:part};stop=j;}
    out.push(best||tokens[i]);i=stop;}
   return out;
  }
- /* The one JMdict reading of joined tokens, and the dictionary form it was found under. An idiom ending in a verb or an
+ /* The JMdict reading of joined tokens, and the dictionary form it was found under. An idiom ending in a verb or an
     adjective is listed in its dictionary form: 性に合わない is 性に合う しょうにあう, which SudachiDict read せいにあわ
     (user, 2026-11-23). The inflected tail replaces the dictionary-form tail (あう → あわ) under a kanji stem that keeps its
     reading; 来る does not (来た き, 来ない こ), and a kana-only tail like なかっ has no stem to keep (気もない けもない). */
- idiomReading(part,surface){
-  const exact=this.compoundReadings(surface);if(exact.length===1)return [exact[0],surface];if(exact.length||part.length<2)return [];
+ idiomReading(part,surface,said='',how={}){
+  const exact=this.phraseReading(surface,said,how);if(exact===false)return [];if(exact)return [exact,surface];
+  const tail=/[っッ]$/u.test(surface)&&part.at(-1).surface.length>1&&!/促音便/.test(part.at(-1).grammar?.[5]||'')?this.phraseReading(surface.slice(0,-1),said.replace(/っ$/u,''),how):null;
+  if(tail===false)return [];if(tail)return [tail+'っ',surface.slice(0,-1)];
   const last=part.at(-1),g=last.grammar?.[0];if(g!=='動詞'&&g!=='形容詞'||last.grammar?.[4]==='カ行変格'||!last.base_form||last.base_form===last.surface)return [];
   let cut=0;while(cut<last.surface.length&&last.surface[cut]===last.base_form[cut])cut++;
   const from=last.base_form.slice(cut),to=last.surface.slice(cut);
   if(!/[\p{Script=Han}々]/u.test(last.surface.slice(0,cut))||!/^[\p{Script=Hiragana}]+$/u.test(from)||!/^[\p{Script=Hiragana}]*$/u.test(to))return [];
-  const base=part.slice(0,-1).map(t=>t.surface).join('')+last.base_form,found=this.compoundReadings(base);
-  if(found.length!==1||!found[0].endsWith(from))return [];
-  return [found[0].slice(0,found[0].length-from.length)+to,base];
+  const base=part.slice(0,-1).map(t=>t.surface).join('')+last.base_form,found=this.phraseReading(base,said.endsWith(to)?said.slice(0,said.length-to.length)+from:'',{...how,verbForm:false});
+  if(!found||!found.endsWith(from)||from==='い'&&found.endsWith('いい'))return [];
+  return [found.slice(0,found.length-from.length)+to,base];
+ }
+ /* null: JMdict has no word spelled so; false: the tokens read as it already; '': no reading is clear (an inflected verb
+    may still be the dictionary form of an idiom); else the reading (see dictionaryWords). A reading must keep the kana the text
+    is written with (目をつむる is not めをつぶる). The new reading comes from the entries headed by the spelling, else the ones that
+    list it; an archaic or obsolete entry (出ず いず, 一文字 ひともじ) is never chosen, but still makes the choice unclear. how:
+    - particles: a spelling JMdict marks rare or irregular (外に ほかに, 私か ひそか, 何の どの) only as a kanji word Sudachi
+      split (一寸 ちょっと), never across a particle;
+    - verbForm: the tokens end in an inflected verb or adjective (and its endings), so the word is a verb, adjective or
+      expression (何気なく, 釘付ける), a noun made from it with a negative ず (役立たず, 開かずの) or from its 連用形 (いつも通り),
+      or an adverb from an adjective (間もなく, 品良く); not a noun or adverb spelled the same (説明し 説き明かし, 降って くだって);
+    - single: one word with particles; only a common entry or a ず noun, and an interjection (今日は こんにちは) only when it
+      is the whole line (standalone).
+    いい adjectives (格好良い) inflect from よい: their tail is not replaced (idiomReading), and an っ that is a verb's 促音便
+    (は行っ, 前言っ: 行っ, 言っ) is no emphatic っ. */
+ phraseReading(surface,said,how={}){
+  const listed=(this.index.get(surface)||[]).map(id=>this.byId.get(id)).filter(e=>e?.spellings?.includes(surface)).map(e=>({e,common:(e.priority||[]).some(p=>COMMON.has(p)),noun:e.pos?.every(p=>/^noun|nouns which/.test(p)),
+   verbal:e.pos?.some(p=>VERBAL.test(p)),adverb:e.pos?.some(p=>/^adverb/.test(p)),odd:(e.ke_inf?.[e.spellings.indexOf(surface)]||[]).some(x=>['rK','iK','oK','sK'].includes(x)),interjection:e.pos?.every(p=>/interjection/.test(p)),
+   readings:validReadings(e,surface).filter(r=>keepsKana(surface,r))})).filter(w=>w.readings.length);
+  if(!listed.length)return null;
+  if(said&&listed.some(w=>w.readings.includes(said)))return false;
+  const headed=listed.filter(w=>w.e.spellings[0]===surface);
+  const all=headed.length?headed:listed;let words=all.filter(w=>!(w.e.misc||[]).some(m=>m==='arch'||m==='obs'));
+  if(how.particles)words=words.filter(w=>!w.odd);
+  if(how.verbForm)words=words.filter(w=>w.verbal||w.noun&&(how.endsAux||how.noun)||w.adverb&&(how.verbForm[0]==='形容詞'||how.noun));
+  if(how.single)words=words.filter(w=>(w.common||how.verbForm&&w.noun&&how.endsAux)&&(!w.interjection||how.standalone));
+  if(!words.length)return '';
+  const first=[...new Set(all.map(w=>w.readings[0]))];if(first.length===1)return words.length?first[0]:'';
+  const common=[...new Set(words.filter(w=>w.common).map(w=>w.readings[0]))];return common.length===1?common[0]:'';
  }
  compounds(tokens){
   this.load();const output=[];
@@ -230,6 +280,20 @@ class LocalLearning{
   const matches=headwords.length||!/^\p{Script=Han}+$/u.test(surface)?headwords:entries;
   return [...new Set(matches.flatMap(e=>e.readings).map(kana))];
  }
+ /* Per-kanji ruby from JmdictFurigana (runtime/dictionaries/jmdict-furigana.json, built by tools/build-jmdict.cjs) for the
+    words dictionaryWords joins: splitReading can only cut a reading at okurigana, so 後一歩 got one ruby あといっぽ over three
+    kanji and 一寸法師 いっすんぼうし over four. Such a word whose spelling and reading JmdictFurigana aligns gets token.ruby =
+    {reading, parts} (parts in code points of the token: 後 あと 一 いっ 歩 ぽ; 熟字訓 stay together: 何時 いつ); an inflected
+    idiom uses the alignment of its dictionary form for the kanji before the ending. furigana.js annotations() uses it while the
+    token still reads so (contextual() may change a reading); without the file, splitReading works as before.
+    Only the joined words: on every compound (自分 自 じ 分 ぶん) it changed the ruby of 754,489 of 1,162,894 corpus lines, a
+    change of look the user did not ask for; the joined words are where the old ruby was wrong. */
+ withRuby(tokens){
+  if(!Array.isArray(tokens))return tokens;
+  if(this.furigana===undefined){this.furigana=null;try{const file=path.join(require('./paths.cjs').resources,'jmdict-furigana.json');if(fs.existsSync(file))this.furigana=new Map(Object.entries(JSON.parse(fs.readFileSync(file,'utf8'))));}catch{}}
+  if(!this.furigana)return tokens;
+  return tokens.map(t=>{const ruby=t?.subtokens&&t.reading_source==='JMdict 词语读音'&&rubyParts(this.furigana,t);return ruby?{...t,ruby}:t;});
+ }
  load(){
   if(this.index)return;
   const root=require('./paths.cjs').resources,index=new Map(),byId=new Map(),english=new Map();
@@ -240,7 +304,7 @@ class LocalLearning{
  }
  adapt(entry,language){
   this.load();const selected=language==='en'?(this.english.get(entry.id)||entry):(this.byId.get(entry.id)||entry);
-  return {...selected,pos:language==='en'?selected.pos:selected.pos.map(chinesePos),definition_groups:definitionGroups(selected)};
+  return {...selected,pos:language==='en'?selected.pos:selected.pos.map(chinesePos),definition_groups:definitionGroups(selected,language)};
  }
  adaptResult(result,language){if(Array.isArray(result))return result.map(r=>this.adaptResult(r,language));if(!result)return result;return {...result,entries:(result.entries||[]).map(e=>this.adapt(e,language)),related_entries:(result.related_entries||[]).map(e=>this.adapt(e,language))};}
  /* #1111 (user 2026-11-24: 异表记 must not merge words only because they read alike): the index holds readings too, so a word
@@ -251,14 +315,25 @@ class LocalLearning{
  entries(token,language){
   this.load();const keys=[token.derived_from,token.lookup_from,token.base_form,token.normalized,token.surface].filter(Boolean);
   const spelled=key=>(this.index.get(key)||[]).filter(id=>this.byId.get(id)?.spellings?.includes(key));
-  let ids=[],homophones=[];for(const key of keys){ids=spelled(key);if(ids.length)break;}
+  let ids=[],homophones=[],lemma=[],hit='';for(const key of keys){ids=spelled(key);if(ids.length){hit=key;break;}}
+  /* RRFZ #1192 (めっちゃ→目茶, やっぱり→矢張り, ちっちゃい→小さい, すっごく→凄い): Sudachi normalizes a colloquial kana word to a kanji lemma read
+     otherwise; that lemma heads the card only when it is read as the word is. Otherwise the entries read exactly as the kana word keep
+     the head, and the word itself is never listed as its own homophone. */
+  /* RRFZ #1289 review 2 (イイ→イイ Iran-Iraq, ちょ→著, よー→嘿, いふ→畏怖, こひ→虎皮): the word's own entry is looked up in hiragana too
+     (メッチャ, ヤッパリ) and must be the same part of speech as the token; a noun, interjection or old-spelling noun read alike stays a
+     homophone and the lemma keeps the head. The lemma follows the word's own entry rather than disappearing (イイ keeps 良い). */
+  const sameKana=key=>[...new Set([...(this.index.get(key)||[]),...(this.index.get(kana(key))||[])])];
+  if(hit&&hit===token.normalized&&hit!==token.base_form&&/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(token.base_form||'')){
+   const said=new Set([kana(token.reading||''),kana(token.base_form)].filter(Boolean)),reads=id=>(this.byId.get(id)?.readings||[]).some(r=>said.has(kana(r)));
+   if(!ids.some(reads)){const own=sameKana(token.base_form).filter(id=>reads(id)&&samePos(token.pos,this.byId.get(id)?.pos));if(own.length){lemma=ids;ids=own;}}
+  }
   if(!ids.length)for(const key of keys){ids=this.index.get(key)||[];if(ids.length)break;}
-  else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=(this.index.get(written)||[]).filter(id=>!ids.includes(id));}
+  else{const written=keys.find(k=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u.test(k));if(written)homophones=sameKana(written).filter(id=>!ids.includes(id)&&!lemma.includes(id));}
   const reading=kana(token.reading||''),order=list=>[...list].sort((a,b)=>{
    const left=this.byId.get(a),right=this.byId.get(b),match=e=>e.readings.some(r=>kana(r)===reading)?0:1;
    return match(left)-match(right)||(left.freq_rank||999999)-(right.freq_rank||999999);
   });
-  const reached=new Set(homophones);ids=[...order(ids),...order(homophones)];
+  const reached=new Set(homophones);ids=[...order(ids),...order(lemma),...order(homophones)];
   return ids.slice(0,20).map(id=>{if(reached.has(id))return {...this.entryFor(id,token,language),match:'reading'};return this.entryFor(id,token,language);});
  }
  entryFor(id,token,language){
@@ -352,7 +427,34 @@ class LocalLearning{
  }
  stop(){this.closed=true;this.worker?.stdin.end();this.installer?.kill();for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('本地辞书已关闭'));}this.pending.clear();}
 }
+/* {reading, parts} for a token from the JmdictFurigana map, or null (see withRuby) */
+function rubyParts(map,t){
+ const surface=String(t.surface||''),reading=kana(t.reading||'');if(!reading||!/[\p{Script=Han}々〆ヶ][\p{Script=Han}々〆ヶ]/u.test(surface))return null;
+ const parse=(spec,limit)=>{const parts=[];for(const piece of String(spec).split(';')){const m=/^(\d+)(?:-(\d+))?:(.+)$/.exec(piece);if(!m)return null;const start=Number(m[1]),end=Number(m[2]??m[1])+1;if(end>limit)return null;parts.push({start,end,reading:m[3]});}return parts;};
+ const chars=[...surface],spelled=parts=>{let out='',k=0;while(k<chars.length){const p=parts.find(x=>x.start===k);if(p){out+=p.reading;k=p.end;}else out+=kana(chars[k++]);}return out;};
+ let parts=map.has(surface+'|'+reading)?parse(map.get(surface+'|'+reading),chars.length):null;
+ if(!parts&&t.base_form&&t.base_form!==surface){const base=[...t.base_form];let cut=0;while(cut<chars.length&&cut<base.length&&chars[cut]===base[cut])cut++;
+  const tail=kana(chars.slice(cut).join('')),from=kana(base.slice(cut).join(''));
+  if(cut&&reading.endsWith(tail)&&!/[\p{Script=Han}]/u.test(tail+from)){const key=t.base_form+'|'+reading.slice(0,reading.length-tail.length)+from;if(map.has(key))parts=parse(map.get(key),base.length)?.filter(p=>p.end<=cut)||null;}}
+ if(!parts||!parts.length||spelled(parts)!==reading)return null;
+ return {reading,parts};
+}
+const VERBAL=/^(?:Godan|Ichidan|Nidan|Yodan|Kuru verb|irregular|su verb|suru verb|adjective \(|'ku'|'shiku'|expressions|auxiliary|transitive verb|intransitive verb)/;
+/* the kana of a spelling stay in its reading, in order; kanji, digits and marks read as anything but a particle を (ちょっかい出す
+   is not ちょっかいをだす) */
+function keepsKana(surface,reading){const re=(String(surface).match(/[\p{Script=Hiragana}\p{Script=Katakana}ー]+|[^\p{Script=Hiragana}\p{Script=Katakana}ー]+/gu)||[]).map(run=>/^[\p{Script=Hiragana}\p{Script=Katakana}ー]/u.test(run)?kana(run):'(?!を).+').join('');return new RegExp('^'+re+'$','u').test(reading);}
+const COMMON=new Set(['news1','ichi1','spec1','spec2','gai1']);
+/* the readings an entry's spelling can have (re_restr), in JMdict order, without kana-only, irregular, outdated, rare or
+   search-only ones */
+function validReadings(entry,spelling){
+ return [...new Set((entry.readings||[]).filter((r,k)=>!entry.re_nokanji?.[k]&&!(entry.re_restr?.[k]?.length&&!entry.re_restr[k].includes(spelling))&&!(entry.re_inf?.[k]||[]).some(x=>['ik','ok','sk','rk'].includes(x))).map(kana))];
+}
 /* The reading a selection has by itself (see word()): kana as written, or the one dictionary reading of an entry spelled so. */
+/* Sudachi part of speech -> the JMdict tags an entry needs to be the same word class; a class not listed here (nouns, interjections)
+   never takes a kana word's own entry over its lemma. A token without a part of speech accepts any entry that is not only a noun or
+   an interjection. */
+const posClasses={'形容詞':/adjective \(keiyoushi\)|'(ku|shiku)' adjective/,'副詞':/^adverb/,'動詞':/(Godan|Ichidan|Nidan|Yodan|Kuru) verb|suru verb|su verb|irregular (ru|nu) verb/,'形状詞':/keiyodoshi|'taru' adjective|na-adjective/,'連体詞':/pre-noun adjectival/,'助動詞':/auxiliary|copula/,'接続詞':/conjunction/};
+function samePos(tokenPos,entryPos){const tags=entryPos||[];if(!tokenPos)return !tags.length||tags.some(p=>!/noun|interjection|expressions|suffix|prefix|counter|numeric|unclassified/.test(p));const want=posClasses[tokenPos];return !!want&&tags.some(p=>want.test(p));}
 function selectedReading(text,entry){const t=String(text||'').trim();if(!t)return null;if(/^[\p{Script=Hiragana}\p{Script=Katakana}ー～〜]+$/u.test(t))return {reading:t,form:'kana'};
  const readings=[...new Set((entry?.readings||[]).map(kana).filter(Boolean))];return entry?.spellings?.includes(t)&&readings.length===1?{reading:readings[0],form:'dictionary'}:null;}
 module.exports={LocalLearning,chinesePos,selectedReading};

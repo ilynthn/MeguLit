@@ -2,7 +2,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const relay=require('./relay-config.cjs');
-const faults=new Set(['instance-failed','runtime-unavailable','hot-reload-failed','desktop-failed','webview-failed','service-failed','service-timeout','service-disconnected','startup-failed','route-failed','frontend-error','frontend-rejection']);
+const faults=new Set(['instance-failed','runtime-unavailable','hot-reload-failed','desktop-failed','webview-failed','service-failed','service-timeout','service-disconnected','startup-failed','route-failed','frontend-error','frontend-rejection','frontend-rejection-service','frontend-rejection-abort','native-panic','document-timeout','reveal-timeout','game-hook-failed','game-hook-stopped','hook-components-missing']);
 const stages=new Set([...faults,'native-entry','process-start','runtime-ready','splash-start','webview-build-start','webview-built','service-start','service-replied','document','home-ready','content-painted','notice-open','notice-painted','notice-closed','hot-reload','first-window-ready','window-revealed','closed','service-home-start','service-home-done']);
 const sessionPattern=/^\d{13}-\d{1,10}$/;
 const stateFile=root=>path.join(root,'data/config/yui.json');
@@ -28,14 +28,16 @@ function sessions(root,current=process.env.MEGULIT_YUI_SESSION){
  return names.filter(n=>n.endsWith('.log')&&sessionPattern.test(n.slice(0,-4))).sort().slice(-12).flatMap(name=>{
   const session=name.slice(0,-4),file=path.join(dir,name);let data;
   try{if(fs.statSync(file).size>65536)return [];data=fs.readFileSync(file,'utf8');}catch{return [];}
-  const events=data.split('\n').flatMap(line=>{const m=/^(\d{1,12}) ([a-z-]+)$/.exec(line);return m && stages.has(m[2])?[{ms:Number(m[1]),stage:m[2]}]:[];}).slice(0,256);
+  /* 2026-11-26 "<ms> ~<stage> <detail>" (desktop yui_detail): the local cause of a frontend fault, for this PC's diagnostics only; flush() reads events, never details */
+  const details=data.split('\n').flatMap(line=>{const m=/^(\d{1,12}) ~([a-z-]+) (.{0,240})$/.exec(line.replace(/\r$/,''));return m&&faults.has(m[2])?[{ms:Number(m[1]),stage:m[2],detail:m[3]}]:[];}).slice(0,64);
+  const events=data.split('\n').flatMap(line=>{const m=/^(\d{1,12}) ([a-z-]+)$/.exec(line.replace(/\r$/,''));return m && stages.has(m[2])?[{ms:Number(m[1]),stage:m[2]}]:[];}).slice(0,256);
   if(!events.length)return [];
-  const terminal=events.at(-1).stage,state=terminal==='closed'?'closed':['desktop-failed','webview-failed','runtime-unavailable','instance-failed'].includes(terminal)?'failed':session===current?'running':'interrupted';
+  const terminal=events.at(-1).stage,state=terminal==='closed'?'closed':['desktop-failed','webview-failed','runtime-unavailable','instance-failed','native-panic'].includes(terminal)?'failed':session===current?'running':'interrupted';
   const firstPaint=events.find(e=>e.stage==='content-painted');
   const notice=events.find(e=>e.stage==='notice-open'),noticePaint=events.find(e=>e.stage==='notice-painted');
   const reveal=events.find(e=>e.stage==='window-revealed');
   const slow=!!(firstPaint && firstPaint.ms>=10000 || reveal && reveal.ms>=10000 || notice && noticePaint && noticePaint.ms-notice.ms>=2000);
-  return [{session,state,slow,events}];
+  return [{session,state,slow,events,...(details.length?{details}:{})}];
  });
 }
 async function flush(root,{fetcher=globalThis.fetch,urls}={}){

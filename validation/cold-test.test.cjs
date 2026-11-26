@@ -123,7 +123,7 @@ test('driver: waits for the window, skips the intro by polling, clicks はじめ
  assert.ok(intro.some(a=>a.do==='click')&&intro.some(a=>a.vk===VK.enter)&&intro.some(a=>a.vk===VK.esc)&&intro.some(a=>a.vk===VK.ctrl),JSON.stringify(intro));
  const load=step({menu:[{role:'button',text:'つづきから',x:100,y:100,w:100,h:30}]});assert.ok(!load.some(a=>a.do==='click'&&a.x===150),'never Load');
  const start=step({menu:[{role:'button',text:'つづきから',x:100,y:100,w:100,h:30},{role:'button',text:'はじめから',x:100,y:200,w:100,h:30}]});
- assert.deepEqual(start,[{do:'click',x:150,y:215}]);
+ assert.deepEqual(start,[{do:'click',x:150,y:215,watch:'start'}]);
  const adv=step({lines:1});assert.deepEqual(adv[0],{do:'keydown',vk:VK.ctrl},'fast forward from the first line');
  const shot=step({lines:3});assert.ok(shot.some(a=>a.do==='shot'&&a.tag==='line-3'));
  step({lines:4,choices:1});t+=600;const pickIt=step({lines:4,choices:1,menu:[{role:'choice',text:'A',x:400,y:300,w:200,h:40}]});assert.deepEqual(pickIt,[{do:'click',x:500,y:320}]);
