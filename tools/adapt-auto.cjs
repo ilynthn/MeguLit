@@ -147,14 +147,14 @@ async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmul
  return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
-const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$args[0];$stop=Join-Path $d 'stop';$i=0;
+const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
 while(-not (Test-Path $stop)){if($i -lt 4){Start-Sleep -Seconds 4}else{Start-Sleep -Seconds 15};if(Test-Path $stop){break};$i++;$b=[System.Windows.Forms.SystemInformation]::VirtualScreen;
 $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height;$g=[System.Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.X,$b.Y,0,0,$bmp.Size);
 $bmp.Save((Join-Path $d ('screen-{0:D2}.png' -f $i)),[System.Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$bmp.Dispose()}`;
 /* the previous run's recorder can still hold the folder for up to 15 s after it was told to stop (runs back to back: EPERM): its old
    pictures are removed one by one where possible, and a run never fails over them */
 function screenRecorder(dir){try{fs.rmSync(dir,{recursive:true,force:true});}catch{try{for(const f of fs.readdirSync(dir))try{fs.rmSync(path.join(dir,f),{force:true});}catch{}}catch{}}fs.mkdirSync(dir,{recursive:true});
- const p=require('node:child_process').spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','& {'+SCREEN_PS+'}',dir],{windowsHide:true,stdio:'ignore'});
+ const p=require('node:child_process').spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command',SCREEN_PS],{windowsHide:true,stdio:'ignore',env:{...process.env,MEGULIT_SCREEN_DIR:dir}})/* the folder by environment: -Command joins its arguments, a path with a space (Monochrome Empire) came apart and no picture was taken */;
  let closed=false;const ended=new Promise(r=>{p.once('close',()=>{closed=true;r();});p.once('error',()=>{closed=true;r();});});
  /* -> a promise that settles once the recorder has exited (it finishes the picture it is writing), at most 20 s */
  return ()=>{try{fs.writeFileSync(path.join(dir,'stop'),'');}catch{}const kill=setTimeout(()=>{try{p.kill();}catch{}},20000);return ended.then(()=>clearTimeout(kill));};}
