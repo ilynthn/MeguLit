@@ -54,7 +54,7 @@
     if (!Array.isArray(tokens)) return [];
     const humble = formal.test(String(text || ''));
     return tokens.map((token, i) => {
-      if (!token || typeof token.surface !== 'string' || !/^私/.test(token.surface)) return token;
+      if (!token || typeof token.surface !== 'string' || token.readingSource === 'game' || !/^私/.test(token.surface)) return token;
       const reading = kana(token.reading);
       if (!reading.startsWith('わたくし')) return token;
       const next = tokens[i + 1]?.surface || '';

@@ -50,7 +50,7 @@ class Reader{
   }
   const config=this.runtime.config();
   const reportedBirth=String(message.gameStarted||this.gal?.state?.gameStarted||'');
-  if(message.gameProcessId&&(message.gameProcessId!==this.gamePid||reportedBirth&&reportedBirth!==this.gameBirth)){this.gamePid=message.gameProcessId;this.gameBirth=reportedBirth;require('./background-games.cjs').foreground().then(()=>require('./background-games.cjs').unmute(this.root,message.gameProcessId)).catch(()=>{});/* card wall: the save-CG worker yields to the open game */try{require('./card-wall.cjs').noteGame(this.root,this.gamePid);}catch{}this.gameId=null;this.runtime.localLearning?.useNames(null);this.pendingLines=[];this.translation?.clearContext();this.setWorkPrompt('');this.stats.reset();const pid=this.gamePid,birth=this.gameBirth;
+  if(message.gameProcessId&&(message.gameProcessId!==this.gamePid||reportedBirth&&reportedBirth!==this.gameBirth)){this.gamePid=message.gameProcessId;this.gameBirth=reportedBirth;require('./background-games.cjs').foreground().then(()=>require('./background-games.cjs').unmute(this.root,message.gameProcessId)).catch(()=>{});/* card wall: the save-CG worker yields to the open game */try{require('./card-wall.cjs').noteGame(this.root,this.gamePid);}catch{}this.gameId=null;this.runtime.localLearning?.useNames(null);this.runtime.localLearning?.useGameReadings?.(null);this.pendingLines=[];this.translation?.clearContext();this.setWorkPrompt('');this.stats.reset();const pid=this.gamePid,birth=this.gameBirth;
    require('../core/game-fonts.cjs').exePath(pid).then(exe=>{if(!this.active()||this.gamePid!==pid||this.gameBirth!==birth||this.gal?.state?.gameStarted&&String(this.gal.state.gameStarted)!==birth)return;exe=require('./launch-path.cjs').canonical(exe,{root:this.root,pid,birth});exe=require('../core/owner-tests.cjs').sourceFor(this.root,exe,{pid,birth})||exe;this.gameExe=exe;try{if(require('./text-effects.cjs').has(this.root,exe)&&this.gal&&!this.gal.textEffectsHold&&!this.seedKeepsHide(exe,'remembered')){this.logVisibility({type:'readModeHint',reason:'text-effects',remembered:true});this.gal.textEffects(true);}}catch{}this.adoptTextSource(exe,pid);this.translation?.clearContext();const db=openStore(this.root);try{const game=require('./library.cjs').activeGameForProgram(db,exe);this.gameId=game?.id||null;this.bindNames(game);this.applyGameProfile(exe,game);this.findTextSource(this.gameId);this.sharedImport(game);/* E596 opt-in runtime harvest (does nothing unless allowed and needed) */if(game?.id)try{require('./runtime-harvest.cjs').onGameBound(this.root,{gameId:game.id,executable:exe,pid},{emit:(e,d)=>this.emit(e,d)});}catch{}this.setWorkPrompt(game?.id|| (exe?'exe-'+require('node:crypto').createHash('sha256').update(exe.toLowerCase()).digest('hex'):''));for(const line of this.pendingLines||[])this.stats.line({...line,gameId:this.gameId});this.pendingLines=null;this.emit('reader-event',{type:'activeGame',legacyId:game?.legacy_id??null});}finally{db.close();}}).catch(()=>{});this.confirmGameFont('bind').catch(()=>{});
   }
   if(message.bound===false&&this.gal?.process&&this.gal.process.exitCode!==null&&!this.gal.stopped){this.runtime.readerReady=false;this.runtime.readerError='READER_NATIVE_EXITED';this.emit('reader-health',{ready:false,error:'READER_NATIVE_EXITED'});}
@@ -58,7 +58,7 @@ class Reader{
   if(message.type==='gameClosed'){try{require('../core/owner-tests.cjs').revokeFor(this.root,this.gameExe);}catch{}/* Cardinal: the session's last lines replayed in a hidden reader and scored, in the background (services/cardinal.cjs) */try{require('./cardinal.cjs').kick(this,'session-end');}catch{}try{require('./self-check-live.cjs').stop();}catch{}try{this.gal?.setGameProfile?.(require('../core/profiles/index.cjs').profileFor({}));}catch{}try{this.gal?.textEffects?.(false);}catch{}try{require('./card-wall.cjs').noteGame(this.root,null);}catch{}try{require('./runtime-harvest.cjs').onGameClosed(this.root);}catch{}
    /* E598 a game switched to Japanese automatically that never showed text is put back (core/japanese-auto.cjs) */
    if(this.gameId)try{require('../core/japanese-auto.cjs').gameClosed(this.root,this.gameId,{options:require('./japanese-restore-options.cjs').forExecutable(this.gameExe)});}catch(error){try{logSink.append(path.join(this.root,'logs','japanese-auto.log'),new Date().toISOString()+' '+String(error?.message||error).slice(0,160)+'\n');}catch{}}
-   this.jpAutoSeen=null;this.gameId=null;this.runtime.localLearning?.useNames(null);this.gamePid=null;this.gameBirth=null;this.pendingLines=null;this.setWorkPrompt('');this.stats.reset();}
+   this.jpAutoSeen=null;this.gameId=null;this.runtime.localLearning?.useNames(null);this.runtime.localLearning?.useGameReadings?.(null);this.gamePid=null;this.gameBirth=null;this.pendingLines=null;this.setWorkPrompt('');this.stats.reset();}
   this.runtime.services().gameEvent(message,config).catch(()=>{});
   if(message.type==='dialogEvidence'&&config.dialogDetection==='visual')this.immersion.evidence(message.visible,'visual');
   // The embedded replacement was seen working in this game: remember it as verified (shown as "embedding verified").
@@ -166,9 +166,18 @@ class Reader{
   let vndbId='',titles=[];try{const lib=JSON.parse(game?.original||'{}').library||{};vndbId=lib.vndbId||'';titles=[game?.title,...(Array.isArray(lib.names)?lib.names:[])];}catch{}
   // Names are an extra: no learning module, or any failure here, never stops binding the game.
   let learning;try{learning=this.runtime.learning?.();}catch{}if(typeof learning?.useNames!=='function')return;
-  const gameId=game?.id||null;learning.useNames(null);if(!vndbId&&!titles.some(Boolean))return;
+  const gameId=game?.id||null;learning.useNames(null);this.bindReadings(learning,game);if(!vndbId&&!titles.some(Boolean))return;
   require('../core/name-reading.cjs').gameNames(vndbId,{titles,folder:path.join(this.root,'cache','vndb-names'),lookup:s=>learning.readings.lookup(s)})
    .then(names=>{if(this.gameId===gameId)learning.useNames(names);}).catch(()=>{});
+ }
+ /* #1134 the game's own readings come before VNDB names and the dictionary for furigana, the speech button and lookup
+    (core/game-reading.cjs): this line's ruby, the ruby of lines seen before (GameRuby), the ruby the whole stored script always
+    gives a word. Read when a line is tokenized, so ruby learned while playing applies at once. */
+ bindReadings(learning,game){
+  if(typeof learning?.useGameReadings!=='function')return;const exe=this.gameExe;let script;
+  const scriptMap=()=>{if(script===undefined){script=null;try{script=require('../core/game-reading.cjs').scriptReadings(require('./original-text.cjs').scriptRuby(this.root,exe,game?.id));}catch{}}return script;};
+  learning.useGameReadings(exe?text=>{const own=this.gal?.hooks?.sourceRuby,line=own?.get(text)||own?.get(String(text).replace(/\s+/g,''))||[];
+   return {line,learned:this.gal?.gameRuby?.dict(this.gal?.styleSync?.profileKey)||{},script:scriptMap()};}:null);
  }
  /* fonts the font probe saved for this game (cache/font-probe/<FNV-1a of the lower-case game folder>/mem-*.ttf) */
  probeFonts(){try{const root=this.fonts?.current?.root;if(!root)return;let h=2166136261;for(let i=0;i<root.length;i++)h=Math.imul((h^root.toLowerCase().charCodeAt(i))>>>0,16777619)>>>0;

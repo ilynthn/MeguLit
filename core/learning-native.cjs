@@ -5,6 +5,7 @@ const {kana,contextual}=require('./furigana.js');
 const {numberTokens}=require('./counter-reading.cjs');
 const {nameTokens}=require('./name-reading.cjs');
 const {contextReadings}=require('./context-reading.cjs');
+const {readingsIn,gameTokens,unknownNames}=require('./game-reading.cjs');
 const {InstallProgress}=require('./install-progress.cjs');
 const {conjugation}=require('./morphology.cjs');
 const {definitionGroups}=require('./definitions.cjs');
@@ -129,7 +130,10 @@ class LocalLearning{
  /* names: read the running game's character names (the reader); other pages (daily news, examples, grammar counts)
     read the text without them. */
  async tokenize(text,{names=false}={}){
-  const key=(names?'names\u0000':'')+text;
+  /* the game's own readings (core/game-reading.cjs) apply to the reader page only, like names; they can grow while the game
+     runs, so the ones found in this text are part of the cache key */
+  const game=names&&typeof this.gameReadings==='function'?readingsIn(text,this.gameReadings(text)||{}):[];
+  const key=(names?'names\u0000':'')+(game.length?JSON.stringify(game)+'\u0000':'')+text;
   if(this.cache.has(key))return this.cache.get(key);await this.ready();
   const tokens=await this.raw(text);
   /* 2026-11-23 (user: the speech button said わたくし and ぶん where furigana showed わたし and ふん): furigana, the speech
@@ -137,7 +141,8 @@ class LocalLearning{
      once instead of in the reader page only. Numbers first: JMdict would otherwise join the counter with what follows
      (10分だけ as 10 + 分だけ ぶんだけ, 3本の as 3 + 本の ほんの). */
   const plain=await this.strayAffixes(tokens);
-  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(names?this.withNames(plain):plain)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
+  const own=names?unknownNames(this.withNames(gameTokens(plain,game))):plain;
+  const corrected=contextual(text,this.readings.settle(contextReadings(this.dictionaryWords(numberTokens(own)))));this.cache.set(key,corrected);if(this.cache.size>200)this.cache.delete(this.cache.keys().next().value);return corrected;
  }
  /* SudachiDict tokens for a text as the worker gives them. */
  raw(text){return new Promise((resolve,reject)=>{const id=++this.serial,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('本地分词等待超时，请检查 Full 组件状态'));},45000);this.pending.set(id,{resolve,reject,timer});this.worker.stdin.write(JSON.stringify({id,text})+'\n');});}
@@ -168,6 +173,8 @@ class LocalLearning{
     previous game's names is dropped; tokenize() reads the names after its last await, so a call still running when the
     game changes uses the new ones. */
  useNames(names){this.names=names instanceof Map?names:new Map();this.cache.clear();}
+ /* fn(text) → {line, learned, script}: the running game's own readings (services/reader.cjs bindReadings); null when no game is bound */
+ useGameReadings(fn){this.gameReadings=typeof fn==='function'?fn:null;this.cache.clear();}
  withNames(tokens){return nameTokens(tokens,this.names);}
  // Whole adjacent tokens that together spell one JMdict word with a single reading are that word: Sudachi split
  // 後一歩 into 後一 (ゴイチ) + 歩 (アユミ, a given name), so furigana and speech said ごいちあゆみ while the dictionary card
@@ -177,7 +184,7 @@ class LocalLearning{
   if(!Array.isArray(tokens)||tokens.length<2)return tokens;this.load();const out=[];
   for(let i=0;i<tokens.length;i++){let best=null,stop=i;
    for(let j=Math.min(tokens.length,i+4)-1;j>i&&!best;j--){const part=tokens.slice(i,j+1);
-    if(part.some((t,k)=>!t.surface?.trim()||t.pos==='補助記号'||(k&&part[k-1].end!==t.start)))continue;
+    if(part.some((t,k)=>!t.surface?.trim()||t.pos==='補助記号'||t.readingSource==='game'||(k&&part[k-1].end!==t.start)))continue;
     const surface=part.map(t=>t.surface).join('');if(!/[\p{Script=Han}々]/u.test(surface))continue;
     const [reading,base]=this.idiomReading(part,surface);
     if(!reading||kana(part.map(t=>t.reading||'').join(''))===reading)continue;
@@ -289,10 +296,10 @@ class LocalLearning{
     surface = selected; chosen = null; phrase = true; pronunciationForm = 'phrase';
   }
   // A VNDB character name is the reading even where the dictionary entry is another word (希 まれ for Nozomi).
-  const ambiguous=!reading||!!chosen?.reading_ambiguous||!phrase&&!fixed&&chosen?.readingSource!=='name'&&!!entry&&!entry.readings?.some(r=>kana(r)===kana(reading));
+  const ambiguous=!reading||!!chosen?.reading_ambiguous||!phrase&&!fixed&&chosen?.readingSource!=='name'&&chosen?.readingSource!=='game'&&!!entry&&!entry.readings?.some(r=>kana(r)===kana(reading));
   /* A piece of a number word (分 of 10分): the furigana reads the whole word (じゅっぷん), so the speech button says that word;
      the card keeps the selected word. */
-  const number=!token&&tokens.find(t=>(t.readingSource==='number'||t.readingSource==='name')&&t.start<=args.start&&args.end<=t.end);
+  const number=!token&&tokens.find(t=>(t.readingSource==='number'||t.readingSource==='name'||t.readingSource==='game')&&t.start<=args.start&&args.end<=t.end);
   const spoken=number?{surface:number.surface,reading:number.reading,pitch:[],ambiguous:false,...(number.parts?{parts:number.parts}:{})}:null;
   return {...(spoken?{spoken}:{}),...(chosen?.parts?{parts:chosen.parts}:{}),surface,clickedSurface:result.surface,base:m.base||result.surface,reading,pitch:chosen?.pitch||[],pitchSource:chosen?.pitch_source||(phrase?'词组 · 音调由语音引擎估计':'UniDic 未匹配 · 音调由语音引擎估计'),pronunciationForm,ambiguous,pos:m.wordClass||entry?.pos?.join('、')||'',meaning:entry?.definition_groups?.map(g=>g.text).join('\n')||entry?.definitions?.join('\n')||'',sentence:args.text};
  }

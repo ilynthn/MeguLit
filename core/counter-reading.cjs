@@ -135,7 +135,7 @@ function counterReading(numberText, counter) {
    the pieces does not fit the word, so speech estimates it. A numeral is a 数詞 token, or plain digits without part of
    speech. Tokens already read here pass through unchanged. A kanji numeral without a counter keeps the tokenizer's
    reading, which knows the native counts (六つ むっつ, 三日月 みかづき). */
-const isNumeral = t => typeof t?.surface === 'string' && t.readingSource !== 'name' && (Array.isArray(t.grammar) ? t.grammar[1] === '数詞' : /^[0-9０-９,，]+$/.test(t.surface)) && parseNumber(t.surface) !== null;
+const isNumeral = t => typeof t?.surface === 'string' && t.readingSource !== 'name' && t.readingSource !== 'game' && (Array.isArray(t.grammar) ? t.grammar[1] === '数詞' : /^[0-9０-９,，]+$/.test(t.surface)) && parseNumber(t.surface) !== null;
 function numberTokens(tokens) {
   if (!Array.isArray(tokens)) return tokens;
   const out = [];
@@ -146,7 +146,7 @@ function numberTokens(tokens) {
     if (token?.surface === '対' && (isNumeral(tokens[i - 1]) || zero(tokens[i - 1])) && (isNumeral(next) || zero(next))) { out.push({ ...token, reading: 'たい', pitch: [], lexeme: null, readingSource: 'number' }); continue; }
     const plain = isNumeral(token), value = plain ? parseNumber(token.surface) : token?.grammar?.[1] === '数詞' ? placed(token.surface) : null;
     if (value === null || token.readingSource === 'number') { out.push(token); continue; }
-    const touching = typeof next?.surface === 'string' && (!Number.isInteger(token.end) || token.end === next.start);
+    const touching = typeof next?.surface === 'string' && next.readingSource !== 'game' && (!Number.isInteger(token.end) || token.end === next.start);
     /* 分 of a fraction or a tenth is ぶ: 3分の1 さんぶんのいち, 八分咲き はちぶざき. */
     const after = tokens[i + 2], tenth = touching && next.surface === '分' && (after?.surface === 'の' && isNumeral(tokens[i + 3]) ? 'ぶん' : /^咲/.test(after?.surface || '') ? 'ぶ' : '');
     /* The first of a month (四月一日, 4月1日) is ついたち; 一日 on its own stays いちにち (a day). */

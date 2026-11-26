@@ -27,7 +27,7 @@ const RULES = [
 function contextReadings(tokens) {
   if (!Array.isArray(tokens)) return tokens;
   return tokens.map((token, i) => {
-    if (!token || typeof token.surface !== 'string' || token.readingSource === 'name' || token.readingSource === 'number') return token;
+    if (!token || typeof token.surface !== 'string' || token.readingSource === 'name' || token.readingSource === 'number' || token.readingSource === 'game') return token;
     const rule = RULES.find(r => r.surface === token.surface && kanaOf(token.reading) === r.from);
     if (!rule) return token;
     const prev = tokens[i - 1], next = tokens[i + 1], after = tokens[i + 2];
