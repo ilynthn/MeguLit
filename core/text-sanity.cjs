@@ -101,4 +101,11 @@ const SOURCE_TALKS=/翻訳|訳し|文字化け|化け|ＡＩ|AI|原文|テキス
 function metaReply(translation,source=''){
  const tr=String(translation||'').trim();if(!tr)return false;if(SOURCE_TALKS.test(String(source||'')))return false;
  return META.some(r=>r.test(tr));}
-module.exports={warmUp,repairMojibake,repairShiftJisAsGbk,StreamCodepage,garbledSource,noiseLine,metaReply};
+/* QQ #1116 (user: 「译文有时候出现神秘韩文」, a Chinese line that opened with one Hangul syllable): a Chinese or English
+   translation never carries Hangul the Japanese line did not have. Such an answer is a model slipping into another
+   script; it is no translation, so the chain goes on to the next source. */
+const HANGUL=/[ᄀ-ᇿ㄰-㆏ꥠ-꥿가-힯ힰ-퟿ﾠ-ￜ]/u;
+function foreignScript(translation,source=''){
+ const tr=String(translation||'');if(!tr.trim())return false;
+ return HANGUL.test(tr)&&!HANGUL.test(String(source||''));}
+module.exports={warmUp,repairMojibake,repairShiftJisAsGbk,StreamCodepage,garbledSource,noiseLine,metaReply,foreignScript};
