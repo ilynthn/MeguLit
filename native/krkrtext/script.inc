@@ -290,6 +290,7 @@ LR"MGLT((function(){
      return result;
     } incontextof rec;
     rec.clr=function(){
+     try {var pk=this.st.trPark;if(pk!==void && pk.L===this.target) this.st.trPark=void;} catch(e) {}
      try {this.st.flush(this,true);this.st.clearSent(this);this.cleared=true;this.st.linkClear(this);var bk=this.st.embBk;if(bk!==void && bk.L===this.target) {if(bk.tr) this.st.embRestore(); else this.st.embDrop();}} catch(e) {}
      if(typeof this.oldClear!='Object') return (global.MessageLayer.clear incontextof this)(...);
      return (this.oldClear incontextof this.target)(...);
@@ -348,7 +349,8 @@ LR"MGLT((function(){
     try {
      if(typeof this.trRolesOff=='Object') this.trRolesOff();
      var L=this.trLayer();
-     if(this.trRec!==void && (L===void || this.trOwner!==L || !this.shown(L))) {this.trClear(this.trOwner);return;}
+     if(this.trRec===void && this.trPark!==void) this.trResume(L);
+     if(this.trRec!==void && (L===void || this.trOwner!==L || !this.shown(L))) {var pk=this.trParkOf();this.trNote(L===void?'away':(this.trOwner!==L?'switch':'unshown'));this.trClear(this.trOwner);this.trPark=pk;return;}
      if(L===void || this.trOwner!==L || this.trRec===void) {this.trRestore();return;}
      if(this.trUi(L)) {this.trClear(L);return;}
      var T=L.textLayer,on=this.hideOn() && !(typeof this.cfg=='Object' && this.cfg.embed);
@@ -369,12 +371,34 @@ LR"MGLT((function(){
    } incontextof st;
 )MGLT", LR"MGLT(
    st.trClear=function(L){
+    this.trPark=void;
     try {L.__mgTrAll=void;} catch(e) {}
     if(this.trOwner!==L) return;
     var line=this.trRec!==void?this.trRec[1]:0,scr=this.screen();this.trRestore();
     if(typeof this.embTrOff=='Object') this.embTrOff();this.embPend=void;
     this.trRec=void;this.trText='';this.trKey='';this.trPts=void;this.trCol=void;this.trAll=void;this.trAllL=void;
     if(line>0) this.report('ToMe_CHARS engine=krkr line='+line+' hidden=0 sw='+int(scr[0])+' sh='+int(scr[1])+' vx=0 vy=0 vw=0 vh=0 n=0 rects= text=');
+   } incontextof st;
+   /* 2026-11-26 (#1124 #1125, owner, 死に逝く君、館に芽吹く憎悪: every line of 血塗れの男 was retired 0.3 s after it was drawn, "placement
+      gone" took MeguLit's line away, the game's own copy came back and stayed, and the next line was drawn by the game before the reader's):
+      the hide tick retires a line whose layer stopped being the shown current one, and the text window then came back with the same text
+      and no new render. A line retired by the tick is kept aside; when its layer is the shown current one again and still lays out exactly
+      that text it is hidden and reported again (same line number). A new render on the layer, a clear or any other retirement drops it. */
+   st.trParkOf=function(){
+    return %['L'=>this.trOwner,'rec'=>this.trRec,'text'=>this.trText,'inst'=>this.trInst,'pts'=>this.trPts,'abs'=>this.trAbsL,'all'=>this.trAll,'col'=>this.trCol,'tailA'=>this.trTailA,'tailB'=>this.trTailB];
+   } incontextof st;
+   st.trResume=function(L){
+    var pk=this.trPark;
+    try {
+     if(pk===void || pk.inst===void || pk.L===void || pk.rec===void) {this.trPark=void;return;}
+     if(L!==pk.L || !this.shown(L) || this.trUi(L) || !this.hideOn()) return;
+     this.trPark=void;
+     var cs=(pk.inst.getCharacters incontextof pk.inst)(0,100000);if(typeof cs!='Object' || cs===null) return;
+     var t='';for(var i=0;i<cs.count;i++) {var ch=''+cs[i].text;if(ch=='' || ch==' ' || ch=='　' || ch=="\t" || ch=="\n") continue;t+=ch;}
+     if(t=='' || t!=pk.text) return;
+     this.trOwner=pk.L;this.trRec=[0,pk.rec[1],pk.rec[2]];this.trText=pk.text;this.trKey='';this.trInst=pk.inst;this.trPts=pk.pts;this.trAbsL=pk.abs;this.trAll=pk.all;this.trAllL=pk.L;pk.L.__mgTrAll=pk.all;this.trCol=pk.col;this.trTailA=pk.tailA;this.trTailB=pk.tailB;
+     this.trNote('resume');
+    } catch(e) {this.trPark=void;}
    } incontextof st;
    st.trDone=function(inst){
     try {
@@ -399,6 +423,7 @@ LR"MGLT((function(){
      /* A mixed link buffer stays native. Retire its dialogue proof and retain glyphs only for the choice producer. */
      if(this.trUi(L)) {if(this.trOwner!==void) this.trClear(this.trOwner);this.trRestore();this.trAll=all;this.trAllL=L;L.__mgTrAll=all;return;}
      if(this.trOwner!==L) {if(this.trOwner!==void) this.trClear(this.trOwner);this.trRestore();this.trRec=void;this.trOwner=L;this.trText='';this.trKey='';}
+     this.trPark=void;
      var flat=t.replace(/\n/g,'');
      var from=0;
      if(!(this.trText!='' && (flat.indexOf(this.trText)==0 || this.trText.indexOf(flat)==0))) {this.trLine++;this.trCol=void;this.trTry=0;if(typeof this.embTrOff=='Object') this.embTrOff();}
@@ -412,7 +437,7 @@ LR"MGLT((function(){
       var record='ToMe_CHARS engine=krkr line='+(100000+this.trLine)+' hidden='+h+tail;
       /* The native report function drops records at 28000 UTF-16 units. Never hide a snapshot it cannot forward. */
       if(record.length>=28000) {this.trClear(L);this.trNote('wire');return;}
-     this.trRec=[h,100000+this.trLine,tail];
+     this.trRec=[h,100000+this.trLine,tail];this.trInst=inst;
       this.report(record);
      this.trAll=all;this.trAllL=L;
      /* Keep link characters with their actual message-layer owner, not whichever layer rendered last. */

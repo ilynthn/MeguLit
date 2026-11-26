@@ -1059,7 +1059,7 @@
       retireBand(line.text);
       schedule(); return;
     }
-    if (m?.gone === true) { pageCleared(m.text); return; } if (m && Array.isArray(m.rects) && m.text && [...String(m.text)].filter(c => !blank(c)).join('') !== goneText) goneText = '';
+    if (m?.gone === true) { pageCleared(m.text); return; } if (m?.regained === true) goneText = ''; /* the engine hid the cleared line again (#1124) */ if (m && Array.isArray(m.rects) && m.text && [...String(m.text)].filter(c => !blank(c)).join('') !== goneText) goneText = '';
     const draw = Number.isSafeInteger(m?.sourceToken) ? m.id + '/' + m.sourceToken : undefined;
     if (m?.text && typeof m.read === 'boolean') b.lineReadDrawn?.(m.text, m.read, draw);
     if (m?.text && typeof m.color === 'string') b.lineColorDrawn?.(m.text, m.color, draw);

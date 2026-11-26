@@ -66,3 +66,29 @@ test('real choices still pass',()=>{
  const c=new ChoiceCapture(()=>0);c.add('館を探索する\n部屋に戻る','前の台詞。');
  assert.deepEqual(c.options(),['館を探索する','部屋に戻る']);
 });
+
+/* #1118 (owner 2026-11-24 06:16:28, hook-events.log): on every line of 血塗れの男 the side streams hand over the name plate and the coming line
+   doubled with one ellipsis (「…」) 4 ms before the dialogue stream's line (「……」). The doubled copy was kept as a candidate, located
+   with the name plate (choice locate options=["血塗れの男","「しかも、…何年振りか…」","男男"]), OCR found both and the game's own line got
+   the choice overlay's ruby and translation. */
+test('the side stream copy of the coming line (other ellipsis count) and its name plate are no choice',async t=>{
+ const f=fixture(t),asked=[];f.hook.locateChoices=o=>asked.push(o);
+ f.line('「餌風情が、私の食事の邪魔をするとは……」');
+ const aux=(text,sourceName)=>f.hook.auxText({text,sourceName,role:0});
+ aux('血塗れの男','tTVPNativeBaseBitmap::DrawText');aux('血塗れの男','KiriKiri1');aux('血塗れの男血塗れの男','KiriKiri1');
+ aux(twice('「しかも、肉体を傷付けられるなど何年振りか…」'),'KiriKiri2');f.tick(4);
+ f.hook.source({text:'「しかも、肉体を傷付けられるなど何年振りか……」',sourceName:'Krkr2wcs',sourceCode:'EXHQXN8@17527C:bug02_yakata.exe',origin:'live'},'');f.tick(16);
+ aux('男男','KiriKiri2');
+ await new Promise(r=>setTimeout(r,1100));
+ assert.ok(asked.every(o=>!o.some(x=>/肉体を傷付け/.test(x))),'the line itself never goes to OCR as an option: '+JSON.stringify(asked));
+ assert.deepEqual(asked,[],'nothing left that looks like a choice screen');
+});
+
+test('ChoiceCapture: a candidate that is the new line with other punctuation goes with the line, a real option stays',()=>{
+ let now=0;const c=new ChoiceCapture(()=>now);
+ c.add('館を探索する\n部屋に戻る','前の台詞。');c.add('「しかも、何年振りか…」','前の台詞。');
+ c.noteDialogue('「しかも、何年振りか……」','');c.reset(400,'「しかも、何年振りか……」');
+ assert.deepEqual(c.options(),['館を探索する','部屋に戻る']);
+ const d=new ChoiceCapture(()=>now);d.add('血塗れの男','前。');d.add('男男','前。');d.noteDialogue('「まあ……」','血塗れの男');d.reset(400,'「まあ……」');
+ assert.equal(d.options(),null,'the name plate of the line is not kept as an option');
+});
