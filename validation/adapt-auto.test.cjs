@@ -249,3 +249,14 @@ test('driver: a start item on screen is still clicked when a system text counted
  d.next({t:0,window:W});d.next({t:10,window:W,lines:1});assert.ok(!d.next({t:500,window:W,lines:1,menu:[start]}).some(a=>a.do==='click'),'too soon');
  assert.deepEqual(d.next({t:1200,window:W,lines:1,menu:[start]}),[{do:'click',x:150,y:215,watch:'start'}]);
  const late=new Driver({confirmAfter:1000,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[]});late.next({t:0,window:W});late.next({t:10,window:W,lines:10});assert.ok(!late.next({t:2000,window:W,lines:10,menu:[start]}).some(a=>a.do==='click'),'not once the story runs');});
+test('hook DLL: a DrawSkip build anywhere in the worktrees beats a GDI-hide-only one; this checkout first on a tie; no marker is never used',()=>{const d=tmp();
+ const dll=(dir,body,ms)=>{const f=path.join(d,dir,'MeguLitHook32.dll');fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,body);if(ms)fs.utimesSync(f,ms/1000,ms/1000);return path.join(d,dir);};
+ const own=dll('own','x MeguLit_GDIHIDE armed version=2 x',Date.now()),other=dll('other','MeguLit_GDIHIDE armed version=2 MeguLit_DRAWSKIP ready addr=',Date.now()-3600e3),foreign=dll('foreign','MeguLit_DRAWSKIP ready addr=');
+ const a=A.pickHookDll('MeguLitHook32.dll',[own,foreign,other]);assert.equal(a.src,path.join(other,'MeguLitHook32.dll'));assert.equal(a.drawSkip,true);
+ const own2=dll('own2','MeguLit_GDIHIDE armed version=2 MeguLit_DRAWSKIP ready addr= own',Date.now()-7200e3);
+ assert.equal(A.pickHookDll('MeguLitHook32.dll',[own2,other]).src,path.join(own2,'MeguLitHook32.dll'),'this checkout (first dir) wins a tie even when older');
+ assert.equal(A.pickHookDll('MeguLitHook32.dll',[foreign]),null,'a DLL without the hook version marker is never used');
+ const root=path.join(d,'app');const used=A.useCheckoutHook(root,[own,other]);
+ assert.equal(used['MeguLitHook32.dll'].drawSkip,true);assert.equal(used['MeguLitHook64.dll'].src,'install');
+ for(const sub of [['native','megulithook'],['runtime','megulithook']])assert.match(fs.readFileSync(path.join(root,...sub,'MeguLitHook32.dll'),'utf8'),/MeguLit_DRAWSKIP ready/);
+ assert.ok(A.hookDirs().some(x=>/native[\\/]megulithook$/.test(x)),'this checkout and its worktrees are searched');});

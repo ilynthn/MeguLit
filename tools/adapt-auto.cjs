@@ -79,12 +79,28 @@ function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
  buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);
  return root;}
-/* MeguLitHook32/64.dll built in this checkout (native/megulithook/build.cmd; not in git) replace the install's copies in the copy only,
-   like HookBridge.exe below: the engine-layer hook changes of this checkout are what runs. A DLL without the hook version marker
-   (an old or foreign build) is never used */
-function useCheckoutHook(root){for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){const src=path.join(REPO,'native','megulithook',name);let buf;try{buf=fs.readFileSync(src);}catch{continue;}
-  if(buf.indexOf('MeguLit_GDIHIDE armed version=2')<0)continue;
-  for(const dir of [path.join(root,'native','megulithook'),path.join(root,'runtime','megulithook')]){const dst=path.join(dir,name);let same=false;try{same=fs.readFileSync(dst).equals(buf);}catch{}if(same)continue;fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(dst,buf);}}}
+/* MeguLitHook32/64.dll built from this repository's native/megulithook (a private native build; the DLLs are not in git) replace
+   the install's copies in the copy only, like HookBridge.exe below: the engine-layer hook changes are what runs. A DLL without the
+   hook version marker (an old or foreign build) is never used.
+   2026-11-26 オルフレール: "source no-draw sometimes does nothing" (hide.skipped 0, the reader left in read mode) was every run from a
+   checkout without a local build. useCheckoutHook then copied nothing, prepareApp had just put the install's DLL (no DrawSkip) into
+   the shared _app copy, and the run went on silently. Every run with "MeguLit_DRAWSKIP ready" in its diagnostics skipped about 53,600 glyphs.
+   So the DLL is looked for in MEGULIT_HOOK_DIR, this checkout, then the repository's other worktrees: the most capable build wins
+   (DrawSkip over GDI hide only), this checkout before others, newer before older; what was used goes into result.hook */
+const HOOK_MARK='MeguLit_GDIHIDE armed version=2',DRAWSKIP_MARK='MeguLit_DRAWSKIP ready';
+function hookDirs(){const dirs=[];if(process.env.MEGULIT_HOOK_DIR)dirs.push(process.env.MEGULIT_HOOK_DIR);dirs.push(path.join(REPO,'native','megulithook'));
+ try{const r=spawnSync('git',['-C',REPO,'worktree','list','--porcelain'],{encoding:'utf8',windowsHide:true,timeout:15000});
+  for(const m of String(r.stdout||'').matchAll(/^worktree (.+)$/gm))dirs.push(path.join(path.normalize(m[1].trim()),'native','megulithook'));}catch{}
+ const seen=new Set();return dirs.filter(d=>{const k=path.resolve(d).toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});}
+function pickHookDll(name,dirs){let best=null;dirs.forEach((dir,order)=>{const src=path.join(dir,name);let buf,st;try{st=fs.statSync(src);buf=fs.readFileSync(src);}catch{return;}
+  if(buf.indexOf(HOOK_MARK)<0)return;const c={src,buf,drawSkip:buf.indexOf(DRAWSKIP_MARK)>=0,own:order===0||path.resolve(dir)===path.resolve(REPO,'native','megulithook'),mtimeMs:st.mtimeMs};
+  const better=!best||c.drawSkip!==best.drawSkip?!best||c.drawSkip:c.own!==best.own?c.own:c.mtimeMs>best.mtimeMs;if(better)best=c;});
+ return best;}
+let hookUsed={};
+function useCheckoutHook(root,dirs=hookDirs()){hookUsed={};for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){const pick=pickHookDll(name,dirs);
+  if(!pick){hookUsed[name]={src:'install',drawSkip:false};continue;}hookUsed[name]={src:pick.src,drawSkip:pick.drawSkip};
+  for(const dir of [path.join(root,'native','megulithook'),path.join(root,'runtime','megulithook')]){const dst=path.join(dir,name);let same=false;try{same=fs.readFileSync(dst).equals(pick.buf);}catch{}if(same)continue;fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(dst,pick.buf);}}
+ return hookUsed;}
 /* ColdDesk.exe from this repository's native/ColdDesk.cs (it has --ignore-input; an older install may not): built with the .NET
    Framework csc like Build.ps1, into the copy only, again whenever the source changes */
 const CSC=path.join(process.env.WINDIR||'C:\\Windows','Microsoft.NET','Framework64','v4.0.30319','csc.exe');
@@ -338,6 +354,7 @@ async function run(opts,{log=console.log}={}){
    if(runInfo?.input){result.input=runInfo.input;log('# input '+runInfo.input.level+' '+JSON.stringify(runInfo.input.sent)+(runInfo.input.escalations.length?' up: '+runInfo.input.escalations.map(e=>e.from+'>'+e.to).join(','):''));}
    /* the bridge's hide confirmations of this run (cold-test-run hideProbe): when, on which stream */
    result.hide={confirmed:runInfo?.hideConfirmed||[],probes:(runInfo?.hideProbes||[]).length,skipped:runInfo?.drawSkipped||0};
+   result.hook=hookUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
    diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
   result.stuck=stuckOf({cold,run:runInfo,diag,engine});
@@ -371,4 +388,4 @@ async function main(argv){let opts;try{opts=parseArgs(argv);}catch(e){console.er
  try{const r=await run(opts);console.log(r.verdict+' '+path.join(r.artifacts.out,'result.json'));for(const x of r.reasons)console.log('  '+x);return EXIT[r.verdict]??2;}
  catch(e){console.error('adapt-auto: '+(e.stack||e.message));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={parseArgs,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,lock,run,main,GATE,EXIT};
+module.exports={parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,lock,run,main,GATE,EXIT};
