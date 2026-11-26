@@ -268,3 +268,6 @@ test('driver readPerCharMs: a long line that came whole gets 45 ms a character b
  assert.equal(d.next({t:4400,window:W,lines:2,quietMs:700,lineChars:10,lineAgeMs:700}).length,1,'a short line: readMinMs and the quiet decide');
  const e=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,stallMs:1e9,shotLines:[]});e.next({t:0,window:W});e.next({t:10,window:W,lines:1,quietMs:0});
  assert.equal(e.next({t:2000,window:W,lines:1,quietMs:1200,lineChars:54,lineAgeMs:1200}).length,1,'without readPerCharMs as before');});
+
+test('coldTest: the per-character wait is for engines that hand lines over whole (YU-RIS), not KiriKiri',()=>{const src=fs.readFileSync(path.join(__dirname,'..','tools','adapt-auto.cjs'),'utf8');
+ assert.match(src,/const WHOLE_LINE=new Set\(\['yuris'\]\);/);assert.match(src,/readPerCharMs:WHOLE_LINE\.has\(loc\.engine\)\?45:0/);});
