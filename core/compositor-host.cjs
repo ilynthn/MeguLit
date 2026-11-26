@@ -116,13 +116,20 @@ class CompositorHost {
     this.cc.send({ t: 'line', id: Number(m.seq) || 0, text: chars.join(''), expected: marks, plain, marks: 'middle-dot' });
   }
   remember(id, text) { this.lines.set(id, strip(text).text); if (this.lines.size > 64) this.lines.delete(this.lines.keys().next().value); this.lastId = id; }
+  /* the newest compositor line showing the reader's text s (blank-stripped). RRFZ #1176: an exact line first, so a late answer or ruby for an
+     older 「はい」 never lands on the newer 「はい、わかりました」; only then a line that holds it (or is held by it) */
+  lineFor(s) {
+    const newest = [...this.lines.entries()].reverse();
+    for (const [k, v] of newest) if (v === s) return k;
+    for (const [k, v] of newest) if (v.includes(s) || (v && s.includes(v))) return k;
+    return null;
+  }
   // The reader translated a line: hand the translation to the compositor line that shows it (①'s text may carry more,
   // e.g. variable names before the line; matched on blank-stripped text).
   text(source, translation) {
     if (!this.cc || !translation) return;
     const s = strip(source).text; if (!s) return;
-    let id = null;
-    for (const [k, v] of [...this.lines.entries()].reverse()) if (v === s || v.includes(s) || (v && s.includes(v))) { id = k; break; }
+    const id = this.lineFor(s);
     if (id !== null) this.cc.annotate({ id, tl: NAME_PLATE.test(String(source || '')) ? String(translation).replace(NAME_PLATE, '').replace(/^\s*[^\s：:「『“"]{1,12}[：:]\s*/, '') : translation });
     // Menu items arrive as text only: their translations come through here like any line (before or after the menu).
     this.recent.set(s, translation); if (this.recent.size > 48) this.recent.delete(this.recent.keys().next().value);
@@ -135,8 +142,7 @@ class CompositorHost {
   ruby(source, list) {
     if (!this.cc || !Array.isArray(list) || !list.length) return;
     const s = strip(source).text; if (!s) return;
-    let id = null;
-    for (const [k, v] of [...this.lines.entries()].reverse()) if (v === s || v.includes(s) || (v && s.includes(v))) { id = k; break; }
+    const id = this.lineFor(s);
     if (id === null) return;
     let full = String(source), ruby = list;
     const plate = this.charMarks && full.match(NAME_PLATE);
