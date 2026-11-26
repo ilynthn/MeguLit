@@ -56,3 +56,19 @@ test('tape files: version 0 and 1 read, broken ones fail with a code',()=>{
  assert.equal(code(JSON.stringify({hb:{type:'hookSource',text:'x'}})),'TAPE_NO_TIME');
  assert.equal(T.parse(v0+'\n{broken').skipped.bad,1,'one bad line among good ones is skipped and counted');
 });
+
+/* 2026-11-26 krkr-nodraw r1 screen-16: the choice screen ruled 「the original is visible」 against a 4000-character page the hook joined
+   while skipping; options are drawn by the game on purpose */
+test('a joined skip page is no line to compare, and the game\'s options are not the original',()=>{
+ const r1=require('./fixtures/cardinal/nodraw-r1-screen16.json');
+ assert.equal(E.judge(r1.frame,[r1.prev,r1.line]).verdict,'unusable');assert.match(E.judge(r1.frame,[r1.prev,r1.line]).why,/joined page/);
+ const st=steps([{t:1000,text:'それで本当は、お優しい方なのかしらと思った'}]),ls=E.dialogue(st),opt=['……本当は、お優しい方なのかしら','……本当に、几帳面な方なのね'];
+ const f=frame(2000,[{text:'本当は、お優しい方なのかしら',x:800,y:380,w:340,h:22}]);
+ assert.equal(E.judge(f,ls).verdict,'visible','without the options it reads like the line');assert.equal(E.judge(f,ls,opt).verdict,'hidden','with them it is the option');
+ assert.deepEqual(E.options([{t:1,screen:{type:'choices',texts:opt}},{t:2,gwb:{type:'hookChoiceBoxes',items:[{text:'左へ行く'}]}}]),[...opt,'左へ行く']);
+});
+test('scattered character pairs are no read: a match needs a run of characters in order',()=>{
+ const long='いつも方が好きで、なのに彼はかしらと言った。のかと問われ、しらを切る';const ls=E.dialogue(steps([{t:1000,text:long}]));
+ assert.equal(E.judge(frame(2000,[{text:'い方なのかしら',x:1,y:1,w:9,h:9}]),ls).verdict,'hidden');
+ assert.equal(E.judge(frame(2000,[{text:'彼はかしらと言った',x:1,y:1,w:9,h:9}]),ls).verdict,'visible');
+});
