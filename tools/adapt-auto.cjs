@@ -155,7 +155,9 @@ $bmp.Save((Join-Path $d ('screen-{0:D2}.png' -f $i)),[System.Drawing.Imaging.Ima
    pictures are removed one by one where possible, and a run never fails over them */
 function screenRecorder(dir){try{fs.rmSync(dir,{recursive:true,force:true});}catch{try{for(const f of fs.readdirSync(dir))try{fs.rmSync(path.join(dir,f),{force:true});}catch{}}catch{}}fs.mkdirSync(dir,{recursive:true});
  const p=require('node:child_process').spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','& {'+SCREEN_PS+'}',dir],{windowsHide:true,stdio:'ignore'});
- return ()=>{try{fs.writeFileSync(path.join(dir,'stop'),'');}catch{}setTimeout(()=>{try{p.kill();}catch{}},20000).unref();};}
+ let closed=false;const ended=new Promise(r=>{p.once('close',()=>{closed=true;r();});p.once('error',()=>{closed=true;r();});});
+ /* -> a promise that settles once the recorder has exited (it finishes the picture it is writing), at most 20 s */
+ return ()=>{try{fs.writeFileSync(path.join(dir,'stop'),'');}catch{}const kill=setTimeout(()=>{try{p.kill();}catch{}},20000);return ended.then(()=>clearTimeout(kill));};}
 
 /* ---- 4 diff ------------------------------------------------------------------------------------------------------------- */
 const RUN_LOGS=/^(hook-events|engine-draw|reader-host)\.log$|^shot-.*\.jpe?g$/i;
@@ -168,12 +170,15 @@ function makeDiff(probeDir,runDir,outDir,window=null){
  const b=m.result.best;return {ok:true,gameKey:m.key,engine:m.probe.engine,mode:b.params.hideMethod,cost:b.cost,over:b.over,lines:m.result.lines,dir:written[0]};}
 
 /* ---- 5 Cardinal -------------------------------------------------------------------------------------------------------- */
-function cardinal(runDir,run,loc,exeSha,title,outFile,{timeoutMs=600000}={}){
+function cardinal(runDir,run,loc,exeSha,title,outFile,{timeoutMs=600000,shots=''}={}){
  if(!run?.startedAt||!run?.endedAt)return {ok:false,why:'run.json has no start/end'};
  const game={pid:run.pid||4242,exe:loc.exe,title,sha:exeSha,engine:loc.engine};
  /* the bridges' own records of the run (cold-test-run writes Cardinal's tape) replay every engine; the logs need engine-draw records */
  const tape=path.join(runDir,'cardinal-tape.jsonl'),source=fs.existsSync(tape)?['--tape',tape]:['--logs',runDir,'--from',run.startedAt,'--to',run.endedAt];
- const r=spawnSync(process.execPath,[path.join(__dirname,'cardinal.cjs'),...source,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
+ /* the cold run's own record (the choice its OCR read on the game screen) and the pictures of the real screen (a second hide evidence,
+    read by Windows OCR inside Cardinal; only once the recorder has written them all) */
+ const runFile=path.join(runDir,'run.json'),extra=[...(fs.existsSync(runFile)?['--run',runFile]:[]),...(shots&&fs.existsSync(shots)&&fs.readdirSync(shots).some(f=>/\.png$/i.test(f))?['--shots',shots]:[])];
+ const r=spawnSync(process.execPath,[path.join(__dirname,'cardinal.cjs'),...source,...extra,'--game',JSON.stringify(game),'--out',outFile],{encoding:'utf8',timeout:timeoutMs,windowsHide:true,maxBuffer:32<<20});
  const log=String(r.stdout||'')+String(r.stderr||'');
  let o=null;try{o=JSON.parse(fs.readFileSync(outFile,'utf8'));}catch{}
  if(!o?.result)return {ok:false,why:'cardinal produced no result'+(r.error?' ('+r.error.message+')':'')+': '+log.slice(-400),log};
@@ -278,9 +283,13 @@ async function run(opts,{log=console.log}={}){
  const result={verdict:'inconclusive',engine:'',gameKey:'',title,gameDir:dir,exe:'',reasons:[],checks:{},stuck:'',budgetMs:budget,totalMs:0,steps:{},
   layers:{kernel:'MeguLitHook（不改）',engine:null,game:null,seed:null},artifacts:{out},startedAt:new Date().toISOString(),
   proof:{offline:['原文隐藏：Cardinal 只回放阅读层；游戏画面上原生字是否真的被盖住，冷测试只有钩子自报的 hideVisible，没有屏幕像素比对','译文替换和选项翻译：回放的翻译来源是固定的假译文（不联网），证明的是阅读层画出了译文，不是译文质量'],screenshots:'run/shot-*.jpg 是游戏客户区；--foreground 时 screen/screen-*.png 是整块屏幕。两者都没有 MeguLit 阅读层（本工具只开钩子，不开 MeguLit.exe），所以截图证明不了译文画上、选项有翻译，只能看游戏原生字和推进到哪'}};
- const step=async(name,fn)=>{const t=Date.now();try{return await fn();}finally{result.steps[name]=Date.now()-t;}};
+ /* stage records (core/yui-run.cjs, <out>/yui-run.log): a run that stops says at which stage and why */
+ const yui=require('../core/yui-run.cjs').start(out,{kind:'adapt-auto'});result.artifacts.yui=yui.file;
+ const stageOf=name=>String(name).replace(/[A-Z]/g,c=>'-'+c.toLowerCase());
+ const step=async(name,fn)=>{const t=Date.now();yui.mark(stageOf(name));try{return await fn();}catch(e){yui.fail(stageOf(name),String(e?.message||e));throw e;}finally{result.steps[name]=Date.now()-t;}};
  const write=()=>{result.endedAt=new Date().toISOString();result.totalMs=Date.now()-T0;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,1));};
  const finish=j=>{result.verdict=j.verdict;result.reasons=[...result.reasons,...j.reasons];result.checks=j.checks;
+  if(j.verdict==='pass')yui.close();else yui.fail(j.verdict==='fail'?'verdict-fail':'verdict-inconclusive',(result.stuck?'卡在：'+result.stuck+'；':'')+(j.reasons||[]).join('；'));
   if(j.verdict!=='pass'&&result.stuck)result.reasons.unshift('卡在：'+result.stuck);write();return result;};
  const overtime=name=>{if(left()>0)return false;result.stuck='超时：'+name+' 之前已用完 '+opts.budgetMin+' 分钟';return true;};
  if(!fs.existsSync(dir))throw Error('game folder not found: '+dir);
@@ -306,7 +315,7 @@ async function run(opts,{log=console.log}={}){
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
   let cold=null;
   await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
-  if(stopScreen){stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
+  if(stopScreen){await stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
   if(cold.runDir&&located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
   result.cold=cold;log('# cold '+cold.verdict+' '+(cold.why||'')+' lines='+(cold.lines|0));
   let runCopy='',runInfo=null,diag=null;
@@ -325,7 +334,7 @@ async function run(opts,{log=console.log}={}){
   /* Cardinal (only when the cold run has lines to replay) */
   let card=null;
   if(runCopy&&(cold.lines|0)>0){if(overtime('Cardinal 回放'))return finish(judge({cold,diff,card:null}));
-   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(60000,left())});if(card.ok)result.artifacts.cardinal=file;
+   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(60000,left()),shots:result.foreground?path.join(out,'screen'):''});if(card.ok)result.artifacts.cardinal=file;
     fs.writeFileSync(path.join(out,'cardinal.log'),card.log||'');result.cardinal=card.ok?{scores:card.result.scores,applies:card.result.applies,total:card.result.total,lines:card.result.lines,errors:card.errors}:{why:card.why};
     log('# cardinal '+(card.ok?JSON.stringify(card.result.scores):card.why));});}
   const j=judge({cold,diff,card});

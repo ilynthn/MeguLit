@@ -229,3 +229,9 @@ test('driver choiceQuietMs: the first try waits until fast-forward stopped drawi
  d.next({t:0,window:W});d.next({t:10,window:W,lines:1});d.next({t:100,window:W,lines:2,choices:1,menu:[opt]});
  assert.deepEqual(d.next({t:3000,window:W,lines:2,choices:1,menu:[opt],quietMs:200}),[],'still drawing');
  assert.deepEqual(d.next({t:4000,window:W,lines:2,choices:1,menu:[opt],quietMs:1600}),[{do:'phase',name:'choice-try-1'},{do:'move',x:500,y:320}]);});
+
+test('run: stage records (core/yui-run.cjs) say where a run stopped',async()=>{const d=tmp();
+ const sw=path.join(d,'[GAME]Garden[01009DB022BC6000]');put(path.join(sw,'game.nsp'));const out=path.join(d,'out');
+ const r=await A.run({dir:sw,out,budgetMin:1,app:''},{log:()=>{}});const y=require('../core/yui-run.cjs').read(out);
+ assert.equal(r.artifacts.yui,path.join(out,'yui-run.log'));assert.equal(y.kind,'adapt-auto');assert.equal(y.state,'failed');assert.equal(y.failed.stage,'verdict-inconclusive');assert.match(y.failed.reason,/Switch/);
+ assert.ok(y.events.some(e=>e.stage==='triage'));});
