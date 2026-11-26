@@ -168,6 +168,7 @@ const trScript=()=>{
  const js=s.slice(a,b).replace(/ incontextof st;/g,';').replace(/isvalid (?:this\.trT|c)/g,'true')
   .replace(/typeof ([\w.]+)==['"]Object['"]/g,'typeof $1==="object"')
   .replace(/(fore|ms)\.count/g,'$1.length').replace(/\bvoid\b/g,'undefined').replace(/%\[\]/g,'({})')
+  .replace(/%\[([^\]]*=>[^\]]*)\]/g,(m,x)=>'({'+x.replace(/=>/g,':')+'})').replace(/\(([\w.]+) incontextof ([\w.]+)\)\(/g,'$1.bind($2)(').replace(/\.count\b/g,'.length')
   .replace(/\)MGLT",? LR"MGLT\(/g,'').replace(/\bint\(/g,'Math.trunc(');
  return ()=>{
   const T={opacity:255},L={visible:true,textLayer:T},sent=[];
