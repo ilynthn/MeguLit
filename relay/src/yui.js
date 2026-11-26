@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import {trackIssue} from './issue-trackers.js';
 const faults=new Set(['instance-failed','runtime-unavailable','hot-reload-failed','desktop-failed','webview-failed','service-failed','service-timeout','service-disconnected','startup-failed','route-failed','frontend-error','frontend-rejection']);
 const stages=new Set([...faults,'native-entry','process-start','runtime-ready','splash-start','webview-build-start','webview-built','service-start','service-replied','document','home-ready','content-painted','notice-open','notice-painted','notice-closed','hot-reload','first-window-ready','window-revealed','closed','service-home-start','service-home-done']);
 export async function yuiPost(request,env,{readJSON,fail,json,hit},ip,now){
@@ -35,5 +36,8 @@ export async function syncYui(env){
   else number=(await gh('/issues','POST',{title:'[Yui] '+stage,body,labels:['yui-report','diagnostics']})).number;
   if(!Number.isSafeInteger(number))throw Error('YUI_ISSUE_NUMBER');
   await env.DB.prepare('UPDATE yui_issues SET issue=?,synced=?,lease=0 WHERE stage=? AND lease=?').bind(number,row.count,stage,lease).run();
+  /* 2026-11-26 a new failure type: listed in the [Yui] 汇总 tracker, its own issue closed (issue-trackers.js); the
+     counts above keep going to the closed issue */
+  if(!row.issue)await trackIssue(env,{id:'yui:'+stage,tracker:'yui-report',issue:number,name:stage});
  }
 }
