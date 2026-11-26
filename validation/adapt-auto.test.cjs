@@ -127,3 +127,36 @@ test('ocrItems: a name entry keeps the default name — 「決定」 one button 
 
 test('krkr-model: st.ctl runs with the script\'s st.ctlOff (Cardinal KiriKiri replays)',()=>{const {KrkrModel}=require('../tools/reader-replay/krkr-model.cjs');
  const m=new KrkrModel({pid:4294967290,tmp:tmp()});assert.equal(typeof m.st.ctlOff,'function');assert.deepEqual(m.tick(),{roles:0,embed:0,zh:1},'no control file: off');});
+
+test('budget: the whole game in --budget-min (default 10); --seed-out',()=>{
+ const o=A.parseArgs(['node','x','d']);assert.equal(o.budgetMin,10);assert.equal(o.seedOut,'');
+ assert.equal(A.parseArgs(['node','x','d','--seed-out','F:\s']).seedOut,'F:\s');});
+
+test('stuckOf: names the step a person has to look at',()=>{const c={verdict:'inconclusive',lines:1};
+ assert.equal(A.stuckOf({cold:{...c,lines:20},run:{end:'enough'}}),'');
+ assert.match(A.stuckOf({cold:{verdict:'blocked',why:'no-save-place'}}),/没开始：no-save-place/);
+ assert.match(A.stuckOf({cold:{...c,lines:0},run:{end:'no-lines'}}),/标题菜单/);
+ assert.match(A.stuckOf({cold:{...c,lines:0},run:{end:'no-lines',ocrStart:'はしめから'}}),/开场后没有台词/);
+ assert.match(A.stuckOf({cold:c,run:{end:'black',black:true}}),/黑屏/);
+ assert.match(A.stuckOf({cold:c,run:{end:'stalled',ocrText:'主人公の名前を入力してください デフォルト'}}),/改名画面/);
+ assert.match(A.stuckOf({cold:c,run:{end:'stalled'},diag:{auxNoise:3,auxSample:'DrawText: 私私',selected:'KiriKiri2',kagWait:true}}),/钩子没命中正文.*KiriKiri2.*krkr wait kag/);
+ assert.match(A.stuckOf({cold:c,run:{end:'stalled'},engine:{route:'engine-draw',hook:'yuris-draw',hits:0}}),/yuris-draw 画字签名/);});
+
+test('engineHook: KiriKiri takes the krkr route; a signature engine is scanned; others stay on the kernel',()=>{
+ assert.equal(A.engineHook({engine:'kirikiri',exe:'nope.exe'}).route,'krkr');
+ const y=A.engineHook({engine:'yuris',exe:path.join(tmp(),'none.exe')});assert.equal(y.hook,'yuris-draw');assert.equal(y.hits,0);
+ assert.equal(A.engineHook({engine:'renpy',exe:'x'}).route,'kernel');});
+
+test('hookDiagnostics: injected hooks, dropped dialogue, the selected stream, cut to the run',()=>{const root=tmp();fs.mkdirSync(path.join(root,'logs'));
+ fs.writeFileSync(path.join(root,'logs','hook-diagnostics.log'),['2026-11-26T06:00:00.0000000Z info 0 注入钩子: KiriKiri1 005240D0','2026-11-26T06:23:43.5970284Z info 0 注入钩子: EmbedKrkr2 005E3389',
+  '2026-11-26T06:23:45.0137487Z krkr wait kag','2026-11-26T06:24:10.0151891Z auto-select KiriKiri2 (first dialogue stream of 3)','2026-11-26T06:24:37.2574944Z aux noise tTVPNativeBaseBitmap::DrawText "私私もも"'].join('\n'));
+ const d=A.hookDiagnostics(root,{startedAt:'2026-11-26T06:23:43Z',endedAt:'2026-11-26T06:24:56Z'},path.join(root,'cut.log'));
+ assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2'});
+ assert.equal(fs.readFileSync(path.join(root,'cut.log'),'utf8').split('\n').filter(Boolean).length,4,'only the run\'s lines');});
+
+test('writeSeed: a verified seed entry in The Seed layout, checked by core/profiles/seed.cjs',()=>{const DM=require('../tools/diff-maker/index.cjs');const d=tmp();
+ const m=DM.make(path.join(__dirname,'helpers','diff-maker','probes','senren-banka'));const [dir]=DM.write(m,{out:path.join(d,'diff')});
+ const seed=A.writeSeed(dir,{engine:m.probe.engine,title:'千恋＊万花',exeName:m.probe.exe.name,exeSha:m.probe.exe.sha256,gameKey:m.key},path.join(d,'seed'));
+ const g=JSON.parse(fs.readFileSync(path.join(seed,'game.json'),'utf8'));assert.equal(g.status,'verified');assert.equal(g.seedFormat,1);assert.deepEqual(g.builds,[m.probe.exe.sha256]);
+ assert.ok(!g.settings.calibrate,'no local calibration in a seed');assert.ok(fs.existsSync(path.join(seed,'versions',m.probe.exe.sha256+'.json')));
+ assert.ok(seed.startsWith(path.join(d,'seed',m.probe.engine)));});

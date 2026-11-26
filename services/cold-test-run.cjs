@@ -79,7 +79,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
      /* started through Locale Emulator: the window's owner is the game, the started pid was LEProc (the hook goes to the game) */
      if(!hooks&&m.pid>0&&(m.pid|0)!==res.pid){res.launcherPid=res.pid;res.pid=m.pid|0;if(m.started)started=String(m.started);}
      attach();break;
-    case 'shot':if(m.ok&&m.path&&/^ocr-/i.test(path.basename(m.path))){ocrBusy=true;(deps.ocr||ocr)(m.path).then(lines=>{ocrBusy=false;const items=ocrItems(lines);res.ocr=(res.ocr||0)+1;for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);
+    case 'shot':if(m.ok&&m.path&&/^ocr-/i.test(path.basename(m.path))){ocrBusy=true;(deps.ocr||ocr)(m.path).then(lines=>{ocrBusy=false;const items=ocrItems(lines);res.ocr=(res.ocr||0)+1;res.ocrText=(Array.isArray(lines)?lines:[]).map(l=>String(l?.text||'').replace(/\s+/g,'')).filter(Boolean).join(' ').slice(0,300);for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);
       if(items.length){res.ocrStart=items[0].ocr;for(const it of items)menu.unshift(it);menu.length=Math.min(menu.length,12);}});break;}
      if(m.ok&&m.path){res.shots.push(path.basename(m.path));if(m.black===true)res.black=true;else res.black=false;}break;
     case 'input':res.stopped='input';finish('input');break;

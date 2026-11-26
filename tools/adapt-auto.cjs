@@ -9,7 +9,9 @@
      4 diff                                  tools/diff-maker make/write over the probe + the cold run's logs (never --write-repo)
      5 Cardinal                              tools/cardinal.cjs --logs <run>: the cold run replayed into the headless reader
      6 verdict                               judge(): cold self-check + Cardinal; anything not measured → inconclusive, never a guessed pass
-   Usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N] [--app <MeguLit install>] [--foreground]
+   Usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N] [--app <MeguLit install>] [--foreground] [--seed-out <dir>]
+     --budget-min  the whole game, every step (default 10); result.steps has each step's ms, result.stuck where it stopped
+     --seed-out    on a pass, the seed entry <dir>/<engine>/<slug>/{game.json,versions/<sha>.json,lines.json} (local only)
      --foreground  the game on the visible desktop (owner away only; still muted, still in ColdDesk's job) and whole-screen
                    pictures (every 4 s for the first 16 s, then every 15 s) into <out>/screen/ (the hidden desktop's shots are the game's client area only)
    Writes <out>/result.json {verdict, engine, gameKey, reasons, artifacts, ...}; exit 0 pass, 1 fail, 2 inconclusive.
@@ -24,9 +26,9 @@ const EXIT={pass:0,fail:1,inconclusive:2};
 const GATE={leak:0.98,row:0.9,pair:0.9,choice:1};
 
 /* ---- 0 arguments ------------------------------------------------------------------------------------------------------ */
-function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin:6,app:APP_DEFAULT,foreground:false};
+function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin:10,app:APP_DEFAULT,foreground:false,seedOut:''};
  for(let i=0;i<a.length;i++){const k=a[i];
-  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;
+  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/adapt-auto.cjs <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N]');
  if(!(o.budgetMin>0&&o.budgetMin<=60))throw Error('--budget-min must be 1..60');
@@ -92,9 +94,9 @@ function lock(file){fs.mkdirSync(path.dirname(file),{recursive:true});
  return null;}
 
 /* ---- 2 probe ------------------------------------------------------------------------------------------------------------ */
-function makeProbe(loc,title,outDir){const PF=require('../services/probe-full.cjs');
+function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../services/probe-full.cjs');
  const work=path.join(outDir,'probe-work');fs.rmSync(work,{recursive:true,force:true});
- const c=PF.collect({dir:loc.gameDir,executable:loc.exe,result:{detected:loc.engine||null},out:work,title,app:'adapt-auto',packedMax:16<<20,rawMax:96<<20,budgetMs:120000});
+ const c=PF.collect({dir:loc.gameDir,executable:loc.exe,result:{detected:loc.engine||null},out:work,title,app:'adapt-auto',packedMax:16<<20,rawMax:96<<20,budgetMs});
  if(!c||c.empty)throw Error('probe-full collected nothing');
  const dir=path.join(outDir,'probe');fs.rmSync(dir,{recursive:true,force:true});PF.unpack(c.file,dir);
  /* the diff maker reads manifest.engine / detected; probe-full keeps the exe path relative to the game folder */
@@ -180,51 +182,129 @@ function judge({unsupported:why='',cold=null,diff=null,card=null}={}){const reas
  if(Object.values(checks).some(c=>c.measured!==true)||(card.errors||[]).length)return done('inconclusive');
  return done('pass');}
 
+/* ---- layer 2: the engine's draw hook ----------------------------------------------------------------------------------
+   Only chosen, never changed for one game (owner 2026-11-26: 内核 → 引擎通用逆向画字函数 → 专门适配 → 上传 seed). KiriKiri goes
+   the krkr route (MeguLitKrkr32/64.dll on KAG message layers + the kernel's KiriKiri hooks); an engine with a reverse-engineered
+   draw signature (tools/engine-sigs/<id>-draw.cjs, the reference of native/megulithook's matcher) is checked against this exe
+   before the game is started: no hit there means the native matcher will not hit either. */
+const SIG_OF={catsystem2:'cs2',cs2:'cs2',advhd:'advhd',bgi:'bgi',cmvs:'cmvs',fvp:'fvp',mages:'mages',majiro:'majiro',siglus:'siglus',yuris:'yuris'};
+function engineHook(loc){const t0=Date.now(),done=o=>({...o,ms:Date.now()-t0});
+ if(loc.engine==='kirikiri'){let bits=0;try{bits=require('../core/locale-emulator.cjs').x86(loc.exe)?32:64;}catch{}return done({route:'krkr',hook:'MeguLitKrkr'+(bits||'')+'.dll + kernel KiriKiri hooks'});}
+ const id=SIG_OF[loc.engine];if(!id)return done({route:'kernel',hook:'kernel hooks only (no engine draw signature for '+(loc.engine||'unknown')+')'});
+ const file=path.join(__dirname,'engine-sigs',id+'-draw.cjs');if(!fs.existsSync(file))return done({route:'kernel',hook:'kernel hooks only'});
+ try{const r=require(file).scanFile(loc.exe);const hits=Array.isArray(r?.hits)?r.hits.length:Array.isArray(r)?r.length:r?.hit?1:0;return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits});}
+ catch(e){return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits:0,error:String(e.message||e).slice(0,160)});}}
+
+/* the kernel's own diagnostics for the run (the shared hook-diagnostics.log of the copied app, cut to the run's time) */
+function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:''};if(!run?.startedAt)return out;
+ const a=Date.parse(run.startedAt)-2000,z=Date.parse(run.endedAt||new Date().toISOString())+2000;let text='';try{text=fs.readFileSync(path.join(root,'logs','hook-diagnostics.log'),'utf8');}catch{return out;}
+ const kept=[];for(const l of text.split(/\r?\n/)){const t=Date.parse(l.slice(0,28));if(!(t>=a&&t<=z))continue;kept.push(l);let m;
+  if((m=/注入钩子: (.+?) [0-9A-F]{6,}$/.exec(l)))out.injected.push(m[1]);
+  if((m=/aux noise (.+?) "(.*)"$/.exec(l))){out.auxNoise++;if(!out.auxSample)out.auxSample=m[1]+': '+m[2].slice(0,40);}
+  if(/krkr wait kag/.test(l))out.kagWait=true;
+  if((m=/auto-select (\S+)/.exec(l)))out.selected=m[1];}
+ out.injected=[...new Set(out.injected)];if(dest)try{fs.writeFileSync(dest,kept.join('\n')+'\n');}catch{}
+ return out;}
+
+/* where the run got stuck, for the person who takes over (owner: 改名画面、标题菜单、黑屏、钩子没命中等) */
+function stuckOf({cold,run,diag,engine,minLines=8}){const lines=cold?.lines|0,end=String(run?.end||cold?.end||'');
+ if(!cold)return '冷测试没有跑';
+ if(cold.verdict==='blocked'||cold.verdict==='skipped')return '冷测试没开始：'+cold.why;
+ if(lines>=minLines)return '';
+ if(engine?.route==='engine-draw'&&!(engine.hits>0))return '钩子没命中：'+engine.hook+' 画字签名在这个 exe 里没找到';
+ if(end==='no-window')return '没有游戏窗口（启动失败或弹窗退出）';
+ if(end==='exited')return '游戏自己退出了（启动弹窗？见 run/hook-status.log）';
+ if(end==='black'||run?.black)return '黑屏（隐藏桌面画不出画面）';
+ const ocr=String(run?.ocrText||'');
+ if(!lines&&/^(no-lines|time-intro)/.test(end))return run?.ocrStart?'开场后没有台词（点了「'+run.ocrStart+'」）':'标题菜单（没找到「はじめから / New Game」）';
+ if(diag?.auxNoise>0)return '钩子没命中正文：正文在被丢弃的线程里（'+diag.auxSample+'…，共 '+diag.auxNoise+' 条），选中的是 '+(diag.selected||'别的线程')+(diag.kagWait?'；KAG 层没接上（krkr wait kag）':'');
+ if(/名前?.{0,3}[入人][力カ]/.test(ocr))return '改名画面';
+ if(/^stalled/.test(end))return '推进停住（'+lines+' 句后 45 秒没有新句）';
+ return '台词太少（'+lines+' 句，结束原因 '+(end||'?')+'）';}
+
+/* ---- layer 4: the seed entry (The Seed/<engine>/<slug>/game.json + versions/<sha>.json), local only ---------------------------
+   From the game layer diff-maker made, plus the seed fields (README of The Seed), checked with core/profiles/seed.cjs like
+   seed-all.cjs. Written only for a pass (status verified); never into the repository, never uploaded. */
+function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const SeedFormat=require('../core/profiles/seed.cjs'),Probe=require('./diff-maker/probe.cjs');
+ const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));const gf=fs.readdirSync(diffDir).find(f=>/^game-.*\.json$/.test(f)),vf=fs.readdirSync(diffDir).find(f=>/^version-[0-9a-f]{64}\.json$/.test(f));
+ if(!gf||!vf)throw Error('diff has no game/version document');
+ const doc=read(path.join(diffDir,gf)),ver=read(path.join(diffDir,vf));const settings=JSON.parse(JSON.stringify(doc.settings||{}));delete settings.calibrate;settings.lang={ja:{annotation:'ruby'}};
+ let slugs={};try{slugs=read(path.join(__dirname,'diff-maker','slugs.json'));}catch{}
+ const slug=[slugs[title+'|'+exeName],slugs[title]].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
+ const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[title]},sourceLangs:['ja'],rev:1};
+ const version={...ver,rev:1};
+ for(const [n,d,w] of [['game',game,{engine,slug}],['version',version,{engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}
+ const dir=path.join(seedOut,engine,slug);fs.mkdirSync(path.join(dir,'versions'),{recursive:true});
+ fs.writeFileSync(path.join(dir,'game.json'),JSON.stringify(game,null,1)+'\n');fs.writeFileSync(path.join(dir,'versions',exeSha+'.json'),JSON.stringify(version,null,1)+'\n');
+ for(const f of fs.readdirSync(diffDir).filter(f=>/^lines-.*\.json$/.test(f)))fs.copyFileSync(path.join(diffDir,f),path.join(dir,'lines.json'));
+ return dir;}
+
 /* ---- main ---------------------------------------------------------------------------------------------------------------- */
+/* the whole game within --budget-min (default 10): every step timed (result.steps, ms); out of time → inconclusive, naming the step */
+const RESERVE_MS=150000,PROBE_MS=120000;
 async function run(opts,{log=console.log}={}){
+ const T0=Date.now(),budget=Math.round(opts.budgetMin*60000),left=()=>budget-(Date.now()-T0);
  const dir=path.resolve(opts.dir),title=titleOf(dir);
  const out=path.resolve(opts.out||path.join(RUNS_ROOT,safeName(title)));
  if(inside(out,dir))throw Error('--out must not be inside the game folder');
  fs.mkdirSync(out,{recursive:true});
- const result={verdict:'inconclusive',engine:'',gameKey:'',title,gameDir:dir,exe:'',reasons:[],checks:{},artifacts:{out},startedAt:new Date().toISOString(),
+ const result={verdict:'inconclusive',engine:'',gameKey:'',title,gameDir:dir,exe:'',reasons:[],checks:{},stuck:'',budgetMs:budget,totalMs:0,steps:{},
+  layers:{kernel:'MeguLitHook（不改）',engine:null,game:null,seed:null},artifacts:{out},startedAt:new Date().toISOString(),
   proof:{offline:['原文隐藏：Cardinal 只回放阅读层；游戏画面上原生字是否真的被盖住，冷测试只有钩子自报的 hideVisible，没有屏幕像素比对','译文替换和选项翻译：回放的翻译来源是固定的假译文（不联网），证明的是阅读层画出了译文，不是译文质量'],screenshots:'run/shot-*.jpg 是游戏客户区；--foreground 时 screen/screen-*.png 是整块屏幕。两者都没有 MeguLit 阅读层（本工具只开钩子，不开 MeguLit.exe），所以截图证明不了译文画上、选项有翻译，只能看游戏原生字和推进到哪'}};
- const write=()=>{result.endedAt=new Date().toISOString();fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,1));};
- const finish=j=>{result.verdict=j.verdict;result.reasons=j.reasons;result.checks=j.checks;write();return result;};
+ const step=async(name,fn)=>{const t=Date.now();try{return await fn();}finally{result.steps[name]=Date.now()-t;}};
+ const write=()=>{result.endedAt=new Date().toISOString();result.totalMs=Date.now()-T0;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,1));};
+ const finish=j=>{result.verdict=j.verdict;result.reasons=[...result.reasons,...j.reasons];result.checks=j.checks;
+  if(j.verdict!=='pass'&&result.stuck)result.reasons.unshift('卡在：'+result.stuck);write();return result;};
+ const overtime=name=>{if(left()>0)return false;result.stuck='超时：'+name+' 之前已用完 '+opts.budgetMin+' 分钟';return true;};
  if(!fs.existsSync(dir))throw Error('game folder not found: '+dir);
- const why=unsupported(dir);if(why)return finish(judge({unsupported:why}));
- const loc=locate(dir,opts.exe);if(!loc)return finish(judge({unsupported:'找不到主程序（用 --exe 指定）'}));
+ const why=await step('triage',()=>unsupported(dir));if(why)return finish(judge({unsupported:why}));
+ const loc=await step('locate',()=>locate(dir,opts.exe));if(!loc)return finish(judge({unsupported:'找不到主程序（用 --exe 指定）'}));
  if(inside(out,loc.gameDir))throw Error('--out must not be inside the game folder');
  result.exe=loc.exe;result.engine=loc.engine;result.engineWhy=loc.why;log('# '+title+' '+loc.engine+' '+loc.exe);
  const release=lock(path.join(RUNS_ROOT,'adapt-auto.lock'));if(!release)return finish(judge({unsupported:'另一部游戏正在自动适配（一次只跑一部）'}));
  try{
-  /* 2 probe */
-  let probe=null;try{probe=makeProbe(loc,title,out);result.artifacts.probe=probe.dir;result.exeSha256=probe.exeSha256;log('# probe '+probe.items+' items');}
-  catch(e){result.reasons.push('探针：'+e.message);}
+  /* layer 2: the engine's draw hook */
+  const engine=await step('engineHook',()=>engineHook(loc));result.layers.engine=engine;log('# engine '+engine.route+' '+engine.hook+(engine.hits!=null?' hits='+engine.hits:''));
+  /* probe */
+  let probe=null;
+  await step('probe',()=>{try{probe=makeProbe(loc,title,out,{budgetMs:Math.max(30000,Math.min(PROBE_MS,left()-RESERVE_MS-120000))});result.artifacts.probe=probe.dir;result.exeSha256=probe.exeSha256;log('# probe '+probe.items+' items');}
+   catch(e){result.reasons.push('探针：'+e.message);}});
   try{result.gameKey=require('../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
-  /* 3 cold test */
-  const root=prepareApp(opts.app,path.join(RUNS_ROOT,'_app'));
+  if(overtime('冷测试'))return finish(judge({cold:null}));
+  /* cold test: what is left of the budget, less the reserve for diff + Cardinal */
+  const root=await step('prepareApp',()=>prepareApp(opts.app,path.join(RUNS_ROOT,'_app')));
   const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
   const localeEmulator=localeEmulatorFor(root,loc,title);result.localeEmulator=!!localeEmulator;
+  const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
-  let cold=null;try{cold=await coldTest(root,loc,title,Math.round(opts.budgetMin*60000),probe?.exeSha256,{visible:opts.foreground,localeEmulator});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}
+  let cold=null;
+  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
   if(stopScreen){stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
   if(cold.runDir&&located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
   result.cold=cold;log('# cold '+cold.verdict+' '+(cold.why||'')+' lines='+(cold.lines|0));
-  let runCopy='',runInfo=null;
+  let runCopy='',runInfo=null,diag=null;
   if(cold.runDir&&fs.existsSync(cold.runDir)){runCopy=path.join(out,'run');fs.rmSync(runCopy,{recursive:true,force:true});copyTree(cold.runDir,runCopy);
    try{runInfo=JSON.parse(fs.readFileSync(path.join(runCopy,'run.json'),'utf8'));}catch{}
+   diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
-  /* 4 diff */
+  result.stuck=stuckOf({cold,run:runInfo,diag,engine});
+  /* layer 3: the game diff */
   let diff=null;
-  if(probe&&runCopy){try{diff=makeDiff(probe.dir,runCopy,out);result.artifacts.diff=diff.dir;if(diff.gameKey)result.gameKey=diff.gameKey;log('# diff '+diff.mode+' cost='+diff.cost);}catch(e){diff={ok:false,why:e.message};}}
-  else diff={ok:false,why:probe?'冷测试没有运行目录':'没有探针'};
-  result.diff=diff;
-  /* 5 Cardinal (only when the cold run has lines to replay) */
+  await step('diff',()=>{if(probe&&runCopy){try{diff=makeDiff(probe.dir,runCopy,out);result.artifacts.diff=diff.dir;if(diff.gameKey)result.gameKey=diff.gameKey;log('# diff '+diff.mode+' cost='+diff.cost);}catch(e){diff={ok:false,why:e.message};}}
+   else diff={ok:false,why:probe?'冷测试没有运行目录':'没有探针'};});
+  result.diff=diff;if(diff.ok)result.layers.game={diff:diff.dir,mode:diff.mode};
+  /* Cardinal (only when the cold run has lines to replay) */
   let card=null;
-  if(runCopy&&(cold.lines|0)>0){const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file);if(card.ok)result.artifacts.cardinal=file;
-   fs.writeFileSync(path.join(out,'cardinal.log'),card.log||'');result.cardinal=card.ok?{scores:card.result.scores,applies:card.result.applies,total:card.result.total,lines:card.result.lines,errors:card.errors}:{why:card.why};
-   log('# cardinal '+(card.ok?JSON.stringify(card.result.scores):card.why));}
-  return finish(judge({cold,diff,card}));}
+  if(runCopy&&(cold.lines|0)>0){if(overtime('Cardinal 回放'))return finish(judge({cold,diff,card:null}));
+   await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(60000,left())});if(card.ok)result.artifacts.cardinal=file;
+    fs.writeFileSync(path.join(out,'cardinal.log'),card.log||'');result.cardinal=card.ok?{scores:card.result.scores,applies:card.result.applies,total:card.result.total,lines:card.result.lines,errors:card.errors}:{why:card.why};
+    log('# cardinal '+(card.ok?JSON.stringify(card.result.scores):card.why));});}
+  const j=judge({cold,diff,card});
+  /* layer 4: the seed entry, only for a pass */
+  if(j.verdict==='pass'&&opts.seedOut)await step('seed',()=>{try{result.layers.seed=writeSeed(diff.dir,{engine:loc.engine,title,exeName:path.basename(loc.exe),exeSha:probe.exeSha256,gameKey:result.gameKey},path.resolve(opts.seedOut));result.artifacts.seed=result.layers.seed;}
+   catch(e){j.reasons.push('seed 没写出：'+e.message);}});
+  if(left()<0&&j.verdict==='pass')j.reasons.push('超出预算 '+Math.round(-left()/1000)+' 秒');
+  return finish(j);}
  finally{release();}}
 
 async function main(argv){let opts;try{opts=parseArgs(argv);}catch(e){console.error(e.message);return EXIT.inconclusive;}
@@ -238,4 +318,4 @@ async function main(argv){let opts;try{opts=parseArgs(argv);}catch(e){console.er
  try{const r=await run(opts);console.log(r.verdict+' '+path.join(r.artifacts.out,'result.json'));for(const x of r.reasons)console.log('  '+x);return EXIT[r.verdict]??2;}
  catch(e){console.error('adapt-auto: '+(e.stack||e.message));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={parseArgs,titleOf,safeName,unsupported,locate,engineOfGame,judge,lock,run,main,GATE,EXIT};
+module.exports={parseArgs,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,lock,run,main,GATE,EXIT};
