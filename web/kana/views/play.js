@@ -58,8 +58,9 @@ const DNAME={intro:"入门",std:"标准",adv:"进阶",chal:"挑战"};
 const P={get:k=>params[k]??null};
 const G=P.get("g")||"pos",D=P.get("d")||"intro",S=P.get("s")||"h";
 const C={...CFG[G][D]},script=C.script||S;
-const ONLY=(P.get("only")||"").split(",").filter(Boolean).map(toHira);
-if(ONLY.length){const base=C.pool;C.pool=()=>G==="seq"?ONLY.filter(k=>ORDER.includes(k)):ONLY;if(C.n!==Infinity)C.n=Math.min(C.n,Math.max(6,ONLY.length*2));C.confuse=0}
+const VALID_KANA={pos:new Set([...SEION.filter(k=>k!=="ん"),...DAKU]),seq:new Set(C.mode==="next"?ORDER.slice(0,-1):ORDER),conv:new Set([...SEION,...DAKU,...YOON])};
+const ONLY=[...new Set((P.get("only")||"").split(",").filter(Boolean).map(toHira))];
+if(ONLY.length){const onlyPool=ONLY.filter(k=>VALID_KANA[G].has(k));if(onlyPool.length){C.pool=()=>onlyPool;if(G==="pos"&&onlyPool.some(k=>DAKU.includes(k)))C.daku=true;if(C.n!==Infinity)C.n=Math.min(C.n,Math.max(6,onlyPool.length*2));C.confuse=0}}
 
 /* ================= 状态 ================= */
 let st={i:0,score:0,ok:0,bad:0,streak:0,best:0,lives:C.lives||0,hints:C.hints,start:performance.now(),times:[],wrong:[],log:[],over:false};

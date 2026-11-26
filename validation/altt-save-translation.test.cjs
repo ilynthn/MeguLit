@@ -35,6 +35,49 @@ body.tomoyo-game-style .tomoyo-cn-row:has(.tomoyo-cn-output:empty){visibility:hi
 <body class="tomoyo-ui-translation tomoyo-gal-bound tomoyo-game-style">
 <div class="sentence-window"><div class="sentence-text"></div></div>
 <script>
+(() => {
+  let now = 0, nextId = 1;
+  const tasks = new Map();
+  window.setTimeout = (fn, ms = 0, ...args) => {
+    const id = nextId++, delay = Math.max(0, Number(ms) || 0);
+    tasks.set(id, { id, at: now + delay, fn, args, interval: null });
+    return id;
+  };
+  window.clearTimeout = id => { tasks.delete(id); };
+  window.setInterval = (fn, ms = 0, ...args) => {
+    const id = nextId++, interval = Math.max(1, Number(ms) || 1);
+    tasks.set(id, { id, at: now + interval, fn, args, interval });
+    return id;
+  };
+  window.clearInterval = id => { tasks.delete(id); };
+  const baseDate = Date.now();
+  Date.now = () => baseDate + now;
+  if (window.performance) performance.now = () => now;
+  window.__clock = {
+    now: () => now,
+    advance(ms) {
+      const target = now + Math.max(0, Number(ms) || 0);
+      for (let steps = 0; steps < 5000; steps++) {
+        let next = null;
+        for (const t of tasks.values()) {
+          if (t.at <= target && (!next || t.at < next.at || (t.at === next.at && t.id < next.id))) next = t;
+        }
+        if (!next) break;
+        now = next.at;
+        if (next.interval != null) next.at = now + next.interval;
+        else tasks.delete(next.id);
+        if (typeof next.fn === 'function') next.fn(...next.args);
+      }
+      now = target;
+    },
+    async tick(ms = 0) {
+      await Promise.resolve();
+      await Promise.resolve();
+      this.advance(ms);
+      await Promise.resolve();
+    },
+  };
+})();
 window.__sent = [];
 window.__autoGuard = {};
 window.__tomoyoTranslateRequest = raw => {
@@ -89,27 +132,20 @@ function serve() {
 
 async function openFresh(cdp, url) {
   await cdp.send('Page.navigate', { url });
-  for (let i = 0; i < 60; i++) {
-    const ready = await cdp.evaluate('window.__ready === true').catch(() => false);
-    if (ready) {
-      await cdp.evaluate('localStorage.clear();');
-      await cdp.send('Page.navigate', { url });
-      for (let j = 0; j < 60; j++) {
-        if (await cdp.evaluate('window.__ready === true').catch(() => false)) return;
-        await new Promise(r => setTimeout(r, 30));
-      }
-    }
-    await new Promise(r => setTimeout(r, 30));
+  for (let i = 0; i < 200; i++) {
+    if (await cdp.evaluate('window.__ready === true').catch(() => false)) return;
+    await new Promise(r => setTimeout(r, 10));
   }
   throw new Error('reader harness did not initialize');
 }
 
-test('Alt+T settings save re-arms translateGuard and orders visibility notifications before refresh (#1127)', { skip: !hasEdge && 'Edge not installed', timeout: 60000 }, async t => {
+test('Alt+T settings save re-arms translateGuard and orders visibility notifications before refresh (#1127)', { skip: !hasEdge && 'Edge not installed', timeout: 30000 }, async t => {
   const temp = fs.mkdtempSync(path.join(process.env.MEGULIT_WORK || os.tmpdir(), 'megulit-altt-save-'));
   let server, cdp;
   try {
     server = await serve();
     cdp = await startEdge(path.join(temp, 'edge'));
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: 'try { localStorage.clear(); } catch {}' });
     const url = `http://127.0.0.1:${server.address().port}/`;
 
     await t.test('refresh after Alt+T settings save re-arms translateGuard when refreshed response is lost', async () => {
@@ -120,16 +156,16 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         const zh = '“今天天气真好呢。”';
         document.querySelector('.sentence-text').textContent = jp;
         b.refresh();
-        await new Promise(r => setTimeout(r, 280));
+        await window.__clock.tick(280);
         const firstReq = window.__sent.find(m => m.id && m.text === jp);
         b.deliver(firstReq.id, zh, false, '', { target: 'zh', source: 'api', provider: 'deepseek' });
         const beforeSave = document.querySelector('.tomoyo-cn-output').textContent;
 
-        // Wait past initial 600ms/1500ms/3000ms guard timers, as when the player reads a line and opens Alt+T.
-        await new Promise(r => setTimeout(r, 3150));
+        // Advance past initial 600ms/1500ms/3000ms guard timers, as when the player reads a line and opens Alt+T.
+        await window.__clock.tick(3150);
 
         b.openSettings();
-        await new Promise(r => setTimeout(r, 30));
+        await window.__clock.tick(30);
         const dialog = document.querySelector('.tomoyo-cn-dialog');
         const form = dialog.querySelector('form');
         form.elements.namedItem('size').value = '22';
@@ -140,7 +176,7 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         const cfg = window.__sent.find(m => m.type === 'configure');
         b.configured(true, '', cfg.configureId);
 
-        await new Promise(r => setTimeout(r, 950));
+        await window.__clock.tick(950);
         const guards = window.__sent.filter(m => m.type === 'translateGuard' && m.text === jp);
         const afterReq = window.__sent.find(m => m.id && m.text === jp);
         return {
@@ -166,11 +202,11 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         const jp = '「ここで待っていて。」';
         b.setTranslationVisible(false);
         document.querySelector('.sentence-text').textContent = jp;
-        await new Promise(r => setTimeout(r, 280));
+        await window.__clock.tick(280);
         window.__sent.length = 0;
         window.__autoGuard[jp] = '“在这里等着。”';
         b.setTranslationVisible(true);
-        await new Promise(r => setTimeout(r, 950));
+        await window.__clock.tick(950);
         const guards = window.__sent.filter(m => m.type === 'translateGuard' && m.text === jp);
         const visIdx = window.__sent.findIndex(m => m.disabled === false);
         const reqIdx = window.__sent.findIndex(m => m.id && m.text === jp);
@@ -198,7 +234,7 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         const jp = '「すぐ戻るよ。」';
         document.querySelector('.sentence-text').textContent = jp;
         b.refresh();
-        await new Promise(r => setTimeout(r, 280));
+        await window.__clock.tick(280);
         const firstReq = window.__sent.find(m => m.id && m.text === jp);
         b.deliver(firstReq.id, '“马上回来。”', false, '', { target: 'zh', source: 'api', provider: 'deepseek' });
 
@@ -206,13 +242,13 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         b.setEnabled(false);
         const jp2 = '「ここで待ってて。」';
         document.querySelector('.sentence-text').textContent = jp2;
-        await new Promise(r => setTimeout(r, 750));
+        await window.__clock.tick(750);
         const guardsWhileOff = window.__sent.filter(m => m.type === 'translateGuard').length;
 
         window.__sent.length = 0;
         window.__autoGuard[jp2] = '“在这边等我。”';
         b.setEnabled(true);
-        await new Promise(r => setTimeout(r, 950));
+        await window.__clock.tick(950);
         const guardsAfterOn = window.__sent.filter(m => m.type === 'translateGuard' && m.text === jp2);
         return {
           guardsWhileOff,
@@ -234,16 +270,16 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         const jp = '「プレビュー確認。」';
         document.querySelector('.sentence-text').textContent = jp;
         b.refresh();
-        await new Promise(r => setTimeout(r, 120));
+        await window.__clock.tick(120);
         window.__sent.length = 0;
         b.setHookSourcePreview(true);
-        await new Promise(r => setTimeout(r, 750));
+        await window.__clock.tick(750);
         const guardsInPreview = window.__sent.filter(m => m.type === 'translateGuard').length;
 
         window.__sent.length = 0;
         window.__autoGuard[jp] = '“预览确认。”';
         b.setHookSourcePreview(false);
-        await new Promise(r => setTimeout(r, 950));
+        await window.__clock.tick(950);
         const guardsAfterPreview = window.__sent.filter(m => m.type === 'translateGuard' && m.text === jp);
         return {
           guardsInPreview,
@@ -263,11 +299,11 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
         const jp = '「風が冷たいね。」';
         document.querySelector('.sentence-text').textContent = jp;
         b.refresh();
-        await new Promise(r => setTimeout(r, 280));
+        await window.__clock.tick(280);
         const req = window.__sent.find(m => m.id && m.text === jp);
         window.__sent.length = 0;
         b.setTranslationVisible(false);
-        await new Promise(r => setTimeout(r, 750));
+        await window.__clock.tick(750);
         const offAck = window.__sent.find(m => m.disabled === true);
         const guardsWhileHidden = window.__sent.filter(m => m.type === 'translateGuard').length;
         return { reqId: req?.id ?? null, offId: offAck?.id ?? null, guardsWhileHidden };
@@ -299,7 +335,8 @@ test('Alt+T settings save re-arms translateGuard and orders visibility notificat
   } finally {
     await cdp?.stop();
     server?.close();
-    await new Promise(r => setTimeout(r, 300));
-    try { fs.rmSync(temp, { recursive: true, force: true }); } catch {}
+    for (let i = 0; i < 5; i++) {
+      try { fs.rmSync(temp, { recursive: true, force: true }); break; } catch { await new Promise(r => setTimeout(r, 30)); }
+    }
   }
 });

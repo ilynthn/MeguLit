@@ -23,6 +23,10 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
   '.json': 'application/json; charset=utf-8',
 };
 
@@ -46,8 +50,26 @@ function serveWeb() {
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
-test('dictionary saved-word check matches spelling rather than reading and refreshes cache after onSave', { skip: !hasEdge && 'Edge not installed', timeout: 60000 }, async t => {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'megulit-dict-saved-'));
+async function waitFor(cdp, expr, label, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ok = await cdp.evaluate(expr).catch(() => false);
+    if (ok) return;
+    await new Promise(r => setTimeout(r, 50));
+  }
+  const diag = await cdp.evaluate(`(() => ({
+    href: location.href,
+    readyState: document.readyState,
+    tomeReady: !!window.__TOME_READY__,
+    homeCalls: window.__state?.homeCalls || 0,
+    bootErrors: (window.__bootErrors || []).slice(0, 5),
+    appText: (document.querySelector('#app')?.textContent || '').trim().slice(0, 120),
+  }))()`).catch(err => ({ evalError: String(err?.message || err) }));
+  throw new Error(`timed out waiting for ${label}: ${JSON.stringify(diag)}`);
+}
+
+test('dictionary saved-word check matches spelling rather than reading and refreshes cache after onSave', { skip: !hasEdge && 'Edge not installed', timeout: 120000 }, async t => {
+  const temp = fs.mkdtempSync(path.join(process.env.MEGULIT_WORK || os.tmpdir(), 'megulit-dict-saved-'));
   let server, cdp;
   try {
     server = await serveWeb();
@@ -56,11 +78,16 @@ test('dictionary saved-word check matches spelling rather than reading and refre
 
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `(() => {
+        window.__bootErrors = [];
+        window.addEventListener('error', e => window.__bootErrors.push(String(e.message || e.error || 'error')));
+        window.addEventListener('unhandledrejection', e => window.__bootErrors.push(String(e.reason || 'rejection')));
         window.__state = {
           vocab: [
             { id: 1, spelling: '橋', reading: 'はし', definitions: '["桥"]', status: 1, created_at: 1700000000 },
             { id: 2, spelling: '', reading: 'かみ', definitions: '["纯假名示例"]', status: 0, created_at: 1700000001 },
           ],
+          homeCalls: 0,
+          dictCalls: 0,
           vocabCalls: 0,
           savedCalls: [],
         };
@@ -81,6 +108,7 @@ test('dictionary saved-word check matches spelling rather than reading and refre
           const req = args?.request || {};
           switch (req.action) {
             case 'home':
+              window.__state.homeCalls++;
               return { games: [], stats: { readingSeconds: 0, words: window.__state.vocab.length, lookups: 0 }, preferences: { language: 'zh', accent: '#ad1539' } };
             case 'ui_state':
               return {};
@@ -95,6 +123,7 @@ test('dictionary saved-word check matches spelling rather than reading and refre
             case 'moji_status':
               return { signedIn: false, name: '' };
             case 'dictionary':
+              window.__state.dictCalls++;
               return (entriesByQuery[req.query] || []).map(x => ({ ...x }));
             case 'reading_save_word': {
               const key = String(req.key || req.base || '');
@@ -119,45 +148,59 @@ test('dictionary saved-word check matches spelling rather than reading and refre
     });
 
     await cdp.send('Page.navigate', { url });
-    await cdp.evaluate(`(async () => {
-      for (let i = 0; i < 100; i++) {
-        if (document.querySelector('[data-route="learning"]')) break;
-        await new Promise(r => setTimeout(r, 40));
-      }
-      document.querySelector('[data-route="learning"]').click();
-      for (let i = 0; i < 100; i++) {
-        const tab = document.querySelector('[data-tab="dictionary"]');
-        if (tab) { tab.click(); break; }
-        await new Promise(r => setTimeout(r, 40));
-      }
-      for (let i = 0; i < 100; i++) {
-        if (document.querySelector('#lookup-input')) return true;
-        await new Promise(r => setTimeout(r, 40));
-      }
-      throw new Error('dictionary tab did not mount');
-    })()`);
+    await waitFor(
+      cdp,
+      "document.readyState === 'complete' && window.__TOME_READY__ === true && !!document.querySelector('[data-route=\"learning\"]')",
+      'app boot and learning route button',
+    );
+    await cdp.evaluate("document.querySelector('[data-route=\"learning\"]').click()");
+    await waitFor(cdp, "!!document.querySelector('[data-tab=\"dictionary\"]')", 'dictionary tab button');
+    await cdp.evaluate("document.querySelector('[data-tab=\"dictionary\"]').click()");
+    await waitFor(
+      cdp,
+      "!!document.querySelector('#lookup-input') && !!document.querySelector('#lookup-form button[value=\"local\"]')",
+      'dictionary lookup form',
+    );
 
     await t.test('homophones sharing reading with a saved word stay savable, and saving refreshes savedSet on next search', async () => {
       const res = await cdp.evaluate(`(async () => {
-        const searchLocal = async q => {
+        const waitUntil = async (pred, label, ms = 10000) => {
+          const end = Date.now() + ms;
+          while (Date.now() < end) {
+            if (pred()) return;
+            await new Promise(r => setTimeout(r, 20));
+          }
+          throw new Error('timed out waiting for ' + label);
+        };
+        const searchLocal = async (q, firstNeedle) => {
           const input = document.querySelector('#lookup-input');
           const btn = document.querySelector('#lookup-form button[value="local"]');
+          if (!input || !btn) throw new Error('lookup controls missing');
+          const beforeCalls = window.__state.dictCalls;
           input.value = q;
           btn.click();
-          for (let i = 0; i < 100; i++) {
-            if (document.querySelectorAll('.dict-entries .esr-row').length === 3 && document.querySelector('.dict-entries [data-save]')) break;
-            await new Promise(r => setTimeout(r, 30));
-          }
+          await waitUntil(() => {
+            const rows = document.querySelectorAll('.dict-entries .esr-row');
+            return window.__state.dictCalls > beforeCalls
+              && rows.length === 3
+              && rows[0].textContent.includes(firstNeedle)
+              && !!document.querySelector('.dict-entries [data-save]');
+          }, 'search results for ' + q);
         };
         const inspect = async index => {
           const rows = [...document.querySelectorAll('.dict-entries .esr-row')];
+          if (!rows[index]) throw new Error('missing result row ' + index);
           rows[index].click();
-          await new Promise(r => setTimeout(r, 20));
+          await waitUntil(
+            () => document.querySelectorAll('.dict-entries .esr-row')[index]?.classList.contains('is-cur')
+              && !!document.querySelector('.dict-entries [data-save]'),
+            'entry selection ' + index,
+          );
           const btn = document.querySelector('.dict-entries [data-save]');
           return { text: btn?.textContent.trim() || '', disabled: !!btn?.disabled };
         };
 
-        await searchLocal('はし');
+        await searchLocal('はし', '橋');
         const hashiBridge = await inspect(0);
         const hashiChopsticks = await inspect(1);
         const hashiEdge = await inspect(2);
@@ -165,12 +208,18 @@ test('dictionary saved-word check matches spelling rather than reading and refre
         // Save 箸 from the dictionary panel.
         await inspect(1);
         const saveBtn = document.querySelector('.dict-entries [data-save]');
-        if (!saveBtn.disabled) saveBtn.click();
-        await new Promise(r => setTimeout(r, 80));
+        const savedBefore = window.__state.savedCalls.length;
+        if (saveBtn && !saveBtn.disabled) {
+          saveBtn.click();
+          await waitUntil(
+            () => window.__state.savedCalls.length > savedBefore && !!document.querySelector('.dict-entries [data-save]')?.disabled,
+            'save completion for 箸',
+          );
+        }
 
         // Search はし again: 箸 must stay saved while 端 remains savable.
         const vocabCallsBefore = window.__state.vocabCalls;
-        await searchLocal('はし');
+        await searchLocal('はし', '橋');
         const chopsticksAfterResearch = await inspect(1);
         const edgeAfterResearch = await inspect(2);
         return {
@@ -196,19 +245,37 @@ test('dictionary saved-word check matches spelling rather than reading and refre
 
     await t.test('kana-only saved entry does not disable kanji homophone, and kana-only entry updates immediately on save', async () => {
       const res = await cdp.evaluate(`(async () => {
+        const waitUntil = async (pred, label, ms = 10000) => {
+          const end = Date.now() + ms;
+          while (Date.now() < end) {
+            if (pred()) return;
+            await new Promise(r => setTimeout(r, 20));
+          }
+          throw new Error('timed out waiting for ' + label);
+        };
         const input = document.querySelector('#lookup-input');
         const btn = document.querySelector('#lookup-form button[value="local"]');
+        if (!input || !btn) throw new Error('lookup controls missing');
+        const beforeCalls = window.__state.dictCalls;
         input.value = 'かみ';
         btn.click();
-        for (let i = 0; i < 100; i++) {
-          const head = document.querySelector('.dict-entries .esr-row')?.textContent || '';
-          if (head.includes('紙')) break;
-          await new Promise(r => setTimeout(r, 30));
-        }
+        await waitUntil(() => {
+          const rows = document.querySelectorAll('.dict-entries .esr-row');
+          return window.__state.dictCalls > beforeCalls
+            && rows.length === 3
+            && rows[0].textContent.includes('紙')
+            && !!document.querySelector('.dict-entries [data-save]');
+        }, 'search results for かみ');
+
         const inspect = async index => {
           const rows = [...document.querySelectorAll('.dict-entries .esr-row')];
+          if (!rows[index]) throw new Error('missing result row ' + index);
           rows[index].click();
-          await new Promise(r => setTimeout(r, 20));
+          await waitUntil(
+            () => document.querySelectorAll('.dict-entries .esr-row')[index]?.classList.contains('is-cur')
+              && !!document.querySelector('.dict-entries [data-save]'),
+            'entry selection ' + index,
+          );
           const b = document.querySelector('.dict-entries [data-save]');
           return { text: b?.textContent.trim() || '', disabled: !!b?.disabled };
         };
@@ -217,8 +284,14 @@ test('dictionary saved-word check matches spelling rather than reading and refre
         const kamiKana = await inspect(1);
         const yappariBefore = await inspect(2);
         const saveBtn = document.querySelector('.dict-entries [data-save]');
-        if (!saveBtn.disabled) saveBtn.click();
-        await new Promise(r => setTimeout(r, 80));
+        const savedBefore = window.__state.savedCalls.length;
+        if (saveBtn && !saveBtn.disabled) {
+          saveBtn.click();
+          await waitUntil(
+            () => window.__state.savedCalls.length > savedBefore && !!document.querySelector('.dict-entries [data-save]')?.disabled,
+            'save completion for やっぱり',
+          );
+        }
         const yappariAfter = {
           text: document.querySelector('.dict-entries [data-save]')?.textContent.trim() || '',
           disabled: !!document.querySelector('.dict-entries [data-save]')?.disabled,
@@ -234,7 +307,8 @@ test('dictionary saved-word check matches spelling rather than reading and refre
   } finally {
     await cdp?.stop();
     server?.close();
-    await new Promise(r => setTimeout(r, 300));
-    try { fs.rmSync(temp, { recursive: true, force: true }); } catch {}
+    for (let i = 0; i < 5; i++) {
+      try { fs.rmSync(temp, { recursive: true, force: true }); break; } catch { await new Promise(r => setTimeout(r, 30)); }
+    }
   }
 });
