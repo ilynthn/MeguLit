@@ -20,9 +20,9 @@ test('HookBridge: YU-RIS repeat fold, join and selection are wired and self-test
  assert.match(SRC,/static bool YurisGdiOwn\(string key\)\{Candidate c;return key!=null&&YurisFolded\(key\)&&Candidates\.TryGetValue\(key,out c\)&&c\.name=="YU-RIS2";\}/,'only the TextOutA call stream');
  assert.match(SRC,/if\(KrkrRank\(name\)>0&&KrkrNoKag\(\)\)\{string once=UndoubleChars\(text,2\);/,'the KiriKiri no-KAG path is unchanged');});
 
-test('YU-RIS joined lines: a name plate cut by the flushes is found again in the joined line; a 。 inside an open quote does not end it',()=>{
+test('YU-RIS joined lines: a name plate cut by the flushes is found again in the joined line; a 。 inside an open quote does not end it (KiriKiri no-KAG too)',()=>{
  const SRC=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','native','HookBridge.cs'),'utf8');
  assert.match(SRC,/while\(\(who2=YurisNameChain\(text,out at2,out len2,2\)\)!=null\)/,'two passes are enough on the joined line');
  assert.match(SRC,/internal static bool JoinEnd\(string t\)\{if\(!SentenceEnd\(t\)\)return false;/);
- assert.match(SRC,/bool yuris=YurisStream\(name\);if\(!KrkrJoin\.TryGetValue\(key,out p\)\)\{if\(yuris\?JoinEnd\(text\):SentenceEnd\(text\)\)return text;/,'KiriKiri keeps SentenceEnd');
+ assert.match(SRC,/if\(!KrkrJoin\.TryGetValue\(key,out p\)\)\{if\(JoinEnd\(text\)\)return text;/,'the first piece');assert.match(SRC,/string all=p\.text\.ToString\(\);if\(JoinEnd\(all\)\)\{/,'the joined pieces (KiriKiri no-KAG too)');
  assert.match(SRC,/JoinEnd\("「あの、私。"\)\|\|!JoinEnd\("「あの、私。これから」"\)/,'--self-test covers it');});

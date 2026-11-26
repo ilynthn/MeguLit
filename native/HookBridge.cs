@@ -619,11 +619,11 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
   string text=p.text.ToString();if(text.Length==0)return;KrkrJoinFlush=true;try{Diagnostic("krkr no-KAG: joined (quiet) "+p.name+" chars="+text.Length);OutputFrame(p.code,p.name,p.tp,text,p.probe);}catch(Exception e){Diagnostic("krkr join error "+e.Message);}finally{KrkrJoinFlush=false;}}
  /* -> the whole line to handle now, or null when the piece was kept for later */
  static string KrkrJoinPiece(string code,string name,ThreadParam tp,string text,long probe){string key=tp.Key();lock(KrkrJoin){KrkrPending p;
-  bool yuris=YurisStream(name);if(!KrkrJoin.TryGetValue(key,out p)){if(yuris?JoinEnd(text):SentenceEnd(text))return text;p=new KrkrPending{code=code,name=name,tp=tp,probe=probe};p.timer=new System.Threading.Timer(KrkrJoinDue,key,Timeout.Infinite,Timeout.Infinite);KrkrJoin[key]=p;}
+  if(!KrkrJoin.TryGetValue(key,out p)){if(JoinEnd(text))return text;p=new KrkrPending{code=code,name=name,tp=tp,probe=probe};p.timer=new System.Threading.Timer(KrkrJoinDue,key,Timeout.Infinite,Timeout.Infinite);KrkrJoin[key]=p;}
   /* a piece that opens a new line (「『（ or the full-width indent), or a line already KrkrJoinMax long (fast-forward: no closing
      punctuation for a long time, 4036 characters on オルフレール), closes what was kept before it */
   if(p.text.Length>0&&("「『（　".IndexOf(text[0])>=0||p.text.Length+text.Length>KrkrJoinMax)){string before=p.text.ToString();p.text.Clear().Append(text);p.timer.Change(KrkrJoinMs,Timeout.Infinite);Diagnostic("krkr no-KAG: joined (next line) "+name+" chars="+before.Length);return before;}
-  p.text.Append(text);string all=p.text.ToString();if(yuris?JoinEnd(all):SentenceEnd(all)){KrkrJoin.Remove(key);try{p.timer.Dispose();}catch{}if(all.Length>text.Length)Diagnostic("krkr no-KAG: joined "+name+" chars="+all.Length);return all;}
+  p.text.Append(text);string all=p.text.ToString();if(JoinEnd(all)){KrkrJoin.Remove(key);try{p.timer.Dispose();}catch{}if(all.Length>text.Length)Diagnostic("krkr no-KAG: joined "+name+" chars="+all.Length);return all;}
   p.timer.Change(KrkrJoinMs,Timeout.Infinite);return null;}}
   /* オルフレール's two options came as one text (LunaHook flushed both draws at once: "……本当は、お優しい方なのかしら……本当に、几帳面
     な方なのね"), so the kernel saw one candidate and no choice reached the reader. A short text without a sentence end whose opening mark
@@ -632,8 +632,10 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
   string mark=null;foreach(string m in new[]{"……","…","「","『","（","・","―"})if(t.StartsWith(m,StringComparison.Ordinal)){mark=m;break;}if(mark==null)return text;/* only an explicit opening mark: "the first two characters" cut narration at a repeated 「いる」 */
   var parts=new List<string>();int from=0;for(int i=mark.Length+2;i<=t.Length-mark.Length;i++){if(String.CompareOrdinal(t,i,mark,0,mark.Length)!=0)continue;if(i>0&&mark.Length>0&&t[i-1]==mark[0])continue;parts.Add(t.Substring(from,i-from));from=i;i+=mark.Length;}
   parts.Add(t.Substring(from));if(parts.Count<2||parts.Count>6)return text;foreach(string x in parts)if(x.Trim().Length<mark.Length+2)return text;return String.Join("\n",parts);}
-/* 2026-11-26 (Monochrome Empire: a 。 inside 「…」 closed the line and the quote reached the reader as two lines): the joiner ends a
-   YU-RIS line (KiriKiri keeps SentenceEnd: a quote there may run over pages) at a sentence end only when every 「『（ in it is closed; the quiet timer and KrkrJoinMax still end an unclosed one */
+/* 2026-11-26 (Monochrome Empire: a 。 inside 「…」 closed the line and the quote reached the reader as two lines; オルフレール the same:
+   「盗賊団に…ってね……。 / この村は大丈夫かねえ。 / 不安だよ……」 came 0.6 s and 0.4 s apart, too short to be read, Cardinal row 0.886): the
+   joiner ends a line at a sentence end only when every 「『（ in it is closed. The quiet timer (KrkrJoinMs) and KrkrJoinMax still end an
+   unclosed one, so a quote running over two pages reaches the reader page by page, KrkrJoinMs late */
  internal static bool JoinEnd(string t){if(!SentenceEnd(t))return false;int a=0,b=0,c=0;foreach(char ch in t??""){if(ch=='「')a++;else if(ch=='」')a--;else if(ch=='『')b++;else if(ch=='』')b--;else if(ch=='（')c++;else if(ch=='）')c--;}return a<=0&&b<=0&&c<=0;}
 /* closing punctuation only: a typed 「― or 「… is a pause inside the line, not its end */static bool SentenceEnd(string t){t=(t??"").TrimEnd();return t.Length>0&&"。！？!?」』）)".IndexOf(t[t.Length-1])>=0;}
  internal static string UndoubleChars(string text,int min=4){if(text==null||text.Length<min||text.Length<2||text.Length%2!=0)return text;for(int i=0;i<text.Length;i+=2)if(text[i]!=text[i+1])return text;var sb=new System.Text.StringBuilder(text.Length/2);for(int i=0;i<text.Length;i+=2)sb.Append(text[i]);return sb.ToString();}
