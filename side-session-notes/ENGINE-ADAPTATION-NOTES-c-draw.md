@@ -17,3 +17,9 @@
 - 原理（按日志推断，未实机复现）：KiriKiri TextRender 路径的隐藏 tick（script.inc trHide）在「当前消息层不再是这一层 / 这一层暂时不显示」时收回整行（报 n=0、恢复 textLayer 不透明度）；同期状态行 hid0 empty0 blank0 link=0，排除了 trDone 的各条收回路径，只剩 trHide。文字窗口随后带着同样的文字回来、但不重新排版，于是原生字一直露着，下一句也从不透明开始画
 - 修法（KiriKiri 引擎层 + 内核小改）：trHide 收回的行先暂存；这一层重新成为显示中的当前层、且 getCharacters 排出的文字完全一样时，重新隐藏并用同一行号再报一次。新排版、MessageLayer.clear、其他任何收回都丢弃暂存；有链接的层、读模式不恢复。OverlayPlacement 对「gone 之后同 id 同文字又 hidden」发 regained，点读层据此撤销 goneText 重新摆位。另加 trwhy 计数 away/switch/unshown/resume，下次日志能直接看出是哪种
 - 教训：「收回」和「彻底没了」要分开：窗口临时让位不等于这一句结束
+
+## 血塗れの男 每句原生字没隐藏、叠字（#1124 #1125 实机补修，integration 测试）
+- 现象：集成包实机，血塗れの男 每句 0.6 s 后 placement gone，原生字和阅读层叠在一起；a27ffbc9 的 trPark/trResume 一次都没触发（trwhy 没有 resume）
+- 原理（调试版 DLL 实测）：trwhy switch cur=f0 owner=b0。游戏把这句写在后台页 kag.back.messages[0]，[trans] 再把后台页拷到前台；屏幕上的字是前台孪生层的拷贝，TextRender 从没在前台渲染过，所以 trDone 只认后台层，隐藏 tick 看到当前层换成前台就收回整句，前台拷贝一直露着
+- 修法（KiriKiri 引擎层）：隐藏 tick 发现当前层是记录所属后台层的前台孪生（同一下标）且显示中，就把记录挪到前台层并把前台 textLayer 透明，后台层还原；行号、框不变，不再收回。非孪生层照旧收回
+- 教训：KAG 的 backlay+trans 会把后台页内容拷到前台而不是交换对象，凡是按「当前层」认主人的逻辑都要考虑前后台孪生；猜测型修复要用调试版 DLL 把原因打出来再修
