@@ -80,7 +80,13 @@
     'body.megulit-placed .megulit-place-window .tomoyo-cn-row{position:absolute!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:auto}',
     inline + '{display:block!important}',
     inline + ' :is(.sentence-text:not(.megulit-old-line),.tomoyo-cn-row,.tomoyo-cn-output):not([hidden]){display:inline!important;position:static!important;width:auto!important;padding:0!important;margin:0!important;text-indent:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-break:strict}',
-    inline + ' .sentence-text:not(.megulit-old-line) br,' + inline + ' .tomoyo-cn-output br.megulit-cn-br{display:none!important}',
+    /* #1104 (sugar, ファタモルガーナの館 with 中文紧随日文 on: every row of a page line and the lines after it ran together into one
+       left-hand paragraph): only the translation follows on; the Japanese keeps its own line breaks. A line's newline (a char
+       token "\n") breaks unless the game's own row breaks (br.megulit-row-br, which stay shown) already place the rows, or the
+       Japanese is set to one line; the translation's forced row breaks are the only ones hidden. */
+    inline + ' .sentence-text:not(.megulit-old-line):not(#megulit-x){white-space:pre-line!important}',
+    inline.replace('html body.', 'html body.megulit-jp-one-line.') + ' .sentence-text:not(.megulit-old-line):not(#megulit-x),' + inline + '.megulit-game-rows .sentence-text:not(.megulit-old-line):not(#megulit-x){white-space:normal!important}',
+    inline + ' .tomoyo-cn-output br.megulit-cn-br{display:none!important}',
     inline + ' .tomoyo-cn-row:has(.tomoyo-cn-output:not([hidden]):not(:empty))::before{content:" ";white-space:pre;word-spacing:max(0px,var(--tomoyo-gal-gap,0px))}',
   ].join('\n');
   document.head.append(style);
