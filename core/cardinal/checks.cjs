@@ -181,6 +181,7 @@ function leaks(run,t,ls){t=opts(t);const name=run.name||'run',o=run.o,bad=[];ls=
  /* 2026-11-26 state says it in one word: visible (the original showed), hidden (an observation that it was hidden), unconfirmed (隐藏未确认:
     nothing on the tape says either way; the score stays 0, it is not a pass) */
  const state=failed?'visible':observed?'hidden':'unconfirmed';
+ if(readObserved)bad.push(name+' the reader was in read mode (the original is read, not hidden)');if(off.length&&!during.length)bad.push(name+' the hide was off ('+off.map(s=>s.why).filter(Boolean).slice(0,3).join(', ')+')');
  if(!observed)bad.push(name+' hide unconfirmed (隐藏未确认): no valid native dialogue records, four distinct hide checks, a hide-only confirmation of the selected stream or '+require('./screen-evidence.cjs').MIN_FRAMES+' usable screen pictures');
  return {bad,rate:observed?Math.min(1,Math.max(...rates)):1,observed,state,hideConfirmed,screen:sc?{state:sc.state,usable:sc.usable,visible:sc.visible,hidden:sc.hidden}:null,checked,visible,records:h,nativeObserved,readObserved,during:during.length,off};}
 /* when the original could show, on the run's clock: from a disable / probeHide off / give way until core enables again, and from a switch
