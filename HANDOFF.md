@@ -26,6 +26,7 @@
 | 魚魚棟 · Claude | Alt+T 常驻胶囊：三种风格可自选（默认屏幕顶部居中灵动岛 / 侧边竖向胶囊 / 角落小圆点），可拖动、可开关常驻 | #1138 | feat/alt-t-capsule | 11-26 | 进行中 |
 | 魚魚棟 · Claude | 剩余问题：日志说话人显示成旁白；标题/读档画面盖着台词层；日志面板点击穿透 | #1136 | fix/reader-leftovers | 11-26 | 进行中 |
 | 魚魚棟 · Claude | 剩余问题：雾之城文字挤左；Alt+H 再按没文本；双重译文另一来源 | #1104 #1132 #1128 | fix/display-leftovers | 11-26 | 进行中 |
+| 魚魚棟 · Claude | #1248 汇总反馈：译文冒韩文（开源模型低温度 + 韩文译文判失败）；魔法使いの夜整页不再自动只显示中文；其余图片反馈核对 main 已修 | #1116 #1102 #1101 #1105 #1106 #1108 #1141 #1143 | fix/1248-reports | 11-27 | 已提交，待合并 |
 | 魚魚棟 · Claude | 自动适配命令行 `tools/adapt-auto.cjs`：游戏目录 → 探针 → 冷测试自动推进 → 差分 → Cardinal 验收 → result.json（目标每部 5–10 分钟） | — | krkr-drawtext | 11-26 | 进行中 |
 | 魚魚棟 · Claude | KiriKiri 非 KAG 引擎层：DrawText 逐字双发去重、正文线程选择、按句接；原生「源头不画」隐藏原文（MeguLitHook32 `MeguLitDrawSkip.h`） | — | krkr-drawtext / krkr-native-nodraw | 11-26 | 进行中 |
 | 魚魚棟 · Claude | 阅读层：源头不画时日文行由阅读层自己画；快进 4000 字长行导致页面卡死 | — | reader-nodraw | 11-26 | 已提交，待合并 |
