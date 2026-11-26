@@ -19,7 +19,7 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,hoverStart:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000,holdBlind:false});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,screenStallMs:180000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,hoverStart:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000,holdBlind:false});
 
 class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
@@ -46,7 +46,11 @@ class Driver{
   if(this.lastLines>=o.targetLines)return end('enough');
   /* afterChoice (tools/megulit-adapter (cold stage): run until the first choice): end this many lines after the first choice was answered */
   if(o.afterChoice>0&&this.choiceLine!=null&&this.lastLines>=this.choiceLine+o.afterChoice)return end('choice');
-  if(t-this.lastLineAt>=o.stallMs)return end('stalled');
+  /* 2026-11-27 (ファタモルガーナの館: after the title its prologue is pictures of text fading in and out, no hook line for 45 s while the
+     runner's OCR read new text on every look; the run ended 'stalled' at 5 lines) new Japanese text the runner read on the screen
+     (obs.screenText) keeps the run going like a line, up to screenStallMs after the last hook line */
+  {const st=String(obs.screenText||'').replace(/s+/g,'');if(/[぀-ヿ㐀-鿿]{2}/.test(st)&&st!==this.lastScreen){if(this.lastScreen!=null)this.screenAt=t;this.lastScreen=st;}}
+  if(t-Math.max(this.lastLineAt,this.screenAt>this.lastLineAt&&this.screenAt-this.lastLineAt<o.screenStallMs?this.screenAt:0)>=o.stallMs)return end('stalled');
   for(const n of o.shotLines)if(this.lastLines>=n&&!this.shotsTaken.has(n)){this.shotsTaken.add(n);out.push({do:'shot',tag:'line-'+n});}
   if((obs.choices|0)>this.lastChoices){this.lastChoices=obs.choices|0;this.choiceAt=t;if(this.choiceLine==null){this.choiceLine=this.lastLines;if(this.fast){this.fast=false;out.push({do:'keyup',vk:VK.ctrl},{do:'phase',name:'choice'});}}}
   /* slowLines (tools/megulit-adapter (cold stage)): reading pace for the first slowLines lines (the samples a diff is made from), then fast-forward

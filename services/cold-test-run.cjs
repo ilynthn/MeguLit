@@ -233,7 +233,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   timer=setInterval(()=>{if(done)return;try{hooks?.tick?.();}catch{}
    if(opts.ocrMenu===true&&!ocrBusy&&res.window&&(locatePending&&now()-ocrAt>=2000||now()-t0>=OCR_EVERY&&now()-ocrAt>=OCR_EVERY&&(!res.lines?!menu.some(x=>x.role!=='choice'):now()-lastLineAt>=OCR_EVERY))){ocrAt=now();ocrBusy=true;ocrFor=locatePending;
     send('shot '+Math.max(320,res.window.w|0)+' '+path.join(runDir,'ocr-'+(++ocrN)+'.png'));setTimeout(()=>{ocrBusy=false;},OCR_EVERY).unref?.();}
-   const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,quietMs:hookTextAt?now()-hookTextAt:1e9,lineChars:srcChars,lineAgeMs:srcAt?now()-srcAt:1e9});
+   const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,screenText:res.ocrText||'',quietMs:hookTextAt?now()-hookTextAt:1e9,lineChars:srcChars,lineAgeMs:srcAt?now()-srcAt:1e9});
    if(input)input.tick(t);
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
     if(a.do==='phase'){(res.phases||(res.phases=[])).push({name:String(a.name),at:new Date(now()).toISOString(),lines:res.lines});
