@@ -111,6 +111,26 @@ static class ColdDesk{
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd,StringBuilder name,int max);
  [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr hwnd,EnumProc callback,IntPtr data);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr length,StringBuilder text,uint flags,uint timeout,out IntPtr result);
+ /* 2026-11-27 (Monochrome Empire, YU-RIS name entry: three #32770 「名前入力」 dialogs, Edit + OK). services/cold-input.ps1 answers them
+    with EnumThreadWindows from the visible desktop, which finds nothing on this hidden desktop: the runs that passed it were --foreground,
+    every hidden run stalled on the first dialog. "dialog [name]": a visible #32770 of the game's job on this desktop with an Edit gets the
+    name when the Edit is empty, then its OK (id 1, or OK / 決定 / はい) is pressed; any other dialog is only reported */
+ [DllImport("user32.dll",EntryPoint="SendMessageTimeoutW",CharSet=CharSet.Unicode)] static extern IntPtr SendText(IntPtr hwnd,uint msg,IntPtr w,string text,uint flags,uint timeout,out IntPtr result);
+ [DllImport("user32.dll",EntryPoint="SendMessageTimeoutW")] static extern IntPtr SendPlain(IntPtr hwnd,uint msg,IntPtr w,IntPtr l,uint flags,uint timeout,out IntPtr result);
+ [DllImport("user32.dll")] static extern int GetDlgCtrlID(IntPtr h);
+ static string WinText(IntPtr h){var b=new StringBuilder(256);GetWindowText(h,b,256);return b.ToString();}
+ static void AnswerDialog(string name){
+  var pids=new HashSet<uint>(JobPids());var dlgs=new List<IntPtr>();var cls=new StringBuilder(80);
+  EnumDesktopWindows(Desk,(h,l)=>{uint p;GetWindowThreadProcessId(h,out p);cls.Clear();GetClassName(h,cls,cls.Capacity);if(pids.Contains(p)&&IsWindowVisible(h)&&cls.ToString()=="#32770")dlgs.Add(h);return true;},IntPtr.Zero);
+  if(dlgs.Count==0)return;var o=new StringBuilder();IntPtr res;
+  foreach(var d in dlgs){IntPtr edit=IntPtr.Zero,ok=IntPtr.Zero;var labels=new List<string>();
+   EnumChildWindows(d,(h,l)=>{var c=new StringBuilder(80);GetClassName(h,c,c.Capacity);string k=c.ToString(),x=WinText(h);
+    if(k=="Edit"&&edit==IntPtr.Zero)edit=h;else if(k=="Button"){if(GetDlgCtrlID(h)==1||System.Text.RegularExpressions.Regex.IsMatch(x.Trim(),"^(OK|ＯＫ|決定|はい|&OK)$",System.Text.RegularExpressions.RegexOptions.IgnoreCase))ok=h;}else if(k=="Static"&&x.Trim().Length>0&&labels.Count<4)labels.Add(x.Trim());return true;},IntPtr.Zero);
+   string had=edit!=IntPtr.Zero?WinText(edit):"";bool filled=false;
+   if(edit!=IntPtr.Zero&&had.Trim().Length==0&&!String.IsNullOrEmpty(name)){SendText(edit,0x0C,IntPtr.Zero,name,2,2000,out res);filled=true;}
+   if(ok!=IntPtr.Zero&&edit!=IntPtr.Zero)SendPlain(ok,0xF5,IntPtr.Zero,IntPtr.Zero,2,2000,out res);
+   o.Append((o.Length>0?" | ":"")+"\""+WinText(d)+"\" "+String.Join("/",labels)+(edit!=IntPtr.Zero?" edit=\""+(filled?name:had)+"\"":"")+(ok==IntPtr.Zero?" no-ok":edit!=IntPtr.Zero?" ok":" left"));}
+  Emit("{\"type\":\"dialog\",\"what\":"+Q(o.ToString())+"}");}
  static void ReadGameDialog(IntPtr window){
   var cls=new StringBuilder(80);GetClassName(window,cls,cls.Capacity);
   if(cls.ToString()!="#32770")return;
@@ -220,6 +240,7 @@ static class ColdDesk{
      case "move":Move(int.Parse(p[1]),int.Parse(p[2]));break;
      case "activate":Activate();break;
      case "shot":Shot(int.Parse(p[1]),p[2]);break;
+     case "dialog":AnswerDialog(p.Length>1?p[1].Trim():"");break;
      case "kill":why="killed";break;}}catch(Exception e){Emit("{\"type\":\"error\",\"what\":"+Q(c)+",\"why\":"+Q(e.Message)+"}");}
     if(why!="")break;continue;}
    if(observe!=null && observe(Job,pi.dwProcessId)){why="sampled";break;}

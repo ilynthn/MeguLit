@@ -102,7 +102,9 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
   tick(t){if(queued&&t-queued.at>=1000){const q=queued;queued=null;via(q.lv,q.a);}
    /* lines stopped for 3 s: a standard dialog of the game asking for text (YU-RIS name entry, Monochrome Empire) is answered with
       the name the script offered, every 3 s while it stays */
-   if(res.pid&&t-ctx.since()>=3000&&t-dialogAt>=3000){dialogAt=t;start();write('dialog '+(res.pid|0)+(ctx.name()?' '+ctx.name():''));}
+   if(res.pid&&t-ctx.since()>=3000&&t-dialogAt>=3000){dialogAt=t;
+    /* 2026-11-27 the helper sits on the visible desktop and does not see a hidden run's dialogs: there ColdDesk answers (its "dialog") */
+    if(cfg.foreground===true){start();write('dialog '+(res.pid|0)+(ctx.name()?' '+ctx.name():''));}else send('dialog'+(ctx.name()?' '+ctx.name():''));}
    const r=ladder.tick(t,{lines:res.lines,choices:res.choices});
    /* the click took (a line or the picture changed): what the OCR read belongs to the screen before it (オルフレール: the title's
       start item, clicked again on the next screen, looked like a click the game ignored and raised the level twice) */
@@ -198,6 +200,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
       const req0=ocrFor;ocrFor=null;const req=req0&&locatePending&&(req0===locatePending||req0.chain===locatePending.chain)?locatePending:null;if(req){const ans=locateAnswer(lines,req.options,res.window);if(ans||++req.tries>=LOCATE_TRIES){locatePending=null;if(!ans){const mi=res.choiceLocateMisses||(res.choiceLocateMisses=[]);if(mi.length<10)mi.push({at:new Date(req.at).toISOString(),options:req.options.slice(0,4)});}}if(ans){res.choiceLocates=(res.choiceLocates||0)+1;try{require('../core/cardinal/tape.cjs').record('gwb',ans);}catch{}try{hooks?.choiceBoxes?.(ans);}catch{}}}
       {const opts=choiceItems(lines,choiceAuxAt>=lastLineAt-1000?choiceAux:'');if(opts.length>=2){for(let i=menu.length-1;i>=0;i--)if(menu[i].role==='choice')menu.splice(i,1);for(const it of opts.slice().reverse())menu.unshift(it);res.choices++;res.ocrChoices=opts.map(o=>o.text);}}});break;}
      if(m.ok&&m.path){res.shots.push(path.basename(m.path));if(m.black===true)res.black=true;else res.black=false;}break;
+    case 'dialog':if(input){const d=input.ladder.record.dialogs||(input.ladder.record.dialogs=[]);if(d.length<10)d.push({t:now()-t0,what:String(m.what||'').slice(0,200),via:'colddesk'});}break;
     case 'input':res.stopped='input';finish('input');break;
     case 'power':if(m.ac===false){res.stopped='battery';finish('battery');}break;
     case 'fullscreen':if(m.on===true){res.stopped='fullscreen';finish('fullscreen');}break;

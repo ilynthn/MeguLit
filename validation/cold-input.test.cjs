@@ -97,8 +97,16 @@ test('run: lines quiet for 3 s → the game\'s text dialog is answered with the 
  class NameHook{configure(){setTimeout(()=>NameHook.traceTap?.('2026-11-26T09:55:56.412Z script noise line kept "「アナタの名字を入力してください」\n朽木"'),20);}tick(){}stop(){}}
  class Wait{next(obs){return obs.t>=3600?[{do:'end',why:'test'}]:[];}}
  const desk=fakeDesk(),inp=fakeInput();const reply=inp.spawn;let child;const spawn=(c,a)=>{child=reply(c,a);child.stdin.on('data',b=>{if(/^dialog /m.test(String(b)))child.stdout.write(JSON.stringify({type:'dialog',what:'"名前入力" edit="朽木" ok'})+'\n');});return child;};
- const r=await alive(run.runOne({exe:'C:/g/MonochromeEmpire.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:'',foreground:false}},{spawn:desk.spawn,inputSpawn:spawn,helper:'ColdDesk.exe',Hook:NameHook,layout:{native:dir},tick:20,Driver:Wait}));
- assert.ok(inp.sent.includes('dialog 4242 朽木'),inp.sent.join(' | '));assert.match(r.input.dialogs[0].what,/名前入力/);});
+ const r=await alive(run.runOne({exe:'C:/g/MonochromeEmpire.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:'',foreground:true}},{spawn:desk.spawn,inputSpawn:spawn,helper:'ColdDesk.exe',Hook:NameHook,layout:{native:dir},tick:20,Driver:Wait}));
+ assert.ok(inp.sent.includes('dialog 4242 朽木'),inp.sent.join(' | '));assert.match(r.input.dialogs[0].what,/名前入力/);assert.ok(!desk.sent.some(l=>l.startsWith('dialog')),'a visible run: the helper answers');});
+
+test('run: on the hidden desktop ColdDesk answers the dialog, not the helper (Monochrome Empire: every hidden run stalled on the name entry)',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
+ class NameHook{configure(){setTimeout(()=>NameHook.traceTap?.('2026-11-26T09:55:56.412Z script noise line kept "「アナタの名字を入力してください」\n朽木"'),20);}tick(){}stop(){}}
+ class Wait{next(obs){return obs.t>=3600?[{do:'end',why:'test'}]:[];}}
+ const desk=fakeDesk(),inp=fakeInput();const spawn0=desk.spawn;const spawn=(...a)=>{const child=spawn0(...a);child.stdin.on('data',b=>{if(/^dialog /m.test(String(b)))child.stdout.write(JSON.stringify({type:'dialog',what:'"名前入力" edit="朽木" ok'})+'\n');});return child;};
+ const r=await alive(run.runOne({exe:'C:/g/MonochromeEmpire.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:'',foreground:false}},{spawn,inputSpawn:inp.spawn,helper:'ColdDesk.exe',Hook:NameHook,layout:{native:dir},tick:20,Driver:Wait}));
+ assert.ok(desk.sent.includes('dialog 朽木'),desk.sent.join(' | '));assert.ok(!inp.sent.some(l=>l.startsWith('dialog ')),'not the helper');
+ assert.equal(r.input.dialogs[0].via,'colddesk');assert.match(r.input.dialogs[0].what,/名前入力/);});
 
 test('ladder: a level a watched click proved is not raised by stalled lines (オルフレール name entry waiting for the OCR)',()=>{
  const L=new F.Ladder(['post','inputctl'],{waitMs:1000,stallMs:5000});const click={do:'click',x:1,y:2,watch:'start'};
@@ -129,3 +137,6 @@ test('run: the same choice asked again with one more piece is answered from the 
  class Wait{next(obs){return obs.t>=1500?[{do:'end',why:'test'}]:[];}}
  const r=await alive(run.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true,choiceLocate:true},{spawn:fakeDesk().spawn,helper:'ColdDesk.exe',Hook:LocHook,layout:{native:dir},tick:20,Driver:Wait,ocr}));
  assert.equal(answers.length,1);assert.equal(n,1,'no second picture');assert.deepEqual(answers[0].items.map(i=>i.text),B);assert.deepEqual(answers[0].missed,['らね']);assert.equal(r.choiceLocates,1);});
+
+test('ColdDesk: "dialog [name]" answers a #32770 of the game job found on its own desktop',()=>{const src=fs.readFileSync(path.join(__dirname,'..','native','ColdDesk.cs'),'utf8');
+ assert.match(src,/case "dialog":AnswerDialog\(/);assert.match(src,/static void AnswerDialog\(string name\)\{[^\n]*\n\s*var pids=new HashSet<uint>\(JobPids\(\)\)[^\n]*\n\s*EnumDesktopWindows\(Desk,/);});
