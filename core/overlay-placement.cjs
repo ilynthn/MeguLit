@@ -140,12 +140,7 @@ class OverlayPlacement {
       if (m.engine === 'gpu') this.gpuHiding = Date.now();
       else this.engineHidden = true;
       this.visibleKey = ''; this.why('placed:' + id + ':' + rects.length, 'placed: line ' + (Number(m.line) || 0) + ', ' + rects.length + ' characters, first box ' + (rects[0] ? [].concat(rects[0]).map(v => Math.round(Number(v) || 0)).join(',') : '-') + ' in client ' + this.client.join('x'));
-      /* 2026-11-26 (#1124 #1125, 死に逝く君、館に芽吹く憎悪): a line the engine retired (gone) and then hides again, same id and text, is on
-         the game's screen again under MeguLit's copy (KiriKiri TextRender: its text window left the shown current layer for a moment):
-         it is placed again, and the reader takes it back from its cleared page */
-      const back = this.goneId === id && this.current?.id === id && this.current.text === text;
-      if (back) { this.goneId = ''; this.lastKey = ''; this.why('back:' + id + ':' + Date.now(), 'placed again: line ' + (Number(m.line) || 0) + ' hidden again by the game after it was cleared'); }
-      this.emitLine({ id, engine: m.engine, text, rects, client: this.client.slice(), ...style, ...(back ? { regained: true } : {}) });
+      this.emitLine({ id, engine: m.engine, text, rects, client: this.client.slice(), ...style });
       if (m.engine !== 'gpu') this.rows({ id, text: flat.join(''), rects: this.current && !this.current.fallback && this.current.id === id ? this.current.rects : null });
     }
   }

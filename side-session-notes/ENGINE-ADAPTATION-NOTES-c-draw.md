@@ -23,3 +23,4 @@
 - 原理（调试版 DLL 实测）：trwhy switch cur=f0 owner=b0。游戏把这句写在后台页 kag.back.messages[0]，[trans] 再把后台页拷到前台；屏幕上的字是前台孪生层的拷贝，TextRender 从没在前台渲染过，所以 trDone 只认后台层，隐藏 tick 看到当前层换成前台就收回整句，前台拷贝一直露着
 - 修法（KiriKiri 引擎层）：隐藏 tick 发现当前层是记录所属后台层的前台孪生（同一下标）且显示中，就把记录挪到前台层并把前台 textLayer 透明，后台层还原；行号、框不变，不再收回。非孪生层照旧收回
 - 教训：KAG 的 backlay+trans 会把后台页内容拷到前台而不是交换对象，凡是按「当前层」认主人的逻辑都要考虑前后台孪生；猜测型修复要用调试版 DLL 把原因打出来再修
+- 补充（同日集成实机）：a27ffbc9 的暂存/恢复（trPark/trResume，按日志推断）删掉了。实机里它一次也没恢复成功（trwhy 无 resume），而带它的 DLL 在第 280 句进 OP 动画时游戏卡死（未响应、CPU 不动）；只留孪生层接管的 DLL 和 1.4.25 原版同一段都正常过 OP。猜测：恢复时对旧 TextRender 实例调 getCharacters，动画期间卡在插件里。overlay-placement 的 regained、点读层的 goneText 复位一并撤回
