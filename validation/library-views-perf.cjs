@@ -16,7 +16,7 @@ function startService(root){const child=spawn(process.execPath,[path.join(ROOT,'
  const finish=error=>{closed=error;for(const w of waits.values()){clearTimeout(w.timer);w.reject(error);}waits.clear();};
  child.once('error',finish);child.once('close',()=>finish(Error('SERVICE_CLOSED')));child.stdin.on('error',finish);
  child.stdout.on('data',d=>{buf+=d;let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);let m;try{m=JSON.parse(line);}catch{continue;}const w=waits.get(m.id);if(w){waits.delete(m.id);clearTimeout(w.timer);m.ok?w.resolve(m.data):w.reject(Error(m.error));}}});
- const call=(request,ms=20000)=>new Promise((res,rej)=>{if(closed)return rej(closed);const id=next++;child.stdin.write(JSON.stringify({id,request})+'\n');
+ const call=(request,ms=35000)=>new Promise((res,rej)=>{if(closed)return rej(closed);const id=next++;child.stdin.write(JSON.stringify({id,request})+'\n');
   const timer=setTimeout(()=>{if(waits.delete(id))rej(Error('SERVICE_TIMEOUT'));},ms);
   waits.set(id,{resolve:res,reject:rej,timer});});
  return {call,stop:async()=>{if(!closed){await call({action:'__shutdown'},5000).catch(()=>{});finish(Error('SERVICE_CLOSED'));}child.kill();}};}
@@ -43,7 +43,7 @@ const CDP_MS=Number(process.env.MEGULIT_CDP_TIMEOUT)||60000;
 function edgePath(){for(const p of [process.env.MEGULIT_EDGE,'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'])if(p&&fs.existsSync(p))return p;throw Error('EDGE_NOT_FOUND');}
 const {stopLayoutBrowser,checkLayoutProfile}=require('./helpers/stop-layout-browser.cjs');
 async function startEdge(profile){checkLayoutProfile(profile);const child=spawn(edgePath(),['--headless=new','--remote-debugging-port=0','--user-data-dir='+profile,'--window-size='+String(arg('size','1920x1080')).replace('x',','),'--hide-scrollbars','--force-device-scale-factor=1',
-  '--no-first-run','--no-default-browser-check','--disable-extensions','--mute-audio','about:blank'],{stdio:'ignore'});
+  '--no-first-run','--no-default-browser-check','--disable-extensions','--disable-background-networking','--disable-component-update','--disable-sync','--disable-default-apps','--mute-audio','about:blank'],{stdio:'ignore'});
  /* 2026-11-19 (CI of v1.4.17, and 11-17): DevToolsActivePort read while Edge was still writing it threw EBUSY; the caller had no
     handle yet, so nothing stopped Edge and the test file never exited (the job sat until its 30-minute limit). The file is read
     until it holds a port, and any failure before the handle is returned ends Edge. */

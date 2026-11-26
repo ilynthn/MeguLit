@@ -196,7 +196,7 @@ async function scenes(db,list,tokenize,{max=4,budget=12}={}){
     if(found.length>=40)break;}
   const pick=[],games=new Set();
   for(const f of found.sort((a,b)=>b.kinds-a.kinds||(b.c.translation?1:0)-(a.c.translation?1:0))){if(pick.length>=max)break;if(games.has(f.c.gameId)&&found.some(x=>!pick.includes(x)&&!games.has(x.c.gameId)))continue;pick.push(f);games.add(f.c.gameId);}
-  return pick.map(({c,pieces})=>({label:c.title||'',ja:c.text,zh:c.translation||'',translationSource:c.translationSource||'',origin:c.origin,readAt:c.readAt,readBy:c.readBy,real:true,pieces}));
+  return pick.map(({c,pieces})=>({label:c.title||'',ja:c.text,zh:c.translation||'',translationSource:c.translationSource||'',origin:c.origin,ruby:c.ruby||[],readAt:c.readAt,readBy:c.readBy,real:true,pieces}));
 }
 /* ---- N4 → N0 (2026-11-11) ----
    Those lessons live in web/grammar-levels.js (shared with the page). Each point lists the surface forms that mark it;

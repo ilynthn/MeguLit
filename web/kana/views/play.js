@@ -38,12 +38,12 @@ const norm=s=>s.normalize("NFKC").normalize("NFC").replace(/[\s　、。・]/g,"
 /* ================= 配置（与入口页一致） ================= */
 const CFG={
  pos:{name:"行段识别",
-  intro:{n:10,t:0,hints:Infinity,pool:()=>LEARNED,script:"h"},
+  intro:{n:10,t:0,hints:Infinity,pool:()=>{const p=LEARNED.filter(k=>k!=="ん");return p.length?p:ORDER.slice(0,5)}},
   std:{n:20,t:10,hints:3,pool:()=>SEION.filter(k=>k!=="ん")},
   adv:{n:25,t:8,hints:1,pool:()=>[...SEION.filter(k=>k!=="ん"),...DAKU],script:"m",daku:true},
   chal:{n:Infinity,total:90,lives:3,hints:0,pool:()=>[...SEION.filter(k=>k!=="ん"),...DAKU],script:"m",daku:true}},
  seq:{name:"前后假名",
-  intro:{n:10,t:0,hints:Infinity,pool:()=>LEARNED.slice(0,-1),script:"h",mode:"next",input:false},
+  intro:{n:10,t:0,hints:Infinity,pool:()=>LEARNED.slice(0,-1),mode:"next",input:false},
   std:{n:15,t:12,hints:3,pool:()=>ORDER,mode:"both",input:false},
   adv:{n:20,t:10,hints:1,pool:()=>ORDER,script:"m",mode:"both",input:true},
   chal:{n:Infinity,total:90,lives:3,hints:0,pool:()=>ORDER,script:"m",mode:"both",input:true}},
@@ -60,7 +60,8 @@ const G=P.get("g")||"pos",D=P.get("d")||"intro",S=P.get("s")||"h",SAY=P.get("say
 const C={...CFG[G][D]},script=C.script||S;
 const VALID_KANA={pos:new Set([...SEION.filter(k=>k!=="ん"),...DAKU]),seq:new Set(C.mode==="next"?ORDER.slice(0,-1):ORDER),conv:new Set([...SEION,...DAKU,...YOON])};
 const ONLY=[...new Set((P.get("only")||"").split(",").filter(Boolean).map(toHira))];
-if(ONLY.length){const onlyPool=ONLY.filter(k=>VALID_KANA[G].has(k));if(onlyPool.length){C.pool=()=>onlyPool;if(G==="pos"&&onlyPool.some(k=>DAKU.includes(k)))C.daku=true;if(C.n!==Infinity)C.n=Math.min(C.n,Math.max(6,onlyPool.length*2));C.confuse=0}}
+const ONLY_POOL=ONLY.filter(k=>VALID_KANA[G].has(k));
+if(ONLY_POOL.length){C.pool=()=>ONLY_POOL;if(G==="pos"&&ONLY_POOL.some(k=>DAKU.includes(k)))C.daku=true;if(C.n!==Infinity)C.n=Math.min(C.n,Math.max(6,ONLY_POOL.length*2));C.confuse=0}
 
 /* ================= 状态 ================= */
 let st={i:0,score:0,ok:0,bad:0,streak:0,best:0,lives:C.lives||0,hints:C.hints,start:performance.now(),times:[],wrong:[],log:[],over:false};
@@ -205,8 +206,8 @@ function submitSeq(val,btn){
   q.given[w]=ok;
   if(!ok){locked=true;return resolve(false,w==="prev"?"前一个错":"后一个错")}
   q.slot++;
-  if(q.slot<q.need.length){const nw=q.need[q.slot];$("#slot-"+nw).classList.add("active");
-    clearTimeout(slotTimer);slotTimer=setTimeout(()=>{if(st.over)return;if(C.input){const inp=$("#ans");inp.value="";inp.placeholder=`再填${nw==="prev"?"前":"后"}一个`;inp.classList.remove("right");inp.focus()}else seqOptions()},350);return}
+  if(q.slot<q.need.length){const nw=q.need[q.slot];locked=true;$("#slot-"+nw).classList.add("active");
+    clearTimeout(slotTimer);slotTimer=setTimeout(()=>{if(st.over)return;locked=false;if(C.input){const inp=$("#ans");inp.value="";inp.placeholder=`再填${nw==="prev"?"前":"后"}一个`;inp.classList.remove("right");inp.focus()}else seqOptions()},350);return}
   locked=true;resolve(true,"",q.explain);
 }
 
@@ -277,7 +278,7 @@ ctx.onLeave?.(stop);
 function finish(){
   if(st.over)return;stop();$("#vk").classList.remove("show");
   const secs=(performance.now()-st.start)/1000;
-  const run={id:Date.now(),at:new Date().toISOString(),G,D,script,only:ONLY,score:KD.achievement(st.log).pct,secs:+secs.toFixed(1),best:st.best,log:st.log,ended:D==="chal"?(st.lives<=0?"错满 3 次":"时间到"):"答完"};
+  const run={id:Date.now(),at:new Date().toISOString(),G,D,script,only:ONLY_POOL,score:KD.achievement(st.log).pct,secs:+secs.toFixed(1),best:st.best,log:st.log,ended:D==="chal"?(st.lives<=0?"错满 3 次":"时间到"):"答完"};
   ctx.store.addRun(run);ctx.lastRun=run;
   go("results.html?run="+run.id);
 }

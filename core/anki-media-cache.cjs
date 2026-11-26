@@ -24,6 +24,6 @@ const mark=(dir,name)=>path.join(dir,name+'.synth');
 function markSynth(dir,name,on=true){if(!dir||!ours(name))return;try{if(on){fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(mark(dir,name),'');}else fs.unlinkSync(mark(dir,name));}catch{}}
 function isSynth(dir,name){if(!dir||!ours(name))return false;try{return fs.existsSync(mark(dir,name));}catch{return false;}}
 /* what an audio clip really is (a game's ogg may sit under a .wav name) */
-function mimeOf(base64,name){const h=String(base64||'').slice(0,8);if(h.startsWith('T2dnUw'))return 'audio/ogg';if(h.startsWith('UklGR'))return 'audio/wav';if(h.startsWith('SUQz')||h.startsWith('//'))return 'audio/mpeg';if(h.startsWith('ZkxhQw'))return 'audio/flac';if(Buffer.from(String(base64||'').slice(0,16),'base64').toString('latin1',4,8)==='ftyp')return 'audio/mp4';
- return /\.mp3$/i.test(name)?'audio/mpeg':/\.ogg$/i.test(name)?'audio/ogg':/\.m4a$/i.test(name)?'audio/mp4':'audio/wav';}
+function mimeOf(base64,name){const h=String(base64||'').slice(0,8),b=Buffer.from(String(base64||'').slice(0,16),'base64');if(h.startsWith('T2dnUw'))return 'audio/ogg';if(h.startsWith('UklGR'))return 'audio/wav';if(b.length>=2&&b[0]===0xff&&(b[1]&0xf6)===0xf0)return 'audio/aac';if(h.startsWith('SUQz')||h.startsWith('//'))return 'audio/mpeg';if(h.startsWith('ZkxhQw'))return 'audio/flac';if(h.startsWith('GkXfo'))return 'audio/webm';if(b.toString('latin1',4,8)==='ftyp')return 'audio/mp4';
+ const m=/\.([^.]+)$/.exec(String(name||'')),ext=m?m[1].toLowerCase():'';return {mp3:'audio/mpeg',ogg:'audio/ogg',opus:'audio/ogg',m4a:'audio/mp4',flac:'audio/flac',webm:'audio/webm',aac:'audio/aac'}[ext]||'audio/wav';}
 module.exports={ours,read,write,dirFor,markSynth,isSynth,mimeOf,boundedBase64};

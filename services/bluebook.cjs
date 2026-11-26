@@ -80,7 +80,7 @@ function examplesFor(points,list,{max=4}={}){
   const score=e=>(e.translationSource==='group'||e.translationSource==='official'?4:e.translation?1:0)+(e.origin==='history'?2:0);
   const out={};for(const p of points){const hits=[...p.hits].sort((a,b)=>b.length-a.length),found=[];
     for(const c of list){if(found.length>=20)break;const h=hits.find(x=>c.text.includes(x));if(!h)continue;const at=c.text.indexOf(h),start=[...c.text.slice(0,at)].length;
-      found.push({text:c.text,origin:c.origin,gameId:c.gameId,title:c.title,translation:c.translation,translationSource:c.translationSource,start,end:start+[...h].length,readAt:c.readAt,readBy:c.readBy});}
+      found.push({text:c.text,origin:c.origin,gameId:c.gameId,title:c.title,translation:c.translation,translationSource:c.translationSource,start,end:start+[...h].length,ruby:c.ruby||[],readAt:c.readAt,readBy:c.readBy});}
     if(found.length)out[p.id]=found.sort((a,b)=>score(b)-score(a)).slice(0,max);}
   return out;
 }

@@ -108,5 +108,5 @@ test('the profile avatar crop accepts clicks above the profile and displays the 
    return {previous,retained,uploadsBeforeSubmit:before,uploadsAfterRetry:window.uploads,savedName:window.savedName};
   })()`);
   assert.deepEqual(unified,{previous:'New reader',retained:true,uploadsBeforeSubmit:2,uploadsAfterRetry:3,savedName:'Third name'});
- }finally{await browser?.stop();server?.close();fs.rmSync(temp,{recursive:true,force:true});}
+ }finally{await browser?.stop();server?.close();try{fs.rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:150});}catch(error){if(!['EBUSY','EPERM','ENOTEMPTY'].includes(error?.code))throw error;}}
 });

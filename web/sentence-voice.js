@@ -23,12 +23,13 @@ export function markSource(button,source,estimated=false){if(!button)return;styl
 export async function labelVoices(api,buttons){const list=(buttons||[]).filter(x=>x?.button&&x.text);if(!list.length)return;
  const ticket=++labelTicket;list.forEach(x=>labelOf.set(x.button,ticket));
  try{const r=await api('sentence_voice_has',{items:list.map(x=>({id:x.id??null,text:String(x.text).slice(0,400)}))});(r?.has||[]).forEach((h,i)=>{if(list[i].button.isConnected&&labelOf.get(list[i].button)===ticket)setLabel(list[i].button,!!h);});}catch{}}
+export function stopSentence(){latest++;if(current){current.audio.pause();current.release();}}
 export async function playSentence(api,text,button,{id}={}){
- const request=++latest;
+ const request=++latest,attached=!!button?.isConnected;
  if(current){current.audio.pause();current.release();}
  try{
   const r=await api('sentence_voice',{text:String(text||'').slice(0,400),...(id!==undefined&&id!==null?{id:Number(id)}:{})});
-  if(request!==latest)return;
+  if(request!==latest||(attached&&!button.isConnected))return;
   const bytes=Uint8Array.from(atob(r.data),c=>c.charCodeAt(0)),audio=new Audio();
   if(typeof r.volume==='number'&&Number.isFinite(r.volume))audio.volume=Math.max(0,Math.min(1,r.volume));
   const url=URL.createObjectURL(new Blob([bytes],{type:r.mime||'audio/wav'}));
@@ -39,5 +40,5 @@ export async function playSentence(api,text,button,{id}={}){
   await audio.play();return r.source;
  }catch(error){
   if(request!==latest)return;
-  current?.release();throw error;
+  current?.release();if(attached&&!button.isConnected)return;throw error;
  }}
