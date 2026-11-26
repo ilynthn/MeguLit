@@ -5,6 +5,8 @@
    where anything not measured stays inconclusive. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const A=require('../tools/adapt-auto.cjs');
+/* the cold runner ticks on real timers: wait for what a test expects instead of a fixed time (a busy machine runs it late) */
+const until=async(cond,ms=10000)=>{const end=Date.now()+ms;while(!cond()&&Date.now()<end)await new Promise(r=>setTimeout(r,20));return cond();};
 const tmp=()=>fs.mkdtempSync(path.join(process.env.MEGULIT_TMP||os.tmpdir(),'adapt-auto-'));
 const put=(f,size=16)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,Buffer.alloc(size));};
 
@@ -114,9 +116,9 @@ test('runOne ocrMenu: a full-size picture goes to OCR and its start button is cl
  const h=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:1280,h:720});});
  const p=R.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true},{spawn:h.spawn,helper:'ColdDesk.exe',Hook:FakeHook,layout:{native:dir},tick:5,now:()=>t+=400,
   ocr:async()=>[{text:'は し め 力 、 ら',x:318,y:94,w:64,h:11}],driver:{introEvery:1e9,introMs:1e9}});
- await new Promise(r=>setTimeout(r,400));h.sent.push('');const r=await Promise.race([p,new Promise(r=>setTimeout(()=>r(null),50))]);void r;
- assert.ok(h.sent.some(l=>/^shot 1280 .*ocr-1\.png$/.test(l)),'full-width OCR picture');assert.ok(h.sent.includes('click 350 100'),h.sent.join('|'));
- require('../services/cold-test-run.cjs').stopActive();await p;});
+ try{await until(()=>h.sent.includes('click 350 100'));
+  assert.ok(h.sent.some(l=>/^shot 1280 .*ocr-1\.png$/.test(l)),'full-width OCR picture');assert.ok(h.sent.includes('click 350 100'),h.sent.join('|'));}
+ finally{require('../services/cold-test-run.cjs').stopActive();await p;}});
 
 test('ocrItems: a name entry keeps the default name — 「決定」 one button step left of 「デフォルト」',()=>{const R=require('../services/cold-test-run.cjs');
  const L=[{text:'主 人 公 の 名 前 を 入 力 し て く だ さ い',x:168,y:250,w:350,h:19},{text:'デ フ ォ ノ レ ト',x:294,y:451,w:97,h:17}];
@@ -190,7 +192,7 @@ test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a ch
   ocr:async()=>{Hook.traceTap('choice aux KiriKiri1 role=0 added=[] text="……本当は、お優しい方なのかしら……本当に、几帳面な方なのね"');return [{text:'・ 本 当 は 、 お 優 し い 方 な の か し ら',x:466,y:196,w:349,h:22},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21}];},
   driver:{introEvery:1e9,advanceEvery:1e9,stallMs:1e9,shotLines:[]}});
 
- await new Promise(r=>setTimeout(r,600));R.stopActive();const r=await p;
+let r;try{await until(()=>h.sent.includes('click 641 207'));}finally{R.stopActive();r=await p;}
  assert.ok(r.choices>=1,'a choice');assert.ok(h.sent.includes('click 641 207'),h.sent.filter(l=>l.startsWith('click')).join('|'));});
 
 test('driver: a choice is answered by Down + Enter after Ctrl is released, then hover + click twice',()=>{const {Driver,VK}=require('../core/cold-test/drive.cjs');
