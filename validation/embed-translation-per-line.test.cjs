@@ -77,3 +77,17 @@ test('#1128 core: a written-back line the game keeps as it was is reported as no
  h.embedReply(8,'美亚无力地笑了笑。',{source:'力なく笑って。',text:'美亚无力地笑了笑。'});
  assert.equal(notes.at(-1).embedTranslating,true);assert.equal(notes.at(-1).embedLine.drawn,true);
 });
+
+test('#1268 review: a per-line hide reply keeps the other lines\' results (A drawn, B hidden, C drawn)',{skip:!hasEdge&&'Edge not installed',timeout:60000},async t=>{
+ const cdp=await reader(t,fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-1268a-')));
+ await cdp.evaluate(`__tomoyoChinese.restoreGalSettings({display:'bilingual',translationBlur:false,furigana:false})`);
+ const A='力なく笑って、美亜は近くの樹にもたれかかった。',B='よほど利口な選択と言えるはずだった。',C='美亜は小さく息をついた。';
+ await cdp.evaluate(LINE(A,'她无力地笑了笑，靠在了附近的一棵树上。'));
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedTranslating:true,embedLine:{source:${JSON.stringify(A)},text:'美亚无力地笑了笑。',drawn:true}})`);await settle(cdp);
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedTranslating:false,embedLine:{source:${JSON.stringify(B)},text:'',drawn:false}})`);await settle(cdp);
+ await cdp.evaluate(LINE(B,'这本该是更明智的选择。'));await cdp.evaluate(`__tomoyoChinese.galStatus({hookSource:${JSON.stringify(B)}})`);await settle(cdp);
+ assert.equal(await cdp.evaluate(SHOWN),true);
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedTranslating:true,embedLine:{source:${JSON.stringify(C)},text:'美亚轻轻叹了口气。',drawn:true}})`);await settle(cdp);
+ assert.equal(await cdp.evaluate(SHOWN),true,'B was never drawn by the game: its overlay translation stays when C turns write-back on again');
+});
+

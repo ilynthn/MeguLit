@@ -739,8 +739,10 @@
      st.textContent='.sentence-window.megulit-game-translated .tomoyo-cn-output{display:none!important}';document.head.append(st);}
     if(message.embedLine&&typeof message.embedLine.source==='string'){const k=embedKey(message.embedLine.source);if(k){embedLines.delete(k);embedLines.set(k,message.embedLine.drawn===true);if(embedLines.size>400)embedLines.delete(embedLines.keys().next().value);}}
     if(typeof message.embedTranslating==='boolean'&&message.embedTranslating!==embedOn){embedOn=message.embedTranslating;document.body.classList.toggle('megulit-embed-translation',embedOn);
-     /* the mode went off: lines from now on are the game's own text; the line on screen keeps what the game drew for it */
-     if(!embedOn){const cur=document.querySelector('.sentence-window.tomoyo-hook-reader .sentence-text:not(.megulit-old-line)')||document.querySelector('.sentence-window .sentence-text:not(.megulit-old-line)'),keep=cur?embedFor(cur.textContent):undefined,k=cur?embedKey(cur.textContent):'';
+     /* the mode went off: lines from now on are the game's own text; the line on screen keeps what the game drew for it.
+        A per-line hide reply (embedLine with drawn:false) also says embedTranslating:false but the mode stays: the other lines'
+        results are kept (Codex #1268: A drawn, B hidden, C drawn left B without its result and hid its overlay) */
+     if(!embedOn&&!message.embedLine){const cur=document.querySelector('.sentence-window.tomoyo-hook-reader .sentence-text:not(.megulit-old-line)')||document.querySelector('.sentence-window .sentence-text:not(.megulit-old-line)'),keep=cur?embedFor(cur.textContent):undefined,k=cur?embedKey(cur.textContent):'';
       embedLines.clear();if(k&&keep!==undefined)embedLines.set(k,keep);}}
     embedSync();if(!embedFrame){embedFrame=requestAnimationFrame(embedSync);setTimeout(embedSync,160);}
   }
