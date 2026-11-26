@@ -102,6 +102,8 @@ test('other kanji spellings: SudachiDict reads them right, these four are fixed'
  assert.equal(read(line(`何処/ドコ/代名詞,*,* へ/ヘ/${P} 行く/イク/動詞,非自立可能,*`)),'何処:ドコ へ:ヘ 行く:イク');
  assert.equal(read(line(`一寸/チョット/${ADV} 待っ/マッ/動詞,一般,* て/テ/助詞,接続助詞,*`)).split(' ')[0],'一寸:チョット');
  assert.equal(read(line(`一寸/チョット/${ADV} たり/タリ/助詞,副助詞,* と/ト/${P} も/モ/助詞,係助詞,*`)).split(' ')[0],'一寸:いっすん','一寸たりとも');
+ assert.equal(read(line(`一寸/チョット/${ADV} の/ノ/${P} こと/コト/名詞,普通名詞,一般 で/デ/助詞,格助詞,*`)).split(' ')[0],'一寸:チョット','一寸のことで is ちょっと (review #1266)');
+ assert.equal(read(line(`一寸/チョット/${ADV} の/ノ/${P} 虫/ムシ/名詞,普通名詞,一般`)).split(' ')[0],'一寸:いっすん','一寸の虫 is いっすん');
  assert.equal(read(line(`彼処/アスコ/代名詞,*,* に/ニ/${P} 見える/ミエル/動詞,一般,*`)).split(' ')[0],'彼処:あそこ');
  assert.equal(read(line('彼処/アスコ/代名詞,*,*')),'彼処:あそこ','a line of its own');
  assert.equal(read(line(`矢張/ヤバリ/名詞,固有名詞,人名 の/ノ/${P} 撮っ/トッ/動詞,一般,*`)).split(' ')[0],'矢張:やはり');

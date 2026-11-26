@@ -17,7 +17,7 @@
    It is なんじ only where the time of day is plain: 今(、/は/って) 何時, 何日の / 明日の 何時, 何時？ / 何時だ。 / 何時だと思ってる,
    何時くらい, 何時に + anything but なる / も / は (何時に寝た, but 何時になったら is いつ), 何時の便 / 電車, 何時から何時まで.
    何時でも is いつ. Everything else keeps the reading SudachiDict gave (何時も, 何時か, 何時まで, 何時頃 are JMdict words read いつ…).
-   Also: 彼処 アスコ is あそこ (the reading the reader knows), 矢張 ヤバリ (逆転裁判's 矢張政志) is やはり, 一寸 before たり / の is
+   Also: 彼処 アスコ is あそこ (the reading the reader knows), 矢張 ヤバリ (逆転裁判's 矢張政志) is やはり, 一寸 before たり, or の + 虫 / 光陰 / 先 / 身, is
    いっすん (一寸たりとも), 出来 シュッタイ before an ending (料理出来なくない) is でき.
    SudachiDict already reads 何処 何故 其処 此処 一寸(adverb) 兎に角 矢張り 流石 呉々も 可笑しい 出来る 所謂 暫く 勿論 成程 一体 right.
    Checked on 10083 lines from 54 games (E:\MeguLit\data\original-text, every line with one of these words, 出来 lines sampled):
@@ -41,7 +41,7 @@ const RULES = [
     surf(next) === 'の' && /^(?:な[いくかけ]|無[いくかけし]|少な|絶え|途絶え)/.test(surf(after)) },
   { surface: '彼処', from: 'あすこ', to: 'あそこ', alone: true, when: () => true },
   { surface: '矢張', from: 'やばり', to: 'やはり', alone: true, when: () => true },
-  { surface: '一寸', from: 'ちょっと', to: 'いっすん', when: (prev, next) => ['たり', 'の'].includes(surf(next)) },
+  { surface: '一寸', from: 'ちょっと', to: 'いっすん', when: (prev, next, after) => surf(next) === 'たり' || (surf(next) === 'の' && /^(?:虫|光陰|先|身)/.test(surf(after))) },
   { surface: '出来', from: 'しゅったい', to: 'でき', when: (prev, next) => /^[なずまたてるれよそ]/.test(surf(next)) },
 ];
 
