@@ -41,3 +41,18 @@ test('a detached old line does not push the recent lines out of the next request
  for(const line of ['二行目。','三行目。','四行目。'])assert.ok(last.includes(line),line+' still the context');
  assert.ok(!last.includes('ずっと前の地の文。')&&!last.includes('もっと前の地の文。'),'the old narration is not');
 });
+/* RRFZ #1176: an older copy of a repeated line was never filled, because the newer translated copy stopped the search */
+test('a fill for a repeated line skips translated copies and reaches the older empty one',()=>{
+ const log=read('web/reader/modules/backlog.js'),m=/function translated\(src,text,keep\)\{[^]*?return;\}\}/.exec(log);
+ assert.ok(m,'translated() found');
+ const make=new Function('entries','norm','split','persist','refreshLog',m[0]+'\nreturn translated;');
+ const entries=[{src:'「はい」',tr:''},{src:'「違う」',tr:'不对'},{src:'「はい」',tr:'是的'}];
+ let saved=0;const translated=make(entries,t=>t,t=>({text:t}),()=>saved++,()=>{});
+ translated('「はい」','是的',true);
+ assert.deepEqual(entries.map(e=>e.tr),['是的','不对','是的']);
+ assert.equal(saved,1);
+ translated('「はい」','好',true);
+ assert.deepEqual(entries.map(e=>e.tr),['是的','不对','是的'],'keep: nothing translated is overwritten');
+ translated('「はい」','好');
+ assert.equal(entries[2].tr,'好','without keep the newest copy is replaced as before');
+});
