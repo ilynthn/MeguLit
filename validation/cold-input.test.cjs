@@ -105,7 +105,7 @@ test('run: on the hidden desktop ColdDesk answers the dialog, not the helper (Mo
  class Wait{next(obs){return obs.t>=3600?[{do:'end',why:'test'}]:[];}}
  const desk=fakeDesk(),inp=fakeInput();const spawn0=desk.spawn;const spawn=(...a)=>{const child=spawn0(...a);child.stdin.on('data',b=>{if(/^dialog /m.test(String(b)))child.stdout.write(JSON.stringify({type:'dialog',what:'"名前入力" edit="朽木" ok'})+'\n');});return child;};
  const r=await alive(run.runOne({exe:'C:/g/MonochromeEmpire.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:'',foreground:false}},{spawn,inputSpawn:inp.spawn,helper:'ColdDesk.exe',Hook:NameHook,layout:{native:dir},tick:20,Driver:Wait}));
- assert.ok(desk.sent.includes('dialog 朽木'),desk.sent.join(' | '));assert.ok(!inp.sent.some(l=>l.startsWith('dialog ')),'not the helper');
+ assert.ok(desk.sent.includes('dialog '+encodeURIComponent('朽木')),desk.sent.join(' | '));assert.ok(!inp.sent.some(l=>l.startsWith('dialog ')),'not the helper');
  assert.equal(r.input.dialogs[0].via,'colddesk');assert.match(r.input.dialogs[0].what,/名前入力/);});
 
 test('ladder: a level a watched click proved is not raised by stalled lines (オルフレール name entry waiting for the OCR)',()=>{

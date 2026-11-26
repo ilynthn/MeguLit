@@ -103,8 +103,9 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
    /* lines stopped for 3 s: a standard dialog of the game asking for text (YU-RIS name entry, Monochrome Empire) is answered with
       the name the script offered, every 3 s while it stays */
    if(res.pid&&t-ctx.since()>=3000&&t-dialogAt>=3000){dialogAt=t;
-    /* 2026-11-27 the helper sits on the visible desktop and does not see a hidden run's dialogs: there ColdDesk answers (its "dialog") */
-    if(cfg.foreground===true){start();write('dialog '+(res.pid|0)+(ctx.name()?' '+ctx.name():''));}else send('dialog'+(ctx.name()?' '+ctx.name():''));}
+    /* 2026-11-27 the helper sits on the visible desktop and does not see a hidden run's dialogs: there ColdDesk answers (its "dialog"; the
+       name URI-encoded: ColdDesk reads its stdin in the ANSI code page, and the first live run typed 「麻?」 into the second dialog) */
+    if(cfg.foreground===true){start();write('dialog '+(res.pid|0)+(ctx.name()?' '+ctx.name():''));}else send('dialog'+(ctx.name()?' '+encodeURIComponent(ctx.name()):''));}
    const r=ladder.tick(t,{lines:res.lines,choices:res.choices});
    /* the click took (a line or the picture changed): what the OCR read belongs to the screen before it (オルフレール: the title's
       start item, clicked again on the next screen, looked like a click the game ignored and raised the level twice) */

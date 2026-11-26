@@ -86,7 +86,7 @@ static class ColdDesk{
 
  static readonly object Out=new object();
  static void Emit(string json){lock(Out){Console.Out.WriteLine(json);Console.Out.Flush();}}
- static string Q(string s){var b=new StringBuilder("\"");foreach(var c in s??""){if(c=='"'||c=='\\'){b.Append('\\').Append(c);}else if(c<0x20){b.Append("\\u").Append(((int)c).ToString("x4"));}else b.Append(c);}return b.Append('"').ToString();}
+ static string Q(string s){var b=new StringBuilder("\"");foreach(var c in s??""){if(c=='"'||c=='\\'){b.Append('\\').Append(c);}else if(c<0x20||c>0x7e){b.Append("\\u").Append(((int)c).ToString("x4"));}else b.Append(c);}return b.Append('"').ToString();}
 
  static int Main(string[] a){
   if(a.Length<1){/* --visible (tools/adapt-auto.cjs --foreground, owner away): the game on the user's own desktop, still muted and in the job */Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID] [--ignore-input] [--visible]");return 2;}
@@ -240,7 +240,7 @@ static class ColdDesk{
      case "move":Move(int.Parse(p[1]),int.Parse(p[2]));break;
      case "activate":Activate();break;
      case "shot":Shot(int.Parse(p[1]),p[2]);break;
-     case "dialog":AnswerDialog(p.Length>1?p[1].Trim():"");break;
+     case "dialog":AnswerDialog(p.Length>1?Uri.UnescapeDataString(p[1].Trim()):"");break;
      case "kill":why="killed";break;}}catch(Exception e){Emit("{\"type\":\"error\",\"what\":"+Q(c)+",\"why\":"+Q(e.Message)+"}");}
     if(why!="")break;continue;}
    if(observe!=null && observe(Job,pi.dwProcessId)){why="sampled";break;}
