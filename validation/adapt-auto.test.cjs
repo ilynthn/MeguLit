@@ -10,7 +10,7 @@ const put=(f,size=16)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeF
 
 const COLD={verdict:'pass',why:'',lines:40,measured:['hideVisible','dropRate','repeatRate'],restored:true,near:0.2};
 const DIFF={ok:true,mode:'hide',cost:0,over:[]};
-const CARD=(scores={},applies={})=>({ok:true,errors:[],result:{lines:40,scores:{row:1,stable:1,clean:1,clear:1,choice:1,pair:1,leak:1,...scores},applies:{row:true,stable:true,clean:true,clear:true,choice:true,pair:true,leak:true,...applies}}});
+const CARD=(scores={},applies={})=>({ok:true,errors:[],result:{lines:40,scores:{row:1,stable:1,clean:1,clear:1,choice:1,pair:1,leak:1,...scores},applies:{row:true,stable:true,clean:true,clear:true,choice:true,pair:true,leak:true,...applies},detail:{leakObservation:{observed:true,checked:0,native:false,read:false}}}});
 
 test('arguments: folder, --exe, --out, --budget-min',()=>{
  const o=A.parseArgs(['node','x','D:\\g','--exe','a\\b.exe','--out','F:\\o','--budget-min','4']);
@@ -50,7 +50,8 @@ test('judge: everything measured and over the gate is pass',()=>{const j=A.judge
 test('judge: not measured is never pass',()=>{
  assert.equal(A.judge({cold:COLD,diff:DIFF,card:CARD({},{choice:false})}).verdict,'inconclusive','no choice reached');
  assert.match(A.judge({cold:COLD,diff:DIFF,card:CARD({},{choice:false})}).reasons.join(' '),/没推进到选项/);
- assert.equal(A.judge({cold:{...COLD,measured:['dropRate']},diff:DIFF,card:CARD()}).verdict,'inconclusive','no hide measurement');
+ assert.equal(A.judge({cold:{...COLD,measured:['dropRate']},diff:DIFF,card:CARD()}).verdict,'pass','the cold run's hideVisible is not needed: Cardinal observed the hide');
+ {const c=CARD();c.result.detail.leakObservation.observed=false;assert.equal(A.judge({cold:COLD,diff:DIFF,card:c}).verdict,'inconclusive','Cardinal did not observe the hide');}
  assert.equal(A.judge({cold:COLD,diff:DIFF,card:null}).verdict,'inconclusive');
  assert.equal(A.judge({cold:COLD,diff:DIFF,card:{ok:false,why:'x'}}).verdict,'inconclusive');
  assert.equal(A.judge({cold:COLD,diff:{ok:false,why:'x'},card:CARD()}).verdict,'inconclusive');

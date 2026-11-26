@@ -197,8 +197,10 @@ function judge({unsupported:why='',cold=null,diff=null,card=null}={}){const reas
  if((card.errors||[]).length)reasons.push('Cardinal 回放报错：'+JSON.stringify(card.errors).slice(0,200));
  const check=(name,label,ok,measured,detail)=>{checks[name]={ok:measured?ok:null,measured,detail};
   if(!measured)reasons.push(label+'：量不到（'+detail+'）');else if(!ok){fail=true;reasons.push(label+'：不过（'+detail+'）');}else reasons.push(label+'：过（'+detail+'）');};
- const hideMeasured=(cold.measured||[]).includes('hideVisible');
- check('hidden','原文隐藏',s.leak>=GATE.leak,hideMeasured&&typeof s.leak==='number','leak '+s.leak+(hideMeasured?'':'，冷测试没量到 hideVisible'));
+ /* 2026-11-26 (owner via 261126总指挥): measured only by Cardinal's own observation of the hide (leakObservation: hide checks, native
+    records, the bridge's hide-only confirmation, or an observed read mode); a cold run never measures hideVisible (no reader) */
+ const lo=r.detail?.leakObservation||{},hideMeasured=lo.observed===true&&typeof s.leak==='number';
+ check('hidden','原文隐藏',s.leak>=GATE.leak,hideMeasured,'leak '+s.leak+(hideMeasured?(lo.read?'，读模式':'')+(lo.checked?'，隐藏检测 '+lo.checked+' 次':'')+(lo.native?'，原生记录':''):'，Cardinal 没观测到隐藏（没有隐藏确认）'));
  check('replaced','译文替换',s.row>=GATE.row&&s.pair>=GATE.pair,!!ap.row&&!!ap.pair,'row '+s.row+' pair '+s.pair);
  check('choice','第一个选项有翻译',s.choice>=GATE.choice,!!ap.choice,ap.choice?'choice '+s.choice:'没推进到选项');
  if(fail)return done('fail');
