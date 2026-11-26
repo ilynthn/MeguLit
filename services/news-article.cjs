@@ -23,6 +23,7 @@ function paragraphs(fragment){
  const text=fragment
   .replace(/<(script|style|noscript|iframe|table|figure|svg|form|button|select)\b[\s\S]*?<\/\1>/gi,' ')
   .replace(/<!--[\s\S]*?-->/g,' ')
+  .replace(/<(rt|rp)(?:\s[^>]*)?>[^<]*(?:<\/\1\s*>|(?=<(?:rt|rp|rb|\/ruby)\b))/gi,'')
   .replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|h[1-6]|li|blockquote|dd|dt)>/gi,'\n').replace(/<(h[1-6])[^>]*>/gi,'\n')
   .replace(/<[^>]+>/g,'');
  const out=[];let size=0;

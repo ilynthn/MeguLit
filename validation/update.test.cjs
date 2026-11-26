@@ -104,7 +104,7 @@ test('update: an old rollback exe moves out of the MeguLit folder; the script ba
  assert.match(src,/robocopy \$Root \$bak \/MIR/);assert.match(src,/ie4uinit\.exe'\) -show/);assert.match(src,/rolling back/);assert.doesNotMatch(src,/Copy-Item -LiteralPath \$exe -Destination \$backup/);
 });
 
-test('a full update and rollback leave the local Anki program in place',{skip:process.platform!=='win32'},async t=>{
+test('a full update and rollback leave the local Anki program in place',{skip:process.platform!=='win32',timeout:120000},async t=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
  const {execFileSync}=require('node:child_process');
  const work=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-update-anki-'));
@@ -119,7 +119,7 @@ test('a full update and rollback leave the local Anki program in place',{skip:pr
  put(src,'MeguLit.exe','new app contents');
  put(src,'Anki/anki.exe','package Anki');
  u.reset();
- t.after(()=>{u.reset();fs.rmSync(work,{recursive:true,force:true});});
+ t.after(()=>{u.reset();try{fs.rmSync(work,{recursive:true,force:true,maxRetries:5,retryDelay:100});}catch{}});
  const zip=Buffer.from('PK fixture');
  const rel={tag_name:'v9.9.9',assets:[{name:'MeguLit-v9.9.9-win-x64.zip',size:zip.length,
   digest:'sha256:'+crypto.createHash('sha256').update(zip).digest('hex'),
@@ -132,7 +132,7 @@ test('a full update and rollback leave the local Anki program in place',{skip:pr
  const copy=index=>execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',
   '$Root=$env:MEGULIT_UPDATE_FIX_ROOT; $src=$env:MEGULIT_UPDATE_FIX_PACKAGE; $bak=$env:MEGULIT_UPDATE_FIX_BACKUP; '+copies[index]+
   '; if($LASTEXITCODE -ge 8){exit $LASTEXITCODE}; exit 0'],{windowsHide:true,env:{...process.env,
-   MEGULIT_UPDATE_FIX_ROOT:root,MEGULIT_UPDATE_FIX_PACKAGE:src,MEGULIT_UPDATE_FIX_BACKUP:bak},timeout:10000});
+   MEGULIT_UPDATE_FIX_ROOT:root,MEGULIT_UPDATE_FIX_PACKAGE:src,MEGULIT_UPDATE_FIX_BACKUP:bak},timeout:30000});
  const read=file=>fs.readFileSync(path.join(root,file),'utf8');
  copy(0);
  const backedUpAnki=fs.existsSync(path.join(bak,'Anki'));

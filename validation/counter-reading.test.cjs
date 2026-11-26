@@ -3,7 +3,7 @@
 // always フン and digits are read one by one (10 イチレイ). The tokens below are SudachiDict Full 20261015 output.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {createReadingResolver,settled}=require('../core/reading.cjs');
-const {counterReading,readNumber,parseNumber}=require('../core/counter-reading.cjs');
+const {counterReading,readNumber,parseNumber,numberTokens}=require('../core/counter-reading.cjs');
 const {annotations}=require('../core/furigana.js');
 const {exampleSpans}=require('../core/example-ruby.cjs');
 
@@ -108,4 +108,25 @@ test('our reading keeps the engine phrases and accents when the morae line up',(
  assert.equal(engineAccentKana([phrase('ジップン',4)],'じゅっぷん'),"ジュップン'");
  assert.equal(engineAccentKana([phrase('コレハ',1,true),phrase('ジップン',4)],'これはじゅっぷん'),"コ'レハ、ジュップン'");
  assert.equal(engineAccentKana([phrase('ジップン',4)],'さんじゅっぷん'),'','different mora counts leave it to the old fallback');
+});
+
+test('month-count counters (1ヶ月1日, 三か月一日) keep 1日 as いちにち while real dates (4月1日, 四月一日) read ついたち',()=>{
+ const monthAndDay=(n1,c1,n2,c2)=>{
+  let pos=0;const mk=(s,r,g)=>{const start=pos;pos+=[...s].length;return tok(s,r,g,start,pos);};
+  return numberTokens([mk(n1,'イチ',NUM),mk(c1,'カゲツ',COUNT),mk(n2,'イチ',NUM),mk(c2,'ニチ',COUNT)]).map(t=>[t.surface,t.reading]);
+ };
+ assert.deepEqual(monthAndDay('1','ヶ月','1','日'),[['1ヶ月','いっかげつ'],['1日','いちにち']]);
+ assert.deepEqual(monthAndDay('三','か月','一','日'),[['三か月','さんかげつ'],['一日','いちにち']]);
+ assert.deepEqual(monthAndDay('2','カ月','1','日'),[['2カ月','にかげつ'],['1日','いちにち']]);
+ assert.deepEqual(monthAndDay('1','ケ月','1','日'),[['1ケ月','いっかげつ'],['1日','いちにち']]);
+ assert.deepEqual(monthAndDay('1','箇月','1','日'),[['1箇月','いっかげつ'],['1日','いちにち']]);
+ assert.deepEqual(monthAndDay('4','月','1','日'),[['4月','しがつ'],['1日','ついたち']]);
+ assert.deepEqual(monthAndDay('四','月','一','日'),[['四月','しがつ'],['一日','ついたち']]);
+ assert.deepEqual(monthAndDay('12','月','1','日'),[['12月','じゅうにがつ'],['1日','ついたち']]);
+ const preMerged=[{...tok('1ヶ月','いっかげつ',NUM,0,3),readingSource:'number'},tok('1','イチ',NUM,3,4),tok('日','ニチ',COUNT,4,5)];
+ assert.deepEqual(numberTokens(preMerged).map(t=>[t.surface,t.reading]),[['1ヶ月','いっかげつ'],['1日','いちにち']]);
+ const preMergedSmallKa=[{...tok('1ヵ月','いっかげつ',NUM,0,3),readingSource:'number'},tok('1','イチ',NUM,3,4),tok('日','ニチ',COUNT,4,5)];
+ assert.deepEqual(numberTokens(preMergedSmallKa).map(t=>[t.surface,t.reading]),[['1ヵ月','いっかげつ'],['1日','いちにち']]);
+ const emptySubtokens=[{...tok('4月','しがつ',NUM,0,2),readingSource:'number',subtokens:[]},tok('1','イチ',NUM,2,3),tok('日','ニチ',COUNT,3,4)];
+ assert.deepEqual(numberTokens(emptySubtokens).map(t=>[t.surface,t.reading]),[['4月','しがつ'],['1日','ついたち']]);
 });

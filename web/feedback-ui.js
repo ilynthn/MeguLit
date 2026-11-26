@@ -22,7 +22,7 @@ const T = {
     upd: (y, m, d, title) => `${y}年${m}月${d}日 完善了《${title}》的内嵌使用`, updNote: '以上游戏只在作者本地做过部分测试，实际游玩中如果还有问题，欢迎继续反馈，会跟进修复',
     gamePlaceholder: '完整的游戏名（日文原名或商店里的名字）', gameRule: '请写完整、准确的游戏名：日文原名，或 Steam、DLsite 商店里的名字都可以。不要写缩写、简称或昵称（比如「夏天」「GG」），缩写很难找到是哪部游戏', gameShort: '这个名字很短，可能是缩写或简称。请写完整的游戏名；确定这就是全名的话，再点一次提交', submit: '提交', gameSent: '收到了，会尽快适配',
     noticeMore: '遇到问题了，可以在「关于」页点「一键上传问题反馈」，写一下原因，简短或详细都可以，日志会一起发过来。有什么建议，或者只是想留句话，也都很欢迎。谢谢支持！',
-    report: '一键上传问题反馈', noticeOff: '以后不再提示', noticeOffTip: '勾上后启动时不再弹出这个窗口。更新日志和使用教程随时可以在顶栏「教程」里看', ok: '知道了', next: '下一步：使用教程', back: '上一步', done: '完成', guideKicker: 'guide', guide: '教程',
+    report: '一键上传问题反馈', noticeOff: '当前版本不再提示', noticeOffTip: '勾上后，这个版本启动时不再弹出这个窗口；更新到新版本会再提示一次。更新日志和使用教程随时可以在顶栏「教程」里看', ok: '知道了', next: '下一步：使用教程', back: '上一步', done: '完成', guideKicker: 'guide', guide: '教程',
     tabUpdates: '更新日志', tabGuide: '使用教程', tabReport: '问题反馈', tabGame: '想玩的游戏', reportText: '写一下原因，简短或详细都可以，最近的日志会一起发给作者。', gameText: '想玩什么游戏，把名字写在下面点提交，快的话半天，最晚一周内就能支持', close: '关闭', noUpdates: '暂时读不到更新日志，联网后再试',
   },
   ja: {
@@ -35,7 +35,7 @@ const T = {
     upd: (y, m, d, title) => `${y}年${m}月${d}日 「${title}」の埋め込み表示を改善しました`, updNote: '上のゲームは作者の手元で一部しか確認していません。実際に遊んで問題があれば、引き続き知らせてください。修正していきます',
     gamePlaceholder: '正式なゲーム名（原題やストアの表記）', gameRule: '正式なゲーム名をそのまま書いてください。原題や Steam・DLsite のストア表記がおすすめです。略称やあだ名だと、どの作品か特定できないことがあります', gameShort: '名前が短く、略称かもしれません。正式なタイトルを書いてください。これが正式名なら、もう一度送信してください', submit: '送信', gameSent: '受け取りました。できるだけ早く対応します',
     noticeMore: '困ったときは「について」ページの「不具合をまとめて送る」から、原因をひとこと書いて送ってください（短くても詳しくても OK）。ログも一緒に届きます。ご意見やひとことも大歓迎です',
-    report: '不具合をまとめて送る', noticeOff: '次回から表示しない', noticeOffTip: 'チェックすると起動時にこの画面を出しません。更新履歴と使い方は上のバーの「チュートリアル」からいつでも見られます', ok: 'わかった', next: '次へ：使い方', back: '戻る', done: '完了', guideKicker: 'guide', guide: 'チュートリアル',
+    report: '不具合をまとめて送る', noticeOff: 'このバージョンでは表示しない', noticeOffTip: 'チェックすると起動時にこの画面を出しません。更新履歴と使い方は上のバーの「チュートリアル」からいつでも見られます', ok: 'わかった', next: '次へ：使い方', back: '戻る', done: '完了', guideKicker: 'guide', guide: 'チュートリアル',
     tabUpdates: '更新履歴', tabGuide: '使い方', tabReport: '不具合を送る', tabGame: '遊びたいゲーム', reportText: '原因をひとこと書いてください。最近のログも一緒に作者へ届きます。', gameText: '遊びたいゲームの名前を入れて送信してください。早ければ半日、遅くとも一週間以内に対応します', close: '閉じる', noUpdates: '更新履歴を読み込めません。オンラインで再度お試しください',
   },
   en: {
@@ -48,7 +48,7 @@ const T = {
     upd: (y, m, d, title) => `${new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })} · embedded mode for ${title} improved`, updNote: 'These were only partly tested on the author’s own machine. If anything still goes wrong when you play, please keep telling us and we’ll fix it',
     gamePlaceholder: 'Full game title (original or store name)', gameRule: 'Please write the full, exact title: the original Japanese title or the name on Steam or DLsite. Avoid abbreviations and nicknames, they make it hard to find the right game. For an exact build, use VNDB ID | engine | source language | EXE SHA-256 | script SHA-256', gameShort: 'This name is very short and may be an abbreviation. Please write the full title; if this is the full title, press Submit again', submit: 'Submit', gameSent: 'Got it; support is on the way',
     noticeMore: 'If something goes wrong, open About and use Report a problem: say what happened, briefly or in detail, and the logs come along. Ideas or just a hello are welcome too. Thanks for the support!',
-    report: 'Report a problem', noticeOff: "Don't show this again", noticeOffTip: 'When ticked, this window no longer opens at start-up. Updates and the tutorial stay under Tutorial in the top bar', ok: 'Got it', next: 'Next: how to use', back: 'Back', done: 'Done', guideKicker: 'guide', guide: 'Tutorial',
+    report: 'Report a problem', noticeOff: "Don't show again for this version", noticeOffTip: 'When ticked, this window no longer opens at start-up. Updates and the tutorial stay under Tutorial in the top bar', ok: 'Got it', next: 'Next: how to use', back: 'Back', done: 'Done', guideKicker: 'guide', guide: 'Tutorial',
     tabUpdates: 'Updates', tabGuide: 'How to use', tabReport: 'Report', tabGame: 'Request a game', reportText: 'Say what went wrong, briefly or in detail; recent logs go to the author with it.', gameText: 'Type a game you want to play and submit it; it usually takes half a day, a week at most', close: 'Close', noUpdates: 'Could not load the updates; try again when online',
   },
 };
@@ -75,6 +75,51 @@ async function report({ api, reason, contact, locale, version }) {
   return text?.ok ? 'text' : '';
 }
 
+/* 2026-11-27 (user: 就单纯加个提取日志的按钮吧 说明是 针对修复 QQ群内专用) 提取日志: the same scrubbed whole-app package,
+   saved on the desktop (services/log-export.cjs) for the reader to send to the QQ group by hand; nothing is uploaded */
+const EXPORT = {
+  zh: { button: '提取日志', note: '针对修复 · QQ群内专用', working: '正在提取日志…', ask: '遇到了什么问题？', askHint: '会写进压缩包里的「问题说明.txt」，也会加进文件名', askPlaceholder: '例：点读层不显示 / 读音错了', askEmpty: '请先写一下遇到的问题，一句话也可以', go: '提取', cancel: '取消', saved: name => `日志已保存到桌面：${name}，发到 QQ 群里给作者，发完可以删掉`, reveal: '打开所在文件夹',
+    failed: why => `提取日志失败：${why}`, reasons: { desktop: '找不到桌面文件夹', denied: '没有权限写入桌面（可能被安全软件拦住了）', full: '磁盘空间不足', busy: '桌面上的文件正被占用，请稍后再试', build: '打包日志时出错', other: '未知错误' } },
+  ja: { button: 'ログを書き出す', note: '修正用・QQグループ専用', working: 'ログを書き出しています…', ask: 'どんな問題がありましたか？', askHint: 'ZIP の中の「问题说明.txt」とファイル名に入ります', askPlaceholder: '例：タップ読みレイヤーが出ない／読みが間違っている', askEmpty: '問題をひとこと書いてください', go: '書き出す', cancel: 'キャンセル', saved: name => `ログをデスクトップに保存しました：${name}。QQ グループで作者に送ってください。送ったら削除して大丈夫です`, reveal: 'フォルダーを開く',
+    failed: why => `ログを書き出せませんでした：${why}`, reasons: { desktop: 'デスクトップのフォルダーが見つかりません', denied: 'デスクトップに書き込む権限がありません（セキュリティソフトにブロックされた可能性があります）', full: 'ディスクの空き容量が足りません', busy: 'デスクトップのファイルが使用中です。少し待ってからお試しください', build: 'ログをまとめる途中でエラーが起きました', other: '不明なエラー' } },
+  en: { button: 'Export logs', note: 'For fixes · QQ group only', working: 'Exporting logs…', ask: 'What went wrong?', askHint: 'It goes into the note file inside the zip and into the file name', askPlaceholder: 'e.g. the lookup layer does not show / wrong reading', askEmpty: 'Please say what went wrong; one sentence is fine', go: 'Export', cancel: 'Cancel', saved: name => `Logs saved to the desktop: ${name}. Send it to the author in the QQ group; you can delete it afterwards`, reveal: 'Open folder',
+    failed: why => `Could not export the logs: ${why}`, reasons: { desktop: 'the Desktop folder was not found', denied: 'no permission to write to the Desktop (security software may have blocked it)', full: 'the disk is full', busy: 'a file on the Desktop is in use; try again shortly', build: 'packing the logs failed', other: 'unknown error' } },
+};
+export const exportWords = locale => EXPORT[locale] || EXPORT.zh;
+/* the service error (a code, sometimes with a short detail) → why, in the reader's language */
+export function exportReason(error, locale = 'zh') {
+  const raw = String(error?.message || error || ''), r = exportWords(locale).reasons;
+  const why = /DESKTOP_NOT_FOUND|ENOENT/.test(raw) ? r.desktop : /EACCES|EPERM/.test(raw) ? r.denied : /ENOSPC/.test(raw) ? r.full : /EBUSY|DESKTOP_NAME_TAKEN/.test(raw) ? r.busy : /LOG_BUILD_FAILED/.test(raw) ? r.build : r.other;
+  const code = (/[A-Z][A-Z_]{3,}/.exec(raw) || [''])[0];
+  return code && why === r.other ? `${why}（${code}）` : why;
+}
+/* asks for the problem (required); resolves the trimmed text, or '' when cancelled */
+export function askProblem({ locale = 'zh', esc, initial = '' }) {
+  const w = exportWords(locale), ask = document.createElement('dialog');
+  ask.className = 'game-dialog feedback-dialog feedback-export-ask';
+  ask.innerHTML = `<div class="game-dialog-head"><span class="game-dialog-kicker">${esc(w.note)}</span><h2>${esc(w.ask)}</h2><p>${esc(w.askHint)}</p></div>
+<input class="feedback-contact" data-problem maxlength="300" placeholder="${esc(w.askPlaceholder)}">
+<p class="feedback-status" role="status" aria-live="polite"></p>
+<div class="dialog-actions"><button type="button" class="text-button" data-ask-cancel>${esc(w.cancel)}</button><button type="button" class="primary" data-ask-go>${esc(w.go)}</button></div>`;
+  document.body.append(ask);
+  const input = ask.querySelector('[data-problem]'), status = ask.querySelector('.feedback-status');
+  input.value = initial;
+  return new Promise(resolve => {
+    let answer = '';
+    ask.addEventListener('close', () => { ask.remove(); resolve(answer); }, { once: true });
+    const go = () => { const value = input.value.trim(); if (!value) { status.textContent = w.askEmpty; status.dataset.state = 'bad'; input.focus(); return; } answer = value; ask.close(); };
+    ask.querySelector('[data-ask-go]').onclick = go;
+    ask.querySelector('[data-ask-cancel]').onclick = () => ask.close();
+    input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); go(); } });
+    ask.showModal(); input.focus();
+  });
+}
+export async function exportLogs({ api, locale = 'zh', version = '', problem = '' }) {
+  const w = exportWords(locale);
+  try { const result = await api('logs_export_desktop', { problem, version }); return { ok: true, name: result.name, path: result.path, text: w.saved(result.name) }; }
+  catch (error) { return { ok: false, text: w.failed(exportReason(error, locale)) }; }
+}
+
 /* E563 after a problem report: check the library on this PC; anything found is uploaded only after the user confirms it */
 const probeAfterReport = ({ api, locale, esc, toast }) => import('./adapter-probe-ui.js').then(m => m.openProbeUpload({ api, locale, esc, toast, reason: 'feedback' })).catch(() => {});
 
@@ -93,7 +138,8 @@ export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
 <input class="feedback-contact" maxlength="120" placeholder="${esc(t.contact)}">
 <p class="feedback-privacy">${esc(t.privacy)}</p>
 <p class="feedback-status" role="status" aria-live="polite"></p>
-<div class="dialog-actions"><button type="button" class="text-button" data-cancel>${esc(t.cancel)}</button><button type="button" class="primary" data-send>${esc(t.send)}</button></div>`;
+<p class="feedback-export-result" role="status" aria-live="polite" hidden><span></span> <button type="button" class="text-button" data-export-reveal hidden>${esc(exportWords(locale).reveal)}</button></p>
+<div class="dialog-actions"><span class="feedback-export"><button type="button" class="text-button" data-export>${esc(exportWords(locale).button)}</button><small>${esc(exportWords(locale).note)}</small></span><button type="button" class="text-button" data-cancel>${esc(t.cancel)}</button><button type="button" class="primary" data-send>${esc(t.send)}</button></div>`;
   document.body.append(dialog);
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   dialog.showModal();
@@ -104,6 +150,20 @@ export function openFeedback({ api, locale = 'zh', esc, toast, version = '' }) {
   const issues = [...dialog.querySelectorAll('.feedback-issue')];
   for (const issue of issues) issue.onclick = () => issue.setAttribute('aria-pressed', String(issue.getAttribute('aria-pressed') !== 'true'));
   dialog.querySelector('[data-cancel]').onclick = () => dialog.close();
+  const exportButton = dialog.querySelector('[data-export]'), exportResult = dialog.querySelector('.feedback-export-result'), reveal = dialog.querySelector('[data-export-reveal]');
+  exportButton.onclick = async () => {
+    const w = exportWords(locale);
+    const typed = [issues.filter(issue => issue.getAttribute('aria-pressed') === 'true').map(issue => issue.textContent).join(' / '), text.value.trim()].filter(Boolean).join(' / ');
+    const problem = await askProblem({ locale, esc, initial: typed.slice(0, 300) });
+    if (!problem || !dialog.isConnected) return;
+    exportButton.disabled = true; exportButton.textContent = w.working; reveal.hidden = true;
+    const result = await exportLogs({ api, locale, version, problem });
+    if (!dialog.isConnected) return;
+    exportButton.disabled = false; exportButton.textContent = w.button;
+    exportResult.hidden = false; exportResult.dataset.state = result.ok ? 'ok' : 'bad'; exportResult.firstElementChild.textContent = result.text;
+    reveal.hidden = !result.ok;
+    reveal.onclick = () => api('logs_export_reveal', { path: result.path }).catch(() => {});
+  };
   send.onclick = async () => {
     const selected = issues.filter(issue => issue.getAttribute('aria-pressed') === 'true').map(issue => issue.textContent);
     const reason = [selected.join(' / '), text.value.trim()].filter(Boolean).join('\n\n');
@@ -125,8 +185,10 @@ let shownThisLaunch = false;
 const launchNoticeKey = 'megulit.startupNoticeShown';
 /* the reader ticked 以后不再提示 on the start notice: it no longer opens by itself (the top-bar guide still has everything) */
 const noticeOffKey = 'megulit.startupNoticeOff';
-export const noticeOff = (store = globalThis.localStorage) => { try { return store?.getItem(noticeOffKey) === '1'; } catch { return false; } };
-const setNoticeOff = on => { try { if (on) globalThis.localStorage?.setItem(noticeOffKey, '1'); else globalThis.localStorage?.removeItem(noticeOffKey); } catch { /* storage blocked: the box just does not stick */ } };
+/* 2026-11-26 (user: 显示的是当前版本不再提示): the box remembers the version it was ticked on, so a new version shows the notice once more */
+let noticeVersion = '';
+export const noticeOff = (store = globalThis.localStorage, version = noticeVersion) => { try { const v = store?.getItem(noticeOffKey); return !!v && v === (version || '1'); } catch { return false; } };
+const setNoticeOff = on => { try { if (on) globalThis.localStorage?.setItem(noticeOffKey, noticeVersion || '1'); else globalThis.localStorage?.removeItem(noticeOffKey); } catch { /* storage blocked: the box just does not stick */ } };
 try { shownThisLaunch = globalThis.sessionStorage?.getItem(launchNoticeKey) === '1'; } catch { /* storage disabled */ }
 /* (user 2026-11-13: the list appeared only after a while and opening the notice stuttered) the last list is kept in
    localStorage and drawn in the first frame; the service answer (its own cache, then the site) replaces it only when it differs.
@@ -165,12 +227,13 @@ async function fillUpdates(dialog, locale, api, cached = cachedUpdates()) {
 }
 
 export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', force = false, canShow = () => true }) {
+  noticeVersion = String(version || '');
   if (((shownThisLaunch || noticeOff()) && !force) || document.querySelector('.dev-notice') || !canShow()) return;
   const t = words(locale), dialog = document.createElement('dialog');
   const loadingUpdates = { zh: '正在读取更新日志…', ja: '更新履歴を読み込み中…', en: 'Loading update notes…' };
   dialog.className = 'game-dialog dev-notice seed-flow startup-notice';
   dialog.setAttribute('aria-label', t.noticeTitle);
-  dialog.innerHTML = `<button type="button" class="startup-notice-close" data-notice-close autofocus title="${esc(t.close)} (Esc)">${esc(t.close)}</button>
+  dialog.innerHTML = `<button type="button" class="startup-notice-close" data-notice-close autofocus title="${esc(t.close)} (Esc)" aria-label="${esc(t.close)}">×</button>
 <div class="dev-notice-page" data-page="1"><div class="dev-notice-top"><span>${esc(t.noticeKicker)}</span><span>${esc(t.noticeTag)}</span></div>
 <h2>${esc(t.noticeTitle)}</h2><h2 class="dev-notice-title2">${esc(t.noticeTitle2)}</h2>${successHTML(locale, esc)}<p class="dev-notice-text">${esc(t.noticeText)}</p>
 <form class="dev-notice-form"><input class="dev-notice-game" maxlength="256" placeholder="${esc(t.gamePlaceholder)}"><button type="submit" class="secondary">${esc(t.submit)}</button></form><p class="dev-notice-rule">${esc(t.gameRule)}</p>

@@ -149,8 +149,9 @@ function numberTokens(tokens) {
     const touching = typeof next?.surface === 'string' && next.readingSource !== 'game' && (!Number.isInteger(token.end) || token.end === next.start);
     /* 分 of a fraction or a tenth is ぶ: 3分の1 さんぶんのいち, 八分咲き はちぶざき. */
     const after = tokens[i + 2], tenth = touching && next.surface === '分' && (after?.surface === 'の' && isNumeral(tokens[i + 3]) ? 'ぶん' : /^咲/.test(after?.surface || '') ? 'ぶ' : '');
-    /* The first of a month (四月一日, 4月1日) is ついたち; 一日 on its own stays いちにち (a day). */
-    const last = out[out.length - 1], firstOfMonth = touching && next.surface === '日' && value === 1 && last?.readingSource === 'number' && /月$/.test(last.surface || '') && (!Number.isInteger(last.end) || last.end === token.start);
+    /* The first of a month (四月一日, 4月1日) is ついたち; 一日 on its own or after a month-count (1ヶ月1日) stays いちにち. */
+    const last = out[out.length - 1], isMonth = last?.readingSource === 'number' && (Array.isArray(last.subtokens) && last.subtokens.length > 1 ? last.subtokens[1]?.surface === '月' : /月$/.test(last.surface || '') && !/[ヶヵかカケ箇]月$/.test(last.surface || ''));
+    const firstOfMonth = touching && next.surface === '日' && value === 1 && isMonth && (!Number.isInteger(last.end) || last.end === token.start);
     const joined = firstOfMonth ? 'ついたち' : tenth ? readNumber(value) + tenth : touching ? counterReading(plain ? token.surface : String(value), next.surface) : '';
     if (!joined && !(plain && /[0-9０-９〇零]/.test(token.surface))) { out.push(token); continue; }
     if (joined) {

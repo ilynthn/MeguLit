@@ -8,7 +8,7 @@ const {HookNative}=require('../core/hook-native.cjs'),{GalNative}=require('../co
 const {UnityTextPath}=require('../core/text-paths-unity.cjs');
 function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'library-only-'));fs.mkdirSync(path.join(root,'logs'));const settings=new Settings(root);t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return {root,settings};}
 const tick=()=>new Promise(r=>setImmediate(r));
-async function child(t,delay=60){const p=spawn(process.execPath,['-e',`process.stdin.resume();process.stdin.on('end',()=>setTimeout(()=>process.exit(0),${delay}));console.log('ready');`],{windowsHide:true,stdio:['pipe','pipe','pipe']});t.after(()=>{if(p.exitCode===null&&p.signalCode===null)p.kill();});await once(p.stdout,'data');return p;}
+async function child(t,delay=60,gate=null){const onEnd=gate?`const fs=require('node:fs');const f=${JSON.stringify(gate)};const check=()=>{if(fs.existsSync(f))process.exit(0);};check();setInterval(check,10);`:`setTimeout(()=>process.exit(0),${delay});`;const p=spawn(process.execPath,['-e',`process.stdin.resume();process.stdin.on('end',()=>{${onEnd}});console.log('ready');`],{windowsHide:true,stdio:['pipe','pipe','pipe']});t.after(()=>{if(p.exitCode===null&&p.signalCode===null)p.kill();});await once(p.stdout,'data');return p;}
 test('library mode is explicit, global, three-language and preserves saved reader/library preferences',t=>{
  const {root,settings}=fixture(t);assert.equal(libraryOnly(root),false);assert.equal(settings.read('library').libraryOnly,false);
  const file=settings.file('library.json');fs.writeFileSync(file,JSON.stringify({custom:'keep',libraryOnly:'true'}));assert.equal(libraryOnly(root),false);
@@ -76,7 +76,7 @@ test('stopReading waits for every owned cleanup before exposing the first reject
  }
 });
 test('owned teardown waits for the real child exit and deduplicates concurrent callers',async t=>{
- const p=await child(t,80);let requests=0,done=false;const a=stopOwned(p,()=>{requests++;p.stdin.end();});const b=stopOwned(p,()=>requests++);assert.equal(a,b);a.then(()=>{done=true;});await tick();assert.equal(done,false);await a;assert.equal(requests,1);assert.equal(p.exitCode,0);
+ const {root}=fixture(t),gate=path.join(root,'release-owned'),p=await child(t,0,gate);let requests=0,done=false;const a=stopOwned(p,()=>{requests++;p.stdin.end();});const b=stopOwned(p,()=>requests++);assert.equal(a,b);a.then(()=>{done=true;});await tick();assert.equal(done,false);fs.writeFileSync(gate,'1');await a;assert.equal(requests,1);assert.equal(p.exitCode,0);
 });
 test('timeout, kill failure and forced termination cannot be reported as graceful teardown',async t=>{
  const external=await child(t,1),fake=new EventEmitter();fake.pid=123;fake.exitCode=null;fake.signalCode=null;let kills=0;fake.kill=()=>{kills++;return false;};
@@ -84,10 +84,10 @@ test('timeout, kill failure and forced termination cannot be reported as gracefu
  const owned=await child(t,1);await assert.rejects(stopOwned(owned,()=>{},{graceMs:15,killMs:1000}),/READER_STOP_INCOMPLETE/);assert.notEqual(owned.signalCode,null);external.stdin.end();await once(external,'exit');
 });
 test('HookBridge and GalWindowBridge actual owned helpers both finish before Reader.stop resolves',async t=>{
- const {root}=fixture(t),hookChild=await child(t,120),galChild=await child(t,20);
+ const {root}=fixture(t),gate=path.join(root,'release-hook'),hookChild=await child(t,0,gate),galChild=await child(t,20);
  const hook=Object.assign(Object.create(HookNative.prototype),{process:hookChild,islandSources:new Map(),pageReset(){},notify(){},send(m){hookChild.stdin.write(JSON.stringify(m)+'\n');}});
  const gal=Object.assign(Object.create(GalNative.prototype),{process:galChild,hooks:hook,controller:{},styleSync:{stop(){}},send(m){galChild.stdin.write(JSON.stringify(m)+'\n');}});
- const reader=new Reader({root,folder:path.join(root,'data/config'),emit(){}});reader.gal=gal;let done=false;const stop=reader.stop().then(()=>{done=true;});await once(galChild,'exit');assert.equal(done,false);assert.equal(hookChild.exitCode,null);await stop;assert.equal(hookChild.exitCode,0);assert.equal(hook.disposed,true);
+ const reader=new Reader({root,folder:path.join(root,'data/config'),emit(){}});reader.gal=gal;let done=false;const stop=reader.stop().then(()=>{done=true;});await once(galChild,'exit');assert.equal(done,false);assert.equal(hookChild.exitCode,null);fs.writeFileSync(gate,'1');await stop;assert.equal(hookChild.exitCode,0);assert.equal(hook.disposed,true);
 });
 test('the UI reader helper skips opening/waiting when disabled, and rechecks a toggle during open',async()=>{
  const {openPlayReader}=await import('../web/library-mode.js');let opened=0,waited=0,off=true;const api=async()=>({libraryOnly:off}),invoke=async()=>{opened++;off=true;},wait=async()=>waited++;

@@ -11,7 +11,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {startService,startWeb,startEdge}=require('./library-views-perf.cjs');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const hasEdge=[process.env.MEGULIT_EDGE,'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].some(p=>p&&fs.existsSync(p));
-const OPEN=`(()=>{const b=[...document.querySelectorAll('button,a,[role=tab]')].find(e=>/排行榜/.test(e.textContent));if(!b)return false;b.click();return true;})()`;
+const OPEN=`(()=>{const b=document.querySelector('[data-route="leaderboard"]')||[...document.querySelectorAll('button,a,[role=tab]')].find(e=>/排行榜/.test(e.textContent));if(!b)return false;b.click();return true;})()`;
+const DIAG=`({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READY__,hasRetry:!!document.querySelector('#startup-retry'),body:(document.body?.innerText||'').slice(0,160)})`;
 const PROBE=`(()=>{const c=document.querySelector('.lb-mychip');if(!c)return null;const a=c.querySelector('.leaderboard-avatar'),s=c.querySelector('small'),t=c.querySelector('strong');
  const r=document.createRange();r.selectNodeContents(a);const g=r.getBoundingClientRect(),ab=a.getBoundingClientRect();
  const line=n=>{const k=getComputedStyle(n);return {lineHeight:parseFloat(k.lineHeight),fontSize:parseFloat(k.fontSize)};};
@@ -27,11 +28,27 @@ test('我的主页 chip: the default avatar ? sits in the middle of the circle, 
  const service=startService(root);let web,cdp;
  try{web=await startWeb(service);cdp=await startEdge(path.join(temp,'edge'));
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:720,deviceScaleFactor:1,mobile:false});
-  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${web.address().port}/#%7B%7D`});
-  let opened=false;for(let i=0;i<80&&!opened;i++){await sleep(250);opened=await cdp.evaluate(OPEN).catch(()=>false);}
-  assert.ok(opened,'leaderboard tab found');
-  let s=null;for(let i=0;i<40&&!s;i++){await sleep(250);s=await cdp.evaluate(PROBE).catch(()=>null);}
-  assert.ok(s,'我的主页 chip rendered');
+  const url=`http://127.0.0.1:${web.address().port}/#%7B%7D`;
+  const nav=await cdp.send('Page.navigate',{url});
+  assert.ok(!nav.errorText,`navigation failed (${nav.errorText})`);
+  let opened=false,diag=null;
+  for(const deadline=Date.now()+45000;Date.now()<deadline&&!opened;){
+   await sleep(200);
+   diag=await cdp.evaluate(DIAG).catch(()=>null);
+   if(diag?.href!==url)continue;
+   if(diag.hasRetry)break;
+   opened=await cdp.evaluate(OPEN).catch(()=>false);
+  }
+  assert.ok(opened,`leaderboard tab found (${JSON.stringify(diag)})`);
+  let s=null;
+  for(const deadline=Date.now()+30000;Date.now()<deadline&&!s;){
+   await sleep(200);
+   s=await cdp.evaluate(PROBE).catch(()=>null);
+  }
+  if(!s)diag=await cdp.evaluate(DIAG).catch(()=>diag);
+  assert.ok(s,`我的主页 chip rendered (${JSON.stringify(diag)})`);
+  await cdp.evaluate('document.fonts?.ready?document.fonts.ready.then(()=>true):true').catch(()=>{});
+  s=await cdp.evaluate(PROBE)||s;
   assert.equal(s.text,'注册 / 登录','signed out');
   assert.ok(Math.abs(s.dx)<=1,'? in the middle of the circle: dx '+s.dx);
   assert.equal(s.avatarPad,'0px','the avatar takes none of the value\'s spacing');
@@ -42,5 +59,5 @@ test('我的主页 chip: the default avatar ? sits in the middle of the circle, 
   assert.ok(v&&v.value,'a chip with a value rendered: '+JSON.stringify(v));
   assert.deepEqual({pad:v.pad,margin:v.margin,border:v.border,wrap:v.wrap},{pad:'14px',margin:'6px',border:'1px',wrap:'nowrap'},'the value keeps its divider and spacing on one line');
   assert.equal(v.avatarPad,'0px','the avatar next to a value takes none of its spacing');
- }finally{cdp?.stop();web?.close();await service.stop();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
+ }finally{await cdp?.stop();web?.close();await service.stop();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });

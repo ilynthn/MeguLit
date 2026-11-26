@@ -33,7 +33,7 @@ const aquaplus=require('../services/original-engines/aquaplus.cjs');
 function patchEncoder(){const map=new Map();for(let a=0x81;a<=0x9f;a++)for(let b=0x40;b<=0xfc;b++){const ch=aquaplus._internal.patchDecode(Buffer.from([a,b]));if(ch.length===1&&!map.has(ch))map.set(ch,Buffer.from([a,b]));}
  return t=>Buffer.concat(Array.from(t,ch=>ch.charCodeAt(0)<0x80?Buffer.from(ch,'latin1'):map.get(ch)||sjis(ch)));}
 const fonPak=sizes=>kcap(sizes.map((n,i)=>['f'+i+'.tga',Buffer.alloc(n),false]));
-test('AQUAPLUS: the WA2 Chinese patch (ck-gal.pak + its fon.pak) reads through the glyph table, other fonts are refused',()=>{
+test('AQUAPLUS: the WA2 Chinese patch (ck-gal.pak + its fon.pak) reads through the glyph table, another glyph table is refused',()=>{
  const dir=tmp('aqua-zh-'),zh=patchEncoder();
  assert.strictEqual(aquaplus._internal.cell(0x889f),748);assert.strictEqual(aquaplus._internal.cell(0x8140),139);
  assert.strictEqual(aquaplus._internal.patchDecode(Buffer.from([0x88,0x9f,0x88,0xa0])),'一丁');
@@ -44,9 +44,61 @@ test('AQUAPLUS: the WA2 Chinese patch (ck-gal.pak + its fon.pak) reads through t
  const list=aquaplus.patchLines(base,found);
  assert.deepStrictEqual(list[0].lines,['「啊…」','终于，还是下起来了。','春希']);assert.ok(list[0].patched);
  assert.strictEqual(list[1].skipped,'anchors');
+ /* #1142 a repack's rebuilt fon.pak (other sizes) still pairs: the text reads as Chinese through the glyph table */
  fs.writeFileSync(path.join(dir,'fon.pak'),fonPak([833652,724679,3302082,1918772]));
+ assert.deepStrictEqual(aquaplus.patchLines(base,found)[0].lines,['「啊…」','终于，还是下起来了。','春希']);
+ /* a patch drawn with another glyph table reads as scattered characters: refused */
+ put(dir,{'ck-gal.pak':kcap([['1001.txt',shifted(cn),true],['1002.txt',shifted(cn),true]])});
+ assert.strictEqual(aquaplus._internal.scriptKind(path.join(dir,'ck-gal.pak')),null);
  assert.strictEqual(aquaplus.patchLines(base,found),null);
  fs.rmSync(dir,{recursive:true,force:true});
+});
+/* the same text written with the glyph table moved by 500 cells */
+function shifted(t){const codes=[];for(let a=0x88;a<=0xfc;a++)for(let b=0x40;b<=0xfc;b++){const c=a<<8|b,n=aquaplus._internal.cell(c);if(n!==undefined&&n>=748)codes[n-748]=c;}
+ const zh=patchEncoder(),raw=zh(t),out=[];
+ for(let i=0;i<raw.length;i++){const b=raw[i];if(b>=0x81&&i+1<raw.length){const n=aquaplus._internal.cell(b<<8|raw[i+1]);i++;
+   if(n!==undefined&&n>=748&&codes[n-748]){const c=codes[(n-748+500)%codes.length]||codes[n-748];out.push(c>>8,c&255);continue;}out.push(b,raw[i]);continue;}out.push(b);}
+ return Buffer.from(out);}
+
+test('AQUAPLUS #1142: a repack keeps script.pak in a subfolder, IC/script.pak only when nothing else',()=>{
+ const dir=tmp('aqua-sub-'),ja=',mv01,「あ…」,<W>とうとう、降ってきた。,春希,';
+ put(dir,{'WA2_SDL2_x64.exe':'x','game/IC/script.pak':kcap([['1001.txt',sjis(ja),true]]),'game/script.pak':kcap([['1001.txt',sjis(ja),true],['1002.txt',sjis(ja),true]])});
+ assert.strictEqual(scenes.detect(dir),'aquaplus');
+ assert.deepStrictEqual(scenes.read('aquaplus',dir).map(s=>s.name),['1001.txt','1002.txt']);
+ assert.deepStrictEqual(aquaplus.sources(dir),[path.join(dir,'game','script.pak')]);
+ fs.rmSync(dir,{recursive:true,force:true});
+});
+
+test('AQUAPLUS #1142: a 中文版 folder (ck-gal renamed to script.pak) next to its 日文版 reads Japanese and pairs Chinese',()=>{
+ const base0=tmp('aqua-pair-'),zh=patchEncoder(),cnDir=path.join(base0,'整合版','中文版'),jaDir=path.join(base0,'整合版','日文版');
+ const ja=',mv01,a.tga,「あ…」,<W>とうとう、降ってきた。,春希,',cn=',mv01,a.tga,「啊…」,<W>终于，还是下起来了。,春希,';
+ put(cnDir,{'WA2.exe':'x','script.pak':kcap([['1001.txt',zh(cn),true],['1002.txt',zh(cn),true]])});
+ put(jaDir,{'WA2.exe':'x','script.pak':kcap([['1001.txt',sjis(ja),true],['1002.txt',sjis(ja),true]])});
+ assert.strictEqual(aquaplus._internal.scriptKind(path.join(cnDir,'script.pak')),'zh');
+ assert.strictEqual(aquaplus._internal.scriptKind(path.join(jaDir,'script.pak')),'ja');
+ assert.strictEqual(scenes.detect(cnDir),'aquaplus');
+ const base=scenes.read('aquaplus',cnDir);assert.deepStrictEqual(base[0].lines,['「あ…」','とうとう、降ってきた。','春希']);
+ const list=aquaplus.patchLines(base,{files:new Map(),dirs:[cnDir]});
+ assert.deepStrictEqual(list[1].lines,['「啊…」','终于，还是下起来了。','春希']);assert.ok(list.every(s=>s.patched));
+ /* the Japanese folder alone is not taken for its own patch */
+ assert.strictEqual(aquaplus.patchLines(scenes.read('aquaplus',jaDir),{files:new Map(),dirs:[jaDir]}),null);
+ fs.rmSync(base0,{recursive:true,force:true});
+});
+test('AQUAPLUS #1142: IC/script.pak comes after the full script.pak even when the full one is deeper',()=>{
+ const dir=tmp('aqua-icdeep-'),ja=',mv01,「あ…」,<W>とうとう、降ってきた。,春希,';
+ put(dir,{'WA2.exe':'x','IC/script.pak':kcap([['1001.txt',sjis(ja),true]]),'game/data/script.pak':kcap([['1001.txt',sjis(ja),true],['1002.txt',sjis(ja),true]])});
+ assert.strictEqual(aquaplus._internal.findScript(dir),path.join(dir,'game','data','script.pak'));
+ assert.deepStrictEqual(aquaplus.scenes(dir).map(s=>s.name),['1001.txt','1002.txt']);
+ fs.rmSync(dir,{recursive:true,force:true});
+});
+test('AQUAPLUS #1142: sibling 中文版/日文版 with game/data/script.pak are found from the Chinese folder',()=>{
+ const base0=tmp('aqua-pairdeep-'),zh=patchEncoder(),cnDir=path.join(base0,'整合版','中文版'),jaDir=path.join(base0,'整合版','日文版');
+ const ja=',mv01,a.tga,「あ…」,<W>とうとう、降ってきた。,春希,',cn=',mv01,a.tga,「啊…」,<W>终于，还是下起来了。,春希,';
+ put(cnDir,{'WA2.exe':'x','game/data/script.pak':kcap([['1001.txt',zh(cn),true],['1002.txt',zh(cn),true]])});
+ put(jaDir,{'WA2.exe':'x','game/data/script.pak':kcap([['1001.txt',sjis(ja),true],['1002.txt',sjis(ja),true]])});
+ assert.strictEqual(aquaplus._internal.findScript(jaDir),path.join(jaDir,'game','data','script.pak'));
+ assert.strictEqual(aquaplus._internal.findScript(cnDir),path.join(jaDir,'game','data','script.pak'));
+ fs.rmSync(base0,{recursive:true,force:true});
 });
 test('AQUAPLUS: Japanese asset filenames go to anchors without breaking patch pairing or anchor guards',()=>{
  const dir=tmp('aqua-asset-'),zh=patchEncoder();

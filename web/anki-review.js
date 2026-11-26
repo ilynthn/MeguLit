@@ -154,7 +154,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   if(next.connected!==status.connected){status=next;drawDecks();}}catch{}},4000);
  /* (user 2026-11-14) the service sends the card's own clips (MeguLit's copy first); they play here, Anki's player only when none came back */
  let replaying=null;
- function playClips(clips){replaying?.pause();const channel=name=>/^tomoyo_g_/i.test(name)?'game':/^tomoyo_s_/i.test(name)?'sentence':/^tomoyo_/i.test(name)?'word':'';
+ function stopReplay(){replaying?.pause();replaying=null;}
+ function playClips(clips){stopReplay();const channel=name=>/^tomoyo_g_/i.test(name)?'game':/^tomoyo_s_/i.test(name)?'sentence':/^tomoyo_/i.test(name)?'word':'';
   const level=key=>Number.isFinite(mix[key])?Math.min(1,Math.max(0,mix[key]/100)):1;const next=i=>{const clip=clips[i];if(!clip||!isCurrent())return;
    const audio=new Audio(clip.src);replaying=audio;audio.volume=level('master')*level(clip.channel||channel(clip.name));audio.onended=()=>{if(replaying===audio)next(i+1);};
    audio.play().catch(()=>{if(replaying===audio&&isCurrent())toast(copy.failed);});};next(0);}
@@ -290,7 +291,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  function dockGone(){const s=dockEl?.__stage;return !isCurrent()||!s||!s.isConnected||s!==stage()||!s.getClientRects().length;}
  function watchDock(){clearInterval(dockWatch);dockWatch=setInterval(()=>{if(!dockEl){clearInterval(dockWatch);return;}if(dockGone()){dockEl.hidden=true;const own=dockEl.__stage;if(!isCurrent()||!own?.isConnected||own!==stage()){dockEl.remove();clearInterval(dockWatch);}}else if(editing&&dockEl.hidden){dockEl.hidden=false;placeDock(stage());}},400);}
  document.addEventListener('fullscreenchange',dockHome);
- /* a smaller window pulls a saved spot back inside it */addEventListener('resize',()=>{const s=stage();if(editing&&s&&dockEl&&!dockEl.hidden)placeDock(s);});
+ const dockResize=()=>{const s=stage();if(editing&&s&&dockEl&&!dockEl.hidden)placeDock(s);};
+ /* a smaller window pulls a saved spot back inside it */window.addEventListener('resize',dockResize);
  function shell(){
   /* only a stage this render built is reused: one left by an earlier render on the same target carries that render's handlers */
   let s=stage();if(s&&s.__owner===owner)return s;
@@ -430,9 +432,9 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   else if(d.type==='tome-anki-key')key(String(d.key||''));
   else if(d.type==='tome-anki-lookup')lookup(String(d.word||'').slice(0,60));};
  window.addEventListener('message',messages);
- const stop=()=>{window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);clearInterval(poll);leaveHud();dockEl?.remove();clearInterval(dockWatch);};stopMessages=stop;
+ const stop=()=>{stopReplay();window.removeEventListener('message',messages);document.removeEventListener('keydown',keydown);document.removeEventListener('fullscreenchange',fullscreenSync);document.removeEventListener('fullscreenchange',dockHome);window.removeEventListener('resize',dockResize);clearInterval(poll);leaveHud();dockEl?.remove();clearInterval(dockWatch);};stopMessages=stop;
  function progress(s,html){s.querySelector('.anki-hud-progress').innerHTML=html;requestAnimationFrame(placeBlocks);}
- function mountFrame(s,card){currentFrame=frame(card);s.querySelector('.anki-hud-frame-slot').replaceChildren(currentFrame);}
+ function mountFrame(s,card){stopReplay();currentFrame=frame(card);s.querySelector('.anki-hud-frame-slot').replaceChildren(currentFrame);}
  function drawCard(card){
   if(!isCurrent())return;currentCard=card;currentFrame=null;
   if(card.done){drawDone(card);return;}
@@ -455,7 +457,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  }
  function drawDecks(){
   if(!isCurrent())return;
-  currentCard=null;currentFrame=null;leaveHud();
+  stopReplay();currentCard=null;currentFrame=null;leaveHud();
   if(landing.parentElement!==target)target.replaceChildren(landing);
   landing.classList.remove('anki-loading');landing.removeAttribute('aria-busy');
   if(!status.connected){landing.innerHTML='<h2>'+text.ankiOffline+'</h2><p class="muted">'+esc(reason(status.reason))+'</p><p class="muted u-status" data-state="off">AnkiConnect'+(status.url?' · '+esc(status.url):'')+'</p><div class="review-controls"><button class="primary" data-launch>'+copy.launch+'</button><button class="secondary" data-connect>'+text.reconnect+'</button></div>'+(INST?'<p class="anki-install-ask"><button type="button" class="text-button" data-install-ask>'+esc(inst().ask)+'</button></p>':'');
@@ -483,7 +485,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  async function openAnki(targetName,deck,button){if(button)button.disabled=true;try{const r=await api('anki_open',{target:targetName,deck});if(!r?.focused)toast(copy.focusHint);
   }catch(error){failed(error);}finally{if(button)button.disabled=false;}}
  function drawDone(card){
-  currentCard=card;currentFrame=null;leaveHud();
+  stopReplay();currentCard=card;currentFrame=null;leaveHud();
   /* 2026-11-13 (AI-feel review): the finished state says what was done today, when cards come back, and offers new words */
   const lang=document.documentElement.lang||'zh',loc=lang.startsWith('ja')?'ja':lang.startsWith('en')?'en':'zh';
   target.innerHTML=reviewRest({locale:loc,esc,kind:card.practiceDone?'practice':card.finished?'rest':'empty',deck:card.deck||'',reviewed:card.reviewedToday??null,nextDue:card.finished?card.nextDue:undefined,total:card.total??null,

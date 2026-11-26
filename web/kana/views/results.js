@@ -86,7 +86,7 @@ el.querySelector("#app").innerHTML=`
    <div class="types">${Object.keys(byType).length?Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="type"><b>${TYPE[k]?.name||k}</b><div class="bar"><i style="width:${n/wrongs.length*100}%"></i></div><span class="c num">${n}</span><p>${TYPE[k]?.tip||""}</p></div>`).join(""):`<p class="empty">这一局没有答错</p>`}</div>
 
    <div class="sec-title" style="margin-top:30px"><h2>答错的假名</h2><span>${wrongKana.length} 个</span></div>
-   <div class="wk">${wrongKana.length?wrongKana.map(([k,v])=>`<div class="wrow"><div class="k">${k}</div><div class="d">错 ${v.n} 次 · ${Object.keys(v.why).map(w=>TYPE[w]?.name||w).join("、")}${S.CONFUSE.has(k)?`<span class="tag">易混字</span>`:""}${hist[k]?`<span class="tag">近 7 天还错过 ${hist[k]} 次</span>`:""}<small>${explain(k)}</small></div><a href="gojuon.html">在五十音图里看 →</a></div>`).join(""):`<p class="empty">全对</p>`}</div>
+   <div class="wk">${wrongKana.length?wrongKana.map(([k,v])=>`<div class="wrow"><div class="k">${k}</div><div class="d">错 ${v.n} 次 · ${Object.keys(v.why).map(w=>TYPE[w]?.name||w).join("、")}${S.CONFUSE.has(k)?`<span class="tag">易混字</span>`:""}${hist[k]?`<span class="tag">近 7 天还错过 ${hist[k]} 次</span>`:""}<small>${explain(k)}</small></div><a href="gojuon.html?k=${encodeURIComponent(k)}">在五十音图里看 →</a></div>`).join(""):`<p class="empty">全对</p>`}</div>
   </div>
 
   <aside>
