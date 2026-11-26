@@ -324,7 +324,7 @@
    }window.__tomoyoHitRegionsRefresh?.(true);};choose.addEventListener('change',switchProvider);switchProvider();
   const state=el('div','tomoyo-muted');modelPanels.add({details,state,fields});details.append(button('保存学习模型',()=>{const lookupProfiles={},keys={};for(const [name,
    f]of Object.entries(fields)){lookupProfiles[name]={baseUrl:f.baseInput.value,model:f.modelInput.value};if(f.key.value.trim())keys[name]=f.key.value.trim();}const lookupProvider=b.options().lookupProvider;
-   b.updateLearningSettings({contextProvider:choose.value,lookupProfiles});state.textContent='正在保存…';send({type:'lookupConfigure',settings:{lookupProvider,contextProvider:choose.value,
+   b.updateLearningSettings({contextProvider:choose.value,lookupProfiles});state.textContent='正在保存…';send({type:'lookupConfigure',settings:{lookupProvider,contextProvider:choose.value,contextProviderPicked:true,
    lookupProfiles},keys});}),state,keyGuide(),el('small','tomoyo-muted','点词释义（点读解释来源）是另一个设置，不受这里影响；本地查词、读音和变形分析始终离线可用，API 只在你点击「上下文解释」「归纳义项」时调用。'));details.addEventListener('change',
    e=>e.stopPropagation());panel.append(details);
  }
