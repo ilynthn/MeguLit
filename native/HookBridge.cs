@@ -588,15 +588,17 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
  internal static string Unfold(string text,int n){if(text==null||n<2)return text;var sb=new System.Text.StringBuilder(text.Length);for(int i=0;i<text.Length;){int j=i;while(j<text.Length&&text[j]==text[i])j++;int k=j-i,q=k/n,r=k%n;sb.Append(text[i],q+(r==0?0:r>n/2?1:q==0?r:0));i=j;}return sb.ToString();}
  /* a name plate drawn by a string call per glyph: each pass reads the name from every glyph on ("朽木" + "木"), N passes:
     「朽木木朽木木朽木木…」 → 朽木 at `at`, `len` characters of the text; null when there is none (three passes at least) */
- internal static string YurisNameChain(string text,out int at,out int len){at=0;len=0;if(text==null)return null;
-  for(int i=0;i+6<=text.Length;i++)for(int m=2;m<=8;m++){if(i+m>text.Length)break;var b=new System.Text.StringBuilder();for(int s=0;s<m;s++)b.Append(text,i+s,m-s);string block=b.ToString();
+ internal static string YurisNameChain(string text,out int at,out int len,int reps=3){at=0;len=0;if(text==null)return null;
+  for(int i=0;i+2*reps<=text.Length;i++)for(int m=2;m<=8;m++){if(i+m>text.Length)break;var b=new System.Text.StringBuilder();for(int s=0;s<m;s++)b.Append(text,i+s,m-s);string block=b.ToString();
    int k=0;while(i+(k+1)*block.Length<=text.Length&&String.CompareOrdinal(text,i+k*block.Length,block,0,block.Length)==0)k++;
-   if(k>=3){string who=text.Substring(i,m);if(who.Trim(who[0]).Length>0&&System.Text.RegularExpressions.Regex.IsMatch(who,@"^[぀-ヿ一-鿿Ａ-ｚＡ-Ｚ・ー]+$")){at=i;len=k*block.Length;return who;}}}
+   if(k>=reps){string who=text.Substring(i,m);if(who.Trim(who[0]).Length>0&&System.Text.RegularExpressions.Regex.IsMatch(who,@"^[぀-ヿ一-鿿Ａ-ｚＡ-Ｚ・ー]+$")){at=i;len=k*block.Length;return who;}}}
   return null;}
  static bool YurisFoldSelfTest(){
   {int at,len;string who=YurisNameChain("朽木木朽木木朽木木朽木木朽木木朽木木朽木木朽木木（あれ？）",out at,out len);if(who!="朽木"||at!=0||len!=24)return false;
    who=YurisNameChain("ものが言えない。浩平平浩平平浩平平浩平平浩平平浩平平浩平平浩平平「おい」",out at,out len);if(who!="浩平"||at!=8||len!=24)return false;
    if(YurisNameChain("「はいはい、そうですね」",out at,out len)!=null||YurisNameChain("ここここここ",out at,out len)!=null||YurisNameChain("ーーーーーーーーーーーー",out at,out len)!=null)return false;}
+  {int at,len;if(YurisNameChain("主神神主神神「ほう」",out at,out len)!=null||YurisNameChain("主神神主神神「ほう」",out at,out len,2)!="主神"||len!=6)return false;}
+  if(JoinEnd("「あの、私。")||!JoinEnd("「あの、私。これから」")||!JoinEnd("あの。")||JoinEnd("『ああ（いい）。")||!JoinEnd("いい）。")||JoinEnd("「あの、私……"))return false;
   if(RepeatFold("誕誕誕誕誕誕誕誕生生生生生生生生")!=8||Unfold("誕誕誕誕誕誕誕誕生生生生生生生生",8)!="誕生")return false;
   if(RepeatFold("心心心心心心心心")!=0||Unfold("心心心心心心心心",8)!="心"||Unfold("お",8)!="お"||Unfold("……",8)!="……"||Unfold("――――――――――――――――ああああああああ",8)!="――あ"||Unfold("んんんんんんて",8)!="んて"||Unfold("怒怒怒怒怒怒怒怒怒りを",8)!="怒りを")return false;
   if(RepeatFold("ここここはは")!=0||RepeatFold("私私もも頑頑張張るる")!=2||RepeatFold("はいはい")!=0||RepeatFold("ああああ")!=0||RepeatFold("「おはよう」")!=0||RepeatFold("ーーーー")!=0)return false;
@@ -617,11 +619,11 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
   string text=p.text.ToString();if(text.Length==0)return;KrkrJoinFlush=true;try{Diagnostic("krkr no-KAG: joined (quiet) "+p.name+" chars="+text.Length);OutputFrame(p.code,p.name,p.tp,text,p.probe);}catch(Exception e){Diagnostic("krkr join error "+e.Message);}finally{KrkrJoinFlush=false;}}
  /* -> the whole line to handle now, or null when the piece was kept for later */
  static string KrkrJoinPiece(string code,string name,ThreadParam tp,string text,long probe){string key=tp.Key();lock(KrkrJoin){KrkrPending p;
-  if(!KrkrJoin.TryGetValue(key,out p)){if(SentenceEnd(text))return text;p=new KrkrPending{code=code,name=name,tp=tp,probe=probe};p.timer=new System.Threading.Timer(KrkrJoinDue,key,Timeout.Infinite,Timeout.Infinite);KrkrJoin[key]=p;}
+  bool yuris=YurisStream(name);if(!KrkrJoin.TryGetValue(key,out p)){if(yuris?JoinEnd(text):SentenceEnd(text))return text;p=new KrkrPending{code=code,name=name,tp=tp,probe=probe};p.timer=new System.Threading.Timer(KrkrJoinDue,key,Timeout.Infinite,Timeout.Infinite);KrkrJoin[key]=p;}
   /* a piece that opens a new line (「『（ or the full-width indent), or a line already KrkrJoinMax long (fast-forward: no closing
      punctuation for a long time, 4036 characters on オルフレール), closes what was kept before it */
   if(p.text.Length>0&&("「『（　".IndexOf(text[0])>=0||p.text.Length+text.Length>KrkrJoinMax)){string before=p.text.ToString();p.text.Clear().Append(text);p.timer.Change(KrkrJoinMs,Timeout.Infinite);Diagnostic("krkr no-KAG: joined (next line) "+name+" chars="+before.Length);return before;}
-  p.text.Append(text);string all=p.text.ToString();if(SentenceEnd(all)){KrkrJoin.Remove(key);try{p.timer.Dispose();}catch{}if(all.Length>text.Length)Diagnostic("krkr no-KAG: joined "+name+" chars="+all.Length);return all;}
+  p.text.Append(text);string all=p.text.ToString();if(yuris?JoinEnd(all):SentenceEnd(all)){KrkrJoin.Remove(key);try{p.timer.Dispose();}catch{}if(all.Length>text.Length)Diagnostic("krkr no-KAG: joined "+name+" chars="+all.Length);return all;}
   p.timer.Change(KrkrJoinMs,Timeout.Infinite);return null;}}
   /* オルフレール's two options came as one text (LunaHook flushed both draws at once: "……本当は、お優しい方なのかしら……本当に、几帳面
     な方なのね"), so the kernel saw one candidate and no choice reached the reader. A short text without a sentence end whose opening mark
@@ -630,6 +632,9 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
   string mark=null;foreach(string m in new[]{"……","…","「","『","（","・","―"})if(t.StartsWith(m,StringComparison.Ordinal)){mark=m;break;}if(mark==null)return text;/* only an explicit opening mark: "the first two characters" cut narration at a repeated 「いる」 */
   var parts=new List<string>();int from=0;for(int i=mark.Length+2;i<=t.Length-mark.Length;i++){if(String.CompareOrdinal(t,i,mark,0,mark.Length)!=0)continue;if(i>0&&mark.Length>0&&t[i-1]==mark[0])continue;parts.Add(t.Substring(from,i-from));from=i;i+=mark.Length;}
   parts.Add(t.Substring(from));if(parts.Count<2||parts.Count>6)return text;foreach(string x in parts)if(x.Trim().Length<mark.Length+2)return text;return String.Join("\n",parts);}
+/* 2026-11-26 (Monochrome Empire: a 。 inside 「…」 closed the line and the quote reached the reader as two lines): the joiner ends a
+   YU-RIS line (KiriKiri keeps SentenceEnd: a quote there may run over pages) at a sentence end only when every 「『（ in it is closed; the quiet timer and KrkrJoinMax still end an unclosed one */
+ internal static bool JoinEnd(string t){if(!SentenceEnd(t))return false;int a=0,b=0,c=0;foreach(char ch in t??""){if(ch=='「')a++;else if(ch=='」')a--;else if(ch=='『')b++;else if(ch=='』')b--;else if(ch=='（')c++;else if(ch=='）')c--;}return a<=0&&b<=0&&c<=0;}
 /* closing punctuation only: a typed 「― or 「… is a pause inside the line, not its end */static bool SentenceEnd(string t){t=(t??"").TrimEnd();return t.Length>0&&"。！？!?」』）)".IndexOf(t[t.Length-1])>=0;}
  internal static string UndoubleChars(string text,int min=4){if(text==null||text.Length<min||text.Length<2||text.Length%2!=0)return text;for(int i=0;i<text.Length;i+=2)if(text[i]!=text[i+1])return text;var sb=new System.Text.StringBuilder(text.Length/2);for(int i=0;i<text.Length;i+=2)sb.Append(text[i]);return sb.ToString();}
  // SACT2 uses one hook for sprite text. The map label can speak twice before the
@@ -701,7 +706,11 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
      its pieces are joined into lines (KrkrJoinPiece: up to a sentence end, a new opening mark, or 1.2 s without a piece), and a
      complete line there takes the selection from a lower ranked read-only stream. A YU-RIS game whose streams never repeat is unchanged */
   if(YurisStream(name)){int fold=YurisFoldOf(tp.Key(),name,text);if(fold>=2){text=Unfold(text,fold);if(text.Length==0)return;{int at,len;string who=YurisNameChain(text,out at,out len);if(who!=null){/* the name plate: what came before it is the end of the last line, the name goes to the reader as the speaker, the rest goes on */if(at>0)OutputFrame(code,name,tp,text.Substring(0,at),probe);bool sel;lock(Gate){sel=tp.Key()==Selected;}if(sel){Diagnostic("yuris: name "+who);Emit(new{type="hookName",text=who});}text=text.Substring(at+len);if(text.Length==0)return;}}
-    if(!KrkrJoinFlush){string whole=KrkrJoinPiece(code,name,tp,text,probe);if(whole==null)return;text=whole;}
+    if(!KrkrJoinFlush){string whole=KrkrJoinPiece(code,name,tp,text,probe);if(whole==null)return;text=whole;
+     /* 2026-11-26 (Monochrome Empire r4: 「貴方は……？」主神神主神神…「ほう。…」 reached the reader as one line): a name plate cut by the
+        flushes leaves fewer than three passes in each piece, so the joined line is searched again, two passes being enough there */
+     {int at2,len2;string who2;while((who2=YurisNameChain(text,out at2,out len2,2))!=null){if(at2>0){KrkrJoinFlush=true;try{OutputFrame(code,name,tp,text.Substring(0,at2),probe);}finally{KrkrJoinFlush=false;}}
+       bool sel2;lock(Gate){sel2=tp.Key()==Selected;}if(sel2){Diagnostic("yuris: name "+who2+" (joined line)");Emit(new{type="hookName",text=who2});}text=text.Substring(at2+len2);if(text.Length==0)return;}}}
     if(DialogueLike(text)&&SentenceEnd(text)){string key=tp.Key();bool move=false;var now0=DateTime.UtcNow;lock(Gate){KrkrLineAt[key]=now0;Candidate cur;DateTime at;
       if(Selected!=key){bool has=Selected!=""&&Candidates.TryGetValue(Selected,out cur);cur=has?Candidates[Selected]:null;int mine=YurisRank(name),theirs=has&&YurisFolded(Selected)?YurisRank(cur.name):-1;bool writable=has&&cur.embed&&!cur.hideOnly;bool quiet=!KrkrLineAt.TryGetValue(Selected,out at)||(now0-at).TotalSeconds>10;move=!writable&&(Selected==""||mine>theirs||mine==theirs&&quiet);}}
      if(move){Diagnostic("yuris: dialogue stream "+name+" id="+key+" (folded x"+fold+")");FromMemory=false;MemorySaved=false;Select(key);}}}}

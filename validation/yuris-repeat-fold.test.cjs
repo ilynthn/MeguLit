@@ -9,7 +9,7 @@ const SRC=fs.readFileSync(path.join(__dirname,'..','native','HookBridge.cs'),'ut
 
 test('HookBridge: YU-RIS repeat fold, join and selection are wired and self-tested',()=>{
  assert.match(SRC,/if\(YurisStream\(name\)\)\{int fold=YurisFoldOf\(tp\.Key\(\),name,text\);if\(fold>=2\)\{text=Unfold\(text,fold\);/,'folded before the frame is read, only once a factor was seen');
- assert.match(SRC,/if\(fold>=2\)\{[^\n]*\n\s*if\(!KrkrJoinFlush\)\{string whole=KrkrJoinPiece\(code,name,tp,text,probe\);if\(whole==null\)return;text=whole;\}/,'pieces joined into one line');
+ assert.match(SRC,/if\(fold>=2\)\{[^\n]*\n\s*if\(!KrkrJoinFlush\)\{string whole=KrkrJoinPiece\(code,name,tp,text,probe\);if\(whole==null\)return;text=whole;/,'pieces joined into one line');
  assert.match(SRC,/yuris: dialogue stream /,'a complete line on a higher ranked stream takes the selection');
  assert.match(SRC,/bool writable=has&&cur\.embed&&!cur\.hideOnly;/,'a writable selected stream (EmbedYURIS6) is never taken from');
  assert.match(SRC,/&&!\(YurisFolded\(Selected\)&&YurisRank\(rv\.name\)>0\)/,'the rival switch does not pull between folded YU-RIS siblings');
@@ -19,3 +19,10 @@ test('HookBridge: YU-RIS repeat fold, join and selection are wired and self-test
  assert.match(SRC,/&&\(!DotsOwn\(c\)\|\|YurisGdiOwn\(key\)\);/,'a selected folded YU-RIS2 stream is switched on for the DLL GDI hide');
  assert.match(SRC,/static bool YurisGdiOwn\(string key\)\{Candidate c;return key!=null&&YurisFolded\(key\)&&Candidates\.TryGetValue\(key,out c\)&&c\.name=="YU-RIS2";\}/,'only the TextOutA call stream');
  assert.match(SRC,/if\(KrkrRank\(name\)>0&&KrkrNoKag\(\)\)\{string once=UndoubleChars\(text,2\);/,'the KiriKiri no-KAG path is unchanged');});
+
+test('YU-RIS joined lines: a name plate cut by the flushes is found again in the joined line; a 。 inside an open quote does not end it',()=>{
+ const SRC=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','native','HookBridge.cs'),'utf8');
+ assert.match(SRC,/while\(\(who2=YurisNameChain\(text,out at2,out len2,2\)\)!=null\)/,'two passes are enough on the joined line');
+ assert.match(SRC,/internal static bool JoinEnd\(string t\)\{if\(!SentenceEnd\(t\)\)return false;/);
+ assert.match(SRC,/bool yuris=YurisStream\(name\);if\(!KrkrJoin\.TryGetValue\(key,out p\)\)\{if\(yuris\?JoinEnd\(text\):SentenceEnd\(text\)\)return text;/,'KiriKiri keeps SentenceEnd');
+ assert.match(SRC,/JoinEnd\("「あの、私。"\)\|\|!JoinEnd\("「あの、私。これから」"\)/,'--self-test covers it');});
