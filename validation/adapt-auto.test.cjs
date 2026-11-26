@@ -241,3 +241,9 @@ test('locateAnswer: the options the kernel wants located get the OCR rows that a
  const a=R.locateAnswer([{text:'・ ・ ・ 本 当 は 。 お 憂 し い 方 な の か し ら',x:466,y:196,w:349,h:22},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21}],['……本当は、お優しい方なのかしら','……本当に、几帳面な方なのね'],{w:1280,h:720});
  assert.equal(a.type,'hookChoiceBoxes');assert.equal(a.status,'ok');assert.deepEqual(a.items.map(i=>[i.text,i.x0,i.y0,i.x1,i.y1]),[['……本当は、お優しい方なのかしら',466,196,815,218],['……本当に、几帳面な方なのね',523,283,791,304]]);assert.deepEqual([a.sw,a.sh],[1280,720]);
  assert.equal(R.locateAnswer([{text:'村 人',x:1,y:1,w:5,h:5}],['……本当は、お優しい方なのかしら'],{w:10,h:10}),null);});
+
+test('driver: a start item on screen is still clicked when a system text counted as the first line',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
+ const d=new Driver({confirmAfter:1000,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[]});const W={w:10,h:10},start={role:'button',text:'はじめから',x:100,y:200,w:100,h:30};
+ d.next({t:0,window:W});d.next({t:10,window:W,lines:1});assert.ok(!d.next({t:500,window:W,lines:1,menu:[start]}).some(a=>a.do==='click'),'too soon');
+ assert.deepEqual(d.next({t:1200,window:W,lines:1,menu:[start]}),[{do:'click',x:150,y:215}]);
+ const late=new Driver({confirmAfter:1000,advanceEvery:1e9,stallMs:1e9,ctrlEvery:1e9,shotLines:[]});late.next({t:0,window:W});late.next({t:10,window:W,lines:10});assert.ok(!late.next({t:2000,window:W,lines:10,menu:[start]}).some(a=>a.do==='click'),'not once the story runs');});

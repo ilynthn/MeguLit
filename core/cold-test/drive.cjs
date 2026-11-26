@@ -66,6 +66,11 @@ class Driver{
     if(k===1||k===2){out.push({do:'phase',name:'choice-try-'+(k+1)});if(at)out.push({do:'move',...at});this.choiceNext=t+o.choiceHover;this.choiceHoverClick=true;return out;}
     this.choiceAt=0;}
    if(this.choiceAt)return out;}
+  /* 2026-11-26 (Monochrome Empire, YU-RIS: a 150-character system text at start counted as the first line, so the run left the intro
+     and never clicked 「最初から始める」 on the title): while only a few lines came and none for confirmAfter, a start item on screen is still
+     clicked, as in the intro */
+  if(this.lastLines<=3&&t-this.lastLineAt>=o.confirmAfter&&t-this.clickedStart>2500){const item=(obs.menu||[]).find(m=>m&&START.test(String(m.text||'').trim())&&!NOT_START.test(String(m.text||''))&&m.w>0&&m.h>0);
+   if(item){this.clickedStart=t;this.lastAct=t;out.push({do:'click',x:Math.round(item.x+item.w/2),y:Math.round(item.y+item.h/2)});return out;}}
   const ok=t-this.lastLineAt>=o.confirmAfter&&t-this.clickedConfirm>2500&&(obs.menu||[]).find(m=>m&&m.role==='button'&&CONFIRM.test(String(m.text||'').trim())&&m.w>0&&m.h>0);
   if(ok){this.clickedConfirm=t;this.lastAct=t;out.push({do:'click',x:Math.round(ok.x+ok.w/2),y:Math.round(ok.y+ok.h/2)});return out;}
   /* skip:false (tools/adapt-auto.cjs --no-skip): no held Ctrl, lines come at reading pace (a per-character draw stream is not cut up by fast-forward) */
