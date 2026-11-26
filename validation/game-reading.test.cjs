@@ -87,3 +87,10 @@ test('a game switched while a line is tokenized never caches the old game’s re
  assert.notEqual(out[0].reading,'しまづ','made with the readings of the game now bound');
  assert.notEqual((await L.tokenize('島津が',N))[0].reading,'しまづ','and nothing of the old game is in the cache');
 });
+
+test('gameTokens prefers a longer match across sources before shorter higher-priority pieces',()=>{
+ const r=readingsIn('島津が来る',{learned:{'島':'しま'},script:new Map([['島津','しまづ']])});
+ assert.equal(shown(gameTokens(line('島/シマ 津/ツ が/ガ/助詞,格助詞,* 来る/クル/動詞,一般,*'),r)),'島津:しまづ が:ガ 来る:クル');
+ assert.equal(shown(gameTokens(line('島/トウ に/ニ/助詞,格助詞,* 行く/イク/動詞,一般,*'),readingsIn('島に行く',{learned:{'島':'しま'},script:new Map([['島津','しまづ']])}))),'島:しま に:ニ 行く:イク');
+ assert.equal(shown(gameTokens(line('島/シマ 津/ツ'),[['島津','しまづ','line'],['島津','とうしん','script']])),'島津:しまづ','same-length candidates keep source priority');
+});
