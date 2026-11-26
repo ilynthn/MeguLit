@@ -169,3 +169,7 @@ test('own copy: goes under MEGULIT_ADAPTER_GAMES, never C: or E:, and only while
  const roomy={bavail:2**40/4096,bsize:4096};const c=Adapter.copyGame(src,{root,statfs:()=>roomy,noDrives:no});assert.equal(c.reused,false);assert.ok(fs.existsSync(path.join(c.dir,'g','game.exe')));
  assert.equal(Adapter.copyGame(src,{root,statfs:()=>big,noDrives:no}).reused,true);
  assert.throws(()=>Adapter.copyGame(src,{root:'E:\games',statfs:()=>roomy}),/never go to C: or E:/);});
+
+test('entry defaults: VNDB and the second opinion are on, a copy is off; each switch turns its own one off',()=>{
+ const d=Adapter.parseRun(['node','x','E:/g']);assert.deepEqual([d.net,d.external,d.copy,d.offline,d.foreground],[true,true,false,false,false]);
+ const o=Adapter.parseRun(['node','x','E:/g','--no-net','--no-external','--copy']);assert.deepEqual([o.net,o.external,o.copy],[false,false,true]);});
