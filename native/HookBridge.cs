@@ -507,7 +507,7 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
  static bool KrkrNoKag(){long at=Interlocked.Read(ref KrkrWaitKagAt);return at!=0&&!KrkrKagSeen&&(DateTime.UtcNow-new DateTime(at,DateTimeKind.Utc)).TotalMilliseconds>=KrkrNoKagMs;}
  static bool KrkrNoKagSelfTest(){long keep=KrkrWaitKagAt;bool seen=KrkrKagSeen;try{
   if(UndoublePrefix("昇昇りり始始めめ感感じ、ゆっくり")!="昇り始め感じ、ゆっくり"||UndoublePrefix("首首都都―――アアンン")!="首都――アン"||UndoublePrefix("はいはい")!="はいはい"||UndoublePrefix("ここここはは")!="ここは"||KrkrRank("KiriKiri2")<=KrkrRank(KrkrDrawText))return false;
-  {var tpx=new ThreadParam{processId=1,addr=0x9999,ctx=7,ctx2=1};if(KrkrJoinPiece("c","KiriKiri2",tpx,"「",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"こんな",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"ことが？」",0)!="「こんなことが？」"||KrkrJoinPiece("c","KiriKiri2",tpx,"一文。",0)!="一文。"||UndoubleChars("ここ",2)!="こ")return false;}
+  {var tpx=new ThreadParam{processId=1,addr=0x9999,ctx=7,ctx2=1};if(KrkrJoinPiece("c","KiriKiri2",tpx,"「",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"こんな",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"ことが？」",0)!="「こんなことが？」"||KrkrJoinPiece("c","KiriKiri2",tpx,"一文。",0)!="一文。"||KrkrJoinPiece("c","KiriKiri2",tpx,"途中まで",0)!=null||KrkrJoinPiece("c","KiriKiri2",tpx,"「次の行",0)!="途中まで"||KrkrJoinPiece("c","KiriKiri2",tpx,"です」",0)!="「次の行です」"||UndoubleChars("ここ",2)!="こ")return false;}
   if(UndoubleChars("私私もも頑頑張張るる")!="私も頑張る"||UndoubleChars("はいはい")!="はいはい"||UndoubleChars("クレレアア")!="クレレアア")return false;
   KrkrWaitKagAt=0;KrkrKagSeen=false;if(!AutoSkipped(KrkrDrawText))return false;KrkrKagStatus("wait kag");if(!AutoSkipped(KrkrDrawText))return false;/* not yet 20 s */
   KrkrWaitKagAt=DateTime.UtcNow.AddSeconds(-30).Ticks;if(AutoSkipped(KrkrDrawText)||!AutoSkipped("GDI TextOutW")||!AutoSkipped("KiriKiri name"))return false;
@@ -526,13 +526,16 @@ static bool GdiProbeable(Candidate c){return c!=null&&!c.embed&&!ConversionHook(
  static readonly Dictionary<string,DateTime> KrkrLineAt=new Dictionary<string,DateTime>();
  /* a no-KAG KiriKiri stream flushed piece by piece at reading pace (LunaHook ends a frame at every pause of the typewriter: 「「 / ここ /
     んん / … / に話を…ないかな？」): the pieces of one stream are one line up to a sentence end, or KrkrJoinMs without a piece */
- const int KrkrJoinMs=1200;class KrkrPending{public System.Text.StringBuilder text=new System.Text.StringBuilder();public System.Threading.Timer timer;public string code,name;public ThreadParam tp;public long probe;}
+ const int KrkrJoinMs=1200,KrkrJoinMax=400;class KrkrPending{public System.Text.StringBuilder text=new System.Text.StringBuilder();public System.Threading.Timer timer;public string code,name;public ThreadParam tp;public long probe;}
  static readonly Dictionary<string,KrkrPending> KrkrJoin=new Dictionary<string,KrkrPending>();[ThreadStatic] static bool KrkrJoinFlush;
  static void KrkrJoinDue(object state){string key=(string)state;KrkrPending p;lock(KrkrJoin){if(!KrkrJoin.TryGetValue(key,out p))return;KrkrJoin.Remove(key);}try{p.timer.Dispose();}catch{}
   string text=p.text.ToString();if(text.Length==0)return;KrkrJoinFlush=true;try{Diagnostic("krkr no-KAG: joined (quiet) "+p.name+" chars="+text.Length);OutputFrame(p.code,p.name,p.tp,text,p.probe);}catch(Exception e){Diagnostic("krkr join error "+e.Message);}finally{KrkrJoinFlush=false;}}
  /* -> the whole line to handle now, or null when the piece was kept for later */
  static string KrkrJoinPiece(string code,string name,ThreadParam tp,string text,long probe){string key=tp.Key();lock(KrkrJoin){KrkrPending p;
   if(!KrkrJoin.TryGetValue(key,out p)){if(SentenceEnd(text))return text;p=new KrkrPending{code=code,name=name,tp=tp,probe=probe};p.timer=new System.Threading.Timer(KrkrJoinDue,key,Timeout.Infinite,Timeout.Infinite);KrkrJoin[key]=p;}
+  /* a piece that opens a new line (「『（ or the full-width indent), or a line already KrkrJoinMax long (fast-forward: no closing
+     punctuation for a long time, 4036 characters on オルフレール), closes what was kept before it */
+  if(p.text.Length>0&&("「『（　".IndexOf(text[0])>=0||p.text.Length+text.Length>KrkrJoinMax)){string before=p.text.ToString();p.text.Clear().Append(text);p.timer.Change(KrkrJoinMs,Timeout.Infinite);Diagnostic("krkr no-KAG: joined (next line) "+name+" chars="+before.Length);return before;}
   p.text.Append(text);string all=p.text.ToString();if(SentenceEnd(all)){KrkrJoin.Remove(key);try{p.timer.Dispose();}catch{}if(all.Length>text.Length)Diagnostic("krkr no-KAG: joined "+name+" chars="+all.Length);return all;}
   p.timer.Change(KrkrJoinMs,Timeout.Infinite);return null;}}
  /* closing punctuation only: a typed 「― or 「… is a pause inside the line, not its end */static bool SentenceEnd(string t){t=(t??"").TrimEnd();return t.Length>0&&"。！？!?」』）)".IndexOf(t[t.Length-1])>=0;}
