@@ -22,7 +22,8 @@ test('the reader translates a selection quietly through the line chain',()=>{
  assert.match(reader,/case 'lookupTranslate':\{[^]*?this\.chainTranslate\(selection,this\.requestOptions\(\),\{current:\(\)=>this\.lookupTranslation===serial,quiet:true\}\)/);
  assert.match(reader,/reply\('lookupDeliver',r\.id,\{text:String\(result\?\.text\|\|''\),kind:'translation'/);
  assert.match(reader,/onLate:r=>\{if\(quiet\|\|!this\.active\(\)/,'no late backfill of a phrase into the lines');
- assert.match(reader,/learnerLanguage:requestLanguage,\.\.\.\(quiet\?\{detached:true\}:\{\}\)\}/);
+ assert.match(reader,/learnerLanguage:requestLanguage,\.\.\.\(detached\?\{detached:true\}:\{\}\)\}/);
+ assert.match(reader,/quiet=false,detached=quiet\}=\{\}\)\{/,'a quiet request is always detached');
 });
 test('the lookup card asks for and shows 选区翻译 for a drag selection only',()=>{
  const s=read('web/reader/modules/selection.js');

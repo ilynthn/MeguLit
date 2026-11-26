@@ -453,7 +453,7 @@ class Reader{
  /* One translation per line: a later, better answer replaces the compositor's copy too, so the overlay row and the compositor never show two different translations of one sentence (#1128) */
  compositorText(text,translation,language){try{if(this.active()&&language===this.targetLanguage()&&translation)this.gal?.compositor?.text?.(String(text||''),translation);}catch{}}
  /* One line through the fallback chain (services/translation-chain.cjs). options: the reader's resolved options. */
- async chainTranslate(text,options,{id=null,current:previous=()=>true,foreground,quiet=false}={}){if(!this.active())throw Error('READER_DISABLED');const current=()=>this.active()&&previous();const requestLanguage=this.targetLanguage(options),cacheLanguage=requestLanguage;const chain=require('./translation-chain.cjs');this.loadKeys();
+ async chainTranslate(text,options,{id=null,current:previous=()=>true,foreground,quiet=false,detached=quiet}={}){if(!this.active())throw Error('READER_DISABLED');const current=()=>this.active()&&previous();const requestLanguage=this.targetLanguage(options),cacheLanguage=requestLanguage;const chain=require('./translation-chain.cjs');this.loadKeys();
   let localInstalled=false;try{localInstalled=!!this.runtime.local().status().installed&&this.runtime.models().status().models.some(m=>m.installed);}catch{}
   const strict=this.zeroLatencyEnabled(requestLanguage);
   const profiles=strict&&this.folder?readJSON(path.join(this.folder,'translation-profiles.json')):{};
@@ -473,7 +473,7 @@ class Reader{
   const generation=this.visualGeneration,game=this.gameId;
   return chain.translate(text,list,async o=>{
    if(o.provider==='filled')return reviewed;
-   const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage,...(quiet?{detached:true}:{})};
+   const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage,...(detached?{detached:true}:{})};
    // Reuse an exact MT answer only after all higher-ranked providers have been tried.
    const key=!quiet&&strict&&chain.isMt(o.provider)?JSON.stringify([game,requestLanguage,o.provider,text]):null;
    if(key&&this.strictMtCache?.has(key)){cachedProvider=o.provider;return this.strictMtCache.get(key);}
@@ -562,14 +562,14 @@ class Reader{
     break;
    /* 2026-11-21 (owner: 「再加个兜底的检测有没有译文，没有的话就再查赶紧补上」): the reader's translation guard asks for a line still without a
       translation by its text. A visible line also supplies its serial for queue priority. The answer can still fill an earlier row. */
-   case 'translateGuard':{const text=String(r.text||'');if(!text.trim()||text.length>4000)break;const tr=x=>{try{g?.hooks?.trace?.('translation guard '+x+' '+JSON.stringify(text.slice(0,24)));}catch{}};
+   case 'translateGuard':{const text=String(r.text||''),detached=r.detached===true;/* RRFZ #1176: the log's background fills (backlog.js askMissing) are old lines: translated with the recent lines as context, never written into it */if(!text.trim()||text.length>4000)break;const tr=x=>{try{g?.hooks?.trace?.('translation guard '+x+' '+JSON.stringify(text.slice(0,24)));}catch{}};
     const generation=this.visualGeneration,current=()=>this.active()&&this.visualGeneration===generation;
     const serial=Number.isSafeInteger(r.visibleSerial)?r.visibleSerial:null;
     // The guard can be the first request to reach the host for the visible line.
     if(serial!==null&&serial>this.latest)this.latest=serial;
     const foreground=serial===null?undefined:()=>this.latest===serial;
     (async()=>{const cacheLanguage=this.targetLanguage();const returned={};let t=this.localTranslation(text,cacheLanguage,returned);
-     if(t){tr('fill cache');}else{tr('retry chain');try{const result=await this.chainTranslate(text,this.baseOptions(cacheLanguage),{current,foreground});if(!current())return;t=result.text;Object.assign(returned,{source:result.source,provider:result.provider});if(t)this.embedCached(text,t,{language:cacheLanguage,...returned});}catch(e){if(current())tr('still-missing '+String(e?.message||e).slice(0,40));}}
+     if(t){tr('fill cache');}else{tr('retry chain');try{const result=await this.chainTranslate(text,this.baseOptions(cacheLanguage),{current,foreground,detached});if(!current())return;t=result.text;Object.assign(returned,{source:result.source,provider:result.provider});if(t)this.embedCached(text,t,{language:cacheLanguage,...returned});}catch(e){if(current())tr('still-missing '+String(e?.message||e).slice(0,40));}}
      if(t&&current())this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,t,'guard',{target:cacheLanguage,...returned}]});})();break;}
    case 'engineGiveWay':g?.hooks?.giveWay?.(r.ms);break; /* 2026-11-21: a hidden line the reader cannot draw goes back to the game */
    case 'hookSelect':g?.hooks.select(r.id,true);break;
