@@ -24,7 +24,7 @@ const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./meguli
 const REPO=path.join(__dirname,'..');
 const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
-const STALE_MS=20*60000,STALE_ONCE_MS=60*60000;
+const STALE_MS=20*60000,STALE_ONCE_MS=180*60000;
 
 function parseRun(argv){const a=argv.slice(2),o={dir:'',exe:'',vndb:'',release:'',out:'',budgetMin:10,foreground:false,offline:false,skip:false,force:false,app:Cold.APP_DEFAULT,answers:[],lockWaitMin:60};
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
@@ -43,7 +43,7 @@ async function gameLock(owner,game,{waitMs=3600000,file=GAME_LOCK,log=()=>{}}={}
  for(;;){try{fs.writeFileSync(file,line(),{flag:'wx'});break;}catch(e){if(e.code!=='EEXIST')throw e;}
   let age=0,held='';try{age=Date.now()-fs.statSync(file).mtimeMs;held=String(fs.readFileSync(file,'utf8'));}catch{continue;}
   /* 2026-11-27 a holder that writes started= once and never refreshes (pr-test, 02:36) still had its MeguLit open at 20 minutes:
-     such a lock is taken over only after STALE_ONCE_MS */
+     such a lock is taken over only after STALE_ONCE_MS (3 hours) */
   if(age>(/refreshed=/.test(held)?STALE_MS:STALE_ONCE_MS)){try{fs.unlinkSync(file);}catch{}continue;}
   if(Date.now()-t0>waitMs)return null;if(!said){log('# waiting for the game lock: '+String(fs.readFileSync(file,'utf8')).trim());said=true;}await sleep(15000);}
  const mine=line().split(' refreshed=')[0];const timer=setInterval(()=>{try{if(String(fs.readFileSync(file,'utf8')).startsWith(mine))fs.writeFileSync(file,line());}catch{}},60000);timer.unref?.();

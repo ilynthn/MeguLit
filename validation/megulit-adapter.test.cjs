@@ -79,7 +79,7 @@ test('game lock: a live lock queues, a stale one (20 min) is taken over, release
  const d=tmp(),file=path.join(d,'.game.lock');fs.writeFileSync(file,'owner=other game=x started=now');
  assert.equal(await Adapter.gameLock('me','g',{file,waitMs:0}),null);
  const old=new Date(Date.now()-21*60000);fs.utimesSync(file,old,old);
- assert.equal(await Adapter.gameLock('me','g',{file,waitMs:0}),null,'a lock that never says refreshed= gets an hour');
+ assert.equal(await Adapter.gameLock('me','g',{file,waitMs:0}),null,'a lock that never says refreshed= gets three hours');
  fs.writeFileSync(file,'owner=other game=x refreshed=then');fs.utimesSync(file,old,old);
  const release=await Adapter.gameLock('me','g',{file,waitMs:0});assert.ok(release);assert.match(fs.readFileSync(file,'utf8'),/^owner=me game=g refreshed=/);
  release();assert.equal(fs.existsSync(file),false);});
