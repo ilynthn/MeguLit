@@ -25,12 +25,12 @@ class Services{
   const identity=message.gameProcessId+'|'+(message.gameStarted||'');if(identity===this.game)return;this.game=identity;
   const epoch=this.epoch,signal=this.controller.signal;
   try{this.log('[MeguLit] game speech warmup '+identity);await this.ensureSpeech(config.aivisUrl,config.aivisGpu);if(epoch!==this.epoch)return;
-   const url=config.aivisUrl;const list=await(await this.fetch(url+'/speakers',{signal:AbortSignal.any([signal,AbortSignal.timeout(5000)])})).json();if(epoch!==this.epoch)return;this.rememberSpeakers(list);
+   const url=config.aivisUrl;const sr=await this.fetch(url+'/speakers',{signal:AbortSignal.any([signal,AbortSignal.timeout(5000)])});if(sr.ok===false)throw Error('Speakers HTTP '+sr.status);const list=await sr.json();if(epoch!==this.epoch)return;this.rememberSpeakers(list);
    const styles=list.flatMap(s=>s.styles||[]),speaker=styles.find(s=>s.id===config.aivisSpeaker)||styles[0];if(!speaker)throw Error('No installed speech style');
    const r=await this.fetch(url+'/initialize_speaker?'+new URLSearchParams({speaker:String(speaker.id),skip_reinit:'true'}),{method:'POST',signal:AbortSignal.any([signal,AbortSignal.timeout(120000)])});if(!r.ok)throw Error('Speaker warmup HTTP '+r.status);if(epoch===this.epoch)this.log('[MeguLit] game speech model ready '+identity);
   }catch(e){if(epoch===this.epoch&&!this.stopping)this.log('[MeguLit] game speech warmup failed: '+e.message);}
  }
- rememberSpeakers(list){if(!Array.isArray(list)||!list.length)return;try{const file=path.join(this.root,'cache','speakers.json');fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file+'.tmp',JSON.stringify(list));fs.renameSync(file+'.tmp',file);}catch{}}
+ rememberSpeakers(list){if(!Array.isArray(list))return;try{const file=path.join(this.root,'cache','speakers.json');fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file+'.tmp',JSON.stringify(list));fs.renameSync(file+'.tmp',file);}catch{}}
  cachedSpeakers(){try{const list=JSON.parse(fs.readFileSync(path.join(this.root,'cache','speakers.json'),'utf8'));return Array.isArray(list)?list:[];}catch{return [];}}
  async stopSpeech(){const voiceCleanup=this.preparingDefaultVoices;this.epoch++;this.controller.abort();this.controller=new AbortController();this.starting=null;const children=this.children.splice(0);const previous=this.releasing;this.releasing=Promise.allSettled([previous,voiceCleanup,...children.map(child=>this.killTree(child))]);await this.releasing;}
  ensureSpeech(url='http://127.0.0.1:10101',gpu=true){

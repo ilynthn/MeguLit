@@ -6,6 +6,7 @@
    weekly review list. Pure functions are exported for the tests; the DB helpers take the tokenizer and lookup as
    arguments so they run offline. */
 const path=require('node:path'),fs=require('node:fs');
+const {extractSourceRuby}=require('../core/source-ruby.cjs');
 
 /* ---- translation source ---- */
 const HUMAN=new Set(['group','official']);
@@ -58,8 +59,8 @@ function ankiSentenceFields({sentence='',sentenceHtml='',translation='',translat
 const CONTENT=new Set(['名詞','動詞','形容詞','形状詞','副詞']);
 const STOP=new Set(['する','為る','ある','有る','いる','居る','なる','成る','ない','無い','こと','事','もの','物','よう','様','そう','ここ','そこ','あそこ','これ','それ','あれ','どれ','この','その','あの','ため','為','とき','時','ところ','所','ほう','方','くる','来る','いく','行く','いう','言う','思う','おもう','できる','出来る','みる','見る','やる','もう','まだ','ちょっと','よく','なんか','ん','の','わけ','訳','はず']);
 const hira=s=>String(s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
-/* The text of a recorded line without spaces and without the game's ruby markup (<rしも>霜</r> → 霜). */
-const plainLine=text=>String(text||'').replace(/<r[^>]*>([^<]*)<\/r>/g,'$1').replace(/<\/?[a-z][^>]*>/gi,'').replace(/\s+/g,'');
+/* The text of a recorded line without spaces and without the game's ruby markup or \x1d metadata. */
+const plainLine=text=>extractSourceRuby(text,false,true).text.replace(/\s+/g,'');
 /* A line that is real Japanese text: mojibake (a Chinese script read as Shift-JIS shows half-width kana and C1 control
    characters, and almost no hiragana) is not counted. */
 function readableLine(text){const t=String(text||'').replace(/\s+/g,'');if(!t)return false;if(/[\u0080-\u009f｡-ﾟ�]/.test(t))return false;const chars=[...t].length,kana=(t.match(/[ぁ-ゟ]/g)||[]).length;return chars<8||kana/chars>=.08;}

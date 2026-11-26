@@ -4,7 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
 test('reader-panels loads before controls-b in both module lists',()=>{
  const json=JSON.parse(read('web/reader/modules.json'));assert.ok(json.indexOf('reader-panels')>0&&json.indexOf('reader-panels')<json.indexOf('controls-b'));
- assert.match(read('web/reader/module-list.js'),/"reader-panels","controls-b"\]/);
+ assert.match(read('web/reader/module-list.js'),/"reader-panels","controls-b"[,\]]/);
 });
 test('panel opacity, radius and border come from the user settings, not fixed values',()=>{
  const js=read('web/reader/modules/reader-panels.js');

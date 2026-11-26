@@ -18,6 +18,7 @@ Values inventoried from the existing custom code and original host before replac
 | Library scan dialog | 180ms scrim; scale .96 → 1 over 280ms |
 | Toast / session / tooltip | 150ms y12 / 180ms y10 / 120ms y6 respectively |
 | Toggle / details / dropdown | 180ms / 200ms / 140ms |
+| Alt+T capsule (#1138) | One clip-path morph per style: open 420ms expo.out, close 280ms power3.out, idle 500ms power2.out; labels stagger 26ms in (3–6px), exit 100ms; drop snap 400ms expo.out; reposition is a 140ms fade out / in, never a slide over the text. Region grows before opening, shrinks after closing. Reduced motion: no tweens |
 | Typewriter | Per-game saved speed; ruby synchronized with the associated characters, not after full text |
 
 Native surface readiness is part of the contract: region acknowledgment, matching DPI viewport, two stable animation frames, 700ms fallback, 150ms poll. CSS timing alone is insufficient. Retain E148 glass alpha and complete-rectangle reporting during opening/closing; do not restore E145/E147 multiple-capture designs.
