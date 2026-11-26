@@ -29,7 +29,7 @@ test('the bridge holds the key only for the bound game in front in translation m
  assert.match(bridge,/internal static bool BacklogKeyWanted\(bool configured,bool translation,bool bound,bool gameInFront\)\{return configured&&translation&&bound&&gameInFront;\}/);
  assert.match(bridge,/RegisterHotKey\(IntPtr\.Zero,0x544,BacklogMods\|0x4000,BacklogKey\)/);
  assert.match(bridge,/message\.wParam\.ToUInt64\(\)==0x544\)\{Emit\(new\{type="backlogHotkey"\}\);\}else if/,'its own message, never mistaken for Alt+T');
- assert.match(bridge,/Tick\(\);BacklogHotkeyTick\(noHotkeys\);/);
+ assert.match(bridge,/Tick\(\);\}catch\{\}try\{BacklogHotkeyTick\(noHotkeys\);\}catch\{\}/,'its own try: a failure never stops the bridge tick');
  assert.match(bridge,/if\(BacklogHeldKey!=0\)UnregisterHotKey\(IntPtr\.Zero,0x544\);\}/,'released when the bridge ends');
  assert.match(bridge,/if\(!BacklogKeyValid\(1,0x4C\)/,'covered by the bridge mode self-test');
  assert.match(read('core/gal-native.cjs'),/message\.type === 'backlogHotkey'/,'the bridge event reaches the page');
