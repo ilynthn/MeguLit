@@ -173,7 +173,12 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    /* 2026-11-26 opts.choiceLocate (tools/adapt-auto.cjs): the kernel asks the host to locate the options it has (hooks.locateChoices; in the
       app GalWindowBridge answers with its OCR as 'hookChoiceBoxes'). A cold run has no reader, so this runner answers with its own OCR
       rows; the answer also goes on Cardinal's tape as the gwb record the app would have */
-   if(opts.choiceLocate===true)hooks.locateChoices=options=>{locatePending={options:(Array.isArray(options)?options:[]).map(String).slice(0,12),at:now(),tries:0};ocrAt=0;};
+   /* 2026-11-26 (オルフレール, merged branch: the kernel asked for the two options, 1.2 s later again with a third piece 「らね」; the picture
+      taken for the first request was dropped, so the answer came 8.6 s after the options were up and Cardinal counted them as never reaching
+      the reader): a request that keeps an option of the pending one is the same choice screen, so a picture taken after the pending one
+      answers it too; a request for other options still waits for a picture of its own */
+   if(opts.choiceLocate===true)hooks.locateChoices=options=>{const o=(Array.isArray(options)?options:[]).map(String).slice(0,12),prev=locatePending,same=!!prev&&o.some(x=>prev.options.includes(x));
+    locatePending={options:o,at:now(),tries:same?prev.tries:0,chain:same?prev.chain:{}};if(!same)ocrAt=0;};
    hooks.configure({hookAutoStart:true,bindEnabled:true,hookProfile:'auto'},{gameProcessId:res.pid,gameHwnd:String(res.window.hwnd),processName:res.exe.replace(/\.exe$/i,''),gameStarted:started});}
    /* 2026-11-26 processName without .exe, as GalWindowBridge sends it: native/HookTarget.cs Validate compares it with the image name
       without extension, so 'orfre.exe' made every cold run end in 「Bound game process changed」 and six reconnects */
@@ -190,7 +195,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
       /* options the hook saw (its last 'choice aux' text, since the lines stopped) and OCR finds as separate rows: a choice; the kernel
          confirms choices with the reader's OCR, which a cold run has not (オルフレール: "choice locate unavailable", the run stalled on
          its first choice with Ctrl held) */
-      const req=ocrFor;ocrFor=null;if(req&&req===locatePending){const ans=locateAnswer(lines,req.options,res.window);if(ans||++req.tries>=LOCATE_TRIES){locatePending=null;if(!ans){const mi=res.choiceLocateMisses||(res.choiceLocateMisses=[]);if(mi.length<10)mi.push({at:new Date(req.at).toISOString(),options:req.options.slice(0,4)});}}if(ans){res.choiceLocates=(res.choiceLocates||0)+1;try{require('../core/cardinal/tape.cjs').record('gwb',ans);}catch{}try{hooks?.choiceBoxes?.(ans);}catch{}}}
+      const req0=ocrFor;ocrFor=null;const req=req0&&locatePending&&(req0===locatePending||req0.chain===locatePending.chain)?locatePending:null;if(req){const ans=locateAnswer(lines,req.options,res.window);if(ans||++req.tries>=LOCATE_TRIES){locatePending=null;if(!ans){const mi=res.choiceLocateMisses||(res.choiceLocateMisses=[]);if(mi.length<10)mi.push({at:new Date(req.at).toISOString(),options:req.options.slice(0,4)});}}if(ans){res.choiceLocates=(res.choiceLocates||0)+1;try{require('../core/cardinal/tape.cjs').record('gwb',ans);}catch{}try{hooks?.choiceBoxes?.(ans);}catch{}}}
       {const opts=choiceItems(lines,choiceAuxAt>=lastLineAt-1000?choiceAux:'');if(opts.length>=2){for(let i=menu.length-1;i>=0;i--)if(menu[i].role==='choice')menu.splice(i,1);for(const it of opts.slice().reverse())menu.unshift(it);res.choices++;res.ocrChoices=opts.map(o=>o.text);}}});break;}
      if(m.ok&&m.path){res.shots.push(path.basename(m.path));if(m.black===true)res.black=true;else res.black=false;}break;
     case 'input':res.stopped='input';finish('input');break;

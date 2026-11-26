@@ -121,3 +121,11 @@ test('run: a locate request the pictures never show is given up after three and 
  class Wait{next(obs){return obs.t>=7500?[{do:'end',why:'test'}]:[];}}
  const r=await alive(run.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true,choiceLocate:true},{spawn:fakeDesk().spawn,helper:'ColdDesk.exe',Hook:LocHook,layout:{native:dir},tick:20,Driver:Wait,ocr}));
  assert.equal(n,3);assert.equal(r.choiceLocates,undefined);assert.equal(r.choiceLocateMisses.length,1);});
+
+test('run: the same choice asked again with one more piece is answered from the picture already taken (オルフレール merged run)',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
+ const B=['……本当は、お優しい方なのかしら','……本当に、几帳面な方なのね'];const answers=[];
+ class LocHook{configure(){setTimeout(()=>this.locateChoices(B),20);setTimeout(()=>this.locateChoices([...B,'らね']),80);}choiceBoxes(a){answers.push(a);}tick(){}stop(){}}
+ let n=0;const ocr=()=>new Promise(r=>{n++;setTimeout(()=>r(B.map((t,i)=>({text:t,x:100,y:300+i*60,w:500,h:40}))),150);});
+ class Wait{next(obs){return obs.t>=1500?[{do:'end',why:'test'}]:[];}}
+ const r=await alive(run.runOne({exe:'C:/g/orfre.exe',runDir:path.join(dir,'run'),budgetMs:60000,ocrMenu:true,choiceLocate:true},{spawn:fakeDesk().spawn,helper:'ColdDesk.exe',Hook:LocHook,layout:{native:dir},tick:20,Driver:Wait,ocr}));
+ assert.equal(answers.length,1);assert.equal(n,1,'no second picture');assert.deepEqual(answers[0].items.map(i=>i.text),B);assert.deepEqual(answers[0].missed,['らね']);assert.equal(r.choiceLocates,1);});
