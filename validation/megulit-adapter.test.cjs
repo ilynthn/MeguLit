@@ -173,3 +173,11 @@ test('own copy: goes under MEGULIT_ADAPTER_GAMES, never C: or E:, and only while
 test('entry defaults: VNDB and the second opinion are on, a copy is off; each switch turns its own one off',()=>{
  const d=Adapter.parseRun(['node','x','E:/g']);assert.deepEqual([d.net,d.external,d.copy,d.offline,d.foreground],[true,true,false,false,false]);
  const o=Adapter.parseRun(['node','x','E:/g','--no-net','--no-external','--copy']);assert.deepEqual([o.net,o.external,o.copy],[false,false,true]);});
+
+test('Steam build: VNDB\'s one appid goes to the cold test; two appids (千恋＊万花) become the steam question',async()=>{
+ const rel=(rid,steam)=>({rid,title:'Senren * Banka',engine:'KiriKiri',langs:['ja'],patch:false,official:true,platforms:['win'],ext:{steam,dlsite:'',dmm:''}});
+ let v=await Ident.vndb({title:'x',gameDir:tmp()},{lookup:async()=>({vnid:'v1',how:'title',zh:'',releases:[rel('r1','1144400'),rel('r2','')]})});assert.equal(v.steamAppId,'1144400');
+ v=await Ident.vndb({title:'x',gameDir:tmp()},{lookup:async()=>({vnid:'v1',how:'title',zh:'',releases:[rel('r1','1144400'),rel('r2','1221010')]})});assert.equal(v.steamAppId,'');assert.deepEqual(v.steamCandidates,['1144400','1221010']);
+ const q=Check.questions({identity:{vndb:'v1',cn:'-',release:'x',steamCandidates:v.steamCandidates},caps:{},cold:{verdict:'inconclusive',stuck:'冷测试没开始：steam-appid-unknown'}});
+ assert.deepEqual(q.map(x=>x.id),['steam']);assert.match(q[0].ask,/1144400、1221010/);
+ assert.equal(Adapter.parseRun(['node','x','E:/g','--steam-appid','1144400']).steamAppId,'1144400');});

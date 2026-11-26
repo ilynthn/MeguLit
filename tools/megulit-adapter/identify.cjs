@@ -51,7 +51,7 @@ module.exports={identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB};
 const RELEASE_LABEL=[[/download|ダウンロード|dl版|dl edition/i,'DL 版'],[/package|パッケージ/i,'パッケージ版'],[/steam/i,'Steam 版'],[/renewal|hd|remaster|リマスター/i,'HD / リニューアル版']];
 const labelOf=r=>{for(const [re,l] of RELEASE_LABEL)if(re.test(r.title))return l+'（'+r.rid+'）';return r.title+'（'+r.rid+'）';};
 async function vndb({title='',gameDir='',vnid='',chineseBuild=false,engine=''}={},{lookup=null,timeoutMs=8000}={}){
- const E=require('../../services/game-enrichment.cjs');lookup=lookup||E.vndbReleases;const appid=steamOf(gameDir);const out={vndb:'',how:'',cn:'',release:'',releaseHow:'',candidates:[],releases:[],vndbEngine:'',engineDiffers:false,error:''};
+ const E=require('../../services/game-enrichment.cjs');lookup=lookup||E.vndbReleases;const appid=steamOf(gameDir);const out={steamAppId:'',vndb:'',how:'',cn:'',release:'',releaseHow:'',candidates:[],releases:[],vndbEngine:'',engineDiffers:false,error:''};
  let r;try{r=await lookup({titles:[...new Set([title,E.cleanTitle(title),E.jpForm(E.cleanTitle(title))].filter(Boolean))],appid,vnid},undefined,{timeoutMs});}catch(e){out.error=String(e.message||e).slice(0,120);return out;}
  if(!r)return out;out.vndb=r.vnid;out.how=r.how;out.cn=r.zh||'';
  const win=r.releases.filter(x=>!x.platforms.length||x.platforms.includes('win')),trial=x=>/trial|体験版|demo/i.test(x.title);out.releases=win;
@@ -62,6 +62,8 @@ async function vndb({title='',gameDir='',vnid='',chineseBuild=false,engine=''}={
  else if(chineseBuild&&zh.length===1){out.release='汉化版（'+zh[0].rid+'）';out.releaseHow='zh patch';}
  else if(!chineseBuild&&ja.length===1){out.release=labelOf(ja[0]);out.releaseHow='only Japanese Windows release';}
  else out.candidates=(chineseBuild?zh:ja).slice(0,8).map(labelOf);
+ /* the Steam appid VNDB links, when exactly one release has one (the cold test needs it for a Steam build without steam_appid.txt) */
+ const steamIds=[...new Set(win.map(x=>x.ext.steam).filter(Boolean))];out.steamAppId=appid||(steamIds.length===1?steamIds[0]:'');out.steamCandidates=steamIds;
  const engines=[...new Set(win.map(x=>x.engine).filter(Boolean))];out.vndbEngine=engines.join(' / ');
  if(engine&&engines.length){const En=require('./engines.cjs'),fold=n=>String(n||'').toLowerCase().replace(/engine|[^a-z0-9]/g,''),id=En.ruleId(engine)||engine,mine=[fold(id),fold(En.RULES[id]?.label),...(En.RULES[id]?.registry||[]).map(fold)].filter(Boolean);
   out.engineDiffers=!engines.some(n=>{const f=fold(n),r=En.ruleId(n);return r===id||mine.some(m=>f&&(f.startsWith(m)||m.startsWith(f)));});}

@@ -41,7 +41,9 @@ function questions({identity={},caps={},cold=null,coldOut='',force=false,install
  if(v==='pass'){q.push({id:'dialogue',ask:'这几张对话画面里，游戏原文藏住了、没有残影吗？',evidence:pic(ev.dialogue),options:['yes','no']});
   if(cold.checks?.choice?.measured)q.push({id:'choice',ask:'这张是第一个选项：选项文字还在、能点吗？',evidence:pic(ev.choice||ev.last),options:['yes','no']});}
  if(v==='fail'&&cold.checks?.hidden?.measured&&cold.checks.hidden.ok===false)q.push({id:'readmode',ask:'原文隐藏没过（'+(cold.checks.hidden.detail||'')+'），先按读模式发 seed 吗？',evidence:pic(ev.dialogue),options:['yes','no']});
- if(v==='inconclusive'&&cold?.stuck)q.push({id:'stuck',ask:'冷测试卡在这里（'+cold.stuck+'），下一步该按什么？（回按键、点哪个字，或 skip）',evidence:pic(ev.last),free:true});
+ /* a Steam build without steam_appid.txt and no single appid from VNDB (千恋＊万花: 1144400 and 1221010) */
+ if(/steam-appid-unknown/.test(String(cold?.stuck||''))){q.push({id:'steam',ask:'这是 Steam 版，冷测试要它的 appid'+((identity.steamCandidates||[]).length?'（VNDB 候选：'+identity.steamCandidates.join('、')+'）':'')+'，回 steam=<appid>，再加 --steam-appid 重跑',evidence:[],free:true});}
+ else if(v==='inconclusive'&&cold?.stuck)q.push({id:'stuck',ask:'冷测试卡在这里（'+cold.stuck+'），下一步该按什么？（回按键、点哪个字，或 skip）',evidence:pic(ev.last),free:true});
  return q;}
 const yes=v=>/^(y|yes|ok|是|对|好|行|可以)$/i.test(String(v||'').trim());
 function status({cold=null}={},a={}){const v=cold?.verdict||'';

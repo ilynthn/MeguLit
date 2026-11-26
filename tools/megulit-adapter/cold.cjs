@@ -169,8 +169,8 @@ const SLOW_LINES=60;
    it then: the next click waits 45 ms a character (driver readPerCharMs). KiriKiri no-KAG comes piece by piece while it types (オルフレール
    r5 with it: cold 230 s -> 306 s, total 554 s, nothing gained) */
 const WHOLE_LINE=new Set(['yuris']);
-async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true}={}){const Cold=require('../../services/cold-test.cjs');
- const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||''};
+async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true,steamAppId='',vndb=''}={}){const Cold=require('../../services/cold-test.cjs');
+ const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||'',...(steamAppId?{steamAppId:String(steamAppId)}:{}),...(vndb?{vndb:String(vndb)}:{})};/* 2026-11-27 MeguLit-Adapter: a Steam build whose appid VNDB names (千恋＊万花 copy: blocked steam-appid-unknown) */
  /* no relay: the verdict of this tool is the only consumer */
  return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
@@ -350,7 +350,7 @@ async function run(opts,{log=console.log}={}){
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
   let cold=null;
-  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
+  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true,steamAppId:opts.steamAppId||'',vndb:opts.vndb||''});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
   if(stopScreen){await stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
   if(cold.runDir&&located0){const r=residue(located0,before,t0-1000);result.residue=r;if(r.kept.length)result.reasons.push('游戏在已有用户目录里写了没快照到的文件：'+r.kept.join('; '));}
   result.cold=cold;log('# cold '+cold.verdict+' '+(cold.why||'')+' lines='+(cold.lines|0));
