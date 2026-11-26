@@ -83,3 +83,11 @@ test('run: no testbed InputCtl → the ladder is PostMessage (+ SendInput on a v
  const r=await alive(run.runOne({exe:'C:/g/x.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:path.join(dir,'none'),foreground:true,ladder:{waitMs:100}}},{spawn:desk.spawn,inputSpawn:inp.spawn,helper:'ColdDesk.exe',Hook:QuietHook,layout:{native:dir},tick:10,Driver:OneClick}));
  assert.deepEqual(r.input.levels,['post','sendinput']);assert.equal(r.input.level,'sendinput');assert.match(r.input.errors[0],/no InputCtl32/);
  assert.ok(inp.sent.includes('fg click 512 400'));assert.ok(!inp.sent.some(l=>l.startsWith('init ')));});
+
+test('driver holdBlind: few lines and none for confirmAfter, no blind click until the OCR looked; then the start item is clicked',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
+ const W={w:1024,h:576},d=new Driver({holdBlind:true,confirmAfter:1000,advanceEvery:100,skip:false,introEvery:100});d.next({t:0,window:W});d.next({t:100,window:W,lines:1});
+ assert.ok(d.next({t:300,window:W,lines:1}).length>0,'before confirmAfter it still advances');
+ for(let t=1200;t<3000;t+=200)assert.deepEqual(d.next({t,window:W,lines:1}),[],'held at '+t);
+ assert.ok(d.next({t:3200,window:W,lines:1,ocr:1}).length>0,'after the OCR the blind advance resumes');
+ const start={role:'button',text:'最初から始める',x:400,y:300,w:200,h:40};assert.deepEqual(d.next({t:6000,window:W,lines:1,ocr:1,menu:[start]}),[{do:'click',x:500,y:320,watch:'start'}]);
+ const off=new Driver({confirmAfter:1000,advanceEvery:100,skip:false});off.next({t:0,window:W});off.next({t:100,window:W,lines:1});assert.ok(off.next({t:2000,window:W,lines:1}).length>0,'off by default (the app)');});

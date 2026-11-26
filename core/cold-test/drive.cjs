@@ -19,7 +19,7 @@ const START=/はじめから|始めから|最初から|ニューゲーム|new\s*
 /* a confirm button (a name entry's 「決定」) the runner found: clicked when lines stop for confirmAfter */
 const CONFIRM=/^(決定|OK|ＯＫ)$/i;
 const NOT_START=/つづき|続き|ロード|load|continue|コンティニュー|config|設定|コンフィグ|extra|おまけ|exit|終了/i;
-const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,hoverStart:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000});
+const DEFAULTS=Object.freeze({tick:250,bootMs:90000,introMs:120000,introEvery:900,escUntil:15000,advanceEvery:450,ctrlEvery:2000,targetLines:60,stallMs:45000,blackAfter:40000,shotLines:[3,15,30],introShotAt:25000,confirmAfter:8000,skip:true,afterChoice:0,slowLines:0,choiceSequence:false,hoverStart:false,readEvery:0,readQuietMs:0,readMinMs:1000,choiceWait:1500,choiceQuietMs:0,choiceHover:300,choiceRetry:3000,holdBlind:false});
 
 class Driver{
  constructor(opt={}){this.o={...DEFAULTS,...opt};this.phase='boot';this.step=0;this.lastAct=-1e9;this.lastCtrl=-1e9;this.lastLines=0;this.lastLineAt=0;this.lastChoices=0;this.choiceAt=0;this.shotsTaken=new Set();this.clickedStart=-1e9;this.clickedConfirm=-1e9;this.introShot=false;this.choiceTry=0;this.choiceNext=0;this.choiceHoverClick=false;}
@@ -83,6 +83,10 @@ class Driver{
   /* readQuietMs (tools/adapt-auto.cjs, owner: DrawText 流静默 ≥600 ms 且距上次点击 ≥1 s 再点): without Ctrl, the next click waits until the
      game drew nothing for readQuietMs (a long line is shown to its end) and readMinMs passed (a short one does not wait for nothing) */
   const due=!ctrl&&o.readQuietMs>0?(obs.quietMs??1e9)>=o.readQuietMs&&t-this.lastAct>=o.readMinMs:t-this.lastAct>=(!ctrl&&o.readEvery>0?o.readEvery:o.advanceEvery);
+  /* holdBlind (tools/adapt-auto.cjs; 2026-11-26 Monochrome Empire: once InputShim made its input land, the blind advance click at the
+     bottom centre of the title opened 「各鑑賞モード」 before the OCR could find 「最初から始める」): while only a few lines came, none for
+     confirmAfter and the runner's OCR has not looked at the screen yet (obs.ocr), no blind click / Enter goes to what may be a menu */
+  if(due&&o.holdBlind&&this.lastLines<=3&&t-this.lastLineAt>=o.confirmAfter&&!((obs.ocr|0)>0))return out;
   if(due){this.lastAct=t;out.push(this.step++%2?{do:'key',vk:VK.enter}:{do:'click',x:Math.round(W.w/2),y:Math.round(W.h*.85)});}
   return out;}
 }
