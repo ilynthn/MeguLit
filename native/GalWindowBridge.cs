@@ -497,6 +497,21 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
        that menu. A dummy key (VK 0xE8, unassigned; AutoHotkey's menu mask key) while Alt is still down makes the release ordinary. */
     [DllImport("user32.dll")] static extern void keybd_event(byte vk,byte scan,uint flags,UIntPtr extra);
     static void MaskAltRelease(){if((GetAsyncKeyState(0x12)&0x8000)==0)return;keybd_event(0xE8,0,0,UIntPtr.Zero);keybd_event(0xE8,0,2,UIntPtr.Zero);}
+    /* 2026-11-26 (QQ #1130: L was the game's own shortcut; the log only opened on L with the Alt+T menu open). The log has its own
+       global key (Alt+L by default, chosen in the log settings, backlog.js), held only while a bound game (or MeguLit's layer) is
+       in front in translation mode, so it is never taken from other programs; outside that the key stays theirs. */
+    static uint BacklogMods,BacklogKey,BacklogHeldMods,BacklogHeldKey;
+    internal static bool BacklogKeyValid(uint mods,uint key){return key>=0x41&&key<=0x5A&&(mods&~7u)==0&&(mods&3)!=0;}
+    internal static bool BacklogKeyWanted(bool configured,bool translation,bool bound,bool gameInFront){return configured&&translation&&bound&&gameInFront;}
+    static void BacklogHotkeyConfigure(Dictionary<string,object> d){uint mods=(uint)Math.Max(0,Math.Min(255,Num(d,"modifiers",0))),key=(uint)Math.Max(0,Math.Min(255,Num(d,"key",0)));
+        if(!BacklogKeyValid(mods,key)){mods=0;key=0;}BacklogMods=mods;BacklogKey=key;}
+    static void BacklogHotkeyTick(bool noHotkeys){
+        var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,2);
+        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,2)||front==Overlay));
+        if(want&&BacklogHeldKey==BacklogKey&&BacklogHeldMods==BacklogMods||!want&&BacklogHeldKey==0)return;
+        if(BacklogHeldKey!=0){UnregisterHotKey(IntPtr.Zero,0x544);BacklogHeldKey=0;BacklogHeldMods=0;}
+        if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;}
+    }
     static void ToggleCover(){
         if((DateTime.UtcNow-LastCoverToggle).TotalMilliseconds<180)return;
         LastCoverToggle=DateTime.UtcNow;CoverEnabled=!CoverEnabled;
@@ -588,7 +603,8 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
             RefreshReaderPointer();}
         else if(type=="glass")GlassCommand(d);
         else if(type=="lookup"){bool open=Bool(d,"open");LookupOpen=open&&TranslationMode&&CoverEnabled;if(!open){LookupDragRegion=0;LookupGrip=null;}RefreshReaderPointer();}
-        else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"));}
+        else if(type=="backlogHotkey")BacklogHotkeyConfigure(d);
+        else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"),Bool(d,"panelUp"));}
         else if(type=="quit")Running=false;
     }
     static bool ReaderMouseDown,ReaderSpaceDown,ReaderEnterDown,ReaderSkipHeld;
@@ -868,6 +884,11 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
             if(!GameSceneProbe.SelfTest())return 6;
             if(!GameCapture.FreezeSelfTest())return 10;
             if(!GameAudio.ClientShotSelfTest())return 9;
+            /* the log key: Alt/Ctrl + a letter only; held only for a bound game in front in translation mode */
+            if(!BacklogKeyValid(1,0x4C)||!BacklogKeyValid(3,0x4C)||BacklogKeyValid(4,0x4C)||BacklogKeyValid(0,0x4C)||BacklogKeyValid(1,0x54+0x20)||BacklogKeyValid(9,0x4C)||
+               !BacklogKeyWanted(true,true,true,true)||BacklogKeyWanted(false,true,true,true)||BacklogKeyWanted(true,false,true,true)||BacklogKeyWanted(true,true,false,true)||BacklogKeyWanted(true,true,true,false))return 11;
+            Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",1},{"key",0x4C}});if(BacklogKey!=0x4C||BacklogMods!=1)return 11;
+            Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",0},{"key",0x4C}});if(BacklogKey!=0)return 11;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","translation"}});
             if(!TranslationMode)return 4;
             Command(new Dictionary<string,object>{{"type","configure"},{"interfaceMode","normal"}});
@@ -911,10 +932,10 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
         Emit(new{type="ready",hotkey=hotkey,coverHotkey=coverHotkey,modeHotkey=modeHotkey,coverEnabled=true,interfaceMode="normal"});
         DateTime nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);
         var input=new Thread(delegate(){string line;while((line=Console.ReadLine())!=null){try{var command=Json.Deserialize<Dictionary<string,object>>(line);if(Str(command,"type")=="glass"){GlassCommand(command);continue;}Commands.Enqueue(command);}catch{}}Running=false;});input.IsBackground=true;input.Start();
-        try{while(Running){Dictionary<string,object> command;while(Commands.TryDequeue(out command)){try{Command(command);}catch(Exception error){Emit(new{type="error",message=error.Message});}}Msg message;while(PeekMessage(out message,IntPtr.Zero,0,0,1)){if(message.message==0x0312)MaskAltRelease();if(message.message==0x0312&&message.wParam.ToUInt64()==0x543){BindHotkey();}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x542){ToggleCover();}else if(message.message==0x0312){Emit(new{type="hotkey"});}else{TranslateMessage(ref message);DispatchMessage(ref message);}}try{ModeRequestTick();PickTick();Tick();}catch{}
+        try{while(Running){Dictionary<string,object> command;while(Commands.TryDequeue(out command)){try{Command(command);}catch(Exception error){Emit(new{type="error",message=error.Message});}}Msg message;while(PeekMessage(out message,IntPtr.Zero,0,0,1)){if(message.message==0x0312)MaskAltRelease();if(message.message==0x0312&&message.wParam.ToUInt64()==0x544){Emit(new{type="backlogHotkey"});}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x543){BindHotkey();}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x542){ToggleCover();}else if(message.message==0x0312){Emit(new{type="hotkey"});}else{TranslateMessage(ref message);DispatchMessage(ref message);}}try{ModeRequestTick();PickTick();Tick();}catch{}try{BacklogHotkeyTick(noHotkeys);}catch{}
           /* E476: keys another program held are taken as soon as it lets go, so "not ready" heals by itself */
           if(!noHotkeys&&(!hotkey||!coverHotkey||!modeHotkey)&&DateTime.UtcNow>=nextHotkeyTry){nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);bool was=hotkey&&coverHotkey&&modeHotkey;if(!hotkey)hotkey=RegisterHotKey(IntPtr.Zero,0x541,0x4001,0x54);if(!coverHotkey)coverHotkey=RegisterHotKey(IntPtr.Zero,0x542,0x4001,0x48);if(!modeHotkey)modeHotkey=RegisterHotKey(IntPtr.Zero,0x543,0x4001,0x4d);if(hotkey||coverHotkey||modeHotkey)Emit(new{type="hotkeyState",hotkey=hotkey,coverHotkey=coverHotkey,modeHotkey=modeHotkey});}
           try{Glass.Follow(Overlay,TranslationMode&&Target!=IntPtr.Zero&&LayersMayFloat&&IsShown&&Overlay!=IntPtr.Zero&&IsWindowVisible(Overlay)&&!IsIconic(Overlay)&&!IsIconic(Target));}catch{}Thread.Sleep(Dragging?8:Target==IntPtr.Zero?250:16);}}
-        finally{RevealGame(Target);TopmostGuard.Uninstall();UninstallShowWatch();ForgetGame();if(HookVerifier!=null)HookVerifier.Dispose();Restore();TextMask.Dispose();WaitMarker.Dispose();MaskLayer.Dispose();Glass.Dispose();if(hotkey)UnregisterHotKey(IntPtr.Zero,0x541);if(coverHotkey)UnregisterHotKey(IntPtr.Zero,0x542);if(modeHotkey)UnregisterHotKey(IntPtr.Zero,0x543);}return 0;
+        finally{RevealGame(Target);TopmostGuard.Uninstall();UninstallShowWatch();ForgetGame();if(HookVerifier!=null)HookVerifier.Dispose();Restore();TextMask.Dispose();WaitMarker.Dispose();MaskLayer.Dispose();Glass.Dispose();if(hotkey)UnregisterHotKey(IntPtr.Zero,0x541);if(coverHotkey)UnregisterHotKey(IntPtr.Zero,0x542);if(modeHotkey)UnregisterHotKey(IntPtr.Zero,0x543);if(BacklogHeldKey!=0)UnregisterHotKey(IntPtr.Zero,0x544);}return 0;
     }
 }

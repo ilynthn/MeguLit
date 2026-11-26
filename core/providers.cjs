@@ -71,9 +71,11 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
     /* garbage (mojibake, control codes) is never sent: the translator would answer about it, not translate it (core/text-sanity.cjs) */
     const sanity = require('./text-sanity.cjs');
     if (sanity.garbledSource(text,{noise:false})) return '';
-    observeSource(text);
-    const entry = history.at(-1);
-    const context = options.contextEnabled === false || !(isLLM(options.provider) || options.provider === 'deepl') || options.provider === 'sakura' ? [] : history.slice(0,-1).slice(-Math.max(1,Math.min(8,Number(options.contextLines) || 4))).map(h=>({source:h.source,...(h.translation?{translation:h.translation}:{})}));
+    /* 2026-11-26 detached: a phrase the learner selected (QQ #1139) is translated with the recent lines as context but never
+       becomes one of them: the next line's context stays the game's own lines */
+    if (!options.detached) observeSource(text);
+    const entry = options.detached ? {source:text} : history.at(-1);
+    const context = options.contextEnabled === false || !(isLLM(options.provider) || options.provider === 'deepl') || options.provider === 'sakura' ? [] : (options.detached ? history : history.slice(0,-1)).slice(-Math.max(1,Math.min(8,Number(options.contextLines) || 4))).map(h=>({source:h.source,...(h.translation?{translation:h.translation}:{})}));
     // Bound context size and freeze this snapshot before a later sentence arrives.
     while(context.length&&JSON.stringify(context).length>8000)context.shift();
     // The sentence translation follows the learner language (Sakura is a Chinese-only model and stays Chinese).
