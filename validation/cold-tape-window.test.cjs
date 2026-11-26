@@ -20,4 +20,12 @@ test('a long Ctrl span still keeps the 60 reading-pace lines before it, and only
  assert.equal(tapeOfRun({phases:[]}).lines,300);assert.equal(tapeOfRun({}).lines,300);Tape.clear();});
 
 test('the worker keeps more than the in-memory default of 60 lines',()=>{const src=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','services','cold-test-run.cjs'),'utf8');
- assert.match(src,/require\('\.\.\/core\/cardinal\/tape\.cjs'\)\.keep\(TAPE_KEEP\)/);assert.match(src,/const snap=tapeOfRun\(res\)/);});
+ assert.match(src,/require\('\.\.\/core\/cardinal\/tape\.cjs'\)\.keep\(TAPE_KEEP\)/);assert.match(src,/const snap=tapeOfRun\(res,undefined,slowTape\)/);});
+
+test('a Ctrl span longer than the kept tape still brings the reading-pace lines (ISLAND: 60 at reading pace, 474 with Ctrl, 0 replayed)',()=>{const t0=Date.parse('2026-11-27T05:00:00Z');Tape.clear();Tape.keep(400);
+ for(let i=0;i<60;i++)Tape.record('hb',{type:'hookSource',text:'台詞'+i+'。'},t0+i*1000);const slow=Tape.snapshot(TAPE_SLOW);
+ for(let i=60;i<534;i++)Tape.record('hb',{type:'hookSource',text:'台詞'+i+'。'},t0+60000+(i-60)*200);
+ const res={phases:[{name:'fast',at:new Date(t0+59500).toISOString()}]};
+ const before=tapeOfRun(res).rows.filter(r=>r.hb?.type==='hookSource'&&r.t<t0+59500).length;assert.equal(before,0,'without the kept-aside lines none are at reading pace');
+ const snap=tapeOfRun(res,Tape,slow),texts=snap.rows.filter(r=>r.hb?.type==='hookSource').map(r=>r.hb.text);
+ assert.equal(texts.filter(t=>Number(t.slice(2,-1))<60).length,60,'all 60 reading-pace lines');assert.equal(texts[0],'台詞0。');assert.equal(texts.at(-1),'台詞533。');assert.equal(snap.lines,60+TAPE_FAST);Tape.clear();});

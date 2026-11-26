@@ -129,16 +129,18 @@ function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(
    although the run read 60 at reading pace. The worker keeps up to TAPE_KEEP lines, and the file gets the Ctrl span plus the
    TAPE_SLOW reading-pace lines before it (all of them when there was no Ctrl span) */
 const TAPE_KEEP=400,TAPE_SLOW=60,TAPE_FAST=60;
-function tapeOfRun(res,tape=require('../core/cardinal/tape.cjs')){const fast=(Array.isArray(res?.phases)?res.phases:[]).find(p=>p?.name==='fast');
+function tapeOfRun(res,tape=require('../core/cardinal/tape.cjs'),slow=null){const fast=(Array.isArray(res?.phases)?res.phases:[]).find(p=>p?.name==='fast');
  const all=tape.snapshot(TAPE_KEEP);const from=fast?Date.parse(fast.at):NaN;if(!Number.isFinite(from))return all;
  const fastLines=all.rows.filter(r=>r.hb?.type==='hookSource'&&r.t>=from).length;const snap=fastLines+TAPE_SLOW>=all.lines?all:tape.snapshot(fastLines+TAPE_SLOW);
  /* 2026-11-27 (Monochrome Empire r6: 125 lines with Ctrl, none scored, a replay three times as long): a Ctrl span over TAPE_FAST lines
     keeps its first and last TAPE_FAST/2 (the first choice is at its end); the replay closes the time gap (Cardinal maxGap) */
- if(fastLines<=TAPE_FAST)return snap;const src=[];snap.rows.forEach((r,i)=>{if(r.hb?.type==='hookSource'&&r.t>=from)src.push(i);});
+ /* the reading-pace lines kept aside at the start of the fast span, when the kept tape no longer has them (rows before the fast span) */
+ const withSlow=t=>{if(!slow?.rows?.length||t.rows.some(r=>r.hb?.type==='hookSource'&&r.t<from))return t;const first=t.rows[0]?.t??Infinity;const rows=[...slow.rows.filter(r=>r.t<Math.min(from,first)),...t.rows];return {...t,rows,lines:rows.filter(r=>r.hb?.type==='hookSource').length};};
+ if(fastLines<=TAPE_FAST)return withSlow(snap);const src=[];snap.rows.forEach((r,i)=>{if(r.hb?.type==='hookSource'&&r.t>=from)src.push(i);});
  const cutFrom=src[TAPE_FAST/2],cutTo=src[src.length-TAPE_FAST/2];const rows=snap.rows.filter((r,i)=>i<cutFrom||i>=cutTo);
- return {...snap,rows,lines:rows.filter(r=>r.hb?.type==='hookSource').length,fastDropped:fastLines-TAPE_FAST};}
+ return withSlow({...snap,rows,lines:rows.filter(r=>r.hb?.type==='hookSource').length,fastDropped:fastLines-TAPE_FAST});}
 function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=null,shotWidth=960}=opts;
- const spawn=deps.spawn||nodeSpawn,now=deps.now||Date.now,TICK=deps.tick||250;
+ const spawn=deps.spawn||nodeSpawn,now=deps.now||Date.now,TICK=deps.tick||250;let slowTape=null;
  fs.mkdirSync(runDir,{recursive:true});try{require('../core/cardinal/tape.cjs').keep(TAPE_KEEP);}catch{}
  /* an explicit helper (even '' = none) wins over the installed ColdDesk.exe: a test asking for no helper must never start the real one */
  const helper='helper' in deps?deps.helper:helperPath(root);
@@ -168,7 +170,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   const input=opts.inputFallback&&typeof opts.inputFallback==='object'?inputLadder(opts.inputFallback,{exe,runDir,res,send,post,spawn:deps.inputSpawn||nodeSpawn,since:()=>lastLineAt?lastLineAt-t0:0,t:()=>now()-t0,name:()=>nameHint,changed:()=>{for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}}):null;
   const finish=why=>{if(done)return;done=true;stopActive=null;clearInterval(timer);res.end=res.end||why;if(input){res.input=input.ladder.record;input.close();}try{hooks?.stop?.();}catch{}send('kill');
    const wait=setTimeout(()=>{try{child.kill();}catch{}},4000);wait.unref?.();child.once?.('exit',()=>clearTimeout(wait));
-   res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=tapeOfRun(res);if(snap.lines>0){
+   res.endedAt=new Date(now()).toISOString();res.ms=now()-t0;/* 2026-11-26 Cardinal's tape of this run (core/cardinal/tape.cjs keeps it in memory only, and this worker exits): the run folder gets it, local, so tools/cardinal.cjs --tape can replay a game without engine-draw records (KiriKiri without KAG) */try{const snap=tapeOfRun(res,undefined,slowTape);if(snap.lines>0){
      /* the versioned tape file (core/cardinal/tape-file.cjs), with what the game's screen showed: the choice the runner's OCR read
         ({t, screen:{type:'choices', texts, until}}, core/cardinal/screen-run.cjs) */
      const screen=require('../core/cardinal/screen-run.cjs').screenRows(res);
@@ -234,7 +236,10 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
    const t=now()-t0;const acts=driver.next({t,deadline:budgetMs,window:res.window,lines:res.lines,choices:res.choices,menu,black:res.black,ocr:res.ocr|0,quietMs:hookTextAt?now()-hookTextAt:1e9,lineChars:srcChars,lineAgeMs:srcAt?now()-srcAt:1e9});
    if(input)input.tick(t);
    for(const a of acts){if(a.do==='end'){finish(a.why);return;}
-    if(a.do==='phase'){(res.phases||(res.phases=[])).push({name:String(a.name),at:new Date(now()).toISOString(),lines:res.lines});continue;}
+    if(a.do==='phase'){(res.phases||(res.phases=[])).push({name:String(a.name),at:new Date(now()).toISOString(),lines:res.lines});
+     /* 2026-11-27 (MeguLit-Adapter, ISLAND: 474 lines with Ctrl pushed every reading-pace line out of the 400-line tape, Cardinal
+        replayed 0 lines): the reading-pace lines are kept aside the moment the fast span starts */
+     if(String(a.name)==='fast'&&!slowTape)try{slowTape=require('../core/cardinal/tape.cjs').snapshot(TAPE_SLOW);}catch{}continue;}
     if(/^(click|move|key|keydown|keyup)$/.test(a.do)){if(input)input.act(a,t);else post(a);}
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
