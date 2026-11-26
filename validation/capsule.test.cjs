@@ -151,3 +151,16 @@ page('a line drawn where the capsule sits pushes it aside; turning 常驻 off hi
  assert.equal(await p.evaluate(()=>document.getElementById('mg-cap').hidden),true);
  assert.equal(await p.evaluate(()=>window.__megulitCapsule.state().visible),false);
 });
+
+page('switching between window and full screen keeps each style on its spot',async p=>{
+ await p.setViewportSize({width:1920,height:1080});await p.waitForTimeout(250);
+ let r=await p.evaluate(()=>window.__megulitCapsule.rect());assert.ok(Math.abs(r.x+r.w/2-960)<2,'A centred at full screen: '+JSON.stringify(r));
+ await p.evaluate(()=>window.__megulitCapsule.set({style:'b'}));await p.waitForTimeout(150);
+ r=await p.evaluate(()=>window.__megulitCapsule.rect());assert.ok(Math.abs(r.x+r.w-1910)<2,'B on the right edge');
+ await p.setViewportSize({width:1024,height:640});await p.waitForTimeout(250);
+ r=await p.evaluate(()=>window.__megulitCapsule.rect());assert.ok(Math.abs(r.x+r.w-1014)<2&&r.y>=10&&r.y+r.h<=630,'B follows the smaller window: '+JSON.stringify(r));
+ await p.evaluate(()=>window.__megulitCapsule.set({style:'c',c:{corner:'br'}}));await p.waitForTimeout(150);
+ r=await p.evaluate(()=>window.__megulitCapsule.rect());
+ const text=await p.evaluate(()=>{const b=document.querySelector('.sentence-text').getBoundingClientRect();return {x:b.left-8,y:b.top-8,w:b.width+16,h:b.height+16};});
+ assert.ok(!core.overlaps(r,[text]),'C never sits on the dialogue: '+JSON.stringify({r,text}));
+});
