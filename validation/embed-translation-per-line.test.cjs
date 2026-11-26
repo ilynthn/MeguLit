@@ -104,3 +104,15 @@ test('#1268 review: a line painted late (page report wait) gets its own per-line
  assert.equal(await cdp.evaluate(SHOWN),true,'the window painted after the status delays shows B\'s overlay translation');
 });
 
+test('#1268 review: a new game session does not inherit the last game\'s write-back results',{skip:!hasEdge&&'Edge not installed',timeout:60000},async t=>{
+ const cdp=await reader(t,fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-1268c-')));
+ await cdp.evaluate(`__tomoyoChinese.restoreGalSettings({display:'bilingual',translationBlur:false,furigana:false})`);
+ const A='美亜は小さく息をついた。';
+ await cdp.evaluate(LINE(A,'美亚轻轻叹了口气。'));
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedTranslating:true,embedLine:{source:${JSON.stringify(A)},text:'美亚轻轻叹了口气。',drawn:true}})`);await settle(cdp);
+ await cdp.evaluate(`__tomoyoChinese.galStatus({embedTranslating:false})`);await settle(cdp);
+ assert.equal(await cdp.evaluate(SHOWN),false,'the line on screen keeps what the game drew');
+ await cdp.evaluate(`__tomoyoChinese.galStatus({hookSource:null})`);await settle(cdp);
+ await cdp.evaluate(LINE(A,'美亚轻轻叹了口气。'));await cdp.evaluate(`__tomoyoChinese.galStatus({hookSource:${JSON.stringify(A)}})`);await settle(cdp);
+ assert.equal(await cdp.evaluate(SHOWN),true,'the next game only draws Japanese: MeguLit translates the shared sentence');
+});

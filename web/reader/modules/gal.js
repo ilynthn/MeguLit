@@ -752,12 +752,17 @@
   if(typeof MutationObserver==='function'){let embedWatch=0;new MutationObserver(records=>{if(embedWatch||!(embedOn||embedLines.size))return;
    if(!records.some(r=>(r.target.nodeType===1?r.target:r.target.parentElement)?.closest?.('.sentence-window')))return;
    embedWatch=requestAnimationFrame(()=>{embedWatch=0;embedSync();});}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
+  /* Codex #1268: the game session ended: its lines' results and the page switch belong to it, not to the next game */
+  const embedReset=()=>{embedLines.clear();embedOn=false;document.body.classList.remove('megulit-embed-translation');
+   for(const w of document.querySelectorAll('.sentence-window.megulit-game-translated'))w.classList.remove('megulit-game-translated');};
+  bridge.embedTranslatedReset=embedReset;
   bridge.galStatus = message => {
     if (typeof message.hookSourcePreview === 'boolean') bridge.setHookSourcePreview?.(message.hookSourcePreview);
     if ('hookSource' in message || message.type==='gameClosed') {
       const page=!!message.hookSource && ['saya-page-ocr','saya-script-read'].includes(message.hookSourceEngine);
       document.body.classList.toggle('megulit-saya-page',page);
       if(page)placeLayers();
+      if(message.type==='gameClosed'||message.hookSource===null)embedReset();
     }
     bridge.cardinalPair?.source(message);
     if(message?.type==='modeRequest'){if(window.__tomoyoMode?.requestToggle)window.__tomoyoMode.requestToggle();else send({type:'galToggleMode'});return;}
