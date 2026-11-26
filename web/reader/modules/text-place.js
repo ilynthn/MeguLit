@@ -772,13 +772,15 @@
      Japanese row ends (by share of the sentence), else at that share. One-row lines and unfinished translations are left alone. */
   const CN_PUNCT = /[，、。；：！？…—,.;:!?」』）)”’》】〕〗〉\]\}]/;
   const CN_NONWORD = /[，、。；：！？…—,.;:!?」』）)”’》】〕〗〉\]\}“‘「『（(《【〔〖〈\s]/g;
+  const CN_CLOSE_QUOTE = /[」』”’]/, CN_OPEN_QUOTE = /[「『“‘]/;
   /* breaks for `shares` (where each Japanese row ends, as a share of the sentence): the set of break points after the
      translation's punctuation that lies nearest to the shares overall (least squares); a share no punctuation is left for
      breaks at its own place */
   function cnSplit(text, shares) {
     const n = text.length, k = shares.length; if (!n || !k) return [];
-    /* never split closing punctuation onto its own line or orphan a single trailing character */
-    const tailOk = i => text.slice(i).replace(CN_NONWORD, '').length >= 2;
+    /* never split closing punctuation onto its own line or orphan a single trailing character; allow a 1-char quoted reply after a closing quote */
+    const quoteGap = i => CN_CLOSE_QUOTE.test(text[i - 1]) && CN_OPEN_QUOTE.test(text.slice(i).trimStart()[0] || '');
+    const tailOk = i => text.slice(i).replace(CN_NONWORD, '').length >= (quoteGap(i) ? 1 : 2);
     const cand = []; for (let i = 1; i < n; i++) if (CN_PUNCT.test(text[i - 1]) && !CN_PUNCT.test(text[i]) && tailOk(i)) cand.push(i);
     /* not enough punctuation: a break goes where a Chinese clause can start (before 在/将/变…, after 的/了…), never inside a word; none near: no break */
     if (cand.length < k) { const soft = i => CN_PUNCT.test(text[i - 1]) || /[在将把被让使变是有和与而但却又也就都才从向对]/.test(text[i]) || /[的了着过地]/.test(text[i - 1]); const out = []; let last = 0;

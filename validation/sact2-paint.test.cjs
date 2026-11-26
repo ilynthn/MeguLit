@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {EventEmitter}=require('node:events'),{PassThrough}=require('node:stream');
+const {HookNative}=require('../core/hook-native.cjs'),{HookControl}=require('../core/hook-control.cjs');
+
+test('a SACT2 draw confirms only the current line when Japanese OCR is unavailable',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'sact2-paint-'));
+ const child=Object.assign(new EventEmitter(),{stdin:new PassThrough(),stdout:new PassThrough()});
+ for(const name of ['HookBridge.exe','LunaHost64.dll','LunaHook32.dll','LunaHook64.dll'])fs.writeFileSync(path.join(root,name),'fixture');
+ t.mock.method(HookNative,'syncShippedHook',()=>{});
+ t.mock.method(HookNative,'fetchRuntimeDump',()=>{});
+ const hooks=new HookNative({native:root,hook:root,logs:root},()=>{},()=>child,()=>100000);
+ hooks.trace=()=>{};
+ hooks.preferences={hookProfile:'read',hookHide:true,autoGameStyle:false};
+ hooks.start({pid:123,hwnd:'1',name:'System40',started:'1795280000000'});
+ hooks.enabled=true;
+ t.after(async()=>{child.stdout.end();hooks.process=null;await hooks.stop();fs.rmSync(root,{recursive:true,force:true});});
+ const send=async m=>{child.stdout.write(JSON.stringify(m)+'\n');await new Promise(r=>setImmediate(r));};
+ const status=[],host={hooks,state:{bound:true},preferences:hooks.preferences,notify:m=>status.push(m),send(){}};
+ const controller=new HookControl(host);
+ controller.running=true;
+ const aside='（この暗い道の先に　何があるのだろう）';
+ const visual=()=>controller.visual({sequence:controller.seq,stage:'read',valid:false,error:'Japanese OCR unavailable'});
+ await send({type:'hookSact2Mode',active:true});
+ await send({type:'hookSact2Paint',kind:'story',text:aside.replace('　','')});
+ controller.source(aside);
+ visual();
+ assert.equal(status.at(-1).hookCheckState,'verified');
+ controller.source('「次の台詞です」');
+ visual();
+ assert.equal(status.at(-1).hookCheckState,'unverified');
+ await send({type:'hookSact2Mode',active:false});
+ controller.source(aside);
+ visual();
+ assert.equal(status.at(-1).hookCheckState,'unverified');
+
+ const bubble='イカーーーーイカカカーー';
+ const sources=[];
+ hooks.source=m=>sources.push(m.text);
+ await send({type:'hookSact2Paint',kind:'battle',text:bubble});
+ assert.deepEqual(sources,[]);
+ await send({type:'hookSact2Mode',active:true});
+ await send({type:'hookSact2Paint',kind:'battle',text:bubble});
+ assert.deepEqual(sources,[bubble]);
+ await send({type:'hookSact2Paint',kind:'narration',text:'扉が開いた。'});
+ assert.deepEqual(sources,[bubble,'扉が開いた。']);
+ hooks.enabled=false;
+ await send({type:'hookSact2Paint',kind:'narration',text:'部屋に風が入った。'});
+ assert.deepEqual(sources,[bubble,'扉が開いた。']);
+});

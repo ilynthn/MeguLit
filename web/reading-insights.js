@@ -44,9 +44,9 @@ ${block('III',w.jlpt,w.jlptHelp,`<div class="ri-levels">${bars}</div>${games.len
 }
 /* Mounts the page: loads the report, re-asks while lines are still being counted, saves a word in one click. */
 export async function mountReadingInsights(target,{api,locale,esc,number,toast,isCurrent=()=>true,enhance=()=>{}}){
- const w=insightMessages[locale]||insightMessages.zh;let gameId='',data=null,saving=new Set(),timer=0,firstPainted=false;
+ const w=insightMessages[locale]||insightMessages.zh;let gameId='',data=null,saving=new Set(),timer=0,typeTimer=0,loadTicket=0,firstPainted=false;
  const render=()=>{target.innerHTML=readingInsightsHTML(data,{locale,esc,number,gameId,saving});bind();enhance(target);};
- const load=async(count=true)=>{clearTimeout(timer);try{const next=await api('reading_insights',{gameId,count});if(!isCurrent())return;data=next;render();if(next.pending&&next.counting&&count)timer=setTimeout(()=>{if(isCurrent())load(true);},1500);}catch(error){if(isCurrent()&&!data){target.innerHTML=`<section class="panel ri-panel"><p class="muted">${esc(String(error?.message||error))}</p></section>`;}}};
+ const load=async(count=true)=>{const ticket=++loadTicket;clearTimeout(timer);try{const next=await api('reading_insights',{gameId,count});if(!isCurrent()||ticket!==loadTicket)return;data=next;render();if(next.pending&&next.counting&&count)timer=setTimeout(()=>{if(isCurrent()&&ticket===loadTicket)load(true);},1500);}catch(error){if(isCurrent()&&ticket===loadTicket&&!data){target.innerHTML=`<section class="panel ri-panel"><p class="muted">${esc(String(error?.message||error))}</p></section>`;}}};
  function bind(){
   target.querySelector('.ri-game')?.addEventListener('change',event=>{gameId=event.target.value;load(false);});
   /* 2026-11-14: a JLPT level tile (or a game's level segment) opens that level's words; marks there refresh this page */
@@ -55,7 +55,7 @@ export async function mountReadingInsights(target,{api,locale,esc,number,toast,i
   /* megu-edit motion: the top word types in with a ▮ block, the bars rise, tiles come into focus; a fold opens */
   const calm=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,EXPO='cubic-bezier(.16,1,.3,1)';
   target.querySelectorAll('[data-ri-more]').forEach(b=>b.onclick=()=>{const list=target.querySelector(`[data-ri-list="${b.dataset.riMore}"]`),open=list.classList.toggle('folded')===false;b.textContent=open?'收起 ↑':`展开全部 ${list.children.length} 个 ↓`;if(open&&!calm)list.querySelectorAll('.extra').forEach((x,i)=>x.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:280,delay:Math.min(i,20)*18,easing:EXPO,fill:'backwards'}));});
-  if(!calm&&!firstPainted){firstPainted=true;const t=target.querySelector('[data-ri-type]');if(t){const c=[...t.textContent];let n=0;t.textContent='▮';const tick=()=>{n++;t.textContent=c.slice(0,n).join('')+(n<c.length?'▮':'');if(n<c.length)setTimeout(tick,70);};setTimeout(tick,200);}
+  if(!calm&&!firstPainted){firstPainted=true;const t=target.querySelector('[data-ri-type]');if(t){const c=[...t.textContent];let n=0;t.textContent='▮';const tick=()=>{if(!isCurrent()||!t.isConnected)return;n++;t.textContent=c.slice(0,n).join('')+(n<c.length?'▮':'');if(n<c.length)typeTimer=setTimeout(tick,70);};typeTimer=setTimeout(tick,200);}
    target.querySelectorAll('.ri-stage-bars i').forEach((b,i)=>b.animate([{transform:'scaleY(0)'},{transform:'none'}],{duration:420,delay:240+i*30,easing:EXPO,fill:'backwards'}));
    target.querySelectorAll('.ri-word:not(.extra),.ri-level').forEach((x,i)=>x.animate([{opacity:0,filter:'blur(4px)',transform:'translateY(10px)'},{opacity:1,filter:'none',transform:'none'}],{duration:420,delay:120+Math.min(i,24)*25,easing:EXPO,fill:'backwards'}));}
   /* E426 Known saves the word already marked mastered (vocabulary status 3, the same level the word list and reader use) so it leaves both lists. */
@@ -65,5 +65,5 @@ export async function mountReadingInsights(target,{api,locale,esc,number,toast,i
  }
  target.innerHTML=`<section class="panel ri-panel"><p class="muted">…</p></section>`;
  await load(true);
- return ()=>clearTimeout(timer);
+ return ()=>{loadTicket++;clearTimeout(timer);clearTimeout(typeTimer);};
 }

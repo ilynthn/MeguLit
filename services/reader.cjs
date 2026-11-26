@@ -99,7 +99,7 @@ class Reader{
   if(message.type==='waitMarkerDrawn'){this.immersion.markerDrawn();this.gal?.send({type:'markerHookDrawn'});}
   /* 2026-11-16 why the bridge hid or moved the reading layer (menu / cover / dialogue / foreground), once per change: a report of MeguLit's text vanishing is matched against it */if(message.type==='coverDebug'&&typeof message.text==='string'&&message.text!==this.lastCoverDebug){/* every change is kept: the 250 ms limit dropped the hide that followed a z-order move right after the menu closed */this.lastCoverDebug=message.text;this.lastCoverDebugAt=Date.now();this.logVisibility({type:'coverDebug',text:message.text.slice(0,240)});}
   /* Issue 127: Alt+H and its hotkey registration reach the log, so a report shows whether the cover was really switched */if(message.type==='ready')this.logVisibility({type:'readerHotkeys',menu:message.hotkey,cover:message.coverHotkey,mode:message.modeHotkey});if(message.type==='cover'&&typeof message.coverEnabled==='boolean')this.logVisibility({type:'cover',enabled:message.coverEnabled});
-  if(message.type==='ready'){this.gal?.send({type:'dialogConfig',scene:config.immersion===true,auto:config.immersion===true,active:config.immersion&&config.dialogDetection==='visual',marker:config.immersion&&config.dialogDetection==='marker'});this.gal?.setGameAudio(config.ankiGameMedia!==false);}
+  if(message.type==='ready'){this.sendDialogConfig(config);this.gal?.setGameAudio(config.ankiGameMedia!==false);}
   if(message.type==='gameClosed'||message.bound===false)this.immersion.bind('');else if(message.gameHwnd)this.immersion.bind(message.gameHwnd+'|'+message.gameProcessId+'|'+message.gameStarted);
   /* 2026-11-13 (ATRI: the choice overlay was drawn in a reader window hidden as "scene changed"): while choices are on screen the reader stays shown */if(Object.prototype.hasOwnProperty.call(message,'hookChoices'))this.immersion.choices(!!message.hookChoices);
   if(typeof message.hookSource==='string'&&message.hookSource.trim()&&message.hookActive===true&&message.processAttached===true&&!message.hookRecovering&&!message.recovering&&!['history','ocr'].includes(message.hookSourceOrigin)&&!['history','ocr'].includes(message.origin))try{require('./seed-usage.cjs').note(this);}catch{}
@@ -453,7 +453,7 @@ class Reader{
  /* One translation per line: a later, better answer replaces the compositor's copy too, so the overlay row and the compositor never show two different translations of one sentence (#1128) */
  compositorText(text,translation,language){try{if(this.active()&&language===this.targetLanguage()&&translation)this.gal?.compositor?.text?.(String(text||''),translation);}catch{}}
  /* One line through the fallback chain (services/translation-chain.cjs). options: the reader's resolved options. */
- async chainTranslate(text,options,{id=null,current:previous=()=>true,foreground}={}){if(!this.active())throw Error('READER_DISABLED');const current=()=>this.active()&&previous();const requestLanguage=this.targetLanguage(options),cacheLanguage=requestLanguage;const chain=require('./translation-chain.cjs');this.loadKeys();
+ async chainTranslate(text,options,{id=null,current:previous=()=>true,foreground,quiet=false}={}){if(!this.active())throw Error('READER_DISABLED');const current=()=>this.active()&&previous();const requestLanguage=this.targetLanguage(options),cacheLanguage=requestLanguage;const chain=require('./translation-chain.cjs');this.loadKeys();
   let localInstalled=false;try{localInstalled=!!this.runtime.local().status().installed&&this.runtime.models().status().models.some(m=>m.installed);}catch{}
   const strict=this.zeroLatencyEnabled(requestLanguage);
   const profiles=strict&&this.folder?readJSON(path.join(this.folder,'translation-profiles.json')):{};
@@ -473,7 +473,7 @@ class Reader{
   const generation=this.visualGeneration,game=this.gameId;
   return chain.translate(text,list,async o=>{
    if(o.provider==='filled')return reviewed;
-   const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage};
+   const opts={...o,translationPrompt:this.workPrompt||'',learnerLanguage:requestLanguage,...(quiet?{detached:true}:{})};
    // Reuse an exact MT answer only after all higher-ranked providers have been tried.
    const key=strict&&chain.isMt(o.provider)?JSON.stringify([game,requestLanguage,o.provider,text]):null;
    if(key&&this.strictMtCache?.has(key)){cachedProvider=o.provider;return this.strictMtCache.get(key);}
@@ -484,7 +484,7 @@ class Reader{
     if(this.strictMtCache.size>800)this.strictMtCache.delete(this.strictMtCache.keys().next().value);
    }
    return value;
-  },{isCurrent:current,budgetMs:strict?0:2500,trace:t=>{try{this.gal?.hooks?.trace?.(t);}catch{}},onLate:r=>{if(!this.active()||this.visualGeneration!==generation)return;this.embedCached(text,r.text,{language:cacheLanguage,source:r.source,provider:r.provider});this.compositorText(text,r.text,cacheLanguage);try{this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,r.text,'better',{target:cacheLanguage,source:r.source,provider:r.provider}]});}catch{}}}).then(r=>{if(r.provider==='filled')return {...r,source:'filled',provider:''};if(cachedProvider===r.provider)r.cached=true;/* E415 (user: 提示用户是微软机翻): said once per reader session when machine translation stood in for the chosen engine */if(r.source==='mt'&&!chain.isMt(options.provider)&&!this.mtNoticed){this.mtNoticed=true;this.emit('reader-event',{type:'call',method:'mtNotice',args:[]});}return r;});}
+  },{isCurrent:current,budgetMs:strict?0:2500,trace:t=>{try{this.gal?.hooks?.trace?.(t);}catch{}},onLate:r=>{if(quiet||!this.active()||this.visualGeneration!==generation)return;this.embedCached(text,r.text,{language:cacheLanguage,source:r.source,provider:r.provider});this.compositorText(text,r.text,cacheLanguage);try{this.emit('reader-event',{type:'call',method:'deliverBackfill',args:[text,r.text,'better',{target:cacheLanguage,source:r.source,provider:r.provider}]});}catch{}}}).then(r=>{if(r.provider==='filled')return {...r,source:'filled',provider:''};if(cachedProvider===r.provider)r.cached=true;/* E415 (user: 提示用户是微软机翻): said once per reader session when machine translation stood in for the chosen engine */if(r.source==='mt'&&!chain.isMt(options.provider)&&!this.mtNoticed){this.mtNoticed=true;this.emit('reader-event',{type:'call',method:'mtNotice',args:[]});}return r;});}
  /* The reader's own options (preferences, display language, work prompt) */
  baseOptions(language){const options=this.requestOptions();return language?{...options,learnerLanguage:language}:options;}
  translationRetries(){return this.retryQueue??=new(require('./translation-chain.cjs').Retries)((text,c)=>{
@@ -539,7 +539,8 @@ class Reader{
    case 'galUnbind':Reader.prototype.clearGameVisuals.call(this);this.visualIdentity='';this.translator().clearContext();g?.save({...g.preferences,bindEnabled:false});this.stats.reset();break;
    case 'galMenu':/* opening and closing the menu both freeze every inferred hide/show (core/immersion.cjs), whatever the bridge reports */if(r.open===true)this.immersion?.context(false);this.immersion?.menu?.(r.open===true);g?.send({type:'menu',open:r.open===true});break;
    case 'galLookup':g?.send({type:'lookup',open:r.open===true});break;
-   case 'galWheelDecision':if(Number.isSafeInteger(r.id))g?.send({type:'wheelDecision',id:r.id,panel:r.panel===true});break;
+   case 'galBacklogHotkey':g?.send({type:'backlogHotkey',modifiers:Number(r.modifiers)|0,key:Number(r.key)|0});break;
+   case 'galWheelDecision':if(Number.isSafeInteger(r.id))g?.send({type:'wheelDecision',id:r.id,panel:r.panel===true,panelUp:r.panelUp===true});break;
    case 'galFloatDrag':if([r.x,r.y].every(Number.isFinite))g?.send({type:'floatDrag',x:r.x,y:r.y});break;
    case 'galHitRegions':{
     const validRect=x=>x&&[x.x,x.y,x.width,x.height].every(Number.isFinite);
@@ -612,8 +613,12 @@ class Reader{
    case 'nativeSettings':await this.invoke('save_settings',{settings:r.settings});break;
    case 'v4':try{reply('v4Deliver',r.id,await this.v4(r.action,r.args||{}),'');}catch(e){reply('v4Deliver',r.id,null,e.message);}break;
    case 'revealProgress':this.immersion?.reveal(r.text,r.typing);break;
-   case 'lookupCancel':this.lookup++;break;
+   case 'lookupCancel':this.lookup++;this.lookupTranslation=(this.lookupTranslation||0)+1;/* the selection's translation is dropped with its card: queued attempts skip (Codex #1175) */break;
    case 'lookupExplain':{const serial=++this.lookup;try{const main=this.prefs(),models=require('../core/lookup-models.cjs'),context=['context','summary','explain'].includes(r.mode);this.loadKeys();const keyed=o=>this.translator().hasKey(o.baseUrl,o.provider),options=context?models.contextOptions(main,main,keyed):models.lookupOptions(main,main);if(!options)throw Error('LOOKUP_MODEL_REQUIRED');if(options.provider==='moji'){const selection=[...r.args.text].slice(r.args.start,r.args.end).join('').trim();const entries=await require('./moji-dictionary.cjs').lookupMoji(selection,fetch,{root:this.root});const text=entries.slice(0,4).map(e=>[[e.spelling,e.reading].filter(Boolean).join('  '),e.definition].filter(Boolean).join('\n')).join('\n\n')||'MOJi 辞書里没有找到「'+selection+'」';if(this.lookup===serial)reply('lookupDeliver',r.id,{text,kind:'moji',provider:'moji'},'');break;}this.loadKeys();const local=await this.invoke('lookup_exact',r.args);let result;try{const ask=o=>this.translator().lookup({selection:[...r.args.text].slice(r.args.start,r.args.end).join(''),sentence:r.args.text,entries:local.entries,morphology:local.morphology,mode:r.mode},o,()=>this.lookup===serial);try{result=await ask(options);}catch(first){/* #1117: the context source ran out of quota or hit a limit while the translation API the player bound is a different one: ask that one, the same API as the translations */const bound=context?models.boundModel(main,keyed):null;if(bound&&(bound.provider!==options.provider||bound.baseUrl!==options.baseUrl)&&/额度不足|请求过快/.test(String(first?.message)))result=await ask(bound);else throw first;}}catch(e){if(context&&/key|401|403|unauthori|密钥|未配置|missing/i.test(String(e.message)))throw Error('CONTEXT_KEY_REQUIRED');throw e;}if(this.lookup===serial)reply('lookupDeliver',r.id,result,'');}catch(e){reply('lookupDeliver',r.id,null,e.message);}break;}
+   /* 2026-11-26 (QQ #1139: a phrase selected by dragging or a long press was looked up but never translated) the selection goes
+      through the same translation chain as the lines (the user's engine, then the fallbacks), quietly: no line cache, no late
+      backfill, no context entry */
+   case 'lookupTranslate':{const serial=this.lookupTranslation=(this.lookupTranslation||0)+1;try{const selection=[...String(r.args?.text||'')].slice(Number(r.args?.start)||0,Number(r.args?.end)||0).join('').trim();if(!selection||[...selection].length>400)throw Error('选区为空或过长');const result=await this.chainTranslate(selection,this.requestOptions(),{current:()=>this.lookupTranslation===serial,quiet:true});if(this.lookupTranslation===serial)reply('lookupDeliver',r.id,{text:String(result?.text||''),kind:'translation',source:result?.source||'',provider:result?.provider||''},'');}catch(e){reply('lookupDeliver',r.id,null,e.message);}break;}
    case 'lookupConfigure':try{const clean=require('../core/lookup-models.cjs').cleanLookup(r.settings);for(const[name,key]of Object.entries(r.keys||{}))if(key)new Settings(this.root).saveKey({provider:name==='deepseek'?'deepseek':'gpt',baseUrl:clean.lookupProfiles[name]?.baseUrl,apiKey:key});atomic(path.join(this.folder,'preferences.json'),{...readJSON(path.join(this.folder,'preferences.json')),...clean});reply('lookupConfigured','');}catch(e){reply('lookupConfigured',e.message);}break;
    case 'keyStatus':{const result={};for(const[name,options]of Object.entries(r.targets||{}).slice(0,20)){try{this.loadKeys();const resolved=require('../core/providers.cjs').resolveOptions(options);result[name]=resolved.provider==='google'||this.translator().hasKey(resolved.baseUrl,resolved.provider);}catch{result[name]=false;}}reply('keyStatus',result);break;}
    case 'dictStatus':reply('dictStatus',{databases:require('../core/dict-check.cjs').quickStatus(require('../core/layout.cjs').reading),installing:!!this.runtime.learning().installing});break;
@@ -627,11 +632,12 @@ class Reader{
   }
   return {replies:this.active()?replies:[]};
  }
+ sendDialogConfig(config=this.runtime.config()){this.gal?.send?.({type:'dialogConfig',scene:config.immersion===true,auto:config.immersion===true,active:config.immersion&&config.dialogDetection==='visual',marker:config.immersion&&config.dialogDetection==='marker'});}
  async v4(action,args){
   const config=this.runtime.config();
   if(action==='markSentence'){if(!this.sentenceMarks)throw Error('SENTENCE_EXPIRED');return this.sentenceMarks.mark(this.root,this.gameId,args);}
   if(action==='load')return config;
-  if(action==='configure'){atomic(path.join(this.folder,'v4-preferences.json'),{...readJSON(path.join(this.folder,'v4-preferences.json')),...require('../core/v4-config.cjs').cleanV4(args)});this.immersion?.configure(this.runtime.config());const current=this.runtime.config();this.gal?.send({type:'dialogConfig',scene:current.immersion===true,auto:current.immersion===true,active:current.immersion&&current.dialogDetection==='visual',marker:current.immersion&&current.dialogDetection==='marker'});this.gal?.setGameAudio(this.runtime.config().ankiGameMedia!==false);return this.runtime.config();}
+  if(action==='configure'){atomic(path.join(this.folder,'v4-preferences.json'),{...readJSON(path.join(this.folder,'v4-preferences.json')),...require('../core/v4-config.cjs').cleanV4(args)});const current=this.runtime.config();this.immersion?.configure(current);this.sendDialogConfig(current);this.gal?.setGameAudio(current.ankiGameMedia!==false);return current;}
   const mapped={modelStatus:'model_status',modelDownload:'model_download',modelCancel:'model_cancel',runtimeDownload:'runtime_download',runtimeCancel:'runtime_cancel',speakers:'speakers',speakersCached:'speakers_cached',preview:'speech_preview'};
   if(mapped[action])return this.runtime.call({action:mapped[action],...args});
   if(action==='backgroundGet'){const image=require('./assets.cjs').get(this.root,args.slot==='game'?'panels':'home');if(image||args.slot==='game')return {image};
@@ -666,7 +672,7 @@ class Reader{
   if(action==='calibrate'){this.gal?.send({type:'dialogCalibrate',...args});return {pending:true};}
   if(action==='ankiStats'){
    const {pickEntry}=require('./anki-sync.cjs'),linked=new Set((Array.isArray(args.linked)?args.linked:[]).map(Number)),notes=await new(require('../core/anki.cjs').Anki)().stats(config);let resolved=0;
-   for(const note of notes){if(linked.has(note.noteId)||!note.word||resolved>=300)continue;resolved++;try{const text=note.word,result=await this.runtime.learning().request('lookup_exact',{text,start:0,end:[...text].length},'zh'),entry=pickEntry(result.entries,text,note.reading);if(entry)note.entry={id:entry.id,spellings:entry.spellings||[],readings:entry.readings||[],definitions:entry.definitions||(entry.definition_groups||[]).map(g=>g.text),pos:entry.pos||[]};}catch{}}
+   for(const note of notes){if(linked.has(note.noteId)||!note.word||resolved>=300)continue;resolved++;try{const text=note.word,result=await this.runtime.learning().request('lookup_exact',{text,start:0,end:[...text].length},'zh'),entry=pickEntry(result.entries,text,note.reading,result);if(entry)note.entry={id:entry.id,spellings:entry.spellings||[],readings:entry.readings||[],definitions:entry.definitions||(entry.definition_groups||[]).map(g=>g.text),pos:entry.pos||[]};}catch{}}
    return notes;
   }
   if(action==='unityFontStatus')return (this.unityFont??=new(require('../core/unity-font.cjs').UnityFont)(this.root)).status();

@@ -12,6 +12,9 @@
   };
  const explain=(args,mode)=>new Promise((resolve,reject)=>{const id=++serial,timer=setTimeout(()=>{pending.delete(id);reject(Error('学习 API 等待超时，请稍后重试'));},45000);
   pending.set(id,{resolve,reject,timer});send({type:'lookupExplain',id,args,mode,options:b.options()});});
+ /* 2026-11-26 (QQ #1139) a dragged or long-pressed phrase is translated by the line translation chain (reader.cjs lookupTranslate) */
+ const translateSelection=args=>new Promise((resolve,reject)=>{const id=++serial,timer=setTimeout(()=>{pending.delete(id);reject(Error('选区翻译超时，请稍后重试'));},30000);
+  pending.set(id,{resolve,reject,timer});send({type:'lookupTranslate',id,args:{text:args.text,start:args.start,end:args.end}});});
  function close(keepSurface=false){stopDrag?.();if(!keepSurface)try{getSelection()?.removeAllRanges();}catch{}b.refreshTranslationOrigin=null;pointSerial++;serial++;card?.remove();card=null;current=null;b.selectionActive=false;
   for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('选区已关闭'));}pending.clear();document.body.classList.remove('tomoyo-selection-open');try{send({
   type:'lookupCancel'});if(!keepSurface)send({type:'galLookup',open:false});}catch{}}
@@ -210,13 +213,13 @@
   if(shot)card.__megulitShot=shot;/* game-only picture: the card is never hidden for it */}card.setAttribute('role','dialog');card.setAttribute('aria-label',
   '本地查词与选区解释');const top=el('header');dragCard(top);if(typeof ResizeObserver==='function'){const watched=card;new ResizeObserver(()=>{if(card===watched&&watched.isConnected)place();
   }).observe(watched);}top.append(el('span',''),button('×',()=>close()));const body=el('div','tomoyo-selection-body'),status=el('div','tomoyo-muted','本地查询中…'),actions=el('footer'),
-  ai=el('div','tomoyo-ai-result');ai.hidden=true;actions.append(button('上下文解释',()=>askAI('explain')),button('AI 归纳义项',()=>askAI('summary')));body.append(status);
+  ai=el('div','tomoyo-ai-result');ai.hidden=true;const translated=el('div','tomoyo-ai-result tomoyo-selection-translation');translated.hidden=true;actions.append(button('上下文解释',()=>askAI('explain')),button('AI 归纳义项',()=>askAI('summary')));body.append(status);
   const anchorNode=at?.startContainer;const pair=(anchorNode?.parentElement||anchorNode)?.closest?.(".tome-island-pair");
   const origin=el('small','tomoyo-muted tomoyo-translation-origin');
   b.refreshTranslationOrigin=()=>{const data=pair?.querySelector('.tomoyo-cn-output')?.dataset,r=b.returnedTranslation,hit=pair?{source:data?.translationOrigin,cached:data?.translationSource==='cache',provider:data?.translationProvider}:r&&r.id===b.serial&&r.target===b.translationTarget?.()&&r.line===args.text?r:null;
    const names={script:'剧本',official:'官方译文',api:'API',unknown:'未知',patch:'补丁',machine:'机器翻译',mt:'机器翻译',local:'本地模型'};
    origin.textContent='本句译文来源 · '+(hit?.cached?'缓存 · ':'')+(names[hit?.source]||'未知')+(hit?.provider?' · '+hit.provider:'');};
-  b.refreshTranslationOrigin();card.append(top,actions,ai,body,origin);document.body.append(card);document.body.classList.add('tomoyo-selection-open');send({type:'galLookup',open:true});place();
+  b.refreshTranslationOrigin();card.append(top,actions,ai,translated,body,origin);document.body.append(card);document.body.classList.add('tomoyo-selection-open');send({type:'galLookup',open:true});place();
   // The native grip and the visible header share the same box throughout the entrance.
   if(!['glass','both'].includes(document.documentElement.dataset.tomeCardSurface)&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
    try{for(const part of card.children)part.animate([{opacity:0},{opacity:1}],{duration:110,easing:'ease-out'});}catch{}}
@@ -229,7 +232,12 @@
    text:String(value.text).slice(0,2000)}:card.__megulitAi;ai.replaceChildren(el('strong','',value.kind==='moji'?'MOJi 辞書':value.kind==='translation'?'选区翻译':value.kind==='summary'?'AI 归纳（可对照上方词典原义项）':'AI 上下文解释'),
    el('div','',value.text));}catch(e){if(current===mine&&card){if(e.message==='CONTEXT_KEY_REQUIRED'||e.message==='LOOKUP_MODEL_REQUIRED'){keyHint();return;}ai.textContent=e.message;
    }}place();}
-  /* drag: a drag selection (no point-lookup result handed in) */const drag=!result;try{result=result||await b.localLookup('lookup_exact',args);if(current!==mine||!card)return;
+  /* drag: a drag selection (no point-lookup result handed in) */const drag=!result;
+  if(drag&&[...String(args.text||'')].slice(args.start,args.end).join('').trim()){const label='选区翻译';translated.hidden=false;translated.replaceChildren(el('strong','',label),el('div','tomoyo-muted','翻译中…'));
+   translateSelection(mine).then(value=>{if(current!==mine||!card)return;const text=String(value?.text||'').trim();
+    if(text)translated.replaceChildren(el('strong','',value.provider?label+' · '+value.provider:label),el('div','',text));else translated.hidden=true;place();},
+    e=>{if(current!==mine||!card)return;translated.replaceChildren(el('strong','',label),el('div','tomoyo-muted',e.message||'选区翻译失败'));place();});}
+  try{result=result||await b.localLookup('lookup_exact',args);if(current!==mine||!card)return;
    renderLocal(result,body);b.decorateWordActions?.(card,args,result,{drag});place();}catch(e){if(current===mine&&card){status.textContent=e.message;place();}}
  }
  /* ② capture compositor: MeguLit draws the line itself and reports a click on one of its glyphs (screen px, char index

@@ -12,7 +12,7 @@ const words={zh:{voice:'语音角色',style:'情感与说话风格',refresh:'读
  unknown:'保存済みの声が見つかりません。選び直してください',recommended:'おすすめの声',male:'男性',female:'女性',download:'ダウンロード',cancel:'取得を中止',installed:'導入済み',failed:'操作を再試行してください',hint:'キャラクターと感情を選ぶと ID は自動で設定されます。試聴文は変更できます',
  size:'各約250 MB。クリックした声だけ取得します'}};
 export function configureSpeech({content,form,api,locale,esc,toast}){
- const w={...words[locale],...voiceRemovalWords[locale]},id=form.elements.namedItem('aivisSpeaker');id.closest('.settings-row').hidden=true;let speakers=[],audio=null,
+ const w={...words[locale],...voiceRemovalWords[locale]},id=form.elements.namedItem('aivisSpeaker'),volume=form.elements.namedItem('aivisVolume');id.closest('.settings-row').hidden=true;let speakers=[],audio=null,
   url='',timer,stopped=false,requestId=0,previousRunning=false;const removing=new Set();
  const panel=document.createElement('section');panel.className='panel speech-choices';panel.innerHTML=`<p class="settings-help">${w.hint}</p><label class="settings-row"><span class="settings-label">${w.voice}</span><select data-voice disabled><option>${w.empty}</option></select></label><label class="settings-row"><span class="settings-label">${w.style}</span><select data-style disabled><option>—</option></select></label><div class="speech-feedback settings-help"></div><button type="button" class="secondary" data-refresh>${w.refresh}</button><label class="audition-label">${w.text}<textarea maxlength="200" rows="3" data-text>${esc(localStorage.getItem('tome-voice-preview-text')||defaultPreview)}</textarea></label><div class="speech-preview-actions"><button type="button" class="primary" data-preview>${w.preview}</button><button type="button" class="text-button" data-reset>${w.reset}</button></div>`;
  form.before(panel);const voice=panel.querySelector('[data-voice]'),emotion=panel.querySelector('[data-style]'),feedback=panel.querySelector('.speech-feedback'),
@@ -35,11 +35,14 @@ export function configureSpeech({content,form,api,locale,esc,toast}){
  async function load(){const button=panel.querySelector('[data-refresh]');button.disabled=true;try{const list=await api('speakers');if(!Array.isArray(list))throw Error();fill(list);
   }catch{feedback.textContent=w.failed;feedback.dataset.state='error';}finally{button.disabled=false;}}
  panel.querySelector('[data-refresh]').onclick=load;api('speakers_cached').then(fill).catch(()=>{});
+ const readVolume=()=>{const v=Number(volume?.value);return Number.isFinite(v)?Math.max(0,Math.min(1,v)):0.9;};
+ const syncVolume=()=>{if(audio)audio.volume=readVolume();};
+ volume?.addEventListener('input',syncVolume);
  function stop(){if(audio){audio.pause();audio=null;}if(url){URL.revokeObjectURL(url);url='';}preview.textContent=w.preview;}
  preview.onclick=async()=>{if(audio){stop();return;}preview.disabled=true;preview.textContent=w.loading;try{localStorage.setItem('tome-voice-preview-text',input.value);
   const result=await api('speech_preview',{speaker:Number(id.value),speed:Number(form.elements.namedItem('aivisSpeed').value),text:input.value}),bytes=Uint8Array.from(atob(result.data),
-  c=>c.charCodeAt(0));if(stopped)return;url=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'}));audio=new Audio(url);audio.volume=Number(form.elements.namedItem('aivisVolume').value);
-  audio.onended=stop;audio.onerror=stop;await audio.play();preview.textContent=w.stop;}catch{stop();toast(w.failed);}finally{preview.disabled=false;if(!audio)preview.textContent=w.preview;
+  c=>c.charCodeAt(0));if(stopped)return;url=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'}));const current=audio=new Audio(url);audio.volume=readVolume();
+  audio.onended=stop;audio.onerror=stop;await current.play();if(stopped||audio!==current)return;preview.textContent=w.stop;}catch{stop();if(!stopped)toast(w.failed);}finally{preview.disabled=false;if(!audio)preview.textContent=w.preview;
   }};
  input.oninput=()=>localStorage.setItem('tome-voice-preview-text',input.value);panel.querySelector('[data-reset]').onclick=()=>{input.value=defaultPreview;input.dispatchEvent(new Event('input'));
   };
@@ -52,5 +55,5 @@ export function configureSpeech({content,form,api,locale,esc,toast}){
   {uuid});await refreshPack();}catch{toast(w.failed);}finally{removing.delete(uuid);button.disabled=false;}});if(previousRunning&&!running)api('speakers_cached').then(fill).catch(()=>{
   });previousRunning=running;}catch{pack.querySelector('[data-voices]').innerHTML=`<p class="u-status" data-state="error">${esc(w.failed)}</p>`;}clearTimeout(timer);
   if(!stopped)timer=setTimeout(refreshPack,1600);}
- refreshPack();return()=>{stopped=true;clearTimeout(timer);stop();};
+ refreshPack();return()=>{stopped=true;clearTimeout(timer);volume?.removeEventListener('input',syncVolume);stop();};
 }

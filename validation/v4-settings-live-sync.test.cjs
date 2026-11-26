@@ -4,6 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {startEdge,startWeb}=require('./library-views-perf.cjs');
 const {Runtime}=require('../services/runtime.cjs');
+const {Reader}=require('../services/reader.cjs');
 const {Settings}=require('../services/settings.cjs');
 const settingsReset=require('../services/settings-reset.cjs');
 const hasEdge=[process.env.MEGULIT_EDGE,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -12,9 +13,9 @@ const hasEdge=[process.env.MEGULIT_EDGE,'C:/Program Files (x86)/Microsoft/Edge/A
 test('Runtime.settingsSaved emits restoreV4Config after speech, anki, and reset saves',async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-v4-sync-rt-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- const events=[],gameAudio=[];
+ const events=[],gameAudio=[],sent=[];
  const runtime=new Runtime(root,(type,data)=>{if(type==='reader-event')events.push(data);});
- runtime.reader={gal:{styleSync:{profileKey:''},preferences:{},preview(){},setGameAudio:v=>gameAudio.push(v)},prefs:()=>({})};
+ runtime.reader={gal:{styleSync:{profileKey:''},preferences:{},preview(){},send:m=>sent.push(m),setGameAudio:v=>gameAudio.push(v)},prefs:()=>({}),sendDialogConfig:Reader.prototype.sendDialogConfig};
  const settings=new Settings(root);
 
  settings.save({scope:'speech',values:{aivisVolume:0.25,aivisAutoSpeak:true,aivisSpeaker:888753761,aivisSpeed:1.25}});
@@ -33,12 +34,21 @@ test('Runtime.settingsSaved emits restoreV4Config after speech, anki, and reset 
  assert.equal(afterAnki.args[0].ankiDeck,'CustomDeck');
  assert.equal(gameAudio.at(-1),false);
 
+ settings.save({scope:'immersion',values:{immersion:true,dialogDetection:'visual'}});
+ await runtime.settingsSaved({scope:'immersion',values:{immersion:true,dialogDetection:'visual'}});
+ assert.deepEqual(sent.at(-1),{type:'dialogConfig',scene:true,auto:true,active:true,marker:false});
+
+ settings.save({scope:'immersion',values:{immersion:false,dialogDetection:'visual'}});
+ await runtime.settingsSaved({scope:'immersion',values:{immersion:false,dialogDetection:'visual'}});
+ assert.deepEqual(sent.at(-1),{type:'dialogConfig',scene:false,auto:false,active:false,marker:false});
+
  settingsReset.reset(root);
  await runtime.settingsSaved({scope:'text'});
  const afterReset=events.filter(e=>e.type==='call'&&e.method==='restoreV4Config').at(-1);
  assert.equal(afterReset.args[0].aivisVolume,0.9);
  assert.equal(afterReset.args[0].aivisAutoSpeak,false);
  assert.equal(afterReset.args[0].ankiGameMedia,true);
+ assert.deepEqual(sent.at(-1),{type:'dialogConfig',scene:true,auto:true,active:false,marker:true});
 });
 
 test('v4.js live-syncs restoreV4Config to lookup audio, auto-speak, precapture, and open Alt+T panel without stale overwrite',{skip:!hasEdge},async t=>{

@@ -441,6 +441,7 @@ static HRESULT WINAPI HVbUnlock(void *buf) { auto o = ORIG(HRESULT(WINAPI *)(voi
 static HRESULT WINAPI HIbUnlock(void *buf) { auto o = ORIG(HRESULT(WINAPI *)(void *), buf, 12); Unlocked(buf, true); return o(buf); }
 
 #include "LittlecheeseGdi.h"
+#include "Sact2Draw.h"
 
 // ------------------------------------------------------------------------------------------------------------- GDI blits
 // Software engines that keep their font sheet in a bitmap and copy one glyph cell per character into a back-buffer
@@ -564,7 +565,14 @@ static DWORD WINAPI Sender(void *) {
  wchar_t name[64]; swprintf_s(name, L"\\\\.\\pipe\\MeguLitGpu-%lu", GetCurrentProcessId()); HANDLE pipe = INVALID_HANDLE_VALUE;
  while (!Quit) {
   WaitForSingleObject(OutEvent, 1000);
-  if (pipe == INVALID_HANDLE_VALUE) { pipe = CreateFileW(name, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL); if (pipe == INVALID_HANDLE_VALUE) continue; Send("ToMe_GPUHIDE ready version=1 apis=d3d9,d3d11,opengl,gdi"); }
+  if (pipe == INVALID_HANDLE_VALUE) {
+   pipe = CreateFileW(name, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+   if (pipe == INVALID_HANDLE_VALUE) continue;
+   Send("ToMe_GPUHIDE ready version=1 apis=d3d9,d3d11,opengl,gdi");
+#ifdef _M_IX86
+   if (InterlockedCompareExchange(&Sact2Installed, 0, 0)) Send("ToMe_GPUHIDE status sact2 dialogue");
+#endif
+  }
   for (;;) { std::string s; { Guard g; if (Outbox.empty()) break; s = Outbox.front(); Outbox.pop_front(); } s += "\n"; DWORD done; if (!WriteFile(pipe, s.data(), (DWORD)s.size(), &done, NULL)) { CloseHandle(pipe); pipe = INVALID_HANDLE_VALUE; break; } }
  }
  return 0;
@@ -573,6 +581,14 @@ static void Command(const std::string &line) {
  Log("CTL %s", line.c_str());
 #ifdef _M_IX86
  if (line.size() == 7 && line.compare(0, 6, "LCGDI ") == 0 && line[6] >= '0' && line[6] <= '2') { Guard g; LittlecheeseSetMode(line[6] - '0'); return; }
+ if (line.size() == 7 && line.compare(0, 6, "SACT2 ") == 0 && line[6] >= '0' && line[6] <= '3') {
+  Guard g;
+  if (!Sact2Installed) return;
+  InterlockedIncrement(&Sact2Epoch);
+  InterlockedExchange(&Sact2Mode, line[6] - '0');
+  Learner.Off(); Trace.Off();
+  return;
+ }
 #endif
  if (line.compare(0, 5, "LINE ") == 0) {
   int n = MultiByteToWideChar(CP_UTF8, 0, line.data() + 5, (int)line.size() - 5, NULL, 0);
@@ -582,6 +598,7 @@ static void Command(const std::string &line) {
   Guard g; unsigned now = GetTickCount();
 #ifdef _M_IX86
   if (LittlecheeseLine(w, now)) return;
+  if (Sact2Mode) return;
 #endif
   Learner.Line(w, now); Trace.Line(Learner.seq, now);
  }
@@ -600,11 +617,12 @@ static DWORD WINAPI Control(void *) {
  while (!Quit) {
   HANDLE p = CreateFileW(name, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL); if (p == INVALID_HANDLE_VALUE) { Sleep(1000); continue; }
   std::string buf; char b[4096]; DWORD got;
-  while (ReadFile(p, b, sizeof b, &got, NULL) && got) { buf.append(b, got); size_t at; while ((at = buf.find('\n')) != std::string::npos) { std::string l = buf.substr(0, at); buf.erase(0, at + 1); if (!l.empty() && l.back() == '\r') l.pop_back(); if (l == "QUIT") { Command("LCGDI 0"); CloseHandle(p); return 0; } Command(l); } }
+  while (ReadFile(p, b, sizeof b, &got, NULL) && got) { buf.append(b, got); size_t at; while ((at = buf.find('\n')) != std::string::npos) { std::string l = buf.substr(0, at); buf.erase(0, at + 1); if (!l.empty() && l.back() == '\r') l.pop_back(); if (l == "QUIT") { Command("LCGDI 0"); Command("SACT2 0"); CloseHandle(p); return 0; } Command(l); } }
   CloseHandle(p);
   { Guard g; Learner.Off(); Trace.Off();
 #ifdef _M_IX86
    LittlecheeseSetMode(0);
+   InterlockedExchange(&Sact2Mode, 0);
 #endif
   } // MeguLit gone: stop hiding at once
  }
@@ -629,10 +647,12 @@ static DWORD WINAPI Start(void *module) {
    wchar_t ev[64]; swprintf_s(ev, L"MeguLitFontReady-%lu", GetCurrentProcessId()); HANDLE e = OpenEventW(EVENT_MODIFY_STATE, FALSE, ev); if (e) { SetEvent(e); CloseHandle(e); } }
 #ifdef _M_IX86
  const bool littlecheese = InstallLittlecheeseDraw();
+ const bool sact2 = InstallSact2Draw();
 #endif
  int gdi = InstallGdi();
 #ifdef _M_IX86
  if (littlecheese && gdi) Send("ToMe_GPUHIDE status littlecheese dialogue");
+ if (sact2 && gdi) { InterlockedExchange(&Sact2Installed, 1); Send("ToMe_GPUHIDE status sact2 dialogue"); }
 #endif
  CreateThread(NULL, 0, GdiTicker, NULL, 0, NULL); Log("installed gdi hooks=%d", gdi); Send("ToMe_GPUHIDE status gdi hooked=" + std::to_string(gdi));
  // Wait for the system's d3d9.dll / d3d11.dll (games often load them after their first window), then hook each once.

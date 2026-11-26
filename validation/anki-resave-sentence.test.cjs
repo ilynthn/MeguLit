@@ -150,3 +150,53 @@ test('Anki search wildcards, substring words, HTML entities, and cross-deck homo
  const rAmp2=await f.anki.sync({surface:'生&死',base:'生&死',reading:'いきとし',meaning:'alt',pos:'名詞',pitch:[],sentence:'生&死。'},c,null);
  assert.notEqual(rAmp1.id,rAmp2.id);
 });
+
+test('cross-deck news cardKey cards do not hijack or block ordinary game mining, and katakana-reading cards still update on hiragana resave',async()=>{
+ const f=fake();
+ const newsCfg={ankiDeck:'megulit_news',ankiModel:'MeguLit'};
+
+ // Scenario A: existing news card in megulit_news must not hijack ordinary mining into MeguLit deck.
+ const rNews=await f.anki.sync({surface:'開催',base:'開催',reading:'かいさい',cardKey:'news:開催:https://example.test/1',meaning:'举办',pos:'名詞',pitch:[],sentence:'大会を開催する。'},newsCfg,null);
+ const rGame=await f.anki.sync({surface:'開催',base:'開催',reading:'かいさい',meaning:'举办',pos:'名詞',pitch:[],sentence:'学園祭を開催しよう。'},c,null,{screenshot:Buffer.from('shot').toString('base64')});
+ assert.notEqual(rGame.id,rNews.id,'game mining must create its own note in MeguLit deck instead of returning megulit_news noteId');
+ assert.equal(f.notes.get(rGame.id)?.deckName,'MeguLit');
+ assert.equal(rGame.screenshotAttached,true);
+
+ // Scenario B: legacy MeguLit card saved with katakana reading must still update sentence/screenshot when remined with hiragana reading.
+ const rLegacy=await f.anki.sync({surface:'約束',base:'約束',reading:'ヤクソク',meaning:'promise',pos:'名詞',pitch:[0],sentence:'古い文。'},c,null);
+ const rUpdate=await f.anki.sync({surface:'約束',base:'約束',reading:'やくそく',meaning:'promise',pos:'名詞',pitch:[0],sentence:'新しい文。'},c,null,{screenshot:Buffer.from('shot2').toString('base64')});
+ assert.equal(rUpdate.id,rLegacy.id);
+ assert.equal(rUpdate.updated,true);
+ assert.equal(rUpdate.screenshotAttached,true);
+ assert.equal(f.notes.get(rLegacy.id).fields.Sentence,'新しい文。');
+
+ // Scenario C: readingless news card in megulit_news must not block a reading-bearing homograph in MeguLit deck.
+ await f.anki.sync({surface:'生',base:'生',reading:'生',noReading:true,cardKey:'news:生:https://example.test/2',meaning:'新闻卡',pos:'',pitch:[],sentence:'生の声。'},newsCfg,null);
+ const rNama=await f.anki.sync({surface:'生',base:'生',reading:'なま',meaning:'生的',pos:'名詞',pitch:[1],sentence:'生で食べる。'},c,null);
+ assert.equal(f.notes.get(rNama.id)?.deckName,'MeguLit');
+
+ // Scenario D: same-deck cardKey card must not hijack ordinary mining of the same word either.
+ const rSameDeckNews=await f.anki.sync({surface:'発表',base:'発表',reading:'はっぴょう',cardKey:'news:発表:https://example.test/3',meaning:'发表',pos:'名詞',pitch:[],sentence:'結果を発表する。'},c,null);
+ const rSameDeckGame=await f.anki.sync({surface:'発表',base:'発表',reading:'はっぴょう',meaning:'发表',pos:'名詞',pitch:[],sentence:'これから発表するよ。'},c,null,{screenshot:Buffer.from('shot3').toString('base64')});
+ assert.notEqual(rSameDeckGame.id,rSameDeckNews.id);
+ assert.equal(rSameDeckGame.screenshotAttached,true);
+
+ // Scenario E: legacy cross-deck note without tomoyo::cardkey tag (kanji and kana-only) is isolated by deck.
+ f.notes.set(900,{deckName:'megulit_news',modelName:'MeguLit',fields:{Word:'連絡',WordReading:'れんらく',Meaning:'legacy news'},tags:['tomoyo_megumin','tomoyo::legacyhash']});
+ const rCrossLegacy=await f.anki.sync({surface:'連絡',base:'連絡',reading:'れんらく',meaning:'联系',pos:'名詞',pitch:[0],sentence:'連絡する。'},c,null);
+ assert.notEqual(rCrossLegacy.id,900);assert.equal(f.notes.get(rCrossLegacy.id)?.deckName,'MeguLit');
+
+ f.notes.set(901,{deckName:'megulit_news',modelName:'MeguLit',fields:{Word:'しかし',WordReading:'',Meaning:'legacy kana news'},tags:['tomoyo_megumin','tomoyo::legacykana']});
+ const rCrossKana=await f.anki.sync({surface:'しかし',base:'しかし',reading:'しかし',meaning:'但是',pos:'接続詞',pitch:[2],sentence:'しかし行く。'},c,null);
+ assert.notEqual(rCrossKana.id,901);assert.equal(f.notes.get(rCrossKana.id)?.deckName,'MeguLit');
+
+ // Scenario F: cardKey sync does not overwrite an existing same-deck ordinary note via reading-variant tag lookup, and hiragana->katakana resave updates.
+ const rOrdKata=await f.anki.sync({surface:'準備',base:'準備',reading:'ジュンビ',meaning:'准备',pos:'名詞',pitch:[1],sentence:'準備する。'},c,null);
+ const rKeyHira=await f.anki.sync({surface:'準備',base:'準備',reading:'じゅんび',cardKey:'news:準備:https://example.test/4',meaning:'新闻准备',pos:'名詞',pitch:[1],sentence:'大会の準備。'},c,null);
+ assert.notEqual(rKeyHira.id,rOrdKata.id);assert.equal(f.notes.get(rOrdKata.id).fields.Sentence,'準備する。');
+
+ const rHiraFirst=await f.anki.sync({surface:'予定',base:'予定',reading:'よてい',meaning:'预定',pos:'名詞',pitch:[0],sentence:'古い予定。'},c,null);
+ const rKataUpdate=await f.anki.sync({surface:'予定',base:'予定',reading:' ヨテイ ',meaning:'预定',pos:'名詞',pitch:[0],sentence:'新しい予定。'},c,null);
+ assert.equal(rKataUpdate.id,rHiraFirst.id);assert.equal(rKataUpdate.updated,true);
+ assert.equal(f.notes.get(rHiraFirst.id).fields.Sentence,'新しい予定。');
+});
