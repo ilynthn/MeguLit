@@ -65,3 +65,23 @@ test('#1128 control: a stream that never drew twice keeps a short line said twic
   f.line('「はい」「はい」男は頷いた。');
   assert.equal(f.shown.at(-1), '「はい」「はい」男は頷いた。');
 });
+
+/* live 2026-11-27, skip again: 228-character frames such as 「んっ……？」「んっ……？」男の視線が、美亜に向けられた。男の視線が、美亜に向けられた。…
+   and 「……………………」「……………………」男の身体にぶつかるように… still showed the short quote twice: while skipping the stream sends merged
+   frames, never a plain X+X, so its "draws twice" evidence ran out. A frame that itself holds a sentence of 3+ letters drawn twice in a row
+   is a redraw frame: its short doubled groups (also 「……」 with no letters) are redraws too, and the stream keeps its evidence. */
+test('#1128 skip: in a frame with a long sentence drawn twice, a short doubled quote is a redraw too', () => {
+  const Z = '男の視線が、美亜に向けられた。';
+  assert.equal(L.collapse('「んっ……？」「んっ……？」' + Z + Z).text, '「んっ……？」' + Z);
+  assert.equal(L.collapse('「……………………」「……………………」' + Z + Z).text, '「……………………」' + Z);
+  assert.equal(L.collapse('「はい」「はい」' + Z).text, '「はい」「はい」' + Z, 'nothing long drawn twice: kept');
+});
+test('#1128 skip: a stream folded inside its frames keeps its evidence for the next short pair', t => {
+  const f = fixture(t);
+  const Z = '男の視線が、美亜に向けられた。', W = '男の身体にぶつかるようにして、美亜はナイフを前に突き出した。';
+  for (const s of ['背丈の低い草むらに男が立っていた。', '彼の全身は血に濡れ、異様な雰囲気を纏っていた。']) f.line(s);
+  for (const s of ['窃盗だった。器物破損だった。', '強姦だった。そして殺人だった。']) f.line(s + s.split('。')[0] + '。'); /* merged skip frames, no plain X+X */
+  for (let i = 0; i < 8; i++) f.line('「んっ……？」「んっ……？」' + Z + Z);
+  f.line('「……………………」「……………………」' + W);
+  assert.equal(f.shown.at(-1), '「……………………」' + W, JSON.stringify(f.shown.at(-1)));
+});
