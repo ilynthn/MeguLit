@@ -9,8 +9,8 @@ function findRoslynCompiler(){
 }
 
 function compileRoslyn(args){
- // Roslyn compilation has hit the old 15 s cap on Windows CI.
- const r=spawnSync(compilers[0],args,{windowsHide:true,encoding:'utf8',timeout:60000});
+ // Roslyn compilation has hit the old 60 s cap on Windows CI.
+ const r=spawnSync(compilers[0],args,{windowsHide:true,encoding:'utf8',timeout:120000});
  assert.ifError(r.error);
  assert.equal(r.status,0,r.stdout+r.stderr);
 }
