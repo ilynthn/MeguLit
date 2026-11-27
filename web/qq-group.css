@@ -25,7 +25,7 @@
 .qq-card small{font-size:12px;color:#c9b8a8}
 .qq-card-no{display:flex;align-items:center;gap:8px;margin-top:4px;padding:5px 6px 5px 10px;border-radius:9px;background:rgba(243,230,218,.06);border:1px solid rgba(243,230,218,.1)}
 .qq-card-no span{font-size:12px;color:#c9b8a8}
-.qq-card-no code{font:600 14px/1 "Cascadia Mono",Consolas,monospace;letter-spacing:.04em;color:#f0c987;background:none;padding:0}
+.qq-card-no code{font:600 14px/1 "Cascadia Mono",Consolas,"Microsoft YaHei UI","Microsoft YaHei",monospace;letter-spacing:.04em;color:#f0c987;background:none;padding:0}
 .tv-home .qq-card .qq-card-no button{padding:4px 10px;border-radius:7px!important;border:1px solid rgba(240,201,135,.3)!important;background:transparent!important;color:#f3e6da!important;font:inherit;font-size:12px;cursor:pointer}
 .tv-home .qq-card .qq-card-no button:hover{border-color:rgba(240,201,135,.6)!important;background:rgba(240,201,135,.08)!important}
 .tv-home .qq-card .qq-card-open{width:100%;margin-top:6px;padding:8px 0;border-radius:9px!important;border:1px solid transparent!important;background:linear-gradient(180deg,#d13a47,#a82632)!important;color:#fff6ee!important;font:600 13px/1.2 inherit;cursor:pointer}
