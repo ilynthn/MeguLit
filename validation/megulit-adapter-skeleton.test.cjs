@@ -73,3 +73,11 @@ test('seeds written into a checkout: one work less per newly seeded engine in th
  const t=fs.readFileSync(file,'utf8');
  assert.match(t,/reallive:127,/);assert.match(t,/nscripter:1445,/);assert.match(t,/reallive:\{name/);
 });
+
+test('a batch run again: a game whose program or work is already in the target The Seed is skipped, not rewritten',()=>{
+ const seed=path.join(tmp,'target');fs.mkdirSync(path.join(seed,'reallive','kichiku-megane'),{recursive:true});
+ fs.writeFileSync(path.join(seed,'reallive','kichiku-megane','game.json'),JSON.stringify({builds:['a'.repeat(64)],prints:{vndb:'v1413'}}));
+ assert.equal(Skeleton.seedInTarget(seed,'a'.repeat(64),''),'reallive/kichiku-megane');
+ assert.equal(Skeleton.seedInTarget(seed,'b'.repeat(64),'v1413'),'reallive/kichiku-megane');
+ assert.equal(Skeleton.seedInTarget(seed,'b'.repeat(64),'v24'),'');
+});

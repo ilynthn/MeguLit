@@ -68,6 +68,13 @@ function confidence({caps,probe,craft,vndb}){const why=[],look=[],mid=[];
  if(craft?.ok&&craft.agrees)why.push('craft 也认出 '+(craft.engine||caps.id));
  const level=look.length?'look':mid.length?'medium':'high';return {level,why:[...look,...mid,...why]};}
 
+/* a seed for this program already in the target The Seed (a batch run again, or seeds not yet merged): <engine>/<slug> or '' */
+function seedInTarget(seedDir,exeSha,vndb){let engines=[];try{engines=fs.readdirSync(seedDir,{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>d.name);}catch{return '';}
+ for(const e of engines){let slugs=[];try{slugs=fs.readdirSync(path.join(seedDir,e));}catch{continue;}
+  for(const s of slugs){let g;try{g=JSON.parse(fs.readFileSync(path.join(seedDir,e,s,'game.json'),'utf8'));}catch{continue;}
+   if((g.builds||[]).includes(exeSha)||vndb&&g.prints?.vndb===vndb)return e+'/'+s;}}
+ return '';}
+
 /* the existing repository seed of the same work (VNDB id), when there is one */
 function seedOfWork(vndb){if(!vndb)return null;try{return require('../../core/profiles/seed.cjs').seeds().games.find(g=>g.prints?.vndb===vndb)||null;}catch{return null;}}
 
@@ -95,6 +102,7 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  if(id.seed){row.state='skip-seed';row.why.push('仓库已有 seed（'+id.seed.key+'，'+id.seed.status+'）');return done();}
  let v=null;if(!o.offline){try{v=await (o.vndbLookup||Ident.vndb)({title,gameDir:loc.gameDir,vnid:id.vndb,chineseBuild:pr?.step==='chinese-build',engine:row.engine});row.layers.push('vndb');}catch(e){row.why.push('VNDB 出错：'+e.message);}}
  const vndb=id.vndb||v?.vndb||'';row.vndb=vndb;
+ const there=seedInTarget(o.seed,exeSha,vndb);if(there){row.state='skip-seed';row.why.push('目标 The Seed 里已有 '+there);return done();}
  const same=seedOfWork(vndb);if(same){row.state='skip-seed';row.why.push('同作品（'+vndb+'）已有 seed '+same.key+'：另一个版本请人看');return done();}
  if(!row.engine){row.state='no-engine';row.why.push('认不出引擎（'+loc.why+'）');}
  const c=confidence({caps,probe:pr,craft,vndb});row.confidence=c.level;row.why.push(...c.why);
@@ -155,4 +163,4 @@ async function run(o,{log=console.log}={}){fs.mkdirSync(o.out,{recursive:true});
  log(o.json?JSON.stringify(rows,null,1):md);return rows;}
 
 async function main(argv){const rows=await run(parse(argv));return rows.some(r=>r.state==='written')?0:2;}
-module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,catalogSnapshot,CONF};
+module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,catalogSnapshot,seedInTarget,CONF};
