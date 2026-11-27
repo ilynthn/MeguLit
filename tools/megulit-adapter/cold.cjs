@@ -325,12 +325,12 @@ function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=co
 /* ---- layer 4: the seed entry (The Seed/<engine>/<slug>/game.json + versions/<sha>.json), local only ---------------------------
    From the game layer diff-maker made, plus the seed fields (README of The Seed), checked with core/profiles/seed.cjs like
    seed-all.cjs. Written only for a pass (status verified); never into the repository, never uploaded. */
-function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
+function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey,slugHint=''},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
  const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));const gf=fs.readdirSync(diffDir).find(f=>/^game-.*\.json$/.test(f)),vf=fs.readdirSync(diffDir).find(f=>/^version-[0-9a-f]{64}\.json$/.test(f));
  if(!gf||!vf)throw Error('diff has no game/version document');
  const doc=read(path.join(diffDir,gf)),ver=read(path.join(diffDir,vf));const settings=JSON.parse(JSON.stringify(doc.settings||{}));delete settings.calibrate;settings.lang={ja:{annotation:'ruby'}};
  let slugs={};try{slugs=read(path.join(__dirname,'..','diff-maker','slugs.json'));}catch{}
- const slug=[slugs[title+'|'+exeName],slugs[title]].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
+ const slug=[slugs[title+'|'+exeName],slugs[title],slugHint].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
  const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[title]},sourceLangs:['ja'],rev:1};
  const version={...ver,rev:1};
  for(const [n,d,w] of [['game',game,{engine,slug}],['version',version,{engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}

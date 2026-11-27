@@ -207,3 +207,9 @@ test('checkpoints: a whole-screen picture taken while another process was in fro
  assert.ok(!ev().includes(other),'the other game in front is no evidence: '+ev().join(', '));
  fs.rmSync(other);fs.rmSync(path.join(scr,'screen-02.fg'));assert.ok(ev().includes(ours),'the game in front is evidence');
  const old=pic('03');assert.ok(ev().includes(old),'a picture without the note (an older run) is kept');});
+
+/* 2026-11-27 (アイキス3 sexy: the seed folder came out as auto-500c434def) */
+test('seed slug: VNDB\'s latin title plus the ASCII words the game title adds; nothing usable leaves the old fallback',()=>{
+ assert.equal(Ident.slugFrom('アイキス3 sexy','Ai Kiss 3'),'ai-kiss-3-sexy','the edition word stays: sexy and cute are different seeds');
+ assert.equal(Ident.slugFrom('千恋＊万花','Senren * Banka'),'senren-banka');assert.equal(Ident.slugFrom('STEINS;GATE','Steins;Gate'),'steins-gate','no word twice');
+ assert.equal(Ident.slugFrom('オルフレール',''),'','no latin title: the caller keeps its fallback');});
