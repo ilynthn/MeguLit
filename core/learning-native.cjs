@@ -432,7 +432,8 @@ class LocalLearning{
    /* a selection over the game's line break (汗 / ばんで) or a stem + conjugated suffix: the run's surfaces + its last word's dictionary form */
    if(!exact.entries.length){const run=inside.filter(t=>!blankGroup(t));let key='';for(let k=run.length;k>=2&&!key;k--){const c=lemmaOf(run.slice(0,k));if(this.index.has(c))key=c;}const flat=surface.replace(/[\s　]+/gu,'');const k=this.index.has(flat)&&flat!==surface?flat:key&&this.index.has(key)?key:'';if(k){exact=make({surface,base_form:k,normalized:k,start:args.start,end:args.end,parts:run.flatMap(t=>t.parts||[t])});exact.match_note=k===flat?'':'辞书原形：'+k;wholeMatch=true;}}
    if(!exact.entries.length){const expressive=surface.replace(/っ(?=[か-こさ-そた-とは-ほ])/gu,'');if(expressive!==surface&&this.index.has(expressive)){exact=make({surface,base_form:expressive,start:args.start,end:args.end,parts:inside.flatMap(t=>t.parts||[t])});exact.match_note='口语促音强调写法；辞书原形：'+expressive;wholeMatch=true;}}
-   if(!exact.entries.length){const hit=spoken(surface.replace(/[\s　]+/gu,''),args.start,inside.flatMap(t=>t.parts||[t]));if(hit){exact=hit;wholeMatch=!hit.colloquial.prefix;}}
+   /* a colloquial reading of the whole selection comes first; a mere prefix only when the words inside give nothing (黒｜ずん over a line break is 黒ずむ, not 黒) */
+   if(!exact.entries.length){const hit=spoken(surface.replace(/[\s　]+/gu,''),args.start,inside.flatMap(t=>t.parts||[t]));if(hit&&(!hit.colloquial.prefix||!analysis.some(a=>a.entries.length))){exact=hit;wholeMatch=!hit.colloquial.prefix;}}
    if(!exact.entries.length)exact.entries=[...new Map(analysis.flatMap(a=>a.entries).map(e=>[e.id,e])).values()].slice(0,20);
    exact.selection_analysis={surface,exact:wholeMatch,parts:analysis,source:'SudachiDict Full ＋ JMdict（本地）'};return exact;
   }

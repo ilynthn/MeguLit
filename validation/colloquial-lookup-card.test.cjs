@@ -43,6 +43,7 @@ const SUDACHI={
  '舐めんなし！':[['舐めんなし','ナメンナシ','名詞,普通名詞,一般,*,*,*'],['！','！','補助記号,句点,*,*,*,*']],
  'ええやん':[['ええやん','エエヤン','名詞,普通名詞,一般,*,*,*']],
  '食べるぽよ':[['食べる','タベル','動詞,一般,*,*,下一段-バ行,終止形-一般'],['ぽよ','ポヨ','名詞,普通名詞,一般,*,*,*']],
+ '食べるぽよ。':[['食べるぽよ','タベルポヨ','名詞,普通名詞,一般,*,*,*'],['。','。','補助記号,句点,*,*,*,*']],
  'ぽよぽよ':[['ぽよぽよ','ポヨポヨ','名詞,普通名詞,一般,*,*,*']],
 };
 function tokens(text){let at=0;return (SUDACHI[text]||[]).map(([surface,reading,pos,base=surface])=>{const grammar=pos.split(','),t={surface,reading,grammar,pos:grammar[0],base_form:base,normalized:base,start:at,end:at+[...surface].length,pitch:[]};at=t.end;return t;});}
@@ -64,8 +65,10 @@ test('the lookup card finds 舐めんなし and marks the dialect ending; a clic
   assert.deepEqual([click.entries[0]?.id,click.start,click.end,click.colloquial.prefix],[1,0,5,false]);
   const kansai=await L.request('lookup_exact',{text:'ええやん',start:0,end:4},'zh');
   assert.equal(kansai.entries[0]?.id,6,'ええやん is 良い, not the interjection ええ');
-  const prefix=await L.request('lookup_exact',{text:'食べるぽよ',start:0,end:5},'zh');
+  const prefix=await L.request('lookup_exact',{text:'食べるぽよ。',start:0,end:5},'zh');
   assert.deepEqual([prefix.entries[0]?.id,prefix.colloquial.prefix,prefix.colloquial.rest,prefix.end],[11,true,'ぽよ',3]);
+  const pieces=await L.request('lookup_exact',{text:'食べるぽよ',start:0,end:5},'zh');
+  assert.deepEqual([pieces.entries[0]?.id,pieces.colloquial],[11,undefined],'a selection over words SudachiDict found keeps their entries, no prefix guess');
   const plain=await L.request('lookup_exact',{text:'食べるぽよ',start:0,end:3},'zh');
   assert.equal(plain.entries[0]?.id,11);assert.equal(plain.colloquial,undefined,'a word SudachiDict found is untouched');
   const none=await L.request('lookup_exact',{text:'ぽよぽよ',start:0,end:4},'zh');

@@ -66,7 +66,7 @@ test('a dialect ending is reported with its region and note; a contraction with 
  assert.equal(r.base,'舐める');assert.equal(r.dialect.ending,'し');assert.equal(r.prefix,false);
  assert.ok(r.rules.some(x=>/ん→る/.test(x)),'ん→る named');
  assert.match(Colloquial.describe(r,'zh'),/方言语尾「し」/);
- assert.match(Colloquial.describe(r,'en'),/Dialect ending 「し」/);
+ assert.match(Colloquial.describe(r,'en'),/Dialect ending「し」/);
  const plain=Colloquial.resolve('わかんねえ',lookup);assert.equal(plain.dialect,null,'no dialect ending in a plain contraction');
  assert.equal(Colloquial.resolve('ええやん',lookup).dialect.ending,'やん');
  assert.equal(Colloquial.resolve('そうだべ',lookup).dialect.ending,'だべ','the longer ending is cut first');
