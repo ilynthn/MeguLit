@@ -267,3 +267,24 @@ test('combined test build: a C++ part a PR changes is that PR\'s own CI build, t
  const a1=All.prArtifact(1304,'abc',()=>{},io),a2=All.prArtifact(1304,'abc',()=>{},io);
  assert.equal(a1,path.join(d,'testbuild-base','native-pr1304-7'));assert.equal(a2,a1);assert.deepEqual(got,[7]);
  assert.equal(All.prArtifact(1304,'abc',()=>{},{list:()=>[]}),'' ,'no successful run -> none');});
+
+/* 2026-11-28 (owner: 测试版用 Rust 自己构建) the shell and the C++ parts are built here; the label says so and names what was not */
+test('combined test build: built here -> 「本地编译」 label, parts built here are not replaced by CI / session builds, a helper that does not run builds nothing',t=>{
+ const All=require('../tools/megulit-adapter/test-build-all.cjs');const tr={main:'bcb280ed97',merged:[1304]};
+ assert.equal(All.labelOf(tr,{shell:'local'}),'测试版 · main＠bcb280e + #1304（本地编译）');
+ assert.equal(All.labelOf(tr,{shell:'local',notLocal:['megulithook']}),'测试版 · main＠bcb280e + #1304（本地编译；megulithook 不是本地编的）');
+ assert.equal(All.labelOf({main:'bcb280ed97',merged:[]},{shell:'release',tag:'v1.4.25',shellLag:['a','b']}),'测试版 · main＠bcb280e（外壳 v1.4.25（本地编译失败），main 之后外壳改了 2 个提交）');
+ assert.doesNotMatch(All.labelOf(tr,{shell:'local'}),/外壳 v/,'no release shell in the label when the shell was built here');
+ /* the helper's JSON line (cargo / cl output before it) is read; a helper that does not run: nothing counts as built */
+ const logs=[];const ok=All.localBuild('T',['fontprobe','megulithook'],l=>logs.push(l),{exec:(file,args)=>{assert.match(file,/test-build-local\.ps1$/);assert.deepEqual(args.slice(args.indexOf('-PartList')),['-PartList','fontprobe,megulithook']);assert.ok(args.includes('-Shell'));
+  return {status:0,stdout:'Compiling megulit\r\n{"shell":{"ok":true,"exe":"X/megulit.exe","loader":"L"},"parts":{"fontprobe":{"ok":true},"megulithook":{"ok":false,"why":"needs src"}}}\r\n'};}});
+ assert.equal(ok.shell.ok,true);assert.equal(ok.parts.fontprobe.ok,true);assert.equal(ok.parts.megulithook.ok,false);
+ const bad=All.localBuild('T',['fontprobe'],()=>{},{exec:()=>({status:1,stdout:'',stderr:'powershell: not found'})});
+ assert.equal(bad.shell.ok,false);assert.equal(bad.parts.fontprobe.ok,false);assert.match(bad.shell.why,/没跑起来/);
+ /* a part built here is left alone by the PR fallbacks */
+ const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));const tree=path.join(d,'tree'),target=path.join(d,'target'),art=path.join(d,'art');
+ put(path.join(tree,'native','native-builds.json'),JSON.stringify([{name:'fontprobe',outputs:['native/MeguLitFont32.dll'],sources:['native/fontprobe'],ci:true}]));
+ put(path.join(art,'MeguLitFont32.dll'),'pr-ci');put(path.join(target,'native','MeguLitFont32.dll'),'local');
+ const notes=All.prParts({dir:tree,merged:[1304],changed:{1304:['native/fontprobe/GlyphMatch.h']}},target,{},{prArt:()=>art,built:new Set(['fontprobe'])});
+ assert.equal(fs.readFileSync(path.join(target,'native','MeguLitFont32.dll'),'utf8'),'local');assert.deepEqual(notes,[]);
+ assert.deepEqual(All.cppParts(tree).map(c=>c.name),['fontprobe']);});
