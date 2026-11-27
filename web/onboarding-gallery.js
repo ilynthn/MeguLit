@@ -41,7 +41,7 @@ function show(root, i) {
 }
 
 /* one delegated listener for every gallery the panels draw */
-document.addEventListener('click', e => {
+globalThis.document?.addEventListener('click', e => {
   const t = e.target.closest?.('.tour-gallery [data-tour-prev],.tour-gallery [data-tour-next],.tour-gallery [data-tour-dot],.tour-gallery [data-tour-replay]');
   if (!t) return;
   const root = t.closest('.tour-gallery'), i = Number(root.dataset.index) || 0;
@@ -53,7 +53,7 @@ document.addEventListener('click', e => {
   }
   show(root, t.hasAttribute('data-tour-dot') ? Number(t.dataset.tourDot) : i + (t.hasAttribute('data-tour-next') ? 1 : -1));
 });
-document.addEventListener('keydown', e => {
+globalThis.document?.addEventListener('keydown', e => {
   const root = e.target.closest?.('.tour-gallery');
   if (!root || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
   show(root, (Number(root.dataset.index) || 0) + (e.key === 'ArrowRight' ? 1 : -1));
