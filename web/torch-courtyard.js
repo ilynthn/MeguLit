@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 import {MIRROR_LEVEL} from './torch-ground.js';
 import * as THREE from './vendor/three/three.module.min.js';
-import {mergeGeometries} from './vendor/three/addons/utils/BufferGeometryUtils.js';
 
 export function buildCourtyard(scene,west){
  const group=new THREE.Group();group.name='Courtyard';scene.add(group);
@@ -45,34 +44,12 @@ export function buildCourtyard(scene,west){
    }`
  }));
  sky.name='Reflected sky';sky.renderOrder=-100;sky.frustumCulled=false;group.add(sky);
- // A shallow tint above the mirrored chair and sky gives the ground a continuous waterline.
+ // A shallow tint above the mirrored sky gives the ground a continuous waterline.
  const surface=new THREE.Mesh(new THREE.PlaneGeometry(680,680),new THREE.MeshBasicMaterial({
   color:0x668bb1,transparent:true,opacity:.055,depthWrite:false,fog:false,side:THREE.DoubleSide
  }));
  surface.rotation.x=-Math.PI/2;surface.renderOrder=1;group.add(surface);
-
- const parts=[];
- const wood=new THREE.MeshStandardMaterial({color:0x211820,roughness:.62,metalness:.05,fog:false,envMapIntensity:.1});
- const part=(w,h,d,x,y,z)=>parts.push(new THREE.BoxGeometry(w,h,d).translate(x,y,z));
- for(const x of [-.33,.33]){
-  part(.105,.72,.11,x,.36,-.27);
-  part(.12,1.79,.12,x,.895,.27);
-  part(.08,.11,.57,x,.33,0);
-  part(.145,.14,.145,x,1.81,.27);
- }
- part(.84,.13,.72,0,.76,0);
- part(.68,.095,.085,0,.32,-.27);
- part(.77,.16,.13,0,1.66,.27);
- part(.66,.105,.085,0,1.03,.27);
- for(const x of [-.2,0,.2])part(.088,.57,.08,x,1.34,.27);
- const chair=new THREE.Mesh(mergeGeometries(parts),wood);
- parts.forEach(part=>part.dispose());
- chair.name='Courtyard chair';chair.position.set(0,MIRROR_LEVEL,west+32);
- const woodFill=new THREE.Color(0x584858),waterDay=new THREE.Color(0x789ebc),waterNight=new THREE.Color(0x354c76);
- const reflected=wood.clone();reflected.color.multiplyScalar(.58);
- const mirror=new THREE.Mesh(chair.geometry,reflected);
- mirror.name='Reflected courtyard chair';mirror.scale.y=-1;mirror.position.copy(chair.position);
- group.add(chair,mirror);
+ const waterDay=new THREE.Color(0x789ebc),waterNight=new THREE.Color(0x354c76);
 
  function update(camera,state){
   sky.position.copy(camera.position);
@@ -82,10 +59,7 @@ export function buildCourtyard(scene,west){
   u.moon.value=Number(state.moon);
   u.night.value=1-THREE.MathUtils.smoothstep(state.el,-13,1);
   u.twilight.value=1-THREE.MathUtils.smoothstep(Math.abs(state.el),1,13);
-  wood.emissive.copy(woodFill).lerp(state.skyColor,.16);
-  wood.emissiveIntensity=.12+.25*u.night.value;
-  reflected.emissive.copy(wood.emissive);reflected.emissiveIntensity=wood.emissiveIntensity*.62;
   surface.material.color.copy(waterDay).lerp(waterNight,u.night.value);
  }
- return {group,sky,chair,mirror,update};
+ return {group,sky,update};
 }

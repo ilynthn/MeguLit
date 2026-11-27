@@ -815,6 +815,7 @@
  "validation/torch-receive.test.cjs": 2365,
  "validation/torch-release-relay.test.cjs": 1328,
  "validation/torch-release.test.cjs": 181,
+ "validation/torch-render-temp.test.cjs": 97048,
  "validation/torch-revocation-cli.test.cjs": 2723,
  "validation/torch-startup.test.cjs": 461,
  "validation/torch-sunset.test.cjs": 86,
