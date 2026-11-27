@@ -91,6 +91,9 @@ function readyBuild(card,{root,app,exe,title,pr,label='',refresh=null}){if(!fs.e
   fs.cpSync(path.join(from,e.name),path.join(cfg,e.name),{recursive:true,force:true});}
  for(const f of ['preferences.json'])if(fs.existsSync(path.join(app,'data',f)))fs.copyFileSync(path.join(app,'data',f),path.join(data,f));
  fs.writeFileSync(path.join(data,'megulit-relocation.json'),JSON.stringify({schema:1,root,migratedAt:new Date().toISOString()}));
+ /* the page files are built into MeguLit.exe; web\ next to it is read only while data\hot-update.json names this exe
+    (desktop/src/hot_assets.rs, services/hot-update.cjs exeStamp): without it the test build shows the exe's own pages, not the PR's */
+ const st=fs.statSync(path.join(root,'MeguLit.exe'));fs.writeFileSync(path.join(data,'hot-update.json'),JSON.stringify({exe:st.size+'-'+Math.floor(st.mtimeMs),testBuild:true}));
  fs.mkdirSync(card,{recursive:true});fs.copyFileSync(path.join(__dirname,'test-start.cjs'),path.join(card,'test-start.cjs'));
  fs.writeFileSync(path.join(card,'test-start.json'),JSON.stringify({root,exe,title,port:portOf(pr),pr:String(pr||''),label,refresh},null,1)+'\n');
  /* the card keeps its own node: a rebuild replaces the build folder (app-<main>-<pr>) while the cmd may be running */

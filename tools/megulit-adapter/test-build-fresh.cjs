@@ -77,6 +77,8 @@ function build(o,{log=console.log}={}){const card=path.resolve(o.card),prev=(()=
     const from=touched?cands.find(f=>fs.existsSync(f)):null;if(from){fs.mkdirSync(path.dirname(path.join(target,'native',rel)),{recursive:true});fs.copyFileSync(from,path.join(target,'native',rel));if(/megulithook/i.test(rel)){fs.mkdirSync(path.join(target,'runtime','megulithook'),{recursive:true});fs.copyFileSync(from,path.join(target,'runtime','megulithook',path.basename(rel)));}took++;}}
    if(touched)notes.push(c.name+(took?' 用 PR 会话编的':' 本 PR 改过但这台机器编不了，用 main/'+b.tag+' 的'));else notes.push('钩子 DLL（'+c.name+'）没有 CI 产物，用 '+b.tag+' 的');}
   const shellLag=git(['log','--oneline',b.tag+'..origin/main','--','desktop/']).split('\n').filter(Boolean);
+  /* HTML always comes from the shell (its CSP hashes are built in): a page whose HTML changed since the release is noted */
+  const html=git(['diff','--name-only',b.tag,'HEAD','--','web/*.html','web/**/*.html'],t.dir).split('\n').filter(Boolean);if(html.length)notes.push('HTML 用 '+b.tag+' 外壳里的（'+html.join('、')+' 之后改过）');
   fs.writeFileSync(path.join(target,'test-build.json'),JSON.stringify({pr,main:t.main,prHead:t.pr,head:t.head,base:b.tag,nativeArtifactSha:art?.sha||'',shellBehindMain:shellLag,notes,at:new Date().toISOString()},null,1));
   fs.writeFileSync(path.join(target,'.complete'),t.head);}
  const info=JSON.parse(fs.readFileSync(path.join(target,'test-build.json'),'utf8'));
