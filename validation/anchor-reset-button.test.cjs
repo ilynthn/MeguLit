@@ -17,10 +17,10 @@ function serve(){const server=http.createServer((req,res)=>{const rel=decodeURIC
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
 const PROBE=`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const b=window.__tomoyoChinese,d=document.querySelector('.tomoyo-cn-dialog[open]');d.querySelector('[data-menu-key=calibrate]').click();await w(300);
  const p=d.querySelector('[data-menu-category=calibrate]'),q=s=>p.querySelector(s),reset=q('[data-gal-anchor-reset]'),drag=q('[data-gal-drag]');
- const out={text:reset?.textContent,before:[reset?.disabled,reset?.title],sameRow:reset?.parentElement===drag?.parentElement,
+ const out={text:reset?.textContent,before:[reset?.disabled,reset?.dataset.mgTip??reset?.title],sameRow:reset?.parentElement===drag?.parentElement,
   look:(()=>{const s=getComputedStyle(reset),o=getComputedStyle(drag);return [s.borderRadius===o.borderRadius,s.fontSize===o.fontSize,s.height===o.height];})()};
  /* the game's place is in use (text-place: placement on, anchored; the fields read this stable mode since 2026-11-21) and the line sits on it (the class) */
- b.textPlaceMode?.({on:true});b.textPlaceAnchor?.(true);await w(100);document.body.classList.add('megulit-anchored');await w(100);out.enabled=[reset.disabled,reset.title];
+ b.textPlaceMode?.({on:true});b.textPlaceAnchor?.(true);await w(100);document.body.classList.add('megulit-anchored');await w(100);out.enabled=[reset.disabled,reset.dataset.mgTip??reset.title];
  const y=q('[name=galY]');y.value='43';y.dispatchEvent(new Event('input',{bubbles:true}));await w(50);out.offsetBefore=b.galPreferences().anchorDY;
  let saved=null;b.saveGameProfileFromMenu=pr=>{saved=pr;return true;};reset.click();await w(50);
  out.after={anchorDX:b.galPreferences().anchorDX,anchorDY:b.galPreferences().anchorDY,fields:[q('[name=galX]').value,y.value],saved:saved&&[saved.anchorDX,saved.anchorDY],global:(()=>{try{return JSON.parse(localStorage.getItem('tomoyo-gal-settings')||'{}').anchorDY;}catch{return 'err';}})()};
