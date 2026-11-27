@@ -355,7 +355,7 @@ function home(){
   const signature=homeTVSignature(model)+locale+greeting;
   if(main.querySelector('.tv-home')&&signature===homeSignature)return;
   homeSignature=signature;stopShelf();stopShelf=()=>{};
-  renderHomeTV(main,{model,api,locale,esc,icon,number,duration,relativeTime,greeting,navigate,onLaunch:(id,button)=>startGame(id,button),onDetail:id=>gameDetail(id),
+  renderHomeTV(main,{model,api,locale,esc,icon,number,duration,relativeTime,greeting,navigate,toast,onLaunch:(id,button)=>startGame(id,button),onDetail:id=>gameDetail(id),
    onAdd:()=>editGame(),onGame:g=>paintGlow(g.cover||''),savePreferences:values=>api('save_preferences',{values}).catch(error=>toast(errorMessage(error)))});
   if(startupDialogsReady&&!updateIsBlocking())maybeFirstRun({gamesCount:model.games.length,api,invoke,locale,esc,toast,onDone:()=>renderRoute()});
 }

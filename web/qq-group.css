@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* QQ 交流群 pill on the home page (web/qq-group.js): the same dark plate, gold hairline and cream type as The Seed's pill, sitting
+   just right of it under the top bar. The number is set small in gold, so the pill reads 「QQ 群」 first. */
+.tv-home .qq-pill{--qq-gold:#f0c987;--qq-cream:#f7e6bf;--qq-red:#c8323c;position:absolute;left:calc(50% + 112px);top:3.2vh;z-index:7;height:48px;display:inline-flex;align-items:center;gap:10px;
+ padding:0 18px 0 6px;border-radius:999px;color:var(--qq-cream);background:#0c0809;border:1px solid color-mix(in srgb,var(--qq-gold) 30%,transparent);cursor:pointer;text-align:left;white-space:nowrap;
+ transition:border-color .25s,transform .25s cubic-bezier(.16,1,.3,1),box-shadow .25s}
+.tv-home .qq-pill:hover{border-color:color-mix(in srgb,var(--qq-gold) 70%,transparent);box-shadow:0 0 22px color-mix(in srgb,var(--qq-gold) 22%,transparent)}
+.tv-home .qq-pill:active{transform:scale(.98)}
+.tv-home .qq-pill:focus-visible{outline:2px solid var(--qq-gold);outline-offset:2px}
+.qq-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e0495a,var(--qq-red) 60%,#7c1a24);color:#fff4ea;
+ font:700 12px/1 "Segoe UI",sans-serif;letter-spacing:.04em;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--qq-gold) 35%,transparent)}
+.qq-txt{display:grid;gap:1px;line-height:1.1}
+.qq-txt b{font-family:var(--g-serif);font-weight:400;font-size:15px;letter-spacing:.02em;color:var(--qq-cream)}
+.qq-txt em{font-style:normal;font-size:12px;letter-spacing:.06em;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--qq-gold) 88%,transparent)}
+@media (prefers-reduced-motion:reduce){.qq-pill{transition:none}}

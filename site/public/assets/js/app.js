@@ -161,6 +161,16 @@ function setNotes(which) {
 }
 for (const b of $$('[data-notes]')) b.addEventListener('click', () => setNotes(b.dataset.notes));
 
+/* QQ 交流群 links (header, next-version section, footer): the tencent:// link opens the desktop QQ's join window when QQ is
+   installed; the group number is copied as well, so it can be searched in QQ when nothing opens */
+for (const a of $$('.js-qq')) a.addEventListener('click', async () => {
+  const no = a.querySelector('.js-qq-no');
+  try { await navigator.clipboard.writeText(a.dataset.qq); } catch { return; }
+  if (!no) return;
+  clearTimeout(a._qqTimer); no.textContent = d('qqCopied'); a.dataset.copied = '1';
+  a._qqTimer = setTimeout(() => { no.textContent = a.dataset.qq; a.removeAttribute('data-copied'); }, 1800);
+});
+
 $('.js-copy')?.addEventListener('click', async e => {
   const btn = e.currentTarget;
   try {
