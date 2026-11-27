@@ -61,23 +61,22 @@ function setup(prefix,{step='decrypt-failed',inLibrary=true,problem=true,consent
  fs.writeFileSync(path.join(r,'data','config','library.json'),JSON.stringify(consent===null?{}:{adapterContrib:consent}));
  return {root:r,game:{id:'g1',title:'テストゲーム',executable:g.exe},dir:g.dir,result:res,db:fx.db(inLibrary?[{id:'g1',title:'テストゲーム',executable:g.exe}]:[])};}
 
-test('rule 1: on by default, each new version turns it on again with a fresh note; settings write keeps the decision',()=>{
+test('rule 1: on by default with no question or note, each new version turns it on again; settings write keeps the decision',()=>{
  const u=setup('megulit-ct-consent-',{consent:null}),V='1.4.9';
- let c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.ask,c.notice],[true,false,true],'first start of a version: on, note pending, no card question');
- contrib.noticeSeen(u.root);c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.decided,c.notice],[true,true,false],'noted once per version');
+ let c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.ask,c.notice],[true,false,false],'first start of a version: on, nothing asked or noted');
  assert.equal(JSON.parse(fs.readFileSync(path.join(u.root,'data','config','library.json'),'utf8')).adapterContrib,true,'written to library.json');
- contrib.setConsent(u.root,false,{version:V});c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.notice],[false,false],'turned off: stays off within this version');
- c=contrib.consentState(u.root,{version:'1.4.10-beta.1'});assert.deepEqual([c.enabled,c.notice],[true,true],'the next version (beta too) turns it on again and notes it');
+ contrib.setConsent(u.root,false,{version:V});c=contrib.consentState(u.root,{version:V});assert.equal(c.enabled,false,'turned off: stays off within this version');
+ c=contrib.consentState(u.root,{version:'1.4.10-beta.1'});assert.deepEqual([c.enabled,c.notice],[true,false],'the next version (beta too) turns it on again, silently');
  contrib.setConsent(u.root,false,{version:'1.4.10-beta.1'});assert.equal(contrib.consentState(u.root,{version:'1.4.10-beta.1'}).enabled,false);
  c=contrib.consentState(u.root,{version:'1.4.10'});assert.equal(c.enabled,true,'and the public build after it as well');
- const w=setup('megulit-ct-noversion-',{consent:null});c=contrib.consentState(w.root,{version:''});assert.deepEqual([c.enabled,c.notice],[false,true],'version unknown: nothing is turned on before the note');
+ const w=setup('megulit-ct-noversion-',{consent:null});assert.equal(contrib.consentState(w.root,{version:''}).enabled,true,'version unknown: on by default too');
  /* Settings: an untouched switch never decides; a change does */
  const {Settings}=(()=>{try{return {Settings:require('../services/settings.cjs').Settings||require('../services/settings.cjs')};}catch{return {};}})();
  const v=setup('megulit-ct-settings-',{consent:null});const lib=()=>JSON.parse(fs.readFileSync(path.join(v.root,'data','config','library.json'),'utf8'));
- if(typeof Settings==='function'){const s=new Settings(v.root);const cur=s.read('library');assert.equal(cur.adapterContrib,false);
+ if(typeof Settings==='function'){const s=new Settings(v.root);const cur=s.read('library');assert.equal(cur.adapterContrib,true,'undecided shows on');
   s.save({scope:'library',values:{...cur}});assert.equal(typeof lib().adapterContrib,'undefined','saving the page unchanged decides nothing');
-  s.save({scope:'library',values:{...cur,adapterContrib:true}});assert.equal(lib().adapterContrib,true,'turning it on in Settings decides');
-  s.save({scope:'library',values:{...s.read('library'),adapterContrib:false}});assert.equal(lib().adapterContrib,false,'and off');}else assert.fail('Settings class');
+  s.save({scope:'library',values:{...cur,adapterContrib:false}});assert.equal(lib().adapterContrib,false,'turning it off in Settings decides');
+  s.save({scope:'library',values:{...s.read('library'),adapterContrib:true}});assert.equal(lib().adapterContrib,true,'and on');}else assert.fail('Settings class');
 });
 
 test('rule 2: only scripts and exe code of the library game; no images, voice, saves, readme or outside files; masked',async()=>{
