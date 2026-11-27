@@ -506,9 +506,14 @@ export function renderHomeTV(main,ctx){
  live.cardTilts=[...root.querySelectorAll('.tv-cover,.tv-heat-card')].map(cardify);
  const coverEl=$('.tv-cover');let clickTimer=0,pressAt=0,pressXY=[0,0];coverEl.setAttribute('aria-label',w.coverHint);const pop=document.createElement('div');pop.className='tv-pop';
   pop.innerHTML=`<p><i class="m1"></i><b>${w.tipClick}</b><span>${w.tipDetail}</span></p><p><i class="m2"></i><b>${w.tipDbl}</b><span>${w.tipDraw}</span></p>`;root.appendChild(pop);
-  let popT=0;const hidePop=()=>{clearTimeout(popT);pop.classList.remove('on');};coverEl.addEventListener('pointermove',e=>{const r=root.getBoundingClientRect();
-  pop.style.left=(e.clientX-r.left+18)+'px';pop.style.top=(e.clientY-r.top+20)+'px';if(!pop.classList.contains('on')){clearTimeout(popT);popT=setTimeout(()=>pop.classList.add('on'),
-  520);}});coverEl.addEventListener('pointerleave',hidePop);coverEl.addEventListener('pointerdown',hidePop);coverEl.addEventListener('pointerdown',e=>{pressAt=performance.now();
+  let popT=0;const hidePop=()=>{clearTimeout(popT);pop.classList.remove('on');};
+  /* 2026-11-27 (user: 按住卡牌往下压的话 这里会有bug) the hint used to follow the pointer onto the card and came back while the card was held, so it sat on the
+     tilted card. It now hangs under the card (above it when there is no room), clear of the widest hover tilt, and stays away while a button is down or a draw plays */
+  const placePop=x=>{const r=root.getBoundingClientRect(),c=coverEl.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,gap=c.height*.035+12;
+   let top=c.bottom-r.top+gap;if(top+h>r.height-8)top=c.top-r.top-gap-h;const left=Math.max(c.left-r.left,Math.min(x-r.left-w/2,c.right-r.left-w));
+   pop.style.left=Math.round(left)+'px';pop.style.top=Math.round(top)+'px';};
+  coverEl.addEventListener('pointermove',e=>{if(e.buttons||coverEl.dataset.busy)return hidePop();placePop(e.clientX);if(!pop.classList.contains('on')){clearTimeout(popT);
+  popT=setTimeout(()=>{if(!coverEl.dataset.busy)pop.classList.add('on');},520);}});coverEl.addEventListener('pointerleave',hidePop);coverEl.addEventListener('pointerdown',hidePop);coverEl.addEventListener('pointerdown',e=>{pressAt=performance.now();
   pressXY=[e.clientX,e.clientY];});coverEl.addEventListener('click',e=>{/* (user 2026-11-12) a long press or a drag only plays with the card; letting go never opens the detail */if(e.detail&&(performance.now()-pressAt>350||Math.hypot(e.clientX-pressXY[0],
   e.clientY-pressXY[1])>6))return;clearTimeout(clickTimer);clickTimer=setTimeout(()=>shown&&onDetail(shown.id),260);});coverEl.addEventListener('dblclick',e=>{e.preventDefault();
   clearTimeout(clickTimer);if(pool.length>1)draw(randomGame());});
