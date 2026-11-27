@@ -87,7 +87,7 @@ function card(a,order){return {id:String(a.pr),title:a.title,sub:'#'+a.pr+' · a
 /* ---- stuck: which step, what a person decides, how to go on ------------------------------------------------------------ */
 function stuckNote(st,{step,why,decide,evidence=[]}){const L=['# '+st.short+' 卡在「'+STEP_CN[step]+'」（auto，'+new Date().toISOString().slice(0,16).replace('T',' ')+'）','',
  '- 下载目录：`'+st.src+'`'+(st.issue?'，issue #'+st.issue:''),'- 卡在哪：'+why,'- 要人决定：'+decide,...evidence.map(e=>'- 证据：`'+e+'`'),'',
- '## 决定后怎么继续','','```','node tools/megulit-adapter.cjs auto "'+st.src+'" --name '+st.short+(st.issue?' --issue '+st.issue:''),'```',
+ '## 决定后怎么继续','','```','node tools/megulit-adapter.cjs auto "'+st.src+'" --name '+st.short+(st.issue?' --issue '+st.issue:'')+(st.pr?' --pr '+st.pr:''),'```',
  '（auto 从没做完的那一步接着跑；已做完的步骤记在 `'+st.file+'`）',''];
  if(step==='adapt'&&st.adapterOut)L.splice(L.length-1,0,'','适配器的问题先回答：`node tools/megulit-adapter.cjs answer "'+st.adapterOut+'" <id>=<值> ...`，再跑上面的 auto。');
  return L.join('\n')+'\n';}
@@ -96,7 +96,7 @@ function stuckNote(st,{step,why,decide,evidence=[]}){const L=['# '+st.short+' �
 async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.requests?{requests:o.requests}:{}),...(o.copies?{copies:o.copies}:{}),...(o.app?{app:o.app}:{})};
  const D={install:Install.install,adapter:adapterCli,checkout,testBuild,...deps};
  const src=path.resolve(o.dir),short=o.name||shortOf(src),file=path.join(R.auto,'runs',short,'auto.json');
- const st={short,src,issue:o.issue||0,file,steps:{},...readJson(file),short,src,file};if(o.issue)st.issue=o.issue;
+ const st={short,src,issue:o.issue||0,file,steps:{},...readJson(file),short,src,file};if(o.issue)st.issue=o.issue;if(o.pr)st.pr=o.pr;
  const save=()=>{st.updatedAt=new Date().toISOString();writeJson(file,st);};
  const stuckFile=path.join(R.requests,'stuck',short+'.md');
  const stop=(step,why,decide,evidence=[])=>{st.stuck={step,why,decide,at:new Date().toISOString()};save();fs.mkdirSync(path.dirname(stuckFile),{recursive:true});
@@ -110,7 +110,8 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
  const out=path.join(R.auto,'runs',short,'adapter');st.adapterOut=out;
  if(!['ready','published'].includes(st.steps.adapt?.state)){log('# 2 适配 '+inst.exe);
   const prev=readJson(path.join(out,'adapter.json'));
-  const r=prev&&prev.state==='waiting'?D.adapter(['answer',out]):D.adapter([inst.dir,'--exe',path.relative(inst.dir,inst.exe),'--tester','--out',out]);
+  /* a person answered meanwhile (answer <out> ...): the adapter's state is taken as it is; still waiting: re-judged with its answers */
+  const r=prev&&['ready','published'].includes(prev.state)?{status:0,out:''}:prev&&prev.state==='waiting'?D.adapter(['answer',out]):D.adapter([inst.dir,'--exe',path.relative(inst.dir,inst.exe),'--tester','--out',out]);
   const a=readJson(path.join(out,'adapter.json'))||{};
   st.steps.adapt={exit:r.status,state:a.state||'',engine:a.engine||'',known:a.caps?.known!==false,title:a.title||'',seed:a.seed||'',review:a.review||'',tail:String(r.out||'').trim().split('\n').slice(-12).join('\n')};save();
   if(/unknown argument: --tester/.test(r.out||''))return stop('adapt','这份适配器还没有 --tester（离线 skeleton seed，#1312 带来的）','先合 #1312，或在有 --tester 的检出上跑 auto');
