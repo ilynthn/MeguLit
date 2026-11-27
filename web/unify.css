@@ -1120,9 +1120,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-name:is(:hover,:focus-vi
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-name-input{width:min(320px,100%);height:auto!important;padding:0 0 2px!important;border:0!important;border-bottom:1px solid var(--g-gold,#edb56e)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font:600 clamp(28px,2.6vw,36px)/1.1 var(--g-serif,serif)!important;color:var(--g-t1,#f1e0d2)!important;outline:0}
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-note{display:block;margin-top:6px;font-size:12px;color:var(--g-t3,#a08a80)}
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-note[data-status="rejected"]{color:#e2685e}
-html body .fx-mushroom{width:0;height:0}
-html body .fx-mushroom i{position:absolute;border-radius:50%;background:radial-gradient(closest-side,rgba(200,180,170,.3),rgba(140,120,115,.12) 60%,transparent);filter:blur(6px)}
-html body .fx-mushroom i.is-cap{background:radial-gradient(closest-side,rgba(215,190,175,.32),rgba(150,120,110,.12) 60%,transparent)}
 
 /* 转职: the school as a small coloured tag before the rank, the class-change link, the locked hint */
 html:not(#u):not(#v):not(#w) body .profile-rank-name{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:8px}
@@ -1258,7 +1255,6 @@ html body .fx-seal{stroke-width:1.3!important;}
 html body .fx-seal :is(circle,path){stroke-dasharray:1;stroke-dashoffset:1}
 html body .fx-seal text{font-size:8px!important}
 html body .fx-charge{border-radius:50%;}
-html body .fx-pillar{left:0;top:auto!important;bottom:0;width:26px;height:100vh;transform-origin:50% 100%;background:linear-gradient(to top,#fff,#ffe1b0 30%,rgba(255,120,60,.35) 75%,transparent);filter:blur(2px);mix-blend-mode:screen;box-shadow:0 0 40px 10px rgba(255,140,70,.45)}
 html body .fx-fire{width:340px!important;height:340px!important;background:radial-gradient(closest-side,#fff8e0 0,#ffd27a 18%,#ff7a2a 42%,rgba(200,30,30,.6) 64%,rgba(60,10,10,.25) 80%,transparent)!important;mix-blend-mode:screen}
 html body .fx-fire.is-inner{width:200px!important;height:200px!important;background:radial-gradient(closest-side,#fff,#fff0c0 40%,rgba(255,170,80,.5) 70%,transparent)!important}
 html body .fx-ring{box-shadow:0 0 0 2px rgba(255,244,230,.95),0 0 18px 4px rgba(255,150,80,.7),inset 0 0 18px 2px rgba(255,150,80,.5)!important}
@@ -1334,7 +1330,6 @@ html body .dict-shards i.d1{color:#c9a46a!important}
 html body .dict-shards i.d2{color:#a8404a!important}
 html body .fx-ring.is-dust{filter:none!important}
 html body :is(.gm-jd-opt.miss,.gm-choice.wrong){box-shadow:inset 0 0 0 2px #e2423e,0 0 16px rgba(226,66,62,.45)!important;color:#ffd2a8!important;text-shadow:0 0 6px #ff7a2a,0 0 14px rgba(255,90,40,.6)}
-html body .class-rite-white{inset:0;}
 html body .class-rite-motto{display:block;margin:18px 0 0;max-width:30em;font-size:14px;line-height:1.8;color:var(--g-t2,#c3ab9c);quotes:none}
 html body .class-rite-reveal p{font-size:15px!important;color:var(--g-gold,#edb56e)!important}
 html body .class-rite-xp{align-items:flex-end!important;text-align:right}
@@ -1425,7 +1420,6 @@ html body dialog.class-rite .class-rite-glyph{opacity:0!important}
 /* Explosion (user): 30% smaller, half the strength; no light pillar; the pit at the clicked point is visible again (the
    wrong answer no longer sits above it); cracks blend in — dark engraved lines with a faint light lip, not bright
    wires; the hot glow only on the pit's lip */
-html body .fx-pillar{display:none!important}
 html body .fx-seal{width:160px!important;height:160px!important}
 html body .fx-charge{width:24px!important;height:24px!important}
 html body .fx-core{width:40px!important;height:40px!important}
@@ -1528,10 +1522,8 @@ html body .dict-hit{width:1200px!important}
 html body .dict-hit>i{left:600px!important}
 html body .dict-hit-line{width:1100px!important;height:2px!important;top:0!important;}
 html body .dict-launch :is(#lookup-form,.lookup-form){outline:1px solid transparent;backface-visibility:hidden;will-change:transform}
-/* 转职 (judge fx7): the cast leaves the panel and covers the window (rite-stage.js fades it out with distance); the
-   white field is opaque white that opens and closes as an iris from the burst — never translucent white over the red */
+/* The class-change animation fades out as it extends beyond the panel. */
 html body .class-rite-fx.is-wide{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:20!important}
-html body .class-rite-white{mix-blend-mode:normal!important;}
 
 /* ==== round 11 ==== */
 /* settings width (judge r10: half the pages still ran to 1551 and showed beside the search bar when scrolled): every
@@ -1570,20 +1562,8 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-page .gm-stgs>#gm-stage-panel{grid
    clipped by its box */
 html body .dict-hit{overflow:visible!important}
 html body .dict-hit-line{background:linear-gradient(90deg,rgba(232,196,138,0),rgba(232,196,138,.85) 26%,#fff0d2 50%,rgba(232,196,138,.85) 74%,rgba(232,196,138,0))!important;box-shadow:0 0 12px 2px rgba(232,196,138,.5)!important}
-/* the white bloom (reader-class.js places it on the burst point): a disc three window-widths across, pure white to
-   past half its radius and feathered beyond, so no frame shows a small hard white shape */
-html body .class-rite-white{position:fixed!important;right:auto;bottom:auto;width:300vmax!important;height:300vmax!important;border-radius:50%;clip-path:none!important;
- background:radial-gradient(circle,#fff 0,#fff 52%,rgba(255,255,255,0) 68%)!important;z-index:30!important;pointer-events:none;will-change:transform,opacity}
-/* the white lifts as an iris opening from its centre (a hole with a soft edge), not by fading — no frame lays
-   translucent white over the dark card */
 @property --h{syntax:'<percentage>';inherits:true;initial-value:0%}
-html body .class-rite-white{--h:0%;opacity:1!important;-webkit-mask-image:radial-gradient(circle,transparent calc(var(--h) - 2.5%),#000 var(--h));mask-image:radial-gradient(circle,transparent calc(var(--h) - 2.5%),#000 var(--h))}
 
-/* (judge fx9: the opening iris left a grey band) its edge burns warm: a thin orange-gold ring rides just inside the
-   white as it opens, so the white meets the card through warm light, never through grey */
-@property --ro{syntax:'<number>';inherits:true;initial-value:0}
-html body .class-rite-white::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:var(--ro);
- background:radial-gradient(circle,rgba(255,140,60,0) calc(var(--h) - 3%),rgba(255,140,60,1) calc(var(--h) - 1.6%),rgba(255,196,120,1) calc(var(--h) - .2%),rgba(255,236,200,.6) calc(var(--h) + 1.6%),rgba(255,255,255,0) calc(var(--h) + 3.5%))}
 html body .dict-hit-line{mix-blend-mode:screen}
 /* sliders (judge r11): the number box ends on the column's right edge like every other control */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .setting-slider{padding-right:0!important;margin-right:0!important}

@@ -72,11 +72,19 @@
   /* every title in the page becomes data-mg-tip the moment it is set; an emptied title clears the tip */
   const adopt=el=>{
    if(!(el instanceof window.Element)||!el.hasAttribute('title')||el.closest('svg'))return;
-   const v=el.getAttribute('title');el.removeAttribute('title');
+   const v=el.getAttribute('title');el.removeAttribute('title');keepTitle(el);setTip(el,v);
+  };
+  function setTip(el,v){
    if(v){el.dataset.mgTip=v;if(!el.hasAttribute('aria-label')&&!el.textContent.trim())el.setAttribute('aria-label',v.split('\n')[0]);}
    else delete el.dataset.mgTip;
    if(el===anchor){if(v)paint();else hide();}
-  };
+  }
+  /* 2026-11-28 (main CI after #1344: 校准 「回到游戏原字位置」 read its disabled reason back from .title and got ''): an element
+     taken over keeps a working title property, so code that reads or writes el.title still sees and sets the tooltip text */
+  function keepTitle(el){
+   if(Object.prototype.hasOwnProperty.call(el,'title'))return;
+   Object.defineProperty(el,'title',{configurable:true,get(){return this.dataset.mgTip||'';},set(value){setTip(this,value==null?'':String(value));}});
+  }
   for(const el of document.querySelectorAll('[title]'))adopt(el);
   new window.MutationObserver(records=>{for(const r of records){if(r.type==='attributes')adopt(r.target);else for(const n of r.addedNodes)if(n.nodeType===1){adopt(n);for(const el of n.querySelectorAll?.('[title]')||[])adopt(el);}}})
    .observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['title']});
