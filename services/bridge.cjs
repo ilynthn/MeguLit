@@ -447,8 +447,6 @@ async function dispatch(request,runtime=null) {
       case 'review_full':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.reviews().full(String(request.platform),String(request.url||''));
       case 'game_reviews':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.reviews().page(String(request.id),String(request.platform),request.page,request.size,String(request.lang||'all'));
       case 'reviews_translate':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.reviews().translate(request.texts,String(request.target),String(request.source||'auto'));
-      /* home page QQ 交流群 pill: the desktop QQ's join window, or {opened:false} so the page falls back (core/qq-group.cjs) */
-      case 'open_qq_group':return require('../core/qq-group.cjs').openGroup(request.uin);
       case 'open_source':{const url=new URL(String(request.url));if(url.protocol!=='https:'||!['vndb.org','store.steampowered.com','steamcommunity.com','bgm.tv','2dfan.com','erogamescape.dyndns.org','github.com','plicy.net','megulit.com','platform.deepseek.com','cloud.siliconflow.cn','bailian.console.aliyun.com','aistudio.google.com','apps.ankiweb.net','zh.moegirl.org.cn','ndlsearch.ndl.go.jp','openlibrary.org','data1.library.sh.cn','qm.qq.com','ankiweb.net'].includes(url.hostname)||url.username||url.password)throw Error('INVALID_SOURCE_URL');const child=spawn('explorer.exe',[url.href],{windowsHide:true,detached:true,stdio:'ignore'});child.on('error',()=>{});child.unref();return {opened:true};}
       case 'game_locale_mode':{
         const id=String(request.id),row=db.prepare('SELECT original FROM games WHERE id=? AND removed_at IS NULL').get(id);

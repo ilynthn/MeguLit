@@ -2,9 +2,10 @@
 /* 2026-11-28 QQ 交流群 entry on the home page: a pill beside The Seed with the group number. Pointing at it or clicking it
    opens a small card (the reader's tip look: dark, rounded, soft shadow, fades in): the group's QR code
    (assets/qq-group-qr.svg, made by tools/build-qq-qr.py from the group's join link), the number with a copy button, and
-   「用电脑 QQ 加群」. That button asks the service to open the desktop QQ's join window (tencent://groupwpa,
-   core/qq-group.cjs); without QQ, or if that fails, the join page opens and the number is copied, with the toast
-   「群号已复制」. The number and link here, in the README and on the website are the same (validation/qq-group.test.cjs). */
+   「用电脑 QQ 加群」. That button opens the group's join page in the browser, which hands over to the desktop QQ (owner,
+   2026-11-28: the new desktop QQ answers its own groupwpa protocol link with 「加群参数不合法」, so that route is gone); if the page
+   cannot be opened the number is copied, with the toast 「群号已复制」. The number and link here, in the README and on the
+   website are the same (validation/qq-group.test.cjs). */
 export const QQ_GROUP='1131267542';
 /* the group's join page, read from the QR card QQ made for the group; it opens QQ (or asks to install it) on any device */
 export const QQ_WEB='https://qm.qq.com/q/C95LXYb5Sg';
@@ -26,14 +27,13 @@ export function qqPillHTML(locale,esc){
   `<button type="button" class="qq-card-open" data-qq-open>${esc(t.open)}</button></div></div>`;
 }
 const clipboard=text=>navigator.clipboard.writeText(text);
-/* returns 'qq' when the desktop QQ was asked to open the group, 'web' after the fallback */
+/* returns 'web' when the join page was opened, 'copied' when it could not be and the number was offered instead */
 export async function joinQQGroup({api,locale,toast,copy=clipboard}){
- try{const r=await api('open_qq_group',{uin:QQ_GROUP});if(r&&r.opened===true)return 'qq';}catch{}
+ try{const r=await api('open_source',{url:QQ_WEB});if(!r||r.opened!==false)return 'web';}catch{}
  const t=qqWords(locale);let copied=false;
  try{await copy(QQ_GROUP);copied=true;}catch{}
- try{await api('open_source',{url:QQ_WEB});}catch{}
  toast?.(copied?t.copied:t.manual);
- return 'web';
+ return 'copied';
 }
 /* the card: pointing at the pill opens it and leaving closes it shortly after, unless a click pinned it; Escape and a
    click elsewhere close a pinned card */
