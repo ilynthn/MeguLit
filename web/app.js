@@ -7,11 +7,10 @@ import {fitLibraryGrid} from './library-grid-fit.js';
 import {formatDefinition} from './dictionary-format.js';
 import './primary-buttons.js';
 import {embedStatus} from './embed-status.js';
-import {statisticsHTML,statisticsResultsHTML,bindStatistics,bindStatisticsCharts} from './statistics-view.js';
 import {renderActivity} from './learning-activity.js';
 import {mountStatistics} from './statistics-grimoire.js';
 import {mountHistoryTranslations} from './history-translation.js';
-import {updateHomeOverview,createHomeRefresh} from './home-refresh.js';
+import {createHomeRefresh} from './home-refresh.js';
 import {recentGames} from './home-library.js';
 import {renderHomeTV,homeTVSignature} from './home-tv.js';
 import {historyHTML} from './history-view.js';
@@ -28,8 +27,8 @@ import {enhanceSelects} from './select-control.js';
 import {renderAnkiReview} from './anki-review.js';
 import {createHomeMotion} from './home-motion.js';
 import {renderGamePage} from './game-detail.js';
-import {words as grimoireWords,paintGlow,stopGlow,setupMarquees,fitShelf,placeGreeting,closeDialog,toolsHTML,dockPageTools,pageEnter,subpageEnter,watchHomeFade,
- matchJacket,fieldify,stopField,moveTabInk} from './grimoire.js';
+import {words as grimoireWords,paintGlow,stopGlow,setupMarquees,closeDialog,toolsHTML,dockPageTools,pageEnter,subpageEnter,
+ fieldify,stopField,moveTabInk} from './grimoire.js';
 import {aboutHTML,aboutLabel,mountAbout,VERSION} from './about.js';
 import {dailyLabel,mountDaily} from './daily-view.js';
 import {mountDevNotice,openGuide,openFeedback} from './feedback-ui.js';
@@ -1405,7 +1404,7 @@ async function renderRouteNow({navigation=false}={}){
      }});else if(route==='about'){main.innerHTML=aboutHTML(locale,esc);mountAbout(main,api,toast,model);}else if(route==='tools'){main.innerHTML=toolsHTML(locale,esc);
      main.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>b.dataset.tool==='0'?japaneseRestore():toast((grimoireWords[locale]||grimoireWords.zh).toolPending)));
      }else if(route==='statistics')await statistics(token);
-    if(token===pageToken){enhanceSelects(main);dockPageTools(main);moveTabInk();alignSubtabs();{const group=route==='statistics'?'learning':route,view=group+':'+subtab;
+    if(token===pageToken){enhanceSelects(main);dockPageTools();moveTabInk();alignSubtabs();{const group=route==='statistics'?'learning':route,view=group+':'+subtab;
      if(!main.querySelector(':scope>.tabs'))tabsGroup=null;if(main.dataset.lastRoute!==group){main.dataset.lastRoute=group;if(!reusedTorch&&!document.documentElement.classList.contains('app-boot-pre'))pageEnter(main);
      }else if(main.dataset.lastView!==view&&(group==='learning'||group==='history')){subpageEnter(main.querySelector(group==='learning'?'#learning-content':'#history-content'));
      }main.dataset.lastView=view;}requestAnimationFrame(()=>setupMarquees(main));}

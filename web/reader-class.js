@@ -105,10 +105,7 @@ export function openRite({api,locale,esc,toast,current='',pending=0,xpTotal=0,he
     if(pending>0){dialog.querySelector('[data-r-xp]').hidden=false;const num=dialog.querySelector('[data-r-num]');setTimeout(()=>countUp(num,pending,move?1400:0,n=>'+'+nf.format(n)),move?800:0);}
     setTimeout(()=>{const f=dialog.querySelector('[data-finish]');f.disabled=false;f.focus();},move?1000:0);};
    /* (user: no full-screen flash in the class change) the result comes in on its own, no white over the window */
-   apply();return;
-   const st=dialog.querySelector('.class-rite-stage').getBoundingClientRect(),wf=document.createElement('i');wf.className='class-rite-white';wf.style.left=Math.round(st.left+st.width/2)+'px';wf.style.top=Math.round(st.top+st.height/2)+'px';dialog.append(wf);
-   wf.animate([{transform:'translate(-50%,-50%) scale(.24)','--h':'0%','--ro':0,easing:'cubic-bezier(.2,.7,.2,1)'},{transform:'translate(-50%,-50%) scale(1)','--h':'0%','--ro':0,offset:.3},{transform:'translate(-50%,-50%) scale(1)','--h':'0%','--ro':0,offset:.5,easing:'cubic-bezier(.5,0,.3,1)'},{transform:'translate(-50%,-50%) scale(1)','--h':'6%','--ro':1,offset:.56},{transform:'translate(-50%,-50%) scale(1)','--h':'80%','--ro':1}],{duration:820,fill:'forwards'});
-   setTimeout(apply,250);setTimeout(()=>wf.remove(),860);};
+   apply();};
   if(!move){showReveal();return;}
   dialog.classList.add('is-casting');
   fx.cast(()=>{dialog.classList.add('is-burst');setTimeout(showReveal,950);});};

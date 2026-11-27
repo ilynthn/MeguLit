@@ -50,12 +50,6 @@ export async function afterStartupUpdate(check,{notice,ready}){
 }
 export function updateLocale(){const l=typeof document!=='undefined'?document.documentElement?.lang||'':'';return l.startsWith('ja')?'ja':l.startsWith('en')?'en':'zh';}
 
-/* 2026-11-15 adaptation contribution consent (services/adapter-contrib.cjs, rule 1): the text sits at the very end of the
-   update notes, never over them. Public build, nothing decided yet (consent.ask): the main button reads 同意并下一步 and
-   only that click turns the upload on; 不参与 records a no. Closed beta (consent.notice): the note says it is on and how
-   to turn it off; showing it is what lets the beta default start. Settings → 游戏库 holds the switch either way. */
-function consentHTML(consent,t){if(!consent||!(consent.ask||consent.notice))return '';
- return `<section class="upd-consent" data-upd-consent><h4>${esc(t.cTitle)}</h4><p>${esc(consent.ask?t.cBody:t.cBeta)}</p><button type="button" class="upd-consent-no" data-upd-decline>${esc(t.cDecline)}</button></section>`;}
 export function render(info,{api,invoke,locale,consent=null,center=false}){
  const t=M[locale]||M.zh,u=U[locale]||U.zh,required=!!info.required;center=center||required;
  const message=info.policy?.message,explanation=required?(typeof message==='string'&&locale==='zh'?message:message?.[locale])||u.required:u.available;
