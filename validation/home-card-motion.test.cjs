@@ -119,6 +119,8 @@ test('with reduced motion a change is a short plain cross-fade',async t=>{
  await page.chip(1);await sleep(60);
  const mid=await evaluate(`[...document.querySelectorAll('.tv-cover .tv-dissolve')].map(e=>e.tagName)`);
  assert.deepEqual(mid,['DIV'],'one cross-fade layer, no grain canvas');
- await sleep(700);const s=await page.state(),m=await page.pixels(clip,MEAN);
+ /* the fade itself is short; how long a loaded CI machine takes to run it out is not what is measured */
+ const len=await evaluate(`document.querySelector('.tv-cover .tv-dissolve').getAnimations()[0].effect.getTiming().duration`);assert.ok(len<=300,'the cross-fade lasts a fraction of a second: '+len);
+ let s=await page.state();for(let k=0;k<40&&s.dissolve;k++){await sleep(100);s=await page.state();}const m=await page.pixels(clip,MEAN);
  assert.equal(s.dissolve,0,'the cross-fade is over quickly');assert.ok(dist(m,[40,160,70])<45,'the new cover shows: '+JSON.stringify(m));
 });
