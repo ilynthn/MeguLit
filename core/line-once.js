@@ -47,6 +47,10 @@
   let groups=runs;
   /* the whole run of sentences drawn again (A B A B) */
   for(let p=1;p<=groups.length/2;p++){if(groups.length%p)continue;let ok=true;for(let i=p;i<groups.length&&ok;i++)ok=same(groups[i%p][0],groups[i][0]);if(ok){const merged=groups.slice(0,p).map(g=>g.slice());for(let i=p;i<groups.length;i++)merged[i%p].push(...groups[i]);groups=merged;break;}}
+  /* #1128 (死に逝く君、館に芽吹く憎悪, skip: 「……焼き過ぎたか」「……焼き過ぎたか」消し炭に…): a group of sentences drawn twice in a row inside a
+     longer frame is one copy. The quote splits at its 「…」 into a piece with no letters, so the 3-letter rule counts the whole group */
+  for(let i=0;i<groups.length;i++)for(let p=1;i+2*p<=groups.length;p++){let ok=true;for(let k=0;k<p&&ok;k++)ok=variant(groups[i+k][0],groups[i+p+k][0]);
+   if(!ok||real(groups.slice(i,i+p).map(g=>g[0]).join(''))<3)continue;groups=groups.map(g=>g.slice());for(let k=0;k<p;k++)groups[i+k].push(...groups[i+p+k]);groups.splice(i+p,p);p=0;}
   /* a trailing piece that is only the start of a sentence already there (typewriter frame) */
   {const last=groups[groups.length-1];if(groups.length>1&&last.length===1){const t=key(last[0]);if(t&&u.slice(0,-1).some(s=>{const k=key(s);if(k.length>t.length&&k.startsWith(t))return true;if(/[」』）)。！？!?…]$/.test(t))return false;for(let n=Math.max(1,t.length-4);n<=Math.min(k.length-1,t.length+4);n++)if(k.slice(0,n)===t||variant(k.slice(0,n),t))return true;return false;}))groups=groups.slice(0,-1);}}
   if(groups.length===u.length)return {text,ruby:[],collapsed:false};

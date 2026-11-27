@@ -40,6 +40,19 @@ function resolveOptions(options = {}) {
   return { ...options, provider, baseUrl:normalizeBase(options.baseUrl || 'https://api.openai.com/v1') };
 }
 
+/* #1128: two strings that are the same sentence: equal once blanks and quote brackets are dropped, or (4+ characters) sharing nearly all
+   their character pairs both ways, which also holds for the line drawn twice in one frame and for a copy one character apart */
+const sentenceKey = s => String(s || '').replace(/[\s　​「」『』“”"]/g, '');
+const sentencePairs = s => { const c = [...s], out = new Set(); for (let i = 0; i + 1 < c.length; i++) out.add(c[i] + c[i + 1]); return out; };
+function sameSentence(a, b) {
+  const x = sentenceKey(a), y = sentenceKey(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if ([...x].length < 4 || [...y].length < 4) return false;
+  const p = sentencePairs(x), q = sentencePairs(y), share = (u, v) => { let n = 0; for (const k of u) if (v.has(k)) n++; return u.size ? n / u.size : 0; };
+  return share(p, q) >= 0.85 && share(q, p) >= 0.85;
+}
+
 function createTranslationService(fetcher = fetch, environmentKey = '') {
   const google = createTranslator(fetcher);
   const keys = new Map();
@@ -84,7 +97,10 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
        becomes one of them: the next line's context stays the game's own lines */
     if (!options.detached) observeSource(text);
     const entry = options.detached ? {source:text} : history.at(-1);
-    const context = options.contextEnabled === false || !(isLLM(options.provider) || options.provider === 'deepl') || options.provider === 'sakura' ? [] : (options.detached ? history : history.slice(0,-1)).slice(-Math.max(1,Math.min(8,Number(options.contextLines) || 4))).map(h=>({source:h.source,...(h.translation?{translation:h.translation}:{})}));
+    /* #1128: the line being translated is never one of its own context lines. It reached them when another request was written into the
+       history between the reader's galSource and a later request for it (guard retry, an earlier page line), as the game's own drawn copy
+       (one character apart, or doubled 「X　X」), or through a detached request; the LLM then translated it twice in one answer. */
+    const context = options.contextEnabled === false || !(isLLM(options.provider) || options.provider === 'deepl') || options.provider === 'sakura' ? [] : (options.detached ? history : history.slice(0,-1)).filter(h=>!sameSentence(h.source,text)).slice(-Math.max(1,Math.min(8,Number(options.contextLines) || 4))).map(h=>({source:h.source,...(h.translation?{translation:h.translation}:{})}));
     // Bound context size and freeze this snapshot before a later sentence arrives.
     while(context.length&&JSON.stringify(context).length>8000)context.shift();
     // The sentence translation follows the learner language (Sakura is a Chinese-only model and stays Chinese).
