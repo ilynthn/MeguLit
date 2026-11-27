@@ -7,9 +7,9 @@ export function synopsisContentHTML(synopsis,{locale,esc,placeholder,expanded=fa
  const w=words[locale];
  return `<p class="game-synopsis" id="game-synopsis-body">${esc(synopsis.text||placeholder)}</p><div class="synopsis-footer"><small class="settings-help synopsis-source">${esc(synopsis.source||'')}</small>${synopsis.text?`<button type="button" class="text-button" data-synopsis-toggle aria-expanded="${expanded}" aria-controls="game-synopsis-body">${expanded?w.collapse:w.expand}<span aria-hidden="true">⌄</span></button>`:''}</div>`;
 }
-export function synopsisHTML({locale,esc,icon,title,refresh,source}){
+export function synopsisHTML({locale,esc,icon,title,refresh,source,actions=true}){
  const w=words[locale];
- return `<section class="panel synopsis-panel"><div class="section-header"><h2 class="panel-title">${title}</h2><div class="synopsis-actions"><select data-synopsis-source aria-label="${esc(w.source)}"><option value="moegirl"${source==='moegirl'?' selected':''}>${w.moegirl}</option><option value="vndb"${source==='vndb'?' selected':''}>VNDB</option></select><button type="button" class="text-button" data-refresh>${icon('refresh')}${refresh}</button></div></div><div class="synopsis-content" aria-live="polite"></div></section>`;
+ return `<section class="panel synopsis-panel"><div class="section-header"><h2 class="panel-title">${title}</h2>${actions?`<div class="synopsis-actions"><select data-synopsis-source aria-label="${esc(w.source)}"><option value="moegirl"${source==='moegirl'?' selected':''}>${w.moegirl}</option><option value="vndb"${source==='vndb'?' selected':''}>VNDB</option></select><button type="button" class="text-button" data-refresh>${icon('refresh')}${refresh}</button></div>`:''}</div><div class="synopsis-content" aria-live="polite"></div></section>`;
 }
 export const missingSynopsis=locale=>words[locale].missing;
 /* E266: the synopsis opens and folds with a height animation, and the toggle only appears when the text is actually

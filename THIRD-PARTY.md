@@ -1,5 +1,7 @@
 # Third-party inventory (migration work in progress)
 
+- [PDF.js 6.5.438](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), from the published `pdfjs-dist` package. The novel PDF reader ships the browser build, worker, and support files under `web/vendor/pdfjs` with their upstream licenses.
+
 This is an inventory, not a claim that the complete project's license audit is finished.
 
 - Legacy RPG Maker/NW single-container identity: existing GPL EVB reader reused with project-authored bounded metadata-only parsing; original evbunpack/aPLib credits retained, no unpacker or new upstream implementation imported. Fixed source/reference and scope: [RPGMV container provenance](docs/third-party-rpgmv-container-20261122.md)
