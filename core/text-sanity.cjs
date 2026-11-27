@@ -81,6 +81,10 @@ function noiseLine(text){
  const glued=(t.match(/(?<=[^\x00-\x7f\s])[\x21-\x7e]+(?=[^\x00-\x7f\s])/g)||[]).length;
  const touch=(t.match(/[\uff61-\uff9f](?=[\x21-\x7e\u4e00-\u9fff])|(?<=[\x21-\x7e\u4e00-\u9fff])[\uff61-\uff9f]/g)||[]).length;
  return glued>=2&&touch>=2;}
+/* たいせつなきみのために、ぼくにできるいちばんのこと: the game logs through user32 wvsprintfA, whose hook hands over the format templates
+   themselves ("%s%s%s%s%s%snone%s%s"). Two printf conversions in one string are a template, never a line the game shows; the same rule
+   keeps such a stream from being auto-selected (native/EmbedTextPolicy.cs PrintfTemplate). One "%s" or "50%OFF" is ordinary text. */
+function printfTemplate(text){return (String(text||'').match(/%(?:[-0]?\d{1,2})?(?:ll|l|h)?[sdxXuc](?![A-Za-z])|%S(?![A-Za-z])/g)||[]).length>=2;}
 /* a reply about the text instead of a translation of it, in Chinese, Japanese or English */
 const META=[
  /乱码|亂碼|文字化け|mojibake|garbled|gibberish|encoding (error|issue)|编码(错误|问题)/i,
@@ -108,4 +112,4 @@ const HANGUL=/[ᄀ-ᇿ㄰-㆏ꥠ-꥿가-힯ힰ-퟿ﾠ-ￜ]/u;
 function foreignScript(translation,source=''){
  const tr=String(translation||'');if(!tr.trim())return false;
  return HANGUL.test(tr)&&!HANGUL.test(String(source||''));}
-module.exports={warmUp,repairMojibake,repairShiftJisAsGbk,StreamCodepage,garbledSource,noiseLine,metaReply,foreignScript};
+module.exports={warmUp,repairMojibake,repairShiftJisAsGbk,StreamCodepage,garbledSource,noiseLine,printfTemplate,metaReply,foreignScript};

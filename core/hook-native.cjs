@@ -716,6 +716,10 @@ class HookNative{
   if(this.choiceFrameLine(m.text)){this.trace('choice frame line left to the choice layer '+JSON.stringify(String(m.text).slice(0,30)));return;}
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
+  /* a printf template (wvsprintfA: "%s%s%snone%s%s") is no line: it never reaches the reader and never counts as a line without
+     Japanese (japaneseGuard switched hiding off after three of them and on again at the next real line, so the original came back
+     and went on every few lines, and the translation took the game's colour while it was back) */
+  if(require('./text-sanity.cjs').printfTemplate(m.text)){this.trace('source dropped: printf template '+JSON.stringify(String(m.text).slice(0,20)));return;}
   this.languageCheck(m.text);this.japaneseGuard(m.text);
   /* a line still unreadable after that (mojibake, replacement characters) is never drawn; the game keeps its own text */
   /* 2026-11-15 (沙耶の唄: after such a line the reader kept the previous line's furigana and translation over a page that no longer

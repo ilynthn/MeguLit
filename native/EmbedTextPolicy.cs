@@ -236,9 +236,16 @@ internal static class EmbedTextPolicy {
     static readonly Regex Kana = new Regex(@"[\u3041-\u309F\u30A1-\u30FA]");
     /* half-width katakana glued to ASCII or kanji: noise; a half-width word (\uFF71\uFF8A\uFF8A) sits between kana and punctuation */
     static readonly Regex HalfTouch = new Regex(@"[\uFF61-\uFF9F](?=[\x21-\x7E\u4E00-\u9FFF])|(?<=[\x21-\x7E\u4E00-\u9FFF])[\uFF61-\uFF9F]");
+    /* たいせつなきみのために、ぼくにできるいちばんのこと: the game logs through user32 wvsprintfA, and the hook on it hands over the
+       format templates themselves ("%s%s%s%s%s%snone%s%s", "ReadScript [%s]...読込現在読み込み中のファイル[%s]"). Two printf
+       conversions in one string are a template, never a line on screen (core/text-sanity.cjs printfTemplate, same rule). */
+    static readonly Regex PrintfSpec = new Regex(@"%(?:[-0]?\d{1,2})?(?:ll|l|h)?[sdxXuc](?![A-Za-z])|%S(?![A-Za-z])");
+    public static bool PrintfTemplate(string text) { return PrintfSpec.Matches(text ?? "").Count >= 2; }
+
     public static bool Unreadable(string text) {
         string t = text ?? "";
         if (t.Trim().Length == 0) return false;
+        if (PrintfTemplate(t)) return true;
         int bad = 0; foreach (char c in t) if (c == '\uFFFD') bad++;
         if (bad >= 2 || (bad > 0 && bad * 10 >= t.Length)) return true;
         int half = HalfKana.Matches(t).Count, kanji = Kanji.Matches(t).Count;
@@ -259,7 +266,9 @@ internal static class EmbedTextPolicy {
             GuardWrite("HW8@0:a.exe", 932, "「またね」", "「再见」", out why) == "" && GuardWrite("HW8@0:a.exe", 932, "「またね」", "「再见」", out why) == "「再见」" &&
             GuardWrite("HW8@0:a.exe", 932, "あ", new string('译', 200), out why) == "" &&
             GuardWrite("HSXF4@0:a.exe", 932, "「またね」", "", out why) == "" &&
-            Unreadable("『二十Aﾅ像ナッテ初y(VQｳッテノハ、今日日ソウソウイ梗WfA繙ャナイカナ？』") && Unreadable("『ネェネェ、今度ノすﾀfｾｾf劔。ｩI撥D錐年ハ、ドッカ渙ｨtーとモ遊ベﾋ坥ｿ牴xLナイ？』") &&
+            Unreadable("『二十Aﾅ像ナッテ初y(VQｳッテノハ、今日日ソウソウイ梗WfA繙ャナイカナ？』") &&
+            Unreadable("%s%s%s%s%s%snone%s%s") && Unreadable("ReadScript [%s]%s%s【Read】%s 読込現在読み込み中のファイル[%s]") &&
+            !Unreadable("全品50%OFFだって！　100%の確率で、%sって書いてある") && Unreadable("『ネェネェ、今度ノすﾀfｾｾf劔。ｩI撥D錐年ハ、ドッカ渙ｨtーとモ遊ベﾋ坥ｿ牴xLナイ？』") &&
             !Unreadable("　ぶよぶよと蠢く肉塊が、暗く粘ついた声でそう言った。") && !Unreadable("全品50％OFFだって！PCのUSBメモリ") && !Unreadable("ｱﾊﾊ、そうだね。今日はAとBの日") && !Unreadable("「PS2版とPC版の違い？」");
     }
     public static bool SelfTest() {
