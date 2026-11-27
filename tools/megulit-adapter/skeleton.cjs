@@ -71,7 +71,11 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  /* MeguLit's own builds and tools sitting beside the games (testbuild-*, a copied app) are not games */
  if(/^(?:megulit|node|colddesk|hookbridge)/i.test(path.basename(loc.exe))){row.state='not-game';row.why.push('MeguLit 自己的程序（'+path.basename(loc.exe)+'）');return done();}
  row.layers.push('locate');
- const title=Cold.titleOf(dir);row.title=title;row.exe=path.basename(loc.exe);
+ /* a copy's own folder name says more than a generic install folder (seifuku3-tmpspace: installed) */
+ let title=Cold.titleOf(dir);if(/^(?:installed?|install|game|data|bin|app|program|files?)$/i.test(title))title=path.basename(dir);row.title=title;row.exe=path.basename(loc.exe);
+ /* the same program twice in one batch (a copy beside the original): one seed */
+ const exeSha=crypto.createHash('sha256').update(fs.readFileSync(loc.exe)).digest('hex');const twin=o.seen.get(exeSha);
+ if(twin){row.state='skip-seed';row.why.push('和 '+twin+' 是同一个程序，只出一份 seed');return done();}o.seen.set(exeSha,row.dir);
  let caps=lunaCaps(Engines.capabilities(loc.engine),loc.gameDir,loc.engine);if(caps.lunaStatic)loc.engine=caps.id;
  row.engine=caps.known?caps.id:(loc.engine||'');row.engineWhy=loc.why;
  const craft=craftOf(loc,caps,path.join(o.out,'craft',Cold.safeName(title)),o);if(craft)row.layers.push('craft');
@@ -96,7 +100,7 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  if(r.state==='skip'){row.state='skip';row.why.push(...r.look);return done();}
  row.slug=r.slug;row.name=r.name;row.state='written';row.layers.push('seed');
  /* the evidence goes with the seed: ext.adapter (who made it, how sure) and ext.versionPrints (a renamed or patched exe still finds it) */
- const file=path.join(o.seed,row.engine,r.slug,'game.json');const doc=JSON.parse(fs.readFileSync(file,'utf8'));const exeSha=r.prints?.exe||'';
+ const file=path.join(o.seed,row.engine,r.slug,'game.json');const doc=JSON.parse(fs.readFileSync(file,'utf8'));
  const prints={};for(const k of ['head','pe','data','pack'])if(id.prints?.[k])prints[k]=id.prints[k];
  doc.ext={...(doc.ext||{}),adapter:{...(doc.ext?.adapter||{}),tool:'megulit-adapter skeleton',...(vndb?{vndb}:{}),...(v?.release?{release:v.release}:{}),confidence:c.level,why:c.why.slice(0,6),layers:row.layers.slice()},
   ...(exeSha&&Object.keys(prints).length?{versionPrints:{...(doc.ext?.versionPrints||{}),[exeSha]:prints}}:{})};
@@ -123,7 +127,7 @@ function parse(argv){const o={dirs:[],scan:[],seed:path.join(REPO,'The Seed'),ou
  if(!o.dirs.length&&!o.scan.length)throw Error('usage: node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--seed <dir>] [--out <dir>] [--offline]');
  o.out=o.out||path.join(process.env.MEGULIT_ADAPTER_OUT||path.join(Cold.RUNS_ROOT,'adapter-out'),'skeleton');return o;}
 
-async function run(o,{log=console.log}={}){fs.mkdirSync(o.out,{recursive:true});o.versionsWritten=o.versionsWritten||new Map();
+async function run(o,{log=console.log}={}){fs.mkdirSync(o.out,{recursive:true});o.versionsWritten=o.versionsWritten||new Map();o.seen=new Map();
  const dirs=[...o.dirs.map(d=>path.resolve(d)),...o.scan.flatMap(r=>scanRoot(path.resolve(r)))];const rows=[];
  for(const d of [...new Set(dirs)]){let r;try{r=await one(d,o);}catch(e){r={dir:path.basename(d),state:'skip',why:['出错：'+String(e.message||e).slice(0,160)],layers:[],ms:0};}
   rows.push(r);log('# '+r.dir+': '+r.state+(r.engine?' '+r.engine:'')+(r.confidence?' '+CONF[r.confidence]:'')+' ('+(r.ms/1000).toFixed(1)+' s)');}
