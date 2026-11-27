@@ -27,13 +27,7 @@ for s in SHOTS:
 webp(ROOT / 'docs' / 'assets' / 'logo.png', 'logo', (720, 360), quality=90)
 webp(ROOT / 'docs' / 'assets' / 'sponsor' / 'support-card.png', 'support-card', (720,), quality=88)
 
-# Icons from the app's own .ico
-ico = Image.open(ROOT / 'desktop' / 'icons' / 'icon.ico')
-ico.size = (256, 256)
-big = ico.convert('RGBA')
-big.resize((180, 180), Image.LANCZOS).save(PUB / 'apple-touch-icon.png')
-big.resize((64, 64), Image.LANCZOS).save(PUB / 'favicon.png')
-big.save(PUB / 'favicon.ico', sizes=[(16, 16), (32, 32), (48, 48)])
+# The site's icons (favicon, apple-touch-icon, manifest icons) have their own design and script: site/tools/build-favicon.py
 # Social preview: the logo on the site's dark page colour
 og = Image.new('RGB', (1200, 630), (23, 15, 17))
 logo = Image.open(ROOT / 'docs' / 'assets' / 'logo.png').convert('RGBA')
