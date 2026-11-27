@@ -38,7 +38,7 @@
 [![Platform](https://img.shields.io/badge/Windows%2010%20%2F%2011-x64-3b2124?style=flat-square)](#zh-install)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-8b1e2d?style=flat-square)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/%E2%99%A1-Sponsor-c8323c?style=flat-square)](https://github.com/sponsors/ilynthn)
-[![QQ 群](https://img.shields.io/badge/QQ%20%E7%BE%A4-1131267542-c8323c?style=flat-square)](#zh-qq)
+[![QQ 群](https://img.shields.io/badge/QQ%20%E7%BE%A4-1131267542-c8323c?style=flat-square)](https://qm.qq.com/q/C95LXYb5Sg)
 
 **[下载 v1.4.25](https://github.com/ilynthn/MeguLit/releases/latest)** &nbsp;·&nbsp; **[官网 megulit.com](https://megulit.com)** &nbsp;·&nbsp; [简体中文](#zh) &nbsp;·&nbsp; [English](#en) &nbsp;·&nbsp; [日本語](#ja) &nbsp;·&nbsp; [常见问题](#faq) &nbsp;·&nbsp; [QQ 群 1131267542](#zh-qq) &nbsp;·&nbsp; [更新日志](https://github.com/ilynthn/MeguLit/releases) &nbsp;·&nbsp; [♡ 赞赏](#support)
 
@@ -294,9 +294,11 @@
 
 ## 交流群
 
-QQ 群：**1131267542**
+<a href="https://qm.qq.com/q/C95LXYb5Sg"><img src="docs/assets/qq-group-qr.png" width="200" alt="MeguLit QQ 群 1131267542 二维码"></a>
 
-遇到问题、想适配的游戏、学日语的心得，都可以来群里说。MeguLit 首页 The Seed 旁边的「QQ 群」胶囊点一下就能打开 QQ 加群；没装 QQ 的话，群号会自动复制好
+QQ 群：**1131267542** &nbsp;·&nbsp; 手机 QQ 扫码，或者[点这里用网页加群](https://qm.qq.com/q/C95LXYb5Sg)
+
+遇到问题、想适配的游戏、学日语的心得，都可以来群里说。MeguLit 首页 The Seed 旁边的「QQ 群」胶囊也有这张二维码，「用电脑 QQ 加群」能直接打开电脑 QQ 的加群窗口
 
 <a id="faq"></a>
 

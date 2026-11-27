@@ -161,14 +161,19 @@ function setNotes(which) {
 }
 for (const b of $$('[data-notes]')) b.addEventListener('click', () => setNotes(b.dataset.notes));
 
-/* QQ 交流群 links (header, next-version section, footer): the tencent:// link opens the desktop QQ's join window when QQ is
-   installed; the group number is copied as well, so it can be searched in QQ when nothing opens */
-for (const a of $$('.js-qq')) a.addEventListener('click', async () => {
-  const no = a.querySelector('.js-qq-no');
-  try { await navigator.clipboard.writeText(a.dataset.qq); } catch { return; }
-  if (!no) return;
-  clearTimeout(a._qqTimer); no.textContent = d('qqCopied'); a.dataset.copied = '1';
-  a._qqTimer = setTimeout(() => { no.textContent = a.dataset.qq; a.removeAttribute('data-copied'); }, 1800);
+/* QQ 交流群 (header button, next-version line, footer): on a computer the card opens (QR code, the number with a copy
+   button, 「电脑 QQ 打开」 through tencent://, and the join page); on a phone the link goes straight to the join page */
+const qqDialog = $('.qq-dialog');
+const qqWide = () => matchMedia('(hover: hover) and (pointer: fine)').matches && innerWidth >= 640;
+for (const a of $$('.js-qq-open')) a.addEventListener('click', e => {
+  if (!qqDialog || !qqWide()) return;
+  e.preventDefault(); qqDialog.showModal();
+});
+qqDialog?.addEventListener('click', e => { if (e.target === qqDialog) qqDialog.close(); });
+$('.js-qq-copy')?.addEventListener('click', async e => {
+  const btn = e.currentTarget, label = btn.textContent;
+  try { await navigator.clipboard.writeText(qqDialog.dataset.qq); } catch { return; }
+  btn.textContent = d('qqCopied'); setTimeout(() => { btn.textContent = label; }, 1600);
 });
 
 $('.js-copy')?.addEventListener('click', async e => {
