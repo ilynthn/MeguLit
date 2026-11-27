@@ -61,15 +61,16 @@ function setup(prefix,{step='decrypt-failed',inLibrary=true,problem=true,consent
  fs.writeFileSync(path.join(r,'data','config','library.json'),JSON.stringify(consent===null?{}:{adapterContrib:consent}));
  return {root:r,game:{id:'g1',title:'テストゲーム',executable:g.exe},dir:g.dir,result:res,db:fx.db(inLibrary?[{id:'g1',title:'テストゲーム',executable:g.exe}]:[])};}
 
-test('rule 1: every build is on by default after the note, never before; settings write keeps the decision',()=>{
- const u=setup('megulit-ct-consent-',{consent:null});
- let c=contrib.consentState(u.root,{version:'1.4.9'});assert.deepEqual([c.enabled,c.ask,c.notice],[false,false,true],'public: off until the note was shown, no card question');
- c=contrib.consentState(u.root,{version:'1.4.9-beta.44'});assert.deepEqual([c.enabled,c.ask,c.notice],[false,false,true],'beta: the same');
- contrib.noticeSeen(u.root);c=contrib.consentState(u.root,{version:'1.4.9'});assert.equal(c.enabled,true,'public: on after the note');
- c=contrib.consentState(u.root,{version:'1.4.9-beta.44'});assert.deepEqual([c.enabled,c.decided,c.ask,c.notice],[true,true,false,false],'noticed → decided, never noted again');
- assert.equal(JSON.parse(fs.readFileSync(path.join(u.root,'data','config','library.json'),'utf8')).adapterContrib,true,'migration written to library.json');
- contrib.setConsent(u.root,true,{source:'card'});c=contrib.consentState(u.root,{version:'1.4.9'});assert.deepEqual([c.enabled,c.decided,c.ask],[true,true,false]);
- contrib.setConsent(u.root,false);assert.equal(contrib.consentState(u.root,{version:'1.4.9-beta.1'}).enabled,false,'an explicit no holds in beta too');
+test('rule 1: on by default, each new version turns it on again with a fresh note; settings write keeps the decision',()=>{
+ const u=setup('megulit-ct-consent-',{consent:null}),V='1.4.9';
+ let c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.ask,c.notice],[true,false,true],'first start of a version: on, note pending, no card question');
+ contrib.noticeSeen(u.root);c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.decided,c.notice],[true,true,false],'noted once per version');
+ assert.equal(JSON.parse(fs.readFileSync(path.join(u.root,'data','config','library.json'),'utf8')).adapterContrib,true,'written to library.json');
+ contrib.setConsent(u.root,false,{version:V});c=contrib.consentState(u.root,{version:V});assert.deepEqual([c.enabled,c.notice],[false,false],'turned off: stays off within this version');
+ c=contrib.consentState(u.root,{version:'1.4.10-beta.1'});assert.deepEqual([c.enabled,c.notice],[true,true],'the next version (beta too) turns it on again and notes it');
+ contrib.setConsent(u.root,false,{version:'1.4.10-beta.1'});assert.equal(contrib.consentState(u.root,{version:'1.4.10-beta.1'}).enabled,false);
+ c=contrib.consentState(u.root,{version:'1.4.10'});assert.equal(c.enabled,true,'and the public build after it as well');
+ const w=setup('megulit-ct-noversion-',{consent:null});c=contrib.consentState(w.root,{version:''});assert.deepEqual([c.enabled,c.notice],[false,true],'version unknown: nothing is turned on before the note');
  /* Settings: an untouched switch never decides; a change does */
  const {Settings}=(()=>{try{return {Settings:require('../services/settings.cjs').Settings||require('../services/settings.cjs')};}catch{return {};}})();
  const v=setup('megulit-ct-settings-',{consent:null});const lib=()=>JSON.parse(fs.readFileSync(path.join(v.root,'data','config','library.json'),'utf8'));
@@ -196,13 +197,12 @@ test('probe-auto: with consent the problem game is contributed once; switch off 
  assert.equal(await contrib.forGame(v.root,v.db,v.game,v.result,{fetcher:g}),'off');
 });
 
-test('rule 1: agreeing on a public build survives upgrades; an explicit no is never asked again',()=>{
- const a=setup('megulit-ct-upg-',{consent:null});contrib.setConsent(a.root,true,{source:'card'});
- for(const v of ['1.4.15','1.4.16-beta.1','1.4.16','1.5.0'])assert.equal(contrib.consentState(a.root,{version:v}).ask,false,'agreed: '+v);
- const b=setup('megulit-ct-no-',{consent:null});contrib.setConsent(b.root,false,{source:'card'});
- for(const v of ['1.4.15','1.4.16'])assert.deepEqual([contrib.consentState(b.root,{version:v}).ask,contrib.consentState(b.root,{version:v}).enabled],[false,false],'declined: '+v);
- const c=setup('megulit-ct-later-',{consent:null});
- for(let i=0;i<3;i++)assert.deepEqual([contrib.consentState(c.root,{version:'1.4.15'}).notice,contrib.consentState(c.root,{version:'1.4.15'}).enabled],[true,false],'undecided and not yet noted: noted at the next start, nothing sent before');
- const d=setup('megulit-ct-no-after-note-',{consent:null});contrib.noticeSeen(d.root);contrib.setConsent(d.root,false,{source:'settings'});
- assert.deepEqual([contrib.consentState(d.root,{version:'1.4.16'}).enabled,contrib.consentState(d.root,{version:'1.4.16'}).notice],[false,false],'turned off after the note: stays off');
+test('rule 1: upgrades turn it on for everyone, agreed or not; within a version the switch holds',()=>{
+ const a=setup('megulit-ct-upg-',{consent:null});contrib.setConsent(a.root,true,{source:'card',version:'1.4.15'});
+ for(const v of ['1.4.15','1.4.16-beta.1','1.4.16','1.5.0'])assert.deepEqual([contrib.consentState(a.root,{version:v}).ask,contrib.consentState(a.root,{version:v}).enabled],[false,true],'agreed: '+v);
+ const b=setup('megulit-ct-no-',{consent:false});
+ assert.equal(contrib.consentState(b.root,{version:'1.4.15'}).enabled,true,'a no from before this rule (no version recorded) is turned on by the update');
+ contrib.setConsent(b.root,false,{source:'settings',version:'1.4.15'});
+ for(let i=0;i<3;i++)assert.equal(contrib.consentState(b.root,{version:'1.4.15'}).enabled,false,'declined in this version: stays off on every start');
+ assert.equal(contrib.consentState(b.root,{version:'1.4.16'}).enabled,true,'declined: on again after the update');
 });

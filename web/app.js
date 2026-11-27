@@ -161,11 +161,11 @@ function duration(seconds){seconds=Math.max(0,Math.round(seconds||0));/* short s
 const hk=t=>window.MeguHotkeys?window.MeguHotkeys.localize(t):t;
 function toast(message,ms=4600){clearTimeout(toastTimer);const element=document.querySelector('#toast');element.textContent=hk(message);element.classList.add('visible');toastTimer=setTimeout(()=>element.classList.remove('visible'),
  ms);}
-/* 2026-11-28 adaptation contribution is on by default (services/adapter-contrib.cjs rule 1): the player is told once,
-   with where to turn it off, and only after that does anything get sent */
-const CONTRIB_NOTE={zh:'适配贡献已开启：读不好的游戏会上传剧本和启动程序给作者做适配，用完即删。可在 设置 → 游戏库 关闭',
- ja:'適応協力が有効です：うまく読めないゲームのスクリプトと実行ファイルを適応のために送信し、使用後に削除します。設定 → ライブラリでオフにできます',
- en:'Adaptation contribution is on: scripts and program code of games that do not read well are sent for adaptation and deleted after use. Turn it off in Settings → Library'};
+/* 2026-11-28 adaptation contribution is on by default and every update turns it on again (services/adapter-contrib.cjs
+   rule 1): the player is told at the first start of each version, with where to turn it off */
+const CONTRIB_NOTE={zh:'适配贡献已开启：读不好的游戏会上传剧本和启动程序给作者做适配，用完即删。可在 设置 → 游戏库 关闭，每次更新后会重新开启',
+ ja:'適応協力が有効です：うまく読めないゲームのスクリプトと実行ファイルを適応のために送信し、使用後に削除します。設定 → ライブラリでオフにできます（更新ごとに再び有効になります）',
+ en:'Adaptation contribution is on: scripts and program code of games that do not read well are sent for adaptation and deleted after use. Turn it off in Settings → Library; each update turns it on again'};
 async function contribNotice(){try{const c=await api('contrib_consent');if(!c?.notice)return;toast(CONTRIB_NOTE[locale]||CONTRIB_NOTE.zh,12000);await api('contrib_notice_seen');}catch{}}
 function errorMessage(error){const code=typeof error==='string'?error:error?.message;return ({LOCALE_EMULATOR_REQUIRED:({zh:'日文转区组件（Locale Emulator）没能装好：再点一次启动会自动重新安装；仍不行请把 logs\\locale-emulator.log 发给作者',
  en:'Locale Emulator could not be set up: press Start again to retry the automatic install; if it still fails, send logs\\locale-emulator.log',ja:'Locale Emulator を準備できませんでした。もう一度起動すると自動で再インストールします'}[locale]),

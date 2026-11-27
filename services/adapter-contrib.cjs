@@ -46,16 +46,19 @@ function appVersion(root){try{return require('./shared-adaptation.cjs').appVersi
 const isBeta=v=>/^\d+\.\d+\.\d+-beta\.\d+$/i.test(String(v||'').replace(/^v/,''));
 /* consentState(root) → {enabled, decided, beta, ask, notice}
    ask: always false since 2026-11-28 (no build asks any more; kept for older callers)
-   notice: the startup note has not been shown yet (the default stays off until it has) */
+   notice: it is on and the startup note has not been shown for it yet */
 function consentState(root,{version=appVersion(root)}={}){
  const f=libFile(root);let lib=readJSON(f);const beta=isBeta(version);
+ /* 2026-11-28 (user: 更新了新版就自动打开 防止bug 所有人都这样): the first start of every new version turns it on for
+    everyone, also for players who turned it off before; the startup note tells them again and Settings turns it off */
+ if(version&&lib.adapterContribVersion!==version){lib={...lib,adapterContrib:true,adapterContribAt:Date.now(),adapterContribSource:'update',adapterContribVersion:version,adapterContribNoticeAt:0};try{atomic(f,lib);}catch{}}
  /* 2026-11-16: a beta player who saw the note (switch on) has agreed; record it once so a public build never asks again */
  if(typeof lib.adapterContrib!=='boolean'&&Number(lib.adapterContribNoticeAt)>0){lib={...lib,adapterContrib:true,adapterContribAt:Date.now(),adapterContribSource:'beta-notice'};try{atomic(f,lib);}catch{}}
  const decided=typeof lib.adapterContrib==='boolean',noticed=Number(lib.adapterContribNoticeAt)>0;
- return {enabled:decided?lib.adapterContrib:noticed,decided,beta,ask:false,notice:!decided&&!noticed};}
+ return {enabled:decided?lib.adapterContrib:noticed,decided,beta,ask:false,notice:!noticed&&(!decided||lib.adapterContrib===true)};}
 const enabled=(root,o)=>consentState(root,o).enabled;
 /* the player's decision (the update card or Settings). Turning it off also deletes whatever is waiting locally. */
-function setConsent(root,on,{source='settings'}={}){const f=libFile(root);atomic(f,{...readJSON(f),adapterContrib:on===true,adapterContribAt:Date.now(),adapterContribSource:String(source).slice(0,20)});
+function setConsent(root,on,{source='settings',version=appVersion(root)}={}){const f=libFile(root);atomic(f,{...readJSON(f),adapterContrib:on===true,adapterContribAt:Date.now(),adapterContribSource:String(source).slice(0,20),adapterContribVersion:version});
  if(on!==true)purgeOutbox(root);return consentState(root);}
 function noticeSeen(root){const f=libFile(root),lib=readJSON(f);if(!(Number(lib.adapterContribNoticeAt)>0))atomic(f,{...lib,adapterContribNoticeAt:Date.now()});return consentState(root);}
 
