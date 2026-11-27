@@ -143,6 +143,9 @@ public:
   static constexpr uint32_t ArmedFor = 60000, RubyWindow = 1500, PreviousWindow = 1500;
   std::function<void(const std::string &)> Report = [](const std::string &) {};
   bool StopOnCache = true; // blank mode: a glyph cache stops hiding; dot mode: reported, hiding goes on
+  // why the last Glyph() decided as it did (diagnostics trace): p placed in the line walk, h hidden earlier in the line,
+  // l the previous line finishing, r ruby, f not the dialogue font, n not in the line, x no line armed
+  char LastWhy = 0;
 
   void SetLine(const std::wstring &text, uint32_t now)
   {
@@ -214,6 +217,7 @@ public:
   // True: return a blank glyph with the same metrics.
   bool Glyph(wchar_t c, const Key &k, uint32_t now, bool render, const char *path, Served *served = nullptr)
   {
+    LastWhy = 'x';
     if (!Active(now) || Blank(c))
       return false;
     if (render)
@@ -233,9 +237,11 @@ public:
       hide = true;
     if (!hide)
     {
+      LastWhy = dk ? 'n' : 'f';
       chain = false;
       return false;
     }
+    LastWhy = pos >= 0 ? 'p' : late ? 'l' : dk ? 'h' : 'r';
     if (pos >= 0)
       positions.insert(pos), placedAt[c] = pos;
     if (served)
