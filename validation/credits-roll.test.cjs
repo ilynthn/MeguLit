@@ -80,6 +80,9 @@ test('Alt+T 关于: MeguLit card keeps its links, everyone else rolls like film 
   const load=async()=>{await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
    let ready=false;for(let i=0;i<120&&!ready;i++){await sleep(250);ready=await cdp.evaluate('!!window.__TOME_READER_READY__').catch(()=>false);}
    assert.ok(ready,'reader page loaded');assert.equal(await cdp.evaluate(OPEN_ABOUT),'ok');};
+  /* CI 2026-11-27: the Windows runner has animations off, so headless Edge reports prefers-reduced-motion: reduce by default.
+     The moving roll is checked with no-preference set explicitly; reduce is checked at the end. */
+  await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
   await load();await sleep(300);let s=await cdp.evaluate(STATE);
   assert.deepEqual(s.cards,[{name:'MeguLit',links:['GitHub','bilibili']}],'only MeguLit is a card, with GitHub and bilibili');
   assert.deepEqual(s.names,expected,'every name in web/credits.json is on the roll, in order');
