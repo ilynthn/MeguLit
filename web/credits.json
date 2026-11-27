@@ -124,6 +124,7 @@
    "items": [
     {"name": "Tauri · Wry", "note": {"zh": "桌面外壳", "en": "Desktop shell", "ja": "デスクトップシェル"}, "match": ["Tauri"]},
     {"name": "Serde", "match": ["Serde"]},
+    {"name": "PDF.js", "by": "Mozilla", "note": {"zh": "文库里的 PDF 阅读器", "en": "The PDF reader in the library", "ja": "ライブラリの PDF リーダー"}, "match": ["PDF.js"]},
     {"name": "webview2-com", "note": {"zh": "WebView2 的 Rust 绑定", "en": "Rust bindings for WebView2", "ja": "WebView2 の Rust バインディング"}, "match": ["WebView2 bindings"]},
     {"name": "Microsoft WebView2", "by": "Microsoft", "match": ["WebView2"]},
     {"name": "Node.js", "note": {"zh": "随附的运行时", "en": "Bundled runtime", "ja": "同梱ランタイム"}, "match": ["Node.js"]},
