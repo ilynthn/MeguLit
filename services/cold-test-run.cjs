@@ -81,7 +81,7 @@ function nameOffered(text){const rows=String(text||'').split(/\\n|\n/).map(r=>r.
  return k<0?'':rows.slice(k+1).find(r=>r.length<=10&&!/[「」『』。、？！?!]/.test(r))||'';}
 function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(cfg.inputCtlDir||'');
  const hasCtl=!!dir&&fs.existsSync(path.join(dir,'InputCtl32.exe'))&&fs.existsSync(path.join(dir,'InputShim32.dll'));
- const ladder=new InputFallback.Ladder(InputFallback.ladder({inputCtl:hasCtl,foreground:cfg.foreground===true}),cfg.ladder||{});
+ const ladder=new InputFallback.Ladder(InputFallback.ladder({inputCtl:hasCtl,foreground:cfg.foreground===true,realInput:cfg.realInput===true,from:String(cfg.from||'')}),cfg.ladder||{});
  if(dir&&!hasCtl)ladder.record.errors.push('no InputCtl32.exe / InputShim32.dll in '+dir);
  let dialogAt=-1e9,helper=null,inited=false,shotN=0,shotA=null,queued=null,cur=ladder.level,closed=false;const held=new Set();
  const bits=()=>{try{return require('../core/locale-emulator.cjs').x86(ctx.exe)?32:64;}catch{return 32;}};

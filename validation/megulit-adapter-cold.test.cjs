@@ -272,6 +272,21 @@ test('hook DLL: a DrawSkip build anywhere in the worktrees beats a GDI-hide-only
  for(const sub of [['native','megulithook'],['runtime','megulithook']])assert.match(fs.readFileSync(path.join(root,...sub,'MeguLitHook32.dll'),'utf8'),/MeguLit_DRAWSKIP ready/);
  assert.ok(A.hookDirs().some(x=>/native[\\/]megulithook$/.test(x)),'this checkout and its worktrees are searched');});
 
+test('prepareApp copy: the hook DLL another game has loaded is not rewritten on the next run (ハミダシクリエイティブ EBUSY)',()=>{
+ const d=fs.mkdtempSync(path.join(os.tmpdir(),'adapter-app-'));const app=path.join(d,'install'),root=path.join(d,'_app'),own=path.join(d,'own');
+ for(const sub of [['native'],['runtime','megulithook']])fs.mkdirSync(path.join(app,...sub),{recursive:true});
+ fs.writeFileSync(path.join(app,'native','ColdDesk.exe'),'MZ');fs.writeFileSync(path.join(app,'runtime','megulithook','MeguLitHook32.dll'),'install build');
+ fs.mkdirSync(own,{recursive:true});fs.writeFileSync(path.join(own,'MeguLitHook32.dll'),'MeguLit_GDIHIDE armed version=2 MeguLit_DRAWSKIP ready checkout build');
+ const dll=path.join(root,'runtime','megulithook','MeguLitHook32.dll');
+ A.copyAppParts(app,root);A.useCheckoutHook(root,[own],app);assert.match(fs.readFileSync(dll,'utf8'),/checkout build/);
+ /* a loaded DLL cannot be written (EBUSY); read-only stands in for it */
+ fs.chmodSync(dll,0o444);
+ try{assert.doesNotThrow(()=>{A.copyAppParts(app,root);A.useCheckoutHook(root,[own],app);});assert.match(fs.readFileSync(dll,'utf8'),/checkout build/);}
+ finally{fs.chmodSync(dll,0o666);}
+ /* no checkout build: the install's DLL is used */
+ const root2=path.join(d,'_app2');A.copyAppParts(app,root2);const used=A.useCheckoutHook(root2,[],app);
+ assert.equal(used['MeguLitHook32.dll'].src,'install');assert.equal(fs.readFileSync(path.join(root2,'runtime','megulithook','MeguLitHook32.dll'),'utf8'),'install build');});
+
 test('driver readPerCharMs: a long line that came whole gets 45 ms a character before the next click (Monochrome Empire)',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
  const d=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,readPerCharMs:45,stallMs:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});d.next({t:10,window:W,lines:1,quietMs:0});
  assert.equal(d.next({t:2000,window:W,lines:1,quietMs:1200,lineChars:54,lineAgeMs:1200}).length,0,'54 characters: 2.4 s');

@@ -32,7 +32,7 @@ const GATE={leak:0.98,row:0.9,pair:0.9,choice:1};
 /* ---- 0 arguments ------------------------------------------------------------------------------------------------------ */
 function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin:10,app:APP_DEFAULT,foreground:false,seedOut:'',skip:false};
  for(let i=0;i<a.length;i++){const k=a[i];
-  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';else if(k==='--no-skip')o.skip=false;else if(k==='--skip')o.skip=true;
+  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';else if(k==='--no-skip')o.skip=false;else if(k==='--skip')o.skip=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs cold <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N]');
  if(!(o.budgetMin>0&&o.budgetMin<=60))throw Error('--budget-min must be 1..60');
@@ -73,12 +73,17 @@ const APP_PARTS=[['native'],['runtime','hook'],['runtime','hook-island'],['runti
 function copyTree(from,to,skip=null){const st=fs.statSync(from);if(st.isDirectory()){fs.mkdirSync(to,{recursive:true});for(const n of fs.readdirSync(from))if(!(skip&&skip.test(n)&&fs.existsSync(path.join(to,n))))copyTree(path.join(from,n),path.join(to,n),skip);return;}
  let same=false;try{const d=fs.statSync(to);same=d.size===st.size&&Math.abs(d.mtimeMs-st.mtimeMs)<2000;}catch{}if(!same){fs.copyFileSync(from,to);fs.utimesSync(to,st.atime,st.mtime);}}
 function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk.exe')))throw Error('no ColdDesk.exe under '+app+'\\native (pass --app <MeguLit install>)');
- for(const p of APP_PARTS){const src=path.join(app,...p);if(fs.existsSync(src))copyTree(src,path.join(root,...p),/^(ColdDesk|HookBridge|D3D9Probe)\.exe$/i);}
+ copyAppParts(app,root);
  fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
  /* the cold test's own switches: no relay reports, no shot uploads (judge decides; nothing leaves this PC) */
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
- buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);useCheckoutWgc(root);
+ buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root,hookDirs(),app);useCheckoutWgc(root);
  return root;}
+/* the install's parts into the shared copy. The programs built from this checkout and the hook DLLs are never copied over once
+   there: useCheckoutHook picks the DLL. 2026-11-27 (ハミダシクリエイティブ): copying the install's DLL over the checkout's one and back
+   on every run rewrote a DLL another session's game had loaded -> EBUSY, prepareApp failed and the run ended */
+const APP_KEEP=/^(ColdDesk|HookBridge|D3D9Probe)\.exe$|^MeguLitHook(32|64)\.dll$/i;
+function copyAppParts(app,root){for(const p of APP_PARTS){const src=path.join(app,...p);if(fs.existsSync(src))copyTree(src,path.join(root,...p),APP_KEEP);}}
 /* MeguLitHook32/64.dll built from this repository's native/megulithook (a private native build; the DLLs are not in git) replace
    the install's copies in the copy only, like HookBridge.exe below: the engine-layer hook changes are what runs. A DLL without the
    hook version marker (an old or foreign build) is never used.
@@ -97,8 +102,9 @@ function pickHookDll(name,dirs){let best=null;dirs.forEach((dir,order)=>{const s
   const better=!best||c.drawSkip!==best.drawSkip?!best||c.drawSkip:c.own!==best.own?c.own:c.mtimeMs>best.mtimeMs;if(better)best=c;});
  return best;}
 let hookUsed={};
-function useCheckoutHook(root,dirs=hookDirs()){hookUsed={};for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){const pick=pickHookDll(name,dirs);
-  if(!pick){hookUsed[name]={src:'install',drawSkip:false};continue;}hookUsed[name]={src:pick.src,drawSkip:pick.drawSkip};
+function useCheckoutHook(root,dirs=hookDirs(),app=''){hookUsed={};for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){let pick=pickHookDll(name,dirs);
+  if(!pick){hookUsed[name]={src:'install',drawSkip:false};let buf=null;for(const sub of ['runtime','native'])if(!buf&&app)try{buf=fs.readFileSync(path.join(app,sub,'megulithook',name));}catch{}
+   if(!buf)continue;pick={buf};}else hookUsed[name]={src:pick.src,drawSkip:pick.drawSkip};
   for(const dir of [path.join(root,'native','megulithook'),path.join(root,'runtime','megulithook')]){const dst=path.join(dir,name);let same=false;try{same=fs.readFileSync(dst).equals(pick.buf);}catch{}if(same)continue;fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(dst,pick.buf);}}
  return hookUsed;}
 /* ColdDesk.exe from this repository's native/ColdDesk.cs (it has --ignore-input; an older install may not): built with the .NET
@@ -178,10 +184,12 @@ const SLOW_LINES=60;
    it then: the next click waits 45 ms a character (driver readPerCharMs). KiriKiri no-KAG comes piece by piece while it types (オルフレール
    r5 with it: cold 230 s -> 306 s, total 554 s, nothing gained) */
 const WHOLE_LINE=new Set(['yuris']);
-async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true,steamAppId='',vndb=''}={}){const Cold=require('../../services/cold-test.cjs');
+/* the input level the engine's rule row starts the live run on ('' = the ladder from PostMessage) */
+function inputFrom(engine){try{return require('./engines.cjs').capabilities(engine).input||'';}catch{return '';}}
+async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,realInput=false,localeEmulator=null,skip=true,steamAppId='',vndb=''}={}){const firstInput=inputFrom(loc.engine);const Cold=require('../../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||'',...(steamAppId?{steamAppId:String(steamAppId)}:{}),...(vndb?{vndb:String(vndb)}:{})};/* 2026-11-27 MeguLit-Adapter: a Steam build whose appid VNDB names (千恋＊万花 copy: blocked steam-appid-unknown) */
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible,realInput,from:firstInput},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
@@ -370,7 +378,7 @@ async function run(opts,{log=console.log}={}){
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
   let cold=null;
-  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true,steamAppId:opts.steamAppId||'',vndb:opts.vndb||''});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
+  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,realInput:opts.realInput===true,localeEmulator,skip:opts.skip===true,steamAppId:opts.steamAppId||'',vndb:opts.vndb||''});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
   if(stopScreen){await stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
   /* 2026-11-27 also after a blocked run (オルフレール 02:56: cleanup unconfirmed, no run folder): its Documents\A'sRing save with the read
      flags stayed, every later run started with the text already read (shown at once, Cardinal row 0.95 -> 0.6) */
@@ -424,4 +432,4 @@ function reexecIfOldNode(entry,argv,app){
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
 function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+module.exports={copyAppParts,inputFrom,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
