@@ -54,8 +54,8 @@ async function startEdge(profile){checkLayoutProfile(profile);const child=spawn(
     until it holds a port, and any failure before the handle is returned ends Edge. */
  try{return await connect(child,profile);}catch(e){try{child.kill();}catch{}throw e;}}
 async function connect(child,profile){
- const portFile=path.join(profile,'DevToolsActivePort');let port='';/* Edge that is still starting is waited for (up to 60 s on a runner); a program that already exited (MEGULIT_EDGE pointing at node) never writes the file, so it ends the wait at once */
- for(let i=0;i<(SLOW_RUNNER?600:150)&&!port;i++){if(child.exitCode!=null||child.signalCode!=null)break;try{port=(fs.readFileSync(portFile,'utf8').split(/\r?\n/)[0]||'').trim();}catch{}if(!/^\d+$/.test(port)){port='';await sleep(100);}}
+ const portFile=path.join(profile,'DevToolsActivePort');let port='';/* Edge that is still starting is waited for (up to 60 s on a runner); a launcher that exited may still have started Edge (it hands over and exits, and layout-browser-stop.test.cjs pins that), so after the exit the file gets 3 s more and then the wait ends (MEGULIT_EDGE pointing at node never writes it) */
+ let exitedAt=0;for(let i=0;i<(SLOW_RUNNER?600:150)&&!port;i++){if(child.exitCode!=null||child.signalCode!=null){exitedAt||=Date.now();if(Date.now()-exitedAt>3000)break;}try{port=(fs.readFileSync(portFile,'utf8').split(/\r?\n/)[0]||'').trim();}catch{}if(!/^\d+$/.test(port)){port='';await sleep(100);}}
  if(!port)throw Error('EDGE_NO_PORT');
  let target;for(let i=0;i<50&&!target;i++){target=(await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(5000)}).then(r=>r.json()).catch(()=>[])).find(t=>t.type==='page');if(!target)await sleep(100);}
  if(!target){child.kill();throw Error('EDGE_NO_PAGE');}
