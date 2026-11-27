@@ -1354,7 +1354,7 @@ function renderRoute(){return renderRouteNow().catch(error=>{window.megulitYuiSt
 async function renderRouteNow(){watchStage();
   stopDetailPage();stopDetailPage=()=>{};
   stopHistoryTranslations();stopHistoryTranslations=()=>{};
-  const token=++pageToken,main=document.querySelector('#main');document.documentElement.dataset.stage=stageFor(route);try{window.__megulitCloseNovelReader?.();}catch{}document.querySelectorAll('body > .nr-host').forEach(node=>node.remove());main.classList.remove('nv-reading');main.closest('.workspace')?.classList.remove('nv-reading-ws');document.documentElement.classList.remove('nv-reading-root');document.body.classList.remove('nv-reading-body');applyVeil(model.preferences);syncStage();{
+  const token=++pageToken,main=document.querySelector('#main');document.documentElement.dataset.stage=stageFor(route);applyVeil(model.preferences);syncStage();{
    const group=route==='statistics'?'learning':route,leaving=!!main.dataset.lastRoute&&main.dataset.lastRoute!==group,out=!leaving?null:main.querySelector(':scope>.tv-home')||(main.querySelector(':scope>.dtv-bg')?main:null);
    if(out&&!matchMedia('(prefers-reduced-motion:reduce)').matches){const targets=out===main?[...main.children].filter(el=>!el.matches('.tabs,.dtv-bg,.dtv-marks')):[out];
    targets.forEach(el=>el.style.pointerEvents='none');await Promise.race([Promise.all(targets.map(el=>el.animate([{opacity:1},{opacity:0}],{duration:200,easing:'cubic-bezier(.4,0,1,1)',
@@ -1383,7 +1383,7 @@ async function renderRouteNow(){watchStage();
      stopDetailPage=torchMonument.suspendTorchMonument;
      const hall=await torchMonument.openTorchMonument({api,locale,esc,toast,mount:main,onContextLost:()=>showFailure(Error('Torch WebGL context lost'))});
      if(!hall||token!==pageToken)return;
-    }else if(route==='home')home();else if(route==='library')library();else if(route==='novel')await mountNovel(main,{api,invoke,locale,text,esc,toast,isCurrent:()=>token===pageToken,navigate,openSettings:section=>{settingsSection=section;settingsProfile='';navigate('settings');}});else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();
+    }else if(route==='home')home();else if(route==='library')library();else if(route==='novel'){const novelCleanup=await mountNovel(main,{api,invoke,locale,text,esc,toast,isCurrent:()=>token===pageToken,navigate,openSettings:section=>{settingsSection=section;settingsProfile='';navigate('settings');}});if(token===pageToken)stopDetailPage=novelCleanup;else novelCleanup();}else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();
      const detailCleanup=await renderGamePage({main,id:selectedGameId,tab:(t=>(gameTab='',t))(gameTab),api,invoke,locale,text,esc,icon,cover,duration,datetime,relativeTime,number,definitions,isCurrent:()=>token===pageToken,
      onBack:()=>navigate(gameOrigin),onLaunch:startGame,onEdit:editGame,onJapaneseRestore:only=>japaneseRestore(only),onRemove:removeGame,onForum:game=>{setForumFilter({game:String(game?.title||''),engine:'',
      tag:'',mine:false});setLeaderboardView({tab:'forum'});navigate('leaderboard');},onLookup:word=>{pendingLookup=word;navigate('learning','dictionary');},onOriginalChanged:async()=>{model=await api('home');if(token===pageToken)renderRoute();

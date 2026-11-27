@@ -112,6 +112,7 @@ export async function mountNovel(main, ctx) {
   /* 阅读器：reading 非空时整页交给 novel-reader.js，退出后回到这本书的详情 */
   let reading = null;
   let readerOpen = false;
+  let readerHost;
 
   const aliveNow = () => alive && isCurrent();
   const preview = createCoverPreview(page, { api, esc, w, locale, isCurrent: aliveNow });
@@ -428,6 +429,9 @@ export async function mountNovel(main, ctx) {
       grid.dataset.nvLayout = view;
       grid.className = { cover: 'nv-grid', list: 'nv-list-view', flow: 'nv-flow-rail' }[view];
       if (view === 'flow') {
+        main.classList.add('nv-flow-active');
+        page.classList.add('nv-flow-active');
+        bodyEl.classList.add('nv-flow-active');
         bodyEl.innerHTML = '<div class="nv-flow"><div class="nv-flow-stage"></div><h2 class="nv-flow-title" data-title></h2></div>';
         const flow = bodyEl.firstElementChild;
         applyShelfFlowSettings(flow, shelf.flowSettings);
@@ -480,6 +484,9 @@ export async function mountNovel(main, ctx) {
     flowBook = shelfFlow.id() ?? flowBook;
     shelfFlow.destroy();
     shelfFlow = null;
+    main.classList.remove('nv-flow-active');
+    page.classList.remove('nv-flow-active');
+    bodyEl.classList.remove('nv-flow-active');
   }
 
   /* ---------------- 详情 ---------------- */
@@ -830,6 +837,7 @@ export async function mountNovel(main, ctx) {
     document.documentElement.classList.add('nv-reading-root');
     document.body.classList.add('nv-reading-body');
     const hostEl = document.createElement('div');
+    readerHost = hostEl;
     hostEl.className = 'nr-host';
     document.body.append(hostEl); /* 放到 body 下：不受 .main 内层 transform 影响，才能真正按视口定位 */
     const done = () => {
@@ -837,6 +845,7 @@ export async function mountNovel(main, ctx) {
       readerOpen = false;
       reading = null;
       hostEl.remove();
+      readerHost = null;
       window.__megulitCloseNovelReader = null;
       page.style.display = '';
       main.classList.remove('nv-reading');
@@ -855,7 +864,8 @@ export async function mountNovel(main, ctx) {
         chapterIdx: target.chapterIdx, charOffset: target.charOffset, startPage: target.startPage,
         onExit: done
       });
-      if (!handle) done();
+      if (!alive) handle?.exit?.();
+      else if (!handle) done();
       else window.__megulitCloseNovelReader = () => { try { handle.exit?.(); } catch { done(); } };
     } catch (error) {
       toast(String(error?.message || error));
@@ -879,6 +889,12 @@ export async function mountNovel(main, ctx) {
 
   function dispose() {
     if (!alive) return;
+    alive = false;
+    if (readerOpen) {
+      window.__megulitCloseNovelReader?.();
+      readerHost?.remove();
+      document.body.classList.remove('nv-reading-body');
+    }
     routeObserver.disconnect();
     clearTimeout(discoverTimer);
     discoverView?.abort();
@@ -887,7 +903,6 @@ export async function mountNovel(main, ctx) {
     toolbar.remove();
     preview.close();
     releaseShelfFlow();
-    alive = false;
     reading = null;
     readerOpen = false;
     main.classList.remove('nv-reading');

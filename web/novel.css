@@ -271,16 +271,16 @@
 .nv-card-progress { text-align: end; }
 
 /* ---------- 可滚动的立体书架 ---------- */
-:is(#main, #preview):has(.nv-body > .nv-flow) { overflow: clip; touch-action: pan-y; }
+:is(#main, #preview).nv-flow-active { overflow: clip; touch-action: pan-y; }
 :is(#main, #preview)[data-nv-flow-dragging] { cursor: grabbing; user-select: none; }
-.novel-page:has(.nv-body > .nv-flow) { padding-bottom: 0; }
-.nv-body:has(> .nv-flow) {
+.novel-page.nv-flow-active { padding-bottom: 0; }
+.nv-body.nv-flow-active {
   position: relative;
   display: flow-root;
   height: var(--nv-flow-room, 70dvh);
   overflow: clip;
 }
-.nv-body[data-nv-bounds]:has(> .nv-flow)::after {
+.nv-body.nv-flow-active[data-nv-bounds]::after {
   content: '';
   position: absolute;
   inset: 0 1px 1px;
