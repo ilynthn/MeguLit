@@ -270,7 +270,8 @@ sealed class StartupIsland : Form {
   }
   if(args.Length<1)return 2;
   try{SetProcessDPIAware();Application.EnableVisualStyles();Color accent=ColorTranslator.FromHtml(args.Length>2?args[2]:"#e0495a");
-   bool frames=Array.IndexOf(args,"--frames")>=0,reduce=Array.IndexOf(args,"--reduce-motion")>=0||(!frames&&ReducedMotion());
+   // The offscreen modes ignore the machine's own animation setting, so their output is the same everywhere.
+   bool frames=Array.IndexOf(args,"--frames")>=0,still=args.Length>3&&args[3]=="--render-test",reduce=Array.IndexOf(args,"--reduce-motion")>=0||(!frames&&!still&&ReducedMotion());
    using(var island=new StartupIsland(args[0],args.Length>1?args[1]:"zh",accent,reduce)){
     if(frames){island.DumpFrames(args[0]);return 0;}
     if(args.Length>3&&args[3]=="--render-test"){
