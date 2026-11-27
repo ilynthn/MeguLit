@@ -36,6 +36,7 @@ function identify({gameDir,exe,engine='',title='',vndb='',release='',chineseBuil
  const GP=require('../../core/game-print.cjs');let prints={};try{prints=GP.prints(exe,{title,engine});}catch{}
  const out={title,engine,vndb:VNDB.test(String(vndb).toLowerCase())?String(vndb).toLowerCase():'',release:String(release||'').trim(),releaseGuess:'',prints:{exe:prints.exe||'',head:prints.head||'',pe:prints.pe||'',pack:prints.pack||'',data:dataPrint(gameDir,readers)},seed:null,adapted:[]};
  const steam=steamOf(gameDir);out.releaseGuess=chineseBuild?'汉化版':steam?'Steam 版':'';
+ out.overlay=chineseOverlay(gameDir,exe);if(out.overlay&&!chineseBuild)out.releaseGuess='汉化整包（外挂汉化，日文原版文件完整）';
  try{const P=require('../../core/profiles/index.cjs');const p=P.profileFor({engine,exe,title,folder:gameDir,exeSha256:out.prints.exe||undefined,steamAppId:steam||undefined,prints:{pack:out.prints.pack,title:prints.title}});
   if(p.seedStatus)out.seed={key:p.gameKey,status:p.seedStatus,matched:p.matched};
   if(!out.vndb&&p.seedStatus){const g=require('../../core/profiles/seed.cjs').seeds().games.find(x=>x.key===p.gameKey);const v=g?.prints?.vndb||g?.ext?.adapter?.vndb;if(VNDB.test(String(v||'')))out.vndb=v;}}catch{}
@@ -43,12 +44,30 @@ function identify({gameDir,exe,engine='',title='',vndb='',release='',chineseBuil
  if(!out.vndb&&title){const t=GP.fold(title);const hit=rows.filter(r=>GP.fold(r.game)===t);if(hit.length===1&&VNDB.test(hit[0].vndb))out.vndb=hit[0].vndb;}
  if(out.vndb)out.adapted=sameRelease(rows,out.vndb,out.release||out.releaseGuess);
  return out;}
+/* 2026-11-27 (OZMAFIA!!, 夜鸮汉化 PC 整包, YU-RIS): a Chinese install that leaves the Japanese game whole. The translation is an overlay:
+   its own launcher (ozmafia_cn.exe) loads a DLL (mai.dll) that serves replacement scripts from a loose folder (mai\ysbin\*.ybn, 554),
+   while ozmafia.exe and pac\*.ypf are the untouched Japanese release. Started from the original exe the game is Japanese; nothing has
+   to be restored or written. chineseOverlay(gameDir, exe) -> {launchers:[...], scripts:'mai/ysbin', count, ext} | null:
+   a translated-named exe beside the program (汉化 / chs / cn / zh …) and a folder outside the program's packs holding at least 20
+   loose script files of a scenario-script type. */
+const OVERLAY_EXE=/(汉化|漢化|中文|简体|簡體|繁体|繁體|(?:^|[-_ .])(chs|cht|cn|sc|tc|zh|chinese)(?=$|[-_ .]))/i;
+const SCRIPT_EXT=/\.(ybn|ks|tjs|ws2|ast|scb)$/i,OVERLAY_MIN=20;
+function chineseOverlay(gameDir,exe){let names=[];try{names=fs.readdirSync(gameDir,{withFileTypes:true});}catch{return null;}
+ const main=path.basename(String(exe||'')).toLowerCase();
+ const launchers=names.filter(e=>e.isFile()&&/\.exe$/i.test(e.name)&&e.name.toLowerCase()!==main&&OVERLAY_EXE.test(e.name.replace(/\.exe$/i,''))).map(e=>e.name);
+ if(!launchers.length)return null;
+ let best=null;const walk=(rel,depth)=>{let ents=[];try{ents=fs.readdirSync(path.join(gameDir,rel),{withFileTypes:true});}catch{return;}
+  const counts={};for(const e of ents)if(e.isFile()){const m=SCRIPT_EXT.exec(e.name);if(m){const x=m[1].toLowerCase();counts[x]=(counts[x]|0)+1;}}
+  for(const [ext,n] of Object.entries(counts))if(rel&&n>=OVERLAY_MIN&&(!best||n>best.count))best={scripts:rel.replace(/\\/g,'/'),count:n,ext};
+  if(depth<2)for(const e of ents)if(e.isDirectory()&&!/^(save|savedata|userdata|movie|bgm|voice|se)$/i.test(e.name))walk(rel?path.join(rel,e.name):e.name,depth+1);};
+ walk('',0);return best?{exe:path.basename(String(exe||'')),launchers,...best}:null;}
+
 /* 2026-11-27 (アイキス3 sexy: the seed folder came out as auto-500c434def) a readable seed slug from VNDB's latin title, plus the
    ASCII words the game's own title adds (アイキス3 sexy + Ai Kiss 3 -> ai-kiss-3-sexy: the sexy / cute editions differ); '' when
    neither gives one */
 function slugFrom(title,latin){const words=s=>String(s||'').normalize('NFKC').toLowerCase().match(/[a-z0-9]+/g)||[];const base=words(latin);if(!base.length)return '';
  const extra=words(title).filter(w=>!base.includes(w)&&!/^d+$/.test(w));const s=[...base,...extra].join('-').slice(0,64).replace(/-+$/,'');return /^[a-z0-9][a-z0-9-]{0,63}$/.test(s)?s:'';}
-module.exports={slugFrom,identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB};
+module.exports={slugFrom,identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB,chineseOverlay};
 /* 2026-11-27 VNDB (services/game-enrichment.cjs vndbReleases, the one owner of VNDB queries): the work id, its releases, the release
    this copy most likely is, the Chinese title and the engine VNDB records. Only an unambiguous answer is taken; otherwise the
    candidates go into the question. vndb({title, gameDir, vnid, chineseBuild, engine}, {lookup}) -> {vndb, how, cn, release, releaseHow,

@@ -42,6 +42,7 @@ test('a library root: KiriKiri game -> a valid skeleton seed; a folder without e
  assert.equal(v.layer,'version');assert.equal(v.prints.exe,exeSha);
  const md=fs.readFileSync(path.join(out,'skeleton.md'),'utf8');
  assert.match(md,/已生成 1/);assert.match(md,/不是游戏 2/);
+ assert.ok(fs.existsSync(path.join(out,'test-requests','kirikiri-test-game.md')),'a checklist per written seed');
 });
 
 test('confidence: evidence decides the tier',()=>{
@@ -80,4 +81,10 @@ test('a batch run again: a game whose program or work is already in the target T
  assert.equal(Skeleton.seedInTarget(seed,'a'.repeat(64),''),'reallive/kichiku-megane');
  assert.equal(Skeleton.seedInTarget(seed,'b'.repeat(64),'v1413'),'reallive/kichiku-megane');
  assert.equal(Skeleton.seedInTarget(seed,'b'.repeat(64),'v24'),'');
+});
+
+test('the tester checklist names the original program, not an overlay translation\'s launcher',()=>{
+ const md=Skeleton.testRequest({name:'OZMAFIA!!',dir:'G:/games/ozmafia',exe:'ozmafia.exe',engineLabel:'YU-RIS',lines:102210,overlay:{launchers:['ozmafia_cn.exe'],scripts:'mai/ysbin'}});
+ assert.match(md,/`ozmafia\.exe`（\*\*不要\*\*用 ozmafia_cn\.exe/);assert.match(md,/## 回传截图/);assert.match(md,/102210 句日文/);
+ assert.doesNotMatch(Skeleton.testRequest({name:'x',dir:'d',exe:'x.exe',engineLabel:'KiriKiri',lines:1}),/不要/);
 });

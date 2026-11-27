@@ -99,6 +99,7 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  const pr=probeOf(loc,title,o);if(pr)row.layers.push('probe');row.probe=pr;
  const readers=[...new Set([pr?.detected,...caps.readers].filter(Boolean))];
  const id=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:row.engine,title,vndb:o.hints?.get(path.resolve(dir))||'',chineseBuild:pr?.step==='chinese-build',readers});row.layers.push('identify');
+ if(id.overlay)row.why.push('外挂汉化：'+id.overlay.launchers.join(' / ')+' 换上 '+id.overlay.scripts+' 的中文剧本，日文原版没动，用 '+row.exe+' 启动');
  if(id.seed){row.state='skip-seed';row.why.push('仓库已有 seed（'+id.seed.key+'，'+id.seed.status+'）');return done();}
  let v=null;if(!o.offline){try{v=await (o.vndbLookup||Ident.vndb)({title,gameDir:loc.gameDir,vnid:id.vndb,chineseBuild:pr?.step==='chinese-build',engine:row.engine});row.layers.push('vndb');}catch(e){row.why.push('VNDB 出错：'+e.message);}}
  const vndb=id.vndb||v?.vndb||'';row.vndb=vndb;
@@ -118,10 +119,12 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  /* the evidence goes with the seed: ext.adapter (who made it, how sure) and ext.versionPrints (a renamed or patched exe still finds it) */
  const file=path.join(o.seed,row.engine,r.slug,'game.json');const doc=JSON.parse(fs.readFileSync(file,'utf8'));
  const prints={};for(const k of ['head','pe','data','pack'])if(id.prints?.[k])prints[k]=id.prints[k];
- doc.ext={...(doc.ext||{}),adapter:{...(doc.ext?.adapter||{}),tool:'megulit-adapter skeleton',...(vndb?{vndb}:{}),...(v?.release?{release:v.release}:{}),confidence:c.level,why:c.why.slice(0,6),layers:row.layers.slice()},
+ doc.ext={...(doc.ext||{}),adapter:{...(doc.ext?.adapter||{}),tool:'megulit-adapter skeleton',...(vndb?{vndb}:{}),...(v?.release?{release:v.release}:{}),confidence:c.level,why:c.why.slice(0,6),layers:row.layers.slice(),...(id.overlay?{overlay:{launchers:id.overlay.launchers,scripts:id.overlay.scripts}}:{})},
   ...(exeSha&&Object.keys(prints).length?{versionPrints:{...(doc.ext?.versionPrints||{}),[exeSha]:prints}}:{})};
  const chk=SeedFormat.check(doc,{engine:row.engine,slug:r.slug});if(!chk.ok)throw Error('seed '+r.slug+': '+chk.errors.join('; '));
  fs.writeFileSync(file,JSON.stringify(doc,null,1)+'\n');
+ const req=path.join(o.out,'test-requests',row.engine+'-'+r.slug+'.md');fs.mkdirSync(path.dirname(req),{recursive:true});
+ fs.writeFileSync(req,testRequest({name:r.name||ja,dir:loc.gameDir,exe:row.exe,engineLabel:caps.label||row.engine,lines:pr?.japaneseLines,overlay:id.overlay}));row.testRequest=req;
  return done();}
 
 /* seeds written into a repository checkout (<repo>/The Seed): the bundled catalog snapshot follows, as the adapter's publish does
@@ -133,6 +136,16 @@ function catalogSnapshot(seedDir,rows){const repo=path.dirname(path.resolve(seed
  for(const r of rows)if(r.state==='written'&&r.vndb&&r.engine)t=t.replace(new RegExp('(\\n\\s*'+r.engine.replace(/[^a-z0-9_]/gi,'')+':)(\\d+)'),(s,a,n)=>a+Math.max(0,Number(n)-1));
  if(t!==before)fs.writeFileSync(file,t);
  const changed=require('../megulit-adapter.cjs').refreshSeedIds(repo);return changed||(t!==before?path.relative(repo,file):'');}
+
+/* the tester's checklist for one written seed (from the OZMAFIA!! --tester request, 2026-11-27): where the game is, which program
+   to start (an overlay translation's own launcher would show Chinese), the steps, what passes, which screenshots come back */
+function testRequest({name,dir,exe,engineLabel,lines,overlay}){return ['# '+name+' 实测清单','',
+ '## 游戏','','- 目录：`'+dir+'`','- 启动程序：`'+exe+'`'+(overlay?'（**不要**用 '+overlay.launchers.join(' / ')+'：那是汉化启动器，开出来是中文）':''),'- 引擎：'+engineLabel+'；剧本读取 '+(lines|0)+' 句日文','',
+ '## 步骤','','1. 测试版 MeguLit → 游戏库 → 添加上面的 `'+exe+'`，应显示「已适配」','2. 从 MeguLit 启动，片头点掉，标题选「はじめから / Start」',
+ '3. 看前 10 句：游戏对话框里没有日文原文残留；阅读层日文和中文齐、每点一下跟着换句；点读能查词','4. 按住 Ctrl 快进到第一个选项：选项上的日文还在，MeguLit 给每个选项出了中文、能点',
+ '5. 选第一个选项，再看 5 句','6. 关游戏和测试版 MeguLit；删掉这次新建的存档','',
+ '## 通过','','- 第 3 步：原文不残留，换句对','- 第 4 步：每个选项都有中文、能点','- 全程不崩、不卡、不闪','',
+ '## 回传截图','','1. 一句普通对话（带名字框）','2. 一句长句','3. 第一个选项画面（选项日文和中文都在）','4. 选完后的第一句','','不通过时另附测试版 `logs\` 里最新的 `hook-diagnostics.log`',''].join('\n');}
 
 /* the list: one row per game, the doubtful ones first (the owner tests those first) */
 function report(rows){const order=['look','medium','high',''];const st={written:'已生成','skip-seed':'已有 seed，跳过','not-game':'不是游戏目录','no-engine':'认不出引擎',skip:'跳过'};
@@ -163,4 +176,4 @@ async function run(o,{log=console.log}={}){fs.mkdirSync(o.out,{recursive:true});
  log(o.json?JSON.stringify(rows,null,1):md);return rows;}
 
 async function main(argv){const rows=await run(parse(argv));return rows.some(r=>r.state==='written')?0:2;}
-module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,catalogSnapshot,seedInTarget,CONF};
+module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,catalogSnapshot,seedInTarget,testRequest,CONF};
