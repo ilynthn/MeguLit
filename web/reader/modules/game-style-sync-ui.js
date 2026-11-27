@@ -183,6 +183,8 @@
    message=t('importPreview',{source,part:t(importing.part==='text'?'partText':'partPosition')});last={...last,gameStyleState:'measured'};paint();return true;}
  b.gameStyleStatus=m=>{if(receiveImport(m))return;
   if(m.gameStyleKey&&session.key&&m.gameStyleKey!==session.key&&m.gameStyleState!=='profile')return;
+  /* 2026-11-28 the work's speaker colour table (core/game-style-sync.cjs speakerTable) rides on every status: 分角色 (speaker-colors.js) */
+  if(m.gameStyleSpeakers!==undefined)b.speakerColorsReceived?.(m.gameStyleSpeakers,m.gameStyleKey||'');
   if(typeof m.gameStylePreview==='boolean'){
    document.body.classList.toggle('tome-style-probing',m.gameStylePreview);window.__tomeGlassReport?.(); // drop or restore glass windows now, not on the next 120 ms tick
    if(m.gameStylePreview&&Number.isSafeInteger(m.gameStyleCaptureId)&&document.body.classList.contains('tomoyo-ui-translation'))requestAnimationFrame(()=>requestAnimationFrame(()=>send({

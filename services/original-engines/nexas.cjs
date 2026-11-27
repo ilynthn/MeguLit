@@ -54,11 +54,16 @@ function table(b){if(!b||b.length<12)return null;
  return null;}
 /* speakers: the string pushed before (5,1) and the message pushed after it */
 function speakers(codes,n){const s=new Set();for(let i=0;i+2<codes.length;i++)if(codes[i][0]===0&&codes[i+1][0]===5&&codes[i+1][1]===1&&codes[i+2][0]===0&&codes[i][1]<n)s.add(codes[i][1]);return s;}
+/* speakerOf: message string index -> its name's string index (2026-11-28 per-speaker colours: アイキス3 sexy's hook gives the line
+   without the name and the name plate is a picture, so the script says who speaks) */
+function speakerOf(codes,n){const m=new Map();for(let i=0;i+2<codes.length;i++)if(codes[i][0]===0&&codes[i+1][0]===5&&codes[i+1][1]===1&&codes[i+2][0]===0&&codes[i][1]<n&&codes[i+2][1]<n)m.set(codes[i+2][1],codes[i][1]);return m;}
 const clean=t=>kit.trimBoth(t.replace(/@[rR]([^@]*)@[^@]*@/g,'$1').replace(/@・@/g,'').replace(/@v[\w-]+/g,'').replace(/@h[\w-]+/g,'').replace(/@t\d+/g,'').replace(/@n/g,'\n').replace(/@[kdgb]/g,''));
 function parse(buf){const t=table(buf);if(!t)return {lines:[],anchors:[]};
- const dec=t.utf8?new TextDecoder('utf-8'):kit.decoder(t.strings),lines=[],anchors=[],names=speakers(t.codes,t.strings.length),who=[];
- t.strings.forEach((s,i)=>{if(!s.length)return;if(!s.some(c=>c>=0x80)){anchors.push(s.toString('latin1'));return;}const x=clean(dec.decode(s));if(!x)return;if(names.has(i))who.push(x);lines.push(x);});
- return {lines,anchors,speakers:who};}
+ const dec=t.utf8?new TextDecoder('utf-8'):kit.decoder(t.strings),lines=[],anchors=[],names=speakers(t.codes,t.strings.length),who=[],by=speakerOf(t.codes,t.strings.length),lineWho=[];
+ const nameAt=i=>{const s=t.strings[i];return s&&s.length?clean(dec.decode(s)).slice(0,24):'';};
+ t.strings.forEach((s,i)=>{if(!s.length)return;if(!s.some(c=>c>=0x80)){anchors.push(s.toString('latin1'));return;}const x=clean(dec.decode(s));if(!x)return;if(names.has(i))who.push(x);lines.push(x);lineWho.push(by.has(i)?nameAt(by.get(i)):'');});
+ /* who: each line's speaker ('' = narration, a name line), parallel to lines; the script index keeps it (services/original-text.cjs) */
+ return {lines,anchors,speakers:who,...(lineWho.some(Boolean)?{who:lineWho}:{})};}
 
 /* update*.pac sorts after script.pac, so a patched script replaces the original (kit.engine keeps the last one) */
 const engine=kit.engine({id:'nexas',hint:'script.pac（*.bin）',

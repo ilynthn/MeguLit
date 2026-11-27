@@ -9,7 +9,7 @@ const NEEDED=1;
    deadline. A session ends as unmatched
    after this many misses in all, whatever the lines. */
 const SESSION_MISSES=4;
-const profileTools=require('./game-profile.js'),gameStyle=require('./game-style.js'),islandSource=require('./island-source.js');
+const profileTools=require('./game-profile.js'),gameStyle=require('./game-style.js'),islandSource=require('./island-source.js'),speakerColors=require('../web/reader/modules/speaker-colors.js');
 const median=values=>{const a=values.filter(Number.isFinite).sort((x,y)=>x-y);return a.length?a[Math.floor(a.length/2)]:undefined;};
 // Several measured lines -> one result: medians for size-like values, the union of the measured text for position.
 function combine(samples){
@@ -51,6 +51,9 @@ class GameStyleSync{
   this.profileFile=layout.config?path.join(layout.config,'game-style-profiles.json'):null;
   this.reloadProfiles();
   // How engine draw-hook coordinates map to the screen for each game (text-position.js), from a position sync.
+  /* 2026-11-28 per-speaker colours (web/reader/modules/speaker-colors.js): which colour the game drew each speaker with and the user's own
+     colour for them, per work, keyed like the profiles. A file of its own: a work with only a speaker table keeps the new-work defaults. */
+  this.speakerFile=layout.config?path.join(layout.config,'speaker-colors.json'):null;this.speakers={};try{const v=JSON.parse(fs.readFileSync(this.speakerFile,'utf8'));if(v&&v.version===1&&v.entries&&typeof v.entries==='object')for(const [k,e]of Object.entries(v.entries))if(/^[a-f0-9]{64}$/.test(k))this.speakers[k]={name:String(e?.name||'').slice(0,180),table:speakerColors.normalize(e?.table)};}catch{}
   this.mapFile=layout.config?path.join(layout.config,'game-position-maps.json'):null;this.maps={};try{const v=JSON.parse(fs.readFileSync(this.mapFile,'utf8'));if(v&&v.version===1&&v.entries&&typeof v.entries==='object')this.maps=v.entries;}catch{}for(const [key,entry]of Object.entries(this.profiles))if(Object.hasOwn(entry,'positionMap')){const m=profileTools.map(entry.positionMap);if(m)this.maps[key]=m;else if(m===null)delete this.maps[key];}}
  /* The file is read again when someone else wrote it (Settings → 重置所有设置, a game's style edited in Settings): every
     save writes all entries from this.profiles, so a copy from the reader's start put the reset or edited styles back. */
@@ -61,7 +64,7 @@ class GameStyleSync{
   this.gameName=String(s.gameTitle||s.processName||p.gameProcess||'').trim().slice(0,180);
   if(key&&key!==this.profileKey){this.profileKey=key;const entry=this.profile;if(entry?.textSavedAt||entry?.positionSavedAt)this.latest={profile:true};this.status('profile',{gameStyleProfile:entry?.prefs||{},gameStyleEffectivePrefs:this.effective(entry),gameStylePositionMap:this.maps[key]||null});}
   this.enabled=p.autoGameStyle!==false;if(!this.enabled&&!this.calibrating){clearTimeout(this.timer);this.generation++;}}
- snapshot(){const e=this.profile;return {gameStyleIdentity:this.identity||'',gameStyleKey:this.profileKey,gameStyleGameName:this.gameName||e?.name||'',gameStyleTextSavedAt:e?.textSavedAt||0,gameStylePositionSavedAt:e?.positionSavedAt||0,gameStyleSavedAt:e?.savedAt||0,gameStyleHistory:(e?.history||[]).slice(0,7)};}
+ snapshot(){const e=this.profile;return {gameStyleIdentity:this.identity||'',gameStyleKey:this.profileKey,gameStyleGameName:this.gameName||e?.name||'',gameStyleTextSavedAt:e?.textSavedAt||0,gameStylePositionSavedAt:e?.positionSavedAt||0,gameStyleSavedAt:e?.savedAt||0,gameStyleHistory:(e?.history||[]).slice(0,7),gameStyleSpeakers:this.speakerTable()};}
  // Calibration import lists: other saved works on this PC, names and save times only. importFrom reads one group
  // (text appearance, or position/wrap with its coordinate map) of a source work; it never writes the source.
  savedWorks(){return Object.entries(this.profiles||{}).filter(([key,e])=>key!==this.profileKey&&e&&e.prefs).map(([key,e])=>({key,name:String(e.name||key).slice(0,120),textSavedAt:e.textSavedAt||0,positionSavedAt:e.positionSavedAt||0})).sort((a,b)=>Math.max(b.textSavedAt,b.positionSavedAt)-Math.max(a.textSavedAt,a.positionSavedAt)).slice(0,200);}
@@ -99,6 +102,12 @@ class GameStyleSync{
  }
  updateProfile(prefs){const entry=this.profile;if(!entry)return;const values={};for(const k of Object.keys(entry.prefs))if(prefs[k]!==undefined)values[k]=prefs[k];return this.saveProfile(values,'all');}
  positionMap(){return this.profileKey?this.maps[this.profileKey]||null:null;}
+ speakerTable(){return this.profileKey?this.speakers[this.profileKey]?.table||speakerColors.normalize(null):null;}
+ /* the reader learned a speaker's colour or the user changed one (分角色): written at once, the old file kept until the new one is whole */
+ saveSpeakers(table,key=this.profileKey){if(!this.profileKey||key!==this.profileKey||!this.speakerFile)return false;const clean=speakerColors.normalize(table);
+  const entries={...this.speakers,[key]:{name:this.gameName||this.speakers[key]?.name||'',table:clean}};
+  try{fs.writeFileSync(this.speakerFile+'.tmp',JSON.stringify({version:1,entries},null,1));fs.renameSync(this.speakerFile+'.tmp',this.speakerFile);}catch{return false;}
+  this.speakers=entries;this.status('speakers');return true;}
  savePositionMap(map,key=this.profileKey){if(!this.profileKey||key!==this.profileKey)return false;
   if(map!==null&&(!map||typeof map!=='object'||![map.s,map.bx,map.by,map.dx,map.dy,map.cw,map.ch].every(Number.isFinite)||map.s<=.1||map.s>=10||Math.abs(map.bx)>20000||Math.abs(map.by)>20000||Math.abs(map.dx)>20000||Math.abs(map.dy)>20000||map.cw<=0||map.ch<=0))return false;
   const clean={};if(map)for(const [k,v]of Object.entries(map))if(/^[a-zA-Z]{1,20}$/.test(k)&&(typeof v==='string'&&v.length<40||Number.isFinite(v)))clean[k]=v;
