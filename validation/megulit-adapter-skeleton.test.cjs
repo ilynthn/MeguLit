@@ -64,3 +64,12 @@ test('DeepSeek done orders: the folder of each ok order and the VNDB id its task
  assert.equal(hints.get(path.join(root,'a')),'v1413');
  assert.equal(hints.has(path.join(root,'b')),false);
 });
+
+test('seeds written into a checkout: one work less per newly seeded engine in the catalog snapshot',()=>{
+ const repo=path.join(tmp,'repo');fs.mkdirSync(path.join(repo,'The Seed'),{recursive:true});fs.mkdirSync(path.join(repo,'services'),{recursive:true});
+ const file=path.join(repo,'services','seed-catalog-engine-map.cjs');
+ fs.writeFileSync(file,"const engines={\r\n reallive:{name:'RealLive',vndb:['RealLive']},\r\n};\r\nconst snapshot={\r\n counts:{\r\n  reallive:128,\r\n  nscripter:1445,\r\n },\r\n};\r\n");
+ Skeleton.catalogSnapshot(path.join(repo,'The Seed'),[{state:'written',engine:'reallive',vndb:'v1413'},{state:'skip-seed',engine:'nscripter',vndb:'v24'},{state:'written',engine:'reallive',vndb:''}]);
+ const t=fs.readFileSync(file,'utf8');
+ assert.match(t,/reallive:127,/);assert.match(t,/nscripter:1445,/);assert.match(t,/reallive:\{name/);
+});

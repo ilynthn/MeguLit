@@ -94,7 +94,7 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  const id=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:row.engine,title,vndb:o.hints?.get(path.resolve(dir))||'',chineseBuild:pr?.step==='chinese-build',readers});row.layers.push('identify');
  if(id.seed){row.state='skip-seed';row.why.push('仓库已有 seed（'+id.seed.key+'，'+id.seed.status+'）');return done();}
  let v=null;if(!o.offline){try{v=await (o.vndbLookup||Ident.vndb)({title,gameDir:loc.gameDir,vnid:id.vndb,chineseBuild:pr?.step==='chinese-build',engine:row.engine});row.layers.push('vndb');}catch(e){row.why.push('VNDB 出错：'+e.message);}}
- const vndb=id.vndb||v?.vndb||'';
+ const vndb=id.vndb||v?.vndb||'';row.vndb=vndb;
  const same=seedOfWork(vndb);if(same){row.state='skip-seed';row.why.push('同作品（'+vndb+'）已有 seed '+same.key+'：另一个版本请人看');return done();}
  if(!row.engine){row.state='no-engine';row.why.push('认不出引擎（'+loc.why+'）');}
  const c=confidence({caps,probe:pr,craft,vndb});row.confidence=c.level;row.why.push(...c.why);
@@ -115,6 +115,16 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  const chk=SeedFormat.check(doc,{engine:row.engine,slug:r.slug});if(!chk.ok)throw Error('seed '+r.slug+': '+chk.errors.join('; '));
  fs.writeFileSync(file,JSON.stringify(doc,null,1)+'\n');
  return done();}
+
+/* seeds written into a repository checkout (<repo>/The Seed): the bundled catalog snapshot follows, as the adapter's publish does
+   (services/seed-catalog-engine-map.cjs: seedIds is the print of the seeded VNDB ids, validation/megulit-adapter.test.cjs checks it;
+   counts are the works still without a seed, one less per newly seeded work) */
+function catalogSnapshot(seedDir,rows){const repo=path.dirname(path.resolve(seedDir)),file=path.join(repo,'services','seed-catalog-engine-map.cjs');
+ if(path.basename(path.resolve(seedDir))!=='The Seed'||!fs.existsSync(file))return '';
+ let t=fs.readFileSync(file,'utf8');const before=t;
+ for(const r of rows)if(r.state==='written'&&r.vndb&&r.engine)t=t.replace(new RegExp('(\\n\\s*'+r.engine.replace(/[^a-z0-9_]/gi,'')+':)(\\d+)'),(s,a,n)=>a+Math.max(0,Number(n)-1));
+ if(t!==before)fs.writeFileSync(file,t);
+ const changed=require('../megulit-adapter.cjs').refreshSeedIds(repo);return changed||(t!==before?path.relative(repo,file):'');}
 
 /* the list: one row per game, the doubtful ones first (the owner tests those first) */
 function report(rows){const order=['look','medium','high',''];const st={written:'已生成','skip-seed':'已有 seed，跳过','not-game':'不是游戏目录','no-engine':'认不出引擎',skip:'跳过'};
@@ -140,8 +150,9 @@ async function run(o,{log=console.log}={}){fs.mkdirSync(o.out,{recursive:true});
  const dirs=[...o.dirs.map(d=>path.resolve(d)),...o.scan.flatMap(r=>scanRoot(path.resolve(r))),...fromQueue];const rows=[];
  for(const d of [...new Set(dirs)]){let r;try{r=await one(d,o);}catch(e){r={dir:path.basename(d),state:'skip',why:['出错：'+String(e.message||e).slice(0,160)],layers:[],ms:0};}
   rows.push(r);log('# '+r.dir+': '+r.state+(r.engine?' '+r.engine:'')+(r.confidence?' '+CONF[r.confidence]:'')+' ('+(r.ms/1000).toFixed(1)+' s)');}
+ const snap=catalogSnapshot(o.seed,rows);if(snap)log('# catalog snapshot updated: '+snap);
  const md=report(rows);fs.writeFileSync(path.join(o.out,'skeleton.md'),md);fs.writeFileSync(path.join(o.out,'skeleton.json'),JSON.stringify(rows,null,1));
  log(o.json?JSON.stringify(rows,null,1):md);return rows;}
 
 async function main(argv){const rows=await run(parse(argv));return rows.some(r=>r.state==='written')?0:2;}
-module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,CONF};
+module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,catalogSnapshot,CONF};
