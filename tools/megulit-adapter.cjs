@@ -55,7 +55,10 @@ function probe(loc,title,budgetMs){try{const P=require('../services/adapter-prob
    soundtrack, not a game disc */
 const DISC=/.(iso|mds|mdf|cue|ccd|img|nrg|cdi|chd|b5t|b6t|isz)$/i;
 function discImages(dir,depth=4,out=[]){let ents=[];try{ents=fs.readdirSync(dir,{withFileTypes:true});}catch{return out;}for(const e of ents){const f=path.join(dir,e.name);if(e.isDirectory()){if(depth>0)discImages(f,depth-1,out);}else if(DISC.test(e.name)&&!(/.cue$/i.test(e.name)&&ents.some(x=>/.(wav|flac|ape)$/i.test(x.name))))out.push(f);}return out;}
-const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.push('VNDB 记的引擎是 '+v.engine+'，和认出的不一样：先核对');if(v?.error)p.notes.push('VNDB 没查到（'+v.error+'），作品号 / 发行版问人');return p;};
+const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.push('VNDB 记的引擎是 '+v.engine+'，和认出的不一样：先核对');if(v?.error)p.notes.push('VNDB 没查到（'+v.error+'），作品号 / 发行版问人');
+ /* 2026-11-27 OZMAFIA!! (夜鸮汉化 PC 整包): the translation is an overlay, the Japanese release is whole; nothing to restore */
+ const o=i.overlay;if(o)p.notes.push('外挂汉化：'+o.launchers.join(' / ')+' 从 '+o.scripts+'（'+o.count+' 个 .'+o.ext+'）换上中文剧本，日文原版程序和封包没动。用 '+(o.exe||'原版 exe')+' 启动就是日文原版，不用恢复、不写游戏文件；别从汉化启动器开');
+ return p;};
 /* the registry did not know the engine: LunaHook's static checks name one (only then; an engine the registry named but the rule table
    lacks keeps its name, 樟脑丸: DDSystem, not LunaHook's loose EntisGLS check) (registry.lunaHook); the first class the rule table maps is
    taken, the others only go into the question */
