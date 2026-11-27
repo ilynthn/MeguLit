@@ -30,7 +30,8 @@ const RULES={
   draw:[{kind:'roles',file:'native/megulithook/SiglusDraw.h',sig:'tools/engine-sigs/siglus-draw.cjs'}],hide:[]},
  /* input: the level the live run's input starts on (core/cold-test/input-fallback.cjs). 2026-11-27 ハミダシクリエイティブ: posted clicks and
     Enter changed nothing, not even the title's hover colour; InputShim's cursor + click opened START and advanced every line */
- artemis:{label:'Artemis',registry:['Artemis'],seed:['artemis'],draw:[],hide:[],input:'inputctl'},
+ artemis:{label:'Artemis',registry:['Artemis'],seed:['artemis'],draw:[],
+  hide:[{how:'Artemis2 layout call written back blank (layer 1), one stream per text layer: dialogue hidden, names and choices kept (core/profiles/engines/artemis.cjs source.embedGlyphPieces)',file:'native/megulithook/Artemis.cpp',mark:'hp.split = regoffset(ecx);',caveat:'只有 32 位、Artemis2 特征码命中的版本；64 位（THE SHELL）和 EmbedArtemis 版本没改'}],input:'inputctl'},
  tyrano:{label:'TyranoScript',registry:['TyranoScript'],seed:['tyrano'],draw:[],hide:[]},
  catsystem2:{label:'CatSystem2',registry:['CatSystem2'],seed:['catsystem2'],
   draw:[{kind:'roles',file:'native/megulithook/CS2Draw.h',sig:'tools/engine-sigs/cs2-draw.cjs'}],

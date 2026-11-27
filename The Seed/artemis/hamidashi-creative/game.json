@@ -29,7 +29,7 @@
   "vndb": "v27449"
  },
  "seedFormat": 1,
- "status": "skeleton",
+ "status": "verified",
  "slug": "hamidashi-creative",
  "builds": [
   "541452b152b02c4e242f09dc31ef5061629318b31e85881e9084b5cba6fbfac7"
@@ -46,7 +46,7 @@
  "sourceLangs": [
   "ja"
  ],
- "rev": 1,
+ "rev": 2,
  "ext": {
   "versionPrints": {
    "541452b152b02c4e242f09dc31ef5061629318b31e85881e9084b5cba6fbfac7": {
@@ -61,7 +61,7 @@
    "vndb": "v27449",
    "release": "パッケージ版",
    "source": "script:artemis",
-   "hide": "generic",
+   "hide": "engine:Artemis2 write-back (source.embedGlyphPieces)",
    "pairing": "script"
   }
  }

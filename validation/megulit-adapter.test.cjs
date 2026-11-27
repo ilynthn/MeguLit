@@ -29,7 +29,8 @@ test('plan: a reader that read Japanese is the text source; the draw hook aligns
  const z=plan({caps:Engines.capabilities('catsystem2'),probe:{step:'chinese-build',detected:'catsystem2',original:'layer',lines:9000,japaneseLines:7000,chineseLines:8800}});
  assert.equal(z.pairing.mode,'patch');assert.equal(z.source.original,'layer');
  const h=plan({caps:Engines.capabilities('artemis'),probe:{step:'decrypt-failed',detail:'artemis:KEY',detected:null}});
- assert.equal(h.source.kind,'hook');assert.equal(h.pairing.mode,'machine');assert.equal(h.hide.kind,'generic');assert.ok(h.notes.some(n=>/读取器/.test(n)));});
+ assert.equal(h.source.kind,'hook');assert.equal(h.pairing.mode,'machine');assert.equal(h.hide.kind,'engine','Artemis2 write-back (ハミダシクリエイティブ)');assert.ok(h.notes.some(n=>/读取器/.test(n)));
+ assert.equal(plan({caps:Engines.capabilities('tyrano'),probe:{step:'unsupported-engine',detected:null}}).hide.kind,'generic','an engine without its own hide still falls back to the generic layers');});
 
 test('identify: HANDOFF 已适配的游戏 rows; the same VNDB id and release means done, an unknown release never does',()=>{
  const text='# x\n## 已适配的游戏\n\n| 游戏 | VNDB | 发行版 | 引擎 | 状态 | 谁 | PR / seed |\n|---|---|---|---|---|---|---|\n| 千恋＊万花 | v19073 | Steam 版 | KiriKiri | verified | a | kirikiri/senren-banka |\n| オルフレール | v15563 | 待补 | KiriKiri | 进行中 | b | PR #1 |\n\n## 进行中\n| a | b |\n';
