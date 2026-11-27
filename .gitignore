@@ -85,3 +85,6 @@ web/preview/*.local.js
 
 # megulit.com offline dictionary shards: built from the app dictionary by site/tools/build-web-dict.cjs before a site deploy
 site/public/dict/
+
+# megulit-engine (Rust crate) build output
+engine/target/

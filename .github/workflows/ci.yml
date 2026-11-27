@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       cargo: ${{ steps.changes.outputs.cargo }}
+      engine: ${{ steps.changes.outputs.engine }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +44,12 @@ jobs:
             echo cargo=false >> "$GITHUB_OUTPUT"
           else
             echo cargo=true >> "$GITHUB_OUTPUT"
+          fi
+          # engine/ (megulit-engine) also compiles in the cx key tables of services/original-engines.
+          if [ '${{ github.event_name }}' = pull_request ] && git diff --quiet HEAD^1 HEAD -- engine services/original-engines/cx-schemes.json services/original-engines/cx-hx-schemes.json .github/workflows/ci.yml; then
+            echo engine=false >> "$GITHUB_OUTPUT"
+          else
+            echo engine=true >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/setup-node@v4
@@ -176,6 +183,24 @@ jobs:
         run: |
           cargo fetch --locked --manifest-path desktop/Cargo.toml
           cargo check --locked --manifest-path desktop/Cargo.toml
+
+  engine:
+    name: megulit-engine (cargo test)
+    needs: syntax
+    if: needs.syntax.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+
+      - name: cargo test
+        run: cargo test --locked --manifest-path engine/Cargo.toml
 
   tests:
     name: Tests (shard ${{ matrix.shard }}/3)
