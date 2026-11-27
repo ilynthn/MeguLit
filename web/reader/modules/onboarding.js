@@ -19,7 +19,7 @@
  const write=s=>{try{store.setItem(O.KEY,JSON.stringify(s));}catch{}try{window.__tomoyoTranslateRequest?.(JSON.stringify({type:'uiState'}));}catch{}};
  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)');
- const IMG=name=>new URL('../assets/onboarding/'+name+'.webp',document.baseURI).href;
+ const IMG=name=>new URL('../assets/onboarding/'+O.image(name,lang()),document.baseURI).href;
  const css=document.createElement('style');css.id='mg-tour-style';css.textContent=`
 .mg-tour{position:fixed;inset:0;z-index:2147482600;pointer-events:auto;font-family:var(--mgc-ui,"Microsoft YaHei UI",sans-serif);color:var(--mgc-ink,#f0e5da)}
 .mg-tour-dim{position:absolute;inset:0;width:100%;height:100%;display:block}

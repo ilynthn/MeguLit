@@ -32,20 +32,22 @@
    steps:{
     capsule:['This is the capsule','MeguLit’s handle on the game screen. Point at it for the shortcuts, click MeguLit in the middle for the menu, hold and drag to move it. It keeps clear of the dialogue.'],
     hotkey:['Open the menu with a hotkey','Press {menu} any time to open or close the menu. Press {cover} to hide every overlay and see the original screen, again to bring it back.'],
-    pages:['What each page does','The pages run down the left: Translate picks the translator, Text styles the lines, Calibrate lines them up, Embed handles replacing the original; Learn, Voice, Log and Look do what they say.'],
-    text:['Make the text yours','On Text, pick Japanese or Chinese, drag the size slider, and switch to Colour to recolour it; you see it at once. To move the text, go to Calibrate and use Drag text box.'],
+    pages:['What each page does','The pages run down the left: Translate picks the translator, Text styles the lines, Calibration lines them up, Embedding replaces the original text; Study, Voice, Log and Appearance do what they say.'],
+    text:['Make the text yours','On Text, pick Japanese or Chinese, drag the size slider, and switch to Colour to recolour it; you see it at once. To move the text, use Drag text box on Calibration.'],
     lookup:['Click a word to look it up','Click a word in the line for its reading and meaning. Drag across a whole sentence to save it or send it to Anki.'],
-    help:['When something is off','Text not lined up with the original: open Calibrate and click Calibrate this line. To see this tour again, click Tutorial at the top right of the menu, or Tutorial in the main window’s top bar.']}},
+    help:['When something is off','Text not lined up with the original: open Calibration and click Calibrate current line. To see this tour again, click Tutorial at the top right of the menu, or Tutorial in the main window’s top bar.']}},
   ja:{kicker:'はじめてガイド',skip:'チュートリアルをスキップ',prev:'戻る',next:'次へ',done:'プレイを始める',never:'今後表示しない',close:'閉じる',replay:'次のゲームでもう一度案内する',replayDone:'次にゲームを起動したとき、もう一度案内します',
    replayNow:'ゲーム内でガイドを開きました',count:'最初の {limit} 回の起動で表示されます。スキップすると以後は出ません',again:'チュートリアル',againTip:'はじめてガイドをもう一度',more:'詳しい説明',
    steps:{
     capsule:['これがカプセル','ゲーム画面上の MeguLit の入口。ポインタを合わせるとショートカット、中央の MeguLit をクリックでメニュー。ドラッグで移動でき、台詞は自動で避けます。'],
     hotkey:['ホットキーでメニュー','{menu} でいつでもメニューを開閉。元の画面を見たいときは {cover} で全表示を隠し、もう一度押すと戻ります。'],
-    pages:['メニューの各ページ','左の列が各ページです。翻訳は訳し方、文字は見た目、校正は位置合わせ、埋め込みは原文の置き換え。学習・音声・履歴・外観はその名のとおり。'],
-    text:['文字を好みの見た目に','「文字」ページで日本語か中国語を選び、サイズのスライダーで大きさ、「色」で色を変えるとすぐ反映されます。位置は「校正」ページの「テキスト枠をドラッグ」で。'],
+    pages:['メニューの各ページ','左の列が各ページです。翻訳は訳し方、文字は見た目、調整は位置合わせ、埋め込みは原文の置き換え。学習・音声・ログ・外観はその名のとおり。'],
+    text:['文字を好みの見た目に','「文字」ページで日本語か中国語を選び、サイズのスライダーで大きさ、「色」で色を変えるとすぐ反映されます。位置は「調整」ページの「テキスト枠をドラッグ」で。'],
     lookup:['クリックで辞書','台詞の単語をクリックすると読みと意味が出ます。一文をドラッグで選ぶと、保存や Anki 追加ができます。'],
-    help:['困ったときは','原文と位置がずれたら「校正」で「この行を校正」。このガイドをもう一度見るには、メニュー右上の「チュートリアル」か、メイン画面上部の「チュートリアル」を。']}}};
+    help:['困ったときは','原文と位置がずれたら「調整」で「現在の文を調整」。このガイドをもう一度見るには、メニュー右上の「チュートリアル」か、メイン画面上部の「チュートリアル」を。']}}};
  const words=locale=>TEXT[locale]||TEXT.zh;
+ /* pictures are taken in each interface language (tools/onboarding-shots.cjs): capsule.webp, capsule-en.webp, capsule-ja.webp */
+ const image=(name,locale)=>name+(locale==='en'||locale==='ja'?'-'+locale:'')+'.webp';
  const hotkey=action=>{try{const fn=(typeof window==='object'&&window.MeguLitHotkeys&&window.MeguLitHotkeys.label)||(typeof require==='function'&&require('./hotkey-label.js').label);return String(fn(action)||'');}catch{return '';}};
  /* {menu} {cover} {bind} {log} become the user's current hotkeys; {n} {i} {limit} plain numbers */
  const fill=(text,vars={})=>String(text).replace(/\{(\w+)\}/g,(m,k)=>k in vars?String(vars[k]):['menu','cover','bind','log'].includes(k)?hotkey(k):m);
@@ -68,5 +70,5 @@
  }
  const stop=value=>({...clean(value),stopped:true,replay:false});
  const replay=value=>({...clean(value),replay:true});
- return {KEY,LIMIT,STEPS,TEXT,words,fill,step,clean,launch,stop,replay,hotkey};
+ return {KEY,LIMIT,STEPS,TEXT,words,image,fill,step,clean,launch,stop,replay,hotkey};
 });

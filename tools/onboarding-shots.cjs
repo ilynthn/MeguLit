@@ -3,7 +3,7 @@
 /* 2026-11-27 pictures of the 新手引导 (web/assets/onboarding/<step>.webp): the real reader page in headless Edge over
    MeguLit's own default background with a sample line, the tour walked to each step, its card hidden, and the lit part
    cropped to 16:9. The ring the tour draws is the annotation. Run again after the capsule or the Alt+T menu changes:
-     node tools/onboarding-shots.cjs [--lang zh] [--out web/assets/onboarding]
+     node tools/onboarding-shots.cjs --lang zh   (and --lang en, --lang ja: one set per interface language)
    Each picture also lands as <step>-<lang>.png in --png when given; --full keeps the card and saves the whole screen
    there instead (the PR's screenshots of every step). */
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
@@ -56,7 +56,7 @@ const LINE={zh:['今日は、いい天気ですね。','今天天气真好呢。
    if(FULL){const full=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(PNG,steps[i].id+'-full-'+LANG+'.png'),Buffer.from(full.data,'base64'));console.log(steps[i].id,'full');continue;}
    const scale=960/clip.width;
    const shot=await cdp.send('Page.captureScreenshot',{format:'webp',quality:84,clip:{...clip,scale}});
-   fs.writeFileSync(path.join(OUT,steps[i].image+'.webp'),Buffer.from(shot.data,'base64'));
+   fs.writeFileSync(path.join(OUT,require(path.join(WEB,'onboarding-steps.js')).image(steps[i].image,LANG)),Buffer.from(shot.data,'base64'));
    if(PNG){const full=await cdp.send('Page.captureScreenshot',{format:'png',clip:{...clip,scale}});fs.writeFileSync(path.join(PNG,steps[i].id+'-'+LANG+'.png'),Buffer.from(full.data,'base64'));}
    console.log(steps[i].id,Math.round(clip.width)+'x'+Math.round(clip.height));
   }

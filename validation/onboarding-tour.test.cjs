@@ -151,3 +151,14 @@ test('the top bar 教程 opens the illustrated tour, and asking for it in the ga
   await launch('pid2|b');assert.equal(await tour(),null,'and the next launch stays quiet');
  });
 });
+
+test('the launch count and the pictures: five launches, a repeated status counts once, skip and replay, a picture per step and language',()=>{
+ const O=require('../web/onboarding-steps.js');
+ let s={};const shown=[];for(const id of ['a','a','b','c','d','e','f']){const r=O.launch(s,id);shown.push(r.show);s=r.state;}
+ assert.deepEqual(shown,[true,false,true,true,true,true,false]);assert.equal(s.shown,5);
+ assert.equal(O.launch(O.stop({}),'x').show,false,'skipped before the first count: never');
+ const again=O.launch(O.replay(O.stop({shown:5})),'y');assert.deepEqual([again.show,again.state.replay,again.state.shown],[true,false,5],'a replay shows once without counting');
+ assert.deepEqual(O.clean('{"shown":99,"stopped":"yes"}'),{shown:5,stopped:false,last:'',replay:false},'bad stored values are cleaned');
+ for(const s of O.STEPS)for(const l of ['zh','en','ja']){const f=path.join(WEB,'assets','onboarding',O.image(s.image,l));assert.ok(fs.existsSync(f)&&fs.statSync(f).size>1500,s.id+' '+l+' picture');
+  assert.ok(O.TEXT[l].steps[s.id][0]&&O.TEXT[l].steps[s.id][1],s.id+' '+l+' words');}
+});
