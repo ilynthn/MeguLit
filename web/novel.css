@@ -851,7 +851,6 @@
   background: var(--nr-paper);
   color: var(--nr-ink);
   font-family: var(--nr-font);
-  transition: background .25s, color .25s;
 }
 
 .novel-reader button {
@@ -888,8 +887,6 @@
   line-height: var(--nr-lh);
   letter-spacing: .02em;
   column-fill: auto;
-  transition: transform .32s cubic-bezier(.22,.8,.22,1);
-  will-change: transform;
 }
 .nr-body p { margin: 0 0 .85em; text-indent: 2em; word-break: break-word; }
 .novel-reader[data-dir="v"] .nr-body { writing-mode: vertical-rl; text-orientation: upright; height: 100%; }
@@ -1454,7 +1451,6 @@ body.nv-reading-body {
 .nr-page-paper { background: var(--nr-paper); }
 .nr-page-fragment { position: absolute; overflow: hidden; }
 .nr-page-reverse { background: color-mix(in srgb, var(--nr-paper) 92%, var(--nr-ink)); overflow: hidden; }
-.nr-page-bleed { opacity: .12; transform-origin: left center; }
 .nr-page-fold-gradient {
   position: absolute;
   top: -30%;

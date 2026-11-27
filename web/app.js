@@ -1350,8 +1350,11 @@ let stageWatch=null;function watchStage(){const main=document.querySelector('#ma
 let stopDetailPage=()=>{},torchMonument=null;
 /* 2026-11-26 (#1090) renderRoute is called without await from clicks, events and timers (24 places); work before its own try (stage, veil,
    the leaving page's stop, the fade) that threw became an unhandled rejection. Every failure is now a route failure, logged as one */
-function renderRoute(){return renderRouteNow().catch(error=>{window.megulitYuiStage?.('route-failed');console.error('renderRoute',route,error);});}
-async function renderRouteNow(){watchStage();
+function renderRoute(options){return renderRouteNow(options).catch(error=>{window.megulitYuiStage?.('route-failed');console.error('renderRoute',route,error);});}
+async function renderRouteNow({navigation=false}={}){
+  // Background refreshes must leave an open book mounted. Explicit navigation still closes it.
+  if(!navigation&&route==='novel'&&document.querySelector('#main.nv-reading'))return;
+  watchStage();
   stopDetailPage();stopDetailPage=()=>{};
   stopHistoryTranslations();stopHistoryTranslations=()=>{};
   const token=++pageToken,main=document.querySelector('#main');document.documentElement.dataset.stage=stageFor(route);applyVeil(model.preferences);syncStage();{
@@ -1421,7 +1424,7 @@ async function navigate(next,tab='',replay=false){if(next!=='learning'||tab!=='k
  ja:'設定を保存できませんでした'}[locale]);return;}}await retractTabs(next==='statistics'?'learning':next);if(ticket!==navigationTicket)return;route=next;subtab=tab;if(!replay){pageState=null;pageNav.reset();
  const entry=navEntry();if(!sameEntry(navStack[navIndex],entry)){navStack.splice(navIndex+1);navStack.push(entry);if(navStack.length>60)navStack.shift();navIndex=navStack.length-1;
  }else navStack[navIndex]=entry;}updateNavButtons();document.querySelectorAll('[data-route]').forEach(button=>{if(button.dataset.route===route||(route==='game'||route==='series')&&button.dataset.route==='library'||route==='statistics'&&button.dataset.route==='learning')button.setAttribute('aria-current',
- 'page');else button.removeAttribute('aria-current');});renderRoute();}
+ 'page');else button.removeAttribute('aria-current');});renderRoute({navigation:true});}
 async function start(){
   app.innerHTML=loading();
   if(!window.__megulitDiscDropBound){window.__megulitDiscDropBound=true;bindDiscDrop({invoke,internals:window.__TAURI_INTERNALS__,onImages:paths=>{installDisc(paths).catch(error=>toast(errorMessage(error)));}}).catch(()=>{window.__megulitDiscDropBound=false;});}

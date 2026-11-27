@@ -74,6 +74,9 @@ export async function openReader(host, ctx) {
   let nativeFullscreen = false;
   let chapterRequest = 0;
   let turningChapter = false;
+  let prefetchTimer;
+  let snapshotIdle;
+  const chapterCache = new Map();
   let translateTimer;
   let queryTimer;
   let panelVersion = 0;
@@ -147,6 +150,7 @@ export async function openReader(host, ctx) {
     const mode = prefs.dir === 's' ? 'scroll' : prefs.dir === 'v' ? 'vscroll' : 'paged';
     root.dataset.mode = mode;
     stopReaderTurn(root);
+    cancelIdleCallback(snapshotIdle);
     invalidateReaderTurnSnapshot(root);
     body.style.transform = 'none';
     body.style.height = '';
@@ -206,29 +210,35 @@ export async function openReader(host, ctx) {
     stride = W + GAP;
     const columnCount = Math.round((content + GAP) / (columnW + GAP));
     pages = Math.max(1, Math.ceil(columnCount / perPage));
-    measure(false);
+    measureParagraphs();
+    if (prefs.turn !== 'slide' && !reducedMotion()) {
+      snapshotIdle = requestIdleCallback(() => {
+        if (alive) captureReaderPage(root, viewport, body);
+      });
+    }
   }
 
   /* 一次性把每段落在第几栏量出来，翻页时只读缓存，不再触发排版 */
-  function measure(vertical) {
+  function measureParagraphs() {
     paras = [...body.querySelectorAll('[data-off]')];
-    const prev = body.style.transform;
-    body.style.transform = 'none';
-    const base = body.getBoundingClientRect();
-    const origin = base.left;
+    const origin = body.getBoundingClientRect().left;
     columns = paras.map(el => {
       const rect = el.getBoundingClientRect();
       const pos = rect.left - origin;
       return Math.max(0, Math.floor(pos / stride + 1e-3));
     });
-    body.style.transform = prev;
   }
 
   function goTo(next, { silent = false } = {}) {
     if (!pages) return;
     const previousPage = page;
     page = Math.max(0, Math.min(pages - 1, next | 0));
-    if (previousPage !== page && !silent) { closeLookup(); setHoveredWord(null); }
+    if (previousPage === page && !silent) return;
+    if (!silent) {
+      cancelAnimationFrame(hoverRaf);
+      closeLookup();
+      setHoveredWord(null);
+    }
     if (prefs.dir === 's') {
       // 滚动模式：页码按滚动比例折算
       const max = Math.max(1, stage.scrollHeight - stage.clientHeight);
@@ -238,9 +248,8 @@ export async function openReader(host, ctx) {
       viewport.scrollLeft = -page * stride;
     } else {
       const animate = !silent && previousPage !== page && !reducedMotion();
-      const old = animate && prefs.turn === 'slide' ? getComputedStyle(body).transform : '';
-      const curlTransform = prefs.turn === 'curl' ? body.style.transform : undefined;
-      const snapshot = animate && prefs.turn !== 'slide' ? capturePage(curlTransform) : null;
+      const old = body.style.transform;
+      const snapshot = animate && prefs.turn !== 'slide' ? captureReaderPage(root, viewport, body) : null;
       if (silent || (!animate && previousPage !== page)) stopReaderTurn(root);
       body.style.transform = `translateX(${-page * stride}px)`;
       if (animate) turnReaderPage(root, body, prefs.turn, page > previousPage, old, snapshot);
@@ -250,7 +259,6 @@ export async function openReader(host, ctx) {
   }
 
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const capturePage = curlTransform => captureReaderPage(root, viewport, body, curlTransform);
 
   function stepPage(forward) {
     if (!chapter || turningChapter) return;
@@ -440,19 +448,47 @@ export async function openReader(host, ctx) {
     }
   }
 
+  function prepareChapter(index) {
+    const cached = chapterCache.get(index);
+    if (cached) return cached;
+    const pending = api('novel_chapter', { id, index }).then(async data => {
+      const [annotations, images] = await Promise.all([loadRuby(index), prepareFigures(data)]);
+      return { data, annotations, images };
+    }).catch(error => {
+      if (chapterCache.get(index) === pending) chapterCache.delete(index);
+      throw error;
+    });
+    chapterCache.set(index, pending);
+    return pending;
+  }
+
+  function prefetchAdjacent(index, forward) {
+    clearTimeout(prefetchTimer);
+    for (const cached of chapterCache.keys()) {
+      if (Math.abs(cached - index) > 1) chapterCache.delete(cached);
+    }
+    prefetchTimer = setTimeout(async () => {
+      const directions = forward ? [1, -1] : [-1, 1];
+      for (const direction of directions) {
+        if (!alive || chapter?.idx !== index) break;
+        const next = index + direction;
+        if (next >= 0 && next < detail.book.chapterCount) await prepareChapter(next).catch(() => {});
+      }
+    }, 120);
+  }
+
   async function loadChapter(index, offset = 0, savedPage, { turn = false, forward = true } = {}) {
     const request = ++chapterRequest;
     try {
-      const data = await api('novel_chapter', { id, index });
+      const { data, annotations, images } = await prepareChapter(index);
       if (!alive || request !== chapterRequest) return false;
-      const [annotations, images] = await Promise.all([loadRuby(index), prepareFigures(data)]);
-      if (!alive || request !== chapterRequest) return false;
-      const snapshot = turn && prefs.dir !== 's' && !reducedMotion() ? capturePage() : null;
+      const snapshot = turn && prefs.dir !== 's' && !reducedMotion() ? captureReaderPage(root, viewport, body) : null;
       closeLookup();
       chapter = { ...data, restoreOffset: offset || null, restorePage: Number.isInteger(savedPage) ? savedPage : undefined };
       ruby = annotations;
       renderChapter(images, turn && !forward);
       if (snapshot) turnReaderPage(root, body, prefs.turn, forward, '', snapshot);
+      prefetchAdjacent(index, forward);
       return true;
     } catch (error) {
       if (alive && request === chapterRequest) toast(String(error?.message || error));
@@ -472,8 +508,7 @@ export async function openReader(host, ctx) {
     bookLang = detail.book.languages || '';
     booted = true;
     await loadChapter(chapterIdx, charOffset, startPage);
-    startClock();
-    setTimeout(warmSpeech, 1200); /* 正文先出来，再悄悄把语音引擎叫醒 */
+    if (alive) startClock();
   }
 
   /* ---------------- 进度 / 阅读事件 ---------------- */
@@ -495,14 +530,6 @@ export async function openReader(host, ctx) {
     pendingSeconds = 0;
     pendingChars = 0;
     api('novel_event', payload).catch(() => {});
-  }
-
-  /* 预热 TTS 引擎：冷启动要等模型加载，提前叫醒，点发音才不用干等 */
-  let warmed = false;
-  function warmSpeech() {
-    if (warmed) return;
-    warmed = true;
-    api('speakers').catch(() => { warmed = false; });
   }
 
   function startClock() {
@@ -907,7 +934,6 @@ export async function openReader(host, ctx) {
   }
 
   function buildPanel({ title, sub, body, actions, x, y }) {
-    warmSpeech(); /* 打开面板就顺手把引擎叫醒 */
     closeLookup();
     const rootRect = root.getBoundingClientRect();
     const width = 332;
@@ -984,7 +1010,6 @@ export async function openReader(host, ctx) {
         reading.textContent = data.reading;
         card.querySelector('.rd-pop-head strong').after(reading);
       }
-      clipFor(word).catch(() => {}); /* 面板一打开就先把这个词的音频合成好 */
       const remote = await lookupEntries(word);
       const items = remote.length ? remote : data.entries || [];
       if (!alive || !card.isConnected) return;
@@ -1155,7 +1180,10 @@ export async function openReader(host, ctx) {
       button.onclick = () => {
         const { setting, value } = button.dataset;
         if (setting === 'custom') { drawer('custom'); return; }
-        const anchor = offsetOfPage();
+        const changesMetrics = (setting === 'turn' && prefs.dir !== (value === 'scroll' ? 's' : 'h')) ||
+          setting === 'spread' || (setting === 'paper' && (prefs.paper === 'bold') !== (value === 'bold'));
+        const anchor = changesMetrics ? offsetOfPage() : 0;
+        if (setting === 'paper' || setting === 'turn') stopReaderTurn(root);
         prefs[setting] = value;
         if (setting === 'turn') prefs.dir = value === 'scroll' ? 's' : 'h';
         for (const option of panelEl.querySelectorAll(`[data-setting="${setting}"]`)) {
@@ -1164,7 +1192,7 @@ export async function openReader(host, ctx) {
         button.closest('details')?.removeAttribute('open');
         panelEl.querySelector('.nr-layout-choice').hidden = prefs.dir !== 'h';
         applyPrefs();
-        if (setting !== 'chrome') relayout(anchor);
+        if (changesMetrics) relayout(anchor);
       };
     }
   }
@@ -1213,10 +1241,11 @@ export async function openReader(host, ctx) {
   });
 
   /* 滚轮翻页：只在这里翻页，左右两侧不再有热区，边缘文字也能正常点 */
-  let wheelAcc = 0;
-  let wheelLock = 0;
+  let wheelGestureAt = -Infinity;
+  let wheelGestureDelta = 0;
+  let wheelGestureTurned = false;
   stage.addEventListener('wheel', event => {
-    if (panel || !chapter) return;
+    if (panel || !chapter || event.ctrlKey || event.defaultPrevented) return;
     if (prefs.dir === 's') {
       const atBottom = stage.scrollTop + stage.clientHeight >= stage.scrollHeight - 2;
       if ((event.deltaY > 0 && atBottom) || (event.deltaY < 0 && stage.scrollTop <= 1)) {
@@ -1229,14 +1258,24 @@ export async function openReader(host, ctx) {
       viewport.scrollLeft -= event.deltaY;
       return;
     }
-    const now = Date.now();
-    if (now < wheelLock) return;
-    wheelAcc += event.deltaY;
-    if (Math.abs(wheelAcc) < 36) return;
-    const forward = wheelAcc > 0;
-    wheelAcc = 0;
-    wheelLock = now + 150;
-    stepPage(forward);
+    const delta = event.deltaY || event.deltaX;
+    if (!delta) return;
+    // Discrete notches are independent, even in a burst. Smooth input includes inertial events.
+    const now = performance.now();
+    if (now - wheelGestureAt > 90 || Math.sign(wheelGestureDelta) !== Math.sign(delta)) {
+      wheelGestureDelta = 0;
+      wheelGestureTurned = false;
+    }
+    if (event.deltaMode !== 0 || (!wheelGestureDelta && Math.abs(delta) >= 38)) {
+      stepPage(delta > 0);
+      return;
+    }
+    wheelGestureAt = now;
+    wheelGestureDelta += delta;
+    if (!wheelGestureTurned && Math.abs(wheelGestureDelta) >= 36) {
+      wheelGestureTurned = true;
+      stepPage(wheelGestureDelta > 0);
+    }
   }, { passive: false });
 
   let hoverRaf = 0;
@@ -1325,17 +1364,18 @@ export async function openReader(host, ctx) {
   }, { passive: true });
 
   function onKey(event) {
-    if (!alive) return;
+    if (!alive || event.defaultPrevented || event.isComposing) return;
     if (event.key === 'Escape') {
-      if (lookupCard) { closeLookup(); event.preventDefault(); return; }
+      event.preventDefault();
+      if (event.repeat) return;
+      if (lookupCard) { closeLookup(); return; }
       if (panel) closePanel();
       else if (!menu.hidden) closeMenu();
       else if (fullscreen) setFullscreen(false);
       else exit();
-      event.preventDefault();
       return;
     }
-    if (event.target.closest?.('input,textarea,select,[contenteditable]') || event.isComposing) return;
+    if (event.target.closest?.('input,textarea,select,[contenteditable]')) return;
     if (!event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && Object.hasOwn(DRAWER_KEYS, event.key)) {
       event.preventDefault();
       if (!event.repeat && booted) drawer(DRAWER_KEYS[event.key]);
@@ -1344,8 +1384,10 @@ export async function openReader(host, ctx) {
     if (panel || !menu.hidden || event.ctrlKey || event.altKey || event.metaKey) return;
     const nextKeys = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
     const prevKeys = ['ArrowLeft', 'ArrowUp', 'PageUp'];
-    if (nextKeys.includes(event.key)) { event.preventDefault(); stepPage(true); }
-    else if (prevKeys.includes(event.key)) { event.preventDefault(); stepPage(false); }
+    if (nextKeys.includes(event.key) || prevKeys.includes(event.key)) {
+      event.preventDefault();
+      if (!event.repeat) stepPage(nextKeys.includes(event.key));
+    }
     else if (event.key === 'Home') { event.preventDefault(); goTo(0); }
     else if (event.key === 'End') { event.preventDefault(); goTo(pages - 1); }
   }
@@ -1365,6 +1407,9 @@ export async function openReader(host, ctx) {
     clearTimeout(queryTimer);
     clearTimeout(translateTimer);
     clearTimeout(resizeTimer);
+    clearTimeout(prefetchTimer);
+    cancelIdleCallback(snapshotIdle);
+    chapterCache.clear();
     clearInterval(flushTimer);
     clearInterval(tickTimer);
     removeEventListener('keydown', onKey);
@@ -1390,5 +1435,8 @@ export async function openReader(host, ctx) {
   await boot();
   if (!alive) return;
   if (!booted) { exit(); return; }
-  return { exit, reload: () => loadChapter(chapter?.idx || 0, 0) };
+  return { exit, reload: () => {
+    chapterCache.clear();
+    return loadChapter(chapter?.idx || 0, 0);
+  } };
 }
