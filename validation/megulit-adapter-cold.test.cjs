@@ -165,8 +165,22 @@ test('hookDiagnostics: injected hooks, dropped dialogue, the selected stream, cu
  fs.writeFileSync(path.join(root,'logs','hook-diagnostics.log'),['2026-11-26T06:00:00.0000000Z info 0 注入钩子: KiriKiri1 005240D0','2026-11-26T06:23:43.5970284Z info 0 注入钩子: EmbedKrkr2 005E3389',
   '2026-11-26T06:23:45.0137487Z krkr wait kag','2026-11-26T06:24:10.0151891Z auto-select KiriKiri2 (first dialogue stream of 3)','2026-11-26T06:24:37.2574944Z aux noise tTVPNativeBaseBitmap::DrawText "私私もも"'].join('\n'));
  const d=A.hookDiagnostics(root,{startedAt:'2026-11-26T06:23:43Z',endedAt:'2026-11-26T06:24:56Z'},path.join(root,'cut.log'));
- assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2',lunaEngine:''});
+ assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2',lunaEngine:'',foreign:0});
  assert.equal(fs.readFileSync(path.join(root,'cut.log'),'utf8').split('\n').filter(Boolean).length,4,'only the run\'s lines');});
+
+/* 2026-11-27 制服カノジョ3 (Unity) was reported as 「Artemis」: another agent's Artemis game wrote into the same app copy's log in the
+   same minutes. Another process's lines are not this run's evidence */
+test('hookDiagnostics: another game in the same log is not this run (pid)',()=>{const root=tmp();fs.mkdirSync(path.join(root,'logs'));
+ fs.writeFileSync(path.join(root,'logs','hook-diagnostics.log'),[
+  '2026-11-27T08:13:48.0000000Z info 0 进程 31112 已连接','2026-11-27T08:13:50.1600000Z embed hook pending EXHMXF2@Unity.TextMeshPro:TMPro:TMP_Text:set_text:1:JIT:UNITY',
+  '2026-11-27T08:15:28.0080881Z info 0 进程 77896 已连接','2026-11-27T08:15:28.1068249Z info 0 匹配到 Artemis 引擎','2026-11-27T08:15:28.1406915Z info 0 注入钩子: Artemis2 0054EFF0',
+  '2026-11-27T08:15:40.0000000Z info 0 进程 31112 已连接','2026-11-27T08:15:41.0000000Z auto-select 292e4ffc3e0:4126:0'].join('\n'));
+ const run={startedAt:'2026-11-27T08:13:47Z',endedAt:'2026-11-27T08:16:00Z'};
+ const d=A.hookDiagnostics(root,{...run,pid:31112},path.join(root,'cut.log'));
+ assert.equal(d.lunaEngine,'','the other game\'s engine match is not this game\'s');assert.deepEqual(d.injected,[]);assert.equal(d.selected,'292e4ffc3e0:4126:0');assert.equal(d.foreign,3);
+ assert.doesNotMatch(fs.readFileSync(path.join(root,'cut.log'),'utf8'),/Artemis/);
+ /* no pid (an older run.json): time only, as before */
+ assert.equal(A.hookDiagnostics(root,run,null).lunaEngine,'Artemis');});
 
 test('writeSeed: a verified seed entry in The Seed layout, checked by core/profiles/seed.cjs',()=>{const DM=require('../tools/diff-maker/index.cjs');const d=tmp();
  const m=DM.make(path.join(__dirname,'helpers','diff-maker','probes','senren-banka'));const [dir]=DM.write(m,{out:path.join(d,'diff')});
@@ -195,6 +209,18 @@ test('choiceItems: OCR rows that are pieces of the hook\'s option text, topmost 
  const L=[{text:'私 の こ と な ん て 、',x:10,y:500,w:200,h:20},{text:'・ 本 当 に 、 几 帳 面 な 方 な の ね',x:523,y:283,w:268,h:21},{text:'・ ・ ・ 本 当 は 。 お 憂 し い 方 な の か し ら',x:466,y:196,w:349,h:22}];
  const c=R.choiceItems(L,aux);assert.deepEqual(c.map(o=>o.y),[196,283]);assert.equal(c[0].role,'choice');assert.equal(c[0].text,'・・・本当は。お憂しい方なのかしら');
  assert.deepEqual(R.choiceItems(L,''),[]);assert.deepEqual(R.choiceItems([{text:'村 人',x:1,y:1,w:5,h:5}],aux),[]);});
+
+test('auxPiece: choice buttons that come one per auxiliary line are joined into one option text (ハミダシクリエイティブ, Artemis2 per layer)',()=>{const R=require('../services/cold-test-run.cjs');
+ const t0=1000;let a=R.auxPiece('2026-11-27T08:18:05.5794302Z aux Artemis2 role 0 chars=2 text=天梨','',0,t0);assert.deepEqual(a,{text:'天梨',at:t0});
+ a=R.auxPiece('2026-11-27T08:18:06.2182086Z aux Artemis2 role 0 chars=2 text=好き',a.text,a.at,t0+2600);assert.equal(a.text,'好き','an older piece (a name 2.6 s before) is not part of the choice');
+ a=R.auxPiece('2026-11-27T08:18:06.2333492Z aux Artemis2 role 0 chars=6 text=そうでもない',a.text,a.at,t0+2615);assert.equal(a.text,'好きそうでもない');
+ assert.equal(R.auxPiece('source id=54eff0:0:0 chars=49','x',t0,t0),null,'other trace lines are not auxiliary text');
+ const L=[{text:'好 き',x:930,y:495,w:60,h:30},{text:'そうでもない',x:875,y:578,w:170,h:30}];assert.deepEqual(R.choiceItems(L,a.text).map(o=>o.text),['好き','そうでもない']);});
+
+test('choiceItems: two short options the hook joined into one label (ハミダシクリエイティブ 「好きそうでもない」)',()=>{const R=require('../services/cold-test-run.cjs');
+ const L=[{text:'好 き',x:930,y:495,w:60,h:30},{text:'そうでもない',x:875,y:578,w:170,h:30},{text:'セーブ',x:1270,y:885,w:40,h:16},{text:'ロード',x:1330,y:885,w:40,h:16}];
+ assert.deepEqual(R.choiceItems(L,'好きそうでもない').map(o=>o.text),['好き','そうでもない'],'menu bar words are not in the option text');
+ assert.deepEqual(R.choiceItems([{text:'好',x:1,y:1,w:5,h:5}],'好きそうでもない'),[],'one character is never an option');});
 
 test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a choice the driver answers',async()=>{const R=require('../services/cold-test-run.cjs');const dir=tmp();let t=0;
  const h=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:1280,h:720});});
@@ -271,6 +297,21 @@ test('hook DLL: a DrawSkip build anywhere in the worktrees beats a GDI-hide-only
  assert.equal(used['MeguLitHook32.dll'].drawSkip,true);assert.equal(used['MeguLitHook64.dll'].src,'install');
  for(const sub of [['native','megulithook'],['runtime','megulithook']])assert.match(fs.readFileSync(path.join(root,...sub,'MeguLitHook32.dll'),'utf8'),/MeguLit_DRAWSKIP ready/);
  assert.ok(A.hookDirs().some(x=>/native[\\/]megulithook$/.test(x)),'this checkout and its worktrees are searched');});
+
+test('prepareApp copy: the hook DLL another game has loaded is not rewritten on the next run (ハミダシクリエイティブ EBUSY)',()=>{
+ const d=fs.mkdtempSync(path.join(os.tmpdir(),'adapter-app-'));const app=path.join(d,'install'),root=path.join(d,'_app'),own=path.join(d,'own');
+ for(const sub of [['native'],['runtime','megulithook']])fs.mkdirSync(path.join(app,...sub),{recursive:true});
+ fs.writeFileSync(path.join(app,'native','ColdDesk.exe'),'MZ');fs.writeFileSync(path.join(app,'runtime','megulithook','MeguLitHook32.dll'),'install build');
+ fs.mkdirSync(own,{recursive:true});fs.writeFileSync(path.join(own,'MeguLitHook32.dll'),'MeguLit_GDIHIDE armed version=2 MeguLit_DRAWSKIP ready checkout build');
+ const dll=path.join(root,'runtime','megulithook','MeguLitHook32.dll');
+ A.copyAppParts(app,root);A.useCheckoutHook(root,[own],app);assert.match(fs.readFileSync(dll,'utf8'),/checkout build/);
+ /* a loaded DLL cannot be written (EBUSY); read-only stands in for it */
+ fs.chmodSync(dll,0o444);
+ try{assert.doesNotThrow(()=>{A.copyAppParts(app,root);A.useCheckoutHook(root,[own],app);});assert.match(fs.readFileSync(dll,'utf8'),/checkout build/);}
+ finally{fs.chmodSync(dll,0o666);}
+ /* no checkout build: the install's DLL is used */
+ const root2=path.join(d,'_app2');A.copyAppParts(app,root2);const used=A.useCheckoutHook(root2,[],app);
+ assert.equal(used['MeguLitHook32.dll'].src,'install');assert.equal(fs.readFileSync(path.join(root2,'runtime','megulithook','MeguLitHook32.dll'),'utf8'),'install build');});
 
 test('driver readPerCharMs: a long line that came whole gets 45 ms a character before the next click (Monochrome Empire)',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
  const d=new Driver({skip:false,slowLines:100,readQuietMs:600,readMinMs:1000,readPerCharMs:45,stallMs:1e9,shotLines:[]});const W={w:10,h:10};d.next({t:0,window:W});d.next({t:10,window:W,lines:1,quietMs:0});

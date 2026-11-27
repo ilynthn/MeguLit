@@ -60,7 +60,7 @@ function sameText(a,b){if(a.length!==b.length)return false;let d=0;for(let i=0;i
 function corsHeaders(request,env){
  const origin=request.headers.get('origin');if(!origin)return {};
  const allowed=String(env.ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean);
- return allowed.includes(origin)?{'access-control-allow-origin':origin,'access-control-allow-methods':'GET,POST,PUT,DELETE','access-control-allow-headers':'content-type,authorization','access-control-max-age':'86400',vary:'origin'}:{};
+ return allowed.includes(origin)?{'access-control-allow-origin':origin,'access-control-allow-methods':'GET,POST,PUT,DELETE','access-control-allow-headers':'content-type,authorization',/* the website keeps a rotated session token */'access-control-expose-headers':'x-megulit-token','access-control-max-age':'86400',vary:'origin'}:{};
 }
 function json(data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...extra}});}
 const fail=(error,status=400,extra)=>json({ok:false,error},status,extra);

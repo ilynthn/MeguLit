@@ -40,14 +40,14 @@ const engines={
 // Distinct Japanese works with the built-in VNDB ids excluded, measured 2026-11-25.
 const snapshot={
  at:1795607135137,
- seedIds:'de2f238f32cdafcc59b23c195465e8dda9a866e6586fc0dddac929f79f9f6226',
+ seedIds:'11a0556491ddf1c60107a096380bb1fe1c5d0655b39a2fffbaf83e9636d138a6',
  counts:{
   kirikiri:4487,
   tyrano:3669,
   nscripter:1445,
   renpy:811,
   yuris:513,
-  artemis:252,
+  artemis:251,
   bgi:117,
   shiinario:166,
   catsystem2:90,

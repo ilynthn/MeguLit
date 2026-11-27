@@ -39,19 +39,27 @@
     closing bracket or stop, 3+ letters) drawn two or more times, character for character, maybe followed by the start of
     another copy, is that sentence once */
  function period(text){const c=[...text];for(let p=1;p*2<=c.length;p++){if(!/[」』）)。！？!?…]/.test(c[p-1])||/[」』）)。！？!?…]/.test(c[p]))continue;let ok=true;for(let i=p;i<c.length&&ok;i++)ok=c[i]===c[i%p];if(!ok)continue;const one=c.slice(0,p).join('');if(real(one)>=3)return one;}return '';}
- function collapse(input){
-  const text=String(input||''),one=period(text.replace(/[\s　]+$/,''));if(one){const r=collapse(one);return {text:r.text,ruby:r.ruby,collapsed:true};}const u=units(text);if(u.length<2)return {text,ruby:[],collapsed:false};
+ function collapse(input,{min=3}={}){
+  const text=String(input||''),one=period(text.replace(/[\s　]+$/,''));if(one){const r=collapse(one,{min});return {text:r.text,ruby:r.ruby,collapsed:true,doubled:real(one)>=3||r.doubled};}const u=units(text);if(u.length<2)return {text,ruby:[],collapsed:false};
   /* a run of one sentence (redraw, base/reading pair) is one copy; a short exact repeat (「うん」「うん」) needs 3+ letters */
   const same=(a,b)=>variant(a,b)&&(key(a)!==key(b)||real(b)>=3);
   const runs=[];for(const s of u){const last=runs[runs.length-1];if(last&&same(last[0],s))last.push(s);else runs.push([s]);}
   let groups=runs;
   /* the whole run of sentences drawn again (A B A B) */
   for(let p=1;p<=groups.length/2;p++){if(groups.length%p)continue;let ok=true;for(let i=p;i<groups.length&&ok;i++)ok=same(groups[i%p][0],groups[i][0]);if(ok){const merged=groups.slice(0,p).map(g=>g.slice());for(let i=p;i<groups.length;i++)merged[i%p].push(...groups[i]);groups=merged;break;}}
+  /* #1128 (死に逝く君、館に芽吹く憎悪, skip: 「……焼き過ぎたか」「……焼き過ぎたか」消し炭に…): a group of sentences drawn twice in a row inside a
+     longer frame is one copy. The quote splits at its 「…」 into a piece with no letters, so the 3-letter rule counts the whole group.
+     A frame that holds a sentence of 3+ letters drawn twice is a redraw frame: its short doubled groups (「んっ……？」, 「……」) are redraws
+     too. min: core/hook-native.cjs lowers it to 0 for a stream that has been drawing its lines twice; doubled tells it this frame did */
+  let doubled=runs.some(r=>r.length>1&&real(r[0])>=3);
+  const fold=lim=>{for(let i=0;i<groups.length;i++)for(let p=1;i+2*p<=groups.length;p++){let ok=true;for(let k=0;k<p&&ok;k++)ok=variant(groups[i+k][0],groups[i+p+k][0]);
+   const n=real(groups.slice(i,i+p).map(g=>g[0]).join(''));if(!ok||n<lim)continue;if(n>=3)doubled=true;groups=groups.map(g=>g.slice());for(let k=0;k<p;k++)groups[i+k].push(...groups[i+p+k]);groups.splice(i+p,p);p=0;}};
+  fold(min);if(doubled&&min>0)fold(0);
   /* a trailing piece that is only the start of a sentence already there (typewriter frame) */
   {const last=groups[groups.length-1];if(groups.length>1&&last.length===1){const t=key(last[0]);if(t&&u.slice(0,-1).some(s=>{const k=key(s);if(k.length>t.length&&k.startsWith(t))return true;if(/[」』）)。！？!?…]$/.test(t))return false;for(let n=Math.max(1,t.length-4);n<=Math.min(k.length-1,t.length+4);n++)if(k.slice(0,n)===t||variant(k.slice(0,n),t))return true;return false;}))groups=groups.slice(0,-1);}}
-  if(groups.length===u.length)return {text,ruby:[],collapsed:false};
+  if(groups.length===u.length)return {text,ruby:[],collapsed:false,doubled:false};
   const ruby=[];const parts=groups.map(g=>{const r=pick(g);for(const q of r.ruby)if(!ruby.some(x=>x[0]===q[0]))ruby.push(q);return r.text;});
-  return {text:parts.join(''),ruby,collapsed:true};}
+  return {text:parts.join(''),ruby,collapsed:true,doubled};}
  /* ■ stage notes of the script (scene / sound cues): ■label（detail） or ■label before a quote, another note or the end; a
     note cut at the frame start (車／ドア開ける（車内）) goes when the frame also held a whole one */
  function stripStageNotes(input){const text=String(input||'');if(!/[■□◆]/.test(text))return text;

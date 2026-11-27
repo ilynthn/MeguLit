@@ -29,7 +29,8 @@ test('plan: a reader that read Japanese is the text source; the draw hook aligns
  const z=plan({caps:Engines.capabilities('catsystem2'),probe:{step:'chinese-build',detected:'catsystem2',original:'layer',lines:9000,japaneseLines:7000,chineseLines:8800}});
  assert.equal(z.pairing.mode,'patch');assert.equal(z.source.original,'layer');
  const h=plan({caps:Engines.capabilities('artemis'),probe:{step:'decrypt-failed',detail:'artemis:KEY',detected:null}});
- assert.equal(h.source.kind,'hook');assert.equal(h.pairing.mode,'machine');assert.equal(h.hide.kind,'generic');assert.ok(h.notes.some(n=>/读取器/.test(n)));});
+ assert.equal(h.source.kind,'hook');assert.equal(h.pairing.mode,'machine');assert.equal(h.hide.kind,'engine','Artemis2 write-back (ハミダシクリエイティブ)');assert.ok(h.notes.some(n=>/读取器/.test(n)));
+ assert.equal(plan({caps:Engines.capabilities('tyrano'),probe:{step:'unsupported-engine',detected:null}}).hide.kind,'generic','an engine without its own hide still falls back to the generic layers');});
 
 test('identify: HANDOFF 已适配的游戏 rows; the same VNDB id and release means done, an unknown release never does',()=>{
  const text='# x\n## 已适配的游戏\n\n| 游戏 | VNDB | 发行版 | 引擎 | 状态 | 谁 | PR / seed |\n|---|---|---|---|---|---|---|\n| 千恋＊万花 | v19073 | Steam 版 | KiriKiri | verified | a | kirikiri/senren-banka |\n| オルフレール | v15563 | 待补 | KiriKiri | 进行中 | b | PR #1 |\n\n## 进行中\n| a | b |\n';
@@ -123,6 +124,26 @@ test('samples: disc images ask for an install (soundtrack .cue beside .wav does 
  assert.equal(Check.questions({install:Adapter.discImages(d),identity:{vndb:'v1',cn:'-',release:'x'},caps:{}})[0].id,'install');
  const y=plan({caps:Engines.capabilities('yuris'),probe:{step:'parse-failed',detail:'yuris',detected:null}});
  assert.ok(y.notes.some(n=>/选项/.test(n)),'caveat shown');assert.ok(y.notes.some(n=>/读取器/.test(n)),'parse-failed is a reader gap');});
+
+test('publish: only the files The Seed takes are copied; a new seeded work re-keys the engine count snapshot (ハミダシクリエイティブ CI)',()=>{
+ const d=tmp(),src=path.join(d,'seed'),dest=path.join(d,'repo','The Seed','artemis','x'),sha='a'.repeat(64);fs.mkdirSync(path.join(src,'versions'),{recursive:true});
+ for(const f of ['game.json','lines.json',path.join('versions',sha+'.json'),path.join('versions','notes.txt')])fs.writeFileSync(path.join(src,f),'{}');
+ assert.deepEqual(Adapter.copySeedFiles(src,dest).sort(),['game.json',path.join('versions',sha+'.json')].sort());assert.ok(!fs.existsSync(path.join(dest,'lines.json')));
+ const text="const snapshot={\n at:1,\n seedIds:'"+'b'.repeat(64)+"',\n counts:{\n  kirikiri:4487,\n  artemis:252,\n }\n};";
+ const t=Adapter.bumpSnapshot(text,'c'.repeat(64),'artemis',true);assert.match(t,/seedIds:'c{64}'/);assert.match(t,/artemis:251,/);assert.match(t,/kirikiri:4487,/);
+ assert.equal(Adapter.bumpSnapshot(text,'b'.repeat(64),'artemis',true),'','same seeded ids: nothing changes');});
+
+test('naming: an own copy is named after its source, a disc program folder after its parent, the seed after VNDB (ハミダシクリエイティブ)',async()=>{
+ const Cold=require('../tools/megulit-adapter/cold.cjs');const d=tmp();const copy=path.join(d,'HamidashiCreative-ozmafia-joki');fs.mkdirSync(copy);
+ fs.writeFileSync(path.join(copy,'.megulit-copy.json'),JSON.stringify({source:path.join(d,'hamidashi-creative','HamidashiCreative','Input'),owner:'ozmafia-joki'}));
+ assert.equal(Cold.titleOf(copy),'HamidashiCreative','not 「HamidashiCreative-ozmafia-joki」 and not 「Input」');
+ assert.equal(Cold.titleOf(path.join(d,'[GAME] 千恋＊万花')),'千恋＊万花','a plain folder as before');
+ assert.equal(Cold.slugOf('Hamidashi Creative'),'hamidashi-creative');assert.equal(Cold.slugOf('OZMAFIA!!'),'ozmafia');assert.equal(Cold.slugOf('ハミダシ'),'');
+ const E=require('../services/game-enrichment.cjs');const fetcher=async(url,o)=>{const b=JSON.parse(o.body);
+  const body=/\/vn$/.test(url)?{results:[{id:'v27449',title:'Hamidashi Creative',alttitle:'ハミダシクリエイティブ',titles:[{lang:'zh-Hans',title:'常轨脱离Creative'},{lang:'ja',title:'ハミダシクリエイティブ'}]}]}:{results:[]};void b;
+  return {ok:true,status:200,json:async()=>body,text:async()=>JSON.stringify(body)};};
+ const r=await E.vndbReleases({vnid:'v27449'},fetcher);assert.deepEqual([r.title,r.ja,r.zh],['Hamidashi Creative','ハミダシクリエイティブ','常轨脱离Creative']);
+ const v=await Ident.vndb({title:'HamidashiCreative',gameDir:tmp(),vnid:'v27449'},{lookup:async()=>r});assert.deepEqual([v.ja,v.romaji],['ハミダシクリエイティブ','Hamidashi Creative']);});
 
 test('VNDB: a Steam appid names the release, one Japanese release is taken, several become the question; an error asks a person',async()=>{
  const d=tmp();fs.writeFileSync(path.join(d,'steam_appid.txt'),'1144400');

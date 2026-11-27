@@ -22,6 +22,10 @@ module.exports={
      selected stream's line before anything uses it (native/HookBridge.cs StripCodes: glyph hide, reader, translation); a pattern
      with a capture group keeps the group (ruby base). [] = the kernel: the line as the hook gives it */
   stripCodes:[],
+  /* 2026-11-27 (ハミダシクリエイティブ, Artemis2) HookBridge streams (RegExp sources on the stream name) that are the engine's per-glyph
+     layout call (one glyph or one ruby base per call, the line joined afterwards): every short piece is blanked while the line is hidden.
+     [] = the kernel: a short piece follows the label rule (kanji / katakana pieces go back unchanged) */
+  embedGlyphPieces:[],
   siglusDbsNameColumn:null,
   /* 2026-11-27 MeguLit-Adapter: how this game's built-in version layer is found. 'exe' = the kernel as before: only the exe's
      SHA-256 (The Seed versions/<sha>.json). 'prints' = when the exe hash misses (no-DVD, update, a Chinese patch's renamed exe), the

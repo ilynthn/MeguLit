@@ -25,8 +25,10 @@ internal static class EmbedTextPolicy {
 
     // Whole script constructs, kept byte for byte when a dialogue line is blanked (E215.2): a variable reference with its
     // closing bracket, a command letter, a tag, an escape or a run of control/private-use characters.
-    static readonly Regex RichTag = new Regex(@"</?(?:size|color|b|i|u|s|font|align|line-height|cspace|mspace|voffset|alpha|mark|sup|sub|indent|margin|nobr|style|link|material|pos|space|width|lowercase|uppercase|smallcaps)(?:=[^<>\r\n]*)?>", RegexOptions.IgnoreCase);
-    static readonly Regex Construct = new Regex(@"[【《\[][\$＄@＠][^】》\]\r\n]{0,64}[】》\]]|[%％*＊][A-ZＡ-Ｚ](?![A-Za-zＡ-Ｚａ-ｚ])|[\$＄][\p{L}\p{N}_＿]+|</?[A-Za-z][^>\r\n]*>|\\[nrt](?![A-Za-z])|[\x00-\x08\x0b\x0c\x0e-\x1f-]+");
+    /* #1248 every TextMeshPro / uGUI tag (the same list as core/rich-text.cjs): <gradient>, <rotate>, <font-weight>, <br>, <sprite name="…">,
+       <#rrggbb> … are layout too, so a line carrying three of them is still a dialogue line to blank, not a construct-dense table */
+    static readonly Regex RichTag = new Regex(@"</?(?:align|allcaps|alpha|b|br|color|colour|cspace|font|font-weight|gradient|i|indent|line-height|line-indent|link|lowercase|margin|margin-left|margin-right|mark|material|mspace|nobr|noparse|page|pos|quad|rotate|s|size|smallcaps|space|sprite|strikethrough|style|sub|sup|u|underline|uppercase|voffset|width)(?:\s*=\s*[^<>\r\n]*|\s+[^<>\r\n]*)?\s*/?>|</?#[0-9A-Fa-f]{3,8}>", RegexOptions.IgnoreCase);
+    static readonly Regex Construct = new Regex(@"[【《\[][\$＄@＠][^】》\]\r\n]{0,64}[】》\]]|[%％*＊][A-ZＡ-Ｚ](?![A-Za-zＡ-Ｚａ-ｚ])|[\$＄][\p{L}\p{N}_＿]+|</?[A-Za-z][^>\r\n]*>|</?#[0-9A-Fa-f]{3,8}>|\\[nrt](?![A-Za-z])|[\x00-\x08\x0b\x0c\x0e-\x1f-]+");
 
     // Multilingual containers (E243, Maitetsu Pure Station): every language of a line in one string, split by the engine
     // through separators the hook decodes as ？？？ / U+FFFD / private-use runs, or written inline as %l<ja>;<zh>%l.
@@ -292,7 +294,10 @@ internal static class EmbedTextPolicy {
             Writeback("　彼女がはじめて命に<rふ>触</r>れた。", "她第一次触碰到生命。") == "　她第一次触碰到生命。" &&
             Writeback("「またね」<wait>", "「再见」") == "「再见」<wait>" && Writeback("「またね」\u0001", "「再见」") == "「再见」\u0001" &&
             Writeback("あ。", "<b>%A$x译文\u0002") == "〈b〉A x译文".Replace(" ", "") && Writeback("あ。", "  ") == "" &&
-            Hide("<rふ>触</r>【＄名前】") == "" && Hide(@"<rx>data\a</r>") == "" &&
+            Hide("<rふ>触</r>【＄名前】") == "" &&
+            /* #1248 TextMeshPro tags beyond the old list are layout: the line is blanked, every tag kept */
+            Hide("<gradient=\"Fire\">「熱い」</gradient><rotate=10>あ</rotate><font-weight=700>い</font-weight>") == "<gradient=\"Fire\">　　　　</gradient><rotate=10>　</rotate><font-weight=700>　</font-weight>" &&
+            Hide("<#ff0000>赤い</color>花が<sprite name=\"heart\">咲いた。") == "<#ff0000>　　</color>　　<sprite name=\"heart\">　　　　" && Hide(@"<rx>data\a</r>") == "" &&
             UnsafeKey("SiglusEngine", @"D:\Games\A\SiglusEngine.exe", "EmbedSiglus", 1) != UnsafeKey("SiglusEngine", @"D:\Games\B\SiglusEngine.exe", "EmbedSiglus", 1) &&
             UnsafeKey("SiglusEngine", @"D:\Games\A\SiglusEngine.exe", "EmbedSiglus", 1) == UnsafeKey("siglusengine", @"d:\games\a\SiglusEngine.exe", "EmbedSiglus", 1) &&
             UnsafeKey("game", "", "Embed", 1) == "game|Embed|1" &&

@@ -12,21 +12,21 @@ const W={
   tabEngines:'引擎已适配',about:n=>`约 ${n} 部`,unit:'部',allEngines:'全部引擎',tabs:'目录分类',
   previous:'上一页',next:'下一页',page:(n,m)=>m?`第 ${n} / ${m} 页`:`第 ${n} 页`,retry:'重试',
   status:{verified:'已确认','owner-ok':'已确认',read:'已适配 · 默认配置已导入',skeleton:'等传火'},hidden:'成人内容 · 在设置里开启后显示',reveal:'点击只临时查看这一张',devNone:'暂时读不到这个游戏社的介绍',devSource:'简介来自 VNDB',devOpen:'在浏览器中打开',links:{vndb:'VNDB 游戏社页',site:'官网',moegirl:'萌娘百科',jawiki:'日文维基'},
-  offline:'连不上 VNDB，部分游戏名和封面暂时显示不了',empty:'没有找到',close:'关闭',loading:'正在读取…',failed:'读取失败，稍后再试',link:'看看都有哪些游戏'},
+  offline:'连不上 VNDB，部分游戏名和封面暂时显示不了',empty:'没有找到',close:'关闭',expandAll:'全部展开',collapseAll:'全部收起',intro:'简介',loading:'正在读取…',failed:'读取失败，稍后再试',link:'看看都有哪些游戏'},
  en:{title:'Seeded games',sub:(g,s,b)=>`${g} games · ${s} seeds · ${b} developers`,seeds:n=>`${n} seeds`,partly:(a,b)=>`${a}/${b} confirmed`,locked:'"Keep R18 pictures off the card back" is on in Settings, so only normal mode is shown',search:'Search tested games or developers',
   count:n=>`${n} ${+n===1?'game':'games'}`,other:'Other',tested:'Tested',engineAdapted:'Supported engines (individual games untested)',
   engineHint:'Most games on these engines should work. Some releases use different keys or archives. Please report any that cannot be read.',engineCountMissing:'Count unavailable',engineCached:'Cached count, refreshed when opened',
   tabEngines:'Supported engines',about:n=>`about ${n}`,unit:'games',allEngines:'All engines',tabs:'Catalog sections',
   previous:'Previous',next:'Next',page:(n,m)=>m?`Page ${n} of ${m}`:`Page ${n}`,retry:'Retry',
   status:{verified:'Confirmed','owner-ok':'Confirmed',read:'Adapted · default settings imported',skeleton:'Waiting for a spark'},hidden:'Adult content · shown when enabled in Settings',reveal:'Click to see only this one for now',devNone:'No introduction could be loaded for this developer for now',devSource:'Introduction from VNDB',devOpen:'Open in the browser',links:{vndb:'VNDB developer page',site:'Official site',moegirl:'Moegirlpedia',jawiki:'Japanese Wikipedia'},
-  offline:'VNDB cannot be reached, so some names and covers are missing for now',empty:'Nothing found',close:'Close',loading:'Loading…',failed:'Could not load the list, try again later',link:'See which games'},
+  offline:'VNDB cannot be reached, so some names and covers are missing for now',empty:'Nothing found',close:'Close',expandAll:'Expand all',collapseAll:'Collapse all',intro:'About',loading:'Loading…',failed:'Could not load the list, try again later',link:'See which games'},
  ja:{title:'種まき済みのゲーム',sub:(g,s,b)=>`${g} 本 · 種 ${s} 個 · ${b} ブランド`,seeds:n=>`種 ${n} 個`,partly:(a,b)=>`${a}/${b} 確認済み`,locked:'設定で「カード裏の R18 画像を除外」がオンのため、通常モードのみ表示します',search:'確認済みゲーム・ブランドで検索',
   count:n=>`${n} 本`,other:'その他',tested:'実機確認済み',engineAdapted:'対応エンジン（作品ごとの動作は未確認）',
   engineHint:'同じエンジンの多くの作品に対応していますが、鍵やアーカイブが異なる版は読み込めない場合があります。問題があればお知らせください。',engineCountMissing:'件数を取得できません',engineCached:'キャッシュされた件数。開くと更新されます',
   tabEngines:'対応エンジン',about:n=>`約 ${n} 本`,unit:'本',allEngines:'すべてのエンジン',tabs:'カタログの区分',
   previous:'前へ',next:'次へ',page:(n,m)=>m?`${n} / ${m} ページ`:`${n} ページ`,retry:'再試行',
   status:{verified:'確認済み','owner-ok':'確認済み',read:'対応済み · 既定設定を取り込み済み',skeleton:'伝火待ち'},hidden:'成人向け · 設定でオンにすると表示',reveal:'クリックでこの 1 枚だけ一時的に表示',devNone:'このブランドの紹介は今は読み込めません',devSource:'紹介文の出典：VNDB',devOpen:'ブラウザで開く',links:{vndb:'VNDB のブランドページ',site:'公式サイト',moegirl:'萌娘百科（中国語）',jawiki:'日本語版ウィキペディア'},
-  offline:'VNDB に接続できないため、一部の名前と表紙を表示できません',empty:'見つかりません',close:'閉じる',loading:'読み込み中…',failed:'読み込めませんでした。後でもう一度お試しください',link:'収録ゲームを見る'}
+  offline:'VNDB に接続できないため、一部の名前と表紙を表示できません',empty:'見つかりません',close:'閉じる',expandAll:'すべて開く',collapseAll:'すべて閉じる',intro:'紹介',loading:'読み込み中…',failed:'読み込めませんでした。後でもう一度お試しください',link:'収録ゲームを見る'}
 };
 export const catalogWords=locale=>W[locale]||W.zh;
 /* the covers' mode is the global NSFW setting */
@@ -76,11 +76,21 @@ function cardHTML(g,locale,mode,esc,seeded=true){
  return `<li class="sc-card"><div class="sc-cover" data-state="${st}"${st==='load'?` data-vndb="${esc(g.vndb)}"`:''}>${ph}</div>
   <div class="sc-meta"><b title="${esc(title)}">${esc(title)}</b>${seeded?`<span class="sc-tags"><span class="sc-engine">${esc((g.engines||[g.engine]).join(' / '))}</span>${g.seeds>1?`<span class="sc-builds">${esc(t.seeds(g.seeds))}</span>`:''}<span class="sc-st sc-st-${g.seeds>1&&g.ok>0&&g.ok<g.seeds?'part':STATUS_CLASS[g.status]||'wait'}">${esc(statusText(g,locale))}</span></span>`:dev?`<span class="sc-tags sc-by">${esc(dev)}</span>`:''}</div></li>`;
 }
-export function catalogHTML(games,locale,mode,esc,query=''){
+/* a group's key: its developer id, or one key for the games without a developer */
+export const groupKey=gr=>gr.id||'_';
+const PEEK=5;
+/* a few small covers in a folded group's row, so a folded studio still shows what is in it; hidden covers stay placeholders */
+function peekHTML(gr,mode,esc){
+ return `<span class="sc-peek" aria-hidden="true">${gr.games.slice(0,PEEK).map(g=>{const st=coverState(g,mode);return `<span class="sc-cover sc-thumb" data-state="${st==='load'?'load':'none'}"${st==='load'?` data-vndb="${esc(g.vndb)}"`:''}></span>`;}).join('')}${gr.games.length>PEEK?`<span class="sc-more">+${gr.games.length-PEEK}</span>`:''}</span>`;
+}
+/* 2026-11-27 (user: 太乱了…分社自动折叠 只展开第一排): one row per developer, folded unless isOpen(key) says so; the row is a
+   button that folds it, the developer's introduction has its own small button. isOpen left out = every group open. */
+export function catalogHTML(games,locale,mode,esc,query='',isOpen=()=>true){
  const t=catalogWords(locale),groups=groupGames(games,locale,query);
  if(!groups.length)return `<p class="sc-empty">${esc(t.empty)}</p>`;
- return groups.map(gr=>`<section class="sc-group"><h3><span class="sc-logo" aria-hidden="true"${gr.id?` data-pid="${esc(gr.id)}"`:''}>${esc(Array.from(gr.name||t.other)[0]||'?')}</span>${gr.id?`<button type="button" class="sc-dev" data-dev="${esc(gr.id)}" aria-expanded="false">${esc(gr.name||t.other)}</button>`:`<span>${esc(gr.name||t.other)}</span>`}<small>${esc(t.count(gr.games.length))}</small></h3>${gr.id?'<div class="sc-panel" data-panel hidden></div>':''}
-  <ul class="sc-grid">${gr.games.map(g=>cardHTML(g,locale,mode,esc)).join('')}</ul></section>`).join('');
+ return groups.map((gr,i)=>{const key=groupKey(gr),open=!!isOpen(key,i),name=gr.name||t.other;
+  return `<section class="sc-group" data-group="${esc(key)}"${open?' data-open':''}><h3><button type="button" class="sc-toggle" data-toggle aria-expanded="${open}" aria-controls="sc-fold-${i}"><span class="sc-logo" aria-hidden="true"${gr.id?` data-pid="${esc(gr.id)}"`:''}>${esc(Array.from(name)[0]||'?')}</span><span class="sc-name">${esc(name)}</span><small>${esc(t.count(gr.games.length))}</small>${peekHTML(gr,mode,esc)}<i class="sc-chev" aria-hidden="true"></i></button>${gr.id?`<button type="button" class="sc-dev" data-dev="${esc(gr.id)}" aria-expanded="false">${esc(t.intro)}</button>`:''}</h3>${gr.id?'<div class="sc-panel" data-panel hidden></div>':''}
+  <div class="sc-fold" id="sc-fold-${i}" data-fold><div class="sc-fold-in"><ul class="sc-grid">${gr.games.map(g=>cardHTML(g,locale,mode,esc)).join('')}</ul></div></div></section>`;}).join('');
 }
 
 /* covers: four at a time. The last 300 covers that arrived are kept per mode for as long as the app runs (an engine has
@@ -101,8 +111,9 @@ export function resolveSeedCover(api,vid,mode='safe',cache=covers){
  }else{cache.delete(key);cache.set(key,pending);}
  return pending;
 }
-export function loadCovers(root,api,mode,live=()=>root.isConnected,{cache=covers,show=showCover}={}){
- const todo=[...root.querySelectorAll('.sc-cover[data-state="load"][data-vndb]:not([data-loaded])')];let at=0;
+const TO_LOAD='.sc-cover[data-state="load"][data-vndb]:not([data-loaded])';
+export function loadCovers(root,api,mode,live=()=>root.isConnected,{cache=covers,show=showCover,select=TO_LOAD}={}){
+ const todo=[...root.querySelectorAll(select)];let at=0;
  const next=async()=>{while(at<todo.length&&live()){const el=todo[at++];if(!el.isConnected)continue;
   const url=await resolveSeedCover(api,el.dataset.vndb,mode,cache);if(isCover(url)&&live()&&el.isConnected&&!el.dataset.loaded)show(el,url);}};
  return Promise.all([next(),next(),next(),next()]);
@@ -134,7 +145,7 @@ export function openSeedCatalog({api,locale,esc,toast}){
   <div class="sc-bar" data-bar><label class="sc-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input type="search" data-search autofocus placeholder="${esc(t.search)}" aria-label="${esc(t.search)}" autocomplete="off" spellcheck="false"></label></div>
   <p class="sc-offline" data-offline hidden>${esc(t.offline)}</p>
   <div class="sc-body" data-body>
-   <div role="tabpanel" id="sc-pane-tested" aria-labelledby="sc-tab-tested" data-pane="tested"><div data-seed-games></div></div>
+   <div role="tabpanel" id="sc-pane-tested" aria-labelledby="sc-tab-tested" data-pane="tested"><div class="sc-tools" data-tools hidden><button type="button" class="sc-fold-all" data-fold-all="1">${esc(t.expandAll)}</button><button type="button" class="sc-fold-all" data-fold-all="0">${esc(t.collapseAll)}</button></div><div data-seed-games></div></div>
    <div role="tabpanel" id="sc-pane-engines" aria-labelledby="sc-tab-engines" data-pane="engines" hidden>
     <p class="sc-note"><b>${esc(t.engineAdapted)}</b><span>${esc(t.engineHint)}</span></p>
     <p class="sc-offline sc-inline" data-engines-offline hidden>${esc(t.offline)}</p>
@@ -149,14 +160,33 @@ export function openSeedCatalog({api,locale,esc,toast}){
  let run=0;
  /* 2026-11-24 (user): the tested games always show their covers, adult ones too; only the app's R18 filter keeps them veiled */
  const testedMode=()=>safeOnly?'normal':'nsfw';
- const render=()=>{const mine=++run,shown=testedMode();dialog.dataset.mode=mode;seedGames.innerHTML=catalogHTML(games,locale,shown,esc,query);loadCovers(seedGames,api,shown,()=>mine===run&&dialog.isConnected);loadLogos(seedGames,api,()=>mine===run&&dialog.isConnected);};
+ /* which developers are open: the first one when the dialog opens, then what the user opened or folded, for as long as the
+    dialog is open. A search opens every group it finds in a set of its own; clearing the search goes back to the first set. */
+ let opened=null,searchOpen=null;
+ const searching=()=>!!query.replace(/s+/g,'');
+ const openSet=()=>searching()?searchOpen:opened;
+ const tools=$('[data-tools]');
+ const syncTools=()=>{const all=[...seedGames.querySelectorAll('.sc-group')],on=all.filter(x=>x.hasAttribute('data-open')).length;
+  tools.hidden=!all.length;tools.querySelector('[data-fold-all="1"]').disabled=on===all.length;tools.querySelector('[data-fold-all="0"]').disabled=!on;};
+ const coversOf=(root,mine)=>loadCovers(root,api,testedMode(),()=>mine===run&&dialog.isConnected,{select:`.sc-group[data-open] ${TO_LOAD},.sc-peek ${TO_LOAD}`});
+ const render=()=>{const mine=++run,shown=testedMode();dialog.dataset.mode=mode;
+  if(!opened&&games.length){const first=groupGames(games,locale)[0];opened=new Set(first?[groupKey(first)]:[]);}
+  if(searching()&&!searchOpen)searchOpen=new Set(groupGames(games,locale,query).map(groupKey));
+  const set=openSet()||new Set();
+  seedGames.innerHTML=catalogHTML(games,locale,shown,esc,query,k=>set.has(k));syncTools();
+  coversOf(seedGames,mine);loadLogos(seedGames,api,()=>mine===run&&dialog.isConnected);};
+ /* a developer's row folds it; the height change is a short transition in seed-catalog.css, none under reduced motion */
+ const setOpen=(sec,on)=>{const set=openSet();if(!set)return;on?set.add(sec.dataset.group):set.delete(sec.dataset.group);
+  sec.toggleAttribute('data-open',on);sec.querySelector('[data-toggle]').setAttribute('aria-expanded',String(on));if(on)coversOf(sec,run);};
+ seedGames.addEventListener('click',e=>{const b=e.target.closest('[data-toggle]');if(!b)return;const sec=b.closest('.sc-group');setOpen(sec,!sec.hasAttribute('data-open'));syncTools();});
+ tools.addEventListener('click',e=>{const b=e.target.closest('[data-fold-all]');if(!b)return;const on=b.dataset.foldAll==='1';for(const sec of seedGames.querySelectorAll('.sc-group'))setOpen(sec,on);syncTools();});
 
  /* covers answer the pointer like the library wall (card-tilt.js): a small turn toward it with a moving sheen */
  const calm=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
  let tilted=null;
  const untilt=el=>{if(!el)return;el.classList.remove('is-tilting');for(const k of ['--rx','--ry','--mx','--my'])el.style.removeProperty(k);};
  body.addEventListener('pointermove',e=>{
-  const el=calm||e.buttons||!fxPref('cardTilt').on?null:e.target.closest?.('.sc-cover')||null;
+  const el=calm||e.buttons||!fxPref('cardTilt').on?null:e.target.closest?.('.sc-grid .sc-cover')||null;
   if(el!==tilted){untilt(tilted);tilted=el;}
   if(!el)return;
   const r=el.getBoundingClientRect();if(!r.width)return;
@@ -243,7 +273,7 @@ export function openSeedCatalog({api,locale,esc,toast}){
   if(isCover(u)&&el.isConnected){b.remove();el.querySelector('.sc-ph')?.remove();showCover(el,u);el.dataset.state='load';}else{b.disabled=false;b.title=safeOnly?t.locked:t.failed;}});
  /* a developer's name opens a small panel: VNDB's introduction (cut short, source named) and links; links open in the system browser */
  body.addEventListener('click',async e=>{const b=e.target.closest('[data-dev]');if(!b)return;const panel=b.closest('.sc-group').querySelector('[data-panel]'),open=panel.hidden;panel.hidden=!open;b.setAttribute('aria-expanded',String(open));if(open)openPanel({panel,pid:b.dataset.dev,api,t:{...t,...devWords(locale)},esc,toast,locale});});
- $('[data-search]').addEventListener('input',e=>{query=e.target.value;render();});
+ $('[data-search]').addEventListener('input',e=>{query=e.target.value;searchOpen=null;render();});
  $('[data-close]').onclick=()=>dialog.close();
  dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
  dialog.showModal();
