@@ -84,7 +84,7 @@ function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk
  fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
  /* the cold test's own switches: no relay reports, no shot uploads (judge decides; nothing leaves this PC) */
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
- buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root,hookDirs(),app);useCheckoutWgc(root);
+ buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root,hookDirs(),app);useCheckoutWgc(root);useCheckoutFont(root);
  return root;}
 /* the install's parts into the shared copy. The programs built from this checkout and the hook DLLs are never copied over once
    there: useCheckoutHook picks the DLL. 2026-11-27 (ハミダシクリエイティブ): copying the install's DLL over the checkout's one and back
@@ -155,6 +155,19 @@ function useCheckoutWgc(root,repo=REPO,build=()=>spawnSync('cmd.exe',['/c',path.
  let same=false;try{same=fs.readFileSync(dst).equals(fs.readFileSync(own));}catch{}if(!same){fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(own,dst);}
  wgcUsed=dst;return dst;}
 
+/* 2026-11-27 (アイキス3 sexy: the glyph-hide fix for options drawn after the line, native/fontprobe/GlyphMatch.h, never ran in the live
+   check: the app copy kept the install's MeguLitFont*.dll) the glyph hide DLLs (and their launchers) come from this checkout, rebuilt
+   with native/fontprobe/build.cmd when a source is newer than the checkout's DLL; a failed build keeps the install's and says so */
+let fontUsed='';
+const FONT_FILES=['MeguLitFont32.dll','MeguLitFont64.dll','MeguLitLaunch32.exe','MeguLitLaunch64.exe'];
+function useCheckoutFont(root,repo=REPO,build=()=>spawnSync('cmd.exe',['/c',path.join(repo,'native','fontprobe','build.cmd')],{encoding:'utf8',windowsHide:true,timeout:600000})){
+ const mt=f=>{try{return fs.statSync(f).mtimeMs;}catch{return 0;}};const src=path.join(repo,'native','fontprobe');
+ let newest=0;try{for(const f of fs.readdirSync(src))if(/\.(cpp|h)$/i.test(f))newest=Math.max(newest,mt(path.join(src,f)));}catch{}
+ const own=FONT_FILES.map(f=>path.join(repo,'native',f));
+ if(own.some(f=>!fs.existsSync(f)||mt(f)<newest)){let r=null;try{r=build();}catch{}if(!r||r.status!==0||own.some(f=>!fs.existsSync(f)||mt(f)<newest)){fontUsed='install';return fontUsed;}}
+ for(const f of own){const dst=path.join(root,'native',path.basename(f));let same=false;try{same=fs.readFileSync(dst).equals(fs.readFileSync(f));}catch{}if(!same){fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(f,dst);}}
+ fontUsed='checkout';return fontUsed;}
+
 /* ---- 2 probe ------------------------------------------------------------------------------------------------------------ */
 function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../../services/probe-full.cjs');
  const work=path.join(outDir,'probe-work');fs.rmSync(work,{recursive:true,force:true});
@@ -200,8 +213,10 @@ async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,realInput=
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
+$fgOk=$true;try{Add-Type -Namespace MG -Name Fg -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint p);'}catch{$fgOk=$false};
 while(-not (Test-Path $stop)){if($i -lt 4){Start-Sleep -Seconds 4}else{Start-Sleep -Seconds 15};if(Test-Path $stop){break};$i++;$b=[System.Windows.Forms.SystemInformation]::VirtualScreen;
 $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height;$g=[System.Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.X,$b.Y,0,0,$bmp.Size);
+if($fgOk){$fp=[uint32]0;[void][MG.Fg]::GetWindowThreadProcessId([MG.Fg]::GetForegroundWindow(),[ref]$fp);[IO.File]::WriteAllText((Join-Path $d ('screen-{0:D2}.fg' -f $i)),[string]$fp)};
 $bmp.Save((Join-Path $d ('screen-{0:D2}.png' -f $i)),[System.Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$bmp.Dispose()}`;
 /* the previous run's recorder can still hold the folder for up to 15 s after it was told to stop (runs back to back: EPERM): its old
    pictures are removed one by one where possible, and a run never fails over them */
@@ -333,12 +348,12 @@ function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=co
 /* ---- layer 4: the seed entry (The Seed/<engine>/<slug>/game.json + versions/<sha>.json), local only ---------------------------
    From the game layer diff-maker made, plus the seed fields (README of The Seed), checked with core/profiles/seed.cjs like
    seed-all.cjs. Written only for a pass (status verified); never into the repository, never uploaded. */
-function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey,slug:wanted='',titles=[]},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
+function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey,slug:wanted='',titles=[],slugHint=''},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
  const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));const gf=fs.readdirSync(diffDir).find(f=>/^game-.*\.json$/.test(f)),vf=fs.readdirSync(diffDir).find(f=>/^version-[0-9a-f]{64}\.json$/.test(f));
  if(!gf||!vf)throw Error('diff has no game/version document');
  const doc=read(path.join(diffDir,gf)),ver=read(path.join(diffDir,vf));const settings=JSON.parse(JSON.stringify(doc.settings||{}));delete settings.calibrate;settings.lang={ja:{annotation:'ruby'}};
  let slugs={};try{slugs=read(path.join(__dirname,'..','diff-maker','slugs.json'));}catch{}
- const slug=[slugs[title+'|'+exeName],slugs[title],wanted].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
+ const slug=[slugs[title+'|'+exeName],slugs[title],slugHint,wanted].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
  const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[...new Set([title,...titles].filter(Boolean))]},sourceLangs:['ja'],rev:1};
  const version={...ver,rev:1};
  for(const [n,d,w] of [['game',game,{engine,slug}],['version',version,{engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}
@@ -387,7 +402,7 @@ async function run(opts,{log=console.log}={}){
   try{result.gameKey=require('../../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
   if(overtime('冷测试'))return finish(judge({cold:null}));
   /* cold test: what is left of the budget, less the reserve for diff + Cardinal */
-  const root=await step('prepareApp',()=>withSlot('adapter-app',()=>prepareApp(opts.app,path.join(RUNS_ROOT,'_app'))));result.wgcShot=wgcUsed?'yes':'missing';if(!wgcUsed)log('# MeguLitWgcShot.exe 没有：截图退回 PrintWindow');
+  const root=await step('prepareApp',()=>withSlot('adapter-app-'+path.basename(appRoot()),()=>prepareApp(opts.app,appRoot())));result.wgcShot=wgcUsed?'yes':'missing';if(!wgcUsed)log('# MeguLitWgcShot.exe 没有：截图退回 PrintWindow');
   const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
   const localeEmulator=localeEmulatorFor(root,loc,title);result.localeEmulator=!!localeEmulator;
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
@@ -406,7 +421,7 @@ async function run(opts,{log=console.log}={}){
    if(runInfo?.input){result.input=runInfo.input;log('# input '+runInfo.input.level+' '+JSON.stringify(runInfo.input.sent)+(runInfo.input.escalations.length?' up: '+runInfo.input.escalations.map(e=>e.from+'>'+e.to).join(','):''));}
    /* the bridge's hide confirmations of this run (cold-test-run hideProbe): when, on which stream */
    result.hide={confirmed:runInfo?.hideConfirmed||[],probes:(runInfo?.hideProbes||[]).length,skipped:runInfo?.drawSkipped||0};
-   result.hook=hookUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
+   result.hook=hookUsed;result.font=fontUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
    /* 2026-11-27 every cold run before this read without hiding (services/cold-test-run.cjs hookSetup): a run whose core ended with the hide
       off says so, and its leak is no hide result */
    if(runInfo?.hideOn===false){cold.hideOff=true;result.reasons.push('冷测试里原文隐藏没有打开（内核结束时隐藏是关的），游戏原文一直显示：leak 不代表隐藏效果');}
@@ -446,5 +461,9 @@ function reexecIfOldNode(entry,argv,app){
  const node=path.join(app||APP_DEFAULT,'runtime','node.exe');if(!fs.existsSync(node))return null;
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
-function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={copyAppParts,inputFrom,slugOf,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+/* 2026-11-27 (アイキス3 sexy: prepareApp failed with EBUSY copying runtimemegulithookMeguLitHook32.dll into the shared _app while
+   another agent's game had it loaded, and each run put its own checkout's DLLs into the copy the other run was using) one app copy
+   per game: _app-<game folder name> (about 50 MB of binaries), or MEGULIT_ADAPTER_APP_ROOT; no game folder = the old shared _app */
+function appRoot(gameDir='',env=process.env){if(env.MEGULIT_ADAPTER_APP_ROOT)return env.MEGULIT_ADAPTER_APP_ROOT;return gameDir?path.join(RUNS_ROOT,'_app-'+safeName(titleOf(gameDir)).slice(0,60)):path.join(RUNS_ROOT,'_app');}
+function prepareRuntime(gameDir=''){if(!process.env.MEGULIT_ADAPTER_APP_ROOT)process.env.MEGULIT_ADAPTER_APP_ROOT=appRoot(gameDir);if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=process.env.MEGULIT_ADAPTER_APP_ROOT;}
+module.exports={copyAppParts,inputFrom,slugOf,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,appRoot,parseArgs,pickHookDll,hookDirs,useCheckoutHook,useCheckoutFont,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};

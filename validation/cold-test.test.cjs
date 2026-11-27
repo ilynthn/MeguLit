@@ -83,6 +83,17 @@ test('saves: a predicted place that did not exist is removed again; a crash is u
  const left=Saves.pending(P.root);assert.equal(left.length,1);assert.equal(Saves.restore(P.root,left[0]).ok,true);assert.ok(!fs.existsSync(p2.path),'the folder the run created is gone');
  assert.equal(snap.ok,true);});
 
+/* 2026-11-27 (アイキス3 sexy, NeXAS: the cold test refused with no-save-place) a fresh NeXAS install has no save yet; the program
+   writes Save\Config.dat / Save%03d.dat next to itself on the first start, so the place is predicted and removed again after the run */
+test('saves: a fresh NeXAS game is tested, its Save folder next to the program removed again afterwards',()=>{const P=pc();
+ const dir=path.join(P.base,'Games','Aikiss3');fs.mkdirSync(dir,{recursive:true});const exe=path.join(dir,'Aikiss3.exe');
+ fs.writeFileSync(exe,'MZ');fs.writeFileSync(path.join(dir,'Script.pac'),'PAC');
+ const loc=Saves.locate({exe,engine:'nexas',title:'アイキス3 sexy'},P.env);assert.equal(loc.ok,true,loc.why);
+ const save=loc.places.find(p=>p.predicted);assert.ok(save&&path.resolve(save.path)===path.join(dir,'Save'),JSON.stringify(loc.places));
+ const snap=Saves.snapshot(P.root,loc,{id:'nexas'});assert.equal(snap.ok,true,snap.why);
+ fs.mkdirSync(path.join(dir,'Save'));fs.writeFileSync(path.join(dir,'Save','Config.dat'),'x');
+ assert.equal(Saves.restore(P.root,snap.journal).ok,true);assert.ok(!fs.existsSync(path.join(dir,'Save')),'the save the run wrote is gone');
+ assert.deepEqual(fs.readdirSync(dir).sort(),['Aikiss3.exe','Script.pac']);});
 test('saves: a save folder named in the game\'s own .bat is predicted (ハミダシクリエイティブ, Artemis)',()=>{const P=pc();
  const g=path.join(P.base,'Games','Hamidashi');fs.mkdirSync(g,{recursive:true});const exe=path.join(g,'hamidashi.exe');fs.writeFileSync(exe,'MZ');
  const game={exe,engine:'artemis',title:'ハミダシクリエイティブ'};

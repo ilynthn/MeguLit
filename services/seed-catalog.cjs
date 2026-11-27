@@ -134,6 +134,9 @@ function engineFilter(engine,ids){
 }
 function seededIds(seeds){return [...new Set(seedList(seeds).map(g=>g.vndb).filter(Boolean))].sort();}
 const fingerprint=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+/* the print the bundled engine-count snapshot is keyed on (seed-catalog-engine-map.cjs snapshot.seedIds): a new seed with a VNDB id
+   changes it (tools/megulit-adapter.cjs publish writes it) */
+const seedIdsPrint=seeds=>fingerprint(seededIds(seeds));
 const scopeOf=(id,ids)=>fingerprint([ENGINES[id].vndb,ids]);
 const fresh=(entry,now)=>entry&&now-entry.at<FRESH;
 const enginePending=new Map();
@@ -221,4 +224,4 @@ async function cover(root,id0,{nsfw=false,resolveMissing=false,fetch:fetcher=fet
   return store.imageData(root,'covers',base+'.'+ext)||null;
  }catch{return null;}
 }
-module.exports={catalog,cover,engineCounts,enginePage,cleanVn,readCache,seedList,safe,imageType,VNDB};
+module.exports={seedIdsPrint,catalog,cover,engineCounts,enginePage,cleanVn,readCache,seedList,safe,imageType,VNDB};
