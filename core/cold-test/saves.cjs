@@ -48,6 +48,18 @@ function namesOf(game){const exe=String(game.exe||'');const out=new Set();const 
  add(path.basename(exe,path.extname(exe)));add(game.title);for(const t of game.titles||[])add(t);
  const u=exe?unityInfo(exe):null;if(u){add(u.product);}return out;}
 
+/* user-folder paths named in the game's own small .bat / .cmd files (%APPDATA%\<vendor>\<game> …), at least one folder below
+   the user root; a trailing wildcard (del "…\*") is dropped. Read as Shift-JIS when it is not valid UTF-8. */
+const BAT_VARS={APPDATA:'roaming',LOCALAPPDATA:'local',USERPROFILE:'home'};
+function batchSavePlaces(folder,env=process.env){const out=[];
+ for(const e of list(folder)){if(!e.isFile()||!/\.(bat|cmd)$/i.test(e.name))continue;let buf;try{const f=path.join(folder,e.name);if(fs.statSync(f).size>64*1024)continue;buf=fs.readFileSync(f);}catch{continue;}
+  let text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch{try{text=new TextDecoder('shift_jis').decode(buf);}catch{continue;}}
+  for(const m of text.matchAll(/%(APPDATA|LOCALAPPDATA|USERPROFILE)%[\\/]([^"\r\n%&|<>]+)/gi)){const v=m[1].toUpperCase(),base=env[v];if(!base)continue;
+   const segs=m[2].split(/[\\/]/).map(s=>s.trim()).filter(Boolean);while(segs.length&&/[*?]/.test(segs[segs.length-1]))segs.pop();
+   if(!segs.length||segs.some(s=>s==='..'||/[*?:]/.test(s)))continue;if(v==='USERPROFILE'&&segs.length<2)continue;
+   out.push({path:path.join(base,...segs),kind:BAT_VARS[v]==='home'?'documents':BAT_VARS[v]});}}
+ return out;}
+
 /* -> {ok, places:[{path, kind, exists, predicted?, loose?}], why} */
 function locate(game,env=process.env){const exe=String(game?.exe||'');if(!exe)return {ok:false,places:[],why:'没有游戏程序'};
  const folder=path.dirname(exe),engine=String(game.engine||'').toLowerCase(),places=[],seen=new Set();
@@ -68,6 +80,9 @@ function locate(game,env=process.env){const exe=String(game?.exe||'');if(!exe)re
  if(/kirikiri|krkr/.test(engine))put(path.join(folder,'savedata'),'game',{predicted:true});
  /* 2026-11-26 (バトラーズ～召しませお嬢様: no save place, the cold test refused) BGI / Ethornell writes UserData next to the program on a first start */
  if(/^bgi|ethornell/.test(engine))put(path.join(folder,'UserData'),'game',{predicted:true});
+ /* 2026-11-27 (ハミダシクリエイティブ, Artemis: no save place, the cold test refused) the game ships batch files that open / delete
+    its save folder (セーブデータフォルダを開く.bat: %APPDATA%\まどそふと\ハミダシクリエイティブ) */
+ for(const p of batchSavePlaces(folder,env))put(p.path,p.kind,{predicted:true});
  /* loose save and settings files in the game folder itself */
  const loose=list(folder).filter(e=>e.isFile()&&LOOSE_SAVE.test(e.name)&&!NEVER.test(e.name)).map(e=>e.name);
  const usable=places.filter(p=>p.exists||p.predicted);

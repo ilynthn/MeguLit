@@ -1,0 +1,68 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "a53de2ac5061306d4e894b9043777c9e1833a8b9cb4fbb72bef7ef0526487f31",
+ "layer": "game",
+ "source": "official",
+ "mode": "hide",
+ "settings": {
+  "hide": {
+   "textEffectsRead": false
+  },
+  "lang": {
+   "ja": {
+    "annotation": "ruby",
+    "pairing": "script"
+   }
+  },
+  "source": {
+   "versionMatch": "prints"
+  }
+ },
+ "exe": "",
+ "engine": "artemis",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "pack": "416570725de27313f6dc6bcd3dd12e631029f1d0c8cd2a308983bb3067bf7114",
+  "title": "1846ad983431cf8ca0129e1ed5c34ba9afda8d6590230b1cfe2eb1ef76183887",
+  "vndb": "v27449"
+ },
+ "seedFormat": 1,
+ "status": "verified",
+ "slug": "hamidashi-creative",
+ "builds": [
+  "541452b152b02c4e242f09dc31ef5061629318b31e85881e9084b5cba6fbfac7"
+ ],
+ "match": {
+  "exe": [
+   "hamidashi.exe"
+  ],
+  "titles": [
+   "ハミダシクリエイティブ",
+   "HamidashiCreative"
+  ]
+ },
+ "sourceLangs": [
+  "ja"
+ ],
+ "rev": 2,
+ "ext": {
+  "versionPrints": {
+   "541452b152b02c4e242f09dc31ef5061629318b31e85881e9084b5cba6fbfac7": {
+    "head": "c9045944669bade3d1de16d31bb8f00ab99f1ff4fe83db7228032394bfb95dd4",
+    "pe": "0.0.0.0@5ed5c5d6",
+    "data": "328dff4319e5678ab93dcdc667e8f49574b883394a9b360473c0cce97183de2c",
+    "pack": "416570725de27313f6dc6bcd3dd12e631029f1d0c8cd2a308983bb3067bf7114"
+   }
+  },
+  "adapter": {
+   "tool": "megulit-adapter",
+   "vndb": "v27449",
+   "release": "パッケージ版",
+   "source": "script:artemis",
+   "hide": "engine:Artemis2 write-back (source.embedGlyphPieces)",
+   "pairing": "script"
+  }
+ }
+}
