@@ -66,13 +66,24 @@ test('THE SEED: empty table → first stats call kicks a background refresh; the
  assert.match(fs.readFileSync(path.join(relayDir,'src','worker.js'),'utf8'),/refreshSeedStatsSafe\(env/);
 });
 
-test('dashboard: gold THE SEED pane takes the full dumps slot; full dumps moved next to relay.log; meter clamps; panels render isolated',async()=>{
+test('dashboard: gold THE SEED card, full dumps before the request log, meter clamps, panels render isolated, every card names its source',async()=>{
  const {DASHBOARD_HTML:h}=await mod('dashboard.js');
- assert.match(h,/pane c3 gold/);assert.match(h,/--gold:#e0a84b/);assert.match(h,/>the seed</);
- /* full dumps keeps its name (owner 2026-11-21), only moved below THE SEED, next to relay.log */
- assert.ok(h.indexOf('>the seed<')<h.indexOf('>full dumps<')&&h.indexOf('>full dumps<')<h.indexOf('>relay.log<'));
- assert.match(h,/function safe\(name,fn\)/);assert.match(h,/n=Math\.max\(0,Math\.min\(w,n\|0\)\)/);
+ assert.match(h,/pane s4 gold/);assert.match(h,/--gold:#e2b25c/);assert.match(h,/data-i18n="p\.seed2"/);
+ /* full dumps keeps its name (owner 2026-11-21); THE SEED comes first, the request log last */
+ assert.ok(h.indexOf('data-i18n="p.seed2"')<h.indexOf('data-i18n="p.full2"')&&h.indexOf('data-i18n="p.full2"')<h.indexOf('data-i18n="p.log2"'));
+ assert.match(h,/function safe\(name,fn\)/);assert.match(h,/Math\.min\(100,Math\.max\(0,/);
+ /* 2026-11-27 redesign: each data card carries a description and a data-source line */
+ const cards=h.match(/<section class="pane s\d+[^"]*">[\s\S]*?<\/section>/g)||[];
+ assert.ok(cards.length>=14,'data cards '+cards.length);
+ for(const c of cards){assert.match(c,/class="cd"/,'card without description');assert.match(c,/data-i18n="src"/,'card without source');}
+ /* zh/en switch: every dictionary key used on the page exists, both languages are filled in, the choice is remembered */
+ const {DASH_DICT}=await mod('dashboard-i18n.js');
+ for(const m of h.matchAll(/data-i18n(?:-ph|-aria)?="([^"]+)"/g))assert.ok(DASH_DICT[m[1]],'missing dictionary key '+m[1]);
+ for(const m of h.matchAll(/\bt\("([a-zA-Z0-9.]+)"/g))assert.ok(DASH_DICT[m[1]],'missing dictionary key '+m[1]);
+ for(const [k,v] of Object.entries(DASH_DICT)){assert.ok(v[0]&&v[1],'empty text for '+k);}
+ assert.match(h,/ml-dash-lang/);
 });
+
 
 test('THE SEED: GraphQL refused → tree counts still shown, the error reaches the panel, next run retries',async()=>{
  const gh=fakeGitHub([{status:'verified',versions:['a']},{status:'skeleton'}]);let deny=true;

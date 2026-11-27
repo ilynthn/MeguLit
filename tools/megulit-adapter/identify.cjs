@@ -53,7 +53,7 @@ const labelOf=r=>{for(const [re,l] of RELEASE_LABEL)if(re.test(r.title))return l
 async function vndb({title='',gameDir='',vnid='',chineseBuild=false,engine=''}={},{lookup=null,timeoutMs=8000}={}){
  const E=require('../../services/game-enrichment.cjs');lookup=lookup||E.vndbReleases;const appid=steamOf(gameDir);const out={steamAppId:'',vndb:'',how:'',cn:'',release:'',releaseHow:'',candidates:[],releases:[],vndbEngine:'',engineDiffers:false,error:''};
  let r;try{r=await lookup({titles:[...new Set([title,E.cleanTitle(title),E.jpForm(E.cleanTitle(title))].filter(Boolean))],appid,vnid},undefined,{timeoutMs});}catch(e){out.error=String(e.message||e).slice(0,120);return out;}
- if(!r)return out;out.vndb=r.vnid;out.how=r.how;out.cn=r.zh||'';
+ if(!r)return out;out.vndb=r.vnid;out.how=r.how;out.cn=r.zh||'';out.ja=r.ja||'';out.romaji=r.title||'';
  const win=r.releases.filter(x=>!x.platforms.length||x.platforms.includes('win')),trial=x=>/trial|体験版|demo/i.test(x.title);out.releases=win;
  const steam=appid&&win.find(x=>x.ext.steam===appid);
  const zh=chineseBuild?win.filter(x=>x.patch&&x.langs.some(l=>/^zh/.test(l))):[];

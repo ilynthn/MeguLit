@@ -12,16 +12,20 @@
 export const CODE_TTL = 600;            /* seconds a login code stays valid */
 export const CODE_TRIES = 5;            /* wrong guesses before the code is burned */
 export const SESSION_DAYS = 180;        /* sliding session lifetime */
+/* 2026-11-27 megulit.com user centre: website sign-ins get a read-only session (scope 'read') that lives 30 days */
+export const WEB_SESSION_DAYS = 30;
+const sessionDays = session => session?.scope === 'read' ? WEB_SESSION_DAYS : SESSION_DAYS;
 export const ROTATE_AFTER = 86400;      /* rotate the token on use at most once a day */
 /* 2026-11-12 (user: signed out of the forum and the follow list, and a second leaderboard row appeared): a token rotated
    during a request whose answer did not carry it was lost; the client kept the old one until the grace ran out. The new
    token now rides on every answer (worker.js), and the old one keeps working for 30 days. */
 export const ROTATE_GRACE = 30 * 86400; /* the previous token keeps working this long after a rotation */
 export const ROTATED = new WeakMap();   /* request -> the token issued while answering it */
-export const KINDS = ['words', 'sentences', 'reading', 'settings'];
-export const KIND_CAP = { words: 8 << 20, sentences: 4 << 20, reading: 1 << 20, settings: 512 << 10 };
+/* progress: per work, read/total line counts only; study: per day, practice counters only (2026-11-27) */
+export const KINDS = ['words', 'sentences', 'reading', 'settings', 'progress', 'study'];
+export const KIND_CAP = { words: 8 << 20, sentences: 4 << 20, reading: 1 << 20, settings: 512 << 10, progress: 256 << 10, study: 256 << 10 };
 // A saved sentence sends two strings of up to 3,000 UTF-16 units. JSON can escape each unit as six bytes.
-export const RECORD_CAP = { words: 32 << 10, sentences: 40 << 10, reading: 1 << 10, settings: 32 << 10 };
+export const RECORD_CAP = { words: 32 << 10, sentences: 40 << 10, reading: 1 << 10, settings: 32 << 10, progress: 1 << 10, study: 1 << 10 };
 export const PUT_MAX_RECORDS = 500;
 export const PUT_MAX_BYTES = 2 << 20;
 export const PULL_LIMIT = 500;
@@ -29,8 +33,11 @@ export const PULL_LIMIT = 500;
 export const AUTH_RATE = {
   'code-email': [5, 3600], 'code-email-gap': [1, 60], 'code-ip': [20, 3600],
   'verify-ip': [30, 600], 'verify-email': [15, 3600], 'acct': [600, 3600],
-  'pw-ip': [30, 600], 'pw-login': [10, 3600]
+  'pw-ip': [30, 600], 'pw-login': [10, 3600], 'sync-wipe': [3, 86400]
 };
+/* Read-only (website) sessions may only read. Everything else answers 403 READ_ONLY_SESSION. */
+export const READ_ROUTES = new Set(['GET /api/me', 'GET /api/sync', 'POST /api/auth/logout']);
+export function readAllowed(method, path) { return READ_ROUTES.has(method + ' ' + path) || (method === 'GET' && path.startsWith('/api/sync/')); }
 /* ---- user name and password (2026-11-12) ------------------------------------------------------------------- */
 export const PBKDF2_ROUNDS = 100000;
 const RESERVED = new Set(['admin', 'administrator', 'root', 'system', 'support', 'megulit', 'moderator', 'official', 'staff', 'null', 'undefined']);
@@ -105,6 +112,14 @@ export function cleanDevice(value) {
   const text = typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 60) : '';
   return text || 'MeguLit';
 }
+/* progress and study carry numbers and a work's title, nothing else: no text from the game can ride along (2026-11-27) */
+const count = v => Number.isSafeInteger(v) && v >= 0;
+const onlyKeys = (data, allowed, required) => Object.keys(data).every(k => allowed.includes(k)) && required.every(k => k in data);
+const title = v => typeof v === 'string' && v.length <= 180 && !/[\u0000-\u001f]/.test(v);
+export const SCHEMA = {
+  progress: d => onlyKeys(d, ['game', 'read', 'total', 'seconds', 'lastPlayedAt'], ['game', 'read']) && title(d.game) && !!d.game.trim() && count(d.read) && (d.total === undefined || d.total === null || count(d.total)) && (d.seconds === undefined || count(d.seconds)) && (d.lastPlayedAt === undefined || count(d.lastPlayedAt)),
+  study: d => onlyKeys(d, ['day', 'lookups', 'reviews', 'newWords', 'kana', 'grammar', 'anki'], ['day']) && typeof d.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.day) && ['lookups', 'reviews', 'newWords', 'kana', 'grammar', 'anki'].every(k => d[k] === undefined || count(d[k]))
+};
 /* one incoming sync record → {key,updated_at,deleted,data,json} or an error code */
 export function validateRecord(kind, record, nowMs) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return { error: 'INVALID_RECORD' };
@@ -114,6 +129,7 @@ export function validateRecord(kind, record, nowMs) {
   if (!Number.isSafeInteger(at) || at < Date.UTC(2020, 0, 1) || at > nowMs + 86400000) return { error: 'INVALID_UPDATED_AT' };
   if (record.deleted === true) return { key, updated_at: at, deleted: true, data: null, json: null };
   if (!record.data || typeof record.data !== 'object' || Array.isArray(record.data)) return { error: 'INVALID_DATA' };
+  if (SCHEMA[kind] && !SCHEMA[kind](record.data)) return { error: 'INVALID_DATA' };
   const json = JSON.stringify(record.data);
   if (encoder.encode(json).length > RECORD_CAP[kind]) return { error: 'RECORD_TOO_LARGE' };
   return { key, updated_at: at, deleted: false, data: record.data, json };
@@ -169,11 +185,11 @@ export async function authenticate(request, env, now = new Date()) {
   if (session.token_hash === hash && t - session.rotated_at >= ROTATE_AFTER) {
     rotated = newToken();
     await env.DB.prepare('UPDATE account_sessions SET token_hash=?,prev_hash=?,prev_until=?,rotated_at=?,last_used_at=?,expires_at=? WHERE id=?')
-      .bind(await sha256(rotated), hash, t + ROTATE_GRACE, t, t, t + SESSION_DAYS * 86400, session.id).run();
+      .bind(await sha256(rotated), hash, t + ROTATE_GRACE, t, t, t + sessionDays(session) * 86400, session.id).run();
   /* 2026-11-13 was 300s: a row per signed-in device every 5 minutes is ~288 D1 writes a day each. The session lives
        30 days, so refreshing last_used_at / expires_at once an hour keeps it alive just as well. */
   } else if (t - session.last_used_at > 3600) {
-    await env.DB.prepare('UPDATE account_sessions SET last_used_at=?,expires_at=? WHERE id=?').bind(t, t + SESSION_DAYS * 86400, session.id).run();
+    await env.DB.prepare('UPDATE account_sessions SET last_used_at=?,expires_at=? WHERE id=?').bind(t, t + sessionDays(session) * 86400, session.id).run();
   }
   if (rotated) ROTATED.set(request, rotated);
   return { account, session, token: rotated };
@@ -227,15 +243,24 @@ async function verifyCode(request, env, ip, now) {
     await env.DB.prepare('INSERT INTO accounts(id,email,created_at,last_login_at,sync_seq) VALUES(?,?,?,?,0) ON CONFLICT(email) DO NOTHING').bind(account.id, email, t, t).run();
     account = await env.DB.prepare('SELECT id,email,created_at FROM accounts WHERE email=?').bind(email).first();
   } else await env.DB.prepare('UPDATE accounts SET last_login_at=? WHERE id=?').bind(t, account.id).run();
-  return await openSession(env, account, body.value.device, t);
+  return await openSession(env, account, body.value.device, t, body.value.client);
 }
-async function openSession(env, account, device, t) {
+async function openSession(env, account, device, t, client) {
   const token = newToken(), sessionId = hex(crypto.getRandomValues(new Uint8Array(8)));
-  await env.DB.prepare('INSERT INTO account_sessions(id,account_id,token_hash,prev_hash,prev_until,device,created_at,last_used_at,rotated_at,expires_at) VALUES(?,?,?,NULL,0,?,?,?,?,?)')
-    .bind(sessionId, account.id, await sha256(token), cleanDevice(device), t, t, t, t + SESSION_DAYS * 86400).run();
+  const scope = client === 'web' ? 'read' : 'full', days = scope === 'read' ? WEB_SESSION_DAYS : SESSION_DAYS;
+  const name = scope === 'read' ? cleanDevice('网页 · ' + cleanDevice(device)) : cleanDevice(device);
+  try {
+    await env.DB.prepare('INSERT INTO account_sessions(id,account_id,token_hash,prev_hash,prev_until,device,created_at,last_used_at,rotated_at,expires_at,scope) VALUES(?,?,?,NULL,0,?,?,?,?,?,?)')
+      .bind(sessionId, account.id, await sha256(token), name, t, t, t, t + days * 86400, scope).run();
+  } catch (error) {
+    /* before migration 0042 there is no scope column: a desktop session still opens, a website one never opens as full */
+    if (scope !== 'full' || !/scope/.test(String(error?.message))) throw error;
+    await env.DB.prepare('INSERT INTO account_sessions(id,account_id,token_hash,prev_hash,prev_until,device,created_at,last_used_at,rotated_at,expires_at) VALUES(?,?,?,NULL,0,?,?,?,?,?)')
+      .bind(sessionId, account.id, await sha256(token), name, t, t, t, t + days * 86400).run();
+  }
   /* at most 20 devices: drop the least recently used beyond that */
   await env.DB.prepare('DELETE FROM account_sessions WHERE account_id=? AND id NOT IN (SELECT id FROM account_sessions WHERE account_id=? ORDER BY last_used_at DESC LIMIT 20)').bind(account.id, account.id).run();
-  return json({ ok: true, token, accountId: account.id, email: account.email, sessionId, expiresAt: t + SESSION_DAYS * 86400 });
+  return json({ ok: true, token, accountId: account.id, email: account.email, sessionId, scope, expiresAt: t + days * 86400 });
 }
 /* e-mail or user name + password. One answer for every failure, so nobody can probe which names exist. */
 async function passwordLogin(request, env, ip, now) {
@@ -250,7 +275,7 @@ async function passwordLogin(request, env, ip, now) {
   if (!account?.pass_hash || !account.pass_salt) { await hashPassword(password, '00'.repeat(16)); return fail('WRONG_PASSWORD'); }
   if (!sameText(await hashPassword(password, account.pass_salt), account.pass_hash)) return fail('WRONG_PASSWORD');
   await env.DB.prepare('UPDATE accounts SET last_login_at=? WHERE id=?').bind(t, account.id).run();
-  return await openSession(env, { id: account.id, email: account.email, created_at: account.created_at }, body.value.device, t);
+  return await openSession(env, { id: account.id, email: account.email, created_at: account.created_at }, body.value.device, t, body.value.client);
 }
 /* the user name is chosen once and never changed */
 async function setUsername(request, env, auth) {
@@ -284,7 +309,7 @@ async function me(env, auth, now) {
   const { results: usage } = await env.DB.prepare('SELECT kind,COUNT(*) records,COALESCE(SUM(LENGTH(CAST(data AS BLOB))),0) bytes FROM sync_records WHERE account_id=? AND deleted=0 GROUP BY kind').bind(auth.account.id).all();
   let extra = null; try { extra = await env.DB.prepare('SELECT username,pass_set_at FROM accounts WHERE id=?').bind(auth.account.id).first(); } catch { extra = null; }
   return withToken(json({
-    ok: true, accountId: auth.account.id, email: auth.account.email, createdAt: auth.account.created_at, sessionId: auth.session.id,
+    ok: true, accountId: auth.account.id, email: auth.account.email, createdAt: auth.account.created_at, sessionId: auth.session.id, scope: auth.session.scope === 'read' ? 'read' : 'full',
     username: extra?.username || null, hasPassword: !!extra?.pass_set_at,
     devices: sessions.map(s => ({ id: s.id, device: s.device, createdAt: s.created_at, lastUsedAt: s.last_used_at, current: s.id === auth.session.id })),
     usage: Object.fromEntries(usage.map(u => [u.kind, { records: u.records, bytes: u.bytes }])), limits: KIND_CAP
@@ -296,6 +321,7 @@ async function logout(request, env, auth) {
   let body = { value: {} };
   if (text.trim()) { try { const v = JSON.parse(text); body = { value: v && typeof v === 'object' ? v : {} }; } catch { return bodyError('INVALID_JSON'); } }
   const target = typeof body.value.sessionId === 'string' && /^[0-9a-f]{16}$/.test(body.value.sessionId) ? body.value.sessionId : auth.session.id;
+  if (auth.session.scope === 'read' && target !== auth.session.id) return fail('READ_ONLY_SESSION', 403);
   const r = await env.DB.prepare('DELETE FROM account_sessions WHERE id=? AND account_id=?').bind(target, auth.account.id).run();
   return json({ ok: true, revoked: target, current: target === auth.session.id, changed: r?.meta?.changes ?? null });
 }
@@ -308,6 +334,19 @@ async function deleteAccount(env, auth) {
     env.DB.prepare('DELETE FROM accounts WHERE id=?').bind(id)
   ]);
   return json({ ok: true, deleted: true });
+}
+/* one call for the website: per kind the newest seq and the live record count, so it pulls only kinds that changed */
+async function syncSummary(env, auth) {
+  const { results } = await env.DB.prepare('SELECT kind,MAX(seq) cursor,SUM(CASE WHEN deleted=0 THEN 1 ELSE 0 END) records FROM sync_records WHERE account_id=? GROUP BY kind').bind(auth.account.id).all();
+  const kinds = Object.fromEntries(KINDS.map(k => [k, { cursor: 0, records: 0 }]));
+  for (const r of results) if (kinds[r.kind]) kinds[r.kind] = { cursor: Number(r.cursor) || 0, records: Number(r.records) || 0 };
+  return withToken(json({ ok: true, kinds }), auth);
+}
+/* 删除云端数据: every synced record of the account goes; the account and its sessions stay */
+async function syncWipe(env, auth, now) {
+  if (!await hitAuth(env, 'sync-wipe', auth.account.id, now.getTime())) return fail('RATE_LIMITED', 429);
+  const r = await env.DB.prepare('DELETE FROM sync_records WHERE account_id=?').bind(auth.account.id).run();
+  return withToken(json({ ok: true, deleted: r?.meta?.changes ?? null }), auth);
 }
 async function syncPull(url, env, auth, kind) {
   const since = Number(url.searchParams.get('since') || 0), limit = Math.min(PULL_LIMIT, Math.max(1, Number(url.searchParams.get('limit')) || PULL_LIMIT));
@@ -359,7 +398,7 @@ async function syncPush(request, env, auth, kind, now) {
 }
 
 /* ---- entry --------------------------------------------------------------------------------------------------- */
-export function isAccountsPath(path) { return path === '/api/me' || path.startsWith('/api/me/') || path.startsWith('/api/auth/') || path.startsWith('/api/sync/'); }
+export function isAccountsPath(path) { return path === '/api/me' || path.startsWith('/api/me/') || path.startsWith('/api/auth/') || path === '/api/sync' || path.startsWith('/api/sync/'); }
 export async function handleAccounts(request, env, now = new Date(), ctx = null) {
   const url = new URL(request.url), path = url.pathname.replace(/\/+$/, '') || '/', method = request.method;
   if (!isAccountsPath(path)) return null;
@@ -370,11 +409,16 @@ export async function handleAccounts(request, env, now = new Date(), ctx = null)
     if (path === '/api/auth/password') return method === 'POST' ? await passwordLogin(request, env, ip, now) : fail('METHOD_NOT_ALLOWED', 405);
     const auth = await authenticate(request, env, now);
     if (!auth) return fail('UNAUTHORIZED', 401);
-    if (!await hitAuth(env, 'acct', auth.account.id, now.getTime())) return fail('RATE_LIMITED', 429);
+    const readOnly = auth.session.scope === 'read';
+    /* website reads go through a Cloudflare rate-limit binding, so opening the page writes no D1 row */
+    if (readOnly && env.RL_SYNC_GET) { if (!(await env.RL_SYNC_GET.limit({ key: auth.account.id }))?.success) return fail('RATE_LIMITED', 429); }
+    else if (!await hitAuth(env, 'acct', auth.account.id, now.getTime())) return fail('RATE_LIMITED', 429);
+    if (readOnly && !readAllowed(method, path)) return fail('READ_ONLY_SESSION', 403);
     if (path === '/api/auth/logout') return method === 'POST' ? await logout(request, env, auth) : fail('METHOD_NOT_ALLOWED', 405);
     if (path === '/api/me') return method === 'GET' ? await me(env, auth, now) : method === 'DELETE' ? await deleteAccount(env, auth) : fail('METHOD_NOT_ALLOWED', 405);
     if (path === '/api/me/username') return method === 'POST' ? await setUsername(request, env, auth) : fail('METHOD_NOT_ALLOWED', 405);
     if (path === '/api/me/password') return method === 'POST' ? await setPassword(request, env, auth, now) : fail('METHOD_NOT_ALLOWED', 405);
+    if (path === '/api/sync') return method === 'GET' ? await syncSummary(env, auth) : method === 'DELETE' ? await syncWipe(env, auth, now) : fail('METHOD_NOT_ALLOWED', 405);
     const kind = path.slice('/api/sync/'.length);
     if (!KINDS.includes(kind)) return fail('NOT_FOUND', 404);
     return method === 'GET' ? await syncPull(url, env, auth, kind) : method === 'PUT' ? await syncPush(request, env, auth, kind, now) : fail('METHOD_NOT_ALLOWED', 405);

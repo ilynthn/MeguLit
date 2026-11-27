@@ -45,7 +45,7 @@ function stateFor(id,locale){if(!states.has(id))states.set(id,{steamLang:stored(
  auto:stored('auto','0')==='1',translate:stored('auto','0')==='1',engineUsed:'',translateError:'',source:'auto',target:stored('target',{zh:'zh-CN',ja:'ja',en:'en'}[locale]),
  size:Number(stored('size',10))||10,translations:new Map(),revealed:new Set(),expanded:new Set(),full:new Map(),fullOpen:new Set(),busy:false});return states.get(id);
  }
-function fromEnrichment(value){if(!value)return null;return PLATFORMS.map(([key,name,region])=>key==='vndb'&&value.vndb?{key,name,region,available:true,value:value.vndb.rating,
+function fromEnrichment(value){if(!value)return null;if(Array.isArray(value.platforms))return value.platforms;return PLATFORMS.map(([key,name,region])=>key==='vndb'&&value.vndb?{key,name,region,available:true,value:value.vndb.rating,
  scale:10,votes:value.vndb.votes,url:value.vndb.url}:key==='steam'&&value.steam?{key,name,region,available:true,value:value.steam.percent,scale:'%',votes:value.steam.total,
  url:value.steam.url}:{key,name,region,pending:true});}
 function scoreHTML(p,w,esc){if(p.pending)return '<strong class="review-score is-pending">…</strong><small>&nbsp;</small>';if(!p.available)return `<strong class="review-score is-missing">—</strong><small>${p.error?w.failed:w.notFound}</small>`;
@@ -91,8 +91,9 @@ export function receptionHTML(value,locale,esc,id=''){
  if(!state?.open&&platforms.length&&platforms.every(p=>!p.available&&!p.pending&&p.error))return `<section class="panel game-reception" data-reception="${esc(id)}"><h2 class="panel-title">${w.title}</h2><p class="u-status" data-state="error">${w.failed}</p></section>`;
   return `<section class="panel game-reception" data-reception="${esc(id)}"><h2 class="panel-title">${w.title}</h2><div class="review-platforms" role="tablist">${platforms.map(p=>`<button type="button" role="tab" class="review-platform${p.pending?' is-pending':p.available?'':' is-unavailable'}" data-review-platform="${p.key}" aria-expanded="${state?.open===p.key}" aria-selected="${state?.open===p.key}" ${p.available||p.pending||state?.open===p.key?'':'aria-disabled="true"'}><span class="review-region">${w.regions[p.region]}</span><span class="review-name">${esc(p.name)}</span>${scoreHTML(p,w,esc)}</button>`).join('')}</div>${state?.open?drawerHTML(state,w,esc):''}${value?.at?`<small class="settings-help review-fetched">${w.fetched} · ${esc(new Date(value.at).toLocaleDateString({zh:'zh-CN',ja:'ja-JP',en:'en-US'}[locale]))}</small>`:''}</section>`;
 }
-export function bindReception(target,{api,id,locale,esc,value}){
+export function bindReception(target,{api,id,locale,esc,value,openFirst=''}){
  const w=receptionMessages[locale],state=stateFor(id,locale);
+ if(value?.platforms)state.summary=value.platforms;
  const section=()=>target.querySelector(`[data-reception="${CSS.escape(id)}"]`);
  const render=()=>{const old=section();if(!old)return;const wrap=document.createElement('div');wrap.innerHTML=receptionHTML(value,locale,esc,id);const next=wrap.firstElementChild;
   old.replaceWith(next);wire(next);};
@@ -113,12 +114,13 @@ export function bindReception(target,{api,id,locale,esc,value}){
    if(result.error){state.translateError=result.error;break;}if(section())refreshList();
   }}catch(error){if(!current())return;state.translateError=String(error?.message||error);}
   state.busy=false;if(section())refreshList();};
- const load=async(page)=>{const ticket=state.ticket=(state.ticket||0)+1;state.translate=state.auto;state.loading=true;state.error='';render();try{const data=await api('game_reviews',
+ const load=async(page,scroll=true)=>{const ticket=state.ticket=(state.ticket||0)+1;state.translate=state.auto;state.loading=true;state.error='';render();try{const data=await api('game_reviews',
   {id,platform:state.open,page,size:state.size,lang:state.open==='steam'?state.steamLang||'all':'all'});if(ticket!==state.ticket)return;state.data=data;state.page=data.page;
-  }catch(error){if(ticket!==state.ticket)return;state.page=page;state.error=String(error?.message||error);}state.loading=false;if(!section())return;render();section()?.querySelector('.review-toolbar')?.scrollIntoView({
+  }catch(error){if(ticket!==state.ticket)return;state.page=page;state.error=String(error?.message||error);}state.loading=false;if(!section())return;render();if(scroll)section()?.querySelector('.review-toolbar')?.scrollIntoView({
   block:'nearest',behavior:'smooth'});translatePage();};
  const wire=root=>{
   root.querySelectorAll('[data-review-platform]').forEach(button=>button.onclick=()=>{const key=button.dataset.reviewPlatform,p=(state.summary||fromEnrichment(value)||[]).find(x=>x.key===key);
+   if(p?.available&&p.hasReviews===false){if(p.url)api('open_source',{url:p.url}).catch(()=>{});return;}
    if(state.open===key){state.open='';state.data=null;render();return;}if(!p?.available&&!p?.pending)return;state.open=key;state.data=null;state.page=1;load(1);
    });
   root.querySelectorAll('[data-rv-page]').forEach(button=>button.onclick=()=>load(Number(button.dataset.rvPage)));
@@ -169,7 +171,8 @@ export function bindReception(target,{api,id,locale,esc,value}){
    button.disabled=next.disabled;button.title=next.title;button.setAttribute('aria-pressed',next.getAttribute('aria-pressed'));}
   root.querySelector('.review-translate-error')?.remove();const error=wrap.querySelector('.review-translate-error');if(error)root.querySelector('.review-toolbar')?.after(error);
    wireItems(root);};
- const root=section();if(root)wire(root);
+ const root=section();if(value?.platforms)render();else if(root)wire(root);
+ if(openFirst&&!state.autoOpened&&state.summary?.some(p=>p.key===openFirst&&p.available)){state.autoOpened=true;if(!state.open){state.open=openFirst;load(1,false);}}
  if(reviewEngine===null){reviewEngine='';api('settings_get').then(settings=>{reviewEngine=settings?.values?.translation?.reviewEngine||'machine';const select=section()?.querySelector('[data-review-engine]');
   if(select&&select.value!==reviewEngine){select.value=reviewEngine;select.dispatchEvent(new Event('change-sync'));render();}}).catch(()=>{reviewEngine='machine';
   });}
