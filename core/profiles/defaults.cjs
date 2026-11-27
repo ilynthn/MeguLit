@@ -98,6 +98,11 @@ module.exports={
      enabled (trial on), unconfirmedLines 2 (lines in a row without a hidden confirmation end the proof), clickMs 400 (texts of
      one click), skipAside true (scene labels and name plates pass without starting a trial) */
   engineTrial:{enabled:null,unconfirmedLines:null,clickMs:null,skipAside:null},
+  /* 2026-11-27 (アイキス3 sexy, NeXAS: the options are drawn in the dialogue font right after the line that names them and
+     were blanked with it) the glyph hide stops hiding glyphs that come after the whole line was drawn and do not start it
+     again (native/fontprobe/GlyphMatch.h AfterLineNew); false = the kernel: a character hidden in the line stays hidden until
+     the next line */
+  glyphAfterLine:false,
  },
  /* self-check thresholds of the auto-profile layer (feat/auto-profile): a window of lines whose hide/drop/repeat/pairing
     rates decide a fallback */

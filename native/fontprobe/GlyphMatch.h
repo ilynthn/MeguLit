@@ -143,6 +143,12 @@ public:
   static constexpr uint32_t ArmedFor = 60000, RubyWindow = 1500, PreviousWindow = 1500;
   std::function<void(const std::string &)> Report = [](const std::string &) {};
   bool StopOnCache = true; // blank mode: a glyph cache stops hiding; dot mode: reported, hiding goes on
+  // 2026-11-27 (アイキス3 sexy, NeXAS: the options 「１・ちょっと教えて欲しい」 are drawn in the dialogue font right after the line
+  // 「…ちょっと教えて欲しいというなら１を。…」 and were blanked, so neither the player nor the reader's choice OCR saw them).
+  // true: once the walk reached the end of the line, a glyph that does not continue it (a redraw starts at the first
+  // character again) is new text, not hidden only because the same character was hidden earlier in the line.
+  // Off by default (the kernel rule); HookBridge sends "AFTERLINE on" when the profile's hide.glyphAfterLine asks for it.
+  bool AfterLineNew = false;
 
   void SetLine(const std::wstring &text, uint32_t now)
   {
@@ -218,6 +224,7 @@ public:
       return false;
     if (render)
       requested.insert(c);
+    bool done = AfterLineNew && !current.empty() && cursor >= (int)current.size();
     int pos = Place(c);
     bool dk = DialogueKey(k);
     if (pos >= 0)
@@ -225,7 +232,7 @@ public:
       Learn(k, pos);
       dk = DialogueKey(k);
     }
-    bool hide = dk && (pos >= 0 || hidden.count(c));
+    bool hide = dk && (pos >= 0 || (hidden.count(c) && !done));
     bool late = false;
     if (!hide && dk && now - lineAt < PreviousWindow && previousHidden.count(c))
       hide = late = true; // the engine still finishes the previous line for a moment after the new one was read

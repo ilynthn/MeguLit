@@ -173,6 +173,34 @@ int main()
     text.NextLine(L"終");
     Check(!text.Rerasterises(false) && text.chances == 0, "raster verdict: lines drawn as strings (nothing rasterised) do not count");
   }
+  {
+    // 2026-11-27 アイキス3 sexy (NeXAS, GetGlyphOutline, ＭＳ ゴシック 30 px): the two options come in the dialogue font right after
+    // the line that names them; the old rule blanked every option character the line had hidden
+    const Key G{L"ＭＳ ゴシック", 30};
+    const std::wstring line = L"「そうじゃない、ちょっと教えて欲しいというなら１を。当然分かってるし、忘れる訳がないというなら２を選ぶのです……」";
+    const std::wstring o1 = L"１・ちょっと教えて欲しい", o2 = L"２・当然みんなの事はちゃんと知ってる";
+    for (int strict = 0; strict < 2; strict++)
+    {
+      Matcher m;
+      m.AfterLineNew = strict == 1;
+      m.SetLine(line, 1000);
+      Walk(m, line, G, 1100);
+      int a = Walk(m, o1, G, 1200), b = Walk(m, o2, G, 1200);
+      if (strict)
+      {
+        Check(a == 0 && b == 0, "after-line: options drawn after the whole line are not hidden");
+        Check(Walk(m, line, G, 1300) == (int)line.size(), "after-line: the engine rasterising the line again still hides all of it");
+        Check(m.Glyph(L'」', G, 1350, false, "ggo") && m.Glyph(L'」', G, 1350, true, "ggo"), "after-line: the size query + bitmap pair of the last character is hidden");
+        Matcher half;
+        half.AfterLineNew = true;
+        half.SetLine(line, 2000);
+        Walk(half, line.substr(0, 20), G, 2100);
+        Check(half.Glyph(L'ち', G, 2200, true, "ggo"), "after-line: a hidden character out of order before the line is done is still hidden");
+      }
+      else
+        Check(a + b > 10, "kernel rule (off): option characters the line hid are hidden (the old behaviour, kept by default)");
+    }
+  }
   printf(Failed ? "FAIL %d\n" : "PASS\n", Failed);
   return Failed ? 1 : 0;
 }

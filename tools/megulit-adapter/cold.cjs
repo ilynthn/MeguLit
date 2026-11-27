@@ -77,7 +77,7 @@ function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk
  fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
  /* the cold test's own switches: no relay reports, no shot uploads (judge decides; nothing leaves this PC) */
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
- buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);useCheckoutWgc(root);
+ buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);useCheckoutWgc(root);useCheckoutFont(root);
  return root;}
 /* MeguLitHook32/64.dll built from this repository's native/megulithook (a private native build; the DLLs are not in git) replace
    the install's copies in the copy only, like HookBridge.exe below: the engine-layer hook changes are what runs. A DLL without the
@@ -141,6 +141,19 @@ function useCheckoutWgc(root,repo=REPO,build=()=>spawnSync('cmd.exe',['/c',path.
  if(!fs.existsSync(own)){const r=build();if(!r||r.status!==0||!fs.existsSync(own)){wgcUsed=fs.existsSync(dst)?dst:'';return wgcUsed;}}
  let same=false;try{same=fs.readFileSync(dst).equals(fs.readFileSync(own));}catch{}if(!same){fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(own,dst);}
  wgcUsed=dst;return dst;}
+
+/* 2026-11-27 (アイキス3 sexy: the glyph-hide fix for options drawn after the line, native/fontprobe/GlyphMatch.h, never ran in the live
+   check: the app copy kept the install's MeguLitFont*.dll) the glyph hide DLLs (and their launchers) come from this checkout, rebuilt
+   with native/fontprobe/build.cmd when a source is newer than the checkout's DLL; a failed build keeps the install's and says so */
+let fontUsed='';
+const FONT_FILES=['MeguLitFont32.dll','MeguLitFont64.dll','MeguLitLaunch32.exe','MeguLitLaunch64.exe'];
+function useCheckoutFont(root,repo=REPO,build=()=>spawnSync('cmd.exe',['/c',path.join(repo,'native','fontprobe','build.cmd')],{encoding:'utf8',windowsHide:true,timeout:600000})){
+ const mt=f=>{try{return fs.statSync(f).mtimeMs;}catch{return 0;}};const src=path.join(repo,'native','fontprobe');
+ let newest=0;try{for(const f of fs.readdirSync(src))if(/\.(cpp|h)$/i.test(f))newest=Math.max(newest,mt(path.join(src,f)));}catch{}
+ const own=FONT_FILES.map(f=>path.join(repo,'native',f));
+ if(own.some(f=>!fs.existsSync(f)||mt(f)<newest)){let r=null;try{r=build();}catch{}if(!r||r.status!==0||own.some(f=>!fs.existsSync(f)||mt(f)<newest)){fontUsed='install';return fontUsed;}}
+ for(const f of own){const dst=path.join(root,'native',path.basename(f));let same=false;try{same=fs.readFileSync(dst).equals(fs.readFileSync(f));}catch{}if(!same){fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(f,dst);}}
+ fontUsed='checkout';return fontUsed;}
 
 /* ---- 2 probe ------------------------------------------------------------------------------------------------------------ */
 function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../../services/probe-full.cjs');
@@ -385,7 +398,7 @@ async function run(opts,{log=console.log}={}){
    if(runInfo?.input){result.input=runInfo.input;log('# input '+runInfo.input.level+' '+JSON.stringify(runInfo.input.sent)+(runInfo.input.escalations.length?' up: '+runInfo.input.escalations.map(e=>e.from+'>'+e.to).join(','):''));}
    /* the bridge's hide confirmations of this run (cold-test-run hideProbe): when, on which stream */
    result.hide={confirmed:runInfo?.hideConfirmed||[],probes:(runInfo?.hideProbes||[]).length,skipped:runInfo?.drawSkipped||0};
-   result.hook=hookUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
+   result.hook=hookUsed;result.font=fontUsed;if(loc.engine==='kirikiri'&&!result.hide.skipped&&!hookUsed['MeguLitHook32.dll']?.drawSkip)result.reasons.push('源头不画没装上：用的 MeguLitHook32.dll（'+(hookUsed['MeguLitHook32.dll']?.src||'install')+'）没有 DrawSkip，设 MEGULIT_HOOK_DIR 指向带 DrawSkip 的构建');
    /* 2026-11-27 every cold run before this read without hiding (services/cold-test-run.cjs hookSetup): a run whose core ended with the hide
       off says so, and its leak is no hide result */
    if(runInfo?.hideOn===false){cold.hideOff=true;result.reasons.push('冷测试里原文隐藏没有打开（内核结束时隐藏是关的），游戏原文一直显示：leak 不代表隐藏效果');}
@@ -426,4 +439,4 @@ function reexecIfOldNode(entry,argv,app){
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
 function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,useCheckoutFont,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
