@@ -143,6 +143,27 @@ public:
   static constexpr uint32_t ArmedFor = 60000, RubyWindow = 1500, PreviousWindow = 1500;
   std::function<void(const std::string &)> Report = [](const std::string &) {};
   bool StopOnCache = true; // blank mode: a glyph cache stops hiding; dot mode: reported, hiding goes on
+  // why the last Glyph() decided as it did (diagnostics trace): p placed in the line walk, h hidden earlier in the line,
+  // l the previous line finishing, r ruby, f not the dialogue font, n not in the line, x no line armed
+  char LastWhy = 0;
+  // 2026-11-27 (アイキス3 sexy, NeXAS: the options 「１・ちょっと教えて欲しい」 are drawn in the dialogue font right after the line
+  // 「…ちょっと教えて欲しいというなら１を。…」 and were blanked, so neither the player nor the reader's choice OCR saw them).
+  // true: once the line is drawn (the walk reached its end, or 90 % of it was placed and nothing was placed for AfterQuiet ms)
+  // a glyph that does not continue the walk (a redraw starts at the first character again) and comes in a burst (within
+  // BurstMs of the previous dialogue-font glyph: options, a name plate) is new text, not hidden only because the same
+  // character was hidden earlier in the line; an opening bracket after the line starts the next line and is hidden. Live trace (MEGULIT_GLYPH_TRACE): the line's last glyph is
+  // placed, 2 s later the two options arrive within one millisecond, every character the line had hidden marked why=h.
+  // Off by default (the kernel rule); HookBridge sends "AFTERLINE on" when the profile's hide.glyphAfterLine asks for it.
+  bool AfterLineNew = false;
+  static constexpr uint32_t AfterQuiet = 800, AfterTextQuiet = 300;
+  // The text drawn in the dialogue font after a finished line (options, a name plate), reported as "ToMe_GLYPHHIDE afterline
+  // text <chars>" once no such glyph came for AfterTextQuiet ms (Tick, from the DLL's own loop) or a new line starts: an engine
+  // whose options have no hook stream of their own (NeXAS) gives the reader its choice candidates this way.
+  void Tick(uint32_t now)
+  {
+    if (!afterText.empty() && now - afterTextAt >= AfterTextQuiet)
+      FlushAfterText();
+  }
 
   void SetLine(const std::wstring &text, uint32_t now)
   {
@@ -156,6 +177,10 @@ public:
       lineAt = now; // the same line again (redraw, coalesced batch): keep the cursor
       return;
     }
+    FlushAfterText();
+    if (!current.empty() && positions.size() >= 4)
+      paired = pairCalls * 2 >= (long)positions.size(); // most placed glyphs came as a pair in the line just finished
+    pairCalls = 0;
     Finish();
     previous = current;
     previousHidden = hidden;
@@ -163,6 +188,8 @@ public:
     lineAt = now;
     seq++;
     cursor = 0;
+    lastPlacedAt = 0;
+    doneReported = sparedReported = false;
     hidden.clear();
     requested.clear();
     positions.clear();
@@ -214,18 +241,54 @@ public:
   // True: return a blank glyph with the same metrics.
   bool Glyph(wchar_t c, const Key &k, uint32_t now, bool render, const char *path, Served *served = nullptr)
   {
+    LastWhy = 'x';
     if (!Active(now) || Blank(c))
       return false;
     if (render)
       requested.insert(c);
+    bool done = AfterLineNew && !current.empty() && (cursor >= (int)current.size() || (positions.size() * 10 >= current.size() * 9 && lastPlacedAt && now - lastPlacedAt >= AfterQuiet));
     int pos = Place(c);
     bool dk = DialogueKey(k);
     if (pos >= 0)
     {
+      lastPlacedAt = now;
       Learn(k, pos);
       dk = DialogueKey(k);
     }
-    bool hide = dk && (pos >= 0 || hidden.count(c));
+    // after the line: options and name plates come as a burst (live trace: 30 option glyphs in one millisecond), the next line
+    // types one glyph about every 30 ms before its text reaches the hide; only inside a burst is a character the line hid drawn.
+    // The second call of a size-query/bitmap pair takes the first call's decision.
+    bool pairSecond = done && dk && pos < 0 && c == lastDkChar && now - lastDkAt <= BurstMs;
+    bool burst = done && dk && pos < 0 && !pairSecond && lastDkAt && now - lastDkAt <= BurstMs;
+    bool hide = dk && (pos >= 0 || (hidden.count(c) && !burst));
+    bool opens = done && dk && pos < 0 && Opening(c); // the next line's 「 drawn before its text reached the hide
+    if (opens)
+      hide = true;
+    if (pairSecond)
+      hide = lastDkHide;
+    if (dk)
+      lastDkChar = c, lastDkAt = now, lastDkHide = hide;
+    if (done && dk && pos < 0 && !opens && render && afterText.size() < 400)
+    {
+      if (!afterText.empty() && now - afterTextAt >= AfterTextQuiet)
+        FlushAfterText();
+      // an engine that asks for every glyph twice (the line walk saw it: pairCalls) gives each character twice in a row
+      bool second = paired && afterOpen && !afterText.empty() && afterText.back() == c;
+      if (!second)
+        afterText += c;
+      afterOpen = !second;
+      afterTextAt = now;
+    }
+    if (done && !doneReported)
+    {
+      doneReported = true;
+      Report("ToMe_GLYPHHIDE afterline done seq=" + std::to_string(seq) + " cursor=" + std::to_string(cursor) + "/" + std::to_string(current.size()));
+    }
+    if (done && dk && pos < 0 && hidden.count(c) && !hide && !sparedReported)
+    {
+      sparedReported = true;
+      Report("ToMe_GLYPHHIDE afterline kept seq=" + std::to_string(seq) + " ch=" + Utf8(std::wstring(1, c)));
+    }
     bool late = false;
     if (!hide && dk && now - lineAt < PreviousWindow && previousHidden.count(c))
       hide = late = true; // the engine still finishes the previous line for a moment after the new one was read
@@ -233,9 +296,11 @@ public:
       hide = true;
     if (!hide)
     {
+      LastWhy = dk ? 'n' : 'f';
       chain = false;
       return false;
     }
+    LastWhy = pos >= 0 ? 'p' : late ? 'l' : opens ? 'o' : dk ? 'h' : 'r';
     if (pos >= 0)
       positions.insert(pos), placedAt[c] = pos;
     if (served)
@@ -368,11 +433,29 @@ private:
   int cursor = 0, suspect = 0, hiddenSize = 0;
   bool reported = false, cached = false, chain = false; // chain: the last draw was hidden (ruby follows it)
   bool cacheReported = false;
+  bool doneReported = false, sparedReported = false; // AfterLineNew reports, once per line
+  std::wstring afterText;
+  uint32_t afterTextAt = 0;
+  long pairCalls = 0;
+  static constexpr uint32_t BurstMs = 3;
+  wchar_t lastDkChar = 0;
+  uint32_t lastDkAt = 0;
+  bool lastDkHide = false;
+  bool paired = false, afterOpen = false;
+  void FlushAfterText()
+  {
+    if (afterText.size() >= 2)
+      Report("ToMe_GLYPHHIDE afterline text " + Utf8(afterText));
+    afterText.clear();
+    afterOpen = false;
+  }
+  uint32_t lastPlacedAt = 0;
   std::map<wchar_t, int> placedAt; // character -> its last placed index in the current line
   Key seeded, leader;
   std::vector<Key> learned;
   std::map<Key, std::pair<int, int>> runs; // key -> (run length, last position)
 
+  static bool Opening(wchar_t c) { return c == L'「' || c == L'『' || c == L'（' || c == L'【' || c == L'〈' || c == L'《' || c == L'“'; }
   // Where c continues the in-order walk through the current line, or -1.
   int Place(wchar_t c)
   {
@@ -380,7 +463,10 @@ private:
     if (cursor < n && current[cursor] == c)
       return cursor++;
     if (cursor > 0 && current[cursor - 1] == c)
+    {
+      pairCalls++;
       return cursor - 1; // the second call of a size-query/bitmap pair
+    }
     for (int j = cursor + 1; j < n && j <= cursor + 4; j++)
       if (current[j] == c)
       {

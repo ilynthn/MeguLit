@@ -5,30 +5,25 @@
 const test=require('node:test'),assert=require('node:assert'),fs=require('fs'),path=require('path'),{spawnSync}=require('child_process');
 const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
 const log=read('web/reader/modules/backlog.js'),bridge=read('native/GalWindowBridge.cs'),reader=read('services/reader.cjs');
-test('the log settings choose a combination and send it to the bridge',()=>{
- const hotkeys=JSON.parse(log.match(/const HOTKEYS=(\[[^\]]*\]);/)[1].replace(/'/g,'"'));
- assert.deepStrictEqual(hotkeys,['Alt+L','Ctrl+Alt+L','Alt+Shift+L','Alt+B','']);
- assert.match(log,/wheel:true,keyL:true,hotkey:'Alt\+L'\}/,'Alt+L by default');
- const spec=new Function('return '+log.match(/const hotkeySpec=(name=>\{[\s\S]+?charCodeAt\(0\)\};\})/)[1])();
- assert.deepStrictEqual(spec('Alt+L'),{modifiers:1,key:0x4C});
- assert.deepStrictEqual(spec('Ctrl+Alt+L'),{modifiers:3,key:0x4C});
- assert.deepStrictEqual(spec('Alt+Shift+L'),{modifiers:5,key:0x4C});
- assert.deepStrictEqual(spec('Alt+B'),{modifiers:1,key:0x42});
- assert.deepStrictEqual(spec(''),{modifiers:0,key:0});
- assert.match(log,/hotkey\.onchange=\(\)=>\{cfg\.hotkey=hotkey\.value;changed\(\);sendHotkey\(\);\};/);
- assert.match(log,/row\(t\('hotkey'\),hotkey\)/);
- assert.match(log,/if\(m\?\.type==='ready'\)sendHotkey\(\);if\(m\?\.type==='backlogHotkey'\)b\.toggleBacklog\(\);/,'sent again whenever the bridge (re)starts; its key toggles the log');
- assert.match(reader,/case 'galBacklogHotkey':g\?\.send\(\{type:'backlogHotkey',modifiers:Number\(r\.modifiers\)\|0,key:Number\(r\.key\)\|0\}\);break;/);
+test('the log key is one of the hotkeys (热键 page), no longer a list of its own',()=>{
+ /* 2026-11-27 every key is chosen on the 热键 page (web/hotkeys.js, core/hotkeys.cjs); the log page shows the current key and
+    leads there, and a key chosen here before is handed over once (core/hotkeys.cjs adoptLog, validation/custom-hotkeys.test.cjs) */
+ assert.ok(!/HOTKEYS|hotkeySpec|galBacklogHotkey/.test(log),'no second list or sender for the log key');
+ assert.ok(!/galBacklogHotkey/.test(reader));
+ assert.match(log,/action:'hotkeys_adopt_log',value:old/);
+ assert.match(log,/H\.display\('log'\)/,'the log page names the current key');
+ assert.match(log,/\[data-menu-key=hotkeys\]/,'and opens the 热键 page');
+ assert.match(log,/if\(m\?\.type==='backlogHotkey'\)b\.toggleBacklog\(\);/,'the key still toggles the log');
 });
 test('plain L opens the log only while the Alt+T menu or the log is open',()=>{
  assert.match(log,/if\(cfg\.keyL&&\(panel\|\|menuOpen\(\)\)&&!e\.altKey/);
  for(const lang of ['Alt+T 菜单开着时按 L 打开','while the Alt+T menu is open','Alt+T メニューが開いている間'])assert.ok(log.includes(lang));
 });
 test('the bridge holds the key only for the bound game in front in translation mode',()=>{
- assert.match(bridge,/internal static bool BacklogKeyValid\(uint mods,uint key\)\{return key>=0x41&&key<=0x5A&&\(mods&~7u\)==0&&\(mods&3\)!=0;\}/,'Alt or Ctrl plus a letter, never a bare key');
+ assert.match(bridge,/internal static bool BacklogKeyValid\(uint mods,uint key\)\{return BridgeHotkeys\.KeyValid\(mods,key\);\}/,'the same rule as every key: Alt, Ctrl or Win plus a key, never a bare key');
  assert.match(bridge,/internal static bool BacklogKeyWanted\(bool configured,bool translation,bool bound,bool gameInFront\)\{return configured&&translation&&bound&&gameInFront;\}/);
  assert.match(bridge,/RegisterHotKey\(IntPtr\.Zero,0x544,BacklogMods\|0x4000,BacklogKey\)/);
- assert.match(bridge,/message\.wParam\.ToUInt64\(\)==0x544\)\{Emit\(new\{type="backlogHotkey"\}\);\}else if/,'its own message, never mistaken for Alt+T');
+ assert.match(bridge,/if\(id==0x544\)\{Emit\(new\{type="backlogHotkey"\}\);\}else if/,'its own message, never mistaken for Alt+T');
  assert.match(bridge,/Tick\(\);\}catch\{\}try\{BacklogHotkeyTick\(noHotkeys\);\}catch\{\}/,'its own try: a failure never stops the bridge tick');
  assert.match(bridge,/if\(BacklogHeldKey!=0\)UnregisterHotKey\(IntPtr\.Zero,0x544\);\}/,'released when the bridge ends');
  assert.match(bridge,/if\(!BacklogKeyValid\(1,0x4C\)/,'covered by the bridge mode self-test');

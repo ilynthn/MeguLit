@@ -125,19 +125,6 @@ export function setupMarquees(root){
  }
 }
 
-/* ---------- shelf: one row whose column count follows the width ---------- */
-export function fitShelf(row){
- if(!row)return ()=>{};
- const ro=new ResizeObserver(()=>setupMarquees(row));ro.observe(row);setupMarquees(row);return ()=>ro.disconnect();
-}
-
-/* ---------- narrow window: the greeting glides over to sit above the cover ---------- */
-export function placeGreeting(root=document){
- const gr=root.querySelector('.g-hero .greet'),jk=root.querySelector('.g-hero .jacket');if(!gr||!jk)return;
- gr.style.transform='none';
- const dx=innerWidth<=1080?jk.getBoundingClientRect().left-gr.getBoundingClientRect().left:0;
- gr.style.transform=dx?`translateX(${dx}px)`:'none';
-}
 
 
 /* ---------- close dialog ---------- */
@@ -173,20 +160,11 @@ export function toolsHTML(locale,esc){
   <div class="tools-grid">${w.toolList.map(([t,d,m],i)=>`<button type="button" class="tool-card" data-tool="${i}"><span class="tool-top"><b>${esc(t)}</b><em>${i===0?({zh:"实验性",en:"Experimental",ja:"実験的"})[locale]||"实验性":w.researching}</em></span><span class="tool-desc">${esc(d)}</span>${i===0?`<span class="tool-key-note">${({zh:'在 Steam 买的、只显示中文 / 英文的游戏（比如 Key 社的 Summer Pockets），一定要先运行这个工具，否则 MeguLit 读到的是中文或英文，用不了',en:'Games bought on Steam that only show Chinese or English (such as Key’s Summer Pockets) must go through this tool first, otherwise MeguLit only gets the translated text',ja:'Steam 版で中国語・英語しか表示されないゲーム（Key の Summer Pockets など）は、先にこのツールを実行してください。実行しないと翻訳文しか取得できません'})[locale]||''}</span>`:''}<span class="tool-meta">${esc(m)}</span><span class="tool-go" aria-hidden="true">${({zh:'打开',en:'Open',ja:'開く'})[locale]||'打开'}</span></button>`).join('')}</div></div>`;
 }
 
-/* ---------- page tools live in the top bar; pages don't repeat their own name ---------- */
-export function dockPageTools(main){
+/* ---------- clear the unused top-bar tools slot when the page changes ---------- */
+export function dockPageTools(){
  const slot=document.querySelector('#bar-tools');if(!slot)return;
  // page tools stay on their own page now; the top bar only carries navigation
- slot.replaceChildren();slot.classList.remove('on','centered');return;
- slot.replaceChildren();
- const tools=main.querySelector(':scope > .page-header .page-tools, :scope > * > .page-header .page-tools');
- if(tools?.querySelector('#game-search')){slot.classList.remove('on','centered');return;}
- if(tools&&tools.children.length){slot.append(...tools.children);}
- slot.classList.toggle('on',slot.children.length>0);
- const search=slot.querySelector('#game-search');
- slot.classList.toggle('centered',!!search);
- if(search){const btns=[...slot.querySelectorAll('button')];const left=document.createElement('span'),right=document.createElement('span');left.className='side left';right.className='side right';
-  const half=Math.ceil(btns.length/2);btns.slice(0,half).forEach(b=>left.append(b));btns.slice(half).forEach(b=>right.append(b));slot.querySelector('.lib-left')?.remove();slot.replaceChildren(left,search,right);}
+ slot.replaceChildren();slot.classList.remove('on','centered');
 }
 
 /* ---------- every page opens with a short fade and rise ---------- */
@@ -203,29 +181,6 @@ export function subpageEnter(content){
 }
 
 
-/* ---------- home: soft dark fade at the window bottom until you scroll or point at the shelf ---------- */
-export function watchHomeFade(main){
- const ws=main.closest('.workspace');if(!ws)return;
- const shelf=main.querySelector('.home-library-section');
- const update=()=>ws.classList.toggle('fade-off',main.scrollTop>24||shelf?.matches(':hover'));
- ws.classList.add('home-fade');update();
- main.onscroll=update;if(shelf){shelf.onmouseenter=update;shelf.onmouseleave=()=>setTimeout(update,0);}
-}
-
-/* ---------- the jacket is always as tall as the "last read" block beside it ---------- */
-let jacketRO;
-export function matchJacket(root=document){
- const hero=root.querySelector('.g-hero'),jk=hero?.querySelector('.jacket'),k=hero?.querySelector('.kicker'),a=hero?.querySelector('.hero-actions');if(!jk||!k||!a)return;
- const today=hero.querySelector('.today');
- /* E249.3: the jacket and the today column span exactly from the top of the 'last read' line to the bottom of the
-    buttons. Written inline with priority (stylesheet rules carry !important) and re-checked until it holds. */
- const put=(el,prop,value)=>el.style.setProperty(prop,value,'important');
- const fit=(pass=0)=>{const kt=k.getBoundingClientRect().top,ab=a.getBoundingClientRect().bottom,h=Math.round(ab-kt);if(h<=40)return;
-  put(jk,'height',h+'px');put(jk,'width',Math.round(h*2/3)+'px');put(jk,'align-self','start');if(today){put(today,'height',h+'px');put(today,'align-self','start');}
-  requestUiFrame(()=>{let off=0;for(const el of [jk,today]){if(!el)continue;const r=el.getBoundingClientRect(),dy=kt-r.top+(k.getBoundingClientRect().top-kt),cur=parseFloat(el.style.marginTop)||0;if(Math.abs(dy)>1){put(el,'margin-top',(cur+dy).toFixed(1)+'px');off++;}}
-   const miss=Math.abs(a.getBoundingClientRect().bottom-jk.getBoundingClientRect().bottom)>1;if((off||miss)&&pass<3)fit(pass+1);});};
- jacketRO?.disconnect();jacketRO=new ResizeObserver(()=>fit());jacketRO.observe(hero.querySelector('.hero-copy'));/* E250.1: never observe the column it resizes (feedback loop froze startup) */fit();
-}
 
 /* ---------- library field: render only the cells near the viewport ---------- */
 let fieldStop=()=>{};

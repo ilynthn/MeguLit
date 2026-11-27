@@ -35,7 +35,18 @@ module.exports=async ({assert,root,fixture})=>{
   /* reader-host.log: pointer x - gameX = 462, y - gameY = 264 (dpr 1); the reader box = the owner's x 9.08 % / y 85.76 % of the 804x604 client */
   layout:{clientWidth:804,clientHeight:604,clientX:462,clientY:264,magpie:false,readerX:535,readerY:782,readerWidth:731,readerHeight:163,workBottom:1040,surfaceWidth:1920,surfaceHeight:1079,maskX:0,maskY:0},
   stream:{id:'575310:0:0',name:'Krkr2wcs',code:'EXHQXN8@175310:fata_jp.exe'}});
- const calib=t=>({t:Date.parse(t),mark:'calibrate',settle:0,page:String(()=>{const x=document.querySelector('[data-game-style-sync]');if(!x)window.__tomoyoChinese?.toggleGalMenu?.();setTimeout(()=>{const y=document.querySelector('[data-game-style-sync]');window.__replayCalib=(window.__replayCalib||0)+(y?1:0);y?.click();setTimeout(()=>{if(document.querySelector('[data-game-style-sync]'))window.__tomoyoChinese?.toggleGalMenu?.();},400);},200);})});
+ // Acknowledge the CDP step before opening Alt+T; the driver still reports uncaught errors from the page task.
+ const calib=t=>({t:Date.parse(t),mark:'calibrate',settle:0,pageTimeoutMs:30000,page:String(()=>{
+  setTimeout(()=>{
+   if(!document.querySelector('[data-game-style-sync]'))window.__tomoyoChinese?.toggleGalMenu?.();
+   setTimeout(()=>{
+    const button=document.querySelector('[data-game-style-sync]');
+    if(!button||button.disabled)throw Error('calibration button unavailable');
+    button.click();
+    setTimeout(()=>{if(document.querySelector('[data-game-style-sync]'))window.__tomoyoChinese?.toggleGalMenu?.();},400);
+   },200);
+  },0);
+ })});
  function scenario(name,from,to,g,{actions=[],choice=[]}={}){
   const ex=L.extract(logs,from,to);const t0=Date.parse(from);
   const steps=[...L.attachSteps(g,t0),...L.timeline(ex,g,{actions:[...actions,...choice.map(t=>({t:Date.parse(t),choicePage:t}))]}),{t:Date.parse(to),mark:'end'}];

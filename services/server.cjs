@@ -34,6 +34,8 @@ try{require('./probe-auto.cjs').start(root,()=>require('./store.cjs').openStore(
 require('./background-games.cjs').configure(()=>!!runtime.reader?.gamePid);
 try{require('./cold-test.cjs').start(root,()=>require('./store.cjs').openStore(root),{isPlaying:()=>{try{const r=runtime.reader;return !!(r&&r.gamePid);}catch{return false;}}});}catch{}
 require('./yui.cjs').start(root);
+/* 2026-11-27 favourites, study counts and reading progress upload by themselves for the website (services/account-auto.cjs) */
+try{require('./account-auto.cjs').start(root);}catch{}
 input.on('line',line=>{handle(line).catch(()=>{});});
 /* E426 the host is gone once stdin closes: a stop that never settles must not leave node.exe and its bridges behind */
 input.on('close',()=>{closing=true;setTimeout(()=>process.exit(0),6000).unref();try{require('./cold-test.cjs').stop();}catch{}runtime.stop().finally(()=>process.exit(0));});

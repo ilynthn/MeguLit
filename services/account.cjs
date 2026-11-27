@@ -17,8 +17,8 @@
    the next sync. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 
-const KINDS=['words','sentences','reading','settings'];
-const DEFAULT_KINDS={words:true,sentences:true,reading:true,settings:true};
+const KINDS=['words','sentences','reading','settings','progress','study'];
+const DEFAULT_KINDS={words:true,sentences:true,reading:true,settings:true,progress:true,study:true};
 const RECORD_CAP={words:32<<10,sentences:40<<10,reading:1<<10,settings:32<<10,progress:1<<10,study:1<<10};
 const USERNAME=/^[A-Za-z][A-Za-z0-9_]{2,19}$/;
 const PUSH_RECORDS=200,PUSH_BYTES=1500<<10,TIMEOUT=20000;
@@ -128,7 +128,43 @@ function fitExamples(data,cap){while(data.examples.length&&bytes(data)>cap)data.
 const exampleKey=(text,game)=>JSON.stringify([text,cleanTitle(game).toLowerCase()]);
 function unionExamples(a=[],b=[]){const seen=new Map();for(const e of [...a,...b])if(e&&typeof e.text==='string'){const key=exampleKey(e.text,e.game);if(!seen.has(key))seen.set(key,e);}return [...seen.values()].sort((x,y)=>(y.created_at||0)-(x.created_at||0)).slice(0,20);}
 
+/* 2026-11-27 megulit.com user centre. Two count-only kinds for the web dashboard, one record per device so two PCs never
+   overwrite each other (the website adds them up). They carry numbers and a work's title and nothing else: no script
+   line, no novel text, no path (the relay refuses any other field, relay/src/accounts.js SCHEMA). This PC never applies
+   them back: the data on the cloud side is only for the website. */
+const memo=(ctx,key,make)=>{if(!ctx.memo)return make();if(!ctx.memo.has(key))ctx.memo.set(key,make());return ctx.memo.get(key);};
+const STUDY_DAYS=730;
 const kinds={
+ progress:{
+  /* per work in the library: lines read / total lines (services/read-progress.cjs, counts only), seconds read, last played */
+  collect(db,root,ctx){return memo(ctx,'progress',()=>{
+   const out=new Map(),device=ctx.deviceId().replace(/-/g,'').slice(0,12),reading=require('./read-progress.cjs');
+   const seconds=db.prepare("SELECT COALESCE(SUM(active_seconds),0) n FROM reading_sessions WHERE game_id=? AND original NOT LIKE '%\"sync\"%'");
+   for(const g of db.prepare('SELECT id,title,last_launched_at FROM games WHERE removed_at IS NULL ORDER BY id').all()){
+    const title=cleanTitle(g.title);if(!title)continue;
+    const key=device+'|'+sha(title.toLowerCase(),12);if(out.has(key))continue;
+    let read=0,total=null;
+    try{const p=reading.progress(root,db,g.id);if(Number.isSafeInteger(p?.total)&&p.total>0){total=p.total;read=Math.max(0,Math.min(total,Number.isSafeInteger(p.read)?p.read:0));}}catch{}
+    out.set(key,{game:title,read,total,seconds:Math.max(0,Math.trunc(Number(seconds.get(g.id).n)||0)),...(Number(g.last_launched_at)>0?{lastPlayedAt:Math.trunc(Number(g.last_launched_at))*1000}:{})});
+   }
+   return out;});},
+  skip:()=>true,
+  apply(){}
+ },
+ study:{
+  /* per local day: look-ups, word reviews, new words */
+  collect(db,root,ctx){return memo(ctx,'study',()=>{
+   const out=new Map(),device=ctx.deviceId().slice(0,12),days=new Map();
+   const add=(sql,field)=>{for(const r of db.prepare(sql).all(STUDY_DAYS)){if(!/^\d{4}-\d{2}-\d{2}$/.test(r.day||''))continue;const row=days.get(r.day)||{day:r.day};row[field]=r.n;days.set(r.day,row);}};
+   const day=column=>`strftime('%Y-%m-%d',${column},'unixepoch','localtime')`;
+   add(`SELECT ${day('occurred_at')} day,COUNT(*) n FROM lookup_events GROUP BY day ORDER BY day DESC LIMIT ?`,'lookups');
+   add(`SELECT ${day('reviewed_at')} day,COUNT(*) n FROM review_events GROUP BY day ORDER BY day DESC LIMIT ?`,'reviews');
+   add(`SELECT ${day('created_at')} day,COUNT(*) n FROM vocabulary GROUP BY day ORDER BY day DESC LIMIT ?`,'newWords');
+   for(const row of days.values())out.set(device+'|'+row.day,row);
+   return out;});},
+  skip:()=>true,
+  apply(){}
+ },
  words:{
   collect(db){
    const titles=gameTitles(db),out=new Map(),examples=new Map();
@@ -277,7 +313,8 @@ function pendingRecords(db,root,kind,ctx){
  const local=kinds[kind].collect(db,root,ctx),out=[];
  for(const r of db.prepare('SELECT key,hash,updated_at FROM account_sync WHERE kind=? AND pending=1 ORDER BY updated_at').all(kind)){
   const data=r.hash?local.get(r.key):null;
-  out.push(data?{key:r.key,updated_at:r.updated_at,data}:{key:r.key,updated_at:r.updated_at,deleted:true});
+  const updated_at=Math.trunc(r.updated_at);
+  out.push(data?{key:r.key,updated_at,data}:{key:r.key,updated_at,deleted:true});
  }
  return out;
 }
@@ -313,12 +350,12 @@ class Account{
   return data;
  }
  /* local logout: token, sync state and cursors go; deviceId and kind choices stay */
- forget(){try{this.setToken('');}catch{}const p=this.profile();atomic(path.join(this.folder,'profile.json'),{deviceId:p.deviceId,kinds:p.kinds});try{const db=this.openDb();try{ensureState(db);db.exec('DELETE FROM account_sync');}finally{db.close();}}catch{}}
+ forget(){try{this.setToken('');}catch{}const p=this.profile();atomic(path.join(this.folder,'profile.json'),{deviceId:p.deviceId,kinds:p.kinds,...(p.webSync===false?{webSync:false}:{})});try{const db=this.openDb();try{ensureState(db);db.exec('DELETE FROM account_sync');}finally{db.close();}}catch{}}
 
  status(){
   const p=this.profile(),loggedIn=!!(p.email&&this.token()),base=this.base();let pending={};
   if(loggedIn)try{const db=this.openDb();try{ensureState(db);pending=Object.fromEntries(db.prepare('SELECT kind,COUNT(*) n FROM account_sync WHERE pending=1 GROUP BY kind').all().map(r=>[r.kind,r.n]));}finally{db.close();}}catch{}
-  return {configured:!!base,loggedIn,email:loggedIn?p.email:'',accountId:loggedIn?p.accountId||'':'',sessionId:loggedIn?p.sessionId||'':'',lastSyncAt:p.lastSyncAt||0,lastError:p.lastError||'',kinds:this.kinds(),pending,syncing:!!this.running,
+  return {configured:!!base,loggedIn,webSync:p.webSync!==false,email:loggedIn?p.email:'',accountId:loggedIn?p.accountId||'':'',sessionId:loggedIn?p.sessionId||'':'',lastSyncAt:p.lastSyncAt||0,lastError:p.lastError||'',kinds:this.kinds(),pending,syncing:!!this.running,
   username:loggedIn?p.username||'':'',hasPassword:loggedIn?!!p.hasPassword:false,passwordKnown:loggedIn&&typeof p.hasPassword==='boolean',
   /* a code sign-in in the last 10 minutes may set a new password without the current one (relay rule) */
   codeFresh:loggedIn&&p.signInMethod==='code'&&this.now()-(Number(p.signedInAt)||0)<9.5*60000};
@@ -362,6 +399,21 @@ class Account{
   await this.call('POST','/api/me/password',{password:secret,...(current?{current:String(current)}:{})});
   this.saveProfile({hasPassword:true});return this.status();
  }
+ /* 「同步到网页」: the master switch, on by default. Off = nothing is uploaded or pulled at all. */
+ webSync(){return this.profile().webSync!==false;}
+ setWebSync(enabled){this.saveProfile({webSync:!!enabled});return this.status();}
+ /* 「删除云端数据」: every synced record of this account on the server goes (the account and the sign-ins stay), the
+    switch is turned off so the next sync does not upload it again, and the local sync state is reset so turning it back
+    on uploads everything afresh. Data on this PC is not touched. */
+ async wipeCloud(){
+  if(!this.token()||!this.profile().email)throw Object.assign(Error('NOT_LOGGED_IN'),{code:'NOT_LOGGED_IN'});
+  this.saveProfile({webSync:false});
+  try{await this.running;}catch{}
+  await this.call('DELETE','/api/sync');
+  const p=this.profile();atomic(path.join(this.folder,'profile.json'),{...p,cursors:{},lastSyncAt:0,lastError:''});
+  const db=this.openDb();try{ensureState(db);db.exec('DELETE FROM account_sync');}finally{db.close();}
+  return this.status();
+ }
  setKinds(choice){this.saveProfile({kinds:cleanKinds({...this.kinds(),...choice})});return this.status();}
  async me(){const data=await this.call('GET','/api/me');if(data&&typeof data==='object'&&this.profile().accountId===data.accountId)this.saveProfile({username:data.username||undefined,hasPassword:!!data.hasPassword});return data;}
  async logout(sessionId){
@@ -374,8 +426,9 @@ class Account{
  sync(options={}){if(this.running)return this.running;this.running=this.syncNow(options).finally(()=>{this.running=null;});return this.running;}
  async syncNow({only}={}){
   if(!this.token()||!this.profile().email)throw Object.assign(Error('NOT_LOGGED_IN'),{code:'NOT_LOGGED_IN'});
+  if(!this.webSync())throw Object.assign(Error('SYNC_OFF'),{code:'SYNC_OFF'});
   const chosen=this.kinds(),summary={};const db=this.openDb();
-  const ctx={now:this.now,deviceId:()=>this.deviceId()};
+  const ctx={now:this.now,deviceId:()=>this.deviceId(),memo:new Map()};
   try{
    ensureState(db);try{relinkGames(db);}catch{}
    const active=KINDS.filter(kind=>chosen[kind]&&!(only&&!only.includes(kind)));
@@ -386,6 +439,7 @@ class Account{
    }
    let oversized=false;
    for(const kind of active){
+    try{
     const s=summary[kind];
     let cursor=Number(this.profile().cursors?.[kind])||0;
     for(let page=0;page<200;page++){
@@ -409,6 +463,11 @@ class Account{
      if(data.newer?.length)applyRemote(db,this.root,kind,data.newer,ctx,{force:true});
      s.pushed+=data.accepted||0;
     }
+    }catch(error){
+     /* a relay that is not updated yet does not know the website kinds: leave them queued, the rest of the sync goes on */
+     if((kind==='progress'||kind==='study')&&error.status===404){summary[kind].unsupported=true;continue;}
+     throw error;
+    }
    }
    if(oversized)throw Error('RECORD_TOO_LARGE');
    this.saveProfile({lastSyncAt:this.now(),lastError:''});
@@ -427,13 +486,15 @@ function accountFor(root,options){const key=path.resolve(root);if(options)return
 async function handle(root,request,options){
  const a=accountFor(root,options),action=String(request.action);
  switch(action){
-  case 'account_status':{const s=a.status();if(s.loggedIn&&s.configured&&!s.syncing&&a.now()-s.lastSyncAt>15*60000&&request.autoSync!==false)a.sync().catch(()=>{});return s;}
+  case 'account_status':{const s=a.status();if(s.loggedIn&&s.configured&&s.webSync&&!s.syncing&&a.now()-s.lastSyncAt>15*60000&&request.autoSync!==false)a.sync().catch(()=>{});return s;}
   case 'account_code':return a.requestCode(String(request.email||''));
   case 'account_verify':{const s=await a.verify(String(request.email||''),String(request.code||''),request.kinds&&typeof request.kinds==='object'?request.kinds:null);a.sync().catch(()=>{});return s;}
   case 'account_password_login':{const s=await a.passwordLogin(String(request.login||''),String(request.password||''),request.kinds&&typeof request.kinds==='object'?request.kinds:null);a.sync().catch(()=>{});return s;}
   case 'account_username':return a.setUsername(String(request.username||''));
   case 'account_password':return a.setPassword(String(request.password||''),typeof request.current==='string'?request.current:'');
   case 'account_sync':return a.sync();
+  case 'account_web_sync':{const s=a.setWebSync(request.enabled!==false);if(s.webSync&&s.loggedIn&&s.configured)a.sync().catch(()=>{});return s;}
+  case 'account_wipe_cloud':return a.wipeCloud();
   case 'account_kinds':return a.setKinds(request.kinds&&typeof request.kinds==='object'?request.kinds:{});
   case 'account_me':return a.me();
   case 'account_logout':return a.logout(typeof request.sessionId==='string'?request.sessionId:'');
@@ -456,4 +517,4 @@ async function torchRequest(root,url,init,fetcher){
  if(/^mgl_[A-Za-z0-9_-]{43}$/.test(rotated||'')&&account.token()===session)account.setToken(rotated);
  return response;
 }
-module.exports={torchRequest,relinkGames,accountExtras,Account,handle,status,token,relayBase,normalizeBase,normalizeEmail,newerRecord,cleanSettings,looksLikePath,hashData,stable,kinds,scan,applyRemote,pendingRecords,ensureState,chunks,KINDS,DEFAULT_KINDS,RECORD_CAP};
+module.exports={accountFor,torchRequest,relinkGames,accountExtras,Account,handle,status,token,relayBase,normalizeBase,normalizeEmail,newerRecord,cleanSettings,looksLikePath,hashData,stable,kinds,scan,applyRemote,pendingRecords,ensureState,chunks,KINDS,DEFAULT_KINDS,RECORD_CAP};

@@ -352,3 +352,24 @@ test('a visible run whose game lay under other windows says so (ISLAND / ファ�
  const st={cold:{verdict:'inconclusive',lines:0,end:'no-lines'},run:{end:'no-lines',covered:5}};
  assert.match(A.stuckOf({...st,visible:true}),/被别的窗口挡住（5 张/);assert.doesNotMatch(A.stuckOf(st),/挡住/);
  const src=fs.readFileSync(path.join(__dirname,'..','native','ColdDesk.cs'),'utf8');assert.match(src,/covered=OnUserDesktop&&!GameOnTop\(w,h\)/);});
+
+/* 2026-11-27 (アイキス3 sexy: the glyph-hide fix for options drawn after the line never ran in the live check, the app copy kept the
+   install's MeguLitFont*.dll) */
+test('the app copy gets this checkout\'s glyph hide DLLs, rebuilt when a fontprobe source is newer; a failed build keeps the install\'s',()=>{const d=tmp();
+ const repo=path.join(d,'repo'),root=path.join(d,'_app'),src=path.join(repo,'native','fontprobe');fs.mkdirSync(src,{recursive:true});fs.mkdirSync(path.join(root,'native'),{recursive:true});
+ const FILES=['MeguLitFont32.dll','MeguLitFont64.dll','MeguLitLaunch32.exe','MeguLitLaunch64.exe'];
+ for(const f of FILES)fs.writeFileSync(path.join(root,'native',f),'install');
+ fs.writeFileSync(path.join(src,'GlyphMatch.h'),'new');
+ assert.equal(A.useCheckoutFont(root,repo,()=>({status:1})),'install','no build: the install\'s stay');assert.equal(fs.readFileSync(path.join(root,'native','MeguLitFont32.dll'),'utf8'),'install');
+ let built=0;const build=()=>{built++;for(const f of FILES)fs.writeFileSync(path.join(repo,'native',f),'checkout');return {status:0};};
+ assert.equal(A.useCheckoutFont(root,repo,build),'checkout');assert.equal(built,1);for(const f of FILES)assert.equal(fs.readFileSync(path.join(root,'native',f),'utf8'),'checkout',f);
+ A.useCheckoutFont(root,repo,()=>{throw Error('must not build: the checkout DLLs are newer than the sources');});
+ const old=new Date(Date.now()-3600e3);for(const f of FILES)fs.utimesSync(path.join(repo,'native',f),old,old);
+ A.useCheckoutFont(root,repo,build);assert.equal(built,2,'a source newer than the DLL rebuilds');});
+
+/* 2026-11-27 (アイキス3 sexy: prepareApp failed with EBUSY on the shared _app, another agent's game had its hook DLL loaded) */
+test('each game gets its own app copy; MEGULIT_ADAPTER_APP_ROOT overrides; no game folder keeps the old shared one',()=>{
+ const a=A.appRoot('H:/copies/[220325][戯画] アイキス3 sexy',{}),b=A.appRoot('H:/copies/HamidashiCreative',{});
+ assert.notEqual(a,b,'two games never share an app copy');assert.equal(path.dirname(a),A.RUNS_ROOT);assert.match(path.basename(a),/^_app-アイキス3 sexy$/);
+ assert.equal(A.appRoot('H:/copies/HamidashiCreative',{MEGULIT_ADAPTER_APP_ROOT:'X:/own'}),'X:/own');
+ assert.equal(A.appRoot('',{}),path.join(A.RUNS_ROOT,'_app'));});

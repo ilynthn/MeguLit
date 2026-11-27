@@ -21,7 +21,8 @@
 按「VNDB 作品号 + 发行版」去重，不按 exe 哈希。状态：verified = 官方验收过；owner-ok = 店主确认能用；read = 能用但只能读模式、待修；进行中 = PR 已开未合并
 
 | 游戏 | VNDB | 发行版 | 引擎 | 状态 | 谁 | PR / seed |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|
+| 魚魚棟 · Claude | 适配贡献默认开启：不提示，所有版本默认开，每次更新对所有人重新开启；设置 → 游戏库可关到下次更新 | — | fix/contrib-default-on | 11-28 | 完成（PR #1356） |
 | 千恋＊万花 | v19073 | 待补 | KiriKiri | verified | 魚魚棟 | kirikiri/senren-banka |
 | ファタモルガーナの館 | v12402 | 待补 | KiriKiri | owner-ok | 魚魚棟 | kirikiri/fata-morgana |
 | 死に逝く君、館に芽吹く憎悪 | v19233 | 汉化硬盘版 | KiriKiri | read | 魚魚棟 | kirikiri/shiniyuku-kimi |
@@ -40,6 +41,11 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
+| 魚魚棟 · Claude | 台词按说话人上色：取游戏原色不再发灰（アイキス3 sexy アヤメ），颜色页新增「分角色」按作品改色 | — | feat/speaker-colors | 11-28 | 等 CI（PR #1359） |
+| 魚魚棟 · Claude | 注音字体默认 Noto Sans JP，随 MeguLit 自带、优先用自带文件；下拉框标「自带」；旧默认 Meiryo 的老用户迁移过去 | — | claude/bundled-noto-ruby | 11-28 | 在做 |
+| 魚魚棟 · Claude | 修 main：统一提示接管 title 后 el.title 仍能读写提示（#1344 合并后校准按钮测试失败） | — | claude/fix-main-tip-title | 11-28 | 等合并（PR #1350，CI 全绿） |
+| 魚魚棟 · Claude | Alt+T 外观页重新排版：按面板分组、滑杆旁可输入数值、不常用项收进「更多」、顶部实时预览 | — | claude/alt-t-appearance-layout | 11-28 | 等 CI（PR #1361） |
+| RRFZ · Codex | CMVS/CVNS 剧本按指令分类台词，提取说话人、语音和行号 | — | rrfz/cmvs-classify | 11-27 | 在做 |
 | 魚魚棟 · Claude | 点读查词支持口语缩约和方言语尾（舐めんなし、わかんねえ、ええやん）：还原后再查、最长前缀兜底、可选 AI 释义 | — | feat/colloquial-lookup | 11-28 | 等 CI（PR #1339） |
 | 魚魚棟 · Claude | 官网换新图标（点读台词框）：favicon、apple-touch-icon、manifest、结构化数据 logo；启动器图标和字标不动 | — | feat/site-favicon | 11-27 | 等 CI（PR #1333） |
 | 魚魚棟 · Claude | megulit.com 用户中心：网页登录看学习看板、收藏句子（点读查词）、单词本、阅读进度，PWA 离线；桌面端自动同步、「同步到网页」开关和删除云端数据 | — | feat/web-dashboard-relay · feat/web-dashboard-sync · feat/web-dashboard | 11-27 | 三个 PR 已开：服务端 #1329、桌面端 #1330（叠在 #1329 上）、网页 #1332；等 CI 和测试员，部署要等店主批准 |
@@ -48,12 +54,13 @@
 | 魚魚棟 · Claude | 游戏内新手引导：前 5 次进游戏分步高亮胶囊、Alt+T 菜单、个性化文本、点读、校准，可跳过；顶栏「教程」和 Alt+T 可重看，教程页配图 | — | feat/onboarding-tour | 11-27 | 等 CI，待测试员实测（PR #1324） |
 | 魚魚棟 · Claude | 游戏库标题停在文件夹名（Ozmafia-ozmafia-joki）：改成显示作品名（seed/VNDB），用户改过的名字不覆盖，老数据迁移，原名留作别名 | — | fix/library-title-from-work | 11-27 | 等 CI，待测试员实测（PR #1326） |
 | 魚魚棟 · Claude | 启动画面只留进度条，结尾不再变圆出小脸，改成进度条变形成半透明 MeguLit logo | — | feat/splash-logo | 11-27 | CI 全绿，待测试员实测（PR #1319） |
+| 魚魚棟 · Claude | 启动画面 logo 发灰、卡顿：改实色、由暗到亮入场，绘制移到独立线程 | — | fix/splash-logo-solid | 11-28 | CI 全绿，待测试员实测（PR #1357） |
 | 魚魚棟 · Claude | 首页大卡牌按住往下压时，单击/双击提示框压在卡牌上：提示框挪到卡牌下方，按住、拖动、抽卡时不出现 | — | fix/home-card-press | 11-27 | 等 CI，待测试员实测（PR #1320） |
 | 魚魚棟 · Claude | 热键全部可自定义：Alt+M / Alt+T / Alt+H / Alt+L 可改组合键，也可绑鼠标侧键或中键加修饰键；冲突提示，Alt+T 菜单和设置里同一个「热键」面板，所有热键提示跟着设置变 | — | feat/custom-hotkeys | 11-27 | 在做 |
 | 魚魚棟 · Claude | 关于页感谢太少：除 MeguLit 外改成片尾致谢名单，名单数据在 web/credits.json | — | feat/credits-roll | 11-27 | CI 绿，待测试员实测（PR #1321） |
 | 魚魚棟 · Claude | 关于页链接行悬停时星芒比文字低、右侧值跟着右移：星芒按标签行框居中，值列不动 | — | fix/about-hover-align | 11-27 | 等合并（PR #1322，CI 绿） |
 | 魚魚棟 · Claude | MeguLit-Adapter auto：新游戏下载完自动装、适配、开 PR、做测试版和卡片（不花 LLM token），计划任务 watch | — | feat/adapter-auto-pipeline | 11-27 | 等 CI（PR #1318） |
-| 魚魚棟 · Claude | 传火碑门外草地重做：蓝调夜色草地和萤火，西门前扩成圆形草地，删掉水面上的椅子 | — | feat/torch-meadow-c | 11-27 | 等 CI，待测试员实测（PR #1314） |
+| 魚魚棟 · Claude | 传火碑门外草地重做：蓝调夜色草地和萤火，西门前扩成圆形草地，删掉水面上的椅子 | — | feat/torch-meadow-c | 11-27 | CI 全绿，待测试员实测（PR #1314） |
 | 魚魚棟 · Claude | 选项实机：ファタ、千恋通过；ISLAND 选项（CatSystem2 select 记录）进不了阅读层，已修；适配器加 choice 实机步骤 | — | fix/choice-live | 11-27 | PR #1310 已开等 CI，待测试员实测（ISLAND） |
 | 魚魚棟 · Claude | 适配 OZMAFIA!!（YU-RIS）、ハミダシクリエイティブ（常轨脱离Creative，Artemis）：走 MeguLit-Adapter 实机验证，每部一个 seed PR | #1107 #1133 | claude/ozmafia-joki | 11-27 | 等测试员实测：#1303（常轨脱离）和 #1312（OZMAFIA，叠在 #1303 上）CI 全绿，清单已交 |
 | 魚魚棟 · Claude | 制服カノジョ3（制服女友3，Unity/TMP）：原文漏出 <space=> 等 TMP 标签且同句重复；回 log 后原文没藏干净、台词消失 | #1248 | fix/unity-tmp-space-backlog | 11-27 | 等 CI + 测试员实测（PR #1309） |

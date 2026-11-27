@@ -89,8 +89,12 @@ const HARNESS_SCRIPT=`<script>
 </script>`;
 
 function startAppServer(webDir){
- const indexHtml=fs.readFileSync(path.join(webDir,'index.html'),'utf8');
- const testHtml=indexHtml.replace('<script type="module" src="app.js"></script>',HARNESS_SCRIPT+'\n  <script type="module" src="app.js"></script>');
+ // Exercise the real app and kana routing without waiting on the desktop page's unrelated styles and scripts.
+ const testHtml=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"></head><body>
+  <div id="app" aria-busy="true"></div><div id="toast" role="status" aria-live="polite"></div>
+  ${HARNESS_SCRIPT}
+  <script>import('./app.js').catch(error => { window.__kanaBootError = String(error); });</script>
+ </body></html>`;
  const server=http.createServer((req,res)=>{
   const urlPath=(req.url||'/').split('?')[0];
   if(urlPath==='/__test-kana.html'){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(testHtml);return;}
@@ -119,8 +123,8 @@ test('kana speech.stop cancels in-flight kana_speak and leaving kana tab stops p
  assert.ok(!nav.errorText,`kana harness navigation failed (${nav.errorText})`);
  let readyState=null;
  for(const deadline=Date.now()+30000;Date.now()<deadline;){
-  readyState=await browser.evaluate('({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READY__,hasTest:!!window.__megulitTest})').catch(()=>null);
-  if(readyState?.href===url&&readyState.ready&&readyState.hasTest)break;
+  readyState=await browser.evaluate('({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READY__,hasTest:!!window.__megulitTest,bootError:window.__kanaBootError,startupFailed:!!document.querySelector("#startup-retry")})').catch(()=>null);
+  if(readyState?.href===url&&(readyState.bootError||(readyState.ready&&readyState.hasTest)))break;
   await new Promise(r=>setTimeout(r,100));
  }
  assert.ok(readyState?.href===url&&readyState.ready&&readyState.hasTest,`kana harness ready: ${JSON.stringify(readyState)}`);

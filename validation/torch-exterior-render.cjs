@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 'use strict';
-// Usage: node validation/torch-exterior-render.cjs [--low]
-const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+// Usage: node validation/torch-exterior-render.cjs [--low] [--keep]
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {startService,startWeb,startEdge,png}=require('./library-views-perf.cjs');
+const {renderTemp}=require('./helpers/render-temp.cjs');
 const tier=process.argv.includes('--low')?'low':'high';
-const out=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-torch-exterior-'));
+/* removed when the run ends, whatever the outcome; --keep leaves it for the screenshots */
+const temp=renderTemp('megulit-torch-exterior-'),out=temp.dir;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 async function main(){
@@ -77,7 +79,7 @@ async function main(){
   assert.equal(facts.tier,tier);
   assert.equal(facts.baked,true);
   assert.ok(facts.roof<24);
-  assert.ok(facts.grass>0&&facts.grass<=(tier==='low'?800:1760));
+  assert.ok(facts.grass>0&&facts.grass<=(tier==='low'?9000:19000));
   assert.equal(facts.opacity,.65);
   assert.ok(facts.seeThrough&&facts.friezeCount===2);
   const relief=tier==='low'?[2048,256]:[4096,512];
@@ -164,6 +166,6 @@ async function main(){
   }
   assert.deepEqual(await evaluate('window.glErrors'),[]);
   console.log(JSON.stringify({out,facts,far}));
- }finally{await cdp?.stop();web?.close();await service.stop();}
+ }finally{await cdp?.stop();web?.close();await service.stop();temp.remove();}
 }
-main().catch(error=>{console.error(error);console.error(out);process.exitCode=1;});
+main().catch(error=>{console.error(error);if(temp.keep)console.error(out);process.exitCode=1;});

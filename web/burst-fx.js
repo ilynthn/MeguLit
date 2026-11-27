@@ -89,7 +89,7 @@ export function explosion(x,y,{shake,bar,k=1}={}){
  const l=layer(),w=document.createElement('div');w.className='fx-explosion';w.style.cssText=`left:${x}px;top:${y}px`;
  const star=Array.from({length:5},(_,i)=>{const a=-Math.PI/2+i*Math.PI*4/5;return `${i?'L':'M'}${f1(Math.cos(a)*46)} ${f1(Math.sin(a)*46)}`;}).join(' ')+'Z';
  w.innerHTML=`<svg class="fx-seal" viewBox="-70 -70 140 140"><circle pathLength="1" r="66"/><circle pathLength="1" r="58"/><path pathLength="1" d="${star}"/><circle pathLength="1" r="22"/>${Array.from({length:12},(_,i)=>`<text transform="rotate(${i*30}) translate(0 -61.5)">${'爆裂我が名は紅き魔の焔よ'[i]}</text>`).join('')}</svg>
-  <b class="fx-charge"></b><b class="fx-pillar"></b><b class="fx-core"></b><b class="fx-fire"></b><b class="fx-fire is-inner"></b><b class="fx-ring"></b><b class="fx-ring is-dust"></b>`;
+  <b class="fx-charge"></b><b class="fx-core"></b><b class="fx-fire"></b><b class="fx-fire is-inner"></b><b class="fx-ring"></b><b class="fx-ring is-dust"></b>`;
  l.append(w);blasts.push(w);while(blasts.length>LIMIT.blasts){const old=blasts.shift();old.getAnimations({subtree:true}).forEach(a=>a.finish());old.remove();}
  const jolt=performance.now()-lastJolt>300;if(jolt)lastJolt=performance.now();
  const flash=document.createElement('b');flash.className='fx-flash';flash.style.cssText=`--x:${x}px;--y:${y}px`;l.append(flash);
@@ -97,7 +97,6 @@ export function explosion(x,y,{shake,bar,k=1}={}){
  anim($('.fx-seal'),[{transform:'translate(-50%,-50%) scale(.55) rotate(-60deg)',opacity:0},{transform:'translate(-50%,-50%) scale(1) rotate(0deg)',opacity:1,offset:.3},{transform:'translate(-50%,-50%) scale(1.05) rotate(20deg)',opacity:1,offset:.36},{transform:'translate(-50%,-50%) scale(1.7) rotate(40deg)',opacity:0,offset:.55},{opacity:0}],{duration:T,easing:'cubic-bezier(.3,.6,.2,1)'});
  w.querySelectorAll('.fx-seal circle,.fx-seal path').forEach((p,i)=>anim(p,[{strokeDashoffset:1},{strokeDashoffset:0}],{duration:360,delay:60+i*90,easing:'cubic-bezier(.4,0,.2,1)'}));
  anim($('.fx-charge'),[{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:'translate(-50%,-50%) scale(1)',opacity:.9,offset:.33},{transform:'translate(-50%,-50%) scale(.6)',opacity:1,offset:.36},{opacity:0,offset:.42},{opacity:0}],{duration:T});
- if(0)anim($('.fx-pillar'),[{transform:'translateX(-50%) scaleY(0)',opacity:0},{transform:'translateX(-50%) scaleY(0)',opacity:0,offset:.24},{transform:'translateX(-50%) scaleY(1)',opacity:1,offset:.33},{transform:'translateX(-50%) scaleY(1)',opacity:1,offset:.37},{transform:'translateX(-50%) scaleY(1) scaleX(2.2)',opacity:0,offset:.5},{opacity:0}],{duration:T,easing:'ease-out'});
  anim($('.fx-core'),[{transform:'translate(-50%,-50%) scale(0)',opacity:0},{transform:'translate(-50%,-50%) scale(0)',opacity:0,offset:.36},{transform:'translate(-50%,-50%) scale(1.6)',opacity:1,offset:.39},{transform:'translate(-50%,-50%) scale(2.6)',opacity:0,offset:.55},{opacity:0}],{duration:T});
  anim($('.fx-fire'),[{transform:'translate(-50%,-50%) scale(0)',opacity:0},{transform:'translate(-50%,-50%) scale(0)',opacity:0,offset:.36},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.44},{transform:'translate(-50%,-50%) scale(1.35)',opacity:.5,offset:.6},{transform:'translate(-50%,-56%) scale(1.5)',opacity:0}],{duration:T,easing:'cubic-bezier(.2,.8,.3,1)'});
  anim($('.fx-fire.is-inner'),[{transform:'translate(-50%,-50%) scale(0)',opacity:0},{transform:'translate(-50%,-50%) scale(0)',opacity:0,offset:.37},{transform:'translate(-50%,-50%) scale(.7)',opacity:1,offset:.42},{transform:'translate(-50%,-60%) scale(.9)',opacity:0,offset:.62},{opacity:0}],{duration:T});
@@ -119,14 +118,6 @@ export function explosion(x,y,{shake,bar,k=1}={}){
   if(jolt)for(const el of [shake,bar].filter(Boolean))el.animate(kk,{duration:520,easing:'cubic-bezier(.2,.7,.3,1)'});
   for(let i=0;i<34;i++){const cap=i>12,a=Math.random()*Math.PI*2;live.push({kind:'smoke',x:x+(cap?Math.cos(a)*40:(Math.random()-.5)*14),y:y-(cap?70+Math.random()*30:i*5),vx:(Math.random()-.5)*(cap?50:12),vy:-(cap?18+Math.random()*24:40+Math.random()*30),g:cap?0:12,drag:.8,t:-(cap?.25:0)-Math.random()*.2,life:2.4+Math.random()*1.4,s:(cap?18:12)+Math.random()*14});}
   res();},Math.round(T*.37)));
-}
-function mushroom(x,y){
- const l=layer(),m=document.createElement('div');m.className='fx-mushroom';m.style.cssText=`left:${x}px;top:${y}px`;
- const puffs=[[0,0,40,34,'stem'],[0,-28,34,38,'stem'],[0,-62,30,34,'stem'],[-38,-98,70,52,'cap'],[34,-100,74,54,'cap'],[0,-116,92,60,'cap'],[-70,-84,50,38,'cap'],[68,-84,52,38,'cap']];
- m.innerHTML=puffs.map(([px,py,pw,ph,k])=>`<i class="is-${k}" style="left:${px}px;top:${py}px;width:${pw}px;height:${ph}px"></i>`).join('');l.append(m);
- m.querySelectorAll('i').forEach((p,i)=>{const cap=p.classList.contains('is-cap'),dx=(Math.random()-.5)*(cap?80:26);
-  p.animate([{transform:'translate(-50%,-50%) translateY(40px) scale(.3)',opacity:0},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.3},{transform:`translate(calc(-50% + ${f1(dx)}px),calc(-50% - ${cap?70:46}px)) scale(${cap?2:1.6})`,opacity:0}],{duration:2800+Math.random()*900,delay:200+i*45,easing:'cubic-bezier(.25,.6,.3,1)',fill:'both'});});
- later(m,4300);
 }
 
 /* 花鳥風月: water arcs up and falls with petals and a few sparkles */

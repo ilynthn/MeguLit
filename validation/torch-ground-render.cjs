@@ -2,8 +2,11 @@
 // Usage: node validation/torch-ground-render.cjs after high
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const {startService,startWeb,startEdge,png}=require('./library-views-perf.cjs');
+const {renderTemp}=require('./helpers/render-temp.cjs');
 const phase=process.argv[2]||'after',tier=process.argv[3]||'high',out=path.join(os.tmpdir(),'megu-ground-evidence',phase+'-'+tier);
-fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(os.tmpdir(),'megu-ground-test-'));
+/* the screenshots stay in one fixed folder per phase and tier (overwritten each run) for the before/after comparison;
+   the service root and browser profile are removed when the run ends */
+fs.mkdirSync(out,{recursive:true});const temp=renderTemp('megu-ground-test-'),profile=temp.dir;
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const service=startService(profile);let cdp,web;
@@ -55,14 +58,14 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
     });
     return {baked:d.ao.baked,noLeak,rose:rose.length,
      cover:[p.x,p.y],opacity:d.covers.group.children[0].material.opacity,
-     terrain:[ground.torchGroundHeight(0,40),ground.torchGroundHeight(0,50),ground.torchGroundHeight(0,72)],
+     terrain:[ground.torchGroundHeight(0,40),ground.torchGroundHeight(0,50),ground.torchGroundHeight(0,72),ground.torchGroundHeight(0,140),ground.torchGroundHeight(70,72)],
      singleCap:!d.scene.getObjectByName('West exterior stone'),
      continuous};
    })()`);
    assert.ok(facts.baked&&facts.noLeak&&facts.singleCap&&facts.continuous,JSON.stringify(facts));
    assert.ok(await ev(`document.querySelector('.tm-help').textContent.startsWith('WASD')&&canvas.getAttribute('aria-label').includes('WASD')`));
    assert.ok(Math.abs(facts.cover[0])<.7&&facts.cover[1]>.15&&facts.cover[1]<.75&&facts.opacity===.65,JSON.stringify(facts));
-   assert.equal(facts.terrain[0],0);assert.ok(facts.terrain[1]<0);assert.equal(facts.terrain[2],-4);
+   assert.deepEqual(facts.terrain,[0,0,0,-4,-4]);
   }
   async function cap(name,pose){await ev('window.pose='+JSON.stringify(pose));await delay(105);const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));}
   for(let i=0;i<15;i++)await cap('night-track-'+String(i).padStart(2,'0'),[[94+i*.65,2.4,133+i*.81],[8,10,11]]);
@@ -117,13 +120,14 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
    await drag('right',2,[100,480],[Math.round(100+Math.PI*w/4),Math.round(480-.075*h/3)]);
    await wait('d.camera.getWorldDirection(d.camera.position.clone()).z>.98');
    const wheel=n=>ev(`for(let i=0;i<${n};i++)canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-120,bubbles:true,cancelable:true}));true`);
+   /* out of the door and on across the meadow: over level grass the camera stays near eye height (the old slope took it below 3 m) */
    await wheel(9);
-   const descended=await wait('d.camera.position.z>58&&d.camera.position.toArray()');
-   assert.ok(descended[1]<3,JSON.stringify(descended));
-   facts.descended=descended;
+   const walked=await wait('d.camera.position.z>58&&d.camera.position.toArray()');
+   assert.ok(walked[1]>5&&walked[1]<6,JSON.stringify(walked));
+   facts.walked=walked;
    await ev(`canvas.dispatchEvent(new MouseEvent('dblclick',{button:0,bubbles:true}));true`);
    await wait('d.camera.position.z===20.5&&d.camera.position.y===5.45');
   }
   assert.deepEqual(await ev('glErrors'),[]);console.log(JSON.stringify({out,tier,baked:await ev('d.ao.baked'),facts}));
- }finally{await cdp?.stop();web?.close();await service.stop();}
+ }finally{await cdp?.stop();web?.close();await service.stop();temp.remove();}
 })().catch(e=>{console.error(e,out);process.exitCode=1});

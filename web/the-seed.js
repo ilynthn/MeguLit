@@ -14,7 +14,7 @@ const W={
    ['认得出版本','认 exe、封包、剧本指纹、Steam / VNDB 编号'],
    ['坏了先退一步','退回读模式并上报，修好后热更新送到大家手上'],
    ['共享运行样本','默认开，只用来修差分，可以在设置里关']],
-  soon:'玩的时候自动传火，修好的种子热更新送到',next:'下一步：The Seed',tag:'megulit · the seed',
+  soon:'玩的时候自动传火，修好的种子热更新送到',next:'下一步',tag:'megulit · the seed',
   count:(g,v)=>`已种下 ${g} 部游戏、${v} 个版本`,live:(c,w)=>`已确认 ${c} 部 · 等传火 ${w} 部`,github:'去 GitHub 看看',close:'关闭',openAria:'打开 The Seed 介绍'},
  en:{name:'The Seed',kicker:'Project Spark',line:'One small diff per game',
   lead:'One small diff per game and per version, shared between players: when you play, you help tune that game for the next person, and you get what others have tuned. Fixing one game touches only that game, so one that works stays that way.',
@@ -25,7 +25,7 @@ const W={
    ['Knows the version','Matches exe, archive, script fingerprint and Steam / VNDB ID'],
    ['Breaks, steps back','Falls back to reading mode and reports; a hot update brings the fix'],
    ['Shared run samples','On by default, used only to fix diffs, can be turned off in Settings']],
-  soon:'Seeds spread as you play, and fixed seeds arrive by hot update',next:'Next: The Seed',tag:'megulit · the seed',
+  soon:'Seeds spread as you play, and fixed seeds arrive by hot update',next:'Next',tag:'megulit · the seed',
   count:(g,v)=>`${g} games, ${v} versions planted`,live:(c,w)=>`${c} confirmed · ${w} waiting for a spark`,github:'See it on GitHub',close:'Close',openAria:'Open the introduction to The Seed'},
  ja:{name:'The Seed · 伝火計画',kicker:'伝火計画',line:'ゲームごとの数 KB の差分',
   lead:'ゲームごと・バージョンごとに数 KB の差分を、プレイヤー同士で共有します。あなたが遊ぶとそのゲームが次の人のために整い、ほかの人が整えたものはあなたもそのまま使えます。直すのはそのゲームだけなので、調整済みのゲームが崩れることはありません。',
@@ -36,7 +36,7 @@ const W={
    ['バージョンを見分ける','exe、アーカイブ、スクリプトの指紋、Steam / VNDB の ID で判別'],
    ['壊れたら一歩退く','読み取りモードに戻って報告し、直したらホットアップデートで届けます'],
    ['実行サンプルの共有','既定でオン。差分の修正にだけ使い、設定でオフにできます']],
-  soon:'遊んでいる間に自動で伝火し、直った種はホットアップデートで届きます',next:'次へ：The Seed',tag:'megulit · the seed',
+  soon:'遊んでいる間に自動で伝火し、直った種はホットアップデートで届きます',next:'次へ',tag:'megulit · the seed',
   count:(g,v)=>`${g} 本のゲーム、${v} バージョン分を種まき済み`,live:(c,w)=>`確認済み ${c} 本 · 伝火待ち ${w} 本`,github:'GitHub で見る',close:'閉じる',openAria:'The Seed の紹介を開く'}
 };
 export const seedWords=locale=>W[locale]||W.zh;

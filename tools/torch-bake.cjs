@@ -10,7 +10,7 @@
    manifest's hash no longer matches the sources. */
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto'),os=require('node:os'),{spawn}=require('node:child_process');
 const ROOT=path.resolve(__dirname,'..'),WEB=path.join(ROOT,'web'),OUT=path.join(WEB,'assets','torch');
-const SOURCES=['torch-hall.js','torch-ground.js','torch-textures.js','torch-bake.js'];
+const SOURCES=['torch-hall.js','torch-ground.js','torch-meadow.js','torch-textures.js','torch-bake.js'];
 function sourceHash(root=ROOT){const txt=SOURCES.map(f=>fs.readFileSync(path.join(root,'web',f),'utf8').replace(/\r\n/g,'\n')).join('\n--\n');
  return crypto.createHash('sha256').update(txt,'utf8').digest('hex').slice(0,24);}
 const BROWSERS=['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','C:/Program Files/Microsoft/Edge/Application/msedge.exe'];

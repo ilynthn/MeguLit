@@ -697,7 +697,26 @@ async function dispatch(request,runtime=null) {
         const values=cleanUiState(request.values),file=path.join(root,'data','ui-state.json');
         fs.writeFileSync(file,JSON.stringify(values,null,2));return {keys:Object.keys(values).length};
       }
+      /* 2026-11-27 新手引导 again (教程 in the top bar): the reader shows it now if a game is on, else ui-state.json keeps the wish for the next launch */
+      case 'onboarding_replay':{
+        /* the key and its shape belong to web/onboarding-steps.js (KEY, replay); web/ is inside the exe, so it is not required from here */
+        const KEY='tomoyo-onboarding',file=path.join(root,'data','ui-state.json'),values=cleanUiState(store.readJSON(file,{}));
+        let saved={};try{saved=JSON.parse(values[KEY]||'{}')||{};}catch{}if(!saved||typeof saved!=='object'||Array.isArray(saved))saved={};values[KEY]=JSON.stringify({...saved,replay:true});fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(values,null,2));
+        runtime?.emit('reader-event',{type:'onboarding',action:'replay'});return {replay:true};
+      }
+      /* 教程 opened in the main window: the red dot on the 教程 buttons is done with */
+      case 'onboarding_seen':{
+        const KEY='tomoyo-onboarding',file=path.join(root,'data','ui-state.json'),values=cleanUiState(store.readJSON(file,{}));
+        let saved={};try{saved=JSON.parse(values[KEY]||'{}')||{};}catch{}if(!saved||typeof saved!=='object'||Array.isArray(saved))saved={};
+        values[KEY]=JSON.stringify({...saved,seen:true});fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(values,null,2));return {seen:true};
+      }
       case 'save_preferences':{const preferences=savePreferences(request);runtime?.emit('reader-event',{type:'appearance',preferences});if(request.values?.language)runtime?.emit('reader-event',{type:'language',language:preferences.language});return preferences;}
+      /* 2026-11-27 Settings → 热键 (web/hotkeys-panel.js), also called by the Alt+T 热键 page */
+      case 'hotkeys_get':return require('../core/hotkeys.cjs').state(path.join(root,'data','config'));
+      case 'hotkeys_save':{const keys=require('../core/hotkeys.cjs'),folder=path.join(root,'data','config');keys.save(folder,request.changes);keys.publish(folder,runtime);return keys.state(folder);}
+      /* the log key chosen in the log page before 2026-11-27 (the reader's own storage) is taken over once */
+      case 'hotkeys_adopt_log':{const keys=require('../core/hotkeys.cjs'),folder=path.join(root,'data','config');if(keys.adoptLog(folder,request.value))keys.publish(folder,runtime);return keys.state(folder);}
+      case 'hotkeys_pause':runtime?.reader?.gal?.send?.({type:'hotkeysPause',paused:request.paused===true});return {paused:request.paused===true};
       case 'asset_get':return require('./assets.cjs').get(root,String(request.slot||'home'));
       case 'asset_preview':return require('./assets.cjs').preview(request.path);
       case 'asset_set':return require('./assets.cjs').set(root,String(request.slot||'home'),request.path);
@@ -710,8 +729,10 @@ async function dispatch(request,runtime=null) {
         if(!title)throw Error('INVALID_TITLE');
         if(!path.isAbsolute(executable)||!executable.toLowerCase().endsWith('.exe')||!fs.existsSync(executable)||!fs.statSync(executable).isFile())throw Error('INVALID_EXECUTABLE');
         if(request.id){
-          const existing=db.prepare('SELECT id,original FROM games WHERE id=?').get(String(request.id));if(!existing)throw Error('GAME_NOT_FOUND');
+          const existing=db.prepare('SELECT id,title,original FROM games WHERE id=?').get(String(request.id));if(!existing)throw Error('GAME_NOT_FOUND');
           const original=JSON.parse(existing.original);if(original.library)original.library.exe=executable;
+          /* a name the user changed is theirs: seed and VNDB matches no longer replace it (core/library-title.cjs) */
+          if(title!==existing.title)original.titleSource='user';
           // vndb: a VNDB entry chosen by the user ("" goes back to automatic matching); left out, it stays as it is.
           const vndb=request.vndb===undefined?undefined:require('./game-enrichment.cjs').vndbIdFrom(request.vndb),vndbChanged=vndb!==undefined&&vndb!==(original.vndbManual||'');
           if(vndbChanged){if(vndb)original.vndbManual=vndb;else delete original.vndbManual;
@@ -730,10 +751,15 @@ async function dispatch(request,runtime=null) {
         const sameSteam=match&&!match.removed_at&&original.library?.source==='steam'&&!original.library?.steamRejected&&/^\d+$/.test(String(original.library?.appid||''))&&String(match.executable||'').toLowerCase()===executable.toLowerCase();
         const source=sameSteam?'steam':'manual';
         original.library={...original.library,source,steamRejected:false,dir:path.dirname(executable),exe:executable,executableSignature:library.signature(executable)};
+        /* titleAuto: the add dialog filled the name itself (the work's name it looked up, or the folder name); false: the user typed
+           it. A folder or program name is replaced by the work's name once the seed or VNDB match is known (core/library-title.cjs) */
+        {const T=require('../core/library-title.cjs');original.titleSource=T.isFallback(title,executable)?'folder':request.titleAuto===true?'work':request.titleAuto===false?'user':'scan';}
         if(match)db.prepare("UPDATE games SET title=?,executable=?,source=?,removed_at=NULL,original=? WHERE id=?").run(title,executable,source,JSON.stringify(original),id);
         else db.prepare('INSERT INTO games(id,title,executable,source,original) VALUES (?,?,?,?,?)').run(id,title,executable,'manual',JSON.stringify(original));
         require('./series.cjs').autoGroup(db,root);runtime?.metadata().enqueue([id]);require('./torch-receive.cjs').enqueue(root,[id],{force:true,priority:'user'});return {id};
       }
+      /* the add dialog's name for a picked program: the seed's work name, else VNDB's, else the folder name (core/library-title.cjs) */
+      case 'game_title_lookup':return await require('./game-enrichment.cjs').lookupTitle(root,String(request.executable||'').trim());
       case 'hidden_games':return db.prepare('SELECT id,title FROM games WHERE hidden_at IS NOT NULL AND removed_at IS NULL ORDER BY title').all();
       case 'set_game_hidden':{
         const result=db.prepare('UPDATE games SET hidden_at=? WHERE id=? AND removed_at IS NULL').run(request.hidden===true?Math.floor(Date.now()/1000):null,String(request.id));
@@ -799,6 +825,7 @@ async function dispatch(request,runtime=null) {
       case 'update_apply':return await require('./update.cjs').apply(root,String(request.current||''));
       case 'update_start':{const u=require('./update.cjs');u.start(root,String(request.current||''),fetch,{forceLatest:request.forceLatest===true});return u.status();}
       case 'update_status':return require('./update.cjs').status();
+      case 'test_build':return {label:String(process.env.MEGULIT_TEST_BUILD||'').trim()};
       case 'update_install':return await require('./update.cjs').install(root);
       /* 2026-11-15 adaptation contribution consent (services/adapter-contrib.cjs): the update card's 同意并下一步 / 不参与, the beta note */
       case 'contrib_consent':return require('./adapter-contrib.cjs').consentState(root);

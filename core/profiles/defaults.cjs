@@ -17,6 +17,11 @@ module.exports={
      left for another stream with more dialogue lines (a fresh session left Krkr2wcs in the prologue and the page hide never ran).
      [] = the kernel: the selected stream may be left */
   keepStream:[],
+  /* 2026-11-27 (アイキス3 sexy, NeXAS: the hook text carries the engine's display codes, 「…ありました。@t0650ありましたね……？」@k; the
+     glyph hide walked the raw string, lost its place at @t0650 and the rest of the line showed) RegExp sources removed from the
+     selected stream's line before anything uses it (native/HookBridge.cs StripCodes: glyph hide, reader, translation); a pattern
+     with a capture group keeps the group (ruby base). [] = the kernel: the line as the hook gives it */
+  stripCodes:[],
   /* 2026-11-27 (ハミダシクリエイティブ, Artemis2) HookBridge streams (RegExp sources on the stream name) that are the engine's per-glyph
      layout call (one glyph or one ruby base per call, the line joined afterwards): every short piece is blanked while the line is hidden.
      [] = the kernel: a short piece follows the label rule (kanji / katakana pieces go back unchanged) */
@@ -88,6 +93,10 @@ module.exports={
   /* candidates that are a text effect's interleaved frame, or a piece of a line already read, are no options (9b3ff9b1, ファタ r30);
      false = the kernel: only choice.filters apply */
   dropEffectFrames:false,
+  /* 2026-11-27 (アイキス3 sexy, NeXAS: OCR read the yellow outlined options at half their characters, no option reached the 60 %
+     match) the choice locate also takes a row that is plainly one option's (45 % of it, 70 % of the row, twice what the row shares
+     with any other option; native/PageLocator.cs LooseChoices); false = the kernel: the 60 % match and the neighbour row only */
+  ocrLoose:false,
  },
  hide:{
   /* the game's text effect cannot be hidden line by line: start this game in read mode (the original stays, MeguLit shows
@@ -102,6 +111,11 @@ module.exports={
      enabled (trial on), unconfirmedLines 2 (lines in a row without a hidden confirmation end the proof), clickMs 400 (texts of
      one click), skipAside true (scene labels and name plates pass without starting a trial) */
   engineTrial:{enabled:null,unconfirmedLines:null,clickMs:null,skipAside:null},
+  /* 2026-11-27 (アイキス3 sexy, NeXAS: the options are drawn in the dialogue font right after the line that names them and
+     were blanked with it) the glyph hide stops hiding glyphs that come after the whole line was drawn and do not start it
+     again (native/fontprobe/GlyphMatch.h AfterLineNew); false = the kernel: a character hidden in the line stays hidden until
+     the next line */
+  glyphAfterLine:false,
  },
  /* self-check thresholds of the auto-profile layer (feat/auto-profile): a window of lines whose hide/drop/repeat/pairing
     rates decide a fallback */
