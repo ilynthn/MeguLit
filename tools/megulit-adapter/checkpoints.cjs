@@ -46,7 +46,7 @@ function questions({identity={},caps={},cold=null,coldOut='',force=false,install
  if(!identity.release&&!identity.releaseGuess)q.push({id:'release',ask:'这是哪个发行版？'+((identity.releaseCandidates||[]).length?'VNDB 候选：'+identity.releaseCandidates.join('、'):'（例：DL 版、Steam 版、DVD 版、汉化硬盘版）'),evidence:pic(ev.title),free:true});
  const same=(identity.adapted||[]).filter(r=>r.same);
  if(same.length&&!force)q.push({id:'again',ask:'HANDOFF 已登记过这个作品和发行版（'+same.map(r=>r.status+' '+r.ref).join('；')+'），还要重新适配吗？',evidence:[],options:['yes','no']});
- if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'）'+(identity.vndbLookup?.engine?'，VNDB 记的是 '+identity.vndbLookup.engine:'')+(caps.luna?'，LunaHook 认为是 '+caps.luna:'')+'，这是什么引擎？',evidence:pic(ev.title),free:true});
+ if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'）'+(identity.vndbLookup?.engine?'，VNDB 记的是 '+identity.vndbLookup.engine:'')+(caps.luna?'，LunaHook 认为是 '+caps.luna:'')+(caps.craft?'，craft-anything 认为是 '+caps.craft:'')+'，这是什么引擎？',evidence:pic(ev.title),free:true});
  const v=cold?.verdict||'';
  if(v==='pass'){q.push({id:'lines',ask:'这几张对话画面里，台词跟着游戏换句了吗（没有停在旧句、没有跳句）？',evidence:pic(ev.dialogue),options:['yes','no']});
   q.push({id:'dialogue',ask:'这几张对话画面里，游戏原文藏住了、没有残影吗？',evidence:pic(ev.dialogue),options:['yes','no']});
