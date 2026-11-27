@@ -324,30 +324,9 @@ class Library{
   if(!g||g.hook==='verified')return false;g.hook='verified';this.write();return true;
  }
 }
-// ── Synopses in the interface language, fetched online: Steam's own store text (zh / en / ja) for Steam games,
-// Bangumi for Chinese (and the Japanese original it often carries), VNDB for English. Cached in config\synopsis.json
-// and refreshed at most once a day per work.
-const UA='MeguLit/0.1 (https://github.com/46daishi/tomoyo)';
+// Fetch synopses from VNDB and Moegirlpedia and cache them in config/synopsis.json.
 const clean=s=>String(s||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|h\d|li|div)>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
  .replace(/\[url=[^\]]*\]([^[]*)\[\/url\]/gi,'$1').replace(/\[\/?(b|i|u|s|spoiler|quote|raw|code)\]/gi,'').replace(/\[From [^\]]+\]\s*$/i,'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
-const cut=(s,n=1400)=>s.length>n?s.slice(0,s.lastIndexOf('\n',n)>n*.6?s.lastIndexOf('\n',n):n).trim()+'…':s;
-const isJapanese=s=>{const kana=(s.match(/[぀-ヿ]/g)||[]).length;return kana>=12&&kana/Math.max(1,s.length)>.08;};
-async function getJson(url,options={}){try{const r=await fetch(url,{...options,headers:{'User-Agent':UA,Accept:'application/json',...(options.headers||{})},signal:AbortSignal.timeout(9000)});return r.ok?await r.json():null;}catch{return null;}}
-async function steamText(appid,lang){
- const l={zh:'schinese',en:'english',ja:'japanese'}[lang];const d=await getJson('https://store.steampowered.com/api/appdetails?appids='+appid+'&l='+l);
- const data=d?.[appid]?.data;if(!data)return '';const text=clean(data.about_the_game||data.detailed_description||data.short_description);
- // Steam falls back to English when a language is missing: only keep text that really is in that language.
- if(lang==='zh'&&!/[一-鿿]/.test(text))return '';if(lang==='ja'&&!isJapanese(text))return '';if(lang==='en'&&/[぀-ヿ一-鿿]{20}/.test(text))return '';return cut(text);
-}
-async function bangumi(titles){
- // An entry of exactly this name first; otherwise the shortest name that starts with it (the base game, not its
- // HD / full-voice / fan-disc entries, which Bangumi lists under longer names).
- // Another edition's page (HD / full voice / remaster / fan disc) describes that edition, not the story: skipped.
- const EDITION=/(hd|フルボイス|fullvoice|完全版|リマスター|remaster|リニューアル|fd|ファンディスク|appendix|アペンド|dl版|パッケージ版|新装版|全年龄|全年齢|r18|18禁)/i;
- let best=null;for(const title of titles.filter(Boolean)){const d=await getJson('https://api.bgm.tv/v0/search/subjects?limit=10',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:title,filter:{type:[4]}})});
-  const want=norm(title);for(const s of d?.data||[]){if(!String(s.summary||'').trim())continue;for(const n of [s.name,s.name_cn].map(norm).filter(Boolean)){const exact=n===want;if(!exact&&!(want.length>=4&&n.startsWith(want)))continue;if(!exact&&EDITION.test(n.slice(want.length)))continue;const rank=exact?0:n.length;if(!best||rank<best.rank)best={rank,s};}}if(best?.rank===0)break;}
- return best?clean(best.s.summary):'';
-}
 async function vndbText(id,titles){
  let filters=id?['id','=',/^v/i.test(id)?id:'v'+id]:null;if(!filters){for(const t of titles){const vn=await vndb(t,true);if(vn){filters=['id','=',vn.id];break;}}}if(!filters)return '';
  try{const r=await fetch('https://api.vndb.org/kana/vn',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filters,fields:'description,alttitle,title,titles.title,aliases'}),signal:AbortSignal.timeout(9000)});if(!r.ok)return '';const v=(await r.json()).results?.[0];return {text:clean(v?.description||''),alttitle:v?.alttitle||'',names:[v?.title,v?.alttitle,...(v?.titles||[]).map(x=>x.title),...(v?.aliases||[])].filter(x=>typeof x==='string'&&x)};}catch{return '';}
