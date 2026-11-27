@@ -85,7 +85,7 @@ function robocopy(from,to,extra=[]){const r=spawnSync('robocopy',[from,to,'/E','
    A card folder may point at another card's build (OZMAFIA!! #1312 sits on #1303's branch and build). */
 const READY_SKIP_CONFIG=/^(library\.json|.*\.rollback-.*|.*\.bak-.*)$/i;
 function portOf(pr){return 9300+(Number(pr)||0)%600;}
-function readyBuild(card,{root,app,exe,title,pr,label='',refresh=null}){if(!fs.existsSync(path.join(root,'MeguLit.exe')))throw Error('找不到测试版 MeguLit：'+root);
+function readyBuild(card,{root,app,exe,title,pr,label='',refresh=null,games=null}){if(!fs.existsSync(path.join(root,'MeguLit.exe')))throw Error('找不到测试版 MeguLit：'+root);
  const data=path.join(root,'data'),cfg=path.join(data,'config');fs.mkdirSync(cfg,{recursive:true});
  const from=path.join(app,'data','config');if(fs.existsSync(from))for(const e of fs.readdirSync(from,{withFileTypes:true})){if(READY_SKIP_CONFIG.test(e.name))continue;
   fs.cpSync(path.join(from,e.name),path.join(cfg,e.name),{recursive:true,force:true});}
@@ -95,12 +95,14 @@ function readyBuild(card,{root,app,exe,title,pr,label='',refresh=null}){if(!fs.e
     (desktop/src/hot_assets.rs, services/hot-update.cjs exeStamp): without it the test build shows the exe's own pages, not the PR's */
  const st=fs.statSync(path.join(root,'MeguLit.exe'));fs.writeFileSync(path.join(data,'hot-update.json'),JSON.stringify({exe:st.size+'-'+Math.floor(st.mtimeMs),testBuild:true}));
  fs.mkdirSync(card,{recursive:true});fs.copyFileSync(path.join(__dirname,'test-start.cjs'),path.join(card,'test-start.cjs'));
- fs.writeFileSync(path.join(card,'test-start.json'),JSON.stringify({root,exe,title,port:portOf(pr),pr:String(pr||''),label,refresh},null,1)+'\n');
+ /* games: {<PR>: {exe, title}} (the integration build, 开始测试.cmd <PR>); one game: exe/title of that PR */
+ const list=games||(exe?{[String(pr||'game')]:{exe,title}}:{});
+ fs.writeFileSync(path.join(card,'test-start.json'),JSON.stringify({root,port:portOf(pr),label,games:list,refresh},null,1)+'\n');
  /* the card keeps its own node: a rebuild replaces the build folder (app-<main>-<pr>) while the cmd may be running */
  const ownNode=path.join(card,'node.exe'),src=path.join(root,'runtime','node.exe');if(!fs.existsSync(ownNode)&&fs.existsSync(src))fs.copyFileSync(src,ownNode);
  const node=fs.existsSync(ownNode)?'%~dp0node.exe':'node';
  const cmd=path.join(card,'开始测试.cmd');
- fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test: closes the installed MeguLit, updates this test build to the newest main + PR, opens it, starts the game from it\r\n"'+node+'" "%~dp0test-start.cjs" "%~dp0."\r\nif errorlevel 1 pause\r\n');
+ fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test: updates this test build to the newest main + PRs, closes the installed MeguLit, opens the test build;\r\nrem with a PR number (开始测试.cmd 1312) that card\'s game starts from it\r\n"'+node+'" "%~dp0test-start.cjs" "%~dp0." %*\r\nif errorlevel 1 pause\r\n');
  return {cmd,port:portOf(pr)};}
 function testBuild({app,repo,target,exe,title,pr},{copy=robocopy}={}){const megulit=path.join(target,'MeguLit');
  if(!fs.existsSync(path.join(app,'MeguLit.exe')))throw Error('找不到安装版 MeguLit：'+app);
