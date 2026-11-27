@@ -153,8 +153,9 @@ test('queue: a problem game gets its full probe once, the local file goes; nothi
  const db=fx.db([{id:'g1',title:'テスト',executable}]);let collected=0;
  const fuller=async(game,result,job)=>{collected++;return pf.collect({dir:path.dirname(game.executable),executable:game.executable,result,...job});};
  const f=user('198.51.100.9');const opts={wait:async()=>{},probeFirst:false,fetcher:f,endpoint:'https://relay.test/api/probe',hasEndpoint:'https://relay.test/api/probe/has',fullBase:BASE,sampler:async()=>({samples:[],keys:[]}),fuller};
- /* informed consent: without the player's agreement nothing of the game is collected or sent */
- const r0=await auto.run(g.root,db,opts);assert.equal(r0.full.g1,undefined,'no full upload without consent');assert.equal(collected,0,'nothing collected without consent');
+ /* on by default since 2026-11-28; with the switch turned off nothing of the game is collected or sent */
+ require('../services/adapter-contrib.cjs').setConsent(g.root,false,{source:'test'});
+ const r0=await auto.run(g.root,db,opts);assert.equal(r0.full.g1,undefined,'no full upload with the switch off');assert.equal(collected,0,'nothing collected with the switch off');
  require('../services/adapter-contrib.cjs').setConsent(g.root,true,{source:'test'});
  const r=await auto.run(g.root,db,opts);assert.equal(r.full.g1,'sent');assert.equal(collected,1);
  assert.deepEqual(fs.readdirSync(pf.fullDir(g.root)),[],'local full probe deleted');
