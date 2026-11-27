@@ -1,27 +1,18 @@
-﻿# Rebuild the startup animation while preserving its existing embedded artwork
+﻿# Build the startup progress bar and its closing MeguLit logo
 param([string]$OutputPath='')
 $ErrorActionPreference='Stop'
 $native=$PSScriptRoot
-$target=Join-Path $native 'StartupIsland.exe'
 if(!$OutputPath){$OutputPath=Join-Path $native 'StartupIsland.updated.exe'}
 $work=[IO.Path]::GetFullPath((Join-Path $env:TEMP ('tome-startup-'+[Guid]::NewGuid().ToString('N'))))
 [IO.Directory]::CreateDirectory($work)|Out-Null
 try {
-  # The artwork is committed as native/megumin-face-source.png; an existing build is only a fallback.
-  $face=Join-Path $native 'megumin-face-source.png'
-  if(!(Test-Path -LiteralPath $face)){
-    if(!(Test-Path -LiteralPath $target)){throw "Startup artwork missing: expected $face"}
-    $assembly=[Reflection.Assembly]::Load([IO.File]::ReadAllBytes($target))
-    $input=$assembly.GetManifestResourceStream('MeguLit.MeguminFace')
-    if(!$input){$input=$assembly.GetManifestResourceStream('ToMe.MeguminFace')}
-    if(!$input){throw 'Existing startup artwork resource missing'}
-    $face=Join-Path $work 'face.png';$output=[IO.File]::Create($face)
-    try{$input.CopyTo($output)}finally{$output.Dispose();$input.Dispose()}
-  }
+  # The logo is the committed brand artwork (docs/assets/logo.png); the surface draws nothing else besides the bar.
+  $logo=Join-Path (Split-Path $native -Parent) 'docs/assets/logo.png'
+  if(!(Test-Path -LiteralPath $logo)){throw "Startup artwork missing: expected $logo"}
   $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
   if(!(Test-Path -LiteralPath $compiler)){$compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'}
   $built=Join-Path $work 'StartupIsland.exe'
-  & $compiler /nologo /langversion:5 /optimize+ /target:winexe /platform:x64 /codepage:65001 /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll "/resource:$face,MeguLit.MeguminFace" "/out:$built" (Join-Path $native 'StartupIsland.cs')
+  & $compiler /nologo /langversion:5 /optimize+ /target:winexe /platform:x64 /codepage:65001 /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll "/resource:$logo,MeguLit.Logo" "/out:$built" (Join-Path $native 'StartupIsland.cs')
   if($LASTEXITCODE -ne 0){throw 'Startup build failed'}
   $probe=Start-Process -FilePath $built -ArgumentList '--surface-self-test' -WindowStyle Hidden -PassThru -Wait
   if($probe.ExitCode -ne 0){throw 'Startup surface selection test failed'}
