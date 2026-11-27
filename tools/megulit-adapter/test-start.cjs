@@ -76,7 +76,7 @@ async function main(argv){const dir=path.resolve(argv[0]||__dirname);let cfg=JSO
   /* --prepare: the app's metadata pass (engine, seed -> 已适配) runs after the add; wait for it so the library is right before anyone tests */
   if(prepare){const t3=Date.now()+120000;while(Date.now()<t3){const g=((await service(c,'home')).games||[]).find(x=>x.executable&&same(x.executable,cfg.exe));if(g&&g.engine&&g.hookSupport!=='unknown')break;await sleep(2000);}
    await evaluate(c,'location.reload(),true');await sleep(4000);}
-  if(shot){await sleep(1000);const state=await evaluate(c,`(()=>{const t=document.body.innerText;return {firstRun:!!document.querySelector('dialog.first-run[open]'),hotkeyNotice:/游戏内功能未就绪|READER_HOTKEY_IN_USE/.test(t),title:document.title}})()`);
+  if(shot){await sleep(1000);const state=await evaluate(c,`(()=>{const t=document.body.innerText;return {firstRun:!!document.querySelector('dialog.first-run[open]'),hotkeyNotice:/游戏内功能未就绪|READER_HOTKEY_IN_USE/.test(t),title:document.title,label:document.querySelector('.test-build-label')?.textContent||'',updateNotice:!!document.querySelector('.update-notice,[data-update-notice]')}})()`);
    const games=(await service(c,'home')).games||[];const g=games.find(x=>x.executable&&same(x.executable,cfg.exe));
    const r=await c.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(shot,Buffer.from(r.result.data,'base64'));
    log(JSON.stringify({...state,games:games.length,game:g?{id:g.id,title:g.title,engine:g.engine,hookSupport:g.hookSupport}:null,shot}));}}
