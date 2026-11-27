@@ -146,6 +146,15 @@ public:
   // why the last Glyph() decided as it did (diagnostics trace): p placed in the line walk, h hidden earlier in the line,
   // l the previous line finishing, r ruby, f not the dialogue font, n not in the line, x no line armed
   char LastWhy = 0;
+  // 2026-11-27 (アイキス3 sexy, NeXAS: the options 「１・ちょっと教えて欲しい」 are drawn in the dialogue font right after the line
+  // 「…ちょっと教えて欲しいというなら１を。…」 and were blanked, so neither the player nor the reader's choice OCR saw them).
+  // true: once the line is drawn (the walk reached its end, or 90 % of it was placed and nothing was placed for AfterQuiet ms)
+  // a glyph that does not continue the walk (a redraw starts at the first character again) is new text, not hidden only
+  // because the same character was hidden earlier in the line. Live trace (MEGULIT_GLYPH_TRACE): the line's last glyph is
+  // placed, 2 s later the two options arrive within one millisecond, every character the line had hidden marked why=h.
+  // Off by default (the kernel rule); HookBridge sends "AFTERLINE on" when the profile's hide.glyphAfterLine asks for it.
+  bool AfterLineNew = false;
+  static constexpr uint32_t AfterQuiet = 800;
 
   void SetLine(const std::wstring &text, uint32_t now)
   {
@@ -166,6 +175,8 @@ public:
     lineAt = now;
     seq++;
     cursor = 0;
+    lastPlacedAt = 0;
+    doneReported = sparedReported = false;
     hidden.clear();
     requested.clear();
     positions.clear();
@@ -222,14 +233,29 @@ public:
       return false;
     if (render)
       requested.insert(c);
+    bool done = AfterLineNew && !current.empty() && (cursor >= (int)current.size() || (positions.size() * 10 >= current.size() * 9 && lastPlacedAt && now - lastPlacedAt >= AfterQuiet));
     int pos = Place(c);
     bool dk = DialogueKey(k);
     if (pos >= 0)
     {
+      lastPlacedAt = now;
       Learn(k, pos);
       dk = DialogueKey(k);
     }
-    bool hide = dk && (pos >= 0 || hidden.count(c));
+    bool hide = dk && (pos >= 0 || (hidden.count(c) && !done));
+    bool opens = done && dk && pos < 0 && Opening(c); // the next line's 「 drawn before its text reached the hide
+    if (opens)
+      hide = true;
+    if (done && !doneReported)
+    {
+      doneReported = true;
+      Report("ToMe_GLYPHHIDE afterline done seq=" + std::to_string(seq) + " cursor=" + std::to_string(cursor) + "/" + std::to_string(current.size()));
+    }
+    if (done && dk && pos < 0 && hidden.count(c) && !opens && !sparedReported)
+    {
+      sparedReported = true;
+      Report("ToMe_GLYPHHIDE afterline kept seq=" + std::to_string(seq) + " ch=" + Utf8(std::wstring(1, c)));
+    }
     bool late = false;
     if (!hide && dk && now - lineAt < PreviousWindow && previousHidden.count(c))
       hide = late = true; // the engine still finishes the previous line for a moment after the new one was read
@@ -241,7 +267,7 @@ public:
       chain = false;
       return false;
     }
-    LastWhy = pos >= 0 ? 'p' : late ? 'l' : dk ? 'h' : 'r';
+    LastWhy = pos >= 0 ? 'p' : late ? 'l' : opens ? 'o' : dk ? 'h' : 'r';
     if (pos >= 0)
       positions.insert(pos), placedAt[c] = pos;
     if (served)
@@ -374,11 +400,14 @@ private:
   int cursor = 0, suspect = 0, hiddenSize = 0;
   bool reported = false, cached = false, chain = false; // chain: the last draw was hidden (ruby follows it)
   bool cacheReported = false;
+  bool doneReported = false, sparedReported = false; // AfterLineNew reports, once per line
+  uint32_t lastPlacedAt = 0;
   std::map<wchar_t, int> placedAt; // character -> its last placed index in the current line
   Key seeded, leader;
   std::vector<Key> learned;
   std::map<Key, std::pair<int, int>> runs; // key -> (run length, last position)
 
+  static bool Opening(wchar_t c) { return c == L'「' || c == L'『' || c == L'（' || c == L'【' || c == L'〈' || c == L'《' || c == L'“'; }
   // Where c continues the in-order walk through the current line, or -1.
   int Place(wchar_t c)
   {
