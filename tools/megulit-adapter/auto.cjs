@@ -134,7 +134,7 @@ function stuckNote(st,{step,why,decide,evidence=[]}){const L=['# '+st.short+' å
 
 /* ---- the run ---------------------------------------------------------------------------------------------------------- */
 async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.requests?{requests:o.requests}:{}),...(o.copies?{copies:o.copies}:{}),...(o.app?{app:o.app}:{})};
- const D={install:Install.install,adapter:adapterCli,checkout,testBuild,integrate:o=>require('./test-build-all.cjs').build(o),vndb:a=>require('./identify.cjs').vndb(a),...deps};
+ const D={install:Install.install,adapter:adapterCli,checkout,integrate:o=>require('./test-build-all.cjs').build(o),vndb:a=>require('./identify.cjs').vndb(a),...deps};
  const src=path.resolve(o.dir),short=o.name||shortOf(src),file=path.join(R.auto,'runs',short,'auto.json');
  const st={short,src,issue:o.issue||0,file,steps:{},...readJson(file),short,src,file};if(o.issue)st.issue=o.issue;if(o.pr)st.pr=o.pr;
  const save=()=>{st.updatedAt=new Date().toISOString();writeJson(file,st);};
