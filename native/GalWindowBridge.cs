@@ -540,7 +540,7 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         else if(type=="dialogSceneLine"){Scene.Line();GameUi.Clear();}
         else if(type=="dialogVisibility"){DialogVisible=Bool(d,"visible");}
         else if(type=="hookVerify"){if(HookVerifier!=null)HookVerifier.Request(Target,d);}
-        else if(type=="choiceLocate"){object list;var options=new List<string>();if(d.TryGetValue("options",out list)&&list is System.Collections.ArrayList)foreach(object o in (System.Collections.ArrayList)list){string t=Convert.ToString(o);if(!String.IsNullOrWhiteSpace(t)&&t.Length<=120&&options.Count<12)options.Add(t);}if(PageLocate!=null&&Target!=IntPtr.Zero)PageLocate.RequestChoices(Target,options);}
+        else if(type=="choiceLocate"){object list;var options=new List<string>();if(d.TryGetValue("options",out list)&&list is System.Collections.ArrayList)foreach(object o in (System.Collections.ArrayList)list){string t=Convert.ToString(o);if(!String.IsNullOrWhiteSpace(t)&&t.Length<=120&&options.Count<12)options.Add(t);}if(PageLocate!=null&&Target!=IntPtr.Zero)PageLocate.RequestChoices(Target,options,Bool(d,"loose"));}
         else if(type=="pageLocate"){if(PageLocate!=null&&Target!=IntPtr.Zero)PageLocate.Request(Target,Str(d,"text"),Bool(d,"art"));}
         /* 2026-11-12 art scan (OCR read path): MeguLit asks for it while no hook line is current; PageLocator reads the picture and emits artText */
         else if(type=="artScan"){if(PageLocate!=null)PageLocate.Scan(Target,Bool(d,"on")&&Target!=IntPtr.Zero,Str(d,"dialog"),Str(d,"speaker"),Bool(d,"band"),Bool(d,"foreign"),Bool(d,"slow"));}
@@ -909,7 +909,7 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
             }
         }
         if(args.Length>=1&&args[0]=="--page-locator-ocr-test"){string r=PageLocator.OcrSelfTest(args.Length>1?args[1]:null);Console.WriteLine(r=="0"?"PASS page locator OCR: three drawn paragraphs found, wrapped where they were drawn, boxes at the drawn margin":(r.StartsWith("skip")?"SKIP "+r:"FAIL page locator OCR: "+r));return r=="0"||r.StartsWith("skip")?0:13;}
-        if(args.Length==3&&args[0]=="--choice-file"){Console.OutputEncoding=Encoding.UTF8;Console.Write(PageLocator.ChoiceFile(args[1],args[2]));return 0;}
+        if((args.Length==3||args.Length==4&&args[3]=="--loose")&&args[0]=="--choice-file"){Console.OutputEncoding=Encoding.UTF8;Console.Write(PageLocator.ChoiceFile(args[1],args[2],args.Length==4));return 0;}
 if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.UTF8;Console.Write(PageLocator.ScanFile(args[1]));return 0;}
         if(args.Length>=1&&args[0]=="--art-scan-mask-test"){string r=PageLocator.ScanMaskSelfTest(args.Length>1?args[1]:null);Console.WriteLine(r=="0"?"PASS art scan mask: MeguLit's menu over a corner painted out, only the game's quote read":r.StartsWith("skip")?"SKIP "+r:"FAIL art scan mask: "+r);return r=="0"||r.StartsWith("skip")?0:1;}
         if(args.Length>=2&&args[0]=="--art-scan-image"){Console.OutputEncoding=new System.Text.UTF8Encoding(false);Console.WriteLine(PageLocator.ScanImage(args[1],args.Length>2?args[2]:null));return 0;}
@@ -961,6 +961,7 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
             if(b.Left!=140||b.Top!=728||b.Right!=1060||b.Bottom!=936)return 2;
             Rect surface=SurfaceBounds(b,new Rect(100,200,1100,1000),GameTextMask.ScanRegion(1000,800,2,60,96,38));
             if(surface.Left!=120||surface.Top!=680||surface.Right!=1080||surface.Bottom!=984||b.Left-surface.Left!=20||b.Top-surface.Top!=48)return 2;
+            if(!PageLocator.LooseSelfTest())return 2;
             Emit(new{type="selftest",passed=true});return 0;
         }
         if((args.Length!=1&&args.Length!=2)||!Int32.TryParse(args[0],out OverlayPid))return 2;

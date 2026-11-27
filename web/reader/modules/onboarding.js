@@ -8,7 +8,7 @@
    element under it; everywhere else a click lands on the tour's blockers, never in the game (the whole window is part of
    the overlay region while the tour is open, interaction.js). Steps without an act move on with 下一步.
    Steps, words, pictures and the launch count: web/onboarding-steps.js. Shown at the first five game launches (a launch =
-   the identity in the 'profile' status, game-style-sync-ui.js); 跳过教程 stops it for good; 教程 in the Alt+T header and in
+   the identity in the 'profile' status, game-style-sync-ui.js); 跳过教程 or walking it to the end (开始玩) stops it for good; 教程 in the Alt+T header and in
    the main window's top bar bring it back. It closes before a calibration capture (body.tome-style-probing). */
 (function(){
  'use strict';
@@ -102,7 +102,8 @@
    '<footer><div class="mg-tour-dots" aria-hidden="true">'+O.STEPS.map(()=>'<i></i>').join('')+'</div><div class="mg-tour-nav"><span class="mg-tour-wait" role="status" hidden></span><button type="button" class="mg-tour-prev"></button><button type="button" class="mg-tour-next"></button></div></footer></section>';
   root.querySelector('.mg-tour-skip').onclick=()=>{if(cur?.index===O.STEPS.length-1&&!cur.auto)end();else{write(O.stop(read()));end();}};
   root.querySelector('.mg-tour-prev').onclick=()=>go(cur.index-1);
-  root.querySelector('.mg-tour-next').onclick=()=>{if(!ready())return;cur.index>=O.STEPS.length-1?end():go(cur.index+1);};
+  /* 开始玩 on the last step: a tour walked to the end, like a skipped one, does not come back by itself (user 11-27: once is enough) */
+  root.querySelector('.mg-tour-next').onclick=()=>{if(!ready())return;if(cur.index<O.STEPS.length-1){go(cur.index+1);return;}write(O.stop(read()));end();};
   root.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();end();}});
   /* a click on the dim never reaches anything */
   for(const b of root.querySelectorAll('.mg-tour-block'))for(const type of ['pointerdown','mousedown','click','contextmenu','dblclick'])b.addEventListener(type,e=>{e.preventDefault();e.stopPropagation();},true);

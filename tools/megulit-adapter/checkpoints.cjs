@@ -21,7 +21,12 @@ const VNDB=/^v[1-9]\d{0,7}$/;
 const list=(dir,re)=>{try{return fs.readdirSync(dir).filter(f=>re.test(f)).map(f=>path.join(dir,f)).sort();}catch{return [];}};
 const mtime=f=>{try{return fs.statSync(f).mtimeMs;}catch{return 0;}};
 /* the pictures of a cold run: client-area shots (run/shot-*), OCR grabs (run/ocr-*), whole-screen shots of a --foreground run (screen/*) */
-function pictures(coldOut){const run=path.join(coldOut,'run');return {shots:list(run,/^shot-.*\.jpe?g$/i),ocr:list(run,/^ocr-\d+\.png$/i).sort((a,b)=>mtime(a)-mtime(b)),screen:list(path.join(coldOut,'screen'),/\.png$/i)};}
+/* 2026-11-27 (アイキス3 sexy: a whole-screen picture showed another agent's game, 死に逝く君, and was offered as dialogue evidence)
+   a whole-screen picture whose recorder noted another process in front (screen-NN.fg, the foreground window's process id) is not
+   evidence of this game; pictures without that note (older runs) are kept */
+function gamePids(run){try{const r=JSON.parse(fs.readFileSync(path.join(run,'run.json'),'utf8'));return [r.pid,r.launcherPid].filter(Boolean).map(String);}catch{return [];}}
+function inFront(file,pids){if(!pids.length)return true;let fg='';try{fg=fs.readFileSync(file.replace(/\.png$/i,'.fg'),'utf8').trim();}catch{return true;}return !fg||pids.includes(fg);}
+function pictures(coldOut){const run=path.join(coldOut,'run'),pids=gamePids(run);return {shots:list(run,/^shot-.*\.jpe?g$/i),ocr:list(run,/^ocr-\d+\.png$/i).sort((a,b)=>mtime(a)-mtime(b)),screen:list(path.join(coldOut,'screen'),/\.png$/i).filter(f=>inFront(f,pids))};}
 function phaseAt(cold,name){const p=(cold?.phases||[]).find(x=>x.name===name);return p?Date.parse(p.at):0;}
 function evidence(coldOut,cold){const P=pictures(coldOut),all=[...P.screen,...P.shots];
  const title=P.screen[0]||P.shots[0]||P.ocr[0]||'';

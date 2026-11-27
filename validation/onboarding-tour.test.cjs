@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 'use strict';
-/* 2026-11-27 新手引导: the in-game tour shows at the first five game launches and never again, stops at once when skipped,
+/* 2026-11-27 新手引导: the in-game tour shows at the first five game launches and never again, stops at once when skipped or finished,
    lights a real element of the reader at every step, names hotkeys through MeguLitHotkeys.label, and can be opened again
    from the main window's top bar (教程) and from the Alt+T menu. The real reader page and the real main window (with the
    real local service on a temporary root) run in headless Edge; ui-state.json is the only memory between launches, as in
@@ -76,7 +76,7 @@ test('skip stops the tour at once and for good',{skip:!hasEdge&&'Edge not instal
 });
 
 test('the spotlight: the hole sits on each step’s element, click steps go on only from the lit place or the real hotkey, nothing reaches the game',{skip:!hasEdge&&'Edge not installed',timeout:240000},async()=>{
- await withReader(async({cdp,launch,tour})=>{
+ await withReader(async({cdp,launch,tour,saved})=>{
   await launch('pid1|a');
   const step=async()=>(await tour())?.step;
   /* the hole (the undimmed place) against the element it lights: the capsule reports its drawn shape, others their box */
@@ -138,6 +138,8 @@ test('the spotlight: the hole sits on each step’s element, click steps go on o
   assert.ok(await cdp.evaluate(`(()=>{const c=document.querySelector('.mg-tour-card').getBoundingClientRect(),d=document.querySelector('.tomoyo-cn-dialog[open]').getBoundingClientRect();return c.left>=0&&c.top>=0&&c.right<=innerWidth&&c.bottom<=innerHeight&&(c.right<=d.left||c.left>=d.right);})()`),'the card is on screen and beside the menu');
   await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(700);
   assert.equal(await tour(),null,'开始玩 closes the tour');assert.equal(await menuOpen(),false,'and the menu opened during the tour');
+  await sleep(600);assert.equal(saved()?.stopped,true,'a finished tour is stopped like a skipped one');
+  await launch('pid2|b');assert.equal(await tour(),null,'second launch after finishing: no tour');
 
   /* Alt+T menu → 教程 opens it again, also after the five launches are used up */
   await cdp.evaluate(`(()=>{localStorage.setItem('tomoyo-onboarding',JSON.stringify({shown:5,stopped:true,seen:true}));window.__tomoyoChinese.toggleGalMenu();return 1;})()`);await sleep(1200);

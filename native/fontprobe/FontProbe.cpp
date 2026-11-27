@@ -55,7 +55,10 @@ HMODULE Self; CRITICAL_SECTION Gate; HANDLE Wake; std::deque<std::string> Out; w
 
 std::string Utf8(const std::wstring &w) { if (w.empty()) return ""; int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), NULL, 0, NULL, NULL); std::string s(n, 0); WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, NULL, NULL); return s; }
 std::wstring Wide(const std::string &s) { if (s.empty()) return L""; int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(), NULL, 0); std::wstring w(n > 0 ? n : 0, 0); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(), &w[0], n); return w; }
-void Send(const std::string &line) { EnterCriticalSection(&Gate); if (Out.size() < 256) Out.push_back(line); LeaveCriticalSection(&Gate); SetEvent(Wake); }
+void Send(const std::string &line, size_t cap = 256) { EnterCriticalSection(&Gate); if (Out.size() < cap) Out.push_back(line); LeaveCriticalSection(&Gate); SetEvent(Wake); }
+// MEGULIT_GLYPH_TRACE=1 (diagnostics, 2026-11-27 アイキス3 sexy): one "ToMe_GLYPHHIDE trace" line per rasterised glyph with the
+// matcher's decision and reason (GlyphMatch.h LastWhy), at most 6000 a run; off unless the game's environment asks for it.
+bool Trace = false; volatile LONG TraceLeft = 6000;
 // A game's ANSI face name is in its own code page: Japanese games use 932 whatever the system code page is.
 std::wstring Ansi(const char *s, int len = -1) {
  if (!s) return L""; for (UINT cp : {932u, (UINT)CP_ACP}) { int n = MultiByteToWideChar(cp, MB_ERR_INVALID_CHARS, s, len, NULL, 0); if (n <= 0) continue; std::wstring w(n, 0); MultiByteToWideChar(cp, MB_ERR_INVALID_CHARS, s, len, &w[0], n); while (!w.empty() && !w.back()) w.pop_back(); return w; }
@@ -128,6 +131,7 @@ void Command(std::string l) {
  else if ((l.rfind("EXTRA n ", 0) == 0 || l.rfind("EXTRA o ", 0) == 0) && l.size() > 8) { char k = l[6]; std::wstring t = Stripped(Wide(l.substr(8)));
   if (!t.empty() && t.size() <= 200) { if (k == 'n') Extras.erase(std::remove_if(Extras.begin(), Extras.end(), [](const Extra &e) { return e.kind == 'n'; }), Extras.end());
    if (Extras.size() >= 16) Extras.erase(Extras.begin()); Extras.push_back(Extra{++ExtraSeq, k, t, GetTickCount()}); extra = "ToMe_GLYPHDOT extra id=" + std::to_string(ExtraSeq) + " kind=" + std::string(1, k) + " text=" + Utf8(t); } }
+ else if (l == "AFTERLINE on" || l == "AFTERLINE off") { Hide.AfterLineNew = l == "AFTERLINE on"; extra = std::string("ToMe_GLYPHHIDE afterline ") + (Hide.AfterLineNew ? "on" : "off"); } // profile hide.glyphAfterLine (GlyphMatch.h)
  else if (l == "MARK on" || l == "MARK off") { InterlockedExchange(&MarkArmed, l == "MARK on" ? 1 : 0); InterlockedExchange(&MarkOn, 0); MarkLast = -1; } // two lines, once the engine is known to rasterise again
  else if (l == "EXTRA-CLEAR n" || l == "EXTRA-CLEAR o") { char k = l[12]; Extras.erase(std::remove_if(Extras.begin(), Extras.end(), [k](const Extra &e) { return e.kind == k; }), Extras.end()); }
  else if (l.rfind("FONT ", 0) == 0) { size_t sp = l.find(' ', 5); if (sp != std::string::npos) { GlyphHide::Key k; k.size = atoi(l.substr(5, sp - 5).c_str()); k.face = Clean(Wide(l.substr(sp + 1))); Hide.Seed(k); } }
@@ -165,9 +169,10 @@ bool HideGlyph(HDC dc, UINT c, bool index, const Face &f, bool render, GlyphHide
  AcquireSRWLockExclusive(&HideLock);
  wchar_t ch = index ? FromIndex(dc, c) : (wchar_t)c;
  bool r = ch && Hide.Glyph(ch, KeyOf(f), GetTickCount(), render, "ggo", sv); AfterDecision();
+ std::string trace; if (Trace && render && ch > 0x7f && InterlockedDecrement(&TraceLeft) >= 0) trace = "ToMe_GLYPHHIDE trace seq=" + std::to_string(Hide.Sequence()) + " ch=" + Utf8(std::wstring(1, ch)) + " hide=" + (r ? "1" : "0") + " why=" + std::string(1, Hide.LastWhy ? Hide.LastWhy : '?') + " size=" + std::to_string(KeyOf(f).size) + " t=" + std::to_string(GetTickCount()) + " dc=" + std::to_string((unsigned long long)(uintptr_t)dc) + " bmp=" + std::to_string((unsigned long long)(uintptr_t)GetCurrentObject(dc, OBJ_BITMAP)) + " font=" + std::to_string((unsigned long long)(uintptr_t)GetCurrentObject(dc, OBJ_FONT));
  // A font seed or a live pipe cannot identify dialogue: unmatched title/menu glyphs keep their pixels.
  if (seq) *seq = Hide.Sequence(); if (chOut) *chOut = ch;
- ReleaseSRWLockExclusive(&HideLock); return r;
+ ReleaseSRWLockExclusive(&HideLock); if (!trace.empty()) Send(trace, 4096); return r;
 }
 bool HideText(const std::wstring &s, const Face &f, const char *path, std::vector<GlyphHide::Served> *sv = NULL, long *seq = NULL) {
  if (s.empty() || DotsBlocked()) return false;
@@ -801,9 +806,10 @@ DWORD WINAPI Run(void *) {
  // game's environment, since HookBridge connects only later; then the launcher is told the hooks are in place.
  { wchar_t v[128]; if (GetEnvironmentVariableW(L"MEGULIT_GLYPH_MODE", v, 128) && (!wcscmp(v, L"dot") || !wcscmp(v, L"dot-blind") || !wcscmp(v, L"blank") || !wcscmp(v, L"blank-blind") || !wcscmp(v, L"place") || !wcscmp(v, L"place-blind"))) Command(std::string("MODE ") + Utf8(v));
   if (GetEnvironmentVariableW(L"MEGULIT_GLYPH_FONT", v, 128) && v[0]) Command("FONT " + Utf8(v));
+  if (GetEnvironmentVariableW(L"MEGULIT_GLYPH_TRACE", v, 128) && v[0] == L'1') Trace = true;
   wchar_t ready[64]; swprintf_s(ready, L"MeguLitFontReady-%lu", GetCurrentProcessId()); HANDLE e = OpenEventW(EVENT_MODIFY_STATE, FALSE, ready); if (e) { SetEvent(e); CloseHandle(e); } }
  HANDLE ctl = CreateThread(NULL, 0, Control, NULL, 0, NULL); if (ctl) CloseHandle(ctl); // after the hooks: a pushed line always meets them
- for (;;) { LateHooks(); Report(); if (!GgoReported && GgoChar + GgoIndex + GgoMetrics >= 200) { GgoReported = 1; std::string top; EnterCriticalSection(&Gate); for (auto &sc : Scores) if (top.size() < 300) top += " " + sc.src + ":" + Utf8(sc.face.name) + "/" + std::to_string(sc.face.size) + "=" + std::to_string(sc.chars); LeaveCriticalSection(&Gate); Send("ToMe_FONT status ggo char=" + std::to_string(GgoChar) + " index=" + std::to_string(GgoIndex) + " metrics=" + std::to_string(GgoMetrics) + " mono=" + std::to_string(GgoFormat[GGO_BITMAP]) + " gray2=" + std::to_string(GgoFormat[GGO_GRAY2_BITMAP]) + " gray4=" + std::to_string(GgoFormat[GGO_GRAY4_BITMAP]) + " gray8=" + std::to_string(GgoFormat[GGO_GRAY8_BITMAP]) + " outline=" + std::to_string(GgoFormat[GGO_NATIVE] + GgoFormat[GGO_BEZIER]) + " scores" + top); } Sleep(1000); }
+ for (;;) { LateHooks(); Report(); AcquireSRWLockExclusive(&HideLock); Hide.Tick(GetTickCount()); ReleaseSRWLockExclusive(&HideLock); if (!GgoReported && GgoChar + GgoIndex + GgoMetrics >= 200) { GgoReported = 1; std::string top; EnterCriticalSection(&Gate); for (auto &sc : Scores) if (top.size() < 300) top += " " + sc.src + ":" + Utf8(sc.face.name) + "/" + std::to_string(sc.face.size) + "=" + std::to_string(sc.chars); LeaveCriticalSection(&Gate); Send("ToMe_FONT status ggo char=" + std::to_string(GgoChar) + " index=" + std::to_string(GgoIndex) + " metrics=" + std::to_string(GgoMetrics) + " mono=" + std::to_string(GgoFormat[GGO_BITMAP]) + " gray2=" + std::to_string(GgoFormat[GGO_GRAY2_BITMAP]) + " gray4=" + std::to_string(GgoFormat[GGO_GRAY4_BITMAP]) + " gray8=" + std::to_string(GgoFormat[GGO_GRAY8_BITMAP]) + " outline=" + std::to_string(GgoFormat[GGO_NATIVE] + GgoFormat[GGO_BEZIER]) + " scores" + top); } Sleep(1000); }
 }
 } // namespace
 
