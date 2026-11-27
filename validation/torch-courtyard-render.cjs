@@ -66,7 +66,7 @@ const seedCover='data:image/png;base64,'+png(32,48,[145,36,116],[24,52,84]).toSt
     eastOpen:new T.Raycaster(new T.Vector3(8,2,-5),new T.Vector3(0,0,-1),0,35)
      .intersectObject(facade.parent).length===0,
     continuousFrieze:d.scene.getObjectsByProperty('name','Plinth carved frieze').length===2,
-    mirror:d.courtyard.mirror.scale.y===-1&&d.courtyard.chair.position.z===d.courtyard.mirror.position.z
+    noChair:!d.scene.getObjectByName('Courtyard chair')&&!d.scene.getObjectByName('Reflected courtyard chair')
    };
   })()`);
   assert.ok(Object.values(geometry).every(Boolean),JSON.stringify(geometry));
@@ -139,9 +139,10 @@ const seedCover='data:image/png;base64,'+png(32,48,[145,36,116],[24,52,84]).toSt
   await wheel(5,-120);
   const afterEntry=await wait('pos()[2]<38&&pos()');
   assertPortalCrossing(beforeEntry,afterEntry);
+  /* the sky checks look at the moon and its reflection from over the water beyond the meadow */
   await evaluate(`hall.setActive(false);
    const cam=d.camera;
-   cam.position.set(0,2.3,110);
+   cam.position.set(0,2.3,170);
    d.courtyard.sky.position.copy(cam.position);
    const point=d.courtyard.sky.material.uniforms.body.value.clone();
    cam.lookAt(point.clone().add(cam.position));d.renderer.render(d.scene,cam);

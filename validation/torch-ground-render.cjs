@@ -55,14 +55,14 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
     });
     return {baked:d.ao.baked,noLeak,rose:rose.length,
      cover:[p.x,p.y],opacity:d.covers.group.children[0].material.opacity,
-     terrain:[ground.torchGroundHeight(0,40),ground.torchGroundHeight(0,50),ground.torchGroundHeight(0,72)],
+     terrain:[ground.torchGroundHeight(0,40),ground.torchGroundHeight(0,50),ground.torchGroundHeight(0,72),ground.torchGroundHeight(0,140),ground.torchGroundHeight(70,72)],
      singleCap:!d.scene.getObjectByName('West exterior stone'),
      continuous};
    })()`);
    assert.ok(facts.baked&&facts.noLeak&&facts.singleCap&&facts.continuous,JSON.stringify(facts));
    assert.ok(await ev(`document.querySelector('.tm-help').textContent.startsWith('WASD')&&canvas.getAttribute('aria-label').includes('WASD')`));
    assert.ok(Math.abs(facts.cover[0])<.7&&facts.cover[1]>.15&&facts.cover[1]<.75&&facts.opacity===.65,JSON.stringify(facts));
-   assert.equal(facts.terrain[0],0);assert.ok(facts.terrain[1]<0);assert.equal(facts.terrain[2],-4);
+   assert.deepEqual(facts.terrain,[0,0,0,-4,-4]);
   }
   async function cap(name,pose){await ev('window.pose='+JSON.stringify(pose));await delay(105);const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));}
   for(let i=0;i<15;i++)await cap('night-track-'+String(i).padStart(2,'0'),[[94+i*.65,2.4,133+i*.81],[8,10,11]]);
@@ -117,10 +117,11 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
    await drag('right',2,[100,480],[Math.round(100+Math.PI*w/4),Math.round(480-.075*h/3)]);
    await wait('d.camera.getWorldDirection(d.camera.position.clone()).z>.98');
    const wheel=n=>ev(`for(let i=0;i<${n};i++)canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-120,bubbles:true,cancelable:true}));true`);
+   /* out of the door and on across the meadow: over level grass the camera stays near eye height (the old slope took it below 3 m) */
    await wheel(9);
-   const descended=await wait('d.camera.position.z>58&&d.camera.position.toArray()');
-   assert.ok(descended[1]<3,JSON.stringify(descended));
-   facts.descended=descended;
+   const walked=await wait('d.camera.position.z>58&&d.camera.position.toArray()');
+   assert.ok(walked[1]>5&&walked[1]<6,JSON.stringify(walked));
+   facts.walked=walked;
    await ev(`canvas.dispatchEvent(new MouseEvent('dblclick',{button:0,bubbles:true}));true`);
    await wait('d.camera.position.z===20.5&&d.camera.position.y===5.45');
   }

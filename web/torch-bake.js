@@ -11,7 +11,7 @@
 import * as THREE from './vendor/three/three.module.min.js';
 
 const BASE=new URL('./assets/torch/',import.meta.url);
-export const BAKE_SOURCES=['torch-hall.js','torch-ground.js','torch-textures.js','torch-bake.js'];
+export const BAKE_SOURCES=['torch-hall.js','torch-ground.js','torch-meadow.js','torch-textures.js','torch-bake.js'];
 /* the volume covers the whole church (x ±14.7, floor to vault crown, apse to the west wall) */
 export const AO_BOX={min:[-14.7,-.3,-18.3],max:[14.7,40.2,41.4],res:.3};
 export const TORCH_RES=.6;
