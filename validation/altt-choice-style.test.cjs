@@ -2,7 +2,7 @@
 'use strict';
 /* 2026-11-28 (user: 选项下面的译文颜色啊位置 大小 字体啥的也要能修改才对啊 包括选项的注音 有的时候位置不对也应该可以修改啊): the option
    overlay (choice-overlay.js) takes its translation's colour, size, font and offsets and its furigana's size, font and offsets from
-   Alt+T 外观 → 选项. The values are reader text settings: cleaned like the others, the default for every game, and saved per work.
+   Alt+T: 选项译文 on the 翻译 page, 选项注音 in 文字 → 注音设置 (user: 这他妈不该放在翻译或者字体里面吗). The values are reader text settings: cleaned like the others, the default for every game, and saved per work.
    The page test runs the real reader in headless Edge with a stub Tauri transport; skipped without Edge. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
 const ROOT=path.join(__dirname,'..'),WEB=path.join(ROOT,'web'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -35,7 +35,7 @@ function serve(){const server=http.createServer((req,res)=>{const rel=decodeURIC
  res.writeHead(200,{'content-type':TYPES[path.extname(file)]||'application/octet-stream'});res.end(data);});
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
 
-test('Alt+T 外观 → 选项: every control changes the option overlay that is up, and is saved',{skip:!hasEdge&&'Edge not installed',timeout:180000},async()=>{
+test('Alt+T 翻译 → 选项译文, 文字 → 注音设置 → 选项注音: every control changes the option overlay that is up, and is saved',{skip:!hasEdge&&'Edge not installed',timeout:180000},async()=>{
  const temp=fs.mkdtempSync(path.join(process.env.MEGULIT_WORK||os.tmpdir(),'megulit-choice-style-'));let server,cdp;
  try{
   server=await serve();cdp=await startEdge(path.join(temp,'edge'));
@@ -53,9 +53,16 @@ test('Alt+T 外观 → 选项: every control changes the option overlay that is 
   let up=false;for(let i=0;i<40&&!up;i++){await sleep(100);up=await cdp.evaluate(`!!document.querySelector('.megulit-choice rt')&&document.querySelector('.megulit-choice-cn')?.textContent==='好，一起去吧'`);}
   assert.ok(up,'options drawn with furigana and translation');
   await cdp.evaluate(`window.__tomoyoChinese.toggleGalMenu()`);await sleep(800);
-  await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open] [data-menu-key=misc]').click()`);
-  let built=false;for(let i=0;i<40&&!built;i++){await sleep(100);built=await cdp.evaluate(`!!document.querySelector('.tomoyo-cn-dialog[open] .tome-look-choice')`);}
-  assert.ok(built,'选项 group on the 外观 page');
+  await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open] [data-menu-key=translate]').click()`);
+  let built=false;for(let i=0;i<40&&!built;i++){await sleep(100);built=await cdp.evaluate(`document.querySelectorAll('.tomoyo-cn-dialog[open] .tome-look-choice').length===2`);}
+  assert.ok(built,'both option groups built');
+  // 选项译文 on the 翻译 page, 选项注音 next to the line's furigana settings in 文字 → 注音设置, nothing on 外观.
+  const where=await cdp.evaluate(`(()=>{const d=document.querySelector('.tomoyo-cn-dialog[open]'),cn=d.querySelector('[data-look-group=choice-cn]'),ruby=d.querySelector('[data-look-group=choice-ruby]');
+   return {cn:cn.closest('[data-menu-category]').dataset.menuCategory,cnTitle:cn.querySelector('.tome-look-title').textContent,ruby:ruby.closest('[data-menu-category]').dataset.menuCategory,
+    rubyPane:!!ruby.closest('details')?.querySelector('[name=galRubyFont]'),rubyTitle:ruby.querySelector('.tome-look-title').textContent,onLook:!!d.querySelector('[data-menu-category=misc] .tome-look-choice'),
+    cnKeys:[...cn.querySelectorAll('[data-choice-key]')].map(n=>n.dataset.choiceKey).sort(),rubyKeys:[...ruby.querySelectorAll('[data-choice-key]')].map(n=>n.dataset.choiceKey).sort()};})()`);
+  assert.deepEqual(where,{cn:'translate',cnTitle:'选项译文',ruby:'text',rubyPane:true,rubyTitle:'选项注音',onLook:false,
+   cnKeys:KEYS.filter(k=>k.startsWith('choiceCn')).sort(),rubyKeys:KEYS.filter(k=>k.startsWith('choiceRuby')).sort()},'placement');
 
   const READ=`(()=>{const node=document.querySelector('.megulit-choice'),cn=node.querySelector('.megulit-choice-cn'),rt=node.querySelector('rt'),jp=node.querySelector('.megulit-choice-jp');
    const c=cn.getBoundingClientRect(),r=rt.getBoundingClientRect(),cs=getComputedStyle(cn),rs=getComputedStyle(rt);
