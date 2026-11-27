@@ -78,7 +78,9 @@ function checklist(a){const L=[];L.push('# '+a.pr+' '+a.title+' 实测清单（a
  '## 步骤','',...a.steps.map((s,i)=>(i+1)+'. '+s),'','## 通过','',...CHECKS.map(c=>'- '+c[1]+(c[2]?'（'+c[2]+'）':'')),'- 全程不崩、不卡、不闪','',
  '## 回传截图','','1. 第 3 句左右的对话画面','2. 第 10 句左右的对话画面','3. 第一个选项画面（中文选项出来之后）','4. 选完选项后的下一句','',
  '不通过时另附测试版 `MeguLit\\logs\\` 里最新的 `hook-diagnostics.log`。');
- if(a.adapterRequest)L.push('','## 适配器给的说明','',a.adapterRequest.replace(/^#.*\n/,'').trim());
+ /* the adapter's own test request: only the notes under its 「## 游戏」 (which exe, the engine, the lines read); its steps are the ones above */
+ const notes=(/## 游戏\n([\s\S]*?)(\n## |$)/.exec(a.adapterRequest||'')||[])[1]||'';const keep=notes.split('\n').filter(l=>/^- /.test(l)&&!/^- 目录：/.test(l));
+ if(keep.length)L.push('','## 适配器的说明','',...keep);
  return L.join('\n')+'\n';}
 const STEPS_FOR=exe=>['双击测试版 MeguLit，游戏库 → 添加 `'+path.basename(exe)+'`，应显示已适配，从 MeguLit 启动','片头点掉，标题选「はじめから」（START），看前 10 句','继续点（或按住 Ctrl 快进）到第一个选项，停几秒','选一个中文选项，再往下点 3 句'];
 function nextOrder(dirs){let n=0;for(const d of dirs){let names=[];try{names=fs.readdirSync(d);}catch{}for(const f of names){const c=/\.json$/i.test(f)&&readJson(path.join(d,f));if(c&&Number(c.order)>n)n=Number(c.order);}}return n+1;}

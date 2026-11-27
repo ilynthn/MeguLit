@@ -121,7 +121,7 @@ const plainExe=n=>/\.exe$/i.test(n)&&!INSTALLER_EXE.test(n)&&!/^unins/i.test(n)&
 function pickExe(dir,{find=d=>require('../../core/library.cjs').findGame(d,4)}={}){const g=find(dir);let exe=g?.exe||'';
  /* findGame knew the engine but not which of two programs (OZMAFIA!!: ozmafia.exe + ozmafia_cn.exe): the plain ones in its folder */
  if(!exe&&g?.dir){const c=list(g.dir).filter(e=>e.isFile()&&plainExe(e.name)).map(e=>e.name);const ja=c.filter(n=>!OVERLAY_EXE.test(n.replace(/\.exe$/i,'')));
-  const pick=ja.length===1?ja[0]:c.length===1?c[0]:'';if(pick)exe=path.join(g.dir,pick);}
+  const pick=ja.length===1?ja[0]:c.length===1?c[0]:'';if(pick){exe=path.join(g.dir,pick);if(ja.length===1&&c.length>1)return {exe,note:'外挂汉化整包：用日文原版 '+pick+'，不用汉化启动器 '+c.filter(n=>n!==pick).join('、')};}}
  if(!exe)return {exe:'',note:''};
  const stem=path.basename(exe).replace(/\.exe$/i,'');
  if(OVERLAY_EXE.test(stem)){const ja=list(path.dirname(exe)).filter(e=>e.isFile()&&/\.exe$/i.test(e.name)&&!OVERLAY_EXE.test(e.name.replace(/\.exe$/i,''))&&!INSTALLER_EXE.test(e.name)&&!/^unins/i.test(e.name));
