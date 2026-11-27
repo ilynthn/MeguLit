@@ -90,7 +90,8 @@ const HARNESS_SCRIPT=`<script>
 
 function startAppServer(webDir){
  const indexHtml=fs.readFileSync(path.join(webDir,'index.html'),'utf8');
- const testHtml=indexHtml.replace('<script type="module" src="app.js"></script>',HARNESS_SCRIPT+'\n  <script type="module" src="app.js"></script>');
+ const testHtml=indexHtml.replace(/<head(?:\s[^>]*)?>/i,head=>head+'\n'+HARNESS_SCRIPT);
+ assert.notEqual(testHtml,indexHtml,'kana harness injection requires a <head> element');
  const server=http.createServer((req,res)=>{
   const urlPath=(req.url||'/').split('?')[0];
   if(urlPath==='/__test-kana.html'){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(testHtml);return;}
