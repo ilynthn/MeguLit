@@ -22,6 +22,8 @@
      node tools/megulit-adapter.cjs craft <game folder> [--exe <rel>] [--out <dir>]
                                     the static study alone: craft-anything (MEGULIT_CRAFT_CLI) reads the program, never runs it:
                                     engine words, text APIs, hide advice -> <out>/craft/report.md (a normal run does it too; --no-craft skips)
+     node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--offline]
+                                    skeleton seeds for a whole batch, offline, with a confidence list (tools/megulit-adapter/skeleton.cjs)
      node tools/megulit-adapter.cjs inventory [--json]                what every engine has (from the code)
      node tools/megulit-adapter.cjs testbuild <target> [--app <MeguLit>] the tester's side-by-side MeguLit with this checkout's code
      node tools/megulit-adapter.cjs cold <game folder> ...            the cold stage alone (the old adapt-auto command line)
@@ -244,6 +246,8 @@ async function main(argv){const cmd=argv[2];
  /* the tester's build (tools/megulit-adapter/test-build.cjs): testbuild <target> [--app <installed MeguLit>] */
  if(cmd==='testbuild'){if(!argv[3])throw Error('usage: testbuild <target folder> [--app <installed MeguLit>]');const i=argv.indexOf('--app');const r=require('./megulit-adapter/test-build.cjs').testBuild(path.resolve(argv[3]),i>0&&argv[i+1]?{app:argv[i+1]}:{});console.log(JSON.stringify(r,null,1));return r.ok?0:1;}
  if(cmd==='auto')return require('./megulit-adapter/auto.cjs').main(argv.slice(3));
+ /* batch skeleton seeds over many folders, offline (tools/megulit-adapter/skeleton.cjs) */
+ if(cmd==='skeleton')return require('./megulit-adapter/skeleton.cjs').main(argv.slice(3));
  if(cmd==='craft')return craftCmd(argv.slice(3));
  if(cmd==='inventory'){const rows=Engines.inventory();console.log(argv.includes('--json')?JSON.stringify(rows,null,1):Engines.markdown(rows));return 0;}
  const runsGame=cmd!=='answer'&&cmd!=='publish'&&cmd!=='craft';
