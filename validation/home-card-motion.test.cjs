@@ -41,11 +41,11 @@ test('a change that interrupts a running one picks up from the screen, and quick
  const red=await mean(),green=[40,160,70];
  /* slow the first dissolve so it is still running after the pre-interruption screenshot */
  await evaluate(`document.querySelector('.tv-cover').style.setProperty('--tv-dissolve-ms','4000');1`);
- await page.click(chips[1].x,chips[1].y);await sleep(1000);
+ await page.chip(1);await sleep(1000);
  const before=await mean();await page.shot(SHOTS,'switch-1-before-interrupt',clip);
  assert.ok(dist(before,red)>8,'the change to the second game has started: '+JSON.stringify({before,red}));
  await evaluate(`document.querySelector('.tv-cover').style.removeProperty('--tv-dissolve-ms');1`);
- await page.click(chips[2].x,chips[2].y);
+ await page.chip(2);
  const layers=await page.state();
  const after=await mean();await page.shot(SHOTS,'switch-2-after-interrupt',clip);
  /* the red of the first game only keeps fading: dropping the running change (as the old wipe did) jumps the card back to red */
@@ -53,7 +53,7 @@ test('a change that interrupts a running one picks up from the screen, and quick
  assert.ok(layers.dissolve>=2,'the interrupted change keeps going under the new one: '+JSON.stringify(layers));
  /* quick changes, one every 90 ms, then let it settle */
  await evaluate(`(()=>{window.__gaps=[];let last=0;const f=t=>{if(last)__gaps.push(t-last);last=t;if(!window.__stopGaps)requestAnimationFrame(f);};requestAnimationFrame(f);return 1;})()`);
- const order=[0,1,2,0,2,1,0,1];for(const i of order){await page.click(chips[i].x,chips[i].y);await sleep(90);}
+ const order=[0,1,2,0,2,1,0,1];for(const i of order){await page.chip(i);await sleep(90);}
  await sleep(2500);const gaps=await evaluate('(window.__stopGaps=1,__gaps)');
  const s=await page.state(),final=await mean();await page.shot(SHOTS,'switch-3-settled',clip);
  assert.equal(s.onChip,order[order.length-1],'the last pick is the one shown');
@@ -101,12 +101,12 @@ test('clicks, drags and quick draws in the middle of a draw never leave the card
  await mouse('mousePressed',c.cx,c.cy,1);await glide(c.cx,c.cy,c.cx+120,c.cy+40,{buttons:1});await page.shot(SHOTS,'draw-drag-mid');await mouse('mouseReleased',c.cx+120,c.cy+40);
  await mouse('mouseMoved',20,20);await sleep(4000);await settled('drag during a draw');
  /* a pick from the strip in the middle of a draw */
- await glide(20,20,c.cx,c.cy,{steps:4});await sleep(200);await page.dblclick(c.cx,c.cy);await sleep(350);await page.click(chips[2].x,chips[2].y);
+ await glide(20,20,c.cx,c.cy,{steps:4});await sleep(200);await page.dblclick(c.cx,c.cy);await sleep(350);await page.chip(2);
  await mouse('mouseMoved',20,20);await sleep(3500);let s=await settled('pick during a draw');assert.equal(s.onChip,2,'the pick wins');
  const m=await page.pixels(clip,MEAN);assert.ok(dist(m,[50,80,200])<50,'the picked cover is what shows: '+JSON.stringify(m));
  /* four quick draws, a click in between */
  await glide(20,20,c.cx,c.cy,{steps:4});await sleep(200);
- for(let k=0;k<4;k++){await page.dblclick(c.cx,c.cy);await sleep(220);}
+ for(let k=0;k<4;k++){await page.dblclick(c.cx,c.cy);await sleep(60);}
  await page.click(c.cx,c.cy);await mouse('mouseMoved',20,20);await sleep(4500);await page.shot(SHOTS,'draws-settled');
  s=await settled('quick draws');assert.ok(s.home,'a click in the middle of a draw does not open the detail');
  await glide(20,20,c.cx,c.cy+c.h*.3,{steps:6});await sleep(1200);s=await page.state();assert.ok(!s.popShown||s.popOverlap===0,'the hint is not on the card after the draws: '+JSON.stringify(s));
@@ -116,7 +116,7 @@ test('with reduced motion a change is a short plain cross-fade',async t=>{
  const page=await openHome(t,{covers:[RED,GREEN]});if(!page)return;const {send,evaluate}=page;
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
  const chips=await page.chips(),c=await page.cover(),clip={x:c.l,y:c.t,width:c.w,height:c.h};
- await page.click(chips[1].x,chips[1].y);await sleep(60);
+ await page.chip(1);await sleep(60);
  const mid=await evaluate(`[...document.querySelectorAll('.tv-cover .tv-dissolve')].map(e=>e.tagName)`);
  assert.deepEqual(mid,['DIV'],'one cross-fade layer, no grain canvas');
  await sleep(700);const s=await page.state(),m=await page.pixels(clip,MEAN);
