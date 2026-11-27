@@ -39,7 +39,8 @@ function unpack(file,dest,{run=spawnSync,seven=sevenZip()}={}){fs.mkdirSync(dest
  if(seven){for(const pw of ['','otoame']){const r=run(seven,['x','-y','-p'+pw,'-o'+dest,file],{encoding:'utf8',windowsHide:true,timeout:3600000});if(r.status===0)return {ok:true,how:'7z'+(pw?' -p'+pw:'')};}
   return {ok:false,why:'7z 解不开 '+path.basename(file)+'（密码不是 otoame 或包坏了）'};}
  if(/\.(part\d+\.rar|7z\.\d{3})$/i.test(file))return {ok:false,why:'分卷包 '+path.basename(file)+' 要 7-Zip（没装，设 MEGULIT_7Z）'};
- const r=run('tar.exe',['-xf',file,'-C',dest],{encoding:'utf8',windowsHide:true,timeout:3600000});
+ /* Windows' own bsdtar (System32), never a GNU tar earlier on PATH (Git Bash), which reads no zip / 7z / rar */
+ const r=run(path.join(process.env.SystemRoot||'C:\\Windows','System32','tar.exe'),['-xf',file,'-C',dest],{encoding:'utf8',windowsHide:true,timeout:3600000});
  return r.status===0?{ok:true,how:'tar'}:{ok:false,why:'tar 解不开 '+path.basename(file)+'（有密码或格式不支持；装 7-Zip 或设 MEGULIT_7Z）：'+String(r.stderr||'').trim().slice(0,160)};}
 
 /* ---- disc images --------------------------------------------------------------------------------------------------------- */
