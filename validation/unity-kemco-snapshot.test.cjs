@@ -48,7 +48,7 @@ class Check {
  }
  static void Main(){Console.OutputEncoding=new System.Text.UTF8Encoding(false);new Check().Run();}
 }`);
-  compileRoslyn(['/nologo','/codepage:65001','/out:'+path.join(dir,'check.exe'),path.join(base,'KemcoSpriteSnapshot.cs'),path.join(dir,'check.cs')]);
+  compileRoslyn(['/nologo','/codepage:65001','/out:'+path.join(dir,'check.exe'),path.join(base,'KemcoSpriteSnapshot.cs'),path.join(dir,'check.cs')],{retryTimeout:true});
   const r=spawnSync(path.join(dir,'check.exe'),[],{windowsHide:true,encoding:'utf8',timeout:5000});assert.ifError(r.error);assert.equal(r.status,0,r.stdout+r.stderr);
   const lines=r.stdout.trim().split(/\r?\n/);assert.match(lines.pop(),/^PASS 4\d$/);const {parseChars}=require('../core/text-paths.cjs');
   const parsed=lines.map(l=>{const x=parseChars(l);assert.ok(x,l);assert.equal(x.hidden,false);return x;});
