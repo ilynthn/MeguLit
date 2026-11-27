@@ -8,7 +8,7 @@ const PRECACHE = [
   '/me/', '/me/manifest.webmanifest',
   '/assets/css/site.css', '/assets/css/me.css',
   '/assets/js/me-boot.js', '/assets/js/me.js', '/assets/js/me-core.mjs', '/assets/js/me-store.mjs', '/assets/js/me-api.mjs', '/assets/js/me-dict.mjs', '/assets/js/me-i18n.mjs',
-  '/assets/img/logo-360.webp', '/assets/img/me-192.png', '/assets/img/me-512.png', '/favicon.png', '/apple-touch-icon.png',
+  '/assets/img/logo-360.webp', '/assets/img/me-192.png', '/assets/img/me-512.png', '/favicon-32.png', '/apple-touch-icon.png',
   '/assets/fonts/cormorant-italic.woff2?v=1ea903835d', '/assets/fonts/plex-mono.woff2?v=a586e0a3f4', '/assets/fonts/han-serif-hero.woff2?v=dfe4d6db28', '/assets/fonts/megulit-serif.woff2?v=3e722a376f'
 ];
 self.addEventListener('install', event => {
@@ -26,7 +26,7 @@ self.addEventListener('fetch', event => {
     return;
   }
   /* the shell: from the cache, which holds one consistent set (modules of different versions never mix) */
-  if (url.pathname.startsWith('/assets/') || url.pathname === '/me/manifest.webmanifest' || url.pathname === '/favicon.png' || url.pathname === '/apple-touch-icon.png') {
+  if (url.pathname.startsWith('/assets/') || url.pathname === '/me/manifest.webmanifest' || url.pathname === '/favicon-32.png' || url.pathname === '/apple-touch-icon.png') {
     event.respondWith(caches.match(request, { ignoreSearch: false }).then(hit => hit || caches.match(url.pathname).then(byPath => byPath || fetch(request))));
   }
 });
