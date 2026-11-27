@@ -40,7 +40,7 @@ const w={
 const pickLocale=locale=>w[locale]?locale:String(locale||'').startsWith('ja')?'ja':String(locale||'').startsWith('en')?'en':'zh';
 export function aboutHTML(locale,esc){
  const L=pickLocale(locale),t=w[L],u=U[L],un=UN[L];
- const link=(url,label,sub)=>`<li><button type="button" data-open="${esc(url)}">${esc(label)}<small>${esc(sub)}<i aria-hidden="true">↗</i></small></button></li>`;
+ const link=(url,label,sub)=>`<li><button type="button" data-open="${esc(url)}"><span>${esc(label)}</span><small>${esc(sub)}<i aria-hidden="true">↗</i></small></button></li>`;
  const fact=(label,value)=>`<div><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
  return `<section class="ab" lang="${L==='zh'?'zh-CN':L}">
   <div class="ab-col">
@@ -55,7 +55,7 @@ export function aboutHTML(locale,esc){
   </div>
   <div class="ab-col">
   <section class="ab-sec ab-linksec"><h2>${esc(t.links)}<small>${esc(t.linksSub)}</small></h2>
-    <ul class="ab-links">${link('https://megulit.com',t.site,'megulit.com')}${link(REPO+'#faq',t.faq,'GitHub · FAQ')}${link(REPO+'/releases',t.releases,'GitHub · Releases')}${link(REPO,t.source,'github.com/ilynthn/MeguLit')}<li><button type="button" data-feedback>${esc(t.report)}<small>${esc(t.reportSub)}<i aria-hidden="true">…</i></small></button></li></ul>
+    <ul class="ab-links">${link('https://megulit.com',t.site,'megulit.com')}${link(REPO+'#faq',t.faq,'GitHub · FAQ')}${link(REPO+'/releases',t.releases,'GitHub · Releases')}${link(REPO,t.source,'github.com/ilynthn/MeguLit')}<li><button type="button" data-feedback><span>${esc(t.report)}</span><small>${esc(t.reportSub)}<i aria-hidden="true">…</i></small></button></li></ul>
   </section>
   <section class="ab-sec ab-thanks"><h2>${esc(t.thanks)}</h2>
    <dl class="ab-cred">${t.credits.map(([n,d])=>`<div><dt>${esc(n)}</dt><dd>${esc(d)}</dd></div>`).join('')}</dl>
