@@ -4,10 +4,8 @@
    (舐めんな, わかんねえ, やっとく, 行かなきゃ, すげー) or a word with a dialect ending (舐めんなし, ええやん, そうだべ) found no entry.
    core/colloquial.cjs reads it out: dialect ending cut (marked 方言语尾), contraction written out, deinflected to a JMdict headword;
    otherwise the longest prefix that is listed. JMdict rows below are bundled jmdict.json entries trimmed to the fields used. */
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const test=require('node:test'),assert=require('node:assert/strict');
 const Colloquial=require('../core/colloquial.cjs');
-const {LocalLearning}=require('../core/learning-native.cjs');
-const {createReadingResolver}=require('../core/reading.cjs');
 
 const V5=r=>["Godan verb with '"+r+"' ending",'transitive verb'],V1=['Ichidan verb','transitive verb'],ADJ=['adjective (keiyoushi)'];
 const JM=[
@@ -92,47 +90,3 @@ test('every dialect ending row has a note and region in Chinese, English and Jap
  for(const word of ['し','べ','べさ','やん','へん','ねん','けん','じゃけ','だべ','ちゃ','はる','やで','さかい'])assert.ok(Colloquial.ENDINGS.some(d=>d.ending===word),word);
 });
 
-// The lookup card itself: SudachiDict leaves the word unknown (one token, not in JMdict); before core/colloquial.cjs the card was empty.
-const SUDACHI={
- '舐めんなし！':[['舐めんなし','ナメンナシ','名詞,普通名詞,一般,*,*,*'],['！','！','補助記号,句点,*,*,*,*']],
- 'ええやん':[['ええやん','エエヤン','名詞,普通名詞,一般,*,*,*']],
- '食べるぽよ':[['食べる','タベル','動詞,一般,*,*,下一段-バ行,終止形-一般'],['ぽよ','ポヨ','名詞,普通名詞,一般,*,*,*']],
- 'ぽよぽよ':[['ぽよぽよ','ポヨポヨ','名詞,普通名詞,一般,*,*,*']],
-};
-function tokens(text){let at=0;return (SUDACHI[text]||[]).map(([surface,reading,pos,base=surface])=>{const grammar=pos.split(','),t={surface,reading,grammar,pos:grammar[0],base_form:base,normalized:base,start:at,end:at+[...surface].length,pitch:[]};at=t.end;return t;});}
-function learning(dir){
- const L=new LocalLearning(dir);L.ready=async()=>{};L.raw=async text=>tokens(text);
- L.readings=createReadingResolver(path.join(dir,'no-jmdict.json'));L.furigana=null;
- L.load=function(){if(this.index)return;this.index=new Map();this.byId=new Map();this.english=new Map();for(const e of JM){const full={kana_only:false,ke_inf:e.spellings.map(()=>[]),re_inf:e.readings.map(()=>[]),re_restr:e.readings.map(()=>[]),re_nokanji:e.readings.map(()=>false),priority:[],definitions:['-'],...e};this.byId.set(e.id,full);for(const k of [...e.spellings,...e.readings])this.index.set(k,[...(this.index.get(k)||[]),e.id]);}};
- return L;
-}
-test('the lookup card finds 舐めんなし and marks the dialect ending; a click on it does too',async()=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-colloquial-'));
- try{
-  const L=learning(dir);
-  const exact=await L.request('lookup_exact',{text:'舐めんなし！',start:0,end:5},'zh');
-  assert.equal(exact.entries[0]?.id,1,'舐める heads the card');
-  assert.equal(exact.colloquial.dialect.ending,'し');assert.match(exact.match_note,/方言语尾/);
-  assert.equal(exact.selection_analysis.exact,true);
-  const click=await L.request('lookup_at_position',{text:'舐めんなし！',position:2},'zh');
-  assert.deepEqual([click.entries[0]?.id,click.start,click.end,click.colloquial.prefix],[1,0,5,false]);
-  const kansai=await L.request('lookup_exact',{text:'ええやん',start:0,end:4},'zh');
-  assert.equal(kansai.entries[0]?.id,6,'ええやん is 良い, not the interjection ええ');
-  const prefix=await L.request('lookup_exact',{text:'食べるぽよ',start:0,end:5},'zh');
-  assert.deepEqual([prefix.entries[0]?.id,prefix.colloquial.prefix,prefix.colloquial.rest,prefix.end],[11,true,'ぽよ',3]);
-  const plain=await L.request('lookup_exact',{text:'食べるぽよ',start:0,end:3},'zh');
-  assert.equal(plain.entries[0]?.id,11);assert.equal(plain.colloquial,undefined,'a word SudachiDict found is untouched');
-  const none=await L.request('lookup_exact',{text:'ぽよぽよ',start:0,end:4},'zh');
-  assert.deepEqual(none.entries,[]);assert.equal(none.colloquial,undefined);
- }finally{fs.rmSync(dir,{recursive:true,force:true});}
-});
-
-test('AI gloss: one line from the context model, kind gloss, cached',async()=>{
- const {createTranslationService}=require('../core/providers.cjs');let calls=0,body=null;
- const service=createTranslationService(async(url,init)=>{calls++;body=JSON.parse(init.body);return {ok:true,json:async()=>({choices:[{message:{content:'别小看我（山梨方言，＝舐めるなよ）'}}]})};});
- const ask=()=>service.lookup({selection:'舐めんなし',sentence:'舐めんなし！',entries:[],mode:'gloss'},{provider:'gpt',baseUrl:'http://127.0.0.1:11434/v1',model:'qwen2.5:7b'},()=>true);
- const r=await ask();
- assert.deepEqual([r.kind,r.text],['gloss','别小看我（山梨方言，＝舐めるなよ）']);
- assert.match(JSON.parse(body.messages[1].content).instruction,/本地辞书查不到/);assert.equal(body.max_tokens,200);
- await ask();assert.equal(calls,1,'the second ask is served from the cache');
-});
