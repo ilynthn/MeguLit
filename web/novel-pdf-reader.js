@@ -167,7 +167,7 @@ export function openPdfReader(host, { api, esc, locale, id, startPage = 0, onExi
     loading = pdf.getDocument({
       range: transport, rangeChunkSize: chunkSize, disableAutoFetch: true, disableStream: true,
       cMapUrl: asset('cmaps/'), cMapPacked: true, standardFontDataUrl: asset('standard_fonts/'),
-      wasmUrl: asset('wasm/'), iccUrl: asset('iccs/'), isEvalSupported: false, enableXfa: false,
+      wasmUrl: asset('wasm/'), iccUrl: asset('iccs/'), useWasm: false, isEvalSupported: false, enableXfa: false,
     });
     loading.onPassword = updatePassword => {
       status.hidden = true;

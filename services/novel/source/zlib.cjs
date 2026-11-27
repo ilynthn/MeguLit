@@ -280,7 +280,8 @@ async function discover(request, { root, db, runtime }) {
       seen.add(key);
       return true;
     }).sort((a, b) => Number(b.japanese) - Number(a.japanese));
-    return { books, alias, page, more: lists.some(list => list.more), url, host: config.origin, proxiedCovers: Boolean(config.proxy) };
+    // The desktop CSP permits local images and data URLs. Use the bounded cover service even on direct connections.
+    return { books, alias, page, more: lists.some(list => list.more), url, host: config.origin, proxiedCovers: true };
   } catch (error) {
     const code = /^ZLIB_[A-Z_]+$/.test(error.message) ? error.message : 'ZLIB_UNAVAILABLE';
     return { books: [], page, more: false, error: code, url, host: config.origin };
