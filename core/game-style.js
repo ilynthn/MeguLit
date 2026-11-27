@@ -6,6 +6,9 @@
   'use strict';
   const defaults = Object.freeze({
     translationPrompt:'',choiceFont:'game',choiceSelectedColor:'',choiceUnselectedColor:'',
+    /* 2026-11-28 option overlay (choice-overlay.js): its translation and furigana, adjustable like the line's. Empty colour / font = as
+       before (the translation colour, the option's own font); scales are % of the size picked from the option's row; offsets px. */
+    choiceCnColor:'',choiceCnScale:100,choiceCnFont:'',choiceCnX:0,choiceCnY:0,choiceRubyScale:100,choiceRubyFont:'',choiceRubyX:0,choiceRubyY:0,
     typewriter:true,typewriterSpeed:35, layoutVersion: 22, style: 'classic', display: 'bilingual', translationInline: false, japaneseOneLine: false, furigana: true, japaneseSize: 34,
     translationSize: 30, rubyScale: .55, rubyOffsetX:0, rubyOffsetY:3, rubyRowOffsets:'',rubyRowOffsetsX:'', lineHeight: 0, lineHeightMode:'offset', translationLineHeight:0, japaneseSpacing:0, japaneseSpacingPx:0,chineseSpacingPx:0, gap: -2, translationWidth: 75,
     paddingX: 20, paddingY: 10, textColor: '#fffaf2', readTextColor: '', speechTextColor: '', narrationTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
@@ -20,7 +23,7 @@
     japaneseOutline:true, chineseOutline:true, japaneseOutlineColor:'#ffffff', chineseOutlineColor:'#ffffff', rubyOutline:true, rubyOutlineColor:'#ffffff', rubyOutlineWidth:.45,
     japaneseOutlineWidth:1, chineseOutlineWidth:1
   });
-  const ranges = { typewriterSpeed:[5,120], japaneseSize:[14,60], translationSize:[12,60], englishSize:[12,60], englishSpacingPx:[-15,25],englishOutlineWidth:[0,4],rubyScale:[.2,.85], rubyOffsetX:[-40,40],rubyOffsetY:[-100,100],
+  const ranges = { choiceCnScale:[50,200],choiceRubyScale:[50,200],choiceCnX:[-200,200],choiceCnY:[-120,120],choiceRubyX:[-60,60],choiceRubyY:[-60,60], typewriterSpeed:[5,120], japaneseSize:[14,60], translationSize:[12,60], englishSize:[12,60], englishSpacingPx:[-15,25],englishOutlineWidth:[0,4],rubyScale:[.2,.85], rubyOffsetX:[-40,40],rubyOffsetY:[-100,100],
     lineHeight:[-1.9,4], translationLineHeight:[-.8,3], japaneseSpacing:[-.05,.5],japaneseSpacingPx:[-15,25],chineseSpacingPx:[-15,25], gap:[-28,40], translationWidth:[0,100], paddingX:[-200,200], paddingY:[-40,60],
     x:[0,95], y:[0,95], width:[20,100], height:[10,90],
     scanX:[0,95], scanY:[0,95], scanWidth:[5,100], scanHeight:[5,100], blurRadius:[5,30], maskPadding:[0,10],japaneseOutlineWidth:[0,4],chineseOutlineWidth:[0,4],rubyOutlineWidth:[0,2] };
@@ -41,7 +44,7 @@
     for(const key of ['textGradientTop','textGradientBottom','readTextGradientTop','readTextGradientBottom'])if(/^#[0-9a-f]{6}$/i.test(value[key]))result[key]=value[key];
     if(typeof value.translationPrompt==='string')result.translationPrompt=value.translationPrompt.trim().slice(0,2000);
     if(['game','originalGothic','originalMincho','yuGothic','yuMincho','meiryo'].includes(value.choiceFont)||/^game:[0-9a-f]{10}$/.test(value.choiceFont))result.choiceFont=value.choiceFont;
-    for(const key of ['choiceSelectedColor','choiceUnselectedColor'])if(/^#[0-9a-f]{6}$/i.test(value[key]))result[key]=value[key];
+    for(const key of ['choiceSelectedColor','choiceUnselectedColor','choiceCnColor'])if(/^#[0-9a-f]{6}$/i.test(value[key]))result[key]=value[key];
     /* E264 per-row furigana Y offsets, px, comma separated, row 1 first */
     if(typeof value.rubyRowOffsets==='string')result.rubyRowOffsets=value.rubyRowOffsets.split(',').slice(0,16).map(n=>Math.max(-100,Math.min(100,Number(n)||0))).join(',').replace(/^(0,)*0$/,'');
 if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowOffsetsX.split(',').slice(0,16).map(n=>Math.max(-100,Math.min(100,Number(n)||0))).join(',').replace(/^(0,)*0$/,'');
@@ -61,6 +64,8 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     result.englishEnabled = value.englishEnabled === true;
     result.englishBold = value.englishBold === true;
     for(const key of ['japaneseOutline','chineseOutline','englishOutline'])result[key]=value[key]!==false;
+    if(fontOptions.chineseFont.some(([id])=>id===value.choiceCnFont))result.choiceCnFont=value.choiceCnFont;
+    if(fontOptions.rubyFont.some(([id])=>id===value.choiceRubyFont))result.choiceRubyFont=value.choiceRubyFont;
     for(const key of ['japaneseFont','chineseFont','rubyFont','englishFont']){
       if(fontOptions[key].some(([id])=>id===value[key])||key!=='englishFont'&&/^game:[0-9a-f]{10}$/.test(value[key])||(key==='japaneseFont'||key==='rubyFont')&&/^engine:[^"\<>;{}]{1,64}$/.test(value[key]))result[key]=value[key];
     }
