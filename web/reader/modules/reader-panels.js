@@ -158,6 +158,7 @@ ${picturePanels}{color-scheme:dark;--ink2:#e6ded3;--ink3:#ddd5cb;--redi:#ffd0d4;
  --mgc-ink:var(--ink);--mgc-ink-2:var(--ink2);--mgc-ink-3:var(--ink3);--mgc-well:var(--theme-background);
  --mgc-red-ink:var(--redi);--mgc-red-hi:#bd303a}
 ${picturePanels} :is(button:disabled,.megulit-autospeak-hint,.tome-hook-time,.tome-trouble>summary small){opacity:1!important}
+${picturePanels} .tome-menu-close{color:var(--mgc-ink)!important}
 ${picturePanels} .tomoyo-anki-button:disabled:not([data-state]){background:#443436!important}
 /* Keep the picture's weight A. The requested opacity B solves A * peak + (B - A) * tint + (1 - B) * 255 = limit.
    Cap B at the value for a bright picture on the ink tint so a lighter backing never hides more of the game.
