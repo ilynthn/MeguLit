@@ -185,8 +185,10 @@ async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmul
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
+$fgOk=$true;try{Add-Type -Namespace MG -Name Fg -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint p);'}catch{$fgOk=$false};
 while(-not (Test-Path $stop)){if($i -lt 4){Start-Sleep -Seconds 4}else{Start-Sleep -Seconds 15};if(Test-Path $stop){break};$i++;$b=[System.Windows.Forms.SystemInformation]::VirtualScreen;
 $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height;$g=[System.Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.X,$b.Y,0,0,$bmp.Size);
+if($fgOk){$fp=[uint32]0;[void][MG.Fg]::GetWindowThreadProcessId([MG.Fg]::GetForegroundWindow(),[ref]$fp);[IO.File]::WriteAllText((Join-Path $d ('screen-{0:D2}.fg' -f $i)),[string]$fp)};
 $bmp.Save((Join-Path $d ('screen-{0:D2}.png' -f $i)),[System.Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$bmp.Dispose()}`;
 /* the previous run's recorder can still hold the folder for up to 15 s after it was told to stop (runs back to back: EPERM): its old
    pictures are removed one by one where possible, and a run never fails over them */

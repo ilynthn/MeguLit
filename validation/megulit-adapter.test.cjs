@@ -194,3 +194,16 @@ test('live check: without Cardinal a passing run asks the person about line chan
  const live={verdict:'pass',checks:{},phases:[{name:'choice-try-1'}]};
  assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:live,coldOut:d}).map(q=>q.id),['lines','dialogue','choice'],'a choice the run reached is asked about without Cardinal');
  assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:{...live,phases:[]},coldOut:d}).map(q=>q.id),['lines','dialogue']);});
+
+/* 2026-11-27 (アイキス3 sexy: the dialogue evidence offered a whole-screen picture of another agent's game window, 死に逝く君) */
+test('checkpoints: a whole-screen picture taken while another process was in front is not offered as evidence of this game',()=>{
+ const d=tmp(),run=path.join(d,'run'),scr=path.join(d,'screen');fs.mkdirSync(run);fs.mkdirSync(scr);
+ for(const f of ['shot-1-intro.jpg','shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
+ fs.writeFileSync(path.join(run,'run.json'),JSON.stringify({pid:30792,launcherPid:58916}));
+ const pic=(n,fg)=>{const f=path.join(scr,'screen-'+n+'.png');fs.writeFileSync(f,'x');if(fg!==undefined)fs.writeFileSync(path.join(scr,'screen-'+n+'.fg'),String(fg));return f;};
+ const ours=pic('01',30792),other=pic('02',38212);
+ const cold={verdict:'pass',checks:{},phases:[{name:'fast',at:new Date(Date.now()+60000).toISOString()}]};
+ const ev=()=>Check.questions({identity:{vndb:'v1',cn:'-',release:'DL',adapted:[]},caps:{known:true},cold,coldOut:d}).find(q=>q.id==='dialogue').evidence;
+ assert.ok(!ev().includes(other),'the other game in front is no evidence: '+ev().join(', '));
+ fs.rmSync(other);fs.rmSync(path.join(scr,'screen-02.fg'));assert.ok(ev().includes(ours),'the game in front is evidence');
+ const old=pic('03');assert.ok(ev().includes(old),'a picture without the note (an older run) is kept');});
