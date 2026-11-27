@@ -7,7 +7,7 @@
    tools/megulit-adapter/engines.cjs) -> game diff (The Seed data only) -> upload (a PR).
 
      node tools/megulit-adapter.cjs <game folder> [--exe <rel>] [--vndb v123] [--release "DL 版"] [--out <dir>] [--budget-min 10]
-                                    [--foreground] [--real-input] [--offline] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
+                                    [--foreground] [--real-input] [--offline] [--tester] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
          identify (VNDB + release, HANDOFF) -> engine -> script probe (RRFZ readers) -> plan (text source, pairing, hide)
          -> live check: the game run with the hook and the hide (tools/megulit-adapter/cold.cjs; --foreground when the owner is away),
             a person looks at a few lines: the line changes, the original is hidden, the choice -> seed -> publish
@@ -33,7 +33,7 @@ function parseRun(argv){const a=argv.slice(2),o={steamAppId:'',copy:false,net:tr
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--offline')o.offline=true;else if(k==='--tester'){o.offline=true;o.tester=true;}else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -93,6 +93,12 @@ function finish(st,log){const qs=Check.questions({install:st.install||[],identit
  st.questions=qs;const open=Check.open(qs,st.answers);st.review=Check.review(path.join(st.out,'review.html'),{title:'MeguLit-Adapter：'+st.title,summary:summary(st)},qs,st.answers);
  if(open.length){st.state='waiting';saveState(st);log('# 等人确认（'+open.length+' 个）：'+st.review);for(const q of open)log('  '+q.id+'：'+q.ask+(q.evidence.length?'  证据 '+q.evidence.join(' , '):''));return EXIT.human;}
  if(st.answers.again!==undefined&&!Check.yes(st.answers.again)){st.state='skipped';saveState(st);log('# 已适配过，不重做');return EXIT.done;}
+ /* --tester (2026-11-27 owner: live checks go to the tester over UU remote): no game run here; a skeleton seed from what the adapter
+    already knows, a test request for the tester, the PR body says it waits for the tester */
+ if(st.tester&&!st.cold){try{st.status='skeleton';st.seed=writeOfflineSeed(st);st.handoffRow=handoffRow(st);st.prBody=prBody(st);st.testRequest=testRequest(st);
+   fs.writeFileSync(path.join(st.out,'handoff-row.md'),st.handoffRow+'\n');fs.writeFileSync(path.join(st.out,'pr-body.md'),st.prBody);fs.writeFileSync(path.join(st.out,'test-request.md'),st.testRequest);st.state='ready';}
+  catch(e){st.state='fail';st.seedError=String(e.message||e);}
+  saveState(st);log('# '+st.state+(st.seed?' seed '+st.seed+'，测试清单 '+path.join(st.out,'test-request.md'):'')+(st.seedError?' '+st.seedError:''));return st.state==='ready'?EXIT.done:EXIT.fail;}
  if(!st.cold||st.cold.verdict==='inconclusive'){st.state='inconclusive';saveState(st);return EXIT.inconclusive;}
  const status=Check.status({cold:st.cold},st.answers);st.status=status;
  if(!status){st.state='fail';saveState(st);return EXIT.fail;}
@@ -117,7 +123,36 @@ function handoffRow(st){const g=JSON.parse(fs.readFileSync(path.join(st.seed,'ga
  return '| '+st.title+' | '+vndb+' | '+release+' | '+(st.caps.label||st.engine)+' | '+(g.status==='verified'?'verified':g.status==='read'?'read':'进行中')+' | 魚魚棟 · Claude | '+st.engine+'/'+g.slug+'（MeguLit-Adapter） |';}
 /* AGENTS.md: Chinese, three parts 问题 / 改动 / 验证, a work named 「原名（中文名）」, only what was verified */
 const workName=st=>{const cn=String(st.answers.cn||'').trim();return st.title+(cn&&cn!=='-'?'（'+cn+'）':'');};
-function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
+/* --tester: the seed from the adapter's own knowledge, no cold diff: the exe / pack / title prints, VNDB, the pairing; status
+   skeleton until the tester's live check (2026-11-27 OZMAFIA!!: the first seed made without running the game here) */
+function writeOfflineSeed(st){const SeedFormat=require('../core/profiles/seed.cjs'),GP=require('../core/game-print.cjs'),Probe=require('./diff-maker/probe.cjs');
+ let pr={};try{pr=GP.prints(st.exe,{title:st.title,engine:st.engine})||{};}catch{}const exeSha=pr.exe||st.identity.prints.exe;if(!/^[0-9a-f]{64}$/.test(String(exeSha||'')))throw Error('no exe print for '+st.exe);
+ const vndb=st.answers.vndb||st.identity.vndb,release=st.answers.release||st.identity.release||st.identity.releaseGuess;
+ const prints={...(pr.pack?{pack:pr.pack}:{}),...(pr.title?{title:pr.title}:{}),...(vndb?{vndb}:{})};
+ const slug=Cold.slugOf(st.identity.romaji)||Cold.slugOf(st.folderTitle)||'auto-'+exeSha.slice(0,10);
+ const vp={};for(const k of ['head','pe','data','pack'])if(st.identity.prints[k])vp[k]=st.identity.prints[k];
+ const game={schema:'megulit.game-diff',version:1,key:Probe.gameId(prints)||exeSha,layer:'game',source:'official',mode:'hide',
+  settings:{lang:{ja:{annotation:'ruby',pairing:st.plan.pairing.mode}},source:{versionMatch:'prints'}},exe:'',engine:st.engine,app:'megulit-adapter',issuedAt:'',prints,
+  seedFormat:1,status:'skeleton',slug,builds:[exeSha],match:{exe:[path.basename(st.exe)],titles:[...new Set([st.title,st.folderTitle].filter(Boolean))]},sourceLangs:['ja'],rev:1,
+  ext:{versionPrints:{[exeSha]:vp},adapter:{tool:'megulit-adapter',vndb:vndb||'',release:release||'',source:st.plan.source.kind==='script'?'script:'+st.plan.source.reader:'hook:'+st.plan.align,hide:st.plan.hide.kind==='engine'?'engine:'+path.basename(st.plan.hide.file):'generic',pairing:st.plan.pairing.mode,live:'tester'}}};
+ const version={schema:'megulit.game-diff',version:1,key:exeSha,layer:'version',source:'official',settings:{},exe:path.basename(st.exe),engine:st.engine,app:'megulit-adapter',issuedAt:'',
+  prints:{exe:exeSha,...(pr.head?{head:pr.head}:{}),...(pr.pe?{pe:pr.pe}:{})},rev:1};
+ for(const [n,d,w] of [['game',game,{engine:st.engine,slug}],['version',version,{engine:st.engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}
+ const dir=path.join(st.out,'seed',st.engine,slug);fs.mkdirSync(path.join(dir,'versions'),{recursive:true});
+ fs.writeFileSync(path.join(dir,'game.json'),JSON.stringify(game,null,1)+'\n');fs.writeFileSync(path.join(dir,'versions',exeSha+'.json'),JSON.stringify(version,null,1)+'\n');return dir;}
+/* the tester's checklist (E:\Apps\test-requests\<PR>-<name>.md once the PR has a number): where the game is, how to start it, the steps,
+   what passes, which screenshots come back */
+function testRequest(st){const o=st.identity.overlay,exe=path.basename(st.exe);return ['# '+workName(st)+' 实测清单','',
+ '## 游戏','','- 目录：`'+st.gameDir+'`','- 启动程序：`'+exe+'`'+(o?'（**不要**用 '+o.launchers.join(' / ')+'：那是汉化启动器，开出来是中文）':''),'- 引擎：'+(st.caps.label||st.engine)+'；剧本读取 '+(st.probe?.japaneseLines|0)+' 句日文','',
+ '## 步骤','','1. 测试版 MeguLit → 游戏库 → 添加上面的 `'+exe+'`，应显示「已适配」','2. 从 MeguLit 启动，片头点掉，标题选「はじめから / Start」','3. 看前 10 句：游戏对话框里没有日文原文残留；阅读层日文和中文齐、每点一下跟着换句；点读能查词',
+ '4. 按住 Ctrl 快进到第一个选项：选项上的日文还在，MeguLit 给每个选项出了中文、能点','5. 选第一个选项，再看 5 句','6. 关游戏和测试版 MeguLit；删掉这次新建的存档','',
+ '## 通过','','- 第 3 步：原文不残留，换句对','- 第 4 步：每个选项都有中文、能点','- 全程不崩、不卡、不闪','',
+ '## 回传截图','','1. 一句普通对话（带名字框）','2. 一句长句','3. 第一个选项画面（选项日文和中文都在）','4. 选完后的第一句','','不通过时另附测试版 `logs\\` 里最新的 `hook-diagnostics.log`',''].join('\n');}
+function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));
+ if(st.tester)return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
+  '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status skeleton，等测试员实测后再升），由 MeguLit-Adapter 离线生成：',...summary(st).map(s=>'- '+s),'',
+  '## 验证','','- 离线：剧本读取 '+(st.probe?.japaneseLines|0)+' 句日文；seed 通过 The Seed 格式检查','- **待测试员实测**（测试清单另交）：阅读层换句、原文隐藏、第一个选项出中文',''].join('\n');
+ return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
  '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status '+g.status+'），由 MeguLit-Adapter 生成：',...summary(st).map(s=>'- '+s),'- 版本层另记 exe 头尾 / PE 版本 / 剧本指纹 / 主封包指纹（`ext.versionPrints`，`source.versionMatch: prints`），补丁和汉化后的 exe 也认得','',
  '## 验证','','- 实机验证（开游戏'+(st.foreground?'前台':'隐藏桌面')+'跑几句，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人看截图确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 截图是游戏画面，没有 MeguLit 阅读层：选项译文要在 MeguLit 里再看一眼（未验证译文画面）',''].join('\n');}
 
@@ -136,9 +171,9 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(o.steamAppId)identity.steamAppId=o.steamAppId;
  /* VNDB: the work, the release, the Chinese title, VNDB's engine (an answer only when unambiguous; --no-net or an error asks a person) */
  if(o.net){const v=await Ident.vndb({title,gameDir:loc.gameDir,vnid:o.vndb||identity.vndb,chineseBuild:pr.step==='chinese-build',engine:loc.engine});identity.steamAppId=o.steamAppId||v.steamAppId||'';identity.steamCandidates=v.steamCandidates||[];identity.vndbLookup={how:v.how,release:v.release,releaseHow:v.releaseHow,candidates:v.candidates,engine:v.vndbEngine,engineDiffers:v.engineDiffers,error:v.error,releases:v.releases.map(r=>({rid:r.rid,title:r.title,engine:r.engine,langs:r.langs,patch:r.patch,official:r.official,ext:r.ext}))};
-  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(v.ja)identity.ja=v.ja;if(v.romaji)identity.romaji=v.romaji;if(!identity.release&&v.release)identity.release=v.release;identity.releaseCandidates=v.candidates;
+  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(v.ja)identity.ja=v.ja;if(v.romaji)identity.romaji=v.romaji;if(!identity.release&&v.release)identity.release=v.release+(identity.overlay?' + 汉化外挂整包':'');/* OZMAFIA!!: the Japanese release with a Chinese overlay beside it */identity.releaseCandidates=v.candidates;
   if(v.vndb)identity.adapted=Ident.sameRelease(Ident.adaptedRows(Ident.handoffText()),identity.vndb,identity.release||identity.releaseGuess);}
- const st={tool:'megulit-adapter',out,title:identity.ja||title,folderTitle:title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
+ const st={tool:'megulit-adapter',out,tester:o.tester===true,title:identity.ja||title,folderTitle:title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
  if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.cn)st.answers.cn=st.answers.cn||o.cn;if(o.release)st.answers.release=st.answers.release||o.release;
  /* our readers read nothing: GalTransl's detect + extractor as a second opinion (evidence and a porting pointer, never the text) */
  if(o.external&&SecondOpinion.wanted({probe:pr,caps})){st.external={galtransl:SecondOpinion.secondOpinion({gameDir:loc.gameDir,out})};const n=SecondOpinion.note(st.external.galtransl);if(n)st.plan.notes.push(n);log('# second opinion '+(n||st.external.galtransl.error));}
@@ -197,4 +232,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={copySeedFiles,bumpSnapshot,updateCatalogSnapshot,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={writeOfflineSeed,testRequest,copySeedFiles,bumpSnapshot,updateCatalogSnapshot,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};

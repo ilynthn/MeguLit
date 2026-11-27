@@ -145,6 +145,19 @@ test('naming: an own copy is named after its source, a disc program folder after
  const r=await E.vndbReleases({vnid:'v27449'},fetcher);assert.deepEqual([r.title,r.ja,r.zh],['Hamidashi Creative','ハミダシクリエイティブ','常轨脱离Creative']);
  const v=await Ident.vndb({title:'HamidashiCreative',gameDir:tmp(),vnid:'v27449'},{lookup:async()=>r});assert.deepEqual([v.ja,v.romaji],['ハミダシクリエイティブ','Hamidashi Creative']);});
 
+test('--tester: no game run here; a skeleton seed from the prints the adapter has, a test request, a PR body that waits for the tester (OZMAFIA!!)',()=>{
+ assert.deepEqual([Adapter.parseRun(['node','x','E:/g','--tester']).offline,Adapter.parseRun(['node','x','E:/g','--tester']).tester],[true,true]);
+ const d=tmp(),exe=path.join(d,'ozmafia.exe');fs.writeFileSync(exe,Buffer.concat([Buffer.from('MZ'),Buffer.alloc(4096,7)]));fs.writeFileSync(path.join(d,'ozmafia_cn.exe'),'MZ');
+ const out=path.join(d,'out');fs.mkdirSync(out);const exeSha=require('node:crypto').createHash('sha256').update(fs.readFileSync(exe)).digest('hex');
+ const st={tool:'megulit-adapter',tester:true,out,title:'OZMAFIA!!',folderTitle:'Ozmafia',dir:d,gameDir:d,exe,engine:'yuris',caps:{label:'YU-RIS'},probe:{japaneseLines:102210},
+  identity:{vndb:'v7833',romaji:'OZMAFIA!!',release:'OZMAFIA!!（r15697） + 汉化外挂整包',prints:{exe:exeSha,head:'a'.repeat(64)},overlay:{exe:'ozmafia.exe',launchers:['ozmafia_cn.exe'],scripts:'mai/ysbin',count:554,ext:'ybn'}},
+  plan:{source:{kind:'script',reader:'yuris'},align:'draw-roles',pairing:{mode:'script'},hide:{kind:'engine',file:'native/HookBridge.cs'},notes:[]},answers:{cn:'-'}};
+ const dir=Adapter.writeOfflineSeed(st);assert.equal(path.basename(dir),'ozmafia');
+ const g=JSON.parse(fs.readFileSync(path.join(dir,'game.json'),'utf8'));assert.equal(g.status,'skeleton');assert.deepEqual(g.builds,[exeSha]);assert.equal(g.prints.vndb,'v7833');assert.deepEqual(g.match.exe,['ozmafia.exe']);assert.equal(g.ext.adapter.live,'tester');
+ assert.ok(fs.existsSync(path.join(dir,'versions',exeSha+'.json')));assert.deepEqual(fs.readdirSync(dir).sort(),['game.json','versions'],'only what The Seed takes');
+ const req=Adapter.testRequest(st);assert.match(req,/`ozmafia\.exe`（\*\*不要\*\*用 ozmafia_cn\.exe/);assert.match(req,/## 回传截图/);
+ st.seed=dir;assert.match(Adapter.prBody(st),/\*\*待测试员实测\*\*/);});
+
 test('a Chinese overlay install (OZMAFIA!! 夜鸮汉化: ozmafia_cn.exe + mai.dll + mai/ysbin) keeps the Japanese release whole: start the original exe',()=>{
  const make=({launcher=true,scripts=25,where=['mai','ysbin']}={})=>{const d=tmp();fs.writeFileSync(path.join(d,'ozmafia.exe'),'MZ');if(launcher){fs.writeFileSync(path.join(d,'ozmafia_cn.exe'),'MZ');fs.writeFileSync(path.join(d,'mai.dll'),'MZ');}
   fs.mkdirSync(path.join(d,'pac'));fs.writeFileSync(path.join(d,'pac','ysbin.ypf'),'YPF');const s=path.join(d,...where);fs.mkdirSync(s,{recursive:true});for(let i=0;i<scripts;i++)fs.writeFileSync(path.join(s,'yst'+String(i).padStart(5,'0')+'.ybn'),'YSTB');
