@@ -58,6 +58,11 @@ test('other engines: tags on a LunaHook stream are stripped as well', () => {
   assert.deepEqual(out, ['「大丈夫だよ」', '結構進んできちゃったね']);
 });
 
+test('#148 still holds: ASCII text with angle brackets on a non-Unity stream stays; a Unity setter strips it', () => {
+  for (const s of ['a<b>c', 'x<br>y', 'C3と<5>', '<html>']) assert.equal(cleanSource(s, '', 'HQ-14@0:GameAssembly.dll'), s);
+  assert.equal(cleanSource('<b>OK</b>', '', UNITY), 'OK');
+});
+
 test('translator gets the bare line', async () => {
   const { createTranslationService } = require('../core/providers.cjs'), bodies = [];
   const service = createTranslationService(async (url, init) => { bodies.push(String(init?.body || '')); return { ok: true, json: async () => ({ choices: [{ message: { content: '译文' } }] }) }; });
