@@ -195,9 +195,20 @@ static class ColdDesk{
  static void Activate(){if(GameWin==IntPtr.Zero)return;PostMessage(GameWin,0x1C,(IntPtr)1,IntPtr.Zero);PostMessage(GameWin,0x06,(IntPtr)1,IntPtr.Zero);PostMessage(GameWin,0x86,(IntPtr)1,IntPtr.Zero);PostMessage(GameWin,0x07,IntPtr.Zero,IntPtr.Zero);}
  static ImageCodecInfo Jpeg(){foreach(var c in ImageCodecInfo.GetImageEncoders())if(c.MimeType=="image/jpeg")return c;return null;}
  /* the client area only (PW_CLIENTONLY | PW_RENDERFULLCONTENT), scaled to maxWidth, JPEG q70; black = nothing drawn */
+ /* 2026-11-27 (ISLAND, visible runs while the owner was away: the game opened behind the window that had the foreground, a process
+    started from a background service cannot take it, and every shot found the other window on the game's points: 0 lines; the
+    same copy ran 537 lines when it happened to open on top) on the user's own desktop the game window is raised when it opens and
+    whenever a shot finds it covered */
+ [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+ [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a,uint b,bool on);
+ [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+ [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+ [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+ static void Raise(IntPtr w){if(!OnUserDesktop||w==IntPtr.Zero)return;uint dummy;uint fg=GetWindowThreadProcessId(GetForegroundWindow(),out dummy),me=GetCurrentThreadId();bool att=fg!=0&&fg!=me&&AttachThreadInput(me,fg,true);
+  try{SetWindowPos(w,IntPtr.Zero,0,0,0,0,0x0003|0x0040);BringWindowToTop(w);SetForegroundWindow(w);}finally{if(att)AttachThreadInput(me,fg,false);}}
  static void Shot(int maxW,string file){if(GameWin==IntPtr.Zero){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"no window\"}");return;}RECT r;GetClientRect(GameWin,out r);int w=r.R-r.L,h=r.B-r.T;if(w<16||h<16){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"tiny\"}");return;}
   using(var b=new Bitmap(w,h,PixelFormat.Format32bppArgb)){using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{PrintWindow(GameWin,dc,3);}finally{g.ReleaseHdc(dc);}}
-   bool black=IsBlack(b,w,h),screen=false,covered=OnUserDesktop&&!GameOnTop(w,h);
+   bool black=IsBlack(b,w,h),screen=false,covered=OnUserDesktop&&!GameOnTop(w,h);if(covered){Raise(GameWin);System.Threading.Thread.Sleep(200);covered=!GameOnTop(w,h);}
    if(black&&OnUserDesktop&&!covered){var p=new POINT();ClientToScreen(GameWin,ref p);IntPtr sdc=GetDC(IntPtr.Zero);try{using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{BitBlt(dc,0,0,w,h,sdc,p.X,p.Y,0x00CC0020);}finally{g.ReleaseHdc(dc);}}}finally{ReleaseDC(IntPtr.Zero,sdc);}black=IsBlack(b,w,h);screen=true;}
    int tw=Math.Min(w,Math.Max(160,maxW)),th=(int)Math.Round(h*(double)tw/w);
    using(var s=new Bitmap(tw,th)){using(var g=Graphics.FromImage(s)){g.InterpolationMode=System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;g.DrawImage(b,0,0,tw,th);}
@@ -266,7 +277,7 @@ static class ColdDesk{
     foreach(var pr in Process.GetProcessesByName(ImageName)){try{if(pr.StartTime.ToUniversalTime()>StartedAt&&!pids.Contains((uint)pr.Id)&&String.Equals(Path.GetFullPath(pr.MainModule.FileName),exe,StringComparison.OrdinalIgnoreCase)){Emit("{\"type\":\"relaunched\",\"pid\":"+pr.Id+"}");why="relaunched";CleanupSafe=false;}}catch{}finally{pr.Dispose();}}
     if(why!="")break;
     if((DateTime.UtcNow-goneAt).TotalSeconds>12){uint code=0;GetExitCodeProcess(pi.hProcess,out code);Emit("{\"type\":\"exited\",\"code\":"+code+"}");why="exited";break;}}
-   var w=Biggest();if(w!=IntPtr.Zero){RECT r;GetClientRect(w,out r);int cw=r.R-r.L,ch=r.B-r.T;if(w!=lastHwnd||cw!=lastW||ch!=lastH){lastHwnd=w;lastW=cw;lastH=ch;GameWin=w;if(restricted!=null)ReadGameDialog(w);var t=new StringBuilder(256);GetWindowText(w,t,256);Activate();uint wpid;GetWindowThreadProcessId(w,out wpid);string wstarted="";try{using(var wp=Process.GetProcessById((int)wpid))wstarted=wp.StartTime.ToUniversalTime().Ticks.ToString();}catch{}
+   var w=Biggest();if(w!=IntPtr.Zero){RECT r;GetClientRect(w,out r);int cw=r.R-r.L,ch=r.B-r.T;if(w!=lastHwnd||cw!=lastW||ch!=lastH){lastHwnd=w;lastW=cw;lastH=ch;GameWin=w;Raise(w);if(restricted!=null)ReadGameDialog(w);var t=new StringBuilder(256);GetWindowText(w,t,256);Activate();uint wpid;GetWindowThreadProcessId(w,out wpid);string wstarted="";try{using(var wp=Process.GetProcessById((int)wpid))wstarted=wp.StartTime.ToUniversalTime().Ticks.ToString();}catch{}
      Emit("{\"type\":\"window\",\"hwnd\":"+Q(w.ToInt64().ToString())+",\"pid\":"+wpid+",\"started\":"+Q(wstarted)+",\"w\":"+cw+",\"h\":"+ch+",\"title\":"+Q(t.ToString())+"}");}}
    if(!readerOnly && (DateTime.UtcNow-lastMute).TotalMilliseconds>700){lastMute=DateTime.UtcNow;Mute();}
    if((DateTime.UtcNow-lastPower).TotalSeconds>5){lastPower=DateTime.UtcNow;if(Ac()=="false")Emit("{\"type\":\"power\",\"ac\":false}");int q=Quns();bool full=q>=2&&q<=4;if(full&&!wasFull)Emit("{\"type\":\"fullscreen\",\"on\":true}");wasFull=full;}
