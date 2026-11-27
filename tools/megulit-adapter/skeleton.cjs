@@ -3,7 +3,7 @@
 /* 2026-11-28 MeguLit-Adapter, batch skeleton seeds (owner: RRFZ 一次 PR 加 32 部，每部只是认引擎、算 key、写骨架；批量骨架出来后打开就能用的
    要占大部分). One command over many game folders, offline (nothing is started; VNDB is asked unless --offline):
 
-     node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--seed <The Seed>] [--out <dir>] [--offline]
+     node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--queue <DeepSeek done folder>]... [--seed <The Seed>] [--out <dir>] [--offline]
                                              [--no-probe] [--no-craft] [--no-second-opinion] [--json]
 
    Per game, layered so that the cheap evidence decides most games and only the doubtful ones pay for more:
@@ -30,6 +30,14 @@ const CONF={high:'高',medium:'中',look:'需重点看'};
    (E:\gal\ISLAND\ISLAND). A folder with no exe anywhere four levels down is not a game */
 function scanRoot(root){let kids=[];try{kids=fs.readdirSync(root,{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>path.join(root,d.name));}catch{return [];}
  return kids.filter(d=>!/^(?:\.|_|cache$|logs?$|runs$|tmp$|adapter-)/i.test(path.basename(d)));}
+
+/* DeepSeek's finished download orders (F:\Agent\deepseek\queue\done\<name>.json: {name, task, root, result}): the folder
+   <root>\<name> of each order that ended ok, and the VNDB id the order names ("VNDB v24"), which beats a title search */
+function queueDirs(dir,hints){let names=[];try{names=fs.readdirSync(dir).filter(f=>/\.json$/i.test(f));}catch{return [];}const out=[];
+ for(const n of names){let j;try{j=JSON.parse(fs.readFileSync(path.join(dir,n),'utf8').replace(/^\uFEFF/,''));}catch{continue;}
+  if(j?.result!=='ok'||!j.root||!j.name)continue;const d=path.resolve(String(j.root),String(j.name));if(!fs.existsSync(d))continue;
+  const v=/VNDB\s*[:：]?\s*(v\d{1,7})(?!\d)/i.exec(String(j.task||''));if(v)hints.set(d,v[1].toLowerCase());out.push(d);}
+ return out;}
 
 function lunaCaps(caps,gameDir,engine){if(caps.known)return caps;let hits=[];try{hits=require('../../services/original-engines/registry.cjs').lunaHook(gameDir);}catch{}
  const names=[...new Set(hits.map(h=>h.cls))];const mapped=names.find(n=>Engines.lunaRule(n));
@@ -83,7 +91,7 @@ async function one(dir,o){const t0=Date.now();const row={dir:path.basename(dir),
  if(!caps.known&&craft?.ok&&craft.engine){const c=Engines.capabilities(craft.engine);if(c.known){caps=c;row.engine=c.id;row.engineWhy='craft '+craft.engine;}}
  const pr=probeOf(loc,title,o);if(pr)row.layers.push('probe');row.probe=pr;
  const readers=[...new Set([pr?.detected,...caps.readers].filter(Boolean))];
- const id=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:row.engine,title,chineseBuild:pr?.step==='chinese-build',readers});row.layers.push('identify');
+ const id=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:row.engine,title,vndb:o.hints?.get(path.resolve(dir))||'',chineseBuild:pr?.step==='chinese-build',readers});row.layers.push('identify');
  if(id.seed){row.state='skip-seed';row.why.push('仓库已有 seed（'+id.seed.key+'，'+id.seed.status+'）');return done();}
  let v=null;if(!o.offline){try{v=await (o.vndbLookup||Ident.vndb)({title,gameDir:loc.gameDir,vnid:id.vndb,chineseBuild:pr?.step==='chinese-build',engine:row.engine});row.layers.push('vndb');}catch(e){row.why.push('VNDB 出错：'+e.message);}}
  const vndb=id.vndb||v?.vndb||'';
@@ -119,20 +127,21 @@ function report(rows){const order=['look','medium','high',''];const st={written:
   ...sorted.map(r=>'| '+[r.dir,st[r.state]||r.state,r.engine||'—',r.slug||'—',CONF[r.confidence]||'—',r.why.slice(0,4).join('；')||'—',r.layers.join(' → ')||'—',(r.ms/1000).toFixed(1)+' s'].map(x=>String(x).replace(/\|/g,'¦')).join(' | ')+' |')];
  return lines.join('\n')+'\n';}
 
-function parse(argv){const o={dirs:[],scan:[],seed:path.join(REPO,'The Seed'),out:'',offline:false,probe:true,craft:true,secondOpinion:true,probeMs:20000,json:false};
+function parse(argv){const o={dirs:[],scan:[],queue:[],seed:path.join(REPO,'The Seed'),out:'',offline:false,probe:true,craft:true,secondOpinion:true,probeMs:20000,json:false};
  for(let i=0;i<argv.length;i++){const k=argv[i],v=()=>{if(i+1>=argv.length)throw Error(k+' needs a value');return argv[++i];};
-  if(k==='--scan')o.scan.push(v());else if(k==='--seed')o.seed=v();else if(k==='--out')o.out=v();else if(k==='--probe-ms')o.probeMs=Number(v());
+  if(k==='--scan')o.scan.push(v());else if(k==='--queue')o.queue.push(v());else if(k==='--seed')o.seed=v();else if(k==='--out')o.out=v();else if(k==='--probe-ms')o.probeMs=Number(v());
   else if(k==='--offline')o.offline=true;else if(k==='--no-probe')o.probe=false;else if(k==='--no-craft')o.craft=false;else if(k==='--no-second-opinion')o.secondOpinion=false;else if(k==='--json')o.json=true;
   else if(!k.startsWith('--'))o.dirs.push(k);else throw Error('unknown argument: '+k);}
- if(!o.dirs.length&&!o.scan.length)throw Error('usage: node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--seed <dir>] [--out <dir>] [--offline]');
+ if(!o.dirs.length&&!o.scan.length&&!o.queue.length)throw Error('usage: node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--seed <dir>] [--out <dir>] [--offline]');
  o.out=o.out||path.join(process.env.MEGULIT_ADAPTER_OUT||path.join(Cold.RUNS_ROOT,'adapter-out'),'skeleton');return o;}
 
 async function run(o,{log=console.log}={}){fs.mkdirSync(o.out,{recursive:true});o.versionsWritten=o.versionsWritten||new Map();o.seen=new Map();
- const dirs=[...o.dirs.map(d=>path.resolve(d)),...o.scan.flatMap(r=>scanRoot(path.resolve(r)))];const rows=[];
+ o.hints=o.hints||new Map();const fromQueue=(o.queue||[]).flatMap(q=>queueDirs(q,o.hints));
+ const dirs=[...o.dirs.map(d=>path.resolve(d)),...o.scan.flatMap(r=>scanRoot(path.resolve(r))),...fromQueue];const rows=[];
  for(const d of [...new Set(dirs)]){let r;try{r=await one(d,o);}catch(e){r={dir:path.basename(d),state:'skip',why:['出错：'+String(e.message||e).slice(0,160)],layers:[],ms:0};}
   rows.push(r);log('# '+r.dir+': '+r.state+(r.engine?' '+r.engine:'')+(r.confidence?' '+CONF[r.confidence]:'')+' ('+(r.ms/1000).toFixed(1)+' s)');}
  const md=report(rows);fs.writeFileSync(path.join(o.out,'skeleton.md'),md);fs.writeFileSync(path.join(o.out,'skeleton.json'),JSON.stringify(rows,null,1));
  log(o.json?JSON.stringify(rows,null,1):md);return rows;}
 
 async function main(argv){const rows=await run(parse(argv));return rows.some(r=>r.state==='written')?0:2;}
-module.exports={main,run,parse,one,confidence,report,scanRoot,CONF};
+module.exports={main,run,parse,one,confidence,report,scanRoot,queueDirs,CONF};

@@ -52,3 +52,15 @@ test('confidence: evidence decides the tier',()=>{
  assert.equal(Skeleton.confidence({caps:{known:false,hide:[],draw:[]},probe:null,craft:null,vndb:''}).level,'look');
  assert.equal(Skeleton.confidence({caps:{...caps,hide:[],draw:[]},probe:{step:'ok',japaneseLines:5},craft:{ok:true,agrees:true},vndb:'v1'}).level,'look');
 });
+
+test('DeepSeek done orders: the folder of each ok order and the VNDB id its task names',()=>{
+ const q=path.join(tmp,'queue'),root=path.join(tmp,'dl');fs.mkdirSync(q,{recursive:true});
+ for(const n of ['a','b','c'])fs.mkdirSync(path.join(root,n),{recursive:true});
+ fs.writeFileSync(path.join(q,'a.json'),'﻿'+JSON.stringify({name:'a',root,result:'ok',task:'某作（RealLive，VNDB v1413），Windows 日文原版'}));
+ fs.writeFileSync(path.join(q,'b.json'),JSON.stringify({name:'b',root,result:'ok',task:'没有作品号'}));
+ fs.writeFileSync(path.join(q,'c.json'),JSON.stringify({name:'c',root,result:'failed',task:'VNDB v2'}));
+ const hints=new Map();const dirs=Skeleton.queueDirs(q,hints);
+ assert.deepEqual(dirs.map(d=>path.basename(d)).sort(),['a','b']);
+ assert.equal(hints.get(path.join(root,'a')),'v1413');
+ assert.equal(hints.has(path.join(root,'b')),false);
+});
