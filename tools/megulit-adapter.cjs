@@ -7,8 +7,8 @@
    tools/megulit-adapter/engines.cjs) -> game diff (The Seed data only) -> upload (a PR).
 
      node tools/megulit-adapter.cjs <game folder> [--exe <rel>] [--vndb v123] [--release "DL 版"] [--out <dir>] [--budget-min 10]
-                                    [--foreground] [--real-input] [--offline] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
-         identify (VNDB + release, HANDOFF) -> engine -> script probe (RRFZ readers) -> plan (text source, pairing, hide)
+                                    [--foreground] [--real-input] [--offline] [--no-pairing] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
+         identify (VNDB + release, HANDOFF) -> engine -> script probe (RRFZ readers) -> plan (text source, pairing, hide) -> zero-latency pairing when a translation sits with the game (pairing.cjs)
          -> live check: the game run with the hook and the hide (tools/megulit-adapter/cold.cjs; --foreground when the owner is away),
             a person looks at a few lines: the line changes, the original is hidden, the choice -> seed -> publish
          --cold  Cardinal replays the run as well, a background supplement: its scores are noted, never a gate
@@ -27,7 +27,7 @@
    State: <out>/adapter.json (everything decided, every answer); nothing is written into the game folder. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 const Copies=require('./game-copies.cjs'),SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
-const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs'),Install=require('./megulit-adapter/install.cjs');
+const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs'),Install=require('./megulit-adapter/install.cjs'),Pairing=require('./megulit-adapter/pairing.cjs');
 const REPO=path.join(__dirname,'..');
 const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
@@ -37,7 +37,7 @@ function parseRun(argv){const a=argv.slice(2),o={steamAppId:'',copy:false,net:tr
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;else if(k==='--no-install')o.install=false;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--no-pairing')o.pairing=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;else if(k==='--no-install')o.install=false;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -88,9 +88,10 @@ function summary(st){const p=st.plan,c=st.cold,i=st.identity;return [
  '作品：'+(st.answers.vndb||i.vndb||'未知')+'，发行版：'+(st.answers.release||i.release||i.releaseGuess||'未知'),
  '原文来源：'+(p.source.kind==='script'?'剧本读取 '+p.source.reader+'（日文 '+p.source.japaneseLines+' 行）':'钩子流（'+p.source.why+'）')+'；对齐：'+p.align,
  '配对：'+p.pairing.mode+(p.pairing.chineseLines?'（中文 '+p.pairing.chineseLines+' 行）':'')+'；隐藏：'+(p.hide.kind==='engine'?'引擎级 '+p.hide.file:'通用层'),
+ Pairing.line(st.pairing),
  '实机验证：'+(c?c.verdict+'；'+(c.reasons||[]).slice(0,4).join('；'):st.offline?'没跑（--offline）':'没跑'),
  ...p.notes];}
-function finish(st,log){const qs=Check.questions({install:st.install||[],identity:{...st.identity,vndb:st.answers.vndb||st.identity.vndb,release:st.answers.release||st.identity.release,cn:st.answers.cn||st.identity.cn},caps:st.caps,cold:st.cold,coldOut:st.cold?.artifacts?.out||'',force:st.force});
+function finish(st,log){const qs=Check.questions({install:st.install||[],identity:{...st.identity,vndb:st.answers.vndb||st.identity.vndb,release:st.answers.release||st.identity.release,cn:st.answers.cn||st.identity.cn},caps:st.caps,cold:st.cold,coldOut:st.cold?.artifacts?.out||'',force:st.force,pairing:st.pairing});
  st.questions=qs;const open=Check.open(qs,st.answers);st.review=Check.review(path.join(st.out,'review.html'),{title:'MeguLit-Adapter：'+st.title,summary:summary(st)},qs,st.answers);
  if(open.length){st.state='waiting';saveState(st);log('# 等人确认（'+open.length+' 个）：'+st.review);for(const q of open)log('  '+q.id+'：'+q.ask+(q.evidence.length?'  证据 '+q.evidence.join(' , '):''));return EXIT.human;}
  if(st.answers.again!==undefined&&!Check.yes(st.answers.again)){st.state='skipped';saveState(st);log('# 已适配过，不重做');return EXIT.done;}
@@ -124,6 +125,10 @@ function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(s
 /* 2026-11-27 (アイキス3 sexy #1109) the request issue (answer issue=<n>): AGENTS.md, only a verified seed closes it, anything less is Refs */
 function issueLine(st,g){const n=String(st.answers.issue||'').replace(/^#/,'');if(!/^\d{1,7}$/.test(n))return [];return [(g.status==='verified'?'Fixes #':'Refs #')+n,''];}
 
+async function pairingStep(st,loc,pr,log){const hints=Pairing.chineseHints(loc.gameDir,loc.exe);if(!Pairing.need(hints,pr))return null;
+ st.pairing={hints,...await Pairing.check({exe:loc.exe})};
+ if(st.pairing.status==='ready')st.plan.pairing={mode:'patch',reader:st.plan.source.reader||'',chineseLines:st.pairing.translations,how:'original-text patch '+path.basename(st.pairing.source)};
+ log('# '+Pairing.line(st.pairing));saveState(st);return st.pairing;}
 async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.resolve(o.dir));log('# own copy '+c.dir+(c.reused?' (kept)':' ('+Math.round(c.bytes/1048576)+' MB)'));o={...o,dir:c.dir};}
  const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(OUT_ROOT(),Cold.safeName(title)));
  fs.mkdirSync(out,{recursive:true});
@@ -155,6 +160,8 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  /* our readers read nothing: GalTransl's detect + extractor as a second opinion (evidence and a porting pointer, never the text) */
  if(o.external&&SecondOpinion.wanted({probe:pr,caps})){st.external={galtransl:SecondOpinion.secondOpinion({gameDir:loc.gameDir,out})};const n=SecondOpinion.note(st.external.galtransl);if(n)st.plan.notes.push(n);log('# second opinion '+(n||st.external.galtransl.error));}
  saveState(st);
+ /* 2026-11-28 a translation with the game: MeguLit's own zero-latency search must pair it before the adaptation is ready */
+ if(o.pairing!==false)await pairingStep(st,loc,pr,log);
  if((identity.adapted||[]).some(r=>r.same)&&!o.force&&st.answers.again===undefined)return finish(st,log);
  if(!o.offline){const release=await gameLock('megulit-adapter',Cold.safeName(title),{dir:loc.gameDir,waitMs:o.lockWaitMin*60000,log});if(!release){log('# 游戏锁等不到');st.cold=null;return finish(st,log);}
   try{const r=await Cold.run({dir,exe:o.exe,out:path.join(out,'cold'),budgetMin:o.budgetMin,app:o.app,foreground:o.foreground,realInput:o.realInput===true,seedOut:'',skip:o.skip,steamAppId:identity.steamAppId||'',vndb:identity.vndb||'',live:true,cardinal:o.cold===true},{log});st.cold=coldView(r);st.gameKey=r.gameKey;

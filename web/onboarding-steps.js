@@ -62,7 +62,7 @@
   return {shown,stopped:o.stopped===true,last:typeof o.last==='string'?o.last.slice(0,120):'',replay:o.replay===true,seen:o.seen===true};
  }
  /* A launch counts once however many status updates carry it (identity = game process id + start time, game-style-sync.cjs).
-    The first LIMIT launches show the tour; skipping stops it at once; a replay asked for from the menu or the main window
+    The first LIMIT launches show the tour; skipping or finishing it stops it at once; a replay asked for from the menu or the main window
     shows it at the next launch without counting. */
  function launch(value,identity){
   const state=clean(value),id=String(identity||'');

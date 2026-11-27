@@ -260,6 +260,27 @@ function codecFor(dirs){for(const d of [...new Set(dirs.flatMap(d=>[d,ownerOf(d)
 const gbk=new TextDecoder('gbk'),KANA=/[ぁ-ゖァ-ヺ]/g;
 /* E577 kit.codepageOf */
 function plainCodec(raws){const dec=kit.codepageOf(raws.slice(0,3000))==='gbk'?gbk:sjis;return {decode:b=>dec.decode(b)};}
+/* OZMAFIA!! (夜鸮汉化, mai.dll + mai\word.mai): the patch writes Chinese as Shift-JIS, and every character Shift-JIS lacks
+   in a borrowed code. word.mai flags (one byte per UTF-16 code unit) the characters the translation uses; mai.dll keeps
+   the ones cp932 has at their own code and hands the rest, in code-unit order, the free codes in order (lead 81-9F and
+   E0-EF; trail 40-7E, 80-9E, A0-FC), skipping the codes the kept characters use. The same table decodes the scripts. */
+let cp932Table=null;
+function cp932(){if(cp932Table)return cp932Table;const u2s=new Uint16Array(0x10000).fill(0x3f);
+ const put=(k,bytes)=>{const ch=sjis.decode(Buffer.from(bytes));if(ch.length===1&&ch!=='\ufffd'&&u2s[ch.charCodeAt(0)]===0x3f)u2s[ch.charCodeAt(0)]=k;};
+ for(let x=0xa1;x<=0xdf;x++)put(x,[x]);
+ // Windows picks the IBM extension (FA-FC) over its NEC-selected copy (ED-EE) for the same character.
+ const leads=[];for(let h=0x81;h<=0xfc;h++)if((h<0xa0||h>=0xe0)&&h!==0xed&&h!==0xee)leads.push(h);leads.push(0xed,0xee);
+ for(const h of leads)for(let l=0x40;l<=0xfc;l++)if(l!==0x7f)put(h<<8|l,[h,l]);
+ return cp932Table=u2s;}
+function maiCodec(word){if(!word||word.length!==0x10000)return null;const u2s=cp932(),flags=Uint8Array.from(word),free=new Uint8Array(0x10000);
+ for(const [a,z] of [[0x81,0xa0],[0xe0,0xf0]])for(let h=a;h<z;h++)for(const [l0,l1] of [[0x40,0x7f],[0x80,0x9f],[0xa0,0xfd]])for(let l=l0;l<l1;l++)free[h<<8|l]=1;
+ for(let u=0x80;u<0x10000;u++)if(flags[u]&&u2s[u]!==0x3f){free[u2s[u]]=0;flags[u]=0;}
+ const borrowed=new Map();let c=0;for(let u=0x80;u<0x10000;u++)if(flags[u]){while(c<0x10000&&!free[c])c++;if(c>=0x10000)break;borrowed.set(c++,String.fromCharCode(u));}
+ if(!borrowed.size)return null;
+ return {decode(b){let out='';for(let i=0;i<b.length;i++){const x=b[i];
+  if((x>=0x81&&x<=0x9f||x>=0xe0&&x<=0xfc)&&i+1<b.length){const k=x<<8|b[i+1];out+=borrowed.get(k)??sjis.decode(b.subarray(i,i+2));i++;}
+  else out+=sjis.decode(b.subarray(i,i+1));}return out;}};}
+const maiWord=found=>{const f=found.files?.get('word.mai');if(!f)return null;try{return maiCodec(f.read());}catch{return null;}};
 
 // Longest common subsequence length of two anchor lists.
 function inOrder(a,b){let prev=new Uint32Array(b.length+1),cur=new Uint32Array(b.length+1);
@@ -307,13 +328,16 @@ const yuris={
    let data=null;try{data=pack.read('ysbin\\'+scene.name);}catch{}if(data)byName.set(key,{name:scene.name,read:()=>data,codec:gbk});}
   // So does a MoleBox program's own file system.
   for(const s of dirs.flatMap(moleScenes))if(!byName.has(s.name.toLowerCase()))byName.set(s.name.toLowerCase(),s);
-  for(const d of found.dirs)for(const file of updates(d).reverse())for(const s of ypfScenes(file))if(!byName.has(s.name.toLowerCase()))byName.set(s.name.toLowerCase(),s);
+  /* OZMAFIA!! (夜鸮汉化: Chinese .ybn in mai\ysbin beside the untouched Japanese release) the running game's own archives,
+     its official Japanese update1.ypf among them, are never the patch */
+  const ownDir=found.running?path.resolve(found.running).toLowerCase():'',own=new Set(found.running?yuris.sources(found.running).map(x=>path.resolve(x).toLowerCase()):[]);
+  for(const d of found.dirs)for(const file of updates(d).reverse()){if(own.has(path.resolve(file).toLowerCase()))continue;for(const s of ypfScenes(file))if(!byName.has(s.name.toLowerCase()))byName.set(s.name.toLowerCase(),s);}
   // E449 loose .ybn files a patch carries, also inside an Enigma pack (2030汉化组's 2030.xp), never the running game's own.
-  for(const [key,f] of found.files||[]){if(!/\.ybn$/i.test(key)||byName.has(key)||!base.some(s=>s.name.toLowerCase()===key))continue;if(f.path&&base.dir&&path.dirname(f.path).toLowerCase()===String(base.dir).toLowerCase())continue;byName.set(key,{name:f.name,read:f.read});}
+  for(const [key,f] of found.files||[]){if(!/\.ybn$/i.test(key)||byName.has(key)||!base.some(s=>s.name.toLowerCase()===key))continue;if(f.path&&ownDir&&path.dirname(path.resolve(f.path)).toLowerCase()===ownDir)continue;byName.set(key,{name:f.name,read:f.read});}
   if(!byName.size)return null;
   const parsed=new Map();for(const scene of base){const s=byName.get(scene.name.toLowerCase());if(!s)continue;try{parsed.set(scene.name.toLowerCase(),{...words(s.read()),codec:s.codec});}catch{}}
   if(!parsed.size)return null;
-  const loader=codecFor(found.dirs),defaultCodec=loader||plainCodec([...parsed.values()].flatMap(w=>w.raw));let any=false;
+  const loader=codecFor(found.dirs),defaultCodec=loader||maiWord(found)||plainCodec([...parsed.values()].flatMap(w=>w.raw));let any=false;
   const list=base.map(scene=>{const w=parsed.get(scene.name.toLowerCase());if(!w)return scene;
    if(w.raw.length!==scene.lines.length)return {...scene,skipped:'count'};
    // In order, not by position: a patch may add a few commands of its own (euphoria: extra POSDATA / voice calls).
@@ -322,7 +346,7 @@ const yuris={
    any=true;return {...scene,patched:true,lines:w.raw.map(b=>codec.decode(b))};});
   return any?list:null;
  },
- _internal:{ypfList,ypfRead,ypfScenes,ystb,words,loaderCodec,codecFor,unpackUpx,amanoPack,moleBox},
+ _internal:{maiCodec,ypfList,ypfRead,ypfScenes,ystb,words,loaderCodec,codecFor,unpackUpx,amanoPack,moleBox},
 };
 // E450 the voice clips of a YPF archive (vo.ypf), for game-voice.cjs.
 yuris.audio=file=>{if(!/\.ypf$/i.test(file))return null;const l=ypfList(file);return l?l.filter(e=>/\.(?:ogg|wav)$/i.test(e.name)).map(e=>({name:e.name,read:()=>ypfRead(file,e)})):null;};

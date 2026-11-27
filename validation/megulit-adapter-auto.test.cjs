@@ -235,3 +235,56 @@ test('install: a UDF disc read with 8.3 names never starts its Inno installer (i
  const run=(exe,args)=>{ran.push(path.basename(exe));put(path.join(args.find(a=>a.startsWith('/DIR=')).slice(5),'SEIFUKU3.exe'),'g');return {status:0};};
  const r2=await Install.install(dl,{short:'s3b',root,deps:{statfs:()=>FREE,run,isUdf:()=>true,mount,find}});
  assert.equal(r2.ok,true,r2.why);assert.equal(mounted.length,1);assert.deepEqual(ran,['Launcher.exe']);assert.match(r2.steps.join(),/UDF/);});
+
+/* 2026-11-28 (アイキス3 sexy #1304: the combined test build ran main's glyph-hide DLL, the PR session's build folder was gone) a C++ part
+   a PR changes comes from that PR's own CI artifact; the session build only when CI has none; main's stays only with a note */
+test('combined test build: a C++ part a PR changes is that PR\'s own CI build, the session build second, main\'s only with a note',t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ const All=require('../tools/megulit-adapter/test-build-all.cjs');
+ const tree=path.join(d,'tree');put(path.join(tree,'native','native-builds.json'),JSON.stringify([
+  {name:'fontprobe',outputs:['native/MeguLitFont32.dll','native/MeguLitFont64.dll'],sources:['native/fontprobe'],ci:true},
+  {name:'gpuhide',outputs:['native/MeguLitGpu32.dll'],sources:['native/gpuhide'],ci:true},
+  {name:'megulithook',outputs:['native/megulithook/MeguLitHook32.dll'],sources:['native/megulithook'],ci:false},
+  {name:'galwindowbridge',outputs:['native/GalWindowBridge.exe'],sources:['native/PageLocator.cs'],ci:false}]));
+ const art=path.join(d,'art'),old=path.join(d,'old'),target=path.join(d,'target');
+ put(path.join(art,'MeguLitFont32.dll'),'pr-ci-32');put(path.join(art,'MeguLitFont64.dll'),'pr-ci-64');put(path.join(art,'MeguLitGpu32.dll'),'pr-ci-gpu');
+ put(path.join(old,'native','MeguLitFont32.dll'),'session-32');put(path.join(old,'native','megulithook','MeguLitHook32.dll'),'session-hook');
+ put(path.join(target,'native','MeguLitFont32.dll'),'main-32');put(path.join(target,'native','MeguLitFont64.dll'),'main-64');put(path.join(target,'native','MeguLitGpu32.dll'),'main-gpu');
+ const tr={dir:tree,merged:[1304],changed:{1304:['native/fontprobe/GlyphMatch.h','native/megulithook/texthook.cc','native/PageLocator.cs']}};
+ const asked=[];const notes=All.prParts(tr,target,{1304:old},{prArt:pr=>{asked.push(pr);return art;},tag:'v1.4.25'});
+ const read=f=>fs.readFileSync(path.join(target,'native',f),'utf8');
+ assert.equal(read('MeguLitFont32.dll'),'pr-ci-32','the PR\'s CI build, not the session folder and not main');assert.equal(read('MeguLitFont64.dll'),'pr-ci-64');
+ assert.equal(read('MeguLitGpu32.dll'),'main-gpu','a part the PR does not change stays main\'s');
+ assert.equal(read('megulithook/MeguLitHook32.dll'),'session-hook','not built in CI: the session build');
+ assert.deepEqual(asked,[1304],'one artifact lookup per PR');
+ assert.ok(notes.includes('fontprobe 用 #1304 自己 CI 编的'),notes.join('；'));assert.ok(notes.includes('megulithook 用 #1304 会话编的'),notes.join('；'));
+ /* the artifact expired and the session folder is gone: main's DLL stays and the note says so */
+ put(path.join(target,'native','MeguLitFont32.dll'),'main-32');
+ const n2=All.prParts(tr,target,{1304:path.join(d,'gone')},{prArt:()=>'',tag:'v1.4.25'});
+ assert.equal(read('MeguLitFont32.dll'),'main-32');assert.ok(n2.some(n=>/^fontprobe #1304 改过但没有它的 CI 产物/.test(n)),n2.join('；'));
+ /* the CI run lookup: the run on the PR's merged commit, downloaded once and reused */
+ process.env.MEGULIT_COPIES_ROOT=d;t.after(()=>{delete process.env.MEGULIT_COPIES_ROOT;});const got=[];
+ const io={list:args=>{assert.ok(args.includes('--commit')&&args.includes('abc'));return [{databaseId:7,headSha:'abc'}];},download:(id,dir)=>{got.push(id);put(path.join(dir,'MeguLitFont32.dll'),'x');}};
+ const a1=All.prArtifact(1304,'abc',()=>{},io),a2=All.prArtifact(1304,'abc',()=>{},io);
+ assert.equal(a1,path.join(d,'testbuild-base','native-pr1304-7'));assert.equal(a2,a1);assert.deepEqual(got,[7]);
+ assert.equal(All.prArtifact(1304,'abc',()=>{},{list:()=>[]}),'' ,'no successful run -> none');});
+
+/* 2026-11-28 (owner: 测试版用 Rust 自己构建) the shell and the C++ parts are built here; the label says so and names what was not */
+test('combined test build: built here -> 「本地编译」 label, parts built here are not replaced by CI / session builds, a helper that does not run builds nothing',t=>{
+ const All=require('../tools/megulit-adapter/test-build-all.cjs');const tr={main:'bcb280ed97',merged:[1304]};
+ assert.equal(All.labelOf(tr,{shell:'local'}),'测试版 · main＠bcb280e + #1304（本地编译）');
+ assert.equal(All.labelOf(tr,{shell:'local',notLocal:['megulithook']}),'测试版 · main＠bcb280e + #1304（本地编译；megulithook 不是本地编的）');
+ assert.equal(All.labelOf({main:'bcb280ed97',merged:[]},{shell:'release',tag:'v1.4.25',shellLag:['a','b']}),'测试版 · main＠bcb280e（外壳 v1.4.25（本地编译失败），main 之后外壳改了 2 个提交）');
+ assert.doesNotMatch(All.labelOf(tr,{shell:'local'}),/外壳 v/,'no release shell in the label when the shell was built here');
+ /* the helper's JSON line (cargo / cl output before it) is read; a helper that does not run: nothing counts as built */
+ const logs=[];const ok=All.localBuild('T',['fontprobe','megulithook'],l=>logs.push(l),{exec:(file,args)=>{assert.match(file,/test-build-local\.ps1$/);assert.deepEqual(args.slice(args.indexOf('-PartList')),['-PartList','fontprobe,megulithook']);assert.ok(args.includes('-Shell'));
+  return {status:0,stdout:'Compiling megulit\r\n{"shell":{"ok":true,"exe":"X/megulit.exe","loader":"L"},"parts":{"fontprobe":{"ok":true},"megulithook":{"ok":false,"why":"needs src"}}}\r\n'};}});
+ assert.equal(ok.shell.ok,true);assert.equal(ok.parts.fontprobe.ok,true);assert.equal(ok.parts.megulithook.ok,false);
+ const bad=All.localBuild('T',['fontprobe'],()=>{},{exec:()=>({status:1,stdout:'',stderr:'powershell: not found'})});
+ assert.equal(bad.shell.ok,false);assert.equal(bad.parts.fontprobe.ok,false);assert.match(bad.shell.why,/没跑起来/);
+ /* a part built here is left alone by the PR fallbacks */
+ const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));const tree=path.join(d,'tree'),target=path.join(d,'target'),art=path.join(d,'art');
+ put(path.join(tree,'native','native-builds.json'),JSON.stringify([{name:'fontprobe',outputs:['native/MeguLitFont32.dll'],sources:['native/fontprobe'],ci:true}]));
+ put(path.join(art,'MeguLitFont32.dll'),'pr-ci');put(path.join(target,'native','MeguLitFont32.dll'),'local');
+ const notes=All.prParts({dir:tree,merged:[1304],changed:{1304:['native/fontprobe/GlyphMatch.h']}},target,{},{prArt:()=>art,built:new Set(['fontprobe'])});
+ assert.equal(fs.readFileSync(path.join(target,'native','MeguLitFont32.dll'),'utf8'),'local');assert.deepEqual(notes,[]);
+ assert.deepEqual(All.cppParts(tree).map(c=>c.name),['fontprobe']);});
