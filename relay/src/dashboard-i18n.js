@@ -4,77 +4,115 @@
    fragments, so it translates by exact match first, then by longest-fragment substitution). */
 export const DASH_DICT={
  'title':['MeguLit 运行看板','MeguLit Live Ops'],
- 'nav.live':['服务概况','Overview'],'nav.sharing':['校准与社区','Community'],'nav.ops':['作品与运行记录','Operations'],'nav.seed':['Seed 管理','Seed admin'],
+ 'nav.seed':['Seed 管理','Seed admin'],
  'lang.aria':['切换语言','Switch language'],
- 'h.live':['服务概况','Service overview'],'h.sharing':['校准与社区','Calibration & community'],'h.ops':['作品与运行记录','Titles & run log'],
- 'loading':['加载中…','Loading…'],'nodata':['暂无数据','No data'],'norows':['暂无数据','No rows'],'idle':['空闲','Idle'],
- 'now':['现在','now'],
- 'p.online':['在线','Online'],'p.online.h':['近 10 分钟','Last 10 min'],
- 'k.peak':['峰值','Peak'],'k.delta':['较上次','Δ poll'],'k.since':['距上次变化','Since change'],
+ 
+ 'loading':['加载中…','Loading…'],'nodata':['暂无数据','No data'],'norows':['暂无数据','No rows'],
+ 
+ 
+ 
  'k.now1h':['当前 / 近 1 小时','Now / 1h'],'k.avg6h':['6 小时均值','6h avg'],'u.per10':[' /10 分钟',' per 10 min'],
- 'p.stats':['统计','Stats'],
+ 
  's.active1h':['1 小时活跃','Active 1h'],'s.activeToday':['今日活跃','Active today'],'s.active24h':['24 小时活跃','Active 24h'],
- 's.peak10':['10 分钟峰值','Peak 10 min'],'s.avgOnline':['平均在线','Avg online'],'s.perPlayer':['每位玩家 · 今日','per player today'],
- 's.long':['超 1 小时会话','1h+ sessions'],'s.today':['今日','today'],
- 's.probed':['已探测作品','Probed games'],'s.reporters':['上报者','Reporters'],'s.perGame':['每作品上报','Per game'],
- 's.ratio':['1 小时 / 今日 {0}%','1h / today {0}%'],'s.withDump':['{0} 份有完整转储','{0} with full dump'],
- 'p.activity':['活跃度','Activity'],'p.activity.h':['每小时在线 · 24 小时','Online per hour · 24h'],
+ 's.peak10':['10 分钟峰值','Peak 10 min'],'s.avgOnline':['平均在线','Avg online'],
+ 's.long':['超 1 小时会话','1h+ sessions'],
+ 's.reporters':['上报者','Reporters'],'s.perGame':['每作品上报','Per game'],
+ 
+ 
  'h.peakHour':['峰值小时','Peak hour'],'h.at':['于 {0}','at {0}'],'h.avgHour':['小时均值','Avg / hour'],'h.quiet':['空闲小时','Quiet hours'],
  'h.thisHour':['本小时','This hour'],'h.busy3':['最忙 3 小时','Busiest 3h'],'h.vsAvg':['对比均值 {0}','vs {0} avg'],
- 'p.quota':['配额','Quota'],'p.quota.h':['用量 / 上限','Usage / limit'],
+ 
  'q.workers':['Workers 请求','Workers requests'],'q.d1r':['D1 读取','D1 reads'],'q.d1w':['D1 写入','D1 writes'],'q.d1s':['D1 存储','D1 storage'],
  'q.r2s':['R2 存储','R2 storage'],'q.r2a':['R2 A 类操作','R2 class A'],'q.r2b':['R2 B 类操作','R2 class B'],'q.ai':['AI neurons','AI neurons'],'q.gh':['GitHub API','GitHub API'],
  'q.day':['每日','per day'],'q.mo':['每月','per month'],'q.hr':['每小时','per hour'],'q.total':['总量','total'],'q.est':['估算','estimate'],
  'q.reset':['每日重置还有 {0} 小时 {1} 分 · R2 操作按月 · GitHub 按小时','Daily reset in {0}h {1}m · R2 ops monthly · GitHub hourly'],
  'q.offline':['CF 用量不可用','CF usage offline'],'q.needs':[' · 需要 CF_API_TOKEN',' · needs CF_API_TOKEN'],
- 'p.seed':['The Seed','The Seed'],'p.seed.h':['适配差分库 · 作品差分','The Seed/ · game diffs'],
+ 
  'seed.counting':['正在统计 The Seed/（首次统计在后台运行）','Counting The Seed/ (the first count runs in the background)'],
  'seed.games':['已收录作品','games seeded'],'seed.versions':['个 exe 版本','exe versions'],
- 'seed.confirmed':['已确认','Confirmed'],'seed.waiting':['等待更多玩家','Waiting'],
+ 
  'seed.verified':['已验证','verified'],'seed.ownerok':['作者确认','owner-ok'],'seed.read':['已读取','read'],'seed.skeleton':['骨架','skeleton'],'seed.other':['其他','other'],
- 'seed.note':['已确认 = 已验证 + 作者确认 · 等待更多玩家 = 已读取 + 骨架','confirmed = verified + owner-ok · waiting for more players = read + skeleton'],
+ 
  'seed.updated':[' · 更新于 {0}',' · updated {0}'],
- 'p.cardinal':['Cardinal','Cardinal'],'p.cardinal.h':['回放评分 · 今日','Replay scores · today'],
+ 
  'card.none':['暂无 Cardinal 数据','No Cardinal data'],'card.scores':['今日评分','scores today'],'card.total':['累计 {0}','{0} in total'],
  'card.upgraded':['今日升级 {0}','upgraded today {0}'],'card.repair':['今日入修复队列 {0}','repair queue today {0}'],
  'card.note':['Cardinal 已验证 {0} · 修复队列中 {1} · 日界 UTC+8','verified by Cardinal {0} · in repair queue {1} · day = UTC+8'],
- 'p.why':['原因','Why'],'p.why.h':['按步骤','By step'],
+ 
  'why.quality':['探针质量','Probe quality'],'why.desens':[' · {0} 份脱敏探针',' · {0} desensitized probes'],
  'why.vndb':['VNDB 已匹配','VNDB matched'],'why.issues':['GitHub Issues','GitHub issues'],'why.adapted':['已适配','Adapted'],
  'why.dumps':[' / {0} 份完整转储 · {1}%',' / {0} full dumps · {1}%'],
- 'p.adapters':['适配','Adapters'],'p.adapters.h':['适配包 · 报告 · 上传','Packs · reports · uploads'],
+ 
  'a.packs':['适配包','Packs'],'a.packsv':[' {0} 部作品 · {1} 已撤回',' {0} games · {1} withdrawn'],'a.records':['共享记录','Shared records'],
  'a.recReports':['记录举报','Record reports'],'a.probeReq':['探针请求','Probe requests'],'a.probeReqv':[' 待处理 / {0}',' open / {0}'],
  'a.packReports':['适配包报告','Pack reports'],'a.contrib':['贡献上传','Contrib uploads'],'a.uploads':['上传','Uploads'],
  'a.diag':['诊断','Diagnostics'],'a.diagIssues':['诊断 Issues','Diag issues'],'a.bundles':['探针包','Probe bundles'],
- 'p.accounts':['账号','Accounts'],'p.accounts.h':['登录 · 同步','Login · sync'],
+ 
  'ac.total':['账号总数','Accounts'],'ac.login7':['7 日登录','Logged in 7d'],'ac.sessions':['在线会话','Live sessions'],'ac.records':['已同步记录','Synced records'],
  'ac.users':['已同步用户','Synced users'],'ac.byKind':['按类型同步','Sync by kind'],'d7':[' 7 日',' 7d'],
- 'p.community':['社区','Community'],'p.community.h':['榜单 · 论坛 · 社交','Board · forum · social'],
+ 
  'c.boardUsers':['榜单用户','Board users'],'c.share':[' {0} 人分享作品',' {0} share games'],'c.boardActive':['榜单活跃','Board active'],
  'c.chars':['阅读字数','Chars read'],'c.time':['阅读时长','Time read'],'c.games':['统计作品数','Games tracked'],
  'c.forum':['论坛','Forum'],'c.posts':['帖子','Posts'],'c.replies':['回复','Replies'],'c.authors':['作者','Authors'],
  'c.social':['社交','Social'],'c.profiles':['个人主页','Profiles'],'c.public':[' {0} 公开',' {0} public'],'c.follows':['关注','Follows'],
  'c.lookups':['查词','Lookups'],'c.lookupsv':[' {0} 词 · {1} 用户',' {0} words · {1} users'],'c.avatar':['头像 {0}','avatar {0}'],
- 'p.most':['最多阅读','Most read'],'p.most.h':['按字数','By characters'],
+ 
  't.title':['标题','Title'],'t.ppl':['人数','Ppl'],'t.chars':['字数','Chars'],'t.time':['时长','Time'],'t.seen':['最近','Seen'],
  't.why':['原因','Why'],'t.size':['大小','Size'],'t.state':['状态','State'],'t.full':['完整','full'],
- 'p.playing':['正在玩','Now playing'],'p.playing.h':['榜单 · 近 7 日','Board · last 7d'],'playing.none':['本周榜单上无人阅读','Nobody on the board read this week'],
- 'p.stor':['存储','Storage'],'p.stor.h':['R2 · 进行中的上传','R2 · uploads in flight'],
- 'st.r2used':['R2 已用','R2 used'],'st.dumps':['完整转储','Full dumps'],'st.contrib':['贡献','Contrib'],'st.bundles':['探针包','Probe bundles'],'st.diag':['诊断','Diagnostics'],
- 'st.total':['合计','Total'],'st.free':[' / 10 GB 免费额度',' / 10 GB free'],'st.inflight':['进行中','In flight'],'st.lastpart':[' · 最近分片 {0}',' · last part {0}'],
+ 'playing.none':['本周榜单上无人阅读','Nobody on the board read this week'],
+ 
+ 'st.r2used':['R2 已用','R2 used'],
+ 'st.free':[' / 10 GB 免费额度',' / 10 GB free'],'st.inflight':['进行中','In flight'],'st.lastpart':[' · 最近分片 {0}',' · last part {0}'],
  'st.byapp':['按应用版本的转储','Dumps by app version'],
- 'p.targets':['作品','Targets'],'p.targets.h':['按上报者','By reporters'],
- 'p.full':['完整转储','Full dumps'],'p.full.h':['r2://probe-full','r2://probe-full'],
+ 
+ 
  'f.ready':['就绪','Ready'],'f.uploading':['上传中','Uploading'],'f.done':['已完成','Done'],'f.stored':['已存储','Stored'],'f.avg':['平均每份','Avg / dump'],'f.last':['最近上传','Last upload'],
- 'p.log':['请求日志','Relay log'],'p.log.h':['延迟','Latency'],'log.lat':['延迟 {0}ms','Latency {0}ms'],
+ 'log.lat':['延迟 {0}ms','Latency {0}ms'],
  'log.attached':['会话已连接','session attached'],'log.failed':['所有节点均请求失败 · {0} 秒后重试','failed on every node · retry in {0}s'],
  'log.render':['面板渲染失败 {0}：{1}','render {0}: {1}'],'log.renderOk':['面板 {0} 已恢复','render {0} ok again'],'log.server':['服务端 {0}：{1}','server {0}: {1}'],
  'log.agg':['聚合数据暂不可用，{0} 秒后重试','aggregates unavailable, retry in {0}s'],
  'st.link':['在线','LIVE'],'st.down':['离线','DOWN'],'st.timeout':['超时','timeout'],'foot.ext':['聚合 {0}','ext {0}'],'foot.poll':['每 {0} 秒刷新','poll {0}s'],
  'ago.suf':['前',' ago'],'u.s':['{0} 秒','{0}s'],'u.m':['{0} 分钟','{0}m'],'u.h':['{0} 小时 {1} 分','{0}h{1}m'],'u.d':['{0} 天','{0}d'],
- 'waiting':[' 等待',' waiting'],'kept30':[' 保留 30 天',' kept 30d'],
- 'x.sizeRange':['大小范围','Size range'],
+ 
+ 
+ /* v2 layout copy: every card = title + one-sentence description + source */
+ 'src':['数据来源','Source'],
+ 'nav.overview':['概览','Overview'],'nav.calib':['校准与适配','Calibration'],'nav.comm':['社区','Community'],'nav.works':['作品与存储','Titles & storage'],
+ 'h.overview':['概览','Overview'],'h.calib':['校准与适配','Calibration & adapters'],'h.comm':['用户与社区','Users & community'],'h.works':['作品、存储与运行记录','Titles, storage & run log'],
+ 'hd.overview':['此刻有多少人在用，以及最近一天的变化','How many people are using MeguLit right now, and how the last day went'],
+ 'hd.calib':['适配库的进度、探针的状态，以及玩家回传的数据','Adapter library progress, probe health and data players send back'],
+ 'hd.comm':['账号、同步、榜单与论坛的使用量','Accounts, sync, leaderboard and forum activity'],
+ 'hd.works':['哪些作品被探测、存储用了多少、请求是否正常','Which titles were probed, how much storage is used, and whether requests are healthy'],
+ 'k.online':['当前在线','Online now'],'k.online.d':['近 10 分钟内有心跳的玩家，单位：人 · 页面打开后的峰值 {0}','Players with a heartbeat in the last 10 min, people · peak since this page opened {0}'],
+ 'k.a24':['24 小时活跃','Active in 24h'],'k.a24.d':['过去 24 小时出现过的玩家，单位：人','Players seen in the last 24 hours, people'],
+ 'k.today':['今日活跃','Active today'],'k.today.d':['今天出现过的玩家，单位：人 · 其中近 1 小时 {0} 人','Players seen today, people · {0} in the last hour'],
+ 'k.seed':['已收录作品','Games seeded'],'k.seed.d':['The Seed 适配库中的作品数 · 已确认 {0}%','Games in The Seed library · {0}% confirmed'],
+ 'k.probed':['已探测作品','Probed games'],'k.probed.d':['有玩家上报探针的作品数 · 共 {0} 位上报者','Games with player probe reports · {0} reporters'],
+ 'vs.poll':['较上次 {0}','{0} vs last poll'],
+ 'c.hour':['每小时在线人数','Online players per hour'],'c.hour.d':['过去 24 小时，每小时的在线人数，单位：人。悬停柱子查看具体数值。','The last 24 hours, online players per hour, people. Hover a bar for the exact value.'],
+ 'c.six':['近 6 小时走势','Last 6 hours'],'c.six.d':['每 10 分钟一个点的在线人数，单位：人。','Online players, one point per 10 minutes, people.'],
+ 'c.table':['表格视图','Table view'],'c.hourcol':['时间','Time'],'c.valcol':['人数','Players'],'c.unit':['{0} 人','{0} players'],
+ 'p.act':['玩家活跃','Player activity'],'p.act.d':['活跃玩家数与会话时长，单位：人 / 分钟。','Active players and session length, people / minutes.'],
+ 'p.quota2':['免费额度用量','Free-plan quota'],'p.quota2.d':['各项服务已用额度占上限的比例，超过 80% 标红。','Share of each free limit already used; over 80% turns red.'],
+ 'p.seed2':['The Seed 适配库','The Seed library'],'p.seed2.d':['已收录的作品与 exe 版本，按是否已被确认分类。','Games and exe versions in the library, split by whether they are confirmed.'],
+ 'p.cardinal2':['Cardinal 回放评分','Cardinal replay scores'],'p.cardinal2.d':['玩家回放后回传的评分：今日数量、升级为已验证、进入修复队列。','Scores sent back after replays: today\'s count, upgrades to verified, and repair-queue entries.'],
+ 'p.why2':['探针停在哪一步','Where probes stop'],'p.why2.d':['玩家上报的探针按步骤分布，以及探针质量，单位：份。','Player probe reports by step, plus probe quality, count.'],
+ 'p.adapters2':['适配包与上传','Adapter packs & uploads'],'p.adapters2.d':['适配包数量、举报，以及玩家贡献和诊断上传。','Adapter packs, reports, and player contributions and diagnostics.'],
+ 'p.accounts2':['账号与同步','Accounts & sync'],'p.accounts2.d':['注册账号、近 7 日登录，以及云同步的记录数。','Registered accounts, 7-day logins and cloud-sync records.'],
+ 'p.community2':['榜单、论坛与社交','Board, forum & social'],'p.community2.d':['阅读榜、论坛帖子、个人主页和查词的使用量。','Reading board, forum posts, profiles and word lookups.'],
+ 'p.playing2':['正在玩的作品','Being played now'],'p.playing2.d':['近 7 天榜单上有人阅读的作品，按最近阅读时间排序。','Titles read on the board in the last 7 days, newest first.'],
+ 'p.most2':['阅读最多的作品','Most-read titles'],'p.most2.d':['按累计阅读字数排名，单位：字。','Ranked by total characters read.'],
+ 'p.targets2':['探针作品','Probed titles'],'p.targets2.d':['按上报人数排序，附适配进度、完整转储大小和状态。','Sorted by reporters, with adapter step, full-dump size and state.'],
+ 'p.full2':['完整转储','Full dumps'],'p.full2.d':['玩家上传的完整探针包：就绪、上传中、已完成，以及 R2 占用。','Full probe bundles uploaded by players: ready, uploading, done, and R2 usage.'],
+ 'p.stor2':['存储占用','Storage'],'p.stor2.d':['R2 免费 10 GB 额度的构成，以及正在上传的任务。','What fills the 10 GB free R2 allowance, and uploads in flight.'],
+ 'p.log2':['请求日志','Request log'],'p.log2.d':['本页每 15 秒向两个节点拉取一次数据，记录状态与延迟，单位：毫秒。','This page polls both nodes every 15 s; status and latency in milliseconds.'],
+ 
+ 'lg.confirmed':['已确认（已验证 + 作者确认）','Confirmed (verified + owner-ok)'],'lg.waiting':['等待更多玩家（已读取 + 骨架）','Waiting for players (read + skeleton)'],
+ 
+ 
+ 'in.k.dumps':['完整转储','Full dumps'],'in.k.contrib':['贡献上传','Contributions'],'in.k.bundles':['探针包','Probe bundles'],'in.k.diag':['诊断','Diagnostics'],
+ 
+ 'pf.idle':['当前没有上传任务','No uploads in flight'],
  /* Seed admin (static parts) */
  'a.title':['The Seed 管理','The Seed admin'],'a.hint':['管理 · 需手动确认','admin · explicit actions'],'a.h2':['Seed 管理控制台','Seed admin console'],
  'a.token':['管理员凭证','Admin token'],'a.tokenph':['仅本页内存，不保存','Kept in page memory only, never saved'],'a.connect':['连接管理接口','Connect'],
