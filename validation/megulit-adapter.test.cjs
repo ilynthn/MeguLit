@@ -218,3 +218,12 @@ test('PR body: the request issue closes only with a verified seed (AGENTS.md: pa
  assert.deepEqual(Adapter.issueLine({answers:{issue:'1109'}},{status:'verified'}),['Fixes #1109','']);
  assert.deepEqual(Adapter.issueLine({answers:{issue:'#1109'}},{status:'skeleton'}),['Refs #1109','']);
  assert.deepEqual(Adapter.issueLine({answers:{}},{status:'verified'}),[]);});
+
+/* 2026-11-27 (PR #1304 CI: the-seed.test refused lines.json; seed-catalog-engines.test: the engine snapshot went stale with a new VNDB id) */
+test('publish: only what The Seed allows is copied, and the engine snapshot\'s seed-id print follows the seeds',()=>{
+ const d=tmp(),src=path.join(d,'seed'),dest=path.join(d,'repo','The Seed','nexas','x');const sha='a'.repeat(64);
+ fs.mkdirSync(path.join(src,'versions'),{recursive:true});for(const f of ['game.json','lines.json'])fs.writeFileSync(path.join(src,f),'{}');fs.writeFileSync(path.join(src,'versions',sha+'.json'),'{}');fs.writeFileSync(path.join(src,'versions','notes.txt'),'x');
+ Adapter.seedFiles(src,dest);assert.deepEqual(fs.readdirSync(dest).sort(),['game.json','versions']);assert.deepEqual(fs.readdirSync(path.join(dest,'versions')),[sha+'.json']);
+ assert.equal(Adapter.withSeedIds(" seedIds:'"+'0'.repeat(64)+"',\n",'f'.repeat(64))," seedIds:'"+'f'.repeat(64)+"',\n");
+ const Cat=require('../services/seed-catalog.cjs'),{snapshot}=require('../services/seed-catalog-engine-map.cjs');
+ assert.equal(Cat.seedIdsPrint(),snapshot.seedIds,'the bundled snapshot matches the seeds in this checkout');});

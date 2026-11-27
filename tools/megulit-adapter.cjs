@@ -165,13 +165,21 @@ function answer(out,args,{log=console.log}={}){const st=readState(path.resolve(o
 function sh(cmd,args,cwd){const r=spawnSync(cmd,args,{cwd,encoding:'utf8',windowsHide:true,timeout:300000});if(r.status!==0)throw Error(cmd+' '+args.join(' ')+': '+String(r.stderr||r.stdout||r.error?.message).slice(-400));return String(r.stdout||'').trim();}
 function addHandoffRow(text,row){const lines=text.split('\n');let at=-1,on=false;for(let i=0;i<lines.length;i++){if(/^##\s/.test(lines[i])){if(on)break;on=/已适配的游戏/.test(lines[i]);continue;}if(on&&/^\|/.test(lines[i]))at=i;}
  if(at<0)throw Error('HANDOFF.md has no 已适配的游戏 table');lines.splice(at+1,0,row);return lines.join('\n');}
+/* 2026-11-27 (アイキス3 sexy PR #1304, CI: the-seed.test 'unexpected file lines.json'; seed-catalog-engines.test: the engine-count
+   snapshot went stale) only what The Seed allows goes in (game.json, story.json, versions/<sha>.json; lines.json stays local), and the
+   snapshot's seed-id print (services/seed-catalog-engine-map.cjs snapshot.seedIds) is written from the checkout's seeds */
+function seedFiles(src,dest){fs.mkdirSync(path.join(dest,'versions'),{recursive:true});for(const f of ['game.json','story.json'])if(fs.existsSync(path.join(src,f)))fs.copyFileSync(path.join(src,f),path.join(dest,f));
+ let vs=[];try{vs=fs.readdirSync(path.join(src,'versions'));}catch{}for(const v of vs)if(/^[0-9a-f]{64}.json$/.test(v))fs.copyFileSync(path.join(src,'versions',v),path.join(dest,'versions',v));}
+function withSeedIds(text,print){return String(text).replace(/(seedIds:')[0-9a-f]{64}(')/,'$1'+print+'$2');}
+function refreshSeedIds(repo,run=spawnSync){const r=run(process.execPath,['-e',"process.stdout.write(require('./services/seed-catalog.cjs').seedIdsPrint())"],{cwd:repo,encoding:'utf8',windowsHide:true});
+ const print=String(r.stdout||'').trim();if(!/^[0-9a-f]{64}$/.test(print))return '';const f=path.join(repo,'services','seed-catalog-engine-map.cjs');const t=fs.readFileSync(f,'utf8'),n=withSeedIds(t,print);if(n===t)return '';fs.writeFileSync(f,n);return path.relative(repo,f);}
 function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(path.resolve(out));if(st.state!=='ready')throw Error('not ready to publish (state '+st.state+'); answer the questions first');
  if(!repo)throw Error('--repo <a MeguLit checkout on its own branch> is needed');const slug=path.basename(st.seed),dest=path.join(repo,'The Seed',st.engine,slug);
  const plan=['copy '+st.seed+' -> '+dest,'git add + commit "The Seed: '+st.title+'（MeguLit-Adapter）"','git push -u origin HEAD','gh pr create --body-file '+path.join(st.out,'pr-body.md'),'HANDOFF.md 已适配的游戏 += '+st.handoffRow+' (origin/main)'];
  if(!go){log('# dry run (add --go):');for(const p of plan)log('  '+p);return EXIT.done;}
  const branch=sh('git',['rev-parse','--abbrev-ref','HEAD'],repo);if(/^(main|master|HEAD)$/.test(branch))throw Error('the checkout is on '+branch+': make a branch first');
- fs.mkdirSync(dest,{recursive:true});fs.cpSync(st.seed,dest,{recursive:true});
- sh('git',['add','--',path.relative(repo,dest)],repo);sh('git',['commit','-m','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）'],repo);sh('git',['push','-u','origin','HEAD'],repo);
+ seedFiles(st.seed,dest);const map=refreshSeedIds(repo);
+ sh('git',['add','--',path.relative(repo,dest),...(map?[map]:[])],repo);sh('git',['commit','-m','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）'],repo);sh('git',['push','-u','origin','HEAD'],repo);
  const url=sh('gh',['pr','create','--title','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）','--body-file',path.join(st.out,'pr-body.md')],repo);log('# PR '+url);
  const wt=path.join(st.out,'handoff-wt');sh('git',['fetch','origin','main'],repo);sh('git',['worktree','add','--detach',wt,'origin/main'],repo);
  try{const f=path.join(wt,'HANDOFF.md');fs.writeFileSync(f,addHandoffRow(fs.readFileSync(f,'utf8'),st.handoffRow.replace(/（MeguLit-Adapter） \|$/,'（MeguLit-Adapter）'+url.replace(/.*\/pull\//,' PR #')+' |')));
@@ -190,4 +198,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={issueLine,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={issueLine,seedFiles,withSeedIds,refreshSeedIds,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
