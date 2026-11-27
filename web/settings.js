@@ -48,8 +48,8 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
  if(section==='personal'){openProfilePanel({api,locale,esc,toast,onClose:onProfileClose,openSettings:next=>{setSection(next);renderSettings({main,api,invoke,text,locale,esc,toast,heading,
   basicSettings,isCurrent,onSaved,onProfileClose,section:next,setSection,profile,setProfile}).catch(()=>toast(text.serviceFailed));}}).catch(()=>toast(text.serviceFailed));section='online';
   setSection(section);}
- if(section&&!data.groups.some(group=>group.id===section)&&!['data','account','novel-sources'].includes(section))section='general';
- const sectionName=id=>id==='general'?labels.general:id==='personal'?profileLabel[locale]||profileLabel.zh:id==='account'?accountLabel[locale]||accountLabel.zh:id==='data'?{
+ if(section&&!data.groups.some(group=>group.id===section)&&!['data','account','novel-sources','hotkeys'].includes(section))section='general';
+ const sectionName=id=>id==='hotkeys'?{zh:'热键',en:'Hotkeys',ja:'ホットキー'}[locale]:id==='general'?labels.general:id==='personal'?profileLabel[locale]||profileLabel.zh:id==='account'?accountLabel[locale]||accountLabel.zh:id==='data'?{
   zh:'数据与备份',en:'Data and backup',ja:'データ・バックアップ'}[locale]:id==='novel-sources'?discoverMessages(locale).settings:data.groups.find(g=>g.id===id)?.label[locale];
  if(savedCategories===null){for(const category of navigation)if(category.ids.includes(section))openCategories.add(category.ids[0]);}
  const navScroll=main.querySelector('.settings-nav')?.scrollTop??main.__settingsNavScroll??0;main.__settingsNavScroll=navScroll;
@@ -87,6 +87,9 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
   main,onSaved});}catch(error){console.warn('glass settings',error);}return;}
  if(section==='data'){const body=document.createElement('div');content.append(body);renderBackup({target:body,api,invoke,locale,esc,toast,onSaved});mountSettingsReset({
   target:body,api,locale,esc,toast,onSaved:async detail=>{delete main.__settingsData;await onSaved(detail);}});return;}
+ /* 2026-11-27 热键: the same panel as the Alt+T menu's 热键 page (web/hotkeys-panel.js) */
+ if(section==='hotkeys'){content.insertAdjacentHTML('beforeend',`<h2 class="settings-section-title">${esc(sectionName('hotkeys'))}</h2>`);const body=document.createElement('section');body.className='panel hotkeys-settings';content.append(body);
+  window.MeguHotkeys?.mountPanel?.(body,{lang:locale,load:()=>api('hotkeys_get'),save:changes=>api('hotkeys_save',{changes}),pause:paused=>api('hotkeys_pause',{paused}).catch(()=>{})});return;}
  /* E378 账号 page (web/account-ui.js) */
  if(section==='account'){const body=document.createElement('div');content.append(body);renderAccount({target:body,api,locale,esc,toast}).catch(()=>toast(text.serviceFailed));
   return;}

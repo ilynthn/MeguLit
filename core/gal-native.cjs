@@ -39,7 +39,9 @@ class GalNative {
     const pending=path.join(layout.native,'GalWindowBridge.updated.exe');
     if(fs.existsSync(pending)){try{fs.copyFileSync(pending,exe);fs.unlinkSync(pending);}catch{exe=pending;}}
     if (!fs.existsSync(exe)) { this.state.message = '窗口组件缺失，请完整解压新版启动包'; return; }
-    this.process = spawnNative(exe, [String(overlayPid),...(layout.overlayHwnd?[String(layout.overlayHwnd)]:[])], { cwd: layout.native, windowsHide: true, stdio: ['pipe','pipe','ignore'] });
+    /* the player's hotkeys (core/hotkeys.cjs) from the first moment, so a default key is never taken and given back */
+    let hotkeyEnv='';try{hotkeyEnv=require('./hotkeys.cjs').nativeEnv(this.folder);}catch{}
+    this.process = spawnNative(exe, [String(overlayPid),...(layout.overlayHwnd?[String(layout.overlayHwnd)]:[])], { cwd: layout.native, windowsHide: true, stdio: ['pipe','pipe','ignore'], env:{...process.env,MEGULIT_HOTKEYS:hotkeyEnv} });
     this.process.on('error', () => this.notify({ message: '窗口绑定组件无法启动，自动注音仍可使用' }));
     this.process.stdin.on('error', () => {});
     createInterface({ input: this.process.stdout }).on('line', line => {
@@ -52,7 +54,7 @@ class GalNative {
       if(message.type==='sceneShot'){const pending=this.mediaPending?.get('s'+message.id);if(pending){this.mediaPending.delete('s'+message.id);pending(message);}return;}
       if(message.type==='rawFrame'){const pending=this.mediaPending?.get('r'+message.id);if(pending){this.mediaPending.delete('r'+message.id);pending(message);}return;}if(message.type==='sceneFrame'||message.type==='sceneProbe'){const key=(message.type==='sceneFrame'?'f':'p')+message.id,pending=this.mediaPending?.get(key);if(pending){this.mediaPending.delete(key);pending(message);}return;}
       if(message.type==='mediaClip'){const pending=this.mediaPending?.get(String(message.id));if(pending){this.mediaPending.delete(String(message.id));pending(message);}return;}
-      if (message.type === 'ready') { this.artScanKey='';this.onEvent(message);this.send({ type: 'configure', ...this.preferences });this.send({type:'gameAudio',enabled:!!this.gameAudioWanted}); this.notify({ hotkey:message.hotkey, coverHotkey:message.coverHotkey, modeHotkey:message.modeHotkey, coverEnabled:message.coverEnabled, message:message.hotkey?'全局 Alt+T 已就绪，可选择并绑定游戏窗口':'全局 Alt+T 被占用，可在 ToMe 窗口内按 Alt+T' }); return; }
+      if (message.type === 'ready') { this.artScanKey='';this.onEvent(message);this.send({ type: 'configure', ...this.preferences });try{this.send(require('./hotkeys.cjs').nativeCommand(this.folder));}catch{}this.send({type:'gameAudio',enabled:!!this.gameAudioWanted}); this.notify({ hotkey:message.hotkey, coverHotkey:message.coverHotkey, modeHotkey:message.modeHotkey, coverEnabled:message.coverEnabled, message:message.hotkey?'全局 Alt+T 已就绪，可选择并绑定游戏窗口':'全局 Alt+T 被占用，可在 ToMe 窗口内按 Alt+T' }); return; }
       if(['normal','translation'].includes(message.interfaceMode)){if(this.pending)this.pending.interfaceMode=message.interfaceMode;this.save({...this.preferences,interfaceMode:message.interfaceMode},false);}
       if (message.type === 'bound' && message.processName) {this.artScanKey='';this.state={...this.state,...message}; /* 2026-11-19 the full program path is remembered with the name, so a game of another folder with the same program name (BGI.exe) is never auto-bound to this record; an old record learns its path at the first bind */const prev=this.pending||this.preferences;this.save({ ...prev, gameProcess: message.processName, gameExecutable: String(message.gameExecutable||(prev.gameProcess===message.processName?prev.gameExecutable||'':'')), bindEnabled: true }, false); this.pending=null; }
       if(message.type==='error')this.pending=null;
@@ -73,6 +75,8 @@ class GalNative {
       if(message.type==='artText'){if(this.preferences?.artText===true&&message.once!==true)this.onEvent(message);this.hooks.ocrLine(message);return;}
       if(message.type==='markerTarget'){this.hooks.markerTarget(message);this.onEvent({type:'markerDebug',markerDebug:message.active?`found at ${message.x},${message.y} ${message.width}x${message.height} in ${message.clientWidth}x${message.clientHeight}`:'not active'});return;}
       if (message.type === 'layout') { this.notify({ layout:message }); return; }
+      /* 2026-11-27 the bridge writes its hints with Alt+H / Alt+M; the player may have chosen other keys (core/hotkeys.cjs) */
+      if(typeof message.message==='string'&&/Alt\+[MTHL]/.test(message.message))try{message.message=require('./hotkeys.cjs').localize(this.folder,message.message);}catch{}
       this.notify(message);
     });
     this.process.on('exit', () => this.notify({ bound: false, message: '窗口绑定组件已退出，注音和翻译仍可使用' }));

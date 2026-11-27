@@ -123,7 +123,10 @@
     setStyle:'スタイル',styleA:'トップアイランド',styleB:'サイドレール',styleC:'コーナードット',
     descA:'画面上部中央。普段は細い線、ポインタを合わせるとクイックバーに。左右にドラッグ',descB:'左右の端に寄せて主なキーを常駐。ホバーで名前を表示。上下にドラッグ、中央を越えると反対側へ',
     descC:'隅の半透明の小さな点。クリックでショートカットと常駐スイッチ。四隅のどこかへ吸着',reset:'位置を戻す'}};
-  const t=k=>(T[window.__tomeI18n?.get?.()]||T.zh)[k]??T.zh[k];
+  /* 2026-11-27 the words name the default keys (Alt+T, Alt+H, L for the log); shown with the keys chosen in 热键 (web/hotkeys.js) */
+  const t=k=>{const v=(T[window.__tomeI18n?.get?.()]||T.zh)[k]??T.zh[k];return typeof v==='string'&&window.MeguHotkeys?window.MeguHotkeys.localize(v.replace(/（L）|\(L\)/,m=>m.replace('L','Alt+L'))):v;};
+  /* the key of an action as the capsule writes it: 'Alt T'; '' when the action has no key */
+  const keyOf=(action,fallback)=>{const H=window.MeguHotkeys;if(!H)return fallback;return H.get(action)?H.display(action).replace(/\+/g,' '):'';};
   const GLYPH={zh:{translate:'译',text:'字',calibrate:'校',log:'记',hide:'收'},ja:{translate:'訳',text:'字',calibrate:'校',log:'履',hide:'収'},en:{translate:'Tr',text:'Aa',calibrate:'Ca',log:'Lg',hide:'Tk'}};
   const glyph=k=>(GLYPH[window.__tomeI18n?.get?.()]||GLYPH.zh)[k];
   let gsap=window.gsap||null;const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -261,19 +264,19 @@
     const right=left.cloneNode();
     left.append(button('tab:translate',esc(t('translate'))),button('tab:text',esc(t('text'))),button('tab:calibrate',esc(t('calibrate'))));
     right.append(button('log',esc(t('log')),t('logTip')),button('tab:misc',esc(t('look')),t('lookTip')),Object.assign(document.createElement('i'),{className:'mg-cap-sep'}),button('fold',esc(t('hide')),t('hideTip')));
-    const brand=button('menu',DIAMOND+'<span>'+esc(t('brand'))+'</span><kbd>Alt T</kbd>',t('menuTip'));brand.classList.add('mg-cap-brand');brand.dataset.show='rest open';
+    const brand=button('menu',DIAMOND+'<span>'+esc(t('brand'))+'</span>'+(keyOf('menu','Alt T')?'<kbd>'+esc(keyOf('menu','Alt T'))+'</kbd>':''),t('menuTip'));brand.classList.add('mg-cap-brand');brand.dataset.show='rest open';
     surface.append(left,brand,right);
    }else if(s==='b'){
     const key=(act,glyph,label,k,title,show)=>{const b=button(act,'<span class="mg-cap-k">'+glyph+'</span><span class="mg-cap-l" data-show="open">'+esc(label)+(k?'<kbd>'+esc(k)+'</kbd>':'')+'</span>',title);b.dataset.show='rest open';return b;};
-    const brand=key('menu',DIAMOND,t('brand'),'Alt T',t('menuTip'));brand.classList.add('mg-cap-brand');
+    const brand=key('menu',DIAMOND,t('brand'),keyOf('menu','Alt T'),t('menuTip'));brand.classList.add('mg-cap-brand');
     const sep=()=>{const i=document.createElement('i');i.className='mg-cap-sep';i.dataset.show='rest open';return i;};
     surface.append(brand,sep(),key('tab:translate',esc(glyph('translate')),t('translate')),key('tab:text',esc(glyph('text')),t('text')),key('tab:calibrate',esc(glyph('calibrate')),t('calibrate')),sep(),
-     key('log',esc(glyph('log')),t('log'),'L',t('logTip')),key('fold',esc(glyph('hide')),t('hide'),'',t('hideTip')));
+     key('log',esc(glyph('log')),t('log'),keyOf('log','L'),t('logTip')),key('fold',esc(glyph('hide')),t('hide'),'',t('hideTip')));
    }else{
     const dot=button('card',DIAMOND,t('menuTip'));dot.className='mg-cap-dot';dot.dataset.show='idle rest open';dot.setAttribute('aria-expanded','false');
     const card=document.createElement('div');card.className='mg-cap-card';card.dataset.show='open';
     const head=document.createElement('div');head.className='mg-cap-head';head.innerHTML='<span>'+esc(t('brand'))+'</span><small>'+esc(t('cardTitle'))+'</small>';
-    const row=(act,key,label,go)=>button(act,(go?'<span class="mg-cap-go">›</span>':'<kbd>'+esc(key)+'</kbd>')+'<span>'+esc(label)+'</span>');
+    const row=(act,key,label,go)=>{/* the default key is the marker: menu / cover / log show the key the user set (web/hotkeys.js) */if(key&&(act==='menu'||act==='cover'||act==='log'))key=keyOf(act,key).replace(/ /g,'+');return button(act,(go?'<span class="mg-cap-go">›</span>':key?'<kbd>'+esc(key)+'</kbd>':'')+'<span>'+esc(label)+'</span>');};
     const pin=document.createElement('label');pin.className='mg-cap-pin';pin.innerHTML='<span>'+esc(t('pin'))+'</span>';
     const sw=document.createElement('input');sw.type='checkbox';sw.className='mg-cap-switch';sw.setAttribute('role','switch');sw.checked=prefs.on;sw.dataset.capPin='';pin.append(sw);
     const msg=document.createElement('div');msg.className='mg-cap-note';msg.setAttribute('role','status');msg.textContent=note;
@@ -547,6 +550,7 @@
   new MutationObserver(records=>{if(records.some(r=>!rootEl.contains(r.target)))schedule();}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open','data-menu-tab','data-open','data-leaving']});
   window.addEventListener('resize',()=>{if(!cur.visible)return;cur.g=null;layout(true);if(cur.state)go(cur.state,{force:true,instant:true});});
   window.addEventListener('tome-language-change',()=>{if(cur.visible)setPrefs({},{rebuild:true});else build();paintSettings();});
+  window.MeguHotkeys?.onChange(()=>{if(cur.visible)setPrefs({},{rebuild:true});else build();paintSettings();});
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&cur.style==='c'&&cur.state==='open'){go('rest');settle();}});
   document.fonts?.ready.then(()=>{if(cur.visible){cur.g=null;layout(true);if(cur.state)go(cur.state,{force:true,instant:true});}});
   build();

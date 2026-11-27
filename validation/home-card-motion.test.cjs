@@ -41,8 +41,8 @@ test('a change that interrupts a running one picks up from the screen, and quick
  const red=await mean(),green=[40,160,70];
  /* hold the first dissolve open (a slow CI machine takes seconds over the screenshot) so it is still running when it is interrupted */
  await evaluate(`document.querySelector('.tv-cover').style.setProperty('--tv-dissolve-ms','10000');1`);
- await page.chip(1);await sleep(1000);
- const before=await mean();await page.shot(SHOTS,'switch-1-before-interrupt',clip);
+ await page.chip(1);await sleep(600);
+ let before=await mean();for(let k=0;k<40&&dist(before,red)<=8;k++){await sleep(100);before=await mean();}await page.shot(SHOTS,'switch-1-before-interrupt',clip);
  assert.ok(dist(before,red)>8,'the change to the second game has started: '+JSON.stringify({before,red}));
  await evaluate(`document.querySelector('.tv-cover').style.removeProperty('--tv-dissolve-ms');1`);
  await page.chip(2);
@@ -119,6 +119,8 @@ test('with reduced motion a change is a short plain cross-fade',async t=>{
  await page.chip(1);await sleep(60);
  const mid=await evaluate(`[...document.querySelectorAll('.tv-cover .tv-dissolve')].map(e=>e.tagName)`);
  assert.deepEqual(mid,['DIV'],'one cross-fade layer, no grain canvas');
- await sleep(700);const s=await page.state(),m=await page.pixels(clip,MEAN);
+ /* the fade itself is short; how long a loaded CI machine takes to run it out is not what is measured */
+ const len=await evaluate(`document.querySelector('.tv-cover .tv-dissolve').getAnimations()[0].effect.getTiming().duration`);assert.ok(len<=300,'the cross-fade lasts a fraction of a second: '+len);
+ let s=await page.state();for(let k=0;k<40&&s.dissolve;k++){await sleep(100);s=await page.state();}const m=await page.pixels(clip,MEAN);
  assert.equal(s.dissolve,0,'the cross-fade is over quickly');assert.ok(dist(m,[40,160,70])<45,'the new cover shows: '+JSON.stringify(m));
 });

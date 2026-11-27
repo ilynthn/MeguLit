@@ -157,7 +157,9 @@ function relativeTime(timestamp){
 const datetime=timestamp=>timestamp?new Date(timestamp*1000).toLocaleString(locales[locale],{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):text.unknownTime;
 function duration(seconds){seconds=Math.max(0,Math.round(seconds||0));/* short sessions (79 s) used to floor to 1 min / 0 min */if(seconds<60)return `${seconds} ${({zh:"秒",ja:"秒",en:"s"})[locale]||"s"}`;const min=Math.round(seconds/60);return min>=60?`${Math.floor(min/60)} ${text.hours} ${min%60} ${text.minutes}`:`${min} ${text.minutes}`;
  }
-function toast(message){clearTimeout(toastTimer);const element=document.querySelector('#toast');element.textContent=message;element.classList.add('visible');toastTimer=setTimeout(()=>element.classList.remove('visible'),
+/* 2026-11-27 texts are written with the default keys (Alt+T…); shown with the ones chosen in 热键 (web/hotkeys.js) */
+const hk=t=>window.MeguHotkeys?window.MeguHotkeys.localize(t):t;
+function toast(message){clearTimeout(toastTimer);const element=document.querySelector('#toast');element.textContent=hk(message);element.classList.add('visible');toastTimer=setTimeout(()=>element.classList.remove('visible'),
  4600);}
 function errorMessage(error){const code=typeof error==='string'?error:error?.message;return ({LOCALE_EMULATOR_REQUIRED:({zh:'日文转区组件（Locale Emulator）没能装好：再点一次启动会自动重新安装；仍不行请把 logs\\locale-emulator.log 发给作者',
  en:'Locale Emulator could not be set up: press Start again to retry the automatic install; if it still fails, send logs\\locale-emulator.log',ja:'Locale Emulator を準備できませんでした。もう一度起動すると自動で再インストールします'}[locale]),
@@ -233,7 +235,7 @@ function readerNotice(error){const panel=document.querySelector('#reader-notice'
  panel.querySelector('span').textContent=label;panel.title=text;panel.querySelector('button').disabled=false;
  let detail=panel.querySelector('small');if(!detail){detail=document.createElement('small');detail.className='reader-notice-detail';panel.append(detail);}
  /* 2026-11-15 (user: 优化一下这里的排版): a bare SERVICE_FAILED was shown as the message; codes other than READER_* now read as a sentence and stay in the tooltip and the diagnostics */
- detail.textContent=code?((READER_HINTS[code]||{})[locale]||text)+' ('+code+')':(READER_HINTS[/SERVICE_FAILED/.test(text)?'SERVICE_FAILED':'OTHER'][locale]);
+ detail.textContent=hk(code?((READER_HINTS[code]||{})[locale]||text)+' ('+code+')':(READER_HINTS[/SERVICE_FAILED/.test(text)?'SERVICE_FAILED':'OTHER'][locale]));
  let copy=panel.querySelector('[data-reader-diagnostics]');
  if(readerFailures>=2&&!copy){copy=document.createElement('button');copy.type='button';copy.dataset.readerDiagnostics='';copy.textContent={zh:'复制诊断信息',en:'Copy diagnostics',
   ja:'診断情報をコピー'}[locale];copy.onclick=async()=>{const status=await api('reader_status').catch(e=>({error:String(e)}));const info=['MeguLit '+(document.querySelector('[data-app-version]')?.textContent||''),
@@ -1460,7 +1462,8 @@ async function start(){
      pendingHomeGame='';api('focus_game',{id}).catch(error=>toast(errorMessage(error)));}});if(callback)await invoke('plugin:event|listen',{event:'overlay-home',
      target:{kind:'Any'},handler:callback});const healthCallback=window.__TAURI_INTERNALS__?.transformCallback(response=>{const state=response.payload;if(state.ready)readerNotice('');
      else if(state.error)readerNotice(state.error);});if(healthCallback)await invoke('plugin:event|listen',{event:'reader-health',target:{kind:'Any'},handler:healthCallback});
-     const pendingCallback=window.__TAURI_INTERNALS__?.transformCallback(response=>{/* Alt+M binds the window in front: the result also shows here when the home window is up */if(response.payload?.type==='bindHotkeyResult'||response.payload?.type==='runningGameHint'){if(!document.hidden&&response.payload.message)toast(String(response.payload.message));return;}if(response.payload?.type==='sentence-saved'&&route==='learning'&&subtab==='sentences'){
+     api('hotkeys_get').then(state=>window.MeguHotkeys?.set(state?.bindings)).catch(()=>{});
+     const pendingCallback=window.__TAURI_INTERNALS__?.transformCallback(response=>{if(response.payload?.type==='hotkeys'){window.MeguHotkeys?.set(response.payload.bindings);return;}/* Alt+M binds the window in front: the result also shows here when the home window is up */if(response.payload?.type==='bindHotkeyResult'||response.payload?.type==='runningGameHint'){if(!document.hidden&&response.payload.message)toast(String(response.payload.message));return;}if(response.payload?.type==='sentence-saved'&&route==='learning'&&subtab==='sentences'){
      renderRoute();return;}if(response.payload.type==='bindPending'&&document.hasFocus())toast(({zh:'等待游戏窗口。游戏已打开时，也可以用 Alt+T 手动绑定窗口',en:'Waiting for a game window. Use Alt+T to select a game window manually.',
      ja:'ゲームウィンドウを待機中です。Alt+T で手動選択できます'})[locale]);});if(pendingCallback)await invoke('plugin:event|listen',{event:'reader-event',target:{kind:'Any'},handler:pendingCallback});
      await invoke('window_action',{action:'ready'});const metadataCallback=window.__TAURI_INTERNALS__?.transformCallback(async()=>{try{model=await api('home');if(route==='library')renderGames();

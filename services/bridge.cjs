@@ -711,6 +711,12 @@ async function dispatch(request,runtime=null) {
         values[KEY]=JSON.stringify({...saved,seen:true});fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(values,null,2));return {seen:true};
       }
       case 'save_preferences':{const preferences=savePreferences(request);runtime?.emit('reader-event',{type:'appearance',preferences});if(request.values?.language)runtime?.emit('reader-event',{type:'language',language:preferences.language});return preferences;}
+      /* 2026-11-27 Settings → 热键 (web/hotkeys-panel.js), also called by the Alt+T 热键 page */
+      case 'hotkeys_get':return require('../core/hotkeys.cjs').state(path.join(root,'data','config'));
+      case 'hotkeys_save':{const keys=require('../core/hotkeys.cjs'),folder=path.join(root,'data','config');keys.save(folder,request.changes);keys.publish(folder,runtime);return keys.state(folder);}
+      /* the log key chosen in the log page before 2026-11-27 (the reader's own storage) is taken over once */
+      case 'hotkeys_adopt_log':{const keys=require('../core/hotkeys.cjs'),folder=path.join(root,'data','config');if(keys.adoptLog(folder,request.value))keys.publish(folder,runtime);return keys.state(folder);}
+      case 'hotkeys_pause':runtime?.reader?.gal?.send?.({type:'hotkeysPause',paused:request.paused===true});return {paused:request.paused===true};
       case 'asset_get':return require('./assets.cjs').get(root,String(request.slot||'home'));
       case 'asset_preview':return require('./assets.cjs').preview(request.path);
       case 'asset_set':return require('./assets.cjs').set(root,String(request.slot||'home'),request.path);

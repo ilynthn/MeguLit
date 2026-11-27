@@ -31,10 +31,11 @@ async function openHome(t,{covers}){
  const page={send,evaluate,mouse,sleep,
   /* pointer path in small steps, like a hand */
   async glide(x0,y0,x1,y1,{steps=12,ms=16,buttons=0}={}){for(let k=1;k<=steps;k++){await mouse('mouseMoved',x0+(x1-x0)*k/steps,y0+(y1-y0)*k/steps,buttons);if(ms)await sleep(ms);}},
-  async click(x,y,count=1){await mouse('mouseMoved',x,y);await mouse('mousePressed',x,y,1,count);await mouse('mouseReleased',x,y,0,count);},
+  /* the events go out back to back and are awaited together: a loaded CI machine must not stretch the gap between the two clicks of a double-click past the 260 ms single-click delay */
+  async click(x,y,count=1){await Promise.all([mouse('mouseMoved',x,y),mouse('mousePressed',x,y,1,count),mouse('mouseReleased',x,y,0,count)]);},
   /* the strip can reflow when a new title lands, so a chip is measured right before it is pressed */
   async chip(i){const p=(await page.chips())[i];await page.click(p.x,p.y);},
-  async dblclick(x,y){await page.click(x,y,1);await page.click(x,y,2);},
+  async dblclick(x,y){await Promise.all([page.click(x,y,1),page.click(x,y,2)]);},
   cover:()=>evaluate(`(()=>{const r=document.querySelector('.tv-cover').getBoundingClientRect();return {l:r.left,t:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2};})()`),
   chips:()=>evaluate(`[...document.querySelectorAll('.tv-chip')].map(b=>{const r=b.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})`),
   state:()=>evaluate(`(()=>{const c=document.querySelector('.tv-cover');if(!c)return {home:!!document.querySelector('.tv-home')};const face=c.querySelector('.tv-face'),flip=c.querySelector('.tv-flip'),art=c.querySelector('.tv-art'),pop=document.querySelector('.tv-pop');

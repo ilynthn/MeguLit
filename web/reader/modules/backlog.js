@@ -9,30 +9,27 @@
  if(!document.documentElement||!document.body||!window.__tomoyoChinese){document.addEventListener('DOMContentLoaded',installBacklog,{once:true});return;}
  const b=window.__tomoyoChinese;if(b.backlogInstalled)return;b.backlogInstalled=true;
  const KEY='tomoyo-backlog-session',SETTINGS='tome-log-settings';
- const DEFAULTS={jpFont:'game',cnFont:'game',jpSize:18,trSize:14.5,lineHeight:1.75,showTr:true,showName:true,showTime:false,compact:false,width:800,height:88,opacity:100,keep:true,max:500,wheel:true,keyL:true,hotkey:'Alt+L'};
- /* 2026-11-26 (QQ #1130: plain L is many games' own shortcut). The log's global key is a combination the game does not use,
-    chosen here; plain L only works while the Alt+T menu (or the log) is open. '' = no global key. */
- const HOTKEYS=['Alt+L','Ctrl+Alt+L','Alt+Shift+L','Alt+B',''];
- const hotkeySpec=name=>{const parts=String(name||'').split('+'),letter=parts.pop()||'';if(!/^[A-Z]$/.test(letter))return {modifiers:0,key:0};
-  return {modifiers:(parts.includes('Alt')?1:0)|(parts.includes('Ctrl')?2:0)|(parts.includes('Shift')?4:0),key:letter.charCodeAt(0)};};
+ const DEFAULTS={jpFont:'game',cnFont:'game',jpSize:18,trSize:14.5,lineHeight:1.75,showTr:true,showName:true,showTime:false,compact:false,width:800,height:88,opacity:100,keep:true,max:500,wheel:true,keyL:true};
+ /* 2026-11-26 (QQ #1130: plain L is many games' own shortcut) the log has a global key the game does not use; plain L only works
+    while the Alt+T menu (or the log) is open. 2026-11-27 that key is chosen with the others on the 热键 page (web/hotkeys.js). */
  const T={
   zh:{title:'对话记录',count:'{n} 条',empty:'还没有记录。游戏里出现的台词和译文会保存在这里。',noMatch:'没有找到包含「{q}」的台词',hint:'滚轮向上打开 · Esc / 右键关闭',search:'搜索台词或译文',close:'关闭',settings:'记录设置',copy:'复制原文',copyTr:'复制译文',copied:'已复制',pending:'翻译中…',none:'未翻译',narration:'旁白',
    page:'对话记录（LOG）',pageNote:'调整 LOG 的外观和保存方式，改动立即生效。',open:'打开对话记录',preview:'预览',fonts:'字体',jpFont:'原文字体',cnFont:'译文字体',followGame:'跟随游戏原文字体',followCn:'跟随汉化 / 译文字体',followJp:'与原文相同',current:'当前：{f}',jpSize:'原文字号',trSize:'译文字号',lineHeight:'行距',
-   display:'显示',showTr:'显示译文',showName:'显示说话人',showTime:'显示时间',compact:'紧凑排列',panel:'面板',width:'宽度',height:'高度（占窗口）',opacity:'背景不透明度',keeping:'记录',keep:'重启后保留记录',max:'最多保留',wheel:'在台词上滚轮向上打开',keyL:'Alt+T 菜单开着时按 L 打开',hotkey:'打开 LOG 的快捷键',hotkeyOff:'不用快捷键',copyAll:'复制全部记录',clear:'清空记录',cleared:'已清空',confirmClear:'再点一次确认清空',
+   display:'显示',showTr:'显示译文',showName:'显示说话人',showTime:'显示时间',compact:'紧凑排列',panel:'面板',width:'宽度',height:'高度（占窗口）',opacity:'背景不透明度',keeping:'记录',keep:'重启后保留记录',max:'最多保留',wheel:'在台词上滚轮向上打开',keyL:'Alt+T 菜单开着时按 L 打开',hotkey:'打开 LOG 的快捷键',hotkeyWhere:'在「热键」页修改',copyAll:'复制全部记录',clear:'清空记录',cleared:'已清空',confirmClear:'再点一次确认清空',
    sampleName:'司',sampleSrc:'「ゆきはここでどんな表情でいるんだろ……」',sampleTr:'“雪在这里会是什么样的表情呢……”',sampleSrc2:'空がとても青かった。',sampleTr2:'天空非常蓝。'},
   en:{title:'Backlog',count:'{n} lines',empty:'Nothing yet. Lines from the game and their translations are kept here.',noMatch:'No line contains “{q}”',hint:'Scroll up to open · Esc or right-click to close',search:'Search lines or translations',close:'Close',settings:'Log settings',copy:'Copy line',copyTr:'Copy translation',copied:'Copied',pending:'Translating…',none:'Not translated',narration:'Narration',
    page:'Backlog (LOG)',pageNote:'How the log looks and what it keeps; changes apply at once.',open:'Open backlog',preview:'Preview',fonts:'Fonts',jpFont:'Original text font',cnFont:'Translation font',followGame:'Follow the game text font',followCn:'Follow the translation (patch) font',followJp:'Same as original',current:'now: {f}',jpSize:'Original size',trSize:'Translation size',lineHeight:'Line height',
-   display:'Display',showTr:'Show translations',showName:'Show speakers',showTime:'Show times',compact:'Compact',panel:'Panel',width:'Width',height:'Height (of window)',opacity:'Background opacity',keeping:'History',keep:'Keep the log after restarting',max:'Keep at most',wheel:'Wheel up over the line opens it',keyL:'L opens it while the Alt+T menu is open',hotkey:'Shortcut to open the log',hotkeyOff:'No shortcut',copyAll:'Copy whole log',clear:'Clear log',cleared:'Cleared',confirmClear:'Click again to clear',
+   display:'Display',showTr:'Show translations',showName:'Show speakers',showTime:'Show times',compact:'Compact',panel:'Panel',width:'Width',height:'Height (of window)',opacity:'Background opacity',keeping:'History',keep:'Keep the log after restarting',max:'Keep at most',wheel:'Wheel up over the line opens it',keyL:'L opens it while the Alt+T menu is open',hotkey:'Shortcut to open the log',hotkeyWhere:'Change it on the Hotkeys page',copyAll:'Copy whole log',clear:'Clear log',cleared:'Cleared',confirmClear:'Click again to clear',
    sampleName:'Tsukasa',sampleSrc:'「ゆきはここでどんな表情でいるんだろ……」',sampleTr:'“I wonder what kind of face Yuki makes here…”',sampleSrc2:'空がとても青かった。',sampleTr2:'The sky was very blue.'},
   ja:{title:'バックログ',count:'{n} 件',empty:'まだ記録はありません。ゲームのセリフと訳がここに残ります。',noMatch:'「{q}」を含むセリフはありません',hint:'ホイール上で開く · Esc / 右クリックで閉じる',search:'セリフや訳文を検索',close:'閉じる',settings:'ログ設定',copy:'原文をコピー',copyTr:'訳文をコピー',copied:'コピーしました',pending:'翻訳中…',none:'未翻訳',narration:'地の文',
    page:'バックログ（LOG）',pageNote:'ログの見た目と保存方法。変更はすぐ反映されます。',open:'バックログを開く',preview:'プレビュー',fonts:'フォント',jpFont:'原文フォント',cnFont:'訳文フォント',followGame:'ゲームの本文フォントに合わせる',followCn:'訳文（パッチ）フォントに合わせる',followJp:'原文と同じ',current:'現在：{f}',jpSize:'原文サイズ',trSize:'訳文サイズ',lineHeight:'行間',
-   display:'表示',showTr:'訳文を表示',showName:'話者を表示',showTime:'時刻を表示',compact:'詰めて表示',panel:'パネル',width:'幅',height:'高さ（ウィンドウ比）',opacity:'背景の不透明度',keeping:'記録',keep:'再起動後も残す',max:'最大件数',wheel:'セリフ上でホイール上で開く',keyL:'Alt+T メニューが開いている間は L キーで開く',hotkey:'ログを開くショートカット',hotkeyOff:'ショートカットなし',copyAll:'全件コピー',clear:'ログを消去',cleared:'消去しました',confirmClear:'もう一度押すと消去',
+   display:'表示',showTr:'訳文を表示',showName:'話者を表示',showTime:'時刻を表示',compact:'詰めて表示',panel:'パネル',width:'幅',height:'高さ（ウィンドウ比）',opacity:'背景の不透明度',keeping:'記録',keep:'再起動後も残す',max:'最大件数',wheel:'セリフ上でホイール上で開く',keyL:'Alt+T メニューが開いている間は L キーで開く',hotkey:'ログを開くショートカット',hotkeyWhere:'「ホットキー」ページで変更',copyAll:'全件コピー',clear:'ログを消去',cleared:'消去しました',confirmClear:'もう一度押すと消去',
    sampleName:'司',sampleSrc:'「ゆきはここでどんな表情でいるんだろ……」',sampleTr:'“雪在这里会是什么样的表情呢……”',sampleSrc2:'空がとても青かった。',sampleTr2:'天空非常蓝。'}};
  const t=(k,v={})=>{const lang=window.__tomeI18n?.get?.()||'zh';let s=(T[lang]||T.zh)[k]??T.zh[k]??k;for(const [a,x] of Object.entries(v))s=s.replace('{'+a+'}',x);return s;};
  let cfg={...DEFAULTS};try{cfg={...DEFAULTS,...JSON.parse(localStorage.getItem(SETTINGS)||'{}')};}catch{}
- if(!HOTKEYS.includes(cfg.hotkey))cfg.hotkey=DEFAULTS.hotkey;
  const saveCfg=()=>{try{localStorage.setItem(SETTINGS,JSON.stringify(cfg));}catch{}};
- const sendHotkey=()=>{try{window.__tomoyoTranslateRequest(JSON.stringify({type:'galBacklogHotkey',...hotkeySpec(cfg.hotkey)}));}catch{}};
+ /* a log key chosen here before 2026-11-27 moves to the hotkeys store once (core/hotkeys.cjs adoptLog keeps a key chosen there) */
+ if(typeof cfg.hotkey==='string'){const old=cfg.hotkey;delete cfg.hotkey;saveCfg();if(old!=='Alt+L')try{window.__tomoyoInvoke?.('service',{request:{action:'hotkeys_adopt_log',value:old}})?.catch?.(()=>{});}catch{}}
  const store=()=>cfg.keep?localStorage:sessionStorage;
  function normalizeTranslation(value){
  return typeof value==='string'?value.replace(/\\r\\n|\\n|<br\s*\/?>/gi,'\n'):value;
@@ -300,7 +297,7 @@
   const row=(label,control,extra)=>{const r=el('label','tome-log-row');r.append(el('span',null,label),control);if(extra)r.append(extra);return r;};
   const range=(key,min,max,step,fmt)=>{const i=el('input');i.type='range';i.min=min;i.max=max;i.step=step;i.value=cfg[key];const o=el('output');const show=()=>{o.textContent=fmt(Number(i.value));};show();i.oninput=()=>{cfg[key]=Number(i.value);show();changed();};return [i,o];};
   const toggle=(key,label)=>{const l=el('label');const c=el('input');c.type='checkbox';c.checked=!!cfg[key];c.onchange=()=>{cfg[key]=c.checked;if(key==='keep')persist();changed();};l.append(c,label);return l;};
-  const hotkey=el('select');for(const name of HOTKEYS)hotkey.add(new Option(name||t('hotkeyOff'),name));hotkey.value=cfg.hotkey;hotkey.onchange=()=>{cfg.hotkey=hotkey.value;changed();sendHotkey();};
+  const hotkey=el('button','tome-log-hotkey');hotkey.type='button';hotkey.dataset.noI18n='';const H=window.MeguHotkeys;hotkey.textContent=(H?H.display('log'):'Alt+L')+' · '+t('hotkeyWhere');hotkey.onclick=e=>{e.preventDefault();document.querySelector('.tomoyo-cn-dialog [data-menu-key=hotkeys]')?.click();};
   const toggles=(...items)=>{const g=el('div','tome-log-toggles');g.append(...items);return g;};
   const [jpSize,jpOut]=range('jpSize',12,30,.5,v=>v+'px'),[trSize,trOut]=range('trSize',10,26,.5,v=>v+'px'),[lh,lhOut]=range('lineHeight',1.3,2.4,.05,v=>v.toFixed(2));
   const [width,wOut]=range('width',520,1400,10,v=>v+'px'),[height,hOut]=range('height',40,100,1,v=>v+'%'),[opacity,oOut]=range('opacity',50,100,1,v=>v+'%');
@@ -313,7 +310,7 @@
    el('h4',null,t('fonts')),row(t('jpFont'),fontSelect('jp')),row(t('cnFont'),fontSelect('cn')),row(t('jpSize'),jpSize,jpOut),row(t('trSize'),trSize,trOut),row(t('lineHeight'),lh,lhOut),
    el('h4',null,t('display')),toggles(toggle('showTr',t('showTr')),toggle('showName',t('showName')),toggle('showTime',t('showTime')),toggle('compact',t('compact'))),
    el('h4',null,t('panel')),row(t('width'),width,wOut),row(t('height'),height,hOut),row(t('opacity'),opacity,oOut),
-   el('h4',null,t('keeping')),toggles(toggle('keep',t('keep')),toggle('wheel',t('wheel')),toggle('keyL',t('keyL'))),row(t('hotkey'),hotkey),row(t('max'),max),actions);
+   el('h4',null,t('keeping')),toggles(toggle('keep',t('keep')),toggle('wheel',t('wheel')),toggle('keyL',window.MeguHotkeys?window.MeguHotkeys.localize(t('keyL')):t('keyL'))),row(t('hotkey'),hotkey),row(t('max'),max),actions);
   host.replaceChildren(box);drawPreview();
  }
  // A LOG button in the Alt+T menu header opens this page; the page is (re)built whenever the menu is.
@@ -321,7 +318,8 @@
   if(header&&!header.querySelector('.tome-menu-close')){const btn=document.createElement('button');btn.type='button';btn.className='tome-menu-close';btn.dataset.noI18n='';btn.textContent='×';btn.title=t('close');btn.setAttribute('aria-label',t('close'));btn.onclick=e=>{e.stopPropagation();dialog.dispatchEvent(new Event('cancel',{cancelable:true}));};header.append(btn);}
   const host=dialog.querySelector('[data-menu-category=log]');if(host&&!host.querySelector('.tome-log-settings'))settingsPage(host);
   const tab=dialog.querySelector('[data-menu-key=log]');dialog.toggleAttribute('data-log-page',tab?.getAttribute('aria-selected')==='true');}
- new MutationObserver(decorate).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-selected']});decorate();sendHotkey();
+ new MutationObserver(decorate).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-selected']});decorate();
  addEventListener('tome-language-change',()=>{render();const host=document.querySelector('.tomoyo-cn-dialog[open] [data-menu-category=log]');if(host)settingsPage(host);});
- const status=b.galStatus;if(status)b.galStatus=m=>{status(m);if(m?.type==='ready')sendHotkey();if(m?.type==='backlogHotkey')b.toggleBacklog();if(m?.interfaceMode&&panel&&m.type==='interfaceMode')close();};
+ window.MeguHotkeys?.onChange(()=>{const host=document.querySelector('.tomoyo-cn-dialog[open] [data-menu-category=log]');if(host)settingsPage(host);});
+ const status=b.galStatus;if(status)b.galStatus=m=>{status(m);if(m?.type==='backlogHotkey')b.toggleBacklog();if(m?.interfaceMode&&panel&&m.type==='interfaceMode')close();};
 })();

@@ -542,7 +542,6 @@ class Reader{
    case 'galUnbind':Reader.prototype.clearGameVisuals.call(this);this.visualIdentity='';this.translator().clearContext();g?.save({...g.preferences,bindEnabled:false});this.stats.reset();break;
    case 'galMenu':/* opening and closing the menu both freeze every inferred hide/show (core/immersion.cjs), whatever the bridge reports */if(r.open===true)this.immersion?.context(false);this.immersion?.menu?.(r.open===true);g?.send({type:'menu',open:r.open===true});break;
    case 'galLookup':g?.send({type:'lookup',open:r.open===true});break;
-   case 'galBacklogHotkey':g?.send({type:'backlogHotkey',modifiers:Number(r.modifiers)|0,key:Number(r.key)|0});break;
    case 'galWheelDecision':if(Number.isSafeInteger(r.id))g?.send({type:'wheelDecision',id:r.id,panel:r.panel===true,panelUp:r.panelUp===true});break;
    case 'galFloatDrag':if([r.x,r.y].every(Number.isFinite))g?.send({type:'floatDrag',x:r.x,y:r.y});break;
    case 'galHitRegions':{

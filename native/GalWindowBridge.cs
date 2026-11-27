@@ -501,7 +501,7 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
        global key (Alt+L by default, chosen in the log settings, backlog.js), held only while a bound game (or MeguLit's layer) is
        in front in translation mode, so it is never taken from other programs; outside that the key stays theirs. */
     static uint BacklogMods,BacklogKey,BacklogHeldMods,BacklogHeldKey;
-    internal static bool BacklogKeyValid(uint mods,uint key){return key>=0x41&&key<=0x5A&&(mods&~7u)==0&&(mods&3)!=0;}
+    internal static bool BacklogKeyValid(uint mods,uint key){return BridgeHotkeys.KeyValid(mods,key);}
     internal static bool BacklogKeyWanted(bool configured,bool translation,bool bound,bool gameInFront){return configured&&translation&&bound&&gameInFront;}
     /* RRFZ #1175: a combination another program already holds is tried again only every 1.5 s, not on every 16 ms tick; a newly chosen one is tried at once */
     static uint BacklogFailedMods,BacklogFailedKey;static DateTime BacklogRetryAt=DateTime.MinValue;
@@ -510,13 +510,21 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         if(!BacklogKeyValid(mods,key)){mods=0;key=0;}BacklogMods=mods;BacklogKey=key;}
     static void BacklogHotkeyTick(bool noHotkeys){
         var front=GetForegroundWindow();front=front==IntPtr.Zero?IntPtr.Zero:GetAncestor(front,3);
-        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,3)||Overlay!=IntPtr.Zero&&front==GetAncestor(Overlay,3)));
+        bool want=!noHotkeys&&BacklogKeyWanted(BacklogKey!=0,TranslationMode,Target!=IntPtr.Zero,front!=IntPtr.Zero&&(front==GetAncestor(Target,3)||Overlay!=IntPtr.Zero&&front==GetAncestor(Overlay,3)))&&!BridgeHotkeys.Paused;
         if(want&&BacklogHeldKey==BacklogKey&&BacklogHeldMods==BacklogMods||!want&&BacklogHeldKey==0)return;
         if(BacklogHeldKey!=0){UnregisterHotKey(IntPtr.Zero,0x544);BacklogHeldKey=0;BacklogHeldMods=0;}
         if(!want||BacklogRetryWait(BacklogMods,BacklogKey,BacklogFailedMods,BacklogFailedKey,DateTime.UtcNow,BacklogRetryAt))return;
         if(want&&!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x544,BacklogMods|0x4000,BacklogKey)){BacklogHeldKey=BacklogKey;BacklogHeldMods=BacklogMods;BacklogFailedKey=0;BacklogFailedMods=0;}
         else{BacklogFailedKey=BacklogKey;BacklogFailedMods=BacklogMods;BacklogRetryAt=DateTime.UtcNow.AddMilliseconds(1500);}
     }
+    /* one place for what a key does, whether it came as WM_HOTKEY or from a mouse button (BridgeHotkeys) */
+    static void HotkeyAction(ulong id){if(id==0x544){Emit(new{type="backlogHotkey"});}else if(id==0x543){BindHotkey();}else if(id==0x542){ToggleCover();}else if(id==0x541){Emit(new{type="hotkey"});}}
+    static volatile bool HotkeysDirty;
+    /* the keys as wanted now; tells the service when menu / cover / bind became held or lost (E476 "Alt+T is taken") */
+    static void HotkeysApplied(bool noHotkeys,ref bool hotkey,ref bool coverHotkey,ref bool modeHotkey){BridgeHotkeys.ApplyGlobal(noHotkeys);bool h=!noHotkeys&&BridgeHotkeys.SlotOk(0),c=!noHotkeys&&BridgeHotkeys.SlotOk(1),m=!noHotkeys&&BridgeHotkeys.SlotOk(2);
+        if(h==hotkey&&c==coverHotkey&&m==modeHotkey)return;hotkey=h;coverHotkey=c;modeHotkey=m;Emit(new{type="hotkeyState",hotkey=h,coverHotkey=c,modeHotkey=m});}
+    /* a mouse key works only while the bound game, or MeguLit's own layer over it, is the window in front (called on the hook thread) */
+    static bool MouseKeysInFront(){IntPtr front=GetForegroundWindow();if(front==IntPtr.Zero)return false;front=GetAncestor(front,3);IntPtr t=Target,o=Overlay;return t!=IntPtr.Zero&&(front==GetAncestor(t,3)||o!=IntPtr.Zero&&front==GetAncestor(o,3));}
     static void ToggleCover(){
         if((DateTime.UtcNow-LastCoverToggle).TotalMilliseconds<180)return;
         LastCoverToggle=DateTime.UtcNow;CoverEnabled=!CoverEnabled;
@@ -609,6 +617,8 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         else if(type=="glass")GlassCommand(d);
         else if(type=="lookup"){bool open=Bool(d,"open");LookupOpen=open&&TranslationMode&&CoverEnabled;if(!open){LookupDragRegion=0;LookupGrip=null;}RefreshReaderPointer();}
         else if(type=="backlogHotkey")BacklogHotkeyConfigure(d);
+        else if(type=="hotkeys"){BridgeHotkeys.Configure(d);BacklogMods=BridgeHotkeys.LogMods;BacklogKey=BridgeHotkeys.LogKey;HotkeysDirty=true;}
+        else if(type=="hotkeysPause"){object p;BridgeHotkeys.Pause(d.TryGetValue("paused",out p)&&p is bool&&(bool)p);HotkeysDirty=true;}
         else if(type=="wheelDecision"){int id;if(PointerGate!=null&&Int32.TryParse(Str(d,"id"),out id))PointerGate.ResolveWheel(id,Bool(d,"panel"),Bool(d,"panelUp"));}
         else if(type=="quit")Running=false;
     }
@@ -923,8 +933,8 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
             if(!GameSceneProbe.SelfTest())return 6;
             if(!GameCapture.FreezeSelfTest())return 10;
             if(!GameAudio.ClientShotSelfTest())return 9;
-            /* the log key: Alt/Ctrl + a letter only; held only for a bound game in front in translation mode */
-            if(!BacklogKeyValid(1,0x4C)||!BacklogKeyValid(3,0x4C)||BacklogKeyValid(4,0x4C)||BacklogKeyValid(0,0x4C)||BacklogKeyValid(1,0x54+0x20)||BacklogKeyValid(9,0x4C)||
+            /* the log key: Alt / Ctrl / Win plus a key (BridgeHotkeys.KeyValid); held only for a bound game in front in translation mode */
+            if(!BacklogKeyValid(1,0x4C)||!BacklogKeyValid(3,0x4C)||BacklogKeyValid(4,0x4C)||BacklogKeyValid(0,0x4C)||BacklogKeyValid(16,0x4C)||BacklogKeyValid(17,0x4C)||!BacklogKeyValid(1,0x74)||!BridgeHotkeys.SelfTest()||
                !BacklogKeyWanted(true,true,true,true)||BacklogKeyWanted(false,true,true,true)||BacklogKeyWanted(true,false,true,true)||BacklogKeyWanted(true,true,false,true)||BacklogKeyWanted(true,true,true,false))return 11;
             {var t0=new DateTime(2026,1,1,0,0,0,DateTimeKind.Utc);if(!BacklogRetryWait(1,0x4C,1,0x4C,t0,t0.AddMilliseconds(1500))||BacklogRetryWait(1,0x4C,1,0x4C,t0.AddMilliseconds(1500),t0.AddMilliseconds(1500))||BacklogRetryWait(3,0x4C,1,0x4C,t0,t0.AddSeconds(1))||BacklogRetryWait(1,0x42,1,0x4C,t0,t0.AddSeconds(1))||BacklogRetryWait(0,0,0,0,t0,t0.AddSeconds(1)))return 11;}
             Command(new Dictionary<string,object>{{"type","backlogHotkey"},{"modifiers",1},{"key",0x4C}});if(BacklogKey!=0x4C||BacklogMods!=1)return 11;
@@ -965,19 +975,22 @@ if(args.Length==2&&args[0]=="--art-scan-file"){Console.OutputEncoding=Encoding.U
            in front and bound the wrong game; such a copy registers no global key at all, never retries and never ends other
            helpers. Unset, everything below runs as before (users never set it) */
         bool noHotkeys=Environment.GetEnvironmentVariable("MEGULIT_NO_HOTKEYS")=="1";
-        bool hotkey=!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x541,0x4001,0x54),coverHotkey=!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x542,0x4001,0x48),modeHotkey=!noHotkeys&&RegisterHotKey(IntPtr.Zero,0x543,0x4001,0x4d);
+        /* 2026-11-27 the keys are the player's (BridgeHotkeys.cs, core/hotkeys.cjs): Alt+T / Alt+H / Alt+M / Alt+L unless chosen otherwise */
+        BridgeHotkeys.ConfigureFromEnvironment();BacklogMods=BridgeHotkeys.LogMods;BacklogKey=BridgeHotkeys.LogKey;BridgeHotkeys.InFront=MouseKeysInFront;BridgeHotkeys.ApplyGlobal(noHotkeys);BridgeHotkeys.UpdateMouseHook(noHotkeys);
+        bool hotkey=!noHotkeys&&BridgeHotkeys.SlotOk(0),coverHotkey=!noHotkeys&&BridgeHotkeys.SlotOk(1),modeHotkey=!noHotkeys&&BridgeHotkeys.SlotOk(2);
         /* E476: a helper left running by another MeguLit folder (an older download) holds Alt+T: end it and take the keys */
         /* E540: side-by-side test copies (MEGULIT_SIDE_BY_SIDE=1, E530) share the PC with other MeguLit folders on purpose;
            ending their helpers unbound every other copy's game, so a side-by-side copy goes without Alt+T instead */
         bool sideBySide=Environment.GetEnvironmentVariable("MEGULIT_SIDE_BY_SIDE")=="1";
-        if(!sideBySide&&!noHotkeys&&(!hotkey||!coverHotkey||!modeHotkey)){if(EndForeignBridges()>0){Thread.Sleep(300);if(!hotkey)hotkey=RegisterHotKey(IntPtr.Zero,0x541,0x4001,0x54);if(!coverHotkey)coverHotkey=RegisterHotKey(IntPtr.Zero,0x542,0x4001,0x48);if(!modeHotkey)modeHotkey=RegisterHotKey(IntPtr.Zero,0x543,0x4001,0x4d);}}
+        if(!sideBySide&&!noHotkeys&&(!hotkey||!coverHotkey||!modeHotkey)){if(EndForeignBridges()>0){Thread.Sleep(300);BridgeHotkeys.ApplyGlobal(noHotkeys);hotkey=BridgeHotkeys.SlotOk(0);coverHotkey=BridgeHotkeys.SlotOk(1);modeHotkey=BridgeHotkeys.SlotOk(2);}}
         Emit(new{type="ready",hotkey=hotkey,coverHotkey=coverHotkey,modeHotkey=modeHotkey,coverEnabled=true,interfaceMode="normal"});
         DateTime nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);
         var input=new Thread(delegate(){string line;while((line=Console.ReadLine())!=null){try{var command=Json.Deserialize<Dictionary<string,object>>(line);if(Str(command,"type")=="glass"){GlassCommand(command);continue;}Commands.Enqueue(command);}catch{}}Running=false;});input.IsBackground=true;input.Start();
-        try{while(Running){Dictionary<string,object> command;while(Commands.TryDequeue(out command)){try{Command(command);}catch(Exception error){Emit(new{type="error",message=error.Message});}}Msg message;while(PeekMessage(out message,IntPtr.Zero,0,0,1)){if(message.message==0x0312)MaskAltRelease();if(message.message==0x0312&&message.wParam.ToUInt64()==0x544){Emit(new{type="backlogHotkey"});}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x543){BindHotkey();}else if(message.message==0x0312&&message.wParam.ToUInt64()==0x542){ToggleCover();}else if(message.message==0x0312){Emit(new{type="hotkey"});}else{TranslateMessage(ref message);DispatchMessage(ref message);}}try{ModeRequestTick();PickTick();Tick();}catch{}try{BacklogHotkeyTick(noHotkeys);}catch{}
+        try{while(Running){Dictionary<string,object> command;while(Commands.TryDequeue(out command)){try{Command(command);}catch(Exception error){Emit(new{type="error",message=error.Message});}}Msg message;while(PeekMessage(out message,IntPtr.Zero,0,0,1)){if(message.message==0x0312)MaskAltRelease();if(message.message==0x0312){HotkeyAction(message.wParam.ToUInt64());}else{TranslateMessage(ref message);DispatchMessage(ref message);}}int fired;while(BridgeHotkeys.Fired.TryDequeue(out fired))HotkeyAction((ulong)BridgeHotkeys.Ids[fired]);
+          if(HotkeysDirty||BridgeHotkeys.PauseChanged()){HotkeysDirty=false;HotkeysApplied(noHotkeys,ref hotkey,ref coverHotkey,ref modeHotkey);BridgeHotkeys.UpdateMouseHook(noHotkeys);}try{ModeRequestTick();PickTick();Tick();}catch{}try{BacklogHotkeyTick(noHotkeys);}catch{}
           /* E476: keys another program held are taken as soon as it lets go, so "not ready" heals by itself */
-          if(!noHotkeys&&(!hotkey||!coverHotkey||!modeHotkey)&&DateTime.UtcNow>=nextHotkeyTry){nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);bool was=hotkey&&coverHotkey&&modeHotkey;if(!hotkey)hotkey=RegisterHotKey(IntPtr.Zero,0x541,0x4001,0x54);if(!coverHotkey)coverHotkey=RegisterHotKey(IntPtr.Zero,0x542,0x4001,0x48);if(!modeHotkey)modeHotkey=RegisterHotKey(IntPtr.Zero,0x543,0x4001,0x4d);if(hotkey||coverHotkey||modeHotkey)Emit(new{type="hotkeyState",hotkey=hotkey,coverHotkey=coverHotkey,modeHotkey=modeHotkey});}
+          if(!noHotkeys&&(!hotkey||!coverHotkey||!modeHotkey)&&DateTime.UtcNow>=nextHotkeyTry){nextHotkeyTry=DateTime.UtcNow.AddSeconds(2);HotkeysApplied(noHotkeys,ref hotkey,ref coverHotkey,ref modeHotkey);}
           try{Glass.Follow(Overlay,TranslationMode&&Target!=IntPtr.Zero&&LayersMayFloat&&IsShown&&Overlay!=IntPtr.Zero&&IsWindowVisible(Overlay)&&!IsIconic(Overlay)&&!IsIconic(Target));}catch{}Thread.Sleep(Dragging?8:Target==IntPtr.Zero?250:16);}}
-        finally{RevealGame(Target);TopmostGuard.Uninstall();UninstallShowWatch();ForgetGame();if(HookVerifier!=null)HookVerifier.Dispose();Restore();TextMask.Dispose();WaitMarker.Dispose();MaskLayer.Dispose();Glass.Dispose();if(hotkey)UnregisterHotKey(IntPtr.Zero,0x541);if(coverHotkey)UnregisterHotKey(IntPtr.Zero,0x542);if(modeHotkey)UnregisterHotKey(IntPtr.Zero,0x543);if(BacklogHeldKey!=0)UnregisterHotKey(IntPtr.Zero,0x544);}return 0;
+        finally{RevealGame(Target);TopmostGuard.Uninstall();UninstallShowWatch();ForgetGame();if(HookVerifier!=null)HookVerifier.Dispose();Restore();TextMask.Dispose();WaitMarker.Dispose();MaskLayer.Dispose();Glass.Dispose();BridgeHotkeys.ReleaseAll();if(BacklogHeldKey!=0)UnregisterHotKey(IntPtr.Zero,0x544);}return 0;
     }
 }
