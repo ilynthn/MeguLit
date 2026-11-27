@@ -45,3 +45,16 @@ async function fullscreenRun(visible){const R=require('../services/cold-test-run
  await new Promise(r=>setTimeout(r,400));R.stopActive();const res=await p;fs.rmSync(dir,{recursive:true,force:true});return res;}
 test('visible run: the game\'s own full screen does not stop the run',async()=>{const r=await fullscreenRun(true);assert.notEqual(r.end,'fullscreen');assert.notEqual(r.stopped,'fullscreen');});
 test('hidden desktop: a full-screen app (the user playing) still stops the run',async()=>{const r=await fullscreenRun(false);assert.equal(r.end,'fullscreen');});
+
+/* ファタモルガーナの館 prologue: 'choice options filtered 2 -> 0' was counted as a choice; the driver answered it with Down + Enter and
+   a click, the game opened its config screen and the run stalled there */
+test('a choice the kernel filtered down to no option is no choice for the driver',async()=>{const R=require('../services/cold-test-run.cjs');
+ const dir=fs.mkdtempSync(path.join(process.env.MEGULIT_TMP||os.tmpdir(),'cold-choice-'));let H=null;
+ class Hook{constructor(){H=this.constructor;}configure(){}tick(){}stop(){}drawLog(){}}
+ const h=fakeHelper(emit=>{emit({type:'started',pid:7,started:'1'});emit({type:'window',hwnd:'9',w:800,h:600});});
+ const p=R.runOne({exe:'C:/g/fata_jp.exe',runDir:path.join(dir,'run'),budgetMs:600000},{spawn:h.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:5});
+ await until(()=>H&&typeof H.traceTap==='function');
+ H.traceTap('2026-11-27T00:18:42.178Z choice options filtered 2 -> 0');
+ H.traceTap('2026-11-27T00:19:42.178Z choice options filtered 3 -> 2');
+ R.stopActive();const res=await p;fs.rmSync(dir,{recursive:true,force:true});
+ assert.equal(res.choices,1,'only the choice that kept options counts');});
