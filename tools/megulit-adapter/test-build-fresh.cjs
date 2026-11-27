@@ -20,6 +20,7 @@ const COPIES=()=>process.env.MEGULIT_COPIES_ROOT||'H:\\MeguLit-Copies';
 const CONFIG_APP=()=>process.env.MEGULIT_APP||'E:\\MeguLit';
 const AUTO_BRANCH='feat/adapter-auto-pipeline';
 const OVERLAY=['core','services','web','The Seed','tools','setup'];
+const TEST_MODE_FILES=['services/update.cjs','services/relay-gate.cjs','services/bridge.cjs','web/app.js'];
 
 function run(cmd,args,opts={}){const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:1800000,maxBuffer:256<<20,...opts});
  if(r.status!==0)throw Error(path.basename(cmd)+' '+args.slice(0,3).join(' ')+' 失败：'+String(r.stderr||r.stdout||r.error?.message||'').trim().slice(-400));return String(r.stdout||'').trim();}
@@ -37,7 +38,11 @@ function tree(pr,log){const dir=path.join(COPIES(),'testbuild-src','pr-'+pr);
    spawnSync('git',['merge','--abort'],{cwd:dir,windowsHide:true});throw Error(ref+' 合到最新 main 有冲突：'+(files.join('、')||String(r.stderr).trim().slice(-200))+'；要人解决');}};
  merge('origin/pr/'+pr);
  const inMain=spawnSync('git',['merge-base','--is-ancestor','origin/'+AUTO_BRANCH,'HEAD'],{cwd:dir}).status===0;
- if(Number(pr)!==1318&&!inMain&&fs.existsSync(path.join(dir,'tools','megulit-adapter'))){try{merge('origin/'+AUTO_BRANCH);}catch(e){log('# 测试版模式（#1318）合不进来：'+e.message+'；更新器照旧，标签不显示');}}
+ /* the test-build mode (updater off, the label) while #1318 is not on main: only its own files, as a patch (the whole branch may
+    conflict with the PR's adapter changes, 1304: tools/megulit-adapter.cjs) */
+ if(Number(pr)!==1318&&!inMain){const diff=spawnSync('git',['diff','origin/main...origin/'+AUTO_BRANCH,'--',...TEST_MODE_FILES],{cwd:dir,encoding:'utf8',maxBuffer:64<<20}).stdout||'';
+  if(diff.trim()){const f=path.join(path.dirname(dir),'test-mode-'+pr+'.patch');fs.writeFileSync(f,diff);const a=spawnSync('git',['apply','--3way',f],{cwd:dir,encoding:'utf8',windowsHide:true});
+   if(a.status!==0){spawnSync('git',['checkout','-f','HEAD','--',...TEST_MODE_FILES],{cwd:dir,windowsHide:true});log('# 测试版模式（#1318）补不进来：'+String(a.stderr).trim().slice(-200)+'；更新器照旧，标签不显示');}}}
  const sha=r=>git(['rev-parse',r]);return {dir,main:sha('origin/main'),pr:sha('origin/pr/'+pr),head:sha('HEAD'),changed:git(['diff','--name-only','origin/main...origin/pr/'+pr]).split('\n').filter(Boolean)};}
 
 /* 2 the newest release, cached */
@@ -71,7 +76,8 @@ function build(o,{log=console.log}={}){const card=path.resolve(o.card),prev=(()=
   try{ps('Build-GalWindowBridge.ps1');for(const f of ['GalWindowBridge.exe','GalWindowBridge.updated.exe'])if(fs.existsSync(path.join(t.dir,'native',f))){fs.copyFileSync(path.join(t.dir,'native',f),path.join(target,'native','GalWindowBridge.exe'));break;}}catch(e){notes.push('GalWindowBridge 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
   /* a C++ part this PR changes: the PR session's own build, else main's (noted) */
   let comps=[];try{comps=JSON.parse(fs.readFileSync(path.join(t.dir,'native','native-builds.json'),'utf8'));}catch{}
-  for(const c of comps){if(/\.cs$/i.test(String(c.sources||'')))continue;const touched=t.changed.some(f=>(c.sources||[]).some(s=>f===s||f.startsWith(s.replace(/\\/g,'/')+'/')));if(!touched&&c.name!=='megulithook')continue;
+  /* C# components (sources *.cs) were built above from the merged tree, newer than any PR session's own build */
+  for(const c of comps){if((c.sources||[]).some(s=>/\.cs$/i.test(s)))continue;const touched=t.changed.some(f=>(c.sources||[]).some(s=>f===s||f.startsWith(s.replace(/\\/g,'/')+'/')));if(!touched&&c.name!=='megulithook')continue;
    const outs=(c.outputs||[]).filter(f=>/\.(dll|exe)$/i.test(f));let took=0;
    for(const out of outs){const rel=out.replace(/^native[\\/]/,'');const cands=[oldRoot&&path.join(oldRoot,'native',rel),oldRoot&&path.join(oldRoot,'runtime',rel),path.join(t.dir,out)].filter(Boolean);
     const from=touched?cands.find(f=>fs.existsSync(f)):null;if(from){fs.mkdirSync(path.dirname(path.join(target,'native',rel)),{recursive:true});fs.copyFileSync(from,path.join(target,'native',rel));if(/megulithook/i.test(rel)){fs.mkdirSync(path.join(target,'runtime','megulithook'),{recursive:true});fs.copyFileSync(from,path.join(target,'runtime','megulithook',path.basename(rel)));}took++;}}
