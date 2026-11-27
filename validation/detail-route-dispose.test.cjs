@@ -52,3 +52,24 @@ test('actual game-detail return cleans first-player and active collection mount'
   api:action=>action==='game_detail'?Promise.resolve(data):new Promise(()=>{}),onBack:noop,onEdit:noop,onLaunch:noop,toast:noop});
  assert.equal(styleLoads,1);assert.equal(typeof cleanup,'function');assert.deepEqual(events,[]);cleanup();assert.deepEqual(events,['focus.remove','firstPlayer.dispose','words.unmount']);
 });
+
+test('background route refresh preserves an open novel reader but navigation disposes it',async()=>{
+ const events=[];
+ const main={dataset:{},classList:{toggle(){},remove(){}},querySelector:()=>null,closest:()=>null};
+ const noop=()=>{};
+ const context={route:'novel',watchStage:()=>events.push('render'),document:{
+  querySelector:selector=>selector==='#main' || selector==='#main.nv-reading' ? main : null,
+  documentElement:{dataset:{},classList:{contains:()=>false}}
+ },window:{},stopHistoryTranslations:noop,pageToken:0,stageFor:()=>'',applyVeil:noop,syncStage:noop,
+  model:{preferences:{}},stopShelf:noop,stopGlow:noop,stopSimpleGrid:noop,stopField:noop,
+  mountNovel:async()=>{events.push('mount');return ()=>events.push('dispose');},
+  api:noop,invoke:noop,locale:'zh',text:{},esc:String,toast:noop,navigate:noop,
+  enhanceSelects:noop,dockPageTools:noop,moveTabInk:noop,alignSubtabs:noop,subtab:'',tabsGroup:null,pageEnter:noop,requestAnimationFrame:noop};
+ context.events=events;
+ vm.createContext(context);
+ vm.runInContext(routeSource+"\nstopDetailPage=()=>events.push('dispose');globalThis.render=renderRoute;",context);
+ await context.render();
+ assert.deepEqual(events,[]);
+ await context.render({navigation:true});
+ assert.deepEqual(events,['render','dispose','mount']);
+});

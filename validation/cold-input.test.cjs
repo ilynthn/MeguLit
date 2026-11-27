@@ -28,8 +28,8 @@ test('pngGray reads every row filter; screenChange counts the pixels that moved'
  const real='F:\\Agent\\work\\adapt-auto-runs\\Monochrome Empire\\run\\ocr-1.png';if(fs.existsSync(real)){const r=F.pngGray(fs.readFileSync(real));assert.ok(r&&r.w>100&&r.h>50,'decodes '+real);}});
 
 test('ladder: no change after a watched click goes one level up and sends it again; a change keeps the level',()=>{
- assert.deepEqual(F.ladder(),['post']);assert.deepEqual(F.ladder({inputCtl:true}),['post','inputctl']);assert.deepEqual(F.ladder({inputCtl:true,foreground:true}),['post','inputctl','sendinput']);
- const L=new F.Ladder(F.ladder({inputCtl:true,foreground:true}),{waitMs:1000,minChange:0.25});const click={do:'click',x:10,y:20,watch:'start'};
+ assert.deepEqual(F.ladder(),['post']);assert.deepEqual(F.ladder({inputCtl:true}),['post','inputctl']);assert.deepEqual(F.ladder({inputCtl:true,foreground:true,realInput:true}),['post','inputctl','sendinput']);
+ const L=new F.Ladder(F.ladder({inputCtl:true,foreground:true,realInput:true}),{waitMs:1000,minChange:0.25});const click={do:'click',x:10,y:20,watch:'start'};
  assert.equal(L.start(click,0,{lines:1}),true);assert.equal(L.start(click,10,{lines:1}),false,'one watch at a time');
  assert.equal(L.tick(500,{lines:1}),null);assert.deepEqual(L.tick(1000,{lines:1}),{need:'shot'});
  L.screen(0.02);const r=L.tick(1100,{lines:1});assert.deepEqual(r,{done:true,changed:false,resend:click});assert.equal(L.level,'inputctl');
@@ -78,11 +78,17 @@ test('run: without inputFallback (the app\'s idle cold test) only PostMessage, n
  const r=await alive(run.runOne({exe:'C:/g/x.exe',runDir:path.join(dir,'run'),budgetMs:60000},{spawn:desk.spawn,inputSpawn:()=>{spawned++;throw Error('no');},helper:'ColdDesk.exe',Hook:QuietHook,layout:{native:dir},tick:10,Driver:OneClick}));
  assert.ok(desk.sent.includes('click 512 400'));assert.ok(!desk.sent.some(l=>/inp-/.test(l)));assert.equal(spawned,0);assert.equal(r.input,undefined);});
 
-test('run: no testbed InputCtl → the ladder is PostMessage (+ SendInput on a visible run) and says why',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
+test('run: no testbed InputCtl → the ladder is PostMessage (+ SendInput on a visible run with real input allowed) and says why',async()=>{const run=require('../services/cold-test-run.cjs');const dir=tmp();
  const desk=fakeDesk(),inp=fakeInput();
- const r=await alive(run.runOne({exe:'C:/g/x.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:path.join(dir,'none'),foreground:true,ladder:{waitMs:100}}},{spawn:desk.spawn,inputSpawn:inp.spawn,helper:'ColdDesk.exe',Hook:QuietHook,layout:{native:dir},tick:10,Driver:OneClick}));
+ const r=await alive(run.runOne({exe:'C:/g/x.exe',runDir:path.join(dir,'run'),budgetMs:60000,inputFallback:{inputCtlDir:path.join(dir,'none'),foreground:true,realInput:true,ladder:{waitMs:100}}},{spawn:desk.spawn,inputSpawn:inp.spawn,helper:'ColdDesk.exe',Hook:QuietHook,layout:{native:dir},tick:10,Driver:OneClick}));
  assert.deepEqual(r.input.levels,['post','sendinput']);assert.equal(r.input.level,'sendinput');assert.match(r.input.errors[0],/no InputCtl32/);
  assert.ok(inp.sent.includes('fg click 512 400'));assert.ok(!inp.sent.some(l=>l.startsWith('init ')));});
+
+test('ladder: SendInput (the real mouse) only when real input is allowed; an engine that ignores posted input starts on InputShim (ハミダシクリエイティブ, Artemis)',()=>{
+ assert.deepEqual(F.ladder({inputCtl:true,foreground:true}),['post','inputctl'],'a visible run alone never moves the real mouse');
+ assert.deepEqual(F.ladder({inputCtl:true,foreground:true,from:'inputctl'}),['inputctl']);
+ assert.deepEqual(F.ladder({inputCtl:false,from:'inputctl'}),['post'],'no InputCtl: the ladder as it is');
+ const Cold=require('../tools/megulit-adapter/cold.cjs');assert.equal(Cold.inputFrom('artemis'),'inputctl');assert.equal(Cold.inputFrom('kirikiri'),'');});
 
 test('driver holdBlind: few lines and none for confirmAfter, no blind click until the OCR looked; then the start item is clicked',()=>{const {Driver}=require('../core/cold-test/drive.cjs');
  const W={w:1024,h:576},d=new Driver({holdBlind:true,confirmAfter:1000,advanceEvery:100,skip:false,introEvery:100});d.next({t:0,window:W});d.next({t:100,window:W,lines:1});
