@@ -45,7 +45,7 @@ async function withReader(fn){
   const tour=()=>cdp.evaluate(`(()=>{const c=document.querySelector('.mg-tour-card');if(!c||!c.getClientRects().length)return null;
    return {step:c.dataset.step,title:c.querySelector('.mg-tour-title')?.textContent||'',body:c.querySelector('.mg-tour-body')?.textContent||'',
     img:c.querySelector('.mg-tour-shot img')?.getAttribute('src')||'',dots:c.querySelectorAll('.mg-tour-dots i').length,
-    skip:c.querySelector('.mg-tour-skip')?.textContent||''};})()`);
+    skip:document.querySelector('.mg-tour-skip')?.textContent||''};})()`);
   const saved=()=>{try{return JSON.parse(JSON.parse(fs.readFileSync(uiFile,'utf8'))['tomoyo-onboarding']||'null');}catch{return null;}};
   await fn({cdp,launch,tour,saved,uiFile});
  }finally{await cdp?.stop();server?.close();await sleep(300);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}

@@ -68,7 +68,7 @@
 .mg-tour :focus-visible{outline:var(--mgc-focus,2px solid #d6a434);outline-offset:2px}
 @media (prefers-reduced-motion: reduce){.mg-tour-hole,.mg-tour-card,.mg-tour-dots i{transition:none!important}.mg-tour-hole::after,.mg-tour-wait::before{animation:none}}
 /* 教程 in the Alt+T header: quiet, sized to the × beside it; a red dot until the tour has been seen once */
-#mg-menu-tour{appearance:none;position:absolute;top:15px;right:44px;z-index:1;display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px!important;margin:0;
+#mg-menu-tour{appearance:none;position:absolute;top:15px;right:44px;z-index:1;display:inline-flex;align-items:center;gap:5px;height:24px!important;min-height:0!important;max-height:24px!important;box-sizing:border-box!important;padding:0 8px!important;margin:0;
  border:1px solid transparent!important;border-radius:6px!important;background:transparent!important;box-shadow:none!important;color:var(--mgc-ink-3,#8f8178)!important;
  font:500 12px/1 var(--mgc-ui,sans-serif)!important;letter-spacing:.04em;cursor:pointer;transition:color .16s ease,border-color .16s ease,background-color .16s ease!important}
 #mg-menu-tour svg{width:14px;height:14px;flex:none}
