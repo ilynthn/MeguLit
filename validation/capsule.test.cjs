@@ -7,8 +7,8 @@ const root=path.join(__dirname,'..'),core=require('../web/reader/modules/capsule
 const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 
 test('preferences default to style A, always shown, and clean bad values',()=>{
- assert.deepEqual(core.clean({}),{on:true,style:'a',a:{x:.5},b:{side:'right',y:.42},c:{corner:'tl'}});
- assert.deepEqual(core.clean({on:false,style:'c',a:{x:9},b:{side:'left',y:-1},c:{corner:'br'}}),{on:false,style:'c',a:{x:1},b:{side:'left',y:0},c:{corner:'br'}});
+ assert.deepEqual(core.clean({}),{on:true,style:'a',a:{x:.5},b:{side:'right',y:.42},c:{corner:'tl'},out:{on:false,x:0,y:0}});
+ assert.deepEqual(core.clean({on:false,style:'c',a:{x:9},b:{side:'left',y:-1},c:{corner:'br'}}),{on:false,style:'c',a:{x:1},b:{side:'left',y:0},c:{corner:'br'},out:{on:false,x:0,y:0}});
  assert.deepEqual(core.clean({style:'z',a:{x:null},b:{side:'top',y:'x'},c:{corner:'mid'}}),core.clean({}));
  assert.equal(core.KEY,'tomoyo-capsule','mirrored to ui-state.json like the other personal reader settings');
 });
