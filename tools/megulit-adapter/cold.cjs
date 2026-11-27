@@ -424,4 +424,4 @@ function reexecIfOldNode(entry,argv,app){
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
 function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+module.exports={buildColdDesk,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};

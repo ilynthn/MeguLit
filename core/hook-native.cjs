@@ -695,6 +695,9 @@ class HookNative{
      setting cannot help: each stream is judged by its text and locked once it is clearly one or the other. */
   if(m.sourceName&&m.origin!=='history')this.dialogueHook=String(m.sourceName);
   if(typeof m.text==='string'){const stream=name||m.sourceCode||m.sourceName||'';const fixed=(this.codepage||(this.codepage=new (require('./text-sanity.cjs').StreamCodepage)())).fix(stream,m.text);if(fixed.locked)this.trace('stream locked as '+fixed.pair+' '+JSON.stringify(String(stream).slice(0,60)));if(fixed.unreadable){this.trace('source dropped unreadable ('+this.codepage.mode(stream)+') '+JSON.stringify(m.text.slice(0,20)));return;}if(fixed.repaired){this.trace('source repaired '+fixed.pair+' '+JSON.stringify(fixed.text.slice(0,20)));m={...m,text:fixed.text};}}
+  /* 2026-11-27 (ISLAND live: the three options of a choice came as 「0 com01_selC_1 俺は俺だ」… on the source stream and waited as dialogue
+     for a draw that never came) select command records are the choice: offered to the choice detector, never a line (choice.selectRecords) */
+  if(typeof m.text==='string'&&m.origin!=='history'&&Profiles.get(this.profile,'choice.selectRecords',false)===true&&this.selectRecord(m.text))return;
   /* 2026-11-12 (ファタモルガーナの館: "……けれど……", drawn large in the middle of the opening, was hidden and shown as a subtitle
      at the bottom): while the engine says its text window is hidden, a line is art text. HookBridge leaves it to the game;
      here it goes to the art layer (invisible readable copy + translation where the game drew it), not to the subtitles. */
@@ -1168,6 +1171,12 @@ class HookNative{
    this.deliverSource(candidate.text,candidate.origin,'cs2',draw.line);
   }
  }
+ /* one select record (core/select-records.cjs): true when the text is one; a finished batch of two or more options goes to the choice
+    detector like a choice stream's frame (one option per row), then to the locate */
+ selectRecord(text){const SR=require('./select-records.cjs');const r=SR.parse(this.stripHookAnnotations?this.stripHookAnnotations(text):text);if(!r)return false;
+  this.selectBatch=this.selectBatch||new SR.SelectBatch({onChoice:options=>{this.trace('choice select records '+JSON.stringify(options));const C=this.choice||(this.choice=this.newChoiceCapture());
+   const added=C.add(options.join(String.fromCharCode(10)),this.lastSource,this.speaker?.text);if(!added.length)return;clearTimeout(this.choiceTimer);this.choiceTimer=setTimeout(()=>this.requestChoices(0),450);this.choiceTimer.unref?.();}});
+  this.selectBatch.add(r);return true;}
  queueIslandSource(text,origin){
   const key=IslandSource.token(text);this.islandSources.set(key,{text,origin,at:this.now()});
   if(this.islandSources.size>64)this.islandSources.delete(this.islandSources.keys().next().value);
