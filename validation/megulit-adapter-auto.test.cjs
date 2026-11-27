@@ -11,7 +11,9 @@
    - auto: the card has the shape of the owner's test bench (c1312.json) and the checklist names the copy, the exe and the
      side-by-side test build; the adapter's exit 3 / a new engine / an adapter without --tester stop with a stuck note; after a
      person answers, the ready adapter state is taken, not run again (replay bug); a rerun goes on from the first step not done
-   - the test build: no user data, the checkout's code on top, MEGULIT_SIDE_BY_SIDE=1
+   - the test build is ready on a double click (owner: 引导挡着、库是空的、翻译没配、Alt+T 被正式版占着): the installed app's settings,
+     translation config and key vault but not its library or database, a relocation marker naming the test root, 开始测试.cmd with
+     test-start.json (the game under the work's name); the exit command it sends the installed MeguLit; the card's first step is that cmd
    - the watch: only finished game orders with an issue, once each; --baseline marks without running; one watch at a time */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),zlib=require('node:zlib');
 const {spawnSync}=require('node:child_process');
@@ -98,7 +100,7 @@ function setup(t){const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:tr
  put(path.join(d,'queue','test-game.json'),'\uFEFF'+JSON.stringify({name:'test-game',task:'下载《テストゲーム》（中文名 测试游戏，VNDB v12345）',issue:77,result:'ok'}));
  const copy=path.join(d,'copies','test-game-auto');put(path.join(copy,'Game.exe'),'e');
  const install=async()=>({ok:true,dir:copy,exe:path.join(copy,'Game.exe'),how:'copy',steps:['复制成自己的副本'],updates:[],notes:['外挂汉化整包：用日文原版 Game.exe']});
- const testBuild=({target})=>{put(path.join(target,'start-test-megulit.cmd'),'set MEGULIT_SIDE_BY_SIDE=1');return {dir:path.join(target,'MeguLit'),cmd:path.join(target,'start-test-megulit.cmd')};};
+ const testBuild=({target})=>{put(path.join(target,'开始测试.cmd'),'x');return {dir:path.join(target,'MeguLit'),cmd:path.join(target,'开始测试.cmd')};};
  return {d,dl,copy,install,testBuild,logs:[]};}
 
 test('auto: a download runs to a card of the test bench shape and a checklist; the PR body gets Refs #issue',async t=>{const s=setup(t);
@@ -112,11 +114,11 @@ test('auto: a download runs to a card of the test bench shape and a checklist; t
  assert.match(fs.readFileSync(path.join(s.d,'auto','runs','test-game','adapter','pr-body.md'),'utf8'),/Refs #77/);
  const card=JSON.parse(fs.readFileSync(path.join(s.d,'req','cards','4321.json'),'utf8'));
  assert.deepEqual(Object.keys(card),['id','title','sub','game','app','steps','checks','order','done']);
- assert.equal(card.id,'4321');assert.equal(card.title,'テストゲーム');assert.equal(card.game,path.join(s.copy,'Game.exe'));assert.equal(card.app,path.join(s.d,'copies','testbuild-4321','start-test-megulit.cmd'));
+ assert.equal(card.id,'4321');assert.equal(card.title,'テストゲーム');assert.equal(card.game,path.join(s.copy,'Game.exe'));assert.equal(card.app,path.join(s.d,'copies','testbuild-4321','开始测试.cmd'));assert.match(card.steps[0],/双击开始测试\.cmd，游戏会自己打开/);assert.doesNotMatch(card.steps.join(),/添加/);
  assert.equal(card.checks.length,3);assert.match(card.checks[0][1],/原文/);assert.match(card.checks[1][1],/换一句/);assert.match(card.checks[2][1],/选项.*中文/);
  assert.equal(card.done,false);assert.ok(card.steps.length>=3);
  const md=fs.readFileSync(path.join(s.d,'req','4321-test-game.md'),'utf8');
- assert.match(md,/start-test-megulit\.cmd/);assert.match(md,/MEGULIT_SIDE_BY_SIDE=1/);assert.match(md,/test-game-auto/);assert.match(md,/不要用汉化启动器/);assert.doesNotMatch(md,/目录：`X`/);
+ assert.match(md,/开始测试\.cmd/);assert.match(md,/释放 Alt\+T/);assert.match(md,/test-game-auto/);assert.match(md,/不要用汉化启动器/);assert.doesNotMatch(md,/目录：`X`/);
  assert.equal(fs.existsSync(path.join(s.d,'req','stuck','test-game.md')),false);
  /* a rerun does nothing again */
  const n=A.calls.length;assert.equal(await Auto.auto({dir:s.dl,name:'test-game',issue:77,publish:true},{log:()=>{},deps:{install:s.install,adapter:A.fn,testBuild:s.testBuild,checkout:()=>path.join(s.d,'repo')}}),0);assert.equal(A.calls.length,n);});
@@ -153,15 +155,34 @@ test('auto meta: the work from the queue order and SOURCE.txt; a title alone is 
  await Auto.auto({dir:s.dl,name:'test-game',pr:5},{log:()=>{},deps:{install:s.install,adapter:A.fn,testBuild:s.testBuild,checkout:()=>'',vndb:async a=>{seen.push(a.title);return {vndb:'v999',cn:'中'};}}});
  assert.deepEqual(seen,['テストゲーム']);assert.ok(A.calls[0].includes('v999'));});
 
-test('test build: the installed MeguLit without user data, the checkout code on top, side by side',{skip:process.platform!=='win32'},t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
- const app=path.join(d,'app'),repo=path.join(d,'repo'),target=path.join(d,'testbuild-1');
- put(path.join(app,'MeguLit.exe'),'exe');put(path.join(app,'core','a.cjs'),'old');put(path.join(app,'native','HookBridge.exe'),'hb');
+test('test build: ready on a double click — the installed settings and keys but not its library, the game under its own name, side by side',{skip:process.platform!=='win32'},t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ const app=path.join(d,'app'),repo=path.join(d,'repo'),target=path.join(d,'testbuild-1312'),game=path.join(d,'copies','Ozmafia-ozmafia-joki','ozmafia.exe');put(game,'g');
+ put(path.join(app,'MeguLit.exe'),'exe');put(path.join(app,'core','a.cjs'),'old');put(path.join(app,'native','HookBridge.exe'),'hb');put(path.join(app,'runtime','node.exe'),'node');
  for(const u of ['data','cache','logs','secrets'])put(path.join(app,u,'user.json'),'private');
+ put(path.join(app,'data','megulit.sqlite'),'library db');put(path.join(app,'data','preferences.json'),'{"language":"zh"}');put(path.join(app,'data','megulit-relocation.json'),JSON.stringify({root:app}));
+ put(path.join(app,'data','config','translation-profiles.json'),'{"provider":"deepseek"}');put(path.join(app,'data','config','secrets.dpapi'),'vault');put(path.join(app,'data','config','account','profile.json'),'{}');
+ put(path.join(app,'data','config','library.json'),'{"folders":["E:\\\\gal"]}');
  put(path.join(repo,'core','a.cjs'),'new');put(path.join(repo,'The Seed','yuris','g','game.json'),'{}');
- const r=Auto.testBuild({app,repo,target});
+ const r=Auto.testBuild({app,repo,target,exe:game,title:'OZMAFIA!!',pr:1312});
  assert.equal(fs.readFileSync(path.join(r.dir,'core','a.cjs'),'utf8'),'new');assert.ok(fs.existsSync(path.join(r.dir,'The Seed','yuris','g','game.json')));assert.ok(fs.existsSync(path.join(r.dir,'native','HookBridge.exe')));
  for(const u of ['data','cache','logs','secrets'])assert.equal(fs.existsSync(path.join(r.dir,u,'user.json')),false,u);
- const cmd=fs.readFileSync(r.cmd,'utf8');assert.match(cmd,/set MEGULIT_SIDE_BY_SIDE=1/);assert.match(cmd,/MEGULIT_ROOT=%~dp0MeguLit/);assert.equal(path.basename(r.cmd),'start-test-megulit.cmd');});
+ /* the tester's own settings, translation config and key vault come along; not the installed library (scan folders) or database */
+ const cfg=path.join(r.dir,'data','config');
+ assert.equal(fs.readFileSync(path.join(cfg,'translation-profiles.json'),'utf8'),'{"provider":"deepseek"}');assert.equal(fs.readFileSync(path.join(cfg,'secrets.dpapi'),'utf8'),'vault');
+ assert.ok(fs.existsSync(path.join(cfg,'account','profile.json')));assert.ok(fs.existsSync(path.join(r.dir,'data','preferences.json')));
+ assert.equal(fs.existsSync(path.join(cfg,'library.json')),false);assert.equal(fs.existsSync(path.join(r.dir,'data','megulit.sqlite')),false);
+ assert.equal(JSON.parse(fs.readFileSync(path.join(r.dir,'data','megulit-relocation.json'),'utf8')).root,r.dir,'the marker names the test root, not the installed one');
+ /* one double click: 开始测试.cmd runs test-start.cjs with the build's own node; the game goes in under the work's name */
+ assert.equal(path.basename(r.cmd),'开始测试.cmd');const cmd=fs.readFileSync(r.cmd,'utf8');assert.match(cmd,/runtime\\node\.exe/);assert.match(cmd,/test-start\.cjs/);assert.doesNotMatch(cmd,/[^\x00-\x7f]/,'the cmd stays ASCII');
+ const cfgJson=JSON.parse(fs.readFileSync(path.join(target,'test-start.json'),'utf8'));assert.deepEqual([cfgJson.root,cfgJson.exe,cfgJson.title],[r.dir,game,'OZMAFIA!!']);assert.ok(cfgJson.port>=9300&&cfgJson.port<9900);
+ assert.ok(fs.existsSync(path.join(target,'test-start.cjs')));
+ /* a second card on the same build (#1312 on #1303's build) gets its own folder and port */
+ const second=Auto.readyBuild(path.join(d,'testbuild-1303'),{root:r.dir,app,exe:game,title:'ハミダシクリエイティブ',pr:1303});assert.notEqual(second.port,cfgJson.port);});
+
+test('test start: the installed MeguLit is asked to exit through its own command file (Alt+T freed), nothing killed',t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ const TS=require('../tools/megulit-adapter/test-start.cjs');TS.askExit(d);
+ const c=JSON.parse(fs.readFileSync(path.join(d,'cache','desktop-command.json'),'utf8'));assert.equal(c.command,'exit');assert.ok(c.nonce);
+ assert.deepEqual(fs.readdirSync(path.join(d,'cache')),['desktop-command.json'],'written whole (no temp file left)');});
 
 test('watch: finished game orders with an issue run once; baseline marks without running; one watch at a time',async t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
  const q=path.join(d,'done'),state=path.join(d,'auto','watch-state.json');

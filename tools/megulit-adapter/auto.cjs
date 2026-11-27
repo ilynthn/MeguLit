@@ -74,14 +74,36 @@ function checkout({short,pr=0,root},{git=sh}={}){const dir=path.join(root,'adapt
 const SKIP_DIRS=['cache','data','logs','secrets','migration','validation'];
 const OVERLAY=['core','services','web','The Seed','tools'];
 function robocopy(from,to,extra=[]){const r=spawnSync('robocopy',[from,to,'/E','/XJ','/NFL','/NDL','/NJH','/NJS','/NP','/R:1','/W:1',...extra],{windowsHide:true,timeout:1800000});if(r.status===null||r.status>=8)throw Error('robocopy '+from+' -> '+to+' failed ('+r.status+')');}
-function testBuild({app,repo,target},{copy=robocopy}={}){const megulit=path.join(target,'MeguLit');
+/* 2026-11-27 (owner, after the first test builds: 引导弹窗挡着、库是空的、翻译没配、Alt+T 被正式版占着 -> 测不了) a test build is ready the
+   moment it is double-clicked: readyBuild(<card folder>, {root, app, exe, title, pr})
+     - <root>\data gets the installed MeguLit's preferences.json and data\config (translation settings, the DPAPI key vault, the account:
+       this PC's own user, never in the repository), not its library.json (its scan folders would pull the whole library in) nor its
+       database; a fresh megulit-relocation.json names this root, so nothing rewrites paths
+     - <card folder>\test-start.json + test-start.cjs + 开始测试.cmd: closes the other MeguLit instances through their command file,
+       starts this one side by side with a debugging port, adds the game under the work's name (never the copy's folder name) and
+       clicks its 「开始」 (tools/megulit-adapter/test-start.cjs)
+   A card folder may point at another card's build (OZMAFIA!! #1312 sits on #1303's branch and build). */
+const READY_SKIP_CONFIG=/^(library\.json|.*\.rollback-.*|.*\.bak-.*)$/i;
+function portOf(pr){return 9300+(Number(pr)||0)%600;}
+function readyBuild(card,{root,app,exe,title,pr}){if(!fs.existsSync(path.join(root,'MeguLit.exe')))throw Error('找不到测试版 MeguLit：'+root);
+ const data=path.join(root,'data'),cfg=path.join(data,'config');fs.mkdirSync(cfg,{recursive:true});
+ const from=path.join(app,'data','config');if(fs.existsSync(from))for(const e of fs.readdirSync(from,{withFileTypes:true})){if(READY_SKIP_CONFIG.test(e.name))continue;
+  fs.cpSync(path.join(from,e.name),path.join(cfg,e.name),{recursive:true,force:true});}
+ for(const f of ['preferences.json'])if(fs.existsSync(path.join(app,'data',f)))fs.copyFileSync(path.join(app,'data',f),path.join(data,f));
+ fs.writeFileSync(path.join(data,'megulit-relocation.json'),JSON.stringify({schema:1,root,migratedAt:new Date().toISOString()}));
+ fs.mkdirSync(card,{recursive:true});fs.copyFileSync(path.join(__dirname,'test-start.cjs'),path.join(card,'test-start.cjs'));
+ fs.writeFileSync(path.join(card,'test-start.json'),JSON.stringify({root,exe,title,port:portOf(pr),pr:String(pr||'')},null,1)+'\n');
+ const node=fs.existsSync(path.join(root,'runtime','node.exe'))?path.join(root,'runtime','node.exe'):'node';
+ const cmd=path.join(card,'开始测试.cmd');
+ fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test: closes the installed MeguLit, opens this test build, starts the game from it\r\n"'+node+'" "%~dp0test-start.cjs" "%~dp0."\r\nif errorlevel 1 pause\r\n');
+ return {cmd,port:portOf(pr)};}
+function testBuild({app,repo,target,exe,title,pr},{copy=robocopy}={}){const megulit=path.join(target,'MeguLit');
  if(!fs.existsSync(path.join(app,'MeguLit.exe')))throw Error('找不到安装版 MeguLit：'+app);
  copy(app,megulit,['/XD',...SKIP_DIRS.map(d=>path.join(app,d)),'/XF','*.rollback-*','*.bak-*']);
  for(const d of OVERLAY)if(fs.existsSync(path.join(repo,d)))copy(path.join(repo,d),path.join(megulit,d));
  for(const d of ['data','logs','cache'])fs.mkdirSync(path.join(megulit,d),{recursive:true});
- const cmd=path.join(target,'start-test-megulit.cmd');
- fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test build (side by side: the installed MeguLit keeps running)\r\nset MEGULIT_SIDE_BY_SIDE=1\r\nset MEGULIT_ROOT=%~dp0MeguLit\r\nstart "" "%~dp0MeguLit\\MeguLit.exe"\r\n');
- return {dir:megulit,cmd};}
+ const r=readyBuild(target,{root:megulit,app,exe,title,pr});
+ return {dir:megulit,cmd:r.cmd,port:r.port};}
 
 /* ---- the tester's checklist and the owner's card ------------------------------------------------------------------- */
 const CHECKS=[['c1','对话框里的日文原文藏住了，没有残留','第一句先露一下再藏是故意的；说话人名牌可以留着'],['c2','阅读层日文和中文都在，点一下游戏就换一句，不停在旧句、不跳句',''],['c3','第一个选项：每个选项都有中文，点中文选项能选中','选项画面务必截图']];
@@ -90,7 +112,7 @@ function checklist(a){const L=[];L.push('# '+a.pr+' '+a.title+' 实测清单（a
  '- 作品：'+a.title+(a.vndb?'（VNDB '+a.vndb+(a.release?'，'+a.release:'')+'）':'')+'，引擎 '+(a.engine||'?'),
  '- 来源：'+a.src,'','## 游戏副本','','- 目录：`'+a.copy+'`','- 启动程序：`'+path.basename(a.exe)+'`'+(a.notes.length?'（'+a.notes.join('；')+'）':''),
  '- 装法：'+a.installSteps.join('；'),'- 测试专用副本，随便存档；测完由主会话删','','## 测试版 MeguLit','',
- '- 双击 `'+a.cmd+'`（带 `MEGULIT_SIDE_BY_SIDE=1`，不会关掉正式版；不带用户数据：空库，翻译 API 在设置里填）','- 游戏音量调到 0','',
+ '- 双击 `'+a.cmd+'`：先正常退出正式版 MeguLit（释放 Alt+T），再打开测试版（设置、翻译、API 跟正式版一样，游戏已在库里），然后从测试版启动游戏','- 测完关掉测试版就行，正式版不会自动重开','- 游戏音量调到 0','',
  '## 步骤','',...a.steps.map((s,i)=>(i+1)+'. '+s),'','## 通过','',...CHECKS.map(c=>'- '+c[1]+(c[2]?'（'+c[2]+'）':'')),'- 全程不崩、不卡、不闪','',
  '## 回传截图','','1. 第 3 句左右的对话画面','2. 第 10 句左右的对话画面','3. 第一个选项画面（中文选项出来之后）','4. 选完选项后的下一句','',
  '不通过时另附测试版 `MeguLit\\logs\\` 里最新的 `hook-diagnostics.log`。');
@@ -98,7 +120,7 @@ function checklist(a){const L=[];L.push('# '+a.pr+' '+a.title+' 实测清单（a
  const notes=(/## 游戏\n([\s\S]*?)(\n## |$)/.exec(a.adapterRequest||'')||[])[1]||'';const keep=notes.split('\n').filter(l=>/^- /.test(l)&&!/^- 目录：/.test(l));
  if(keep.length)L.push('','## 适配器的说明','',...keep);
  return L.join('\n')+'\n';}
-const STEPS_FOR=exe=>['双击测试版 MeguLit，游戏库 → 添加 `'+path.basename(exe)+'`，应显示已适配，从 MeguLit 启动','片头点掉，标题选「はじめから」（START），看前 10 句','继续点（或按住 Ctrl 快进）到第一个选项，停几秒','选一个中文选项，再往下点 3 句'];
+const STEPS_FOR=()=>['双击开始测试.cmd，游戏会自己打开（会先关掉正式版 MeguLit）','片头点掉，标题选「はじめから」（START），看前 10 句','继续点（或按住 Ctrl 快进）到第一个选项，停几秒','选一个中文选项，再往下点 3 句'];
 function nextOrder(dirs){let n=0;for(const d of dirs){let names=[];try{names=fs.readdirSync(d);}catch{}for(const f of names){const c=/\.json$/i.test(f)&&readJson(path.join(d,f));if(c&&Number(c.order)>n)n=Number(c.order);}}return n+1;}
 function card(a,order){return {id:String(a.pr),title:a.title,sub:'#'+a.pr+' · auto 生成 · 用 '+path.basename(a.exe)+' 启动'+(a.notes.length?'；'+a.notes[0]:''),game:a.exe,app:a.cmd,steps:a.steps,checks:CHECKS.map(c=>[...c]),order,done:false};}
 
@@ -154,7 +176,7 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
  /* 4 testbuild */
  const tbDir=path.join(R.copies,'testbuild-'+pr);
  if(!st.steps.testbuild?.cmd||!fs.existsSync(st.steps.testbuild.cmd)){log('# 4 测试版 '+tbDir);
-  try{const repo=st.steps.publish.repo||D.checkout({short,pr,root:R.worktrees});const t=D.testBuild({app:R.app,repo,target:tbDir});st.steps.testbuild={...t,repo};save();}
+  try{const repo=st.steps.publish.repo||D.checkout({short,pr,root:R.worktrees});const t=D.testBuild({app:R.app,repo,target:tbDir,exe:inst.exe,title:ad.title||st.steps.adapt?.title||short,pr});st.steps.testbuild={...t,repo};save();}
   catch(e){return stop('testbuild','测试版没做出来：'+e.message,'看错误（安装版 MeguLit 在不在、空间够不够）');}}
  /* 5 checklist + card */
  const title=ad.title||st.steps.adapt?.title||short,args={pr,title,issue:st.issue,vndb:ad.answers?.vndb||ad.identity?.vndb||'',release:ad.answers?.release||ad.identity?.release||ad.identity?.releaseGuess||'',
@@ -168,4 +190,4 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
  log('# 5 测试清单 '+md+'，卡片 '+cf);return 0;}
 
 async function main(argv){let o;try{o=parse(argv);}catch(e){console.error('megulit-adapter auto: '+e.message);return 2;}return auto(o);}
-module.exports={auto,main,parse,meta,shortOf,checklist,card,stuckNote,testBuild,checkout,nextOrder,STEPS,CHECKS};
+module.exports={readyBuild,portOf,auto,main,parse,meta,shortOf,checklist,card,stuckNote,testBuild,checkout,nextOrder,STEPS,CHECKS};
