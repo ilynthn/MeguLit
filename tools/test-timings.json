@@ -364,6 +364,7 @@
  "validation/hide-gpu.test.cjs": 97,
  "validation/history-unassigned-translation.test.cjs": 1300,
  "validation/history-view.test.cjs": 8032,
+ "validation/home-card-motion.test.cjs": 60000,
  "validation/home-card-press.test.cjs": 24000,
  "validation/home-depth.test.cjs": 94,
  "validation/home-fit.test.cjs": 82,

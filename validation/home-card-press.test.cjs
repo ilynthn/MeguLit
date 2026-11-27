@@ -18,7 +18,7 @@ const PROBE=`(()=>{const face=document.querySelector('.tv-cover .tv-face'),pop=d
 test('pressing and dragging the home cover card never lets the hint box sit on the card',async t=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'megu-card-press-'));const root=path.join(temp,'root');fs.mkdirSync(root);
  const service=startService(root);let web,edge;
- t.after(async()=>{await edge?.stop();web?.close();await service.stop();await sleep(300);fs.rmSync(temp,{recursive:true,force:true,maxRetries:3,retryDelay:200});});
+ t.after(async()=>{await edge?.stop();web?.close();await service.stop();await sleep(300);try{fs.rmSync(temp,{recursive:true,force:true,maxRetries:10,retryDelay:300});}catch{}});
  for(let i=0;i<3;i++){const dir=path.join(temp,'games','g'+i);fs.mkdirSync(dir,{recursive:true});const exe=path.join(dir,'game.exe');fs.writeFileSync(exe,'MZ');
   await service.call({action:'save_game',title:'テストゲーム '+(i+1),executable:exe});}
  const home=await service.call({action:'home'});
