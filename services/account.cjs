@@ -138,7 +138,7 @@ const kinds={
  progress:{
   /* per work in the library: lines read / total lines (services/read-progress.cjs, counts only), seconds read, last played */
   collect(db,root,ctx){return memo(ctx,'progress',()=>{
-   const out=new Map(),device=ctx.deviceId().slice(0,12),reading=require('./read-progress.cjs');
+   const out=new Map(),device=ctx.deviceId().replace(/-/g,'').slice(0,12),reading=require('./read-progress.cjs');
    const seconds=db.prepare("SELECT COALESCE(SUM(active_seconds),0) n FROM reading_sessions WHERE game_id=? AND original NOT LIKE '%\"sync\"%'");
    for(const g of db.prepare('SELECT id,title,last_launched_at FROM games WHERE removed_at IS NULL ORDER BY id').all()){
     const title=cleanTitle(g.title);if(!title)continue;
