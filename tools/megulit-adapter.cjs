@@ -22,7 +22,7 @@
    Exit codes: 0 done, 1 fail, 2 inconclusive, 3 waiting for a person (<out>/review.html shows each question with its pictures).
    State: <out>/adapter.json (everything decided, every answer); nothing is written into the game folder. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
-const SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
+const Copies=require('./game-copies.cjs'),SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
 const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs');
 const REPO=path.join(__dirname,'..');
 const EXIT={done:0,fail:1,inconclusive:2,human:3};
@@ -42,15 +42,9 @@ function parseRun(argv){const a=argv.slice(2),o={steamAppId:'',copy:false,net:tr
 
 /* ---- the machine-wide game lock (megulit-game-test: one game at a time; 20 minutes without a refresh is stale) ---------------- */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function gameLock(owner,game,{waitMs=3600000,file=GAME_LOCK,log=()=>{}}={}){const line=()=>'owner='+owner+' game='+game+' refreshed='+new Date().toISOString();const t0=Date.now();let said=false;
- for(;;){try{fs.writeFileSync(file,line(),{flag:'wx'});break;}catch(e){if(e.code!=='EEXIST')throw e;}
-  let age=0,held='';try{age=Date.now()-fs.statSync(file).mtimeMs;held=String(fs.readFileSync(file,'utf8'));}catch{continue;}
-  /* 2026-11-27 a holder that writes started= once and never refreshes (pr-test, 02:36) still had its MeguLit open at 20 minutes:
-     such a lock is taken over only after STALE_ONCE_MS (3 hours) */
-  if(age>(/refreshed=/.test(held)?STALE_MS:STALE_ONCE_MS)){try{fs.unlinkSync(file);}catch{}continue;}
-  if(Date.now()-t0>waitMs)return null;if(!said){log('# waiting for the game lock: '+String(fs.readFileSync(file,'utf8')).trim());said=true;}await sleep(15000);}
- const mine=line().split(' refreshed=')[0];const timer=setInterval(()=>{try{if(String(fs.readFileSync(file,'utf8')).startsWith(mine))fs.writeFileSync(file,line());}catch{}},60000);timer.unref?.();
- return ()=>{clearInterval(timer);try{if(String(fs.readFileSync(file,'utf8')).startsWith(mine))fs.unlinkSync(file);}catch{}};}
+/* tools/game-copies.cjs: the lock is the game folder's own (normally this agent's copy), so different games and different copies run
+   at once; with no folder it is the old machine-wide file (same format and rules as before) */
+const gameLock=(owner,game,opts={})=>Copies.gameLock(owner,game,{file:GAME_LOCK,...opts});
 
 /* ---- the script probe: RRFZ's readers over the folder (counts only, no text) ------------------------------------------------ */
 function probe(loc,title,budgetMs){try{const P=require('../services/adapter-probe-core.cjs');const r=P.probeGame({dir:loc.gameDir,executable:loc.exe,title},{budgetMs});
@@ -84,7 +78,7 @@ function copyGame(src,{root=GAMES_ROOT(),statfs=fs.statfsSync,noDrives=process.e
 const stateFile=out=>path.join(out,'adapter.json');
 const readState=out=>JSON.parse(fs.readFileSync(stateFile(out),'utf8'));
 function saveState(st){st.updatedAt=new Date().toISOString();fs.writeFileSync(stateFile(st.out),JSON.stringify(st,null,1));}
-const coldView=c=>c?{lunaEngine:c.layers?.engine?.lunaEngine||'',verdict:c.verdict,reasons:c.reasons,checks:c.checks,stuck:c.stuck,phases:c.phases,totalMs:c.totalMs,steps:c.steps,cardinal:c.cardinal,exeSha256:c.exeSha256,hide:c.hide,artifacts:c.artifacts&&{out:c.artifacts.out,diff:c.artifacts.diff,run:c.artifacts.run}}:null;
+const coldView=c=>c?{lunaEngine:c.layers?.engine?.lunaEngine||'',shots:c.shots,verdict:c.verdict,reasons:c.reasons,checks:c.checks,stuck:c.stuck,phases:c.phases,totalMs:c.totalMs,steps:c.steps,cardinal:c.cardinal,exeSha256:c.exeSha256,hide:c.hide,artifacts:c.artifacts&&{out:c.artifacts.out,diff:c.artifacts.diff,run:c.artifacts.run}}:null;
 function summary(st){const p=st.plan,c=st.cold,i=st.identity;return [
  '引擎：'+st.engine+'（'+(st.caps.label||'规则表没有')+'）',
  '作品：'+(st.answers.vndb||i.vndb||'未知')+'，发行版：'+(st.answers.release||i.release||i.releaseGuess||'未知'),
@@ -147,7 +141,7 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(o.external&&SecondOpinion.wanted({probe:pr,caps})){st.external={galtransl:SecondOpinion.secondOpinion({gameDir:loc.gameDir,out})};const n=SecondOpinion.note(st.external.galtransl);if(n)st.plan.notes.push(n);log('# second opinion '+(n||st.external.galtransl.error));}
  saveState(st);
  if((identity.adapted||[]).some(r=>r.same)&&!o.force&&st.answers.again===undefined)return finish(st,log);
- if(!o.offline){const release=await gameLock('megulit-adapter',Cold.safeName(title),{waitMs:o.lockWaitMin*60000,log});if(!release){log('# 游戏锁等不到');st.cold=null;return finish(st,log);}
+ if(!o.offline){const release=await gameLock('megulit-adapter',Cold.safeName(title),{dir:loc.gameDir,waitMs:o.lockWaitMin*60000,log});if(!release){log('# 游戏锁等不到');st.cold=null;return finish(st,log);}
   try{const r=await Cold.run({dir,exe:o.exe,out:path.join(out,'cold'),budgetMin:o.budgetMin,app:o.app,foreground:o.foreground,seedOut:'',skip:o.skip,steamAppId:identity.steamAppId||'',vndb:identity.vndb||'',live:true,cardinal:o.cold===true},{log});st.cold=coldView(r);st.gameKey=r.gameKey;
    const luna=r.layers?.engine?.lunaEngine||'';if(luna){st.lunaRuntime=luna;const id=Engines.lunaRule(luna);if(!st.caps.known&&id){st.caps={...Engines.capabilities(id),luna,lunaRuntime:true};st.engine=id;st.plan=withVndbNotes(plan({caps:st.caps,probe:st.probe}),st.identity);st.plan.notes.push('引擎由 LunaHook 运行时认出（'+luna+'），写回 engines.cjs / registry');}}}
   catch(e){st.cold={verdict:'inconclusive',reasons:['冷测试出错：'+e.message],checks:{},stuck:'',artifacts:{out:path.join(out,'cold')}};}

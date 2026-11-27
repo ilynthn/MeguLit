@@ -13,7 +13,8 @@
    foregroundNeeded({shot, input}) says whether a run still needs the visible foreground: only when the run has to click or
    type and the game does not take background input (PostMessage), or when no usable picture comes without it.
 
-   Not wired into ColdDesk or the cold test yet (see the PR that adds this file for the places it goes). */
+   ColdDesk.exe (cold test, MeguLit-Adapter live runs) calls the same helper for its "shot" command; this is the entry for node
+   tools that hold a window handle or pid themselves. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 
 const EXE=process.env.MEGULIT_WGCSHOT||path.join(__dirname,'..','native','MeguLitWgcShot.exe');

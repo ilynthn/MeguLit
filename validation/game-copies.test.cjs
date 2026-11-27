@@ -24,7 +24,10 @@ test('two different copies are locked at the same time; one copy has one owner',
  assert.equal(C.tryAcquire(a+path.sep,{owner:'agent-2',dir:locks}).ok,false,'the same folder spelled with a trailing slash is the same lock');
  assert.equal(C.release(a,{owner:'agent-2',dir:locks}),false,'someone else cannot release it');
  assert.ok(fs.existsSync(ra.file));ra.release();assert.equal(fs.existsSync(ra.file),false);
- assert.ok(C.tryAcquire(a,{owner:'agent-2',dir:locks}).ok,'free again after release');rb.release();});
+ assert.ok(C.tryAcquire(a,{owner:'agent-2',dir:locks}).ok,'free again after release');rb.release();
+ const outer=C.tryAcquire(b,{owner:'agent-1',dir:locks}),inner=C.tryAcquire(b,{owner:'agent-1',dir:locks});
+ assert.ok(inner.ok&&inner.again,'the same owner and pid may take it again (adapter, then its cold run)');inner.release();
+ assert.equal(C.tryAcquire(b,{owner:'agent-2',dir:locks}).ok,false,'the inner release leaves the outer lock');outer.release();});
 
 test('lock file says owner, pid and start time; a dead pid is taken over, a live owner is never overwritten',async t=>{const d=tmp(),locks=path.join(d,'locks');t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
  const g=path.join(d,'g');fs.mkdirSync(g);
@@ -97,7 +100,7 @@ test('old machine-wide lock: same format and rules; with {dir} it takes that fol
  const old=Date.now()-25*60000;fs.utimesSync(file,old/1000,old/1000);
  assert.equal(await C.gameLock('me','g',{file,waitMs:0}),null,'a lock that never says refreshed= gets three hours');
  fs.writeFileSync(file,'owner=other game=x refreshed=then');fs.utimesSync(file,old/1000,old/1000);
- const r=await C.gameLock('me','g',{file,waitMs:0});assert.ok(r);assert.match(fs.readFileSync(file,'utf8'),/^owner=me game=g pid=\d+ refreshed=/);r();assert.equal(fs.existsSync(file),false);
+ const r=await C.gameLock('me','g',{file,waitMs:0});assert.ok(r);assert.match(fs.readFileSync(file,'utf8'),/^owner=me game=g refreshed=/);r();assert.equal(fs.existsSync(file),false);
  fs.writeFileSync(file,'owner=other game=x refreshed=now');
  const g=path.join(d,'copy');fs.mkdirSync(g);const r2=await C.gameLock('me','g',{dir:g,locks:path.join(d,'locks'),waitMs:0});
  assert.ok(r2,'a folder lock does not wait for the old single lock');assert.equal(fs.readFileSync(file,'utf8'),'owner=other game=x refreshed=now');r2();});

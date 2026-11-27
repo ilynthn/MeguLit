@@ -18,7 +18,7 @@
                    pictures (every 4 s for the first 16 s, then every 15 s) into <out>/screen/ (the hidden desktop's shots are the game's client area only)
    Writes <out>/result.json {verdict, engine, gameKey, reasons, artifacts, ...}; exit 0 pass, 1 fail, 2 inconclusive.
    Never writes into the game folder (the save snapshot/restore of the cold test is the only thing that touches its saves), never
-   writes .adapt-result.json (that file sends the group receipt and deletes the game). One run at a time (a lock in the runs root). */
+   writes .adapt-result.json (that file sends the group receipt and deletes the game). One run per game folder (tools/game-copies.cjs), so different games and copies run at once. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),{spawnSync}=require('node:child_process');
 const REPO=path.join(__dirname,'..','..');
 const RUNS_ROOT=process.env.MEGULIT_ADAPT_RUNS||'F:\\Agent\\work\\adapt-auto-runs';
@@ -77,7 +77,7 @@ function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk
  fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
  /* the cold test's own switches: no relay reports, no shot uploads (judge decides; nothing leaves this PC) */
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
- buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);
+ buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);useCheckoutWgc(root);
  return root;}
 /* MeguLitHook32/64.dll built from this repository's native/megulithook (a private native build; the DLLs are not in git) replace
    the install's copies in the copy only, like HookBridge.exe below: the engine-layer hook changes are what runs. A DLL without the
@@ -126,12 +126,21 @@ function buildHookBridge(root){const exe=path.join(root,'native','HookBridge.exe
  if(r.status!==0)throw Error('HookBridge build failed: '+String(r.stderr||r.stdout||r.error?.message||'').slice(-600));
  fs.writeFileSync(mark,sum);return exe;}
 
-/* ---- one run at a time ------------------------------------------------------------------------------------------------- */
-const alive=pid=>{try{process.kill(pid,0);return true;}catch(e){return e.code==='EPERM';}};
-function lock(file){fs.mkdirSync(path.dirname(file),{recursive:true});
- for(let i=0;i<2;i++){try{fs.writeFileSync(file,String(process.pid),{flag:'wx'});return ()=>{try{fs.unlinkSync(file);}catch{}};}
-  catch(e){if(e.code!=='EEXIST')throw e;const pid=Number(fs.readFileSync(file,'utf8'))|0;if(pid&&alive(pid))return null;try{fs.unlinkSync(file);}catch{}}}
- return null;}
+/* ---- one run per game folder (tools/game-copies.cjs): different games and different copies run at once ------------------- */
+const Copies=require('../game-copies.cjs');
+/* the shared app copy (_app) is prepared by one run at a time: a short lock on a named slot, not on a game */
+function withSlot(name,fn,{waitMs=600000}={}){const t0=Date.now();
+ for(;;){const r=Copies.tryAcquire('slot:'+name,{owner:'megulit-adapter'});if(r.ok){try{return fn();}finally{r.release();}}
+  if(Date.now()-t0>waitMs)throw Error('slot '+name+' busy: '+(r.holder&&r.holder.owner));Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1000);}}
+/* MeguLitWgcShot.exe (native/wgcshot): ColdDesk takes its pictures with Windows.Graphics.Capture through it, so a covered or
+   background game still gives its own picture. This checkout's build is copied next to ColdDesk.exe in the app copy; without
+   one it is built once (MSVC, like Build.ps1); when that fails ColdDesk falls back to PrintWindow and every shot says why */
+let wgcUsed='';
+function useCheckoutWgc(root,repo=REPO,build=()=>spawnSync('cmd.exe',['/c',path.join(repo,'native','wgcshot','build.cmd')],{encoding:'utf8',windowsHide:true,timeout:300000})){
+ const own=path.join(repo,'native','MeguLitWgcShot.exe'),dst=path.join(root,'native','MeguLitWgcShot.exe');
+ if(!fs.existsSync(own)){const r=build();if(!r||r.status!==0||!fs.existsSync(own)){wgcUsed=fs.existsSync(dst)?dst:'';return wgcUsed;}}
+ let same=false;try{same=fs.readFileSync(dst).equals(fs.readFileSync(own));}catch{}if(!same){fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(own,dst);}
+ wgcUsed=dst;return dst;}
 
 /* ---- 2 probe ------------------------------------------------------------------------------------------------------------ */
 function makeProbe(loc,title,outDir,{budgetMs=120000}={}){const PF=require('../../services/probe-full.cjs');
@@ -344,7 +353,7 @@ async function run(opts,{log=console.log}={}){
  const loc=await step('locate',()=>locate(dir,opts.exe));if(!loc)return finish(judge({unsupported:'找不到主程序（用 --exe 指定）'}));
  if(inside(out,loc.gameDir))throw Error('--out must not be inside the game folder');
  result.skip=opts.skip===true;result.exe=loc.exe;result.engine=loc.engine;result.engineWhy=loc.why;log('# '+title+' '+loc.engine+' '+loc.exe);
- const release=lock(path.join(RUNS_ROOT,'adapt-auto.lock'));if(!release)return finish(judge({unsupported:'另一部游戏正在自动适配（一次只跑一部）'}));
+ const lockRes=Copies.tryAcquire(loc.gameDir,{owner:'megulit-adapter'});if(!lockRes.ok)return finish(judge({unsupported:'这个游戏目录正被 '+(lockRes.holder?.owner||'别的任务')+' 用着（每个副本同时只能一个任务）'}));const release=lockRes.release;
  try{
   /* layer 2: the engine's draw hook */
   const engine=await step('engineHook',()=>engineHook(loc));result.layers.engine=engine;log('# engine '+engine.route+' '+engine.hook+(engine.hits!=null?' hits='+engine.hits:''));
@@ -355,7 +364,7 @@ async function run(opts,{log=console.log}={}){
   try{result.gameKey=require('../../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
   if(overtime('冷测试'))return finish(judge({cold:null}));
   /* cold test: what is left of the budget, less the reserve for diff + Cardinal */
-  const root=await step('prepareApp',()=>prepareApp(opts.app,path.join(RUNS_ROOT,'_app')));
+  const root=await step('prepareApp',()=>withSlot('adapter-app',()=>prepareApp(opts.app,path.join(RUNS_ROOT,'_app'))));result.wgcShot=wgcUsed?'yes':'missing';if(!wgcUsed)log('# MeguLitWgcShot.exe 没有：截图退回 PrintWindow');
   const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
   const localeEmulator=localeEmulatorFor(root,loc,title);result.localeEmulator=!!localeEmulator;
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
@@ -381,6 +390,7 @@ async function run(opts,{log=console.log}={}){
    diag=hookDiagnostics(root,runInfo,path.join(runCopy,'hook-diagnostics.log'));result.layers.engine={...engine,injected:diag.injected,selected:diag.selected,auxNoise:diag.auxNoise,kagWait:diag.kagWait,lunaEngine:diag.lunaEngine};
    result.artifacts.run=runCopy;result.artifacts.screenshots=fs.readdirSync(runCopy).filter(f=>/^shot-.*\.jpe?g$/i.test(f)).map(f=>path.join(runCopy,f));}
   result.stuck=stuckOf({cold,run:runInfo,diag,engine,visible:opts.foreground===true});
+  if(runInfo?.shotSources){result.shots={...runInfo.shotSources,wgcFallback:runInfo.wgcFallback||null};log('# shots '+JSON.stringify(result.shots));}
   if((runInfo?.covered|0)>0){result.covered=runInfo.covered;result.reasons.push('前台模式下游戏窗口有 '+runInfo.covered+' 次被别的窗口挡住（置底守护？），这些截图和点击不算数');}
   /* layer 3: the game diff */
   let diff=null;
@@ -414,4 +424,4 @@ function reexecIfOldNode(entry,argv,app){
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
 function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,lock,run,main,GATE,EXIT};
+module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};

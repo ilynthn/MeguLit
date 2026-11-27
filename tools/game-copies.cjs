@@ -15,7 +15,8 @@
 
    Copy: prepareCopy(<game folder>, {owner}) makes <copies root>/<name>-<owner>. Large resource archives and media are
    hard-linked when the copy is on the same volume (they are only read); executables, DLLs, saves, settings and everything
-   else are real copies, so a game writing into its copy never reaches the original. Folders are always real folders: a
+   else are real copies, so a game writing into its copy never reaches the original (a hard link is the same file: only archive
+   and media types that games read are linked, never anything in a save or config folder, never a file reached through a link). Folders are always real folders: a
    junction or symlink inside the source is followed and its files are copied, never recreated as a link (a game once wrote
    through a junction mirror and broke the original). Nothing is written to the source folder. Copies root:
    MEGULIT_COPIES_ROOT (then MEGULIT_ADAPTER_GAMES); copies never go to C: or E: (MEGULIT_COPIES_NO_DRIVES, default "C,E")
@@ -66,7 +67,7 @@ function tryAcquire(target,{owner,pid=process.pid,dir=locksDir()}={}){if(!owner)
   try{fs.writeFileSync(file,body,{flag:'wx'});return {ok:true,file,reclaimed,release:()=>release(target,{owner,pid,dir})};}
   catch(e){if(e.code!=='EEXIST')throw e;}
   const h=readLock(file);if(!h)continue;
-  if(heldBy(h,owner,pid))return {ok:true,file,reclaimed,again:true,release:()=>release(target,{owner,pid,dir})};
+  if(heldBy(h,owner,pid))return {ok:true,file,reclaimed,again:true,release:()=>false};/* the outer holder releases it */
   if(!isDead(h))return {ok:false,file,holder:h};
   if(reclaimDead(file))reclaimed=h;}
  const h=readLock(file);return {ok:false,file,holder:h};}
@@ -93,7 +94,7 @@ const STALE_MS=20*60000,STALE_ONCE_MS=180*60000;
 async function gameLock(owner,game,{waitMs=3600000,file,dir:gameDir,locks,pollMs=15000,log=()=>{}}={}){
  if(gameDir)return acquire(gameDir,{owner,waitMs,pollMs,log,dir:locks||locksDir()});
  if(!file)throw Error('gameLock: file or dir needed');
- const line=()=>'owner='+owner+' game='+game+' pid='+process.pid+' refreshed='+new Date().toISOString();const t0=Date.now();let said=false;
+ const line=()=>'owner='+owner+' game='+game+' refreshed='+new Date().toISOString();const t0=Date.now();let said=false;
  for(;;){try{fs.writeFileSync(file,line(),{flag:'wx'});break;}catch(e){if(e.code!=='EEXIST')throw e;}
   let age=0,held='';try{age=Date.now()-fs.statSync(file).mtimeMs;held=String(fs.readFileSync(file,'utf8'));}catch{continue;}
   if(age>(/refreshed=/.test(held)?STALE_MS:STALE_ONCE_MS)){try{fs.unlinkSync(file);}catch{}continue;}

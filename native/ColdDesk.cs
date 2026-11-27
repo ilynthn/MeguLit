@@ -12,7 +12,7 @@
 //       {"type":"input"}  the user touched keyboard or mouse: the game is ended at once
 //       {"type":"power","ac":false}  {"type":"fullscreen","on":true}   (reported; the service decides)
 //       {"type":"relaunched","pid":n}  the same program appeared outside our job: report only; never kill the player's process
-//       {"type":"shot","ok":true,"path":"…","w":n,"h":n,"black":false}  {"type":"timeout"}  {"type":"exited","code":n}
+//       {"type":"shot","ok":true,"path":"…","w":n,"h":n,"black":false,"source":"wgc|printwindow|screen","wgc":"<why WGC was not used>"}  {"type":"timeout"}  {"type":"exited","code":n}
 //       {"type":"ended","why":"…"}  last line
 //     stdin commands, one per line: key <vk> | keydown <vk> | keyup <vk> | click <x> <y> | activate | shot <maxWidth> <path> | kill
 // The user's screen, taskbar, focus, mouse and keyboard are never touched: input is PostMessage to the game's window only, so
@@ -206,14 +206,33 @@ static class ColdDesk{
  [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
  static void Raise(IntPtr w){if(!OnUserDesktop||w==IntPtr.Zero)return;uint dummy;uint fg=GetWindowThreadProcessId(GetForegroundWindow(),out dummy),me=GetCurrentThreadId();bool att=fg!=0&&fg!=me&&AttachThreadInput(me,fg,true);
   try{SetWindowPos(w,IntPtr.Zero,0,0,0,0,0x0003|0x0040);BringWindowToTop(w);SetForegroundWindow(w);}finally{if(att)AttachThreadInput(me,fg,false);}}
+ /* 2026-11-27 Windows.Graphics.Capture first (MeguLitWgcShot.exe beside this helper, native/wgcshot): it reads the game's own
+    surface from DWM, so a game under other windows, in the background or drawing with Direct3D still gives its own picture and
+    is not raised over the user's windows. WGC works only on the user's desktop; on the hidden desktop, when the helper is
+    missing or WGC fails (old Windows, minimised, no frame) the PrintWindow path below is used and the shot event says why
+    ("wgc":"<why>"). */
+ static string WgcExe=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"MeguLitWgcShot.exe");
+ static Bitmap WgcPicture(out string why){why="";
+  if(!OnUserDesktop){why="hidden-desktop";return null;}
+  if(!File.Exists(WgcExe)){why="no MeguLitWgcShot.exe";return null;}
+  string tmp=Path.Combine(Path.GetTempPath(),"megulit-colddesk-wgc-"+Process.GetCurrentProcess().Id+".png");
+  try{var si=new ProcessStartInfo(WgcExe,"--hwnd "+GameWin.ToInt64()+" --method wgc --timeout-ms 2000 --out \""+tmp+"\"");si.UseShellExecute=false;si.CreateNoWindow=true;si.RedirectStandardOutput=true;
+   string line="";using(var p=Process.Start(si)){line=p.StandardOutput.ReadToEnd();if(!p.WaitForExit(8000)){try{p.Kill();}catch{}why="timeout";return null;}}
+   if(line.IndexOf("\"ok\":true",StringComparison.Ordinal)<0||line.IndexOf("\"method\":\"wgc\"",StringComparison.Ordinal)<0){var m=System.Text.RegularExpressions.Regex.Match(line,"\"error\":\"([^\"]*)\"");why=m.Success?m.Groups[1].Value:"no picture";return null;}
+   if(line.IndexOf("\"blank\":true",StringComparison.Ordinal)>=0){why="black";return null;}
+   using(var f=new Bitmap(tmp))return new Bitmap(f);}
+  catch(Exception e){why="error "+e.Message;return null;}
+  finally{try{File.Delete(tmp);}catch{}}}
  static void Shot(int maxW,string file){if(GameWin==IntPtr.Zero){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"no window\"}");return;}RECT r;GetClientRect(GameWin,out r);int w=r.R-r.L,h=r.B-r.T;if(w<16||h<16){Emit("{\"type\":\"shot\",\"ok\":false,\"why\":\"tiny\"}");return;}
-  using(var b=new Bitmap(w,h,PixelFormat.Format32bppArgb)){using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{PrintWindow(GameWin,dc,3);}finally{g.ReleaseHdc(dc);}}
-   bool black=IsBlack(b,w,h),screen=false,covered=OnUserDesktop&&!GameOnTop(w,h);if(covered){Raise(GameWin);System.Threading.Thread.Sleep(200);covered=!GameOnTop(w,h);}
-   if(black&&OnUserDesktop&&!covered){var p=new POINT();ClientToScreen(GameWin,ref p);IntPtr sdc=GetDC(IntPtr.Zero);try{using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{BitBlt(dc,0,0,w,h,sdc,p.X,p.Y,0x00CC0020);}finally{g.ReleaseHdc(dc);}}}finally{ReleaseDC(IntPtr.Zero,sdc);}black=IsBlack(b,w,h);screen=true;}
+  string wgcWhy;Bitmap wgc=WgcPicture(out wgcWhy);if(wgc!=null){w=wgc.Width;h=wgc.Height;}
+  using(var b=wgc??new Bitmap(w,h,PixelFormat.Format32bppArgb)){bool black=false,screen=false,covered=false;
+   if(wgc==null){using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{PrintWindow(GameWin,dc,3);}finally{g.ReleaseHdc(dc);}}
+    black=IsBlack(b,w,h);covered=OnUserDesktop&&!GameOnTop(w,h);if(covered){Raise(GameWin);System.Threading.Thread.Sleep(200);covered=!GameOnTop(w,h);}
+    if(black&&OnUserDesktop&&!covered){var p=new POINT();ClientToScreen(GameWin,ref p);IntPtr sdc=GetDC(IntPtr.Zero);try{using(var g=Graphics.FromImage(b)){var dc=g.GetHdc();try{BitBlt(dc,0,0,w,h,sdc,p.X,p.Y,0x00CC0020);}finally{g.ReleaseHdc(dc);}}}finally{ReleaseDC(IntPtr.Zero,sdc);}black=IsBlack(b,w,h);screen=true;}}
    int tw=Math.Min(w,Math.Max(160,maxW)),th=(int)Math.Round(h*(double)tw/w);
    using(var s=new Bitmap(tw,th)){using(var g=Graphics.FromImage(s)){g.InterpolationMode=System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;g.DrawImage(b,0,0,tw,th);}
     var ep=new EncoderParameters(1);ep.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,70L);Directory.CreateDirectory(Path.GetDirectoryName(file));/* .png: lossless (the cold OCR reads outlined button labels JPEG blurs) */if(file.EndsWith(".png",StringComparison.OrdinalIgnoreCase))s.Save(file,ImageFormat.Png);else s.Save(file,Jpeg(),ep);}
-   Emit("{\"type\":\"shot\",\"ok\":true,\"path\":"+Q(file)+",\"w\":"+tw+",\"h\":"+th+",\"black\":"+(black?"true":"false")+(screen?",\"source\":\"screen\"":"")+(covered?",\"covered\":true":"")+"}");}}
+   Emit("{\"type\":\"shot\",\"ok\":true,\"path\":"+Q(file)+",\"w\":"+tw+",\"h\":"+th+",\"black\":"+(black?"true":"false")+(wgc!=null?",\"source\":\"wgc\"":screen?",\"source\":\"screen\"":",\"source\":\"printwindow\"")+(wgc==null?",\"wgc\":"+Q(wgcWhy):"")+(covered?",\"covered\":true":"")+"}");}}
  /* the screen is read only where the game itself is on top: the centre and four inner corners of its client area all hit a window of the
     game's process (千恋＊万花 run: the game lay under the user's other windows and the screen read took those instead) */
  [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(POINT p);

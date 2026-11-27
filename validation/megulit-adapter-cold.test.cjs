@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
 /* 2026-11-26 tools/megulit-adapter/cold.cjs (the cold stage of MeguLit-Adapter, formerly tools/adapt-auto.cjs) without a game: arguments, folder triage (Switch / disc image / no exe), exe + engine lookup on a
-   temp KiriKiri-shaped folder, the one-run lock, and judge(): the cold self-check + Cardinal scores → pass / fail / inconclusive,
+   temp KiriKiri-shaped folder, the WGC helper and app-copy slot, and judge(): the cold self-check + Cardinal scores → pass / fail / inconclusive,
    where anything not measured stays inconclusive. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const A=require('../tools/megulit-adapter/cold.cjs');
@@ -42,9 +42,20 @@ test('locate: the main exe one level down and the engine from the library regist
  assert.equal(path.basename(A.locate(path.join(d,'[GAME]x'),'x\\unins000.exe').exe),'unins000.exe');
  assert.throws(()=>A.locate(path.join(d,'[GAME]x'),'nope.exe'),/not found/);});
 
-test('lock: one run at a time; a dead holder is taken over',()=>{const d=tmp(),f=path.join(d,'l.lock');
- const r=A.lock(f);assert.ok(r);assert.equal(A.lock(f),null);r();
- fs.writeFileSync(f,'999999');const r2=A.lock(f);assert.ok(r2,'stale pid');r2();});
+test('the app copy gets this checkout\'s MeguLitWgcShot.exe beside ColdDesk.exe; without one (and no build) it says missing',()=>{const d=tmp();
+ const repo=path.join(d,'repo'),root=path.join(d,'_app');fs.mkdirSync(path.join(repo,'native'),{recursive:true});
+ assert.equal(A.useCheckoutWgc(root,repo,()=>({status:1})),'','no build, nothing in the copy: missing (ColdDesk falls back and says so)');
+ fs.writeFileSync(path.join(repo,'native','MeguLitWgcShot.exe'),'v1');
+ const dst=A.useCheckoutWgc(root,repo,()=>{throw Error('must not build when the checkout has one');});
+ assert.equal(dst,path.join(root,'native','MeguLitWgcShot.exe'));assert.equal(fs.readFileSync(dst,'utf8'),'v1');
+ fs.writeFileSync(path.join(repo,'native','MeguLitWgcShot.exe'),'v2');A.useCheckoutWgc(root,repo);assert.equal(fs.readFileSync(dst,'utf8'),'v2','a newer checkout build replaces it');});
+
+test('the shared app copy is prepared under a slot lock; the slot is free again afterwards',()=>{const d=tmp(),prev=process.env.MEGULIT_GAME_LOCKS;process.env.MEGULIT_GAME_LOCKS=path.join(d,'locks');
+ try{let inside=null;const C=require('../tools/game-copies.cjs');
+  assert.equal(A.withSlot('t',()=>{inside=C.tryAcquire('slot:t',{owner:'someone-else'}).ok;return 7;}),7);
+  assert.equal(inside,false,'another owner cannot take the slot meanwhile');
+  const r=C.tryAcquire('slot:t',{owner:'someone-else'});assert.ok(r.ok,'released');r.release();}
+ finally{if(prev===undefined)delete process.env.MEGULIT_GAME_LOCKS;else process.env.MEGULIT_GAME_LOCKS=prev;}});
 
 test('judge: everything measured and over the gate is pass',()=>{const j=A.judge({cold:COLD,diff:DIFF,card:CARD()});
  assert.equal(j.verdict,'pass');assert.deepEqual(Object.keys(j.checks),['hidden','replaced','choice']);assert.ok(Object.values(j.checks).every(c=>c.ok===true));});
