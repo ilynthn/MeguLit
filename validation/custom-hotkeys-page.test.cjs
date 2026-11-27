@@ -17,8 +17,12 @@ test('Settings → 热键 records a combination and a mouse side button, refuses
  const {send,evaluate}=edge;
  const until=async(what,expr,ms=60000)=>{const end=Date.now()+ms;for(;;){const v=await evaluate(expr).catch(()=>false);if(v)return v;assert.ok(Date.now()<end,what);await sleep(200);}};
  const shot=async name=>{if(!SHOTS)return;fs.mkdirSync(SHOTS,{recursive:true});const r=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(SHOTS,name+'.png'),Buffer.from(r.data,'base64'));};
- await send('Page.navigate',{url:`http://127.0.0.1:${web.address().port}/#%7B%7D`});
- await until('the main window',`!!document.querySelector('#main')&&typeof window.MeguHotkeys==='object'`);
+ /* a busy CI shard can leave the first load stuck: load again once before giving up, and say what the page had */
+ const ready=`!!document.querySelector('#main')&&typeof window.MeguHotkeys==='object'`;
+ for(let attempt=0;;attempt++){await send('Page.navigate',{url:`http://127.0.0.1:${web.address().port}/#%7B%7D`});const end=Date.now()+60000;let up=false;
+  while(Date.now()<end&&!(up=await evaluate(ready).catch(()=>false)))await sleep(250);
+  if(up)break;const seen=await evaluate(`JSON.stringify({state:document.readyState,url:location.href,main:!!document.querySelector('#main'),hotkeys:typeof window.MeguHotkeys})`).catch(e=>e.message);
+  assert.ok(attempt<1,'the main window: '+seen);}
  await sleep(1500);
  await evaluate(`(()=>{document.querySelectorAll('dialog').forEach(d=>{try{d.close();}catch{}d.remove();});const st=document.createElement('style');st.textContent='#toast,[class*=toast],#reader-notice{display:none!important}';document.head.append(st);return 1;})()`);
  /* to Settings, then its 热键 section (in 游戏中) */
