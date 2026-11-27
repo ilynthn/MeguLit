@@ -1,6 +1,7 @@
 // A complete fade separates views; the wall travels in alternating horizontal strips.
 // Individual translate/scale compose with each field's own positioning transforms.
 import {syncMainKids} from './main-kids.js';
+import {capsuleSpringFrames} from './capsule-spring.js';
 const host=()=>document.querySelector('#library-results');
 const cover=el=>el.querySelector('.cover-frame img,.cover-frame .cover');
 const centre=root=>{const b=root.getBoundingClientRect();const top=Math.max(b.top,0),bottom=Math.min(b.bottom,innerHeight);return [b.left+b.width/2,(top+bottom)/2];};
@@ -76,18 +77,7 @@ export async function switchLibrary(view,render,from=''){
   // FLIP the existing capsule, keeping its input and focus. A damped overshoot plus a small
   // squash/stretch makes it elastic; the final identity pose restores the exact CSS position.
   if(now&&before&&after){
-   const dx=before.left+before.width/2-after.left-after.width/2,dy=before.top+before.height/2-after.top-after.height/2;
-   const sx=before.width/Math.max(1,after.width),sy=before.height/Math.max(1,after.height),moving=Math.hypot(dx,dy)>1;
-   // Sample one damped spring instead of easing separate segments: velocity stays continuous
-   // through the target and the rebound, with no extra pause at intermediate keyframes.
-   const spring=t=>1-Math.exp(-6*t)*(Math.cos(8*t)+.75*Math.sin(8*t)),end=spring(1);
-   const keys=Array.from({length:81},(_,i)=>{
-    const t=i/80,p=i===80?1:spring(t*t*(3-2*t))/end;
-    const strain=i===80?0:.05*Math.exp(-3*t)*Math.sin(4*Math.PI*t);
-    return {offset:t,translate:`${dx*(1-p)}px ${dy*(1-p)+(moving?0:strain*100)}px`,
-     scale:`${(1+(sx-1)*(1-p))*(1+strain)} ${(1+(sy-1)*(1-p))*(1-1.4*strain)}`};
-   });
-   runs.push(play(now,keys,{duration:BAR_SETTLE,easing:'linear',fill:'both'}));
+   runs.push(play(now,capsuleSpringFrames(before,after),{duration:BAR_SETTLE,easing:'linear',fill:'both'}));
    const lit=['tracks','wall','list'].indexOf(view)+1;
    now.querySelectorAll('.library-view-leds i').forEach((lamp,i)=>runs.push(play(lamp,[
     {opacity:i<lit ? .45 : .28,scale:.88},{opacity:i<lit?1:.28,scale:1}
