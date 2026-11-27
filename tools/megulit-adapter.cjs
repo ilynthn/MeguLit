@@ -16,6 +16,9 @@
      node tools/megulit-adapter.cjs answer <out dir> id=value ...    answer the questions; when none is left the seed is written
      node tools/megulit-adapter.cjs publish <out dir> --repo <checkout on a branch> [--go]
                                     the seed into The Seed/, a commit, a PR, the HANDOFF row (dry run without --go)
+     node tools/megulit-adapter.cjs auto <download folder> [--name <short>] [--issue N] [--pr N] [--no-publish]
+                                    a finished download to the owner's test card with no person and no LLM: install, adapt (--tester),
+                                    PR, test build, checklist + card; a stuck note where a person decides (tools/megulit-adapter/auto.cjs)
      node tools/megulit-adapter.cjs inventory [--json]                what every engine has (from the code)
      node tools/megulit-adapter.cjs testbuild <target> [--app <MeguLit>] the tester's side-by-side MeguLit with this checkout's code
      node tools/megulit-adapter.cjs cold <game folder> ...            the cold stage alone (the old adapt-auto command line)
@@ -207,6 +210,7 @@ function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(p
 async function main(argv){const cmd=argv[2];
  /* the tester's build (tools/megulit-adapter/test-build.cjs): testbuild <target> [--app <installed MeguLit>] */
  if(cmd==='testbuild'){if(!argv[3])throw Error('usage: testbuild <target folder> [--app <installed MeguLit>]');const i=argv.indexOf('--app');const r=require('./megulit-adapter/test-build.cjs').testBuild(path.resolve(argv[3]),i>0&&argv[i+1]?{app:argv[i+1]}:{});console.log(JSON.stringify(r,null,1));return r.ok?0:1;}
+ if(cmd==='auto')return require('./megulit-adapter/auto.cjs').main(argv.slice(3));
  if(cmd==='inventory'){const rows=Engines.inventory();console.log(argv.includes('--json')?JSON.stringify(rows,null,1):Engines.markdown(rows));return 0;}
  const runsGame=cmd!=='answer'&&cmd!=='publish';
  if(runsGame){let app=Cold.APP_DEFAULT;const i=argv.indexOf('--app');if(i>0&&argv[i+1])app=argv[i+1];const r=Cold.reexecIfOldNode(__filename,argv,app);if(r!==null)return r;/* the game folder: the first argument that is not a flag or a flag's value (cold: after the word) */const rest=argv.slice(cmd==='cold'?3:2),VAL=/^--(exe|vndb|release|cn|out|budget-min|app|answer|lock-wait-min|steam-appid|seed-out)$/;let gd='';for(let k=0;k<rest.length;k++){if(VAL.test(rest[k])){k++;continue;}if(!rest[k].startsWith('--')){gd=rest[k];break;}}Cold.prepareRuntime(gd);}

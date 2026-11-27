@@ -9,6 +9,7 @@ const {readingsIn,gameTokens,unknownNames}=require('./game-reading.cjs');
 const {InstallProgress}=require('./install-progress.cjs');
 const {conjugation}=require('./morphology.cjs');
 const {definitionGroups}=require('./definitions.cjs');
+const Colloquial=require('./colloquial.cjs');
 const tags={ 'Ichidan verb':'一段动词（二类动词）','transitive verb':'他动词','intransitive verb':'自动词','noun (common) (futsuumeishi)':'名词','pronoun':'代词','particle':'助词','auxiliary verb':'助动词','auxiliary':'助动词','adverb (fukushi)':'副词','adjective (keiyoushi)':'い形容词','adjectival nouns or quasi-adjectives (keiyodoshi)':'な形容词／形容动词','expressions (phrases, clauses, etc.)':'惯用表达／短语','pre-noun adjectival (rentaishi)':'连体词','conjunction':'接续词','interjection (kandoushi)':'感叹词','suffix':'接尾词','prefix':'接头词','counter':'量词','noun, used as a suffix':'名词（接尾用法）','unclassified':'未分类'};
 function chinesePos(tag){
  if(tags[tag])return tags[tag];
@@ -401,6 +402,13 @@ class LocalLearning{
     return !found&&t.subtokens?.length>1?this.groups(t.subtokens):[t];
   });
   const make=t=>{const morphology=conjugation(t,language);return {start:t.start,end:t.end,surface:t.surface,entries:this.entries(t,language),related_entries:[],morphology,deconjugated_from:morphology.forms.length?[morphology.forms.join(' · '),morphology.rules.join('；')].filter(Boolean).join('｜'):null};};
+  /* QQ group (舐めんなし, わかんねえ, ええやん: the card stayed empty): when neither SudachiDict nor JMdict knows the word, it is read
+     colloquially (core/colloquial.cjs: dialect ending cut, contractions written out, deinflected), else its longest prefix that is
+     listed. The card says which: colloquial.dialect / colloquial.prefix and match_note. */
+  const spoken=(surface,start,parts=[],word=Infinity)=>{let r=Colloquial.resolve(surface,key=>(this.index.get(key)||[]).map(id=>this.byId.get(id)).filter(Boolean));if(!r)return null;
+   if(r.prefix&&[...r.matched].length>=word)r={...r,prefix:false,rest:''}; // a click reads on past its own token: what follows is the next word, not an unread rest
+   const out=make({surface:r.matched,base_form:r.base,normalized:r.base,start,end:start+[...r.matched].length,aux:[],parts});if(!out.entries.length)return null;
+   out.match_note=Colloquial.describe(r,language);out.colloquial={base:r.base,matched:r.matched,rest:r.rest,prefix:r.prefix,rewritten:!!(r.rules.length||r.dialect||r.cut),rules:r.rules,standard:r.standard||'',dialect:r.dialect?{ending:r.dialect.ending,region:r.dialect.region,note:r.dialect.note}:null};return out;};
   if(command==='scan_sentence')return groups.map(make).filter(r=>r.entries.length);
   let group=command==='lookup_exact'?groups.find(t=>t.start===args.start&&t.end===args.end):groups.find(t=>args.position>=t.start&&args.position<t.end);
   /* 2026-11-21 (user group, 「全身はじっとりと汗
@@ -414,12 +422,20 @@ class LocalLearning{
     if(z<index||surface.length<=best.surface.length)continue;const key=this.index.has(surface)?surface:run.length>1&&this.index.has(lemmaOf(run))?lemmaOf(run):'';if(!key)continue;
     const readings=[...new Set(this.index.get(key).flatMap(id=>this.byId.get(id).readings))];best={...groups[a],start:groups[a].start,end:t.end,surface,base_form:key,normalized:key,reading:readings.length===1?readings[0]:parts.map(p=>p.reading||'').join(''),parts,aux:[]};}}group=best;}
   if(command==='lookup_at_position'&&Number(args.skip)>0)return null;
+  if(command==='lookup_at_position'&&group){const found=make(group);if(found.entries.length)return found;
+   /* the clicked word and what follows it up to punctuation or a blank (舐め｜ん｜な｜し): the longest reading that covers the click */
+   const chars=[...text];let end=group.start;while(end<chars.length&&end-group.start<24&&!/[\s　、。，．！？!?…‥「」『』（）()〔〕【】―─～〜・]/u.test(chars[end]))end++;
+   const hit=spoken(chars.slice(group.start,end).join(''),group.start,group.parts||[group],group.end-group.start);return hit&&hit.end>args.position?hit:found;}
   if(command==='lookup_exact'){
    const length=[...text].length;if(!Number.isSafeInteger(args.start)||!Number.isSafeInteger(args.end)||args.start<0||args.end<=args.start||args.end>length)throw Error('无效选区');
    const surface=[...text].slice(args.start,args.end).join(''),inside=groups.filter(t=>t.end>args.start&&t.start<args.end);let analysis=inside.map(make),wholeMatch=!!group||this.index.has(surface),exact=group?make(group):make({surface,base_form:surface,start:args.start,end:args.end,aux:[],parts:[]});
    /* a selection over the game's line break (汗 / ばんで) or a stem + conjugated suffix: the run's surfaces + its last word's dictionary form */
    if(!exact.entries.length){const run=inside.filter(t=>!blankGroup(t));let key='';for(let k=run.length;k>=2&&!key;k--){const c=lemmaOf(run.slice(0,k));if(this.index.has(c))key=c;}const flat=surface.replace(/[\s　]+/gu,'');const k=this.index.has(flat)&&flat!==surface?flat:key&&this.index.has(key)?key:'';if(k){exact=make({surface,base_form:k,normalized:k,start:args.start,end:args.end,parts:run.flatMap(t=>t.parts||[t])});exact.match_note=k===flat?'':'辞书原形：'+k;wholeMatch=true;}}
    if(!exact.entries.length){const expressive=surface.replace(/っ(?=[か-こさ-そた-とは-ほ])/gu,'');if(expressive!==surface&&this.index.has(expressive)){exact=make({surface,base_form:expressive,start:args.start,end:args.end,parts:inside.flatMap(t=>t.parts||[t])});exact.match_note='口语促音强调写法；辞书原形：'+expressive;wholeMatch=true;}}
+   /* a colloquial reading of the whole selection comes first; a mere prefix only when the words inside give nothing (黒｜ずん over a line break is 黒ずむ, not 黒).
+      A reading that rewrote nothing (no contraction, no dialect ending, no particle cut) is a plain deinflection guess: when the words
+      inside are already listed it must not replace them (赤｜らめ over a line break is 赤らめる, not 赤らむ). */
+   if(!exact.entries.length){const hit=spoken(surface.replace(/[\s　]+/gu,''),args.start,inside.flatMap(t=>t.parts||[t]));if(hit&&(hit.colloquial.rewritten&&!hit.colloquial.prefix||!analysis.some(a=>a.entries.length))){exact=hit;wholeMatch=!hit.colloquial.prefix;}}
    if(!exact.entries.length)exact.entries=[...new Map(analysis.flatMap(a=>a.entries).map(e=>[e.id,e])).values()].slice(0,20);
    exact.selection_analysis={surface,exact:wholeMatch,parts:analysis,source:'SudachiDict Full ＋ JMdict（本地）'};return exact;
   }

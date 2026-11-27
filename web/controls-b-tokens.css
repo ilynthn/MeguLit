@@ -19,7 +19,7 @@
  --mgc-mono:"Cascadia Mono","Consolas","Microsoft YaHei UI",monospace;
  --mgc-serif:"Noto Serif SC","Noto Serif JP","Microsoft YaHei UI",serif;
  --mgc-ease:cubic-bezier(.19,1,.22,1);--mgc-t:.24s;
- --mgc-focus:2px solid var(--mgc-gold);--mgc-focus-halo:0 0 0 6px color-mix(in srgb,var(--mgc-ground) 85%,transparent);
+ --mgc-focus:2px solid var(--mgc-gold);--mgc-focus-halo:0 0 0 3px color-mix(in srgb,var(--mgc-gold) 11%,transparent),0 0 20px -2px color-mix(in srgb,var(--mgc-gold) 50%,transparent);
 }
 :root[data-theme=light]{
  --mgc-ground:#f4ede6;--mgc-plate:#fffaf5;--mgc-plate-2:#fbf4ee;--mgc-plate-hi:#f0e5dc;--mgc-well:#fffdfa;

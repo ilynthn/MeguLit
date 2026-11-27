@@ -26,6 +26,7 @@ function bridge({fail='',match=false}={}){
   './relay-gate.cjs':{install(){}},'./torch-receive.cjs':receiver,
   './first-player.cjs':{async state(){events.push('state');if(fail==='state')throw Error('DB_READ_FAILED');return {state:'hidden'};}},
   './library.cjs':{signature:()=>({size:1}),matchGame:()=>match?existing:null},
+  '../core/library-title.cjs':require(path.join(sourceRoot,'core/library-title.cjs')),
   './series.cjs':{autoGroup(){events.push('series');}},
   './game-language.cjs':{originalExecutable(){events.push('mutation');if(fail==='mutation')throw Error('DB_MUTATION_FAILED');return {saved:true};}}
  }).dispatch;

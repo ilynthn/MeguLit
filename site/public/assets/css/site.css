@@ -2092,3 +2092,12 @@ html.spec-on::-webkit-scrollbar { width: 0; height: 0; }
 @media (max-width: 30rem) { .nt-actions { flex-wrap: wrap; } }
 /* E456 game-request rule under the field: full exact title, no abbreviations */
 .nt-req { margin: .8rem 0 0; padding: .7rem .95rem; border-left: 3px solid #c8323c; background: rgba(200, 50, 60, .1); color: #f4f4f2; font-size: 1.02rem; font-weight: 600; line-height: 1.7; }
+
+/* ---- account button in the top bar (assets/js/me-entry.js, 2026-11-27) ---------------------------------------------------- */
+.me-chip { display: inline-grid; place-items: center; height: 2.25rem; padding: 0 .9rem; margin-left: .15rem; border: 1px solid #c8323c; color: var(--text); background: rgba(200, 50, 60, .08); font: 300 .75rem/1 "MeguLit Mono", var(--mono); letter-spacing: .3em; text-decoration: none; text-transform: lowercase; white-space: nowrap; transition: background-color .15s, transform .12s; }
+.me-chip:hover { background: rgba(200, 50, 60, .2); }
+.me-chip:active { transform: scale(.96); }
+.me-chip.on { width: 2.25rem; padding: 0; border-radius: 50%; overflow: hidden; background: #160b0d; color: #f4f4f2; letter-spacing: 0; text-transform: none; font: italic 500 1.15rem/1 "MeguLit Cormorant", var(--serif); box-shadow: 0 0 0 1.5px #c8323c, 0 0 14px rgba(200, 50, 60, .45); border: 0; }
+.me-chip img { width: 100%; height: 100%; object-fit: cover; }
+:root[data-theme="light"] .me-chip:not(.on) { border-color: #a51d2d; }
+@media (max-width: 40rem) { .tools.has-chip .icon-btn[aria-label="GitHub"] { display: none; } .tools.has-chip .lang button { min-width: 1.9rem; padding: .2rem .3rem; } .me-chip:not(.on) { padding: 0 .65rem; letter-spacing: .12em; } }

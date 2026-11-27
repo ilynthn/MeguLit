@@ -3,9 +3,9 @@
    Hotkeys follow web/reader/modules/settings.js (Alt+T menu, Alt+H overlay on/off, Alt+M bind the window in front). [[...]] becomes a <kbd>. */
 
 export const SUCCESS = {
-  zh: { head: '怎样才算适配成功？', steps: ['开游戏，推进到有对话的地方', '按 [[Alt+T]] 打开菜单，在「校准」页做一次校准', '再推进几句，看到游戏原文被 MeguLit 完美替换，就成功了'], tail: '只看到菜单或悬浮字幕还不算，一定要先校准一次。' },
-  ja: { head: '対応できたかどうかの目安', steps: ['ゲームを起動して、会話のある場面まで進める', '[[Alt+T]] でメニューを開き、「校正」ページで一度校正する', 'さらに数行進めて、原文が MeguLit にきれいに置き換わっていれば成功'], tail: 'メニューが出ただけではまだです。まず一度校正してください。' },
-  en: { head: 'How do you know it works?', steps: ['Start the game and play until there is dialogue', 'Press [[Alt+T]] to open the menu and run Calibrate once', 'Advance a few more lines: when the game’s own text is cleanly replaced by MeguLit, you are set'], tail: 'Seeing the menu is not enough yet. Calibrate once first.' },
+  zh: { head: '怎样才算适配成功？', steps: ['开游戏，推进到有对话的地方，MeguLit 会自动校准', '正常情况下，游戏原文会自动藏起来，出来的字可以点击查词，这就是适配成功了', '如果原文没被藏住，或者点读查词的字没出来：按 [[Alt+T]] 或点屏幕上的小胶囊，进设置找到「校准」，点「校准当前句」，再推进几句。还是不行，说明这部游戏暂时还没适配'] },
+  ja: { head: '対応できたかどうかの目安', steps: ['ゲームを起動して、会話のある場面まで進める。MeguLit が自動で位置を合わせます', 'ふだんは原文が自動で隠れ、出てきた文字をクリックして辞書を引ければ、対応できています', '原文が隠れない、またはクリックで引ける文字が出ないとき：[[Alt+T]] を押すか画面の小さなカプセルを押し、設定の「調整」で「現在の文を調整」を押して、数行進める。それでもだめなら、このゲームはまだ未対応です'] },
+  en: { head: 'How do you know it works?', steps: ['Start the game and play until there is dialogue. MeguLit calibrates on its own', 'Normally the game’s own text hides by itself and the words that appear can be clicked to look up: that means it works', 'If the original text stays, or no clickable words appear: press [[Alt+T]] or click the small capsule, open Calibration in the settings, press Calibrate current line and advance a few lines. If it still does not work, this game is not supported yet'] },
 };
 
 export const GUIDE = {
@@ -53,7 +53,7 @@ const kbd = (text, esc) => esc(text).replace(/\[\[(.+?)\]\]/g, '<kbd>$1</kbd>');
 
 export function successHTML(locale, esc) {
   const s = pick(SUCCESS, locale);
-  return `<section class="guide-success"><h3>${esc(s.head)}</h3><ol>${s.steps.map(x => `<li>${kbd(x, esc)}</li>`).join('')}</ol><p>${esc(s.tail)}</p></section>`;
+  return `<section class="guide-success"><h3>${esc(s.head)}</h3><ol>${s.steps.map(x => `<li>${kbd(x, esc)}</li>`).join('')}</ol>${s.tail ? `<p>${esc(s.tail)}</p>` : ''}</section>`;
 }
 
 export function guideHTML(locale, esc) {
