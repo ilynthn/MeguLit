@@ -20,6 +20,9 @@ const TE={'く':'い','ぐ':'い','す':'し','つ':'っ','う':'っ','る':'っ
    clicked text as written); `out` is the kind of word produced. A dictionary form ends the search when JMdict lists it with a
    part of speech of that kind. Kinds: v1 ichidan, v5 godan, vs する, vk 来る, adj い-adjective; te / ta / masu are forms only. */
 const RULES=[];const add=(from,to,inKinds,out)=>RULES.push({from,to,in:inKinds,out});
+/* The bare continuative stem as clicked (赤らめ｜て, 調べ｜て, 話し｜て): an ichidan stem first, then a godan one, both before the
+   imperative reading of an え-row ending (赤らめ is 赤らめる, not 赤らむ) and long before a dialect ending is cut (調べ is not 調 + べ). */
+add('','る',null,'v1');for(let k=0;k<U.length;k++)add(I[k],U[k],null,'v5');
 for(let k=0;k<U.length;k++){const u=U[k],te=TE[u]+(VOICED.has(u)?'で':'て'),ta=TE[u]+(VOICED.has(u)?'だ':'た');
  add(A[k]+'ない',u,['adj'],'v5');add(I[k]+'ます',u,['masu'],'v5');add(I[k]+'ました',u,null,'v5');add(I[k]+'ません',u,null,'v5');add(I[k]+'たい',u,['adj'],'v5');
  add(E[k]+'ば',u,null,'v5');add(O[k]+'う',u,null,'v5');add(E[k],u,null,'v5');add(E[k]+'る',u,['v1'],'v5');add(A[k]+'れる',u,['v1'],'v5');add(A[k]+'せる',u,['v1'],'v5');

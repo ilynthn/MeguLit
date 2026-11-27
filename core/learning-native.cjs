@@ -408,7 +408,7 @@ class LocalLearning{
   const spoken=(surface,start,parts=[],word=Infinity)=>{let r=Colloquial.resolve(surface,key=>(this.index.get(key)||[]).map(id=>this.byId.get(id)).filter(Boolean));if(!r)return null;
    if(r.prefix&&[...r.matched].length>=word)r={...r,prefix:false,rest:''}; // a click reads on past its own token: what follows is the next word, not an unread rest
    const out=make({surface:r.matched,base_form:r.base,normalized:r.base,start,end:start+[...r.matched].length,aux:[],parts});if(!out.entries.length)return null;
-   out.match_note=Colloquial.describe(r,language);out.colloquial={base:r.base,matched:r.matched,rest:r.rest,prefix:r.prefix,rules:r.rules,standard:r.standard||'',dialect:r.dialect?{ending:r.dialect.ending,region:r.dialect.region,note:r.dialect.note}:null};return out;};
+   out.match_note=Colloquial.describe(r,language);out.colloquial={base:r.base,matched:r.matched,rest:r.rest,prefix:r.prefix,rewritten:!!(r.rules.length||r.dialect||r.cut),rules:r.rules,standard:r.standard||'',dialect:r.dialect?{ending:r.dialect.ending,region:r.dialect.region,note:r.dialect.note}:null};return out;};
   if(command==='scan_sentence')return groups.map(make).filter(r=>r.entries.length);
   let group=command==='lookup_exact'?groups.find(t=>t.start===args.start&&t.end===args.end):groups.find(t=>args.position>=t.start&&args.position<t.end);
   /* 2026-11-21 (user group, 「全身はじっとりと汗
@@ -432,8 +432,10 @@ class LocalLearning{
    /* a selection over the game's line break (汗 / ばんで) or a stem + conjugated suffix: the run's surfaces + its last word's dictionary form */
    if(!exact.entries.length){const run=inside.filter(t=>!blankGroup(t));let key='';for(let k=run.length;k>=2&&!key;k--){const c=lemmaOf(run.slice(0,k));if(this.index.has(c))key=c;}const flat=surface.replace(/[\s　]+/gu,'');const k=this.index.has(flat)&&flat!==surface?flat:key&&this.index.has(key)?key:'';if(k){exact=make({surface,base_form:k,normalized:k,start:args.start,end:args.end,parts:run.flatMap(t=>t.parts||[t])});exact.match_note=k===flat?'':'辞书原形：'+k;wholeMatch=true;}}
    if(!exact.entries.length){const expressive=surface.replace(/っ(?=[か-こさ-そた-とは-ほ])/gu,'');if(expressive!==surface&&this.index.has(expressive)){exact=make({surface,base_form:expressive,start:args.start,end:args.end,parts:inside.flatMap(t=>t.parts||[t])});exact.match_note='口语促音强调写法；辞书原形：'+expressive;wholeMatch=true;}}
-   /* a colloquial reading of the whole selection comes first; a mere prefix only when the words inside give nothing (黒｜ずん over a line break is 黒ずむ, not 黒) */
-   if(!exact.entries.length){const hit=spoken(surface.replace(/[\s　]+/gu,''),args.start,inside.flatMap(t=>t.parts||[t]));if(hit&&(!hit.colloquial.prefix||!analysis.some(a=>a.entries.length))){exact=hit;wholeMatch=!hit.colloquial.prefix;}}
+   /* a colloquial reading of the whole selection comes first; a mere prefix only when the words inside give nothing (黒｜ずん over a line break is 黒ずむ, not 黒).
+      A reading that rewrote nothing (no contraction, no dialect ending, no particle cut) is a plain deinflection guess: when the words
+      inside are already listed it must not replace them (赤｜らめ over a line break is 赤らめる, not 赤らむ). */
+   if(!exact.entries.length){const hit=spoken(surface.replace(/[\s　]+/gu,''),args.start,inside.flatMap(t=>t.parts||[t]));if(hit&&(hit.colloquial.rewritten&&!hit.colloquial.prefix||!analysis.some(a=>a.entries.length))){exact=hit;wholeMatch=!hit.colloquial.prefix;}}
    if(!exact.entries.length)exact.entries=[...new Map(analysis.flatMap(a=>a.entries).map(e=>[e.id,e])).values()].slice(0,20);
    exact.selection_analysis={surface,exact:wholeMatch,parts:analysis,source:'SudachiDict Full ＋ JMdict（本地）'};return exact;
   }
