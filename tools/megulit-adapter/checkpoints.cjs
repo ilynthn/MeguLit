@@ -34,9 +34,12 @@ function evidence(coldOut,cold){const P=pictures(coldOut),all=[...P.screen,...P.
  const tc=phaseAt(cold,'choice');const near=arr=>arr.filter(f=>mtime(f)>=tc-1000).sort((a,b)=>mtime(a)-mtime(b))[0]||'';
  const choice=tc?near(P.screen)||near(P.ocr)||'':'';
  return {title,dialogue:[...new Set(dialogue)],choice,last:all.sort((a,b)=>mtime(a)-mtime(b)).slice(-2)};}
-function questions({identity={},caps={},cold=null,coldOut='',force=false,install=[]}={}){const q=[],ev=coldOut?evidence(coldOut,cold):{title:'',dialogue:[],choice:'',last:[]};const pic=x=>[x].flat().filter(Boolean);
+function questions({identity={},caps={},cold=null,coldOut='',force=false,install=[],pairing=null}={}){const q=[],ev=coldOut?evidence(coldOut,cold):{title:'',dialogue:[],choice:'',last:[]};const pic=x=>[x].flat().filter(Boolean);
  /* only disc images (アイキス3 sexy: iso+mds and an update folder): installing needs a mount and the installer, a person's step */
  if(install.length)q.push({id:'install',ask:'只有光盘镜像（'+install.map(f=>path.basename(f)).slice(0,3).join('、')+'），要先挂载安装。装好后回 install=<装好的游戏目录>，再对那个目录重跑',evidence:[],free:true});
+ /* 2026-11-28 (owner: 有汉化时配对是必做步骤，没做完不算 ready): a translation sits with the game and MeguLit's zero-latency
+    search did not pair it. Fix the reader / pairing and run the adapter again; pairing=none only when it is no translation. */
+ if(pairing&&pairing.hints?.length&&pairing.status!=='ready')q.push({id:'pairing',ask:'游戏旁边有汉化（'+pairing.hints.join('、')+'），MeguLit 的零延迟配对没配上（'+pairing.status+(pairing.error?'：'+pairing.error:'')+'）。修好读取器或配对后重跑适配器；确定不是汉化才回 pairing=none',evidence:[],options:['none']});
  if(!identity.vndb)q.push({id:'vndb',ask:'这是哪部作品？回 VNDB 作品号（v 开头）',evidence:pic(ev.title),free:true});
  /* AGENTS.md: public text names a work 「原名（中文名）」; '-' when it has no Chinese name */
  if(!identity.cn)q.push({id:'cn',ask:'这部作品的中文名？（VNDB 中文标题或通行译名；没有就回 -）',evidence:[],free:true});

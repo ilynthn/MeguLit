@@ -24,6 +24,9 @@ const matchKey=s=>norm(rubyFold(inlineTags(s))).replace(/≪([^≪≫／]*)／[^
 const japaneseLine=t=>{const k=(t.match(KANA)||[]).length,h=(t.match(HAN)||[]).length;return k>=2&&k>=h*.2;};
 // Lines that carry language at all (not file names, labels or numbers): what the Japanese / translated share is measured on.
 const prose=t=>/[^\x00-\x7f]/.test(t)&&!!String(t).trim();
+/* OZMAFIA!! (夜鸮汉化) keeps the speaker's katakana name in front of the translated line, フーカ「天气真好……」, as the
+   running line has it: whether the patch left a line in Japanese is judged on what follows a name both lines share. */
+const spokenPart=(t,own)=>{const m=/^([^「『（(\s]{1,16})[「『（(]/.exec(String(own||''));return m&&String(t).startsWith(m[1])?String(t).slice(m[1].length):t;};
 const SCRIPT_ASCII=/^[@#\[<*;%$&]|^\/\/|^[A-Za-z_][\w.]*\s*[(=]|\.(png|jpe?g|bmp|ogg|wav|mp3|ks|tjs|txt|ws2|scr|mjo|bsc|ybn|dat|arc|xp3)\b/i;
 const latinDialogue=t=>{const s=String(t).trim();return !!s&&!SCRIPT_ASCII.test(s)&&!/[ぁ-ゖァ-ヺ一-鿿]/.test(s)&&/[A-Za-z]+\s+[A-Za-z]+/.test(s);};
 /* E452 (#108 小红帽与迷失森林 Kirikiroid2 package): a translation group can replace the script text outright, leaving
@@ -192,7 +195,7 @@ function sharedKanaAside(translated,original){
 // Test the surrounding script's language once, only when a line has a shared kana annotation.
 function untranslatedJapanese(lines){
  let chinese;
- return (text,original)=>japaneseLine(text)&&!(sharedKanaAside(text,original)&&(chinese??=chineseOnly(lines)));
+ return (text,original)=>japaneseLine(spokenPart(text,original))&&!(sharedKanaAside(text,original)&&(chinese??=chineseOnly(lines)));
 }
 function align(runtime,original){
  const sameStructure=runtime.structure.messages===original.structure.messages&&runtime.structure.functionHash===original.structure.functionHash;
@@ -374,7 +377,7 @@ function buildPatch(runningState,source){
   script={engine:'bgi',version:0,codepage:'mixed',lines,sizes:scenes.map(x=>x.lines.length),structure:{messages:lines.length,functions:scenes.length,functionHash:crypto.createHash('sha256').update(scenes.map(x=>x.name+':'+x.lines.length).join('\n')).digest('hex').slice(0,16)}};
  }else if(scenes.ENGINES[engine]){
   const eng=scenes.ENGINES[engine],base=scenes.read(engine,runningDir);let list;
-  if(eng.patchLines)list=eng.patchLines(base,found);
+  found.running=runningDir;if(eng.patchLines)list=eng.patchLines(base,found);
   if(!list&&eng.patchLines&&(!eng.archives||engine==='siglus'))throw Error('PATCH_SCRIPT_NOT_FOUND');
   if(!list){
    const names=new Set(base.map(x=>x.name.toLowerCase())),overlay=new Map();
@@ -399,9 +402,9 @@ function buildPatch(runningState,source){
     if(own.anchors.length>=5&&(Math.abs(scene.anchors.length-own.anchors.length)>own.anchors.length*.1||same<own.anchors.length*.9))return {...own,patched:false,skipped:'anchors'};
     return scene;});
   }
-  list=list.map((scene,i)=>scene.patched?{...scene,lines:scene.lines.map((t,k)=>japaneseLine(t)||base[i].zhSource?.[k]==='filled'&&base[i].zh[k]===t?base[i].lines[k]:t)}:scene);
+  list=list.map((scene,i)=>scene.patched?{...scene,lines:scene.lines.map((t,k)=>japaneseLine(spokenPart(t,base[i].lines[k]))||base[i].zhSource?.[k]==='filled'&&base[i].zh[k]===t?base[i].lines[k]:t)}:scene);
   const lines=list.flatMap(x=>x.lines);patched=list.filter(x=>x.patched).length;if(!patched)throw Error('PATCH_SCRIPT_NOT_FOUND');
-  translated=list.flatMap((scene,i)=>!scene.patched?[]:scene.keyed?scene.lines.filter((t,k)=>sampler.translated(t,base[i].lines[k])):scene.lines);
+  translated=list.flatMap((scene,i)=>!scene.patched?[]:scene.keyed?scene.lines.filter((t,k)=>sampler.translated(t,base[i].lines[k])):scene.lines.map((t,k)=>spokenPart(t,base[i].lines[k])));
   sections=list.map(scene=>({scope:scene.scope==='interface'?'interface':'script',length:scene.lines.length,keyed:scene.keyed===true}));
   patchFiles=list.flatMap(scene=>scene.patchFiles||(scene.patchFile?[scene.patchFile]:[]));
   script={engine,version:0,codepage:'text',lines,sizes:list.map(x=>x.lines.length),structure:{messages:lines.length,functions:list.length,functionHash:crypto.createHash('sha256').update(list.map(x=>x.name+':'+x.lines.length).join('\n')).digest('hex').slice(0,16)}};
