@@ -12,7 +12,8 @@
      - code: core, services, web, The Seed, tools, setup from the tree; data\hot-update.json so the shell reads that web\ (its HTML
        stays the shell's own: a page whose HTML changed since the release is noted)
      - native: C++ helpers from main's newest successful CI run (artifact native-binaries); C# (HookBridge, GalWindowBridge) built here
-       from the tree; a C++ part a PR changes: that PR session's own build (integration.json oldRoots) when there, else noted
+       from the tree; a C++ part a PR changes: that PR's own CI build (artifact native-binaries of the CI run on the merged PR
+       commit), else that PR session's own build (integration.json oldRoots), else main's (noted)
      - data: the tester's settings, translation config and key vault (auto.cjs readyBuild), every card's game in the library under
        the work's name (on the first start)
    4 <dir>\开始测试.cmd [<PR>]: test-start.cjs; with a PR number the card's game starts. Each run first asks GitHub whether main or one
@@ -82,6 +83,31 @@ function nativeArtifact(log){const runs=JSON.parse(gh(['run','list','--repo','il
   try{log('# 下载 main 的原生组件（CI '+r.databaseId+'）');fs.mkdirSync(dir,{recursive:true});gh(['run','download',String(r.databaseId),'--repo','ilynthn/MeguLit','-n','native-binaries','-D',dir]);fs.writeFileSync(path.join(dir,'.complete'),r.headSha);return {dir,sha:r.headSha};}catch(e){log('#   '+e.message);}}
  return null;}
 
+/* 2026-11-28 (アイキス3 sexy #1304: the combined test build flashed black and its glyph hide was main's MeguLitFont, not #1304's: the
+   PR session's own build folder named in oldRoots was gone, this PC cannot build fontprobe, so the part fell back to main) the PR's
+   own CI run builds every "ci" part of native/native-builds.json and uploads it (native-binaries, kept 3 days): that is the PR's build.
+   -> the artifact folder, '' when the commit has no successful CI run or the artifact expired */
+function prArtifact(pr,sha,log,{list=args=>JSON.parse(gh(args)),download=(id,dir)=>gh(['run','download',String(id),'--repo','ilynthn/MeguLit','-n','native-binaries','-D',dir])}={}){
+ if(!sha)return '';let runs=[];try{runs=list(['run','list','--repo','ilynthn/MeguLit','--workflow','ci.yml','--commit',sha,'--status','success','--limit','3','--json','databaseId,headSha']);}catch(e){log('#   #'+pr+' 的 CI 查不到：'+e.message.slice(0,120));return '';}
+ for(const r of runs){const dir=path.join(COPIES(),'testbuild-base','native-pr'+pr+'-'+r.databaseId);if(fs.existsSync(path.join(dir,'.complete')))return dir;
+  try{log('# 下载 #'+pr+' 自己 CI 编的原生组件（CI '+r.databaseId+'）');fs.rmSync(dir,{recursive:true,force:true});fs.mkdirSync(dir,{recursive:true});download(r.databaseId,dir);fs.writeFileSync(path.join(dir,'.complete'),String(r.headSha||sha));return dir;}
+  catch(e){log('#   '+e.message.slice(0,200));}}
+ return '';}
+/* C++ parts the PRs change (C# parts are built from the tree): per part the last PR that changes it; its outputs from that PR's CI
+   artifact (prArt(pr) -> folder), else that PR session's build (oldRoots[pr]), else the part stays main's. -> notes */
+function prParts(t,target,oldRoots,{prArt=()=>'',tag='main'}={}){const notes=[];
+ let comps=[];try{comps=JSON.parse(fs.readFileSync(path.join(t.dir,'native','native-builds.json'),'utf8'));}catch{}
+ const arts={},artOf=pr=>(pr in arts)?arts[pr]:(arts[pr]=prArt(pr)||'');
+ for(const c of comps){if((c.sources||[]).some(s=>/\.cs$/i.test(s)))continue;
+  const by=t.merged.filter(n=>(t.changed[n]||[]).some(f=>(c.sources||[]).some(s=>f===s||f.startsWith(String(s).replace(/\\/g,'/')+'/'))));
+  if(!by.length){if(c.name==='megulithook')notes.push('钩子 DLL 没有 CI 产物，用 '+tag+' 的');continue;}
+  const pr=by[by.length-1],old=oldRoots[pr],outs=(c.outputs||[]).filter(f=>/\.(dll|exe)$/i.test(f)).map(o=>o.replace(/^native[\\/]/,''));
+  const art=c.ci?artOf(pr):'';const fromArt=art&&outs.length&&outs.every(rel=>fs.existsSync(path.join(art,rel)));
+  let took=0;for(const rel of outs){const from=fromArt?path.join(art,rel):old&&[path.join(old,'native',rel),path.join(old,'runtime',rel)].find(x=>fs.existsSync(x));
+   if(!from)continue;fs.mkdirSync(path.dirname(path.join(target,'native',rel)),{recursive:true});fs.copyFileSync(from,path.join(target,'native',rel));
+   if(/megulithook/i.test(rel)){fs.mkdirSync(path.join(target,'runtime','megulithook'),{recursive:true});fs.copyFileSync(from,path.join(target,'runtime','megulithook',path.basename(rel)));}took++;}
+  notes.push(c.name+(fromArt?' 用 #'+pr+' 自己 CI 编的':took?' 用 #'+pr+' 会话编的':' #'+by.join(' #')+' 改过但没有它的 CI 产物、这台机器也编不了，用 main/'+tag+' 的')+(by.length>1?'（#'+by.join(' #')+' 都改了它）':''));}
+ return notes;}
 function assemble(t,b,art,target,oldRoots,log){const notes=[...t.notes];
  robocopy(b.root,target,['/XD',...['data','cache','logs','secrets','migration','validation'].map(d=>path.join(b.root,d)),'/XF','*.rollback-*','*.bak-*']);
  if(!fs.existsSync(path.join(target,'runtime','node.exe'))&&fs.existsSync(path.join(CONFIG_APP(),'runtime','node.exe'))){log('# 复制运行库');robocopy(path.join(CONFIG_APP(),'runtime'),path.join(target,'runtime'));}
@@ -91,16 +117,7 @@ function assemble(t,b,art,target,oldRoots,log){const notes=[...t.notes];
  try{ps('Build-HookBridge.ps1',['-OutputPath',path.join(target,'native','HookBridge.exe')]);}catch(e){notes.push('HookBridge 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
  try{ps('Build-GalWindowBridge.ps1');const f=['GalWindowBridge.updated.exe','GalWindowBridge.exe'].map(n=>path.join(t.dir,'native',n)).find(x=>fs.existsSync(x));if(f)fs.copyFileSync(f,path.join(target,'native','GalWindowBridge.exe'));}catch(e){notes.push('GalWindowBridge 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
  try{ps('Build-StartupIsland.ps1',['-OutputPath',path.join(target,'native','StartupIsland.exe')]);}catch(e){notes.push('启动画面 StartupIsland 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
- /* C++ parts the PRs change: the PR session's own build (the last PR wins when two change one part); C# parts were built above */
- let comps=[];try{comps=JSON.parse(fs.readFileSync(path.join(t.dir,'native','native-builds.json'),'utf8'));}catch{}
- for(const c of comps){if((c.sources||[]).some(s=>/\.cs$/i.test(s)))continue;
-  const by=t.merged.filter(n=>t.changed[n].some(f=>(c.sources||[]).some(s=>f===s||f.startsWith(String(s).replace(/\\/g,'/')+'/'))));
-  if(!by.length){if(c.name==='megulithook')notes.push('钩子 DLL 没有 CI 产物，用 '+b.tag+' 的');continue;}
-  const pr=by[by.length-1],old=oldRoots[pr];let took=0;
-  for(const out of (c.outputs||[]).filter(f=>/\.(dll|exe)$/i.test(f))){const rel=out.replace(/^native[\\/]/,'');const from=old&&[path.join(old,'native',rel),path.join(old,'runtime',rel)].find(f=>fs.existsSync(f));
-   if(!from)continue;fs.mkdirSync(path.dirname(path.join(target,'native',rel)),{recursive:true});fs.copyFileSync(from,path.join(target,'native',rel));
-   if(/megulithook/i.test(rel)){fs.mkdirSync(path.join(target,'runtime','megulithook'),{recursive:true});fs.copyFileSync(from,path.join(target,'runtime','megulithook',path.basename(rel)));}took++;}
-  notes.push(c.name+(took?' 用 #'+pr+' 会话编的':' #'+by.join(' #')+' 改过但这台机器编不了，用 main/'+b.tag+' 的')+(by.length>1?'（#'+by.join(' #')+' 都改了它）':''));}
+ notes.push(...prParts(t,target,oldRoots,{prArt:pr=>prArtifact(pr,t.heads[pr],log),tag:b.tag}));
  const html=git(['diff','--name-only',b.tag,'HEAD','--','web/*.html','web/**/*.html'],t.dir).split('\n').filter(Boolean);if(html.length)notes.push('HTML 用 '+b.tag+' 外壳里的（'+html.join('、')+' 之后改过）');
  const shellLag=git(['log','--oneline',b.tag+'..origin/main','--','desktop/']).split('\n').filter(Boolean);
  return {notes,shellLag};}
@@ -141,4 +158,4 @@ function parse(argv){const o={add:[]};for(let i=0;i<argv.length;i++){const k=arg
   else if(k==='--old-root'){const [n,...p]=v().split('=');o.oldRoots={...(o.oldRoots||{}),[n]:p.join('=')};}else throw Error('unknown argument: '+k);}return o;}
 if(require.main===module){try{const o=parse(process.argv.slice(2));if(o.check){const m=moved(path.resolve(o.dir||path.join(COPIES(),'testbuild-all')));console.log(JSON.stringify(m));process.exitCode=m.due?10:0;}else build(o);}
  catch(e){console.error('测试版没做出来：'+(e.message||e));process.exitCode=1;}}
-module.exports={build,moved,cards,green,workName,tree,parse};
+module.exports={build,moved,cards,green,workName,tree,parse,prArtifact,prParts};
