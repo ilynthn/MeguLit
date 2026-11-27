@@ -39,7 +39,14 @@ function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin
  return o;}
 
 /* a display title from the download folder: 「[GAME][PC-JP] トリック･オア･アリス」→「トリック･オア･アリス」 */
-const titleOf=dir=>path.basename(path.resolve(dir)).replace(/\[[^\]]*\]/g,' ').replace(/[『』]/g,'').replace(/\s+/g,' ').trim()||path.basename(dir);
+/* 2026-11-27 (ハミダシクリエイティブ: the seed came out titled 「HamidashiCreative-ozmafia-joki」) an own copy (tools/game-copies.cjs,
+   .megulit-copy.json) is named after its source, not <name>-<owner>; a disc's program folder (Input, Game …) after its parent */
+const INSTALL_SUB=/^(input|game|games|data|bin|install|program|files?|disc\d*|disk\d*)$/i;
+function titleOf(dir){let base=path.resolve(dir);try{const m=JSON.parse(fs.readFileSync(path.join(base,'.megulit-copy.json'),'utf8'));if(m&&m.source)base=path.resolve(String(m.source));}catch{}
+ if(INSTALL_SUB.test(path.basename(base))&&path.dirname(base)!==base)base=path.dirname(base);
+ return path.basename(base).replace(/\[[^\]]*\]/g,' ').replace(/[『』]/g,'').replace(/\s+/g,' ').trim()||path.basename(base);}
+/* a seed folder name from a romanised title: 「Hamidashi Creative」 -> hamidashi-creative ('' when nothing usable is left) */
+const slugOf=s=>String(s||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,64).replace(/-+$/,'');
 const safeName=s=>String(s).replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').replace(/[. ]+$/,'').slice(0,80)||'game';
 const inside=(child,parent)=>{const r=path.relative(path.resolve(parent),path.resolve(child));return r===''||!!r&&!r.startsWith('..')&&!path.isAbsolute(r);};
 
@@ -318,13 +325,13 @@ function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=co
 /* ---- layer 4: the seed entry (The Seed/<engine>/<slug>/game.json + versions/<sha>.json), local only ---------------------------
    From the game layer diff-maker made, plus the seed fields (README of The Seed), checked with core/profiles/seed.cjs like
    seed-all.cjs. Written only for a pass (status verified); never into the repository, never uploaded. */
-function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
+function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey,slug:wanted='',titles=[]},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
  const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));const gf=fs.readdirSync(diffDir).find(f=>/^game-.*\.json$/.test(f)),vf=fs.readdirSync(diffDir).find(f=>/^version-[0-9a-f]{64}\.json$/.test(f));
  if(!gf||!vf)throw Error('diff has no game/version document');
  const doc=read(path.join(diffDir,gf)),ver=read(path.join(diffDir,vf));const settings=JSON.parse(JSON.stringify(doc.settings||{}));delete settings.calibrate;settings.lang={ja:{annotation:'ruby'}};
  let slugs={};try{slugs=read(path.join(__dirname,'..','diff-maker','slugs.json'));}catch{}
- const slug=[slugs[title+'|'+exeName],slugs[title]].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
- const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[title]},sourceLangs:['ja'],rev:1};
+ const slug=[slugs[title+'|'+exeName],slugs[title],wanted].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
+ const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[...new Set([title,...titles].filter(Boolean))]},sourceLangs:['ja'],rev:1};
  const version={...ver,rev:1};
  for(const [n,d,w] of [['game',game,{engine,slug}],['version',version,{engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}
  const dir=path.join(seedOut,engine,slug);fs.mkdirSync(path.join(dir,'versions'),{recursive:true});
@@ -432,4 +439,4 @@ function reexecIfOldNode(entry,argv,app){
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
 function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={copyAppParts,inputFrom,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+module.exports={copyAppParts,inputFrom,slugOf,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};

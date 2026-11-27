@@ -196,6 +196,11 @@ test('choiceItems: OCR rows that are pieces of the hook\'s option text, topmost 
  const c=R.choiceItems(L,aux);assert.deepEqual(c.map(o=>o.y),[196,283]);assert.equal(c[0].role,'choice');assert.equal(c[0].text,'・・・本当は。お憂しい方なのかしら');
  assert.deepEqual(R.choiceItems(L,''),[]);assert.deepEqual(R.choiceItems([{text:'村 人',x:1,y:1,w:5,h:5}],aux),[]);});
 
+test('choiceItems: two short options the hook joined into one label (ハミダシクリエイティブ 「好きそうでもない」)',()=>{const R=require('../services/cold-test-run.cjs');
+ const L=[{text:'好 き',x:930,y:495,w:60,h:30},{text:'そうでもない',x:875,y:578,w:170,h:30},{text:'セーブ',x:1270,y:885,w:40,h:16},{text:'ロード',x:1330,y:885,w:40,h:16}];
+ assert.deepEqual(R.choiceItems(L,'好きそうでもない').map(o=>o.text),['好き','そうでもない'],'menu bar words are not in the option text');
+ assert.deepEqual(R.choiceItems([{text:'好',x:1,y:1,w:5,h:5}],'好きそうでもない'),[],'one character is never an option');});
+
 test('runOne: the hook\'s choice aux trace (no timestamp) and OCR rows make a choice the driver answers',async()=>{const R=require('../services/cold-test-run.cjs');const dir=tmp();let t=0;
  const h=fakeHelper(emit=>{emit({type:'started',pid:5,started:'1'});emit({type:'window',hwnd:'9',w:1280,h:720});});
  class Hook{configure(){Hook.traceTap?.('source chars=10 sequence=1');}tick(){}stop(){}drawLog(){}}

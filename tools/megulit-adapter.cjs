@@ -100,7 +100,7 @@ function finish(st,log){const qs=Check.questions({install:st.install||[],identit
 /* ---- layer 4: the seed. The cold stage's diff (game + version documents) with what the adapter knows on top: status from the
    answers, the VNDB print, the prints that name this build (ext.versionPrints, source.versionMatch 'prints'), the pairing ----- */
 function writeSeed(st,status){const SeedFormat=require('../core/profiles/seed.cjs');const diff=st.cold?.artifacts?.diff;if(!diff)throw Error('no diff to make a seed from');
- const exeSha=st.cold.exeSha256||st.identity.prints.exe;const dir=Cold.writeSeed(diff,{engine:st.engine,title:st.title,exeName:path.basename(st.exe),exeSha,gameKey:st.gameKey||''},path.join(st.out,'seed'));
+ const exeSha=st.cold.exeSha256||st.identity.prints.exe;const dir=Cold.writeSeed(diff,{engine:st.engine,title:st.title,titles:[st.folderTitle],slug:Cold.slugOf(st.identity.romaji),exeName:path.basename(st.exe),exeSha,gameKey:st.gameKey||''},path.join(st.out,'seed'));
  const gf=path.join(dir,'game.json'),g=JSON.parse(fs.readFileSync(gf,'utf8'));const vndb=st.answers.vndb||st.identity.vndb,release=st.answers.release||st.identity.release||st.identity.releaseGuess;
  g.status=status;if(status==='read'){g.mode='read';g.settings.hide={...(g.settings.hide||{}),textEffectsRead:true};}else if(g.mode==='read')g.mode='hide';
  if(vndb)g.prints={...(g.prints||{}),vndb};
@@ -133,9 +133,9 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(o.steamAppId)identity.steamAppId=o.steamAppId;
  /* VNDB: the work, the release, the Chinese title, VNDB's engine (an answer only when unambiguous; --no-net or an error asks a person) */
  if(o.net){const v=await Ident.vndb({title,gameDir:loc.gameDir,vnid:o.vndb||identity.vndb,chineseBuild:pr.step==='chinese-build',engine:loc.engine});identity.steamAppId=o.steamAppId||v.steamAppId||'';identity.steamCandidates=v.steamCandidates||[];identity.vndbLookup={how:v.how,release:v.release,releaseHow:v.releaseHow,candidates:v.candidates,engine:v.vndbEngine,engineDiffers:v.engineDiffers,error:v.error,releases:v.releases.map(r=>({rid:r.rid,title:r.title,engine:r.engine,langs:r.langs,patch:r.patch,official:r.official,ext:r.ext}))};
-  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(!identity.release&&v.release)identity.release=v.release;identity.releaseCandidates=v.candidates;
+  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(v.ja)identity.ja=v.ja;if(v.romaji)identity.romaji=v.romaji;if(!identity.release&&v.release)identity.release=v.release;identity.releaseCandidates=v.candidates;
   if(v.vndb)identity.adapted=Ident.sameRelease(Ident.adaptedRows(Ident.handoffText()),identity.vndb,identity.release||identity.releaseGuess);}
- const st={tool:'megulit-adapter',out,title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
+ const st={tool:'megulit-adapter',out,title:identity.ja||title,folderTitle:title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
  if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.cn)st.answers.cn=st.answers.cn||o.cn;if(o.release)st.answers.release=st.answers.release||o.release;
  /* our readers read nothing: GalTransl's detect + extractor as a second opinion (evidence and a porting pointer, never the text) */
  if(o.external&&SecondOpinion.wanted({probe:pr,caps})){st.external={galtransl:SecondOpinion.secondOpinion({gameDir:loc.gameDir,out})};const n=SecondOpinion.note(st.external.galtransl);if(n)st.plan.notes.push(n);log('# second opinion '+(n||st.external.galtransl.error));}

@@ -124,6 +124,18 @@ test('samples: disc images ask for an install (soundtrack .cue beside .wav does 
  const y=plan({caps:Engines.capabilities('yuris'),probe:{step:'parse-failed',detail:'yuris',detected:null}});
  assert.ok(y.notes.some(n=>/选项/.test(n)),'caveat shown');assert.ok(y.notes.some(n=>/读取器/.test(n)),'parse-failed is a reader gap');});
 
+test('naming: an own copy is named after its source, a disc program folder after its parent, the seed after VNDB (ハミダシクリエイティブ)',async()=>{
+ const Cold=require('../tools/megulit-adapter/cold.cjs');const d=tmp();const copy=path.join(d,'HamidashiCreative-ozmafia-joki');fs.mkdirSync(copy);
+ fs.writeFileSync(path.join(copy,'.megulit-copy.json'),JSON.stringify({source:path.join(d,'hamidashi-creative','HamidashiCreative','Input'),owner:'ozmafia-joki'}));
+ assert.equal(Cold.titleOf(copy),'HamidashiCreative','not 「HamidashiCreative-ozmafia-joki」 and not 「Input」');
+ assert.equal(Cold.titleOf(path.join(d,'[GAME] 千恋＊万花')),'千恋＊万花','a plain folder as before');
+ assert.equal(Cold.slugOf('Hamidashi Creative'),'hamidashi-creative');assert.equal(Cold.slugOf('OZMAFIA!!'),'ozmafia');assert.equal(Cold.slugOf('ハミダシ'),'');
+ const E=require('../services/game-enrichment.cjs');const fetcher=async(url,o)=>{const b=JSON.parse(o.body);
+  const body=/\/vn$/.test(url)?{results:[{id:'v27449',title:'Hamidashi Creative',alttitle:'ハミダシクリエイティブ',titles:[{lang:'zh-Hans',title:'常轨脱离Creative'},{lang:'ja',title:'ハミダシクリエイティブ'}]}]}:{results:[]};void b;
+  return {ok:true,status:200,json:async()=>body,text:async()=>JSON.stringify(body)};};
+ const r=await E.vndbReleases({vnid:'v27449'},fetcher);assert.deepEqual([r.title,r.ja,r.zh],['Hamidashi Creative','ハミダシクリエイティブ','常轨脱离Creative']);
+ const v=await Ident.vndb({title:'HamidashiCreative',gameDir:tmp(),vnid:'v27449'},{lookup:async()=>r});assert.deepEqual([v.ja,v.romaji],['ハミダシクリエイティブ','Hamidashi Creative']);});
+
 test('VNDB: a Steam appid names the release, one Japanese release is taken, several become the question; an error asks a person',async()=>{
  const d=tmp();fs.writeFileSync(path.join(d,'steam_appid.txt'),'1144400');
  const rel=(rid,title,o={})=>({rid,title,engine:'KiriKiri',langs:['ja'],patch:false,official:true,platforms:['win'],ext:{steam:'',dlsite:'',dmm:''},...o});
