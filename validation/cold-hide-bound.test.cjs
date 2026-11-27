@@ -48,13 +48,14 @@ test('hidden desktop: a full-screen app (the user playing) still stops the run',
 
 /* ファタモルガーナの館 prologue: 'choice options filtered 2 -> 0' was counted as a choice; the driver answered it with Down + Enter and
    a click, the game opened its config screen and the run stalled there */
-test('a choice the kernel filtered down to fewer than two options is no choice for the driver',async()=>{const R=require('../services/cold-test-run.cjs');
+test('only options the kernel found on the screen are a choice for the driver, never its candidates',async()=>{const R=require('../services/cold-test-run.cjs');
  const dir=fs.mkdtempSync(path.join(process.env.MEGULIT_TMP||os.tmpdir(),'cold-choice-'));let H=null;
  class Hook{constructor(){H=this.constructor;}configure(){}tick(){}stop(){}drawLog(){}}
  const h=fakeHelper(emit=>{emit({type:'started',pid:7,started:'1'});emit({type:'window',hwnd:'9',w:800,h:600});});
  const p=R.runOne({exe:'C:/g/fata_jp.exe',runDir:path.join(dir,'run'),budgetMs:600000},{spawn:h.spawn,helper:'ColdDesk.exe',Hook,layout:{native:dir},tick:5});
  await until(()=>H&&typeof H.traceTap==='function');
  H.traceTap('2026-11-27T00:18:42.178Z choice options filtered 2 -> 0');H.traceTap('2026-11-27T00:46:19.443Z choice options filtered 4 -> 1');
- H.traceTap('2026-11-27T00:19:42.178Z choice options filtered 3 -> 2');
+ H.traceTap('2026-11-27T00:52:44.203Z choice options filtered 5 -> 2');H.traceTap('2026-11-27T00:53:00.000Z choice ocr partial found=1 boxes=[]');H.traceTap('2026-11-26T21:12:43.111Z choice ocr all found=3 boxes=[]');
+ H.traceTap('2026-11-26T21:24:39.757Z choice ocr partial found=2 boxes=[["……本当は、お優しい方なのかしら",467,196,816,218],["……本当に、几帳面な方なのね",524,283,638,304]] missed=[]');
  R.stopActive();const res=await p;fs.rmSync(dir,{recursive:true,force:true});
- assert.equal(res.choices,1,'only the choice that kept options counts');});
+ assert.equal(res.choices,2,'only options the kernel found on the screen count (オルフレール real choice), never the candidates or the filter count');});
