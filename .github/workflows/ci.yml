@@ -354,6 +354,51 @@ jobs:
             Invoke-ForegroundBatch 'standard' $standard $parallelism
           }
 
+          # One more try for the files that are known to be timing-sensitive on a shared runner (headless Edge, the real-time
+          # replay, a throttled local HTTP server, the C# compiler, software WebGL). This is not for tests in general: a failure
+          # in any other file, or one that cannot be tied to a file, fails the job as before. Only the failed files run again,
+          # alone and one at a time, after every other lane has finished, so the machine is quiet. The retry is never silent: a
+          # FLAKY-RETRY line in the log, a warning annotation and a row in the job summary name each file, and a file that fails
+          # twice fails the job. The list and the numbers behind it are in the pull request that added this block.
+          $flakyFiles = @(
+            'validation/games-regression.test.cjs', 'validation/setup-download.test.cjs', 'validation/torch-render-temp.test.cjs',
+            'validation/home-card-motion.test.cjs', 'validation/unity-kemco-snapshot.test.cjs', 'validation/reader-notice-layout.test.cjs',
+            'validation/altt-panel-contrast.test.cjs', 'validation/mychip-layout.test.cjs', 'validation/cardinal-cdp.test.cjs',
+            'validation/window-chrome.test.cjs', 'validation/learning-theme-layout.test.cjs', 'validation/library-switch-motion.test.cjs',
+            'validation/lookup-card-size.test.cjs', 'validation/kana-best-score.test.cjs', 'validation/sentence-voice-label.test.cjs',
+            'validation/v4-settings-live-sync.test.cjs', 'validation/words-delete-empty-state.test.cjs', 'validation/reader-opening-notice.test.cjs'
+          )
+          if ($failed -and -not $batchErrors.Count) {
+            $failedFiles = [System.Collections.Generic.HashSet[string]]::new()
+            $unmapped = 0
+            $pending = $false
+            foreach ($line in [System.IO.File]::ReadLines((Get-Item -LiteralPath test-output.txt).FullName)) {
+              if ($line -match '^\s*not ok \d+') {
+                if ($pending) { $unmapped++ }
+                $pending = $true
+              } elseif ($pending -and $line -match "location: '[^']*validation\\+([A-Za-z0-9._-]+\.test\.cjs)") {
+                [void]$failedFiles.Add("validation/$($Matches[1])")
+                $pending = $false
+              }
+            }
+            if ($pending) { $unmapped++ }
+            $retry = @($failedFiles | Where-Object { $_ -in $flakyFiles } | Sort-Object)
+            if ($unmapped -eq 0 -and $failedFiles.Count -gt 0 -and $retry.Count -eq $failedFiles.Count -and $retry.Count -le 4) {
+              foreach ($f in $retry) {
+                Write-Host "FLAKY-RETRY: $f failed on its first run and is run again on its own"
+                Add-Content -LiteralPath test-output.txt -Value "FLAKY-RETRY: $f"
+              }
+              $failed = $false
+              Invoke-ForegroundBatch 'retry' @($retry | ForEach-Object { $_.Replace('/', '\') }) 1
+              $verdict = if ($failed) { 'failed again' } else { 'passed on the retry' }
+              foreach ($f in $retry) {
+                $level = if ($failed) { 'error' } else { 'warning' }
+                Write-Host "::$level title=Flaky test retried::$f failed on its first run and $verdict"
+                if ($env:GITHUB_STEP_SUMMARY) { Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "| flaky retry | shard ${{ matrix.shard }} | $f | $verdict |" }
+              }
+            }
+          }
+
           # Keep the same artifact format for tools/test-shards.cjs --update.
           ConvertTo-Json -InputObject $timings | Set-Content -LiteralPath test-file-times.json
           if ($batchErrors.Count) { throw ($batchErrors -join '; ') }

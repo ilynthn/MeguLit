@@ -24,7 +24,7 @@ test.before(()=>{base=fs.mkdtempSync(path.join(os.tmpdir(),'torch-render-temp-')
 test.after(()=>{fs.rmSync(base,{recursive:true,force:true,maxRetries:10,retryDelay:200});});
 const fresh=name=>{const dir=path.join(base,name);fs.mkdirSync(dir);return dir;};
 
-test('a passing exterior render leaves nothing in TEMP',{timeout:300000},async()=>{
+test('a passing exterior render leaves nothing in TEMP',{timeout:600000},async()=>{
  const temp=fresh('pass');
  const {code,output}=await run('torch-exterior-render.cjs',['--low'],{temp});
  assert.equal(code,0,output.slice(-2000));
@@ -36,7 +36,7 @@ for(const [script,args,prefix] of [
  ['torch-courtyard-render.cjs',[],'megulit-courtyard-'],
  ['torch-ground-render.cjs',['after','low'],'megu-ground-test-'],
 ]){
- test(`${script} that fails halfway still removes its scratch folder`,{timeout:120000},async()=>{
+ test(`${script} that fails halfway still removes its scratch folder`,{timeout:300000},async()=>{
   const temp=fresh('fail-'+prefix);
   const {code,output}=await run(script,args,{temp,env:{MEGULIT_EDGE:process.execPath}});
   assert.notEqual(code,0,output.slice(-2000));
@@ -45,7 +45,7 @@ for(const [script,args,prefix] of [
  });
 }
 
-test('--keep leaves the folder for its screenshots',{timeout:120000},async()=>{
+test('--keep leaves the folder for its screenshots',{timeout:300000},async()=>{
  const temp=fresh('keep');
  const {code}=await run('torch-courtyard-render.cjs',['--keep'],{temp,env:{MEGULIT_EDGE:process.execPath}});
  assert.notEqual(code,0);

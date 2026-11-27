@@ -35,7 +35,9 @@ async function main(){
   `});
   await send('Page.navigate',{url:'http://127.0.0.1:'+web.address().port+'/'});
   async function wait(expression){
-   for(let i=0;i<200;i++){const value=await evaluate(expression);if(value)return value;await pause(120);}
+   /* a deadline, not a count: with software WebGL on a busy runner one evaluate takes seconds, 200 tries were 24 s of pauses plus whatever they cost */
+   const deadline=Date.now()+(process.env.CI?180000:30000);
+   for(;;){const value=await evaluate(expression);if(value)return value;if(Date.now()>deadline)break;await pause(120);}
    throw Error(expression+' '+JSON.stringify(await evaluate('window.glErrors')));
   }
   await wait('!!document.querySelector("[data-route=torch]")');

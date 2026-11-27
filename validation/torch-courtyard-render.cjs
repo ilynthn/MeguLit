@@ -35,7 +35,8 @@ const seedCover='data:image/png;base64,'+png(32,48,[145,36,116],[24,52,84]).toSt
   await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+web.address().port+'/'});
   const evaluate=s=>cdp.evaluate(s);
   async function wait(expr){
-   for(let i=0;i<200;i++){const r=await evaluate(expr);if(r)return r;await delay(150);}
+   const deadline=Date.now()+(process.env.CI?180000:30000);
+   for(;;){const r=await evaluate(expr);if(r)return r;if(Date.now()>deadline)break;await delay(150);}
    throw Error(expr+' '+JSON.stringify(await evaluate('({errors:window.errors,focus:document.hasFocus(),hidden:document.hidden,inert:window.canvas?.inert,sky:window.d?.courtyard.sky.position,cam:window.d?.camera.position})')));
   }
   await wait('!!document.querySelector("[data-route=torch]")');
