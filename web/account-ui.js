@@ -3,14 +3,14 @@
 const T={
  zh:{title:'账号',notReady:'联网服务还在准备中，账号和云同步暂时不能用；所有功能照常在本机使用',intro:'登录后可以在几台电脑之间同步单词、收藏的句子、阅读记录和按游戏设置。不登录也能照常使用全部功能',privacy:'只同步下面打开的内容；不上传游戏路径和日志；邮箱只用来登录',email:'邮箱',
   emailPh:'you@example.com',send:'发送验证码',resend:'重新发送',code:'验证码',codePh:'6 位数字',login:'登录',sentTo:'验证码已发到 {email}，10 分钟内有效',loggedAs:'已登录',lastSync:'上次同步',never:'还没有同步',
-  syncNow:'立即同步',syncing:'同步中…',synced:'同步完成',pending:'待上传 {n} 条',kinds:'同步内容',words:'单词与例句',sentences:'收藏的句子',reading:'阅读记录（每日汇总）',settings:'按游戏设置（不含路径）',devices:'已登录的设备',
+  webSync:'同步到网页',webSyncHelp:'收藏的单词和句子、学习统计、阅读进度会自动上传，登录 megulit.com 就能查看。不上传游戏文本和小说正文。关掉后不再上传任何内容',wipe:'删除云端数据',wipeTitle:'删除云端数据？',wipeBody:'会删除服务器上已同步的单词、句子、学习统计和阅读进度，账号保留，并自动关闭「同步到网页」。这台电脑上的数据不会动',wiped:'云端数据已删除，「同步到网页」已关闭',syncNow:'立即同步',syncing:'同步中…',synced:'同步完成',pending:'待上传 {n} 条',kinds:'同步内容',words:'单词与例句',sentences:'收藏的句子',reading:'阅读记录（每日汇总）',settings:'按游戏设置（不含路径）',devices:'已登录的设备',
   thisDevice:'本机',revoke:'移除',logout:'退出登录',remove:'删除账号（含云端数据）',removeTitle:'删除账号和云端数据？',removeBody:'会删除服务器上的账号、所有设备的登录和已同步的数据，无法恢复。本机数据保留不变',confirm:'删除',cancel:'取消',
   removed:'账号已删除',loggedOut:'已退出登录',err:{EMAIL_INVALID:'邮箱格式不对',RATE_LIMITED:'操作太频繁，请稍后再试',WRONG_CODE:'验证码不对',CODE_EXPIRED:'验证码已过期，请重新发送',TOO_MANY_TRIES:'错误次数太多，请重新发送验证码',
   NO_CODE:'请先发送验证码',EMAIL_NOT_CONFIGURED:'邮件服务还在准备中，暂时不能登录',EMAIL_SEND_FAILED:'邮件发送失败，请稍后再试',RATE_LIMITED:'请求太频繁，请稍等一会儿再试',NETWORK:'连不上联网服务，请检查网络',UNAUTHORIZED:'登录已失效，请重新登录',SYNC_QUOTA_EXCEEDED:'云端空间已满，可以关掉部分同步内容',
   RELAY_NOT_CONFIGURED:'联网服务还在准备中',VAULT_UNAVAILABLE:'Windows 加密存储不可用，无法保存登录',other:'操作失败，请稍后再试'}},
  ja:{title:'アカウント',notReady:'オンラインサービスは準備中です。アカウントとクラウド同期はまだ使えません。ほかの機能はこれまでどおり使えます',intro:'ログインすると、単語・保存した文・読書記録・作品別の設定を複数の PC で同期できます。ログインしなくてもすべての機能を使えます',privacy:'オンにした項目だけを同期します。ゲームのパスやログは送信しません。メールアドレスはログインにのみ使います',
   email:'メールアドレス',emailPh:'you@example.com',send:'確認コードを送信',resend:'再送信',code:'確認コード',codePh:'6 桁の数字',login:'ログイン',sentTo:'{email} に確認コードを送りました（10 分間有効）',loggedAs:'ログイン中',
-  lastSync:'前回の同期',never:'まだ同期していません',syncNow:'今すぐ同期',syncing:'同期中…',synced:'同期しました',pending:'未送信 {n} 件',kinds:'同期する内容',words:'単語と例文',sentences:'保存した文',reading:'読書記録（日ごとの合計）',
+  lastSync:'前回の同期',never:'まだ同期していません',webSync:'Web に同期',webSyncHelp:'保存した単語と文、学習統計、読書の進み具合が自動でアップロードされ、megulit.com にログインして見られます。ゲームの本文やシナリオは送りません。オフにすると何も送りません',wipe:'クラウドのデータを削除',wipeTitle:'クラウドのデータを削除しますか？',wipeBody:'サーバー上の同期済みの単語・文・学習統計・読書の進み具合を削除します。アカウントは残り、「Web に同期」は自動でオフになります。この PC のデータはそのままです',wiped:'クラウドのデータを削除し、「Web に同期」をオフにしました',syncNow:'今すぐ同期',syncing:'同期中…',synced:'同期しました',pending:'未送信 {n} 件',kinds:'同期する内容',words:'単語と例文',sentences:'保存した文',reading:'読書記録（日ごとの合計）',
   settings:'作品別の設定（パスを除く）',devices:'ログイン中のデバイス',thisDevice:'この PC',revoke:'削除',logout:'ログアウト',remove:'アカウントを削除（クラウドのデータも）',removeTitle:'アカウントとクラウドのデータを削除しますか？',
   removeBody:'サーバー上のアカウント、全デバイスのログイン、同期したデータを削除します。元に戻せません。この PC のデータはそのまま残ります',confirm:'削除',cancel:'キャンセル',removed:'アカウントを削除しました',loggedOut:'ログアウトしました',err:{EMAIL_INVALID:'メールアドレスの形式が正しくありません',
   RATE_LIMITED:'操作が多すぎます。しばらくしてからお試しください',WRONG_CODE:'確認コードが違います',CODE_EXPIRED:'確認コードの期限が切れました。再送信してください',TOO_MANY_TRIES:'入力ミスが多すぎます。確認コードを再送信してください',NO_CODE:'先に確認コードを送信してください',
@@ -19,7 +19,7 @@ const T={
  en:{title:'Account',notReady:'Online services are not ready yet, so accounts and cloud sync are unavailable. Everything else works locally as usual',intro:'Sign in to sync words, saved sentences, reading records and per-game settings between your PCs. Everything works without an account too',
   privacy:'Only what you turn on below is synced. Game paths and logs are never uploaded. Your email is used only to sign in',email:'Email',emailPh:'you@example.com',
   send:'Send code',resend:'Resend',code:'Code',codePh:'6 digits',login:'Sign in',sentTo:'Code sent to {email}, valid for 10 minutes',loggedAs:'Signed in',lastSync:'Last sync',
-  never:'Not synced yet',syncNow:'Sync now',syncing:'Syncing…',synced:'Synced',pending:'{n} waiting to upload',kinds:'What to sync',words:'Words and examples',sentences:'Saved sentences',
+  never:'Not synced yet',webSync:'Sync to the web',webSyncHelp:'Saved words and sentences, study stats and reading progress upload automatically, so you can view them after signing in at megulit.com. Game text and novel text are never uploaded. When off, nothing is uploaded',wipe:'Delete cloud data',wipeTitle:'Delete cloud data?',wipeBody:'This deletes the synced words, sentences, study stats and reading progress on the server. Your account stays and "Sync to the web" is turned off. Data on this PC is not touched',wiped:'Cloud data deleted and sync to the web turned off',syncNow:'Sync now',syncing:'Syncing…',synced:'Synced',pending:'{n} waiting to upload',kinds:'What to sync',words:'Words and examples',sentences:'Saved sentences',
   reading:'Reading records (daily totals)',settings:'Per-game settings (no paths)',devices:'Signed-in devices',thisDevice:'This PC',revoke:'Remove',logout:'Sign out',
   remove:'Delete account (and cloud data)',removeTitle:'Delete your account and cloud data?',removeBody:'This deletes the account on the server, every device sign-in and all synced data. It cannot be undone. Data on this PC stays as it is',
   confirm:'Delete',cancel:'Cancel',removed:'Account deleted',loggedOut:'Signed out',err:{EMAIL_INVALID:'That email address does not look right',RATE_LIMITED:'Too many attempts, try again later',
@@ -191,16 +191,25 @@ export async function renderAccount({target,api,locale,esc,toast}){
   const pending=Object.values(status.pending||{}).reduce((a,b)=>a+b,0);
   target.innerHTML=`<section class="panel account-panel"><h2>${t.title}</h2>
     <div class="settings-row"><span><span class="settings-label">${t.loggedAs}</span><p class="settings-help">${esc(status.email)}</p></span></div>
-    <div class="settings-row"><span><span class="settings-label">${t.lastSync}</span><p class="settings-help" data-last>${esc(when(status.lastSyncAt))}${pending?' · '+fill(t.pending,{n:pending}):''}${status.lastError?' · '+esc(errorText(t,status.lastError)):''}</p></span><button class="primary" data-sync>${status.syncing?t.syncing:t.syncNow}</button></div>
+    <label class="settings-row"><span><span class="settings-label">${t.webSync}</span><p class="settings-help">${t.webSyncHelp}</p></span><input class="switch" type="checkbox" data-websync ${status.webSync?'checked':''}></label>
+    <div class="settings-row"><span><span class="settings-label">${t.lastSync}</span><p class="settings-help" data-last>${esc(when(status.lastSyncAt))}${pending?' · '+fill(t.pending,{n:pending}):''}${status.lastError?' · '+esc(errorText(t,status.lastError)):''}</p></span><button class="primary" data-sync ${status.webSync?'':'disabled'}>${status.syncing?t.syncing:t.syncNow}</button></div>
     <div data-methods></div>
     <h3 class="settings-label" style="margin:22px 0 4px">${t.kinds}</h3>${kindRows(status.kinds)}<p class="settings-help">${t.privacy}</p>
     <h3 class="settings-label" style="margin:22px 0 4px">${t.devices}</h3><div data-devices><p class="settings-help">…</p></div>
-    <div class="review-controls" style="justify-content:flex-start;margin-top:22px"><button class="secondary" data-logout>${t.logout}</button><button class="secondary" data-remove>${t.remove}</button></div></section>`;
+    <div class="review-controls" style="justify-content:flex-start;margin-top:22px"><button class="secondary" data-logout>${t.logout}</button><button class="secondary" data-wipe>${t.wipe}</button><button class="secondary" data-remove>${t.remove}</button></div></section>`;
   const syncButton=target.querySelector('[data-sync]');
   syncButton.onclick=async()=>{syncButton.disabled=true;syncButton.textContent=t.syncing;try{await api('account_sync',{});toast(t.synced);}catch(error){fail(error);
    }await paint().catch(()=>{});};
   target.querySelectorAll('[data-kind]').forEach(el=>el.onchange=async()=>{try{await api('account_kinds',{kinds:{[el.dataset.kind]:el.checked}});}catch(error){el.checked=!el.checked;
    fail(error);}});
+  const webSwitch=target.querySelector('[data-websync]');
+  webSwitch.onchange=async()=>{webSwitch.disabled=true;try{await api('account_web_sync',{enabled:webSwitch.checked});}catch(error){fail(error);}await paint().catch(()=>{});};
+  target.querySelector('[data-wipe]').onclick=()=>{
+   const dialog=document.createElement('dialog');dialog.innerHTML=`<h2>${t.wipeTitle}</h2><p>${t.wipeBody}</p><div class="dialog-actions"><button class="secondary" data-no>${t.cancel}</button><button class="primary" data-yes>${t.confirm}</button></div>`;
+   document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove());dialog.querySelector('[data-no]').onclick=()=>dialog.close();
+   dialog.querySelector('[data-yes]').onclick=async()=>{busy(true,dialog);try{await api('account_wipe_cloud',{});dialog.close();toast(t.wiped);await paint();}catch(error){busy(false,dialog);fail(error);}};
+   dialog.showModal();
+  };
   target.querySelector('[data-logout]').onclick=async()=>{busy(true);try{await api('account_logout',{});toast(t.loggedOut);}catch(error){fail(error);}await paint().catch(()=>{
    });};
   target.querySelector('[data-remove]').onclick=()=>{
