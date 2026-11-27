@@ -236,8 +236,10 @@ jobs:
           if ($LASTEXITCODE -or -not $plan) { throw 'Failed to compute shard plan' }
           $replay = @($plan.replay | ForEach-Object { $_.Replace('/', '\') })
           $browser = @($plan.browser | ForEach-Object { $_.Replace('/', '\') })
-          $standard = @($plan.standard | ForEach-Object { $_.Replace('/', '\') })
-          if (($replay.Count + $browser.Count + $standard.Count) -eq 0) { throw 'No tests in this shard' }
+          $isolatedFiles = @('validation/torch-revocation-cli.test.cjs', 'validation/unity-kemco-snapshot.test.cjs')
+          $isolated = @($plan.standard | Where-Object { $_ -in $isolatedFiles } | ForEach-Object { $_.Replace('/', '\') })
+          $standard = @($plan.standard | Where-Object { $_ -notin $isolatedFiles } | ForEach-Object { $_.Replace('/', '\') })
+          if (($replay.Count + $browser.Count + $isolated.Count + $standard.Count) -eq 0) { throw 'No tests in this shard' }
 
           $nodeExe = (Get-Command node).Source
           function Quote-WinArg([string]$arg) {
@@ -323,6 +325,10 @@ jobs:
           if ($standard -contains $kemcoSnapshot) {
             $standard = @($standard | Where-Object { $_ -ne $kemcoSnapshot })
             Invoke-ForegroundBatch 'kemco-snapshot' @($kemcoSnapshot) 1
+          }
+          # Run the two timeout-prone child-process fixtures before concurrent test batches.
+          if ($isolated.Count) {
+            Invoke-ForegroundBatch 'isolated' $isolated 1
           }
           # The real-time reader replay needs regular browser samples even while the runner is busy.
           if ($replay.Count) {
