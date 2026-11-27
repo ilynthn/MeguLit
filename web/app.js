@@ -1430,6 +1430,9 @@ async function start(){
      }
     await api('preserve_ui',{values:recovered});
     model=await api('home');setAppearance();document.documentElement.classList.add('app-boot-pre');shell();
+    /* 2026-11-27 a side-by-side test build says what it is (「测试版 · main＠abc1234 + PR #1312」, MEGULIT_TEST_BUILD; its updater is off) */
+    api('test_build').then(r=>{if(!r?.label||document.querySelector('.test-build-label'))return;const el=document.createElement('div');el.className='test-build-label';el.setAttribute('role','status');el.textContent=r.label;
+     el.style.cssText='position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:2147483000;pointer-events:none;font:12px/1.7 system-ui,sans-serif;padding:1px 12px;border-radius:10px;background:rgba(173,21,57,.88);color:#fff;white-space:nowrap';document.body.append(el);}).catch(()=>{});
     /* P0: start the check immediately; the update owns the startup queue until it is dismissed */
     if(!window.__megulitUpdateChecked){window.__megulitUpdateChecked=true;
      const updates=checkForUpdates({api,invoke,version:VERSION,toast});

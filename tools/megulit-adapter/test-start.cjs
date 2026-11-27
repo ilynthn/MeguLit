@@ -36,15 +36,27 @@ function connect(url){return new Promise((resolve,reject)=>{const ws=new WebSock
 async function evaluate(c,expr){const r=await c.send('Runtime.evaluate',{expression:expr,awaitPromise:true,returnByValue:true});if(r.result?.exceptionDetails)throw Error(r.result.exceptionDetails.exception?.description||r.result.exceptionDetails.text);return r.result?.result?.value;}
 const service=(c,action,params={})=>evaluate(c,'window.__TAURI_INTERNALS__.invoke("service",{request:'+JSON.stringify({action,...params})+'})');
 
-async function main(argv){const dir=path.resolve(argv[0]||__dirname),cfg=JSON.parse(fs.readFileSync(path.join(dir,'test-start.json'),'utf8'));
+/* 开始测试.cmd always opens the newest: main or the PR moved -> the build is made again (test-build-fresh.cjs, a new app-<main>-<pr>
+   folder; the running one is not touched); a failed check or build starts the old one with a word */
+function refresh(dir,cfg,log){const r=cfg.refresh;if(!r||!r.builder||!fs.existsSync(r.builder))return cfg;
+ const ls=spawnSync('git',['ls-remote','https://github.com/ilynthn/MeguLit.git','refs/heads/main','refs/pull/'+cfg.pr+'/head'],{encoding:'utf8',windowsHide:true,timeout:60000});
+ if(ls.status!==0){log('# 查不到 main / PR 有没有新提交（网络？），照旧打开现在这一版');return cfg;}
+ const heads=Object.fromEntries(String(ls.stdout).trim().split('\n').map(l=>l.split('\t').reverse()));
+ const main=heads['refs/heads/main'],pr=heads['refs/pull/'+cfg.pr+'/head'];if((!main||main===r.main)&&(!pr||pr===r.pr))return cfg;
+ log('# main 或 PR 有新提交，重新做测试版（几分钟）…');const b=spawnSync(process.execPath,[r.builder,'--card',dir],{stdio:'inherit',windowsHide:true,timeout:3600000});
+ if(b.status!==0){log('# 新版没做出来，照旧打开现在这一版');return cfg;}
+ return JSON.parse(fs.readFileSync(path.join(dir,'test-start.json'),'utf8'));}
+
+async function main(argv){const dir=path.resolve(argv[0]||__dirname);let cfg=JSON.parse(fs.readFileSync(path.join(dir,'test-start.json'),'utf8'));
+ if(!argv.includes('--no-refresh'))cfg=refresh(dir,cfg,m=>console.log(m));
  const prepare=argv.includes('--prepare'),shotAt=argv.indexOf('--shot'),shot=shotAt>=0?argv[shotAt+1]:'',closeAtEnd=argv.includes('--close');const log=m=>console.log(m);
  const root=cfg.root,exe=path.join(root,'MeguLit.exe');if(!fs.existsSync(exe))throw Error('找不到测试版 '+exe);if(!fs.existsSync(cfg.exe))throw Error('找不到游戏 '+cfg.exe);
- log('# 1/3 先正常退出正式版和别的测试版（释放 Alt+T）');await closeOthers(root,log);
+ if(!argv.includes('--keep-others')){log('# 1/3 先正常退出正式版和别的测试版（释放 Alt+T）');await closeOthers(root,log);}
  /* the test build itself: restarted when it runs without the debugging port */
  if(running().some(p=>same(path.dirname(p.exe),root))){let up=false;try{await (await fetch('http://127.0.0.1:'+cfg.port+'/json/version')).json();up=true;}catch{}
   if(!up){log('# 测试版已经开着（没有调试端口），先关掉重开');askExit(root);const until=Date.now()+20000;while(running().some(p=>same(path.dirname(p.exe),root))&&Date.now()<until)await sleep(300);}}
  log('# 2/3 打开测试版 '+root);
- if(!running().some(p=>same(path.dirname(p.exe),root))){const env={...process.env,MEGULIT_SIDE_BY_SIDE:'1',MEGULIT_ROOT:root,MEGULIT_WEBVIEW_ARGS:'--remote-debugging-port='+cfg.port+' --remote-allow-origins=http://127.0.0.1:'+cfg.port};
+ if(!running().some(p=>same(path.dirname(p.exe),root))){const env={...process.env,MEGULIT_SIDE_BY_SIDE:'1',MEGULIT_ROOT:root,MEGULIT_TEST_BUILD:cfg.label||'测试版 · PR #'+(cfg.pr||'?'),MEGULIT_WEBVIEW_ARGS:'--remote-debugging-port='+cfg.port+' --remote-allow-origins=http://127.0.0.1:'+cfg.port};
   spawn(exe,[],{cwd:root,env,detached:true,stdio:'ignore'}).unref();}
  const p=await page(cfg.port),c=await connect(p.webSocketDebuggerUrl);
  try{let home=null;const until=Date.now()+60000;while(Date.now()<until){try{home=await service(c,'home');if(home)break;}catch{}await sleep(1000);}
