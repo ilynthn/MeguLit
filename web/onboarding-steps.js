@@ -22,7 +22,7 @@
   {id:'lookup',image:'lookup',target:[['.sentence-window .sentence-text']],menu:'close'},
   {id:'help',image:'help',target:[['.tomoyo-cn-dialog[open] .tomoyo-menu-tabs [data-menu-key="calibrate"]']],menu:'open',tab:'calibrate'}];
  const TEXT={
-  zh:{kicker:'新手引导',skip:'跳过教程',prev:'上一步',next:'下一步',done:'开始玩',never:'不再显示',close:'关闭',replay:'进游戏后再带我走一遍',replayDone:'好的，下次进游戏会再带你走一遍',
+  zh:{kicker:'新手引导',finish:'完成',skip:'跳过教程',prev:'上一步',next:'下一步',done:'开始玩',never:'不再显示',close:'关闭',replay:'进游戏后再带我走一遍',replayDone:'好的，下次进游戏会再带你走一遍',
    replayNow:'已在游戏里打开引导',count:'前 {limit} 次进游戏会自动出现，点「跳过教程」就不再出现',again:'教程',act:{open:'点亮着的胶囊继续',hotkey:'按 {menu} 两次继续',tab:'点亮着的页签继续'},againTip:'重看新手引导',more:'详细说明',
    steps:{
     capsule:['这是小胶囊','MeguLit 在游戏里的入口，指上去展开快捷键，按住能拖走。现在点一下中间的 MeguLit，打开菜单。'],
@@ -31,7 +31,7 @@
     text:['把字调成喜欢的样子','点亮着的「文字」页签。这页拖「字号」滑块改大小，切到「颜色」换颜色，改了马上看得到；挪位置去「校准」点「拖动文本框」。'],
     lookup:['点一下就查词','在台词上点一个词，弹出读音和释义；拖选一整句，可以收藏或加进 Anki。'],
     help:['出问题看这里','字没对上原文：进亮着的「校准」点「校准当前句」。想再看这套引导，点菜单右上角「教程」，或主界面顶栏「教程」。']}},
-  en:{kicker:'Quick tour',skip:'Skip tutorial',prev:'Back',next:'Next',done:'Start playing',never:'Don’t show again',close:'Close',replay:'Walk me through it in the game again',replayDone:'Got it — the tour runs again next time you start a game',
+  en:{kicker:'Quick tour',finish:'Done',skip:'Skip tutorial',prev:'Back',next:'Next',done:'Start playing',never:'Don’t show again',close:'Close',replay:'Walk me through it in the game again',replayDone:'Got it — the tour runs again next time you start a game',
    replayNow:'The tour is open in the game',count:'Shows up for your first {limit} games. Skip tutorial turns it off for good',again:'Tutorial',act:{open:'Click the lit capsule to go on',hotkey:'Press {menu} twice to go on',tab:'Click the lit tab to go on'},againTip:'Replay the quick tour',more:'More details',
    steps:{
     capsule:['This is the capsule','MeguLit’s handle in the game: point at it for the shortcuts, hold and drag to move it. Now click MeguLit in the middle to open the menu.'],
@@ -40,7 +40,7 @@
     text:['Make the text yours','Click the lit Text tab. There the size slider changes the size and Colour the colour, live; to move the text, use Drag text box on Calibration.'],
     lookup:['Click a word to look it up','Click a word in the line for its reading and meaning. Drag across a whole sentence to save it or send it to Anki.'],
     help:['When something is off','Text not lined up with the original: open Calibration and click Calibrate current line. To see this tour again, click Tutorial at the top right of the menu, or Tutorial in the main window’s top bar.']}},
-  ja:{kicker:'はじめてガイド',skip:'チュートリアルをスキップ',prev:'戻る',next:'次へ',done:'プレイを始める',never:'今後表示しない',close:'閉じる',replay:'次のゲームでもう一度案内する',replayDone:'次にゲームを起動したとき、もう一度案内します',
+  ja:{kicker:'はじめてガイド',finish:'完了',skip:'チュートリアルをスキップ',prev:'戻る',next:'次へ',done:'プレイを始める',never:'今後表示しない',close:'閉じる',replay:'次のゲームでもう一度案内する',replayDone:'次にゲームを起動したとき、もう一度案内します',
    replayNow:'ゲーム内でガイドを開きました',count:'最初の {limit} 回の起動で表示されます。スキップすると以後は出ません',again:'チュートリアル',act:{open:'光っているカプセルをクリック',hotkey:'{menu} を 2 回押して次へ',tab:'光っているタブをクリック'},againTip:'はじめてガイドをもう一度',more:'詳しい説明',
    steps:{
     capsule:['これがカプセル','ゲーム内の MeguLit の入口。ポインタでショートカット、ドラッグで移動できます。中央の MeguLit をクリックしてメニューを開いてみましょう。'],
