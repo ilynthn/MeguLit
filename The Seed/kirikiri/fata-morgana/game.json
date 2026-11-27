@@ -48,6 +48,9 @@
    "ja": {
     "annotation": "ruby"
    }
+  },
+  "source": {
+   "keepStream": ["^Krkr2wcs$"]
   }
  },
  "exe": "",

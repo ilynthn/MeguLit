@@ -10,6 +10,7 @@ const layerNames = {
 const settingNames = {
  'source.artemisQuoteSpans':'Artemis 跨片段引号台词合并',
  'source.autoSelectSkip':'不自动选为台词的文本流',
+ 'source.keepStream':'选中后不再换走的台词文本流',
  'page.skipMergedTail':'快进合并文本只留最后几句（字数）',
  'source.siglusDbsNameColumn':'Siglus DBS 人名列编号',
  'source.versionMatch':'版本层怎么认',
