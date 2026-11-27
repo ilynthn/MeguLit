@@ -152,9 +152,12 @@ async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies'
    fs.writeFileSync(path.join(dest,'.megulit-auto-install.json'),JSON.stringify({complete:true}));}else steps.push('解压过了（'+dest+'）');
   from=dest;}
  /* 2. disc images and no installed program */
- const sets=discSets(from);
+ const sets=discSets(from),ups=updates(src);
+ /* a program already installed: not in a disc's folder, not in an update folder (アイキス3: Update Ver.1.03\Data\Aikiss3.exe) */
+ const under=(f,d)=>f.toLowerCase().startsWith(d.toLowerCase()+path.sep);
+ const installed=f=>/\.exe$/i.test(f)&&!INSTALLER_EXE.test(path.basename(f))&&!sets.game.some(g=>under(f,g.folder))&&!ups.giga.some(u=>under(f,u.dir))&&!ups.other.some(d=>under(f,d))&&!isInno(f);
  if(done(target)){steps.push('副本已在（'+target+'）');how='kept';}
- else if(sets.game.length&&!walk(from,4).some(f=>/\.exe$/i.test(f)&&!INSTALLER_EXE.test(path.basename(f))&&!isInno(f)&&!sets.game.some(g=>f.startsWith(g.folder+path.sep))))
+ else if(sets.game.length&&!walk(from,4).some(installed))
  {if(sets.game.length>1)return fail('有 '+sets.game.length+' 张游戏光盘，不知道装哪张：'+sets.game.map(g=>path.basename(g.image)).join(' / '));
   if(sets.bonus.length)steps.push('跳过特典/音乐盘 '+sets.bonus.length+' 个文件');
   const g=sets.game[0],disc=target+'.disc',need=fs.statSync(g.image).size*2;
@@ -177,7 +180,7 @@ async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies'
   const gameRoot=path.dirname(g.exe);const c=D.copy(gameRoot,{owner:'auto',name:short,root,log});
   if(path.resolve(c.dir)!==path.resolve(target))return fail('副本目录不对：'+c.dir);how='copy';steps.push((c.reused?'副本已在':'复制成自己的副本')+'（'+c.dir+'）');}
  /* 4. official updates found in the download */
- const ups=updates(src),applied=[];
+ const applied=[];
  for(const u of ups.giga){const r=applyUpdate(u,target);if(!r.ok)return fail(r.why);applied.push(u.inf.version);steps.push('打官方更新 '+u.inf.version+'（UpdateInf.dat 校验 '+r.files.length+' 个文件）');}
  if(ups.other.length)return fail('有官方更新但不是认得的格式：'+ups.other.map(d=>path.basename(d)).join('、')+'；要人打（只认 GIGA UpdateInf.dat）');
  const g=pickExe(target,D.find?{find:D.find}:{});if(!g.exe)return fail('装完找不到游戏主程序（'+target+'）');if(g.note)notes.push(g.note);

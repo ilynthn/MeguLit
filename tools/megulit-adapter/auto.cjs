@@ -32,9 +32,9 @@ const STEPS=['install','adapt','publish','testbuild','request'];
 const STEP_CN={install:'装游戏',adapt:'适配',publish:'开 PR',testbuild:'测试版',request:'测试清单和卡片'};
 const shortOf=dir=>String(path.basename(path.resolve(dir))).replace(/\[[^\]]*\]/g,' ').normalize('NFKC').replace(/[^\w\-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase().slice(0,40)||'game';
 
-function parse(argv){const o={dir:'',name:'',issue:0,pr:0,publish:true,requests:'',copies:'',app:''};
+function parse(argv){const o={dir:'',name:'',issue:0,pr:0,publish:true,requests:'',copies:'',app:'',vndb:'',queue:''};
  for(let i=0;i<argv.length;i++){const k=argv[i],v=()=>{if(i+1>=argv.length)throw Error(k+' needs a value');return argv[++i];};
-  if(k==='--name')o.name=v();else if(k==='--issue')o.issue=Number(v())||0;else if(k==='--pr')o.pr=Number(String(v()).replace(/.*\/pull\//,''))||0;
+  if(k==='--name')o.name=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--queue')o.queue=v();else if(k==='--issue')o.issue=Number(v())||0;else if(k==='--pr')o.pr=Number(String(v()).replace(/.*\/pull\//,''))||0;
   else if(k==='--no-publish')o.publish=false;else if(k==='--requests')o.requests=v();else if(k==='--copies')o.copies=v();else if(k==='--app')o.app=v();
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs auto <download folder> [--name <short>] [--issue N] [--pr N] [--no-publish]');
@@ -43,7 +43,22 @@ function parse(argv){const o={dir:'',name:'',issue:0,pr:0,publish:true,requests:
 const readJson=f=>{try{return JSON.parse(fs.readFileSync(f,'utf8').replace(/^\uFEFF/,''));}catch{return null;}};
 const writeJson=(f,o)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify(o,null,1)+'\n');};
 
-/* ---- the default workers (tests replace them) ------------------------------------------------------------------------ */
+/* ---- what the download says about itself: the queue order (<queue>\<short>.json: 「下载《原名》… VNDB v123 … 中文名 X」) and
+   SOURCE.txt (作品: / 版本:). The copy's folder name carries no title, so without this the adapter cannot find the work on VNDB
+   (制服カノジョ3 replay: three questions). A title without a VNDB id is looked up on VNDB here (identify.cjs vndb, no LLM). */
+const QUEUE=()=>env.MEGULIT_AUTO_QUEUE||'F:\\Agent\\deepseek\\queue\\done';
+function sourceText(src){for(const f of [path.join(src,'SOURCE.txt'),...(()=>{try{return fs.readdirSync(src,{withFileTypes:true}).filter(e=>e.isDirectory()).map(e=>path.join(src,e.name,'SOURCE.txt'));}catch{return [];}})()])
+ try{return fs.readFileSync(f,'utf8').replace(/^\uFEFF/,'');}catch{}return '';}
+function meta(src,short,{queue=QUEUE()}={}){const order=readJson(path.join(queue,short+'.json'))||{},task=String(order.task||''),source=sourceText(src),both=task+'\n'+source;
+ const line=k=>{const m=new RegExp('^\\s*'+k+'\\s*[:：]\\s*(.+)$','m').exec(source);return m?m[1].trim():'';};
+ let title=line('作品')||line('作品名')||(/《([^》]+)》/.exec(task)||[])[1]||'';
+ if(!title){const first=source.split('\n').map(s=>s.trim()).find(Boolean)||'';const m=/^([^（(\s][^（(]*?)\s*[（(]/.exec(first);if(m&&m[1].length<=40)title=m[1].trim();}
+ const vndb=((/VNDB\s*[:：]?\s*(v\d{2,6})\b/i.exec(both)||[])[1]||'').toLowerCase();
+ const cn=((/中文名\s*[:：]?\s*[「『“"]?([^」』”"，,）)\n]+)/.exec(both)||[])[1]||'').trim();
+ const release=(line('版本').split(/\s*\/\s+/)[0]||'').slice(0,60);
+ return {title,vndb,cn,release,order:order.name?path.join(queue,short+'.json'):''};}
+
+/* ---- the default workers (tests replace them)------------------------------------------------------------------------ */
 function adapterCli(args,{node=process.execPath}={}){const r=spawnSync(node,[ADAPTER,...args],{encoding:'utf8',windowsHide:true,timeout:3600000,maxBuffer:64<<20});
  return {status:r.status===null?1:r.status,out:String(r.stdout||'')+String(r.stderr||'')+(r.error?'\n'+r.error.message:'')};}
 function sh(cmd,args,cwd){const r=spawnSync(cmd,args,{cwd,encoding:'utf8',windowsHide:true,timeout:600000});if(r.status!==0)throw Error(cmd+' '+args.join(' ')+': '+String(r.stderr||r.stdout||r.error?.message||'').trim().slice(-300));return String(r.stdout||'').trim();}
@@ -96,7 +111,7 @@ function stuckNote(st,{step,why,decide,evidence=[]}){const L=['# '+st.short+' �
 
 /* ---- the run ---------------------------------------------------------------------------------------------------------- */
 async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.requests?{requests:o.requests}:{}),...(o.copies?{copies:o.copies}:{}),...(o.app?{app:o.app}:{})};
- const D={install:Install.install,adapter:adapterCli,checkout,testBuild,...deps};
+ const D={install:Install.install,adapter:adapterCli,checkout,testBuild,vndb:a=>require('./identify.cjs').vndb(a),...deps};
  const src=path.resolve(o.dir),short=o.name||shortOf(src),file=path.join(R.auto,'runs',short,'auto.json');
  const st={short,src,issue:o.issue||0,file,steps:{},...readJson(file),short,src,file};if(o.issue)st.issue=o.issue;if(o.pr)st.pr=o.pr;
  const save=()=>{st.updatedAt=new Date().toISOString();writeJson(file,st);};
@@ -112,12 +127,16 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
  const out=path.join(R.auto,'runs',short,'adapter');st.adapterOut=out;
  if(!['ready','published'].includes(st.steps.adapt?.state)){log('# 2 适配 '+inst.exe);
   const prev=readJson(path.join(out,'adapter.json'));
+  const m=meta(src,short,o.queue?{queue:o.queue}:{});if(o.vndb)m.vndb=o.vndb;
+  if(!m.vndb&&m.title){try{const v=await D.vndb({title:m.title,gameDir:inst.dir});if(v?.vndb){m.vndb=v.vndb;m.vndbHow='VNDB 按标题「'+m.title+'」';if(!m.cn&&v.cn)m.cn=v.cn;}}catch{}}
+  st.meta=m;save();const idArgs=[...(m.vndb?['--vndb',m.vndb]:[]),...(m.cn?['--cn',m.cn]:[])];
+  /* the release is left to the adapter's own VNDB match (SOURCE.txt's 版本 line is free text); a stuck note shows it as a hint */
   /* a person answered meanwhile (answer <out> ...): the adapter's state is taken as it is; still waiting: re-judged with its answers */
-  const r=prev&&['ready','published'].includes(prev.state)?{status:0,out:''}:prev&&prev.state==='waiting'?D.adapter(['answer',out]):D.adapter([inst.dir,'--exe',path.relative(inst.dir,inst.exe),'--tester','--out',out]);
+  const r=prev&&['ready','published'].includes(prev.state)?{status:0,out:''}:prev&&prev.state==='waiting'?D.adapter(['answer',out]):D.adapter([inst.dir,'--exe',path.relative(inst.dir,inst.exe),'--tester','--out',out,...idArgs]);
   const a=readJson(path.join(out,'adapter.json'))||{};
   st.steps.adapt={exit:r.status,state:a.state||'',engine:a.engine||'',known:a.caps?.known!==false,title:a.title||'',seed:a.seed||'',review:a.review||'',tail:String(r.out||'').trim().split('\n').slice(-12).join('\n')};save();
   if(/unknown argument: --tester/.test(r.out||''))return stop('adapt','这份适配器还没有 --tester（离线 skeleton seed，#1312 带来的）','先合 #1312，或在有 --tester 的检出上跑 auto');
-  if(r.status===3)return stop('adapt','适配器停下来问人（退出码 3）：\n'+(a.questions||[]).filter(q=>!(q.id in (a.answers||{}))).map(q=>'  - '+q.id+'：'+q.ask).join('\n'),'回答 review.html 里的问题',[a.review||path.join(out,'review.html')]);
+  if(r.status===3)return stop('adapt','适配器停下来问人（退出码 3）：\n'+(a.questions||[]).filter(q=>!(q.id in (a.answers||{}))).map(q=>'  - '+q.id+'：'+q.ask).join('\n')+(m.release?'\n  - 下载说明里写的版本：'+m.release:''),'回答 review.html 里的问题',[a.review||path.join(out,'review.html')]);
   if(a.caps&&a.caps.known===false)return stop('adapt','新引擎：规则表里没有'+(a.engine?'（'+a.engine+'）':'')+(a.caps.luna?'，LunaHook 认作 '+a.caps.luna:''),'用哪个引擎层（engines.cjs 加规则 / 剧本读取器），或这部先不适配',[path.join(out,'adapter.json')]);
   if(a.state==='skipped')return stop('adapt','HANDOFF 里同发行版已适配过，适配器没重做','要不要重做（重做：answer again=yes）',[path.join(out,'adapter.json')]);
   if(r.status!==0||a.state!=='ready')return stop('adapt','适配器没做完（退出码 '+r.status+'，状态 '+(a.state||'无')+(a.seedError?'，'+a.seedError:'')+'）：\n```\n'+st.steps.adapt.tail+'\n```','看日志决定怎么修（适配器/引擎层的活）',[path.join(out,'adapter.json')]);}
@@ -147,4 +166,4 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
  log('# 5 测试清单 '+md+'，卡片 '+cf);return 0;}
 
 async function main(argv){let o;try{o=parse(argv);}catch(e){console.error('megulit-adapter auto: '+e.message);return 2;}return auto(o);}
-module.exports={auto,main,parse,shortOf,checklist,card,stuckNote,testBuild,checkout,nextOrder,STEPS,CHECKS};
+module.exports={auto,main,parse,meta,shortOf,checklist,card,stuckNote,testBuild,checkout,nextOrder,STEPS,CHECKS};
