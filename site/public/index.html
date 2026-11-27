@@ -62,6 +62,7 @@ document.documentElement.classList.add('js');try{var t=localStorage.getItem('meg
    <a href="https://github.com/ilynthn/MeguLit/issues" class="js-open-feedback" data-i="nav.feedback">问题反馈</a>
   </nav>
   <div class="tools">
+   <a class="qq-btn js-qq-open" href="https://qm.qq.com/q/C95LXYb5Sg" data-qq="1131267542" aria-label="加入 MeguLit QQ 交流群 1131267542" data-i-attr="aria-label:qq.aria"><b data-i="qq.join">加入 QQ 群</b><span class="qq-no">1131267542</span></a>
    <div class="lang" role="group" aria-label="语言" data-i-attr="aria-label:lang.label">
     <button type="button" data-lang="zh" aria-pressed="true">中</button>
     <button type="button" data-lang="ja" aria-pressed="false">日</button>
@@ -369,6 +370,25 @@ document.documentElement.classList.add('js');try{var t=localStorage.getItem('meg
 </section>
 
 
+<section class="sec" id="next" data-kanji="新着" aria-labelledby="n-title">
+ <div class="wrap">
+  <h2 id="n-title" class="h2" data-i="n.title">下个版本</h2>
+  <p class="sec-lede" data-i="n.lede">这些改动已经做好，会在下个版本一起发布</p>
+  <ul class="next-list">
+   <li><b data-i="n.k1">新图标</b><span data-i="n.v1">深石榴红的魔导书；启动画面只留进度条，结束时变成 MeguLit 标志</span></li>
+   <li><b data-i="n.k2">胶囊外置</b><span data-i="n.v2">阅读层的胶囊可以拖到游戏窗口外面放，位置会记住；收起时只留一条细线，原文、注音、翻译照常显示</span></li>
+   <li><b data-i="n.k3">新手引导</b><span data-i="n.v3">前 5 次进游戏会一步步介绍胶囊、Alt+T 菜单和文字设置，可以跳过，「教程」里能重看</span></li>
+   <li><b data-i="n.k4">热键自定义</b><span data-i="n.v4">Alt+M / T / H / L 都能改，鼠标侧键也能绑</span></li>
+   <li><b data-i="n.k5">口语查词</b><span data-i="n.v5">点读认得口语缩约和方言语尾（舐めんなし 这类）；可以导入个人辞典，也接入了 Weblio</span></li>
+   <li><b data-i="n.k6">零延迟汉化识别</b><span data-i="n.v6">放在游戏目录里的汉化、汉化启动程序、借码位的外挂汉化，都能直接当译文用</span></li>
+   <li><b data-i="n.k7">文库和电子书</b><span data-i="n.v7">在 MeguLit 里读轻小说和电子书，也能联网找书</span></li>
+   <li><b data-i="n.k8">个人中心</b><span data-i="n.v8">官网上的个人主页：收藏的句子能点读查词，单词本和阅读进度从电脑自动同步过去</span></li>
+   <li><b data-i="n.k9">Alt+T 外观</b><span data-i="n.v9">按面板分组重新排版，滑杆旁边能直接输入数字</span></li>
+  </ul>
+  <p class="next-qq"><span data-i="n.qq">想第一时间试新版、提意见，来 QQ 群：</span><a class="js-qq-open" href="https://qm.qq.com/q/C95LXYb5Sg" data-qq="1131267542">1131267542</a></p>
+ </div>
+</section>
+
 <section class="sec" id="more" data-kanji="魔法" aria-labelledby="f-title">
  <div class="wrap">
   <h2 id="f-title" class="h2" data-i="f.title">还有这些</h2>
@@ -537,10 +557,22 @@ document.documentElement.classList.add('js');try{var t=localStorage.getItem('meg
    <a href="https://github.com/ilynthn/MeguLit/issues" class="js-open-feedback" data-i="foot.issues">反馈问题</a>
    <a href="https://github.com/ilynthn/MeguLit/blob/main/THIRD-PARTY.md" data-i="foot.third">第三方许可</a>
   </nav>
+  <a class="foot-qq js-qq-open" href="https://qm.qq.com/q/C95LXYb5Sg" data-qq="1131267542"><img src="/assets/img/qq-group-qr.svg" width="96" height="96" alt="" loading="lazy"><span><b data-i="qq.foot">QQ 群</b><span class="foot-qq-no">1131267542</span><small data-i="qq.footHint">扫码或点击加入</small></span></a>
   <p class="small bgm-credit js-bgm-credit">背景音乐：<i>awful</i> — 作者 <a href="https://soundcloud.com/blxty/awful">blxty ft. orchid</a></p>
   <p class="small" data-i-html="foot.license">MeguLit 以 <a href="https://github.com/ilynthn/MeguLit/blob/main/LICENSE">GPL-3.0-or-later</a> 开源。文本 Hook 基于 LunaHook，词典来自 JMdict / EDRDG</p>
  </div>
 </footer>
+<dialog class="qq-dialog" aria-labelledby="qq-title" data-qq="1131267542">
+ <form method="dialog" class="qq-pane">
+  <button class="qq-x" value="close" aria-label="关闭" data-i-attr="aria-label:qq.close">×</button>
+  <img class="qq-big" src="/assets/img/qq-group-qr.svg" width="220" height="220" alt="QQ 群 1131267542 二维码" data-i-attr="alt:qq.qrAlt">
+  <h2 id="qq-title" class="qq-title" data-i="qq.title">MeguLit 交流群</h2>
+  <p class="qq-scan" data-i="qq.scan">用手机 QQ 扫码加入</p>
+  <div class="qq-row"><span data-i="qq.number">群号</span><code>1131267542</code><button type="button" class="js-qq-copy" data-i="qq.copy">复制</button></div>
+  <a class="qq-open" href="https://qm.qq.com/q/C95LXYb5Sg" data-i="qq.open">电脑 QQ 打开</a>
+  <a class="qq-web" href="https://qm.qq.com/q/C95LXYb5Sg" data-i="qq.web">打不开？用网页加群</a>
+ </form>
+</dialog>
 <dialog class="notice" aria-labelledby="nt-title">
  <form class="nt-pane nt-welcome" data-kind="game" novalidate>
   <p class="nt-hud" aria-hidden="true"><span>notice</span><span>megulit · in development</span></p>

@@ -52,7 +52,7 @@ test('Alt+T 外观: grouped by panel, every slider typed or dragged, preview fol
    return {groups,order,tiles:[...misc.querySelectorAll('.tome-look-tile')].map(t=>t.dataset.lookTile),
     capsule:{on:!!cap.querySelector('[data-cap-on]'),styles:cap.querySelectorAll('[data-cap-style]').length,reset:!!cap.querySelector('[data-cap-reset]'),dock:!!cap.querySelector('[data-cap-dock]')},
     reset:!!misc.querySelector('[data-reset-open]'),oldGrid:misc.querySelectorAll('.tome-bg-grid output').length};})()`);
-  assert.deepEqual(shape.groups.map(g=>[g.panel,g.title]),[['menu','Alt+T 菜单'],['log','对话记录'],['card','点读弹窗']]);
+  assert.deepEqual(shape.groups.map(g=>[g.panel,g.title]),[['menu','Alt+T 菜单'],['log','对话记录'],['card','点读弹窗']],'three panel groups; the option settings live on 翻译 and 文字');
   for(const g of shape.groups){
    assert.deepEqual(g.main,EVERYDAY,g.panel+': opacity, corner radius and border on the group itself');
    assert.deepEqual(g.more.sort(),Object.keys(SLIDERS).filter(k=>!EVERYDAY.includes(k)).sort(),g.panel+': picture and glass sliders under 更多');
@@ -66,7 +66,7 @@ test('Alt+T 外观: grouped by panel, every slider typed or dragged, preview fol
   // Readability at 1366: labels 14px left of their control, hints at least 12px, value field beside every slider, rows not squeezed.
   const read=await cdp.evaluate(`(()=>{const misc=document.querySelector('.tomoyo-cn-dialog[open] [data-menu-category=misc]');
    for(const d of misc.querySelectorAll('details.tome-look-more'))d.open=true;
-   const rows=[...misc.querySelectorAll('.tome-look-row')].map(r=>{const l=r.querySelector('.tome-look-label'),c=r.querySelector('.tome-bg-range,.tome-look-chips'),n=r.querySelector('[data-num-key]');
+   const rows=[...misc.querySelectorAll('.tome-look-row')].map(r=>{const l=r.querySelector('.tome-look-label'),c=r.querySelector('.tome-bg-range,.tome-look-chips,.tome-look-colour,select'),n=r.querySelector('[data-num-key],[data-choice-num]');
     const lr=l.getBoundingClientRect(),cr=c.getBoundingClientRect(),nr=n?.getBoundingClientRect(),range=r.querySelector('input[type=range]')?.getBoundingClientRect();
     return {label:l.textContent,size:parseFloat(getComputedStyle(l).fontSize),leftOf:lr.right<=cr.left+1,height:r.getBoundingClientRect().height,
      beside:n?(nr.left>=range.right&&Math.abs((nr.top+nr.bottom)/2-(range.top+range.bottom)/2)<6):true,numberType:n?n.type:''};});
@@ -134,7 +134,7 @@ test('Alt+T 外观: grouped by panel, every slider typed or dragged, preview fol
 
   // Language: the group titles and 更多 follow the interface language.
   await cdp.evaluate(`window.__tomeI18n?.set?.('en')`);await sleep(900);
-  const en=await cdp.evaluate(`[...document.querySelectorAll('.tomoyo-cn-dialog[open] .tome-look-title,.tomoyo-cn-dialog[open] .tome-look-more>summary')].map(n=>n.textContent).slice(0,3)`);
+  const en=await cdp.evaluate(`[...document.querySelectorAll('.tomoyo-cn-dialog[open] [data-menu-category=misc] .tome-look-title,.tomoyo-cn-dialog[open] [data-menu-category=misc] .tome-look-more>summary')].map(n=>n.textContent).slice(0,3)`);
   if(await cdp.evaluate(`typeof window.__tomeI18n?.set==='function'`))assert.deepEqual(en,['Alt+T menu','More','Backlog']);
  }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });

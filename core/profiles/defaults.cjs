@@ -93,6 +93,10 @@ module.exports={
   /* candidates that are a text effect's interleaved frame, or a piece of a line already read, are no options (9b3ff9b1, ファタ r30);
      false = the kernel: only choice.filters apply */
   dropEffectFrames:false,
+  /* 2026-11-27 (ISLAND, CatSystem2) source texts shaped as select command records 「<index> <label> <text>」 (core/select-records.cjs)
+     are the options of a choice: collected per command and offered to the choice detector, never delivered as dialogue.
+     false = the kernel: such a text is a line like any other */
+  selectRecords:false,
   /* 2026-11-27 (アイキス3 sexy, NeXAS: OCR read the yellow outlined options at half their characters, no option reached the 60 %
      match) the choice locate also takes a row that is plainly one option's (45 % of it, 70 % of the row, twice what the row shares
      with any other option; native/PageLocator.cs LooseChoices); false = the kernel: the 60 % match and the neighbour row only */

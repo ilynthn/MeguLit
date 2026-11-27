@@ -38,6 +38,7 @@ function plan({caps={},probe=null}={}){const notes=[],align=alignOf(caps);
 const STEPS=[
  ['identify','认游戏：VNDB 作品号 + 发行版、HANDOFF 已适配表','auto；作品号或发行版不知道 → 问人'],
  ['engine','认引擎：registry 指纹 + 封包指纹','auto；认不出 → 问人'],
+ ['craft','静态分析：craft-anything 读主程序（引擎字样、画字 API、隐藏建议），不开游戏','auto（MEGULIT_CRAFT_CLI 没设就跳过）'],
  ['source','原文来源：RRFZ 剧本读取优先，画字钩子 / 钩子流对齐兜底','auto'],
  ['pairing','汉化配对：读取器的 patch / column / underlay','auto'],
  ['hide','隐藏方式：引擎级优先，通用 GDI / GPU 兜底','auto'],

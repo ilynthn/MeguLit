@@ -97,7 +97,7 @@ static class ColdDesk{
 
  static int Main(string[] a){
   if(a.Length<1){/* --visible (tools/adapt-auto.cjs --foreground, owner away): the game on the user's own desktop, still muted and in the job */Console.Error.WriteLine("ColdDesk status | run <game.exe> [--seconds N] [--steam-appid ID] [--ignore-input] [--visible]");return 2;}
-  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="run"&&a.Length>1){if(Array.IndexOf(a,"--visible")>=2){OnUserDesktop=true;return Run(a,"Default");}return Run(a);}}
+  try{if(a[0]=="status"){Emit(Status());return 0;}if(a[0]=="attach"&&a.Length>1)return Attach(a);if(a[0]=="run"&&a.Length>1){if(Array.IndexOf(a,"--visible")>=2){OnUserDesktop=true;return Run(a,"Default");}return Run(a);}}
   catch(Exception e){Emit("{\"type\":\"ended\",\"why\":"+Q("error "+e.Message)+"}");return 1;}
   return 2;}
 
@@ -159,6 +159,30 @@ static class ColdDesk{
  }
  static IntPtr Biggest(){IntPtr best=IntPtr.Zero;long area=-1;var pids=new HashSet<uint>(JobPids());EnumProc cb=(h,_)=>{uint p;GetWindowThreadProcessId(h,out p);if(!pids.Contains(p)||!IsWindowVisible(h))return true;RECT r;GetWindowRect(h,out r);long s=(long)(r.R-r.L)*(r.B-r.T);if(s>area){area=s;best=h;}return true;};
   EnumDesktopWindows(Desk,cb,IntPtr.Zero);return best;}
+ /* 2026-11-27 (owner via 总指挥: 输入只发给自己的游戏窗口，截图也只截自己的窗口，几个代理同时跑不互相打架) "attach <pid>": a game that is
+    already running (started by the MeguLit under test, which binds its reader to it) gets the same commands as "run": click / move /
+    key go to its own window by PostMessage (the deepest child under the point: KiriKiri's TScrollBox), shots are PrintWindow
+    (PW_RENDERFULLCONTENT) of its window; nothing raises a window, moves the real mouse or presses a real key, and nothing is killed.
+    "windows <pid>" lists a process's visible top-level windows (the reader layer of a MeguLit) and "wshot <hwnd> <maxW> <file>"
+    takes one of them the same way */
+ static IntPtr BiggestOf(uint pid){IntPtr best=IntPtr.Zero;long area=-1;EnumWindows((h,_)=>{uint p;GetWindowThreadProcessId(h,out p);if(p!=pid||!IsWindowVisible(h))return true;RECT r;GetWindowRect(h,out r);long s=(long)(r.R-r.L)*(r.B-r.T);if(s>area){area=s;best=h;}return true;},IntPtr.Zero);return best;}
+ static void ListWindows(uint pid){var b=new StringBuilder("[");bool first=true;EnumWindows((h,_)=>{uint p;GetWindowThreadProcessId(h,out p);if(p!=pid||!IsWindowVisible(h))return true;RECT r;GetWindowRect(h,out r);var c=new StringBuilder(128);GetClassName(h,c,128);var t=new StringBuilder(256);GetWindowText(h,t,256);
+   b.Append(first?"":",").Append("{\"hwnd\":"+Q(h.ToInt64().ToString())+",\"cls\":"+Q(c.ToString())+",\"title\":"+Q(t.ToString())+",\"x\":"+r.L+",\"y\":"+r.T+",\"w\":"+(r.R-r.L)+",\"h\":"+(r.B-r.T)+"}");first=false;return true;},IntPtr.Zero);
+  Emit("{\"type\":\"windows\",\"pid\":"+pid+",\"list\":"+b.Append("]")+"}");}
+ static int Attach(string[] a){uint pid=uint.Parse(a[1]);for(int i=0;i<100&&GameWin==IntPtr.Zero;i++){GameWin=BiggestOf(pid);if(GameWin==IntPtr.Zero)Thread.Sleep(100);}
+  if(GameWin==IntPtr.Zero){Emit("{\"type\":\"ended\",\"why\":\"no window\"}");return 1;}
+  {RECT r;GetClientRect(GameWin,out r);var t=new StringBuilder(256);GetWindowText(GameWin,t,256);Emit("{\"type\":\"window\",\"hwnd\":"+Q(GameWin.ToInt64().ToString())+",\"pid\":"+pid+",\"w\":"+(r.R-r.L)+",\"h\":"+(r.B-r.T)+",\"title\":"+Q(t.ToString())+"}");}
+  string l;while((l=Console.In.ReadLine())!=null){var p=l.Trim().Split(new[]{' '},4);if(p[0]=="kill"||p[0]=="")break;try{switch(p[0]){
+    case "key":Key(Convert.ToUInt32(p[1]),true,true);break;
+    case "keydown":Key(Convert.ToUInt32(p[1]),true,false);break;
+    case "keyup":Key(Convert.ToUInt32(p[1]),false,true);break;
+    case "click":Click(int.Parse(p[1]),int.Parse(p[2]));break;
+    case "move":Move(int.Parse(p[1]),int.Parse(p[2]));break;
+    case "shot":Shot(int.Parse(p[1]),p[2]);break;
+    case "windows":ListWindows(uint.Parse(p[1]));break;
+    case "wshot":{var keep=GameWin;GameWin=new IntPtr(long.Parse(p[1]));try{Shot(int.Parse(p[2]),p[3]);}finally{GameWin=keep;}break;}}
+   Emit("{\"type\":\"done\",\"what\":"+Q(p[0])+"}");}catch(Exception e){Emit("{\"type\":\"error\",\"what\":"+Q(l)+",\"why\":"+Q(e.Message)+"}");}}
+  Emit("{\"type\":\"ended\",\"why\":\"input closed\"}");return 0;}
  static Dictionary<uint,Process> audioGuards=new Dictionary<uint,Process>();
  static bool requireObservedAudio;
  internal static bool AudioReadback {get;private set;}

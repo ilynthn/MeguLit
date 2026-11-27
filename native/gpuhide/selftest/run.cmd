@@ -36,6 +36,7 @@ for %%m in (d3d9-up d3d9-vb d3d9-ivb d3d9-quad4 d3d9-decl d3d11 gl gl-ff gdi) do
  "%OUT%\host64.exe" "%DLLS%\MeguLitGpu64.dll" %%m || set FAIL=1
 )
 call "%~dp0run-trace.cmd" "%DLLS%" || set FAIL=1
+call "%~dp0run-color.cmd" || set FAIL=1
 "%OUT%\redraw.exe" || set FAIL=1
 "%OUT%\fontdots32.exe" "%DLLS%\MeguLitGpu32.dll" || set FAIL=1
 "%OUT%\fontdots64.exe" "%DLLS%\MeguLitGpu64.dll" || set FAIL=1

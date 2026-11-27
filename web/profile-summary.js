@@ -37,6 +37,7 @@ const settingNames = {
  'choice.ocrLoose':'选项定位也认 OCR 只读出一半的选项',
  'choice.filters':'选项过滤规则',
  'choice.pageFrames':'选项页面边框图匹配规则',
+ 'choice.selectRecords':'识别引擎选项记录',
  'hide.textEffectsRead':'文字特效默认使用阅读模式',
  'hide.preflight':'隐藏前先显示并检查原文',
  'hide.drawsHidden':'游戏自行隐藏当前行',

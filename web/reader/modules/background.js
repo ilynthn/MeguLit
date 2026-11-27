@@ -24,12 +24,12 @@
  {const old=gcfg.panels||{},next={};for(const p of PANELS){next[p]={};for(const k of PANEL_KEYS){const v=Number(old[p]?.[k]??gcfg[k]??gameDefaults[k]);next[p][k]=Number.isFinite(v)?v:gameDefaults[k];
   }}gcfg.panels=next;}
  const T={
-  zh:{more:'更多',surfaceRow:'背景',capImage:'背景图效果',capGlass:'毛玻璃效果',sample:'今日は、いい天気ですね。',glassGo:'毛玻璃：实时读取面板背后的画面（游戏、桌面或其他窗口）再模糊；效果在「更多」里调',glassDim:'毛玻璃变暗',glassSaturate:'毛玻璃饱和度',gameTitle:'游戏内面板',gameText:'Alt+T 菜单、对话记录和点读窗口的背景；默认使用主页背景图片',custom:'游戏内面板单独使用一张图片',sourceHome:'图片：跟随主页背景（可在 MeguLit 主页设置中单独更换）',
+  zh:{hintCn:'游戏出现选项时，选项下面那行译文。改动立即生效，并作为所有游戏的默认值；按「保存本作品设置」只存给这部作品',hintRuby:'游戏出现选项时，选项上的注音；对不准游戏字时在这里挪。改动立即生效，并作为所有游戏的默认值；按「保存本作品设置」只存给这部作品',choiceCn:'选项译文',choiceRuby:'选项注音',cColor:'颜色',cSize:'字号',cFont:'字体',cX:'左右位置',cY:'上下位置',cFollowColor:'跟随台词译文',cFollowFont:'跟随选项字体',choiceSample:'はい、一緒に行きます',choiceSampleCn:'好，一起去吧',choiceSampleRuby:'いっしょ',more:'更多',surfaceRow:'背景',capImage:'背景图效果',capGlass:'毛玻璃效果',sample:'今日は、いい天気ですね。',glassGo:'毛玻璃：实时读取面板背后的画面（游戏、桌面或其他窗口）再模糊；效果在「更多」里调',glassDim:'毛玻璃变暗',glassSaturate:'毛玻璃饱和度',gameTitle:'游戏内面板',gameText:'Alt+T 菜单、对话记录和点读窗口的背景；默认使用主页背景图片',custom:'游戏内面板单独使用一张图片',sourceHome:'图片：跟随主页背景（可在 MeguLit 主页设置中单独更换）',
    sourceCustom:'图片：游戏内面板单独图片（在 MeguLit 主页设置中更换）',radius:'圆角',surfaces:'面板背景',menuSurface:'Alt+T 菜单',logSurface:'对话记录',cardSurface:'点读弹窗',modeImage:'背景图',modeGlass:'毛玻璃',
    modeBoth:'背景图 + 毛玻璃',modePlain:'纯色',glassBlur:'毛玻璃模糊',glassTip:'毛玻璃由 MeguLit 实时读取面板背后的画面（游戏、桌面或其他窗口）再模糊；毛玻璃的模糊、变暗和饱和度在各面板分区里单独调，背景模糊等只作用于背景图',border:'边框亮度',alpha:'面板不透明度',
    picture:'背景图片',title:'主页背景',text:'换成自己的图片，并可加模糊、变暗和毛玻璃面板；文本框翻译模式不受影响',pick:'选择图片',adjust:'调整显示区域',cropTitle:'调整显示区域',cropHint:'拖动方框选择显示区域，滚轮或滑块缩放；主页已实时预览',zoom:'缩放',
    ok:'确认',cancel:'取消',clear:'恢复默认',blur:'背景模糊',dim:'背景变暗',saturate:'饱和度',glass:'毛玻璃面板（侧栏、作品卡片、菜单）',glassBlur:'毛玻璃模糊',glassAlpha:'毛玻璃不透明度',none:'未设置背景图片',set:'已设置背景图片'},
-  en:{more:'More',surfaceRow:'Background',capImage:'Picture effects',capGlass:'Glass effects',sample:'今日は、いい天気ですね。',glassGo:'Frosted glass: MeguLit reads whatever is behind the panel live (game, desktop or other windows) and blurs it; tune it under More',glassDim:'Darken glass',glassSaturate:'Glass saturation',gameTitle:'In-game panels',gameText:'Background of the Alt+T menu, backlog and lookup card; uses the home picture by default',
+  en:{hintCn:'When the game shows options: the translation under each option. Changes apply at once and become the default for every game; Save for this work keeps them for this work only',hintRuby:'When the game shows options: the furigana over each option; move it here when it misses the game text. Changes apply at once and become the default for every game; Save for this work keeps them for this work only',choiceCn:'Option translation',choiceRuby:'Option furigana',cColor:'Colour',cSize:'Size',cFont:'Font',cX:'Horizontal position',cY:'Vertical position',cFollowColor:'Same as line translation',cFollowFont:'Same as the option',choiceSample:'はい、一緒に行きます',choiceSampleCn:'Yes, let us go together',choiceSampleRuby:'いっしょ',more:'More',surfaceRow:'Background',capImage:'Picture effects',capGlass:'Glass effects',sample:'今日は、いい天気ですね。',glassGo:'Frosted glass: MeguLit reads whatever is behind the panel live (game, desktop or other windows) and blurs it; tune it under More',glassDim:'Darken glass',glassSaturate:'Glass saturation',gameTitle:'In-game panels',gameText:'Background of the Alt+T menu, backlog and lookup card; uses the home picture by default',
    custom:'Use a separate picture for in-game panels',sourceHome:'Picture: follows the home background (a separate one can be set on the home settings page)',sourceCustom:'Picture: separate in-game picture (change it on the home settings page)',
    radius:'Corner radius',surfaces:'Panel background',menuSurface:'Alt+T menu',logSurface:'Backlog',cardSurface:'Lookup card',modeImage:'Picture',modeGlass:'Frosted glass',
    modeBoth:'Picture + frosted glass',modePlain:'Plain colour',glassBlur:'Glass blur',glassTip:'Frosted glass: MeguLit reads whatever is behind the panel live (game, desktop or other windows) and blurs it. Glass blur, darkening and saturation are set per panel below; background blur and the like only affect the picture',
@@ -37,7 +37,7 @@
    pick:'Choose picture',adjust:'Adjust visible area',cropTitle:'Adjust visible area',cropHint:'Drag the frame to choose the visible area; zoom with the wheel or slider. The home page previews it live',
    zoom:'Zoom',ok:'Confirm',cancel:'Cancel',clear:'Restore default',blur:'Background blur',dim:'Darken background',saturate:'Saturation',glass:'Frosted-glass panels (sidebar, work cards, menu)',
    glassBlur:'Glass blur',glassAlpha:'Glass opacity',none:'No background picture',set:'Background picture set'},
-  ja:{more:'詳細',surfaceRow:'背景',capImage:'背景画像の効果',capGlass:'すりガラスの効果',sample:'今日は、いい天気ですね。',glassGo:'すりガラス：パネルの後ろ（ゲーム・デスクトップ・ほかのウィンドウ）をリアルタイムで読み取ってぼかします。効果は「詳細」で調整',glassDim:'すりガラスを暗く',glassSaturate:'すりガラスの彩度',gameTitle:'ゲーム内パネル',gameText:'Alt+T メニュー・ログ・辞書カードの背景。既定ではホーム背景の画像を使います',custom:'ゲーム内パネルに別の画像を使う',sourceHome:'画像：ホーム背景と同じ（ホームの設定で個別に変更できます）',
+  ja:{hintCn:'選択肢が出たときの、選択肢の下の訳文。変更はすぐ反映され、すべてのゲームの既定値になります。「この作品の設定を保存」でこの作品だけに保存します',hintRuby:'選択肢が出たときの、選択肢のふりがな。ゲームの文字とずれるときはここで動かします。変更はすぐ反映され、すべてのゲームの既定値になります。「この作品の設定を保存」でこの作品だけに保存します',choiceCn:'選択肢の訳文',choiceRuby:'選択肢のふりがな',cColor:'色',cSize:'文字サイズ',cFont:'フォント',cX:'左右の位置',cY:'上下の位置',cFollowColor:'台詞の訳文と同じ',cFollowFont:'選択肢と同じ',choiceSample:'はい、一緒に行きます',choiceSampleCn:'好，一起去吧',choiceSampleRuby:'いっしょ',more:'詳細',surfaceRow:'背景',capImage:'背景画像の効果',capGlass:'すりガラスの効果',sample:'今日は、いい天気ですね。',glassGo:'すりガラス：パネルの後ろ（ゲーム・デスクトップ・ほかのウィンドウ）をリアルタイムで読み取ってぼかします。効果は「詳細」で調整',glassDim:'すりガラスを暗く',glassSaturate:'すりガラスの彩度',gameTitle:'ゲーム内パネル',gameText:'Alt+T メニュー・ログ・辞書カードの背景。既定ではホーム背景の画像を使います',custom:'ゲーム内パネルに別の画像を使う',sourceHome:'画像：ホーム背景と同じ（ホームの設定で個別に変更できます）',
    sourceCustom:'画像：ゲーム内パネル専用（ホームの設定で変更）',radius:'角の丸み',surfaces:'パネルの背景',menuSurface:'Alt+T メニュー',logSurface:'ログ',cardSurface:'辞書カード',modeImage:'背景画像',modeGlass:'すりガラス',
    modeBoth:'背景画像＋すりガラス',modePlain:'単色',glassBlur:'すりガラスのぼかし',glassTip:'すりガラスは MeguLit がパネルの後ろ（ゲーム・デスクトップ・ほかのウィンドウ）をリアルタイムで読み取ってぼかします。すりガラスのぼかし・暗さ・彩度は下の各パネルで個別に調整でき、背景のぼかしなどは背景画像だけに効きます',
    border:'枠の明るさ',alpha:'パネルの不透明度',picture:'背景画像',title:'ホーム背景',text:'好きな画像に変更し、ぼかし・暗さ・すりガラスのパネルを加えられます。字幕の翻訳モードには影響しません',pick:'画像を選択',adjust:'表示範囲を調整',cropTitle:'表示範囲を調整',
@@ -175,14 +175,27 @@
   @container (min-width:560px){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-chips{--mg-seg-cols:4}}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-chips>button{font-size:13px!important}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more{margin:6px 0 0!important;padding:0!important;border:0!important;background:none!important}
-  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary{display:inline-flex!important;align-items:center;gap:8px;min-height:32px!important;padding:4px 0!important;font-size:13px!important;font-weight:600;color:var(--tome-picture-muted,#b9b4c4)!important;list-style:none;cursor:pointer;background:none!important;border:0!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary{display:inline-flex!important;margin:0!important;align-items:center;gap:8px;min-height:32px!important;padding:4px 0!important;font-size:13px!important;font-weight:600;color:var(--tome-picture-muted,#b9b4c4)!important;list-style:none;cursor:pointer;background:none!important;border:0!important}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary::-webkit-details-marker{display:none}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary:hover{color:var(--theme-text,#ece6e0)!important}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more[open]{padding-bottom:4px!important}
   .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-cap{margin:10px 0 2px;font-size:12.5px;font-weight:600;color:var(--tome-picture-muted,#b9b4c4)}
-  @container (max-width:400px){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row{grid-template-columns:minmax(0,1fr)!important;row-gap:4px!important;padding:6px 0!important}.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-preview{grid-template-columns:minmax(0,1fr)}.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile{height:56px}}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice>small{margin:0 0 10px!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice{margin-top:14px}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice-sample{position:relative;height:96px;margin:0 0 6px;border-radius:2px;overflow:hidden;background:radial-gradient(circle at 80% 20%,#f6d39a55 0 8%,transparent 30%),linear-gradient(135deg,#46557f 0%,#7d6487 55%,#b98a7c 100%)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice-line{position:absolute;left:50%;top:38%;transform:translateX(-50%);font:22px/1 "Yu Gothic","Meiryo",sans-serif;white-space:nowrap}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice-game{color:#fff;text-shadow:0 1px 2px #000a}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice-over{position:absolute;left:0;top:0;color:transparent;translate:var(--mg-choice-ruby-x,0px) var(--mg-choice-ruby-y,0px)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice-over rt{font-size:calc(.5em * var(--mg-choice-ruby-scale,1));font-family:var(--mg-choice-ruby-font,inherit);line-height:1;color:var(--tomoyo-gal-color,#fffaf2);text-shadow:0 0 2px #000,0 0 1px #000}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-choice-cn{position:absolute;top:calc(100% + .1em);left:50%;transform:translateX(-50%);translate:var(--mg-choice-cn-x,0px) var(--mg-choice-cn-y,0px);white-space:nowrap;font-size:calc(17.6px * var(--mg-choice-cn-scale,1));line-height:1.2;
+   font-family:var(--mg-choice-cn-font,inherit);color:var(--mg-choice-cn-color,var(--tomoyo-translation-color,#ffe9a8));text-shadow:0 0 3px #000,0 0 2px #000,0 0 1px #000}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-colour{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-follow{font-size:12.5px!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-follow[aria-pressed=true]{color:var(--theme-text,#ece6e0)!important;border-color:color-mix(in srgb,var(--menu-accent,#e0495a) 55%,transparent)!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row>select{width:100%;min-width:0}
+  @container (max-width:320px){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row{grid-template-columns:minmax(0,1fr)!important;row-gap:4px!important;padding:6px 0!important}.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-preview{grid-template-columns:minmax(0,1fr)}.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile{height:56px}}
   @media (prefers-reduced-motion:reduce){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look *{transition:none!important}}`;
  document.head.append(style);document.body.prepend(layer);
 
@@ -461,7 +474,70 @@
    group.append(copy('h5','tome-look-title',c),row,slider(p,'alpha',20,100),slider(p,'radius',0,28),slider(p,'border',0,40),more);box.append(group);}
   misc.prepend(box);refreshGameMenu();
  }
- function refreshGameMenu(){for(const box of document.querySelectorAll('.tome-game-bg')){for(const select of box.querySelectorAll('[data-game-surface]')){const v=gcfg.surfaces?.[select.dataset.gameSurface]||'image';
+ /* 2026-11-28 (user: 选项下面的译文颜色啊位置 大小 字体啥的也要能修改才对啊 包括选项的注音 有的时候位置不对也应该可以修改啊; then
+    这他妈不该放在翻译或者字体里面吗): the option overlay's translation (choice-overlay.js) is set in its own group 选项译文 on the 翻译 page,
+    its furigana in 选项注音 inside 文字 → 注音设置, next to the line's furigana. These are reader text settings (game-style.js choice*
+    keys): applied at once as the default for every game, and saved for one work with the menu's 「保存本作品设置」 like the line's.
+    Each group has a sample drawn like the overlay: the game's option, an invisible copy carrying the furigana over it, the
+    translation under it. Same rows as the 外观 page (label | slider | typed value). */
+ const CHOICE_SLIDERS={choiceCnScale:[50,200,'%'],choiceCnX:[-200,200,'px'],choiceCnY:[-120,120,'px'],choiceRubyScale:[50,200,'%'],choiceRubyX:[-60,60,'px'],choiceRubyY:[-60,60,'px']};
+ const choicePrefs=()=>b.galPreferences?.()||{},setChoice=values=>{b.applyGalPreferences?.(values);refreshChoice();};
+ function buildChoiceGroup(kind){
+  const el=(tag,cls)=>{const n=document.createElement(tag);if(cls)n.className=cls;return n;},copy=(tag,cls,key)=>{const n=el(tag,cls);n.dataset.bgCopy=key;return n;};
+  const group=el('section','tome-look tome-look-group tome-look-choice');group.dataset.lookGroup='choice-'+kind;group.dataset.noI18n='';
+  const sample=el('div','tome-look-choice-sample');sample.setAttribute('aria-hidden','true');
+  const line=el('div','tome-look-choice-line'),game=copy('span','tome-look-choice-game','choiceSample'),over=el('span','tome-look-choice-over'),cn=copy('span','tome-look-choice-cn','choiceSampleCn');
+  line.append(game,over,cn);sample.append(line);
+  /* a sub-tab or page that was hidden when the group was built: line the furigana up as soon as the sample has a size */
+  if(window.ResizeObserver)new ResizeObserver(()=>refreshChoice()).observe(sample);
+  const label=(row,key)=>{row.append(copy('span','tome-look-label',key));return row;};
+  const slider=(k,key)=>{const [min,max,unit]=CHOICE_SLIDERS[k],row=label(el('div','setting-row tome-look-row'),key),range=el('div','tome-bg-range'),i=el('input'),value=el('label','tome-look-num'),n=el('input'),u=el('span');
+   i.type='range';i.min=min;i.max=max;i.step=1;i.dataset.choiceKey=k;n.type='number';n.min=min;n.max=max;n.step=1;n.inputMode='numeric';n.dataset.choiceNum=k;u.textContent=unit;
+   const set=v=>{v=Number(v);if(!Number.isFinite(v)){refreshChoice();return;}setChoice({[k]:Math.round(Math.min(max,Math.max(min,v)))});};
+   i.oninput=()=>set(i.value);n.onchange=()=>set(n.value===''?NaN:n.value);n.onkeydown=e=>{if(e.key==='Enter'){set(n.value===''?NaN:n.value);n.select();}};
+   value.append(n,u);range.append(i,value);row.append(range);return row;};
+  const font=(k,options,follow)=>{const row=label(el('div','setting-row tome-look-row'),'cFont'),select=el('select','tome-look-select');select.dataset.choiceKey=k;
+   select.add(new Option('',''));select.options[0].dataset.bgCopy=follow;for(const [id,family] of options)select.add(new Option(family,id));
+   select.onchange=()=>setChoice({[k]:select.value});row.append(select);return row;};
+  const fonts=window.TomoyoGameStyle?.fontOptions||{},more=el('details','tome-look-more');more.append(copy('summary','','more'));
+  if(kind==='cn'){
+   const colour=el('div','setting-row tome-look-row');label(colour,'cColor');const cbox=el('div','tome-look-colour'),picker=el('input'),follow=copy('button','tome-look-follow','cFollowColor');
+   picker.type='color';picker.dataset.choiceKey='choiceCnColor';picker.oninput=()=>setChoice({choiceCnColor:picker.value});follow.type='button';follow.dataset.choiceFollow='';follow.onclick=()=>setChoice({choiceCnColor:''});
+   cbox.append(picker,follow);colour.append(cbox);
+   more.append(font('choiceCnFont',(fonts.chineseFont||[]).filter(([id])=>id!=='patch'),'cFollowFont'),slider('choiceCnX','cX'));
+   group.append(copy('h5','tome-look-title','choiceCn'),copy('small','tome-bg-hint','hintCn'),sample,colour,slider('choiceCnScale','cSize'),slider('choiceCnY','cY'),more);
+  }else{
+   more.append(font('choiceRubyFont',(fonts.rubyFont||[]).filter(([id])=>id!=='inherit'),'cFollowFont'),slider('choiceRubyX','cX'));
+   group.append(copy('h5','tome-look-title','choiceRuby'),copy('small','tome-bg-hint','hintRuby'),sample,slider('choiceRubyScale','cSize'),slider('choiceRubyY','cY'),more);
+  }
+  return group;
+ }
+ /* 翻译 page: at its end, after the translation services; 文字 → 注音设置: after the line's furigana settings */
+ function mountChoiceGroups(dialog){
+  const translate=dialog.querySelector('[data-menu-category=translate]');if(translate&&!translate.querySelector('[data-look-group=choice-cn]'))translate.append(buildChoiceGroup('cn'));
+  const ruby=dialog.querySelector('[data-menu-category=text] [name=galRubyFont]')?.closest('details');if(ruby&&!ruby.querySelector('[data-look-group=choice-ruby]'))ruby.append(buildChoiceGroup('ruby'));
+  if(dialog.querySelector('.tome-look-choice'))refreshChoice();
+ }
+ function refreshChoice(){const p=choicePrefs(),G=window.TomoyoGameStyle,num=(v,d)=>Number.isFinite(Number(v))?Number(v):d;
+  for(const group of document.querySelectorAll('.tome-look-choice')){
+   for(const node of group.querySelectorAll('[data-bg-copy]')){const text=t(node.dataset.bgCopy);if(node.textContent!==text)node.textContent=text;}
+   for(const input of group.querySelectorAll('input[data-choice-key],select[data-choice-key]')){if(document.activeElement===input)continue;const k=input.dataset.choiceKey;
+    const v=k==='choiceCnColor'?(p.choiceCnColor||p.translationColor||'#ffe9a8'):k in CHOICE_SLIDERS?String(num(p[k],k.endsWith('Scale')?100:0)):(p[k]||'');if(input.value!==v)input.value=v;}
+   for(const n of group.querySelectorAll('[data-choice-num]')){const k=n.dataset.choiceNum,v=String(num(p[k],k.endsWith('Scale')?100:0));if(document.activeElement!==n&&n.value!==v)n.value=v;const l=n.closest('.tome-look-row')?.querySelector('.tome-look-label')?.textContent||'';if(n.getAttribute('aria-label')!==l)n.setAttribute('aria-label',l);}
+   const follow=group.querySelector('[data-choice-follow]');if(follow){const on=String(!p.choiceCnColor);if(follow.getAttribute('aria-pressed')!==on)follow.setAttribute('aria-pressed',on);}
+   const s=group.querySelector('.tome-look-choice-sample').style,set=(k,v)=>{if(v)s.setProperty(k,v);else s.removeProperty(k);};
+   set('--mg-choice-cn-color',p.choiceCnColor||'');set('--mg-choice-cn-font',p.choiceCnFont&&G?.chineseFonts?.[p.choiceCnFont]||'');set('--mg-choice-cn-scale',String(num(p.choiceCnScale,100)/100));
+   set('--mg-choice-cn-x',num(p.choiceCnX,0)+'px');set('--mg-choice-cn-y',num(p.choiceCnY,0)+'px');set('--mg-choice-ruby-scale',String(num(p.choiceRubyScale,100)/100));
+   set('--mg-choice-ruby-font',p.choiceRubyFont&&(G?.japaneseFonts?.[p.choiceRubyFont]||({round:'Meiryo,sans-serif',gothic:'"MS Gothic",sans-serif',mincho:'"MS Mincho",serif'})[p.choiceRubyFont])||'');
+   set('--mg-choice-ruby-x',num(p.choiceRubyX,0)+'px');set('--mg-choice-ruby-y',num(p.choiceRubyY,0)+'px');
+   const over=group.querySelector('.tome-look-choice-over'),text=t('choiceSample'),ruby=t('choiceSampleRuby'),at=text.indexOf('一緒'),key=text+'|'+ruby;
+   if(over.dataset.text!==key){over.dataset.text=key;over.replaceChildren(document.createTextNode(text.slice(0,at)));const r=document.createElement('ruby');r.append('一緒');const rt=document.createElement('rt');rt.textContent=ruby;r.append(rt);over.append(r,text.slice(at+2));}
+   /* the copy's furigana pushes its text down: line its text up with the game's, then the offsets move only the furigana */
+   const base=document.createRange(),gameRange=document.createRange(),gameNode=group.querySelector('.tome-look-choice-game').firstChild,baseNode=over.querySelector('ruby').firstChild;
+   if(gameNode&&baseNode&&gameNode.textContent.indexOf('一緒')>=0){gameRange.setStart(gameNode,gameNode.textContent.indexOf('一緒'));gameRange.setEnd(gameNode,gameNode.textContent.indexOf('一緒')+1);base.setStart(baseNode,0);base.setEnd(baseNode,1);
+    const g=gameRange.getBoundingClientRect(),o=base.getBoundingClientRect();if(g.height&&o.height){over.style.left=((parseFloat(over.style.left)||0)+g.left-(o.left-num(p.choiceRubyX,0)))+'px';over.style.top=((parseFloat(over.style.top)||0)+g.top-(o.top-num(p.choiceRubyY,0)))+'px';}}
+  }}
+ function refreshGameMenu(){refreshChoice();for(const box of document.querySelectorAll('.tome-game-bg')){for(const select of box.querySelectorAll('[data-game-surface]')){const v=gcfg.surfaces?.[select.dataset.gameSurface]||'image';
   if(select.value!==v)select.value=v;for(const chip of select.parentElement.querySelectorAll('[data-surface-pick]')){const on=String(chip.dataset.surfacePick===v);if(chip.getAttribute('aria-selected')!==on)chip.setAttribute('aria-selected',on);
    const pick=chip.dataset.surfacePick,tip=pick==='glass'||pick==='both'?t('glassGo'):t(chip.dataset.bgCopy);if(chip.title!==tip)chip.title=tip;}}for(const node of box.querySelectorAll('[data-bg-copy]')){const text=t(node.dataset.bgCopy);if(node.textContent!==text)node.textContent=text;
   }const st=box.querySelector('[data-bg-state]');if(st)st.textContent=gameImage?t('set'):t('none');const acts=box.querySelector('.tome-bg-actions');if(acts)acts.hidden=!gcfg.custom;
@@ -479,7 +555,9 @@
    'true');layer.append(document.createElement('b'),document.createElement('i'));dialog.prepend(layer);}
    const misc=dialog.querySelector('[data-menu-category=misc]');if(misc&&!misc.querySelector('.tome-game-bg'))buildGameMenu(misc,true);
    /* the panel groups come first on the page, whichever of them and the capsule's own section was mounted first */
-   const look=misc?.querySelector(':scope>.tome-look');if(look&&misc.firstElementChild!==look)misc.prepend(look);}
+   const look=misc?.querySelector(':scope>.tome-look');if(look&&misc.firstElementChild!==look)misc.prepend(look);
+   /* the option groups on 翻译 and 文字; their samples line the furigana up once shown (a hidden tab has no geometry) and follow settings restored for a work */
+   mountChoiceGroups(dialog);}
   const page=document.querySelector('.settings-page'),content=page?.querySelector('.settings-content'),nav=page?.querySelector('.settings-tabs');if(!content||!nav)return;
   let tab=nav.querySelector('[data-tome-bg-tab]');if(!tab){tab=document.createElement('button');tab.type='button';tab.dataset.tomeBgTab='';tab.dataset.noI18n='';
    tab.className=nav.querySelector('button')?.className||'';tab.classList.remove('active');tab.onclick=()=>{content.classList.remove('tome-about-selected','tomoyo-learning-selected');

@@ -44,7 +44,8 @@ test('checkpoints: unknown work and release are asked; a pass asks for the dialo
  const d=tmp(),run=path.join(d,'run');fs.mkdirSync(run);for(const f of ['shot-1-intro.jpg','shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
  const cold={verdict:'pass',checks:{choice:{measured:true,ok:true}},phases:[]};
  const qs=Check.questions({identity:{vndb:'',release:'',releaseGuess:'',adapted:[]},caps:{known:true},cold,coldOut:d});
- assert.deepEqual(qs.map(q=>q.id),['vndb','cn','release','lines','dialogue','choice']);
+ assert.deepEqual(qs.map(q=>q.id),['vndb','cn','release','lines','dialogue','choice','speakers']);
+ assert.ok(qs.find(q=>q.id==='speakers').evidence.every(f=>/line-\d+/.test(f)),'whether the game colours by speaker is judged on the dialogue pictures');
  assert.ok(qs.find(q=>q.id==='dialogue').evidence.every(f=>/line-\d+/.test(f)));
  assert.equal(Check.status({cold},{lines:'yes',dialogue:'yes',choice:'yes'}),'verified');assert.equal(Check.status({cold},{lines:'no',dialogue:'yes',choice:'yes'}),'skeleton','a line that does not change with the game is no verified seed');assert.equal(Check.status({cold},{dialogue:'no'}),'skeleton');assert.equal(Check.status({cold},{}),'');
  const fail={verdict:'fail',checks:{hidden:{measured:true,ok:false,detail:'leak 0'}}};
@@ -213,8 +214,8 @@ test('live check: without Cardinal a passing run asks the person about line chan
  assert.equal(A.judge({cold,diff,card:null}).verdict,'inconclusive','the old cold + Cardinal path is unchanged');
  const d=tmp(),run=path.join(d,'run');fs.mkdirSync(run);for(const f of ['shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
  const live={verdict:'pass',checks:{},phases:[{name:'choice-try-1'}]};
- assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:live,coldOut:d}).map(q=>q.id),['lines','dialogue','choice'],'a choice the run reached is asked about without Cardinal');
- assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:{...live,phases:[]},coldOut:d}).map(q=>q.id),['lines','dialogue']);});
+ assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:live,coldOut:d}).map(q=>q.id),['lines','dialogue','choice','speakers'],'a choice the run reached is asked about without Cardinal');
+ assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:{...live,phases:[]},coldOut:d}).map(q=>q.id),['lines','dialogue','speakers']);});
 
 /* 2026-11-27 (アイキス3 sexy: the dialogue evidence offered a whole-screen picture of another agent's game window, 死に逝く君) */
 test('checkpoints: a whole-screen picture taken while another process was in front is not offered as evidence of this game',()=>{

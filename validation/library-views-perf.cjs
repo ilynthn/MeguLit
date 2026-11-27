@@ -10,13 +10,18 @@ const ROOT=path.resolve(__dirname,'..'),WEB=path.join(ROOT,'web');
 const arg=(name,fallback)=>{const i=process.argv.indexOf('--'+name);return i>0?process.argv[i+1]:fallback;};
 const OUT=path.resolve(arg('out',path.join(os.tmpdir(),'megulit-library-views')));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+/* CI (2026-11-28): three Windows runners each ran a headless Edge, a service child and a test worker at once, and a page load, a
+   screenshot or a service call that takes 2 s on a desk took 40-90 s there (CDP_TIMEOUT Page.navigate / captureScreenshot,
+   SERVICE_TIMEOUT, EDGE_NO_PORT in a dozen unrelated files). The waits only end a hung call, so on a runner (CI=true) they are
+   generous; a call that really hangs still fails, a little later. */
+const SLOW_RUNNER=!!process.env.CI||!!process.env.GITHUB_ACTIONS;
 /* ---------- services on a temp root ---------- */
 function startService(root){const child=spawn(process.execPath,[path.join(ROOT,'services','server.cjs')],{windowsHide:true,env:{...process.env,MEGULIT_ROOT:root},stdio:['pipe','pipe','ignore']});
  let next=1,buf='',closed;const waits=new Map();
  const finish=error=>{closed=error;for(const w of waits.values()){clearTimeout(w.timer);w.reject(error);}waits.clear();};
  child.once('error',finish);child.once('close',()=>finish(Error('SERVICE_CLOSED')));child.stdin.on('error',finish);
  child.stdout.on('data',d=>{buf+=d;let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);let m;try{m=JSON.parse(line);}catch{continue;}const w=waits.get(m.id);if(w){waits.delete(m.id);clearTimeout(w.timer);m.ok?w.resolve(m.data):w.reject(Error(m.error));}}});
- const call=(request,ms=35000)=>new Promise((res,rej)=>{if(closed)return rej(closed);const id=next++;child.stdin.write(JSON.stringify({id,request})+'\n');
+ const call=(request,ms=SLOW_RUNNER?120000:35000)=>new Promise((res,rej)=>{if(closed)return rej(closed);const id=next++;child.stdin.write(JSON.stringify({id,request})+'\n');
   const timer=setTimeout(()=>{if(waits.delete(id))rej(Error('SERVICE_TIMEOUT'));},ms);
   waits.set(id,{resolve:res,reject:rej,timer});});
  return {call,stop:async()=>{if(!closed){await call({action:'__shutdown'},5000).catch(()=>{});finish(Error('SERVICE_CLOSED'));}child.kill();}};}
@@ -39,7 +44,7 @@ function startWeb(service){const server=http.createServer(async(req,res)=>{try{
  return new Promise(r=>server.listen(0,'127.0.0.1',()=>r(server)));}
 
 /* ---------- headless Edge over CDP ---------- */
-const CDP_MS=Number(process.env.MEGULIT_CDP_TIMEOUT)||60000;
+const CDP_MS=Number(process.env.MEGULIT_CDP_TIMEOUT)||(SLOW_RUNNER?150000:60000);
 function edgePath(){for(const p of [process.env.MEGULIT_EDGE,'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'])if(p&&fs.existsSync(p))return p;throw Error('EDGE_NOT_FOUND');}
 const {stopLayoutBrowser,checkLayoutProfile}=require('./helpers/stop-layout-browser.cjs');
 async function startEdge(profile){checkLayoutProfile(profile);const child=spawn(edgePath(),['--headless=new','--remote-debugging-port=0','--user-data-dir='+profile,'--window-size='+String(arg('size','1920x1080')).replace('x',','),'--hide-scrollbars','--force-device-scale-factor=1',
@@ -49,7 +54,8 @@ async function startEdge(profile){checkLayoutProfile(profile);const child=spawn(
     until it holds a port, and any failure before the handle is returned ends Edge. */
  try{return await connect(child,profile);}catch(e){try{child.kill();}catch{}throw e;}}
 async function connect(child,profile){
- const portFile=path.join(profile,'DevToolsActivePort');let port='';for(let i=0;i<150&&!port;i++){try{port=(fs.readFileSync(portFile,'utf8').split(/\r?\n/)[0]||'').trim();}catch{}if(!/^\d+$/.test(port)){port='';await sleep(100);}}
+ const portFile=path.join(profile,'DevToolsActivePort');let port='';/* Edge that is still starting is waited for (up to 60 s on a runner); a program that already exited (MEGULIT_EDGE pointing at node) never writes the file, so it ends the wait at once */
+ for(let i=0;i<(SLOW_RUNNER?600:150)&&!port;i++){if(child.exitCode!=null||child.signalCode!=null)break;try{port=(fs.readFileSync(portFile,'utf8').split(/\r?\n/)[0]||'').trim();}catch{}if(!/^\d+$/.test(port)){port='';await sleep(100);}}
  if(!port)throw Error('EDGE_NO_PORT');
  let target;for(let i=0;i<50&&!target;i++){target=(await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(5000)}).then(r=>r.json()).catch(()=>[])).find(t=>t.type==='page');if(!target)await sleep(100);}
  if(!target){child.kill();throw Error('EDGE_NO_PAGE');}

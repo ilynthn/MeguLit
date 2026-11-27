@@ -164,7 +164,8 @@ num('reader','history_line_height','对话记录行高','Dialogue history line s
 // Home text settings use the same font catalogues as Alt+T (16 / 17 / 18 / 24 built-in options) and also cover English (E215).
 {const {fontOptions}=require('../core/game-style.js'),named={originalGothic:['游戏原字体（黑体）','Original game sans','ゲームのゴシック体'],originalMincho:['游戏原字体（明朝）','Original game serif',
  'ゲームの明朝体'],patch:['游戏译文字体 font.ttf','Game translation font','ゲームの翻訳フォント'],round:['圆体','Rounded','丸ゴシック'],gothic:['黑体','Sans','ゴシック'],mincho:['明朝','Serif','明朝'],
- inherit:['跟随正文','Follow main text','本文に合わせる']};
+ inherit:['跟随正文','Follow main text','本文に合わせる'],
+ notoSansJP:['Noto Sans JP（自带）','Noto Sans JP (bundled)','Noto Sans JP（同梱）'],notoSerifJP:['Noto Serif JP（自带）','Noto Serif JP (bundled)','Noto Serif JP（同梱）']};
  const options=key=>fontOptions[key].map(([id,family])=>named[id]?option(id,...named[id]):option(id,family));
  for(const key of ['japaneseFont','chineseFont','rubyFont'])fields.find(f=>f.scope==='text'&&f.key===key).options=options(key);
  choice('text','englishFont','英文字体','English font','英語フォント',options('englishFont'));

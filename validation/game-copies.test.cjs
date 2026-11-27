@@ -42,6 +42,14 @@ test('lock file says owner, pid and start time; a dead pid is taken over, a live
  assert.equal(await C.acquire(g,{owner:'me',dir:locks,waitMs:0}),null,'a live owner keeps it even when the file is hours old');
  assert.equal(fs.readFileSync(file,'utf8'),live,'and its file is untouched');});
 
+test('a lock file that is still being written is not a dead lock',async t=>{const d=tmp(),locks=path.join(d,'locks');t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ /* the winner creates the file empty and then fills it; a taker reading it in between must not take it over (CI: two of six takers won) */
+ const g=path.join(d,'g');fs.mkdirSync(g);fs.mkdirSync(locks);const file=C.lockFile(g,locks);
+ fs.writeFileSync(file,'');
+ const r=C.tryAcquire(g,{owner:'late',dir:locks});assert.equal(r.ok,false,'a just-created empty lock is held');assert.equal(fs.readFileSync(file,'utf8'),'','and left alone');
+ const old=Date.now()-60e3;fs.utimesSync(file,old/1000,old/1000);
+ assert.equal(C.tryAcquire(g,{owner:'late',dir:locks}).ok,true,'an unreadable lock nobody is writing any more is taken over');});
+
 test('parallel takers of a dead lock: exactly one wins',async t=>{const d=tmp(),locks=path.join(d,'locks');t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
  const g=path.join(d,'g');fs.mkdirSync(g);fs.mkdirSync(locks);fs.writeFileSync(C.lockFile(g,locks),JSON.stringify({owner:'crashed',pid:deadPid(),host:os.hostname()}));
  const code=`const C=require(${JSON.stringify(TOOL)});const r=C.tryAcquire(${JSON.stringify(g)},{owner:'p'+process.pid,dir:${JSON.stringify(locks)}});process.stdout.write(r.ok?'won':'lost');setTimeout(()=>{},800);`;

@@ -35,7 +35,7 @@
    if(!plausibleMap(next))return;map=next;if(options.persist!==false)send({type:'textPosMapSave',map:next,key:b.gameProfileKey?.()});repaint();return next;}
  };
  window.__tomeTextPosition=api;
- const priorStatus=b.galStatus;b.galStatus=m=>{if(typeof m.hookSourceRead==='boolean')readState=m.hookSourceReadOrigin==='engine'?(m.hookSourceRead?'read':'unread'):'';else if(typeof m.hookSource==='string')readState='';
+ const priorStatus=b.galStatus;b.galStatus=m=>{/* the speaker of the line this message brings (or names late): set before the line is painted */if(typeof m.hookSource==='string')lineSpeaker=typeof m.hookSpeaker==='string'?m.hookSpeaker:'';else if(m.hookSpeakerLate&&typeof m.hookSpeaker==='string'&&m.hookSpeaker){lineSpeaker=m.hookSpeaker;if(colorSource)setTimeout(repaintCurrent,0);}if(typeof m.hookSourceRead==='boolean')readState=m.hookSourceReadOrigin==='engine'?(m.hookSourceRead?'read':'unread'):'';else if(typeof m.hookSource==='string')readState='';
   /* the engine named the state of the sentence already on screen (no new source with it): paint it again under that state */
   if(typeof m.hookSourceRead==='boolean'&&m.hookSourceReadOrigin==='engine'&&typeof m.hookSource!=='string'&&colorSource)repaintCurrent();if(m.type==='gameClosed'){api.resetSession('');}else if(m.hookSource===null||typeof m.hookSource==='string'&&!m.hookSource.trim())b.lineColorReset?.();else if(typeof m.hookSource==='string')b.lineColorFor?.(m.hookSource,m.hookSequence);else if(m.gameStarted||m.gameProcessId){const old=identity.split('|'),next=String(m.gameProcessId||old[0]||'')+'|'+String(m.gameStarted||old[1]||'');if(identity&&next!==identity)api.resetSession(next);identity=next;}
   // The history marker can arrive after TextRender has identified this exact draw as read.
@@ -70,11 +70,14 @@
  /* Read styles: every sentence is painted from its own evidence (the engine's draw call, else the game's pixels: fill, opacity,
     outline). A sentence with none takes the last reliable sample of the same engine-reported read state, never the other state's
     and never a guess; with no state or no sample the saved colours apply. Furigana reads the same variables. */
- const stateStyle=new Map();let readState='',pixelPaint=null,endAlpha=1;
+ const stateStyle=new Map();let readState='',pixelPaint=null,endAlpha=1,lineSpeaker='';
  const paintLine=(color,text,style)=>{const gs=window.TomoyoGameStyle,p=b.galPreferences?.()||{},root=document.documentElement.style;
   let paint=gs?.linePaint?gs.linePaint(p,text||'',color,style||null):null;if(!gs?.linePaint&&gs?.lineColor){const c=gs.lineColor(p,text||'',color);paint=c?{color:c,edge:'',sampled:!!color}:null;}
   if(paint?.sampled&&readState)stateStyle.set(readState,paint);
   else if(!color&&!style&&text&&readState&&p.autoGameStyle!==false&&stateStyle.has(readState))paint=stateStyle.get(readState);
+  /* 2026-11-28 per-speaker colours (speaker-colors.js): the colour the game drew this speaker's line with is learned for the work's
+     分角色 list; a colour the user picked for the speaker paints the line instead, read state and the game's outline kept */
+  {const sc=window.MeguLitSpeakerColors,who=sc&&text?String(lineSpeaker||'').trim()||sc.nameIn(text):'';if(who){if(paint?.sampled&&paint.color)b.speakerColorsLearn?.(who,paint.color);const mine=b.speakerColorsOverride?.(who);if(mine)paint={color:mine,edge:paint?.edge||'',sampled:false};}}
   const on=!!paint?.color,edge=on&&!!paint.edge;document.body.classList.toggle('tome-line-color',on);document.body.classList.toggle('tome-line-edge',edge);
   if(on)root.setProperty('--tomoyo-gal-line-color',paint.color);else root.removeProperty('--tomoyo-gal-line-color');
   if(edge)root.setProperty('--tomoyo-gal-line-edge',paint.edge);else root.removeProperty('--tomoyo-gal-line-edge');};
@@ -104,6 +107,7 @@
     state, else the saved read / unread colours, and a sample that does arrive is remembered under the right state. */
  let engineRead=null,readEarly=null;
  const repaintCurrent=()=>{if(!colorSource)return;if(colorDraw?.claimed&&(colorDraw.color||colorDraw.style)){paintLine(colorDraw.color,colorSource,colorDraw.style);return;}const own=pixelFor(colorSource);paintLine(own?.color||'',colorSource,own?.style);};
+ b.lineColorRepaint=repaintCurrent; /* 分角色: a colour changed for a speaker applies to the line on screen at once */
  const applyRead=()=>{if(!matchesSample(engineRead,colorSource))return false;claimPlacement(engineRead);readState=engineRead.read?'read':'unread';document.body.classList.toggle('tome-line-read',engineRead.read);return true;};
  b.lineReadDrawn=(text,read,draw)=>{
   if(typeof read!=='boolean')return;

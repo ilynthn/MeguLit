@@ -4,7 +4,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const compiler=path.join(process.env.SystemRoot||'C:/Windows','Microsoft.NET/Framework64/v4.0.30319/csc.exe');
 const base=path.join(__dirname,'../native/unitytext'),source=fs.readFileSync(path.join(base,'MeguLitUnityText.cs'),'utf8');
 function method(name){const start=source.indexOf(name);assert.ok(start>=0,name);let p=source.indexOf('{',start),n=0,end=p;for(;end<source.length;end++){if(source[end]==='{')n++;else if(source[end]==='}'&&--n===0)break;}return source.slice(start,end+1);}
-test('actual bounded KEMCO helper rejects incomplete snapshots and keeps page, role and permission identities separate',()=>{
+/* CI: the compile alone took over 60 s on a loaded runner (spawnSync csc.exe ETIMEDOUT, 12 runs); the limits only end a hung compiler */
+test('actual bounded KEMCO helper rejects incomplete snapshots and keeps page, role and permission identities separate',{timeout:300000},()=>{
  const dir=fs.mkdtempSync(path.join(process.env.MEGULIT_TEST_TMP||os.tmpdir(),'megulit-kemco-'));
  try{
   fs.writeFileSync(path.join(dir,'check.cs'),`using System;using System.Collections.Generic;using System.Reflection;
@@ -49,8 +50,8 @@ class Check {
  }
  static void Main(){Console.OutputEncoding=new System.Text.UTF8Encoding(false);new Check().Run();}
 }`);
-  const c=spawnSync(compiler,['/nologo','/codepage:65001','/out:'+path.join(dir,'check.exe'),path.join(base,'KemcoSpriteSnapshot.cs'),path.join(dir,'check.cs')],{windowsHide:true,encoding:'utf8',timeout:60000});assert.ifError(c.error);assert.equal(c.status,0,c.stdout+c.stderr);
-  const r=spawnSync(path.join(dir,'check.exe'),[],{windowsHide:true,encoding:'utf8',timeout:5000});assert.ifError(r.error);assert.equal(r.status,0,r.stdout+r.stderr);
+  const c=spawnSync(compiler,['/nologo','/codepage:65001','/out:'+path.join(dir,'check.exe'),path.join(base,'KemcoSpriteSnapshot.cs'),path.join(dir,'check.cs')],{windowsHide:true,encoding:'utf8',timeout:240000});assert.ifError(c.error);assert.equal(c.status,0,c.stdout+c.stderr);
+  const r=spawnSync(path.join(dir,'check.exe'),[],{windowsHide:true,encoding:'utf8',timeout:30000});assert.ifError(r.error);assert.equal(r.status,0,r.stdout+r.stderr);
   const lines=r.stdout.trim().split(/\r?\n/);assert.match(lines.pop(),/^PASS 4\d$/);const {parseChars}=require('../core/text-paths.cjs');
   const parsed=lines.map(l=>{const x=parseChars(l);assert.ok(x,l);assert.equal(x.hidden,false);return x;});
   assert.equal(parsed[0].text,'日本');assert.equal(parsed[3].role,'name');assert.equal(parsed[4].role,'choice');assert.equal(parsed[5].text,'');assert.equal(parsed[6].line,parsed[2].line);

@@ -24,7 +24,7 @@ const kit=require('./kit.cjs');/* E577 shared engine kit */
 //   capcom-msg Capcom Unity Ace Attorney scriptmessage bundles, Japanese + the Chinese bundle (capcom-msg.cjs)
 //   vgprompter Doki Doki Literature Club Plus! XOR'd language bundles, Japanese + Chinese by line hash (vgprompter.cjs)
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const xp3=require('./xp3.cjs');
+const xp3=require('./xp3.cjs'),{choiceScan}=require('./ks-choice.cjs');
 const KANA=/[ぁ-ゖァ-ヺ]/g;
 /* E577 kit.decodeText: BOM, strict UTF-8, then Shift-JIS / GBK */
 const decode=kit.decodeText;
@@ -37,12 +37,15 @@ const walk=(dir,depth,test,out=[])=>kit.walk(dir,depth,test,out);
 // Text lines are what is left of a line after its tags; command lines (@...), labels (*...) and tag-only lines are
 // anchors when they hold no text a translation would change.
 function parseKs(buf){
- const lines=[],anchors=[],ruby=[],voices=[],vt=voiceRef.tracker();let script=false,cont=false;
- for(const raw of decode(buf).split(/\r?\n/)){const t=raw.trim();if(!t||t[0]===';')continue;
+ const lines=[],anchors=[],ruby=[],voices=[],vt=voiceRef.tracker(),choices=[],cs=choiceScan();let script=false,cont=false;
+ // a choice set ends at [s] or a page clear; it sits after the lines read so far (the option lines themselves stay in lines)
+ const flush=()=>{const o=cs.take();if(o)choices.push({after:lines.length-1,options:o});};
+ for(const raw of decode(buf).split(/\r?\n/)){if(cs.stop)flush();const t=raw.trim();if(!t||t[0]===';')continue;
   // a command whose line ends in "\" goes on to the next line (女王蜂の王房 window positions)
   if(cont){vt.see(t);cont=t.endsWith('\\');continue;}if((t[0]==='@'||t[0]==='[')&&t.endsWith('\\')){vt.see(t);cont=true;continue;}
   // TJS between [iscript] and [endscript] is code, not text (女王蜂の王房 staff roll)
   if(/^[@[]iscript\b/i.test(t)){script=true;continue;}if(script){if(/^[@[]endscript\b/i.test(t))script=false;continue;}
+  if(t[0]!=='*')cs.feed(t[0]==='@'?'['+t.slice(1)+']':t);
   if(t[0]==='@'||t[0]==='*'){vt.see(t);if(ascii(t))anchors.push(t);continue;}
   // A tag whose name is Japanese is a macro that prints that word (女王蜂の王房: [輝夜] [めのう] for character names,
   // [輝夜ruby] with its reading, [漢字'よみ] for ruby); keep the word, drop the reading.
@@ -51,7 +54,7 @@ function parseKs(buf){
   const pairs=[];for(const m of t.matchAll(/\[\[|\[([぀-ヿ一-鿿々ー]+)'([^\]]+)\]/g))if(m[1])pairs.push([m[1],m[2]]);if(pairs.length)ruby[lines.length]=pairs;
   lines.push(text);}
  // the game's own readings ([漢字'よみ]), only when the script has any
- const out=ruby.length?{lines,anchors,ruby:lines.map((_,i)=>ruby[i]||null)}:{lines,anchors};const v=voiceRef.keep(lines.map((_,i)=>voices[i]||null));if(v)out.voices=v;return out;
+ flush();const out=ruby.length?{lines,anchors,ruby:lines.map((_,i)=>ruby[i]||null)}:{lines,anchors};const v=voiceRef.keep(lines.map((_,i)=>voices[i]||null));if(v)out.voices=v;if(choices.length)out.choices=choices;return out;
 }
 function xp3Scenes(file,test){let t;try{t=xp3.list(file);}catch{return [];}if(!t)return [];
  // An entry flagged "protected" can still be stored as plain text (女王蜂の王房): try the first one and keep the
@@ -527,8 +530,8 @@ const siglus={
 const os=require('node:os');
 const MEDIA_XP3=/^(?:bg|fg|ev|sd)?image|^(?:bgm|voice|sound|se|movie|video|thum|emote|font|sysse)/i;
 const cxArchives=dir=>{try{return fs.readdirSync(dir).filter(f=>/\.xp3$/i.test(f)&&!MEDIA_XP3.test(f)).map(f=>path.join(dir,f));}catch{return [];}};
-const cxCache=(file,version=7)=>{const st=fs.statSync(file);return path.join(os.tmpdir(),'megulit-cx',crypto.createHash('sha256').update(path.resolve(file).toLowerCase()+'|'+st.size+'|'+st.mtimeMs+'|'+version).digest('hex').slice(0,24)+'.json');};
-const cxRetryCache=file=>cxCache(file,'7-hx-2025');
+const cxCache=(file,version=8)=>{const st=fs.statSync(file);return path.join(os.tmpdir(),'megulit-cx',crypto.createHash('sha256').update(path.resolve(file).toLowerCase()+'|'+st.size+'|'+st.mtimeMs+'|'+version).digest('hex').slice(0,24)+'.json');};
+const cxRetryCache=file=>cxCache(file,'8-hx-2025');
 const cxBuilds=new Map(),cxMemo=new Map(),cxQueue=[],cxStarted=new Map();let cxRunning=false;
 const finishedCxWorkers=new WeakSet();
 let cxProbe=null;
@@ -562,7 +565,7 @@ function cxDocs(file){
   }
  }catch{return null;}
  // Keep the earlier scenes available while rebuilding caches that omitted Riddle PSB files.
- let legacy=null;try{legacy=cxCachedDocs(cxCache(file,6));}catch{}
+ let legacy=null;for(const v of [7,6])try{legacy=cxCachedDocs(cxCache(file,v));if(legacy)break;}catch{}
  if(cxProbe)return legacy;
  if(!cxBuilds.has(out)){
   // Only archives that look like cx KiriKiri (encrypted entries) are worth a worker; one worker at a time.
@@ -637,8 +640,11 @@ const kirikiriCx={
  parse(buf){const doc=JSON.parse(buf.toString('utf8')),lines=[],zh=[],ruby=[],voices=[];
   /* the Chinese slot is found by its text (ATRI: ja/en/zh-Hans/zh-Hant; PureStation: ja/zh-Hans/zh-Hant; 9-nine-: ja/en/zh-Hant) */
   const slot=chineseSlot(doc.scenes.flatMap(s=>s.rows)),order=slot>0?[slot]:[2,3];
-  for(const scene of doc.scenes)scene.rows.forEach((row,k)=>{lines.push(row[0]||'');zh.push(unquoteSlot(order.map(i=>row[i]).find(Boolean)||'',row[0]||''));ruby.push(scene.ruby?.[k]?.length?scene.ruby[k]:null);voices.push(scene.voices?.[k]||null);});
-  const v=voiceRef.keep(voices);return v?{lines,anchors:[],zh,ruby,voices:v}:{lines,anchors:[],zh,ruby};},
+  const choices=[];
+  for(const scene of doc.scenes){scene.rows.forEach((row,k)=>{lines.push(row[0]||'');zh.push(unquoteSlot(order.map(i=>row[i]).find(Boolean)||'',row[0]||''));ruby.push(scene.ruby?.[k]?.length?scene.ruby[k]:null);voices.push(scene.voices?.[k]||null);});
+   // the scene's menu (selects, cached by cx-worker) comes after its last line
+   const options=(scene.selects||[]).map(o=>typeof o==='string'?o:o?.text).filter(t=>typeof t==='string'&&t);if(options.length)choices.push({after:lines.length-1,options});}
+  const v=voiceRef.keep(voices),out={lines,anchors:[],zh,ruby};if(v)out.voices=v;if(choices.length)out.choices=choices;return out;},
  test:()=>false,
  // The release's own Simplified (else Traditional) Chinese slot is the translation of each Japanese line.
  patchLines(base,found){let any=false;const list=base.map(scene=>{const zh=scene.zh||[];if(!zh.some(Boolean))return scene;any=true;return {...scene,patched:true,lines:scene.lines.map((t,k)=>zh[k]||t)};});if(any)return list;

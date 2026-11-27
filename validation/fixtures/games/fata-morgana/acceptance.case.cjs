@@ -58,7 +58,26 @@ module.exports=async ({assert,root,fixture})=>{
  const {replay}=require(path.join(root,'services','cardinal','run.cjs'));
  // Frame deadlines and browser cleanup are measured in wall time. Run one reader at a time.
  const outs=[];
- for(const r of runs){const o=await replay(r.scenario,{data,work,name:r.name,keep:!!process.env.MEGULIT_REPLAY_KEEP});outs.push({...r,o});}
+ /* 2026-11-28 (CI, 31 runs failed on this file since 11-26, every time with another symptom: line 36 of the dialogue run never completing
+    its text or shown in 3/5 samples, CARDINAL_BROWSER_EXIT_TIMEOUT, a CDP timeout, CARDINAL_BROWSER_TARGET). Line 36 is the owner's
+    quick click: the game's line is on screen 0.92 s in the recording and its Japanese is typed out in the first 0.6 s of that, so
+    what is measured is a handful of 90 ms samples. On a runner that is busy with two other shards the browser answers 300-1000 ms
+    late, the replay's own clock falls behind (timing.cjs: step / sample lag past maxLagMs) and the few samples there are miss the
+    typed-out line. That is the run's measurement being bad, not the reader being wrong, and the timing proof was written to say so.
+    A run whose browser could not be driven (an error from the driver) or whose timing proof is not reliable is played again, up to
+    three times, and each retry is named in the log; the checks below are exactly the same and judge the last run. A run that
+    was driven on time and fails a check fails the test at once. */
+ const Timing=require(path.join(root,'core','cardinal','timing.cjs'));
+ for(const r of runs){let o,why='';
+  for(let attempt=1;attempt<=3;attempt++){
+   o=await replay(r.scenario,{data,work,name:r.name,keep:!!process.env.MEGULIT_REPLAY_KEEP});
+   const driven=o&&Array.isArray(o.errors)&&!o.errors.length;
+   const proof=driven?Timing.check({steps:r.steps,o,rules}):null;
+   why=!o||!Array.isArray(o.errors)?'no output':o.errors.length?'driver: '+String(o.errors[0]).slice(0,120):!proof.reliable?'timing: '+proof.why+' (step p95 '+Math.round(proof.stepP95||0)+' ms, sample p95 '+Math.round(proof.sampleP95||0)+' ms, gap max '+Math.round(proof.sampleGapMax||0)+' ms)':'';
+   if(!why)break;
+   console.log('# fata acceptance FLAKY-RETRY: '+r.name+' run '+attempt+'/3 was not a fair measurement ('+why+')'+(attempt<3?'; playing it again':'; judged as it is'));
+  }
+  outs.push({...r,o});}
  const res={},put=(k,ok,why)=>{res[k]={ok:!!ok,why:String(why||'').slice(0,600)};};
  for(const r of outs)assert.ok(r.o&&!r.o.errors.length,r.name+' replay ran: '+JSON.stringify(r.o?.errors||'no output').slice(0,600));
  const by=Object.fromEntries(outs.map(r=>[r.name,r]));

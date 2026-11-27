@@ -50,13 +50,19 @@ function lockFile(target,dir=locksDir()){const t=lockTarget(target);return path.
 function readLock(file){let raw;try{raw=fs.readFileSync(file,'utf8');}catch(e){if(e.code==='ENOENT')return null;throw e;}
  try{return JSON.parse(raw);}catch{return {owner:'?',pid:0,raw:raw.trim()};}}
 const heldBy=(h,owner,pid)=>h&&h.owner===owner&&Number(h.pid)===Number(pid);
-const isDead=h=>!!h&&(h.host||os.hostname())===os.hostname()&&!alive(h.pid);
+/* A lock file is created empty and then written (flag 'wx' cannot do both at once), so a taker can read it half written: that reads as
+   {raw:''} with pid 0 and looked dead, and the taker unlinked the lock the winner had just made (CI: two of six takers won). A file that
+   does not parse is only taken over once it is old enough that nobody can still be writing it. */
+const UNREADABLE_MS=5000;
+const isDead=(h,file)=>{if(!h)return false;
+ if('raw' in h){try{return Date.now()-fs.statSync(file).mtimeMs>UNREADABLE_MS;}catch{return false;}}
+ return (h.host||os.hostname())===os.hostname()&&!alive(h.pid);};
 
 /* Taking over a dead lock: the check and the unlink run under a mutex folder (mkdir is atomic), so a second taker cannot
    remove a lock the first one has just created. A mutex left behind by a crashed taker is ignored after 30 s. */
 function reclaimDead(file){const mutex=file+'.reclaim';
  try{fs.mkdirSync(mutex);}catch(e){if(e.code!=='EEXIST')throw e;try{if(Date.now()-fs.statSync(mutex).mtimeMs>30000)fs.rmSync(mutex,{recursive:true,force:true});}catch{}return false;}
- try{const h=readLock(file);if(!h)return true;if(!isDead(h))return false;fs.unlinkSync(file);return true;}
+ try{const h=readLock(file);if(!h)return true;if(!isDead(h,file))return false;fs.unlinkSync(file);return true;}
  catch(e){if(e.code==='ENOENT')return true;throw e;}finally{try{fs.rmdirSync(mutex);}catch{}}}
 
 /* One try. {ok:true, release, file, reclaimed} or {ok:false, holder, file}. The same owner and pid taking it again is fine. */
@@ -68,7 +74,7 @@ function tryAcquire(target,{owner,pid=process.pid,dir=locksDir()}={}){if(!owner)
   catch(e){if(e.code!=='EEXIST')throw e;}
   const h=readLock(file);if(!h)continue;
   if(heldBy(h,owner,pid))return {ok:true,file,reclaimed,again:true,release:()=>false};/* the outer holder releases it */
-  if(!isDead(h))return {ok:false,file,holder:h};
+  if(!isDead(h,file))return {ok:false,file,holder:h};
   if(reclaimDead(file))reclaimed=h;}
  const h=readLock(file);return {ok:false,file,holder:h};}
 

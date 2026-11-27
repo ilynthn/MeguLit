@@ -123,10 +123,14 @@ const ADAPTERS={
   fingerprint:dir=>crypto.createHash('sha256').update('bgi-code-order\n'+bgi.arcFiles(dir).map(p=>{const st=fs.statSync(p);return path.basename(p)+'|'+st.size+'|'+st.mtimeMs;}).join('\n')).digest('hex')}};
 // E280: engines read as scene files (KiriKiri, Artemis, Ren'Py); their script is the game folder like BGI's.
 const scenes=require('./original-engines/scenes.cjs'),fillLines=require('./original-engines/fill.cjs');
+/* 2026-11-28 per-speaker colours: the speaker of each line where the script names one (NeXAS (0,name)(5,1)(0,message)), parallel to
+   lines like ruby; undefined when no scene names any. Old indexes without it stay valid: no speaker from the script. */
+const whoOf=list=>list.some(x=>Array.isArray(x.who)&&x.who.length===x.lines.length&&x.who.some(Boolean))?list.flatMap(x=>Array.isArray(x.who)&&x.who.length===x.lines.length?x.who.map(n=>String(n||'').slice(0,24)):x.lines.map(()=>'')):undefined;
+const whoFits=ain=>Array.isArray(ain?.who)&&Array.isArray(ain.lines)&&ain.who.length===ain.lines.length;
 const {isGameExecutable:isSiaExecutable}=require('./original-engines/sia.cjs');
 for(const id of Object.keys(scenes.ENGINES))ADAPTERS[id]={folder:true,scene:true,locate:dir=>scenes.readable(id,dir)?{engine:id,target:dir}:null,
- read:dir=>{const list=scenes.read(id,dir),lines=list.flatMap(x=>x.lines),ruby=list.some(x=>x.ruby)?list.flatMap(x=>x.ruby||x.lines.map(()=>null)):undefined;const roles=list.some(scene=>scene.roles||scene.scope==='interface')?list.map(scene=>scene.roles||(scene.scope==='interface'?'i':'?').repeat(scene.lines.length)).join(''):undefined;
-  return {engine:id,version:0,codepage:'text',lines,ruby,roles,sizes:list.map(x=>x.lines.length),structure:{messages:lines.length,functions:list.length,functionHash:crypto.createHash('sha256').update(list.map(x=>x.name+':'+x.lines.length).join('\n')).digest('hex').slice(0,16)}};},
+ read:dir=>{const list=scenes.read(id,dir),lines=list.flatMap(x=>x.lines),ruby=list.some(x=>x.ruby)?list.flatMap(x=>x.ruby||x.lines.map(()=>null)):undefined,who=whoOf(list);const roles=list.some(scene=>scene.roles||scene.scope==='interface')?list.map(scene=>scene.roles||(scene.scope==='interface'?'i':'?').repeat(scene.lines.length)).join(''):undefined;
+  return {engine:id,version:0,codepage:'text',lines,ruby,...(who?{who}:{}),roles,sizes:list.map(x=>x.lines.length),structure:{messages:lines.length,functions:list.length,functionHash:crypto.createHash('sha256').update(list.map(x=>x.name+':'+x.lines.length).join('\n')).digest('hex').slice(0,16)}};},
  fingerprint:dir=>scenes.fingerprint(id,dir)};
 const runningDirOf=runtime=>ADAPTERS[runtime.engine||'system4']?.folder?runtime.file:path.dirname(runtime.file);
 // Switching to or from 1055.exe can change the reader without changing files in the folder.
@@ -143,9 +147,9 @@ function readSceneArchive(id,file){
  const byName=new Map();for(const s of entries)byName.set(s.name.toLowerCase(),s);
  const ordered=[...byName.values()].sort((a,b)=>a.name.localeCompare(b.name));
  const list=ordered.map(s=>{let parsed={lines:[],anchors:[]};try{parsed=s.parse?s.parse():eng.parse(s.read());}catch{}return fillLines.scene({name:s.name,...parsed,patched:false});});
- const lines=list.flatMap(x=>x.lines),ruby=list.some(x=>x.ruby)?list.flatMap(x=>x.ruby||x.lines.map(()=>null)):undefined;
+ const lines=list.flatMap(x=>x.lines),ruby=list.some(x=>x.ruby)?list.flatMap(x=>x.ruby||x.lines.map(()=>null)):undefined,who=whoOf(list);
  const roles=list.some(scene=>scene.roles||scene.scope==='interface')?list.map(scene=>scene.roles||(scene.scope==='interface'?'i':'?').repeat(scene.lines.length)).join(''):undefined;
- return {engine:id,version:0,codepage:'text',lines,ruby,roles,sizes:list.map(x=>x.lines.length),sceneNames:list.map(x=>x.name.toLowerCase()),
+ return {engine:id,version:0,codepage:'text',lines,ruby,...(who?{who}:{}),roles,sizes:list.map(x=>x.lines.length),sceneNames:list.map(x=>x.name.toLowerCase()),
   structure:{messages:lines.length,functions:list.length,functionHash:crypto.createHash('sha256').update(list.map(x=>x.name+':'+x.lines.length).join('\n')).digest('hex').slice(0,16)}};
 }
 function locateBackup(engine,target,base){
@@ -169,7 +173,7 @@ function scanRunning(root,id,executable,opts={}){
  const ain=readScript(loc),japanese=ain.lines.filter(t=>prose(t)&&japaneseLine(t)).length,nonEmpty=ain.lines.filter(prose).length,zhOnly=chineseOnly(ain.lines);
  // An English (or other) original read by a scene engine is neither the Japanese game nor a Chinese build: nothing to do.
  if(ADAPTERS[loc.engine].scene&&!zhOnly){const chinese=ain.lines.filter(t=>prose(t)&&!japaneseLine(t)&&/[一-鿿]{2}/.test(t)).length,latin=ain.lines.filter(latinDialogue).length;if(!nonEmpty||(japanese<nonEmpty*.5||latin>=Math.max(100,japanese*2,chinese*2))&&chinese<nonEmpty*.3)return writeState(root,id,{status:'unsupported',error:'SCRIPT_NOT_JAPANESE',runtime:null,gameDir:dir});}
- const index=writeIndex(root,id,'runtime-'+hash.slice(0,16)+'.json',{schema:SCHEMA,role:'runtime',engine:ain.engine,version:ain.version,codepage:ain.codepage,source:{file,sha256:hash},structure:ain.structure,lines:ain.lines,...(ain.roles?{roles:ain.roles}:{}),...(ain.ruby?{ruby:ain.ruby}:{}),...(ain.sizes?{sizes:ain.sizes}:{})});
+ const index=writeIndex(root,id,'runtime-'+hash.slice(0,16)+'.json',{schema:SCHEMA,role:'runtime',engine:ain.engine,version:ain.version,codepage:ain.codepage,source:{file,sha256:hash},structure:ain.structure,lines:ain.lines,...(ain.roles?{roles:ain.roles}:{}),...(ain.ruby?{ruby:ain.ruby}:{}),...(whoFits(ain)?{who:ain.who}:{}),...(ain.sizes?{sizes:ain.sizes}:{})});
  const original=current?.original;const runtime={file,engine:loc.engine,sha256:hash,reader:READER,index,codepage:ain.codepage,version:ain.version,structure:ain.structure,lines:nonEmpty,japaneseLines:japanese};
  if(isSiaExecutable(executable))runtime.siaExecutable=true;
  // A changed game build invalidates the earlier alignment; the original index itself stays.
@@ -252,7 +256,7 @@ function importInto(root,id,state,dir,exeBase,auto){
   if(pc.verdict.lines){ain={...ain,lines:pc.verdict.lines,ruby:pc.verdict.ruby?.some(Boolean)?pc.verdict.ruby:undefined,structure:runtime.structure,sizes:runtime.sizes};alignment=align(runtime,ain);}
   alignment={...alignment,reliable:alignment.reliable&&pc.verdict.ok,pairing:pc.report};
   if(isFile&&!alignment.reliable)return state;
-  const index=writeIndex(root,id,'original-'+hash.slice(0,16)+'.json',{schema:SCHEMA,role:'original',engine:ain.engine,version:ain.version,codepage:ain.codepage,source:{file,sha256:hash,dir:origDir},structure:ain.structure,lines:ain.lines,...(Array.isArray(ain.ruby)?{ruby:ain.ruby}:{})});
+  const index=writeIndex(root,id,'original-'+hash.slice(0,16)+'.json',{schema:SCHEMA,role:'original',engine:ain.engine,version:ain.version,codepage:ain.codepage,source:{file,sha256:hash,dir:origDir},structure:ain.structure,lines:ain.lines,...(Array.isArray(ain.ruby)?{ruby:ain.ruby}:{}),...(whoFits(ain)?{who:ain.who}:{})});
   const exe=isFile?null:fs.readdirSync(origDir).find(f=>/\.exe$/i.test(f)&&path.parse(f).name.toLowerCase()===String(exeBase).toLowerCase());
   return writeState(root,id,{original:{dir:origDir,file,sha256:hash,index,codepage:ain.codepage,lines:ain.lines.length,executable:exe?path.join(origDir,exe):'',...(auto?{auto:true,backup:true}:{})},alignment,status:alignment.reliable?'ready':'unreliable',mode:readState(root)[id]?.mode||(alignment.reliable?'original':'off'),error:''});
  }
@@ -933,6 +937,8 @@ function scriptRuby(root,executable,id){
  try{const file=state.mode==='original'&&state.status==='ready'&&state.original?.index?state.original.index:state.runtime?.index;if(!file)return null;
   const index=readIndex(file);return Array.isArray(index.ruby)&&index.ruby.some(Boolean)?index.ruby:null;}catch{return null;}
 }
+/* the script's speaker of a resolved line (index who, parallel to lines): speaker '' when the script names none */
+const withSpeaker=(r,who)=>{if(!r||!Array.isArray(who)||!Array.isArray(r.indices)||!r.indices.length)return r;const n=who[r.indices[0]];return typeof n==='string'&&n?{...r,speaker:n}:r;};
 function staticProvider(root,executable,opts={}){
  // BGI's and scene engines' script is the whole game folder, AIN is a file in it.
  const entry=providerEntry(root,executable,opts.id,{runtimeOnly:true});
@@ -942,7 +948,7 @@ function staticProvider(root,executable,opts={}){
    // The original's own ruby (BGI <R よみ>漢字</R>) for the restored lines: game readings before dictionary ones.
    const readings=Array.isArray(og.ruby)?og.ruby:null,withRuby=r=>{if(!r||!readings||!Array.isArray(r.indices))return r;const pairs=r.indices.flatMap(i=>Array.isArray(readings[i])?readings[i]:[]);return pairs.length?{...r,ruby:pairs}:r;};
    // A patched game shown in Japanese: the patched line itself is the group's translation of the restored line.
-   return {kind:'original',resolveJapanese:require('./script-translation-quality.cjs').choiceLookup(og.lines,m.rt),resolveChoice:require('./script-translation-quality.cjs').choiceLookup(og.lines,m.rt,og.roles),hasLocalPairs:()=>og.lines.some((ja,i)=>japaneseLine(ja)&&localTranslation(m.rt[i])),position:()=>m.last,save:()=>m.save(),load:v=>m.load(v),resolve:text=>withRuby(m.match(text))};}
+   return {kind:'original',resolveJapanese:require('./script-translation-quality.cjs').choiceLookup(og.lines,m.rt),resolveChoice:require('./script-translation-quality.cjs').choiceLookup(og.lines,m.rt,og.roles),hasLocalPairs:()=>og.lines.some((ja,i)=>japaneseLine(ja)&&localTranslation(m.rt[i])),position:()=>m.last,save:()=>m.save(),load:v=>m.load(v),resolve:text=>withSpeaker(withRuby(m.match(text)),og.who)};}
   const patched=state.patchStatus==='ready'&&state.patch?.index&&patchCurrent(state);
   if(!patched&&state.status!=='native-japanese')return null;
   // The Japanese game, with an imported patch or with none: the line stays Japanese; the patch's line at the same place is
@@ -984,7 +990,7 @@ function staticProvider(root,executable,opts={}){
     return group.length===options.length&&new Set(group).size===group.length&&group.every(text=>live.has(text))?group:null;
    },
    matchedBody:text=>rtIndex.roles?.[m.last]==='b'&&norm(rt[m.last])===norm(text),
-   resolveChoice:require('./script-translation-quality.cjs').choiceLookup(rt,patched?m.og:[],rtIndex.roles),pageParts:text=>m.pageParts(text),pageNext:(previous,text)=>m.pageNext(previous,text),pageBetween:(previous,packet,next)=>m.pageBetween(previous,packet,next),resolve:text=>withRuby(resolveLine(text))};
+   resolveChoice:require('./script-translation-quality.cjs').choiceLookup(rt,patched?m.og:[],rtIndex.roles),pageParts:text=>m.pageParts(text),pageNext:(previous,text)=>m.pageNext(previous,text),pageBetween:(previous,packet,next)=>m.pageBetween(previous,packet,next),resolve:text=>withSpeaker(withRuby(resolveLine(text)),rtIndex.who)};
   if(state.runtime.engine==='nitro-pak'&&require('../core/saya-page-ocr.cjs').legacyExe(path.basename(executable))){
    let lookup;
    api.sayaPageLine=(text,mode)=>(lookup??=require('../core/saya-page-ocr.cjs').scriptLookup(rt))(text,mode);

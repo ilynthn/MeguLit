@@ -39,7 +39,9 @@ function textsOf(doc){
   for(const t of Array.isArray(scene?.texts)?scene.texts:[]){if(!Array.isArray(t))continue;const slots=slotsOf(t),vo=voiceOf(t);
    if(Array.isArray(slots)){rows.push(slots.map(s=>Array.isArray(s)?clean(s[1]):''));voices.push(vo||null);ruby.push(rubyOf(Array.isArray(slots[0])?slots[0][1]:''));}
    else if(typeof slots==='string'){rows.push([clean(slots)]);voices.push(vo||null);ruby.push(rubyOf(slots));}}
-  if(rows.length)scenes.push({label:typeof scene.label==='string'?scene.label:'',rows,ruby,...(voices.some(Boolean)?{voices}:{})});
+  // the scene's menu: each select's Japanese text (the game's own choices, not guessed from short lines)
+  const selects=(Array.isArray(scene?.selects)?scene.selects:[]).map(o=>typeof o?.text==='string'?clean(o.text):'').filter(Boolean).map(text=>({text}));
+  if(rows.length||selects.length)scenes.push({label:typeof scene.label==='string'?scene.label:'',rows,ruby,...(voices.some(Boolean)?{voices}:{}),...(selects.length?{selects}:{})});
  }
  return scenes;
 }

@@ -126,6 +126,7 @@ function openStore(root) {
   require('./series-migration.cjs').migrateSeries(db,root);
   try{require('./wait-marker-migration.cjs').migrateWaitMarker(db,root);}catch(error){console.warn('wait marker migration',error.message);}
   try{require('./font-follow-migration.cjs').migrateFontFollow(db,root);}catch(error){console.warn('font follow migration',error.message);}
+  try{require('./ruby-font-migration.cjs').migrateRubyFont(db,root);}catch(error){console.warn('ruby font migration',error.message);}
   reconcileRemovedGames(db);
   /* 2026-11-15 the store is opened for every service request, and the duplicate scan reads every game row and its files:
      a CPU profile of the host (沙耶の唄, in-place drawing) showed 25 of 48 s inside dedupe, single stalls up to 3.2 s, which

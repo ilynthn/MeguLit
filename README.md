@@ -38,8 +38,9 @@
 [![Platform](https://img.shields.io/badge/Windows%2010%20%2F%2011-x64-3b2124?style=flat-square)](#zh-install)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-8b1e2d?style=flat-square)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/%E2%99%A1-Sponsor-c8323c?style=flat-square)](https://github.com/sponsors/ilynthn)
+[![QQ 群](https://img.shields.io/badge/QQ%20%E7%BE%A4-1131267542-c8323c?style=flat-square)](https://qm.qq.com/q/C95LXYb5Sg)
 
-**[下载 v1.4.25](https://github.com/ilynthn/MeguLit/releases/latest)** &nbsp;·&nbsp; **[官网 megulit.com](https://megulit.com)** &nbsp;·&nbsp; [简体中文](#zh) &nbsp;·&nbsp; [English](#en) &nbsp;·&nbsp; [日本語](#ja) &nbsp;·&nbsp; [常见问题](#faq) &nbsp;·&nbsp; [更新日志](https://github.com/ilynthn/MeguLit/releases) &nbsp;·&nbsp; [♡ 赞赏](#support)
+**[下载 v1.4.25](https://github.com/ilynthn/MeguLit/releases/latest)** &nbsp;·&nbsp; **[官网 megulit.com](https://megulit.com)** &nbsp;·&nbsp; [简体中文](#zh) &nbsp;·&nbsp; [English](#en) &nbsp;·&nbsp; [日本語](#ja) &nbsp;·&nbsp; [常见问题](#faq) &nbsp;·&nbsp; [QQ 群 1131267542](#zh-qq) &nbsp;·&nbsp; [更新日志](https://github.com/ilynthn/MeguLit/releases) &nbsp;·&nbsp; [♡ 赞赏](#support)
 
 <br>
 
@@ -74,6 +75,20 @@
 <a id="zh-new"></a>
 
 ## 最近更新
+
+### 下个版本
+
+- **新图标**：深石榴红的魔导书；启动画面只留进度条，结束时变成 MeguLit 标志
+- **胶囊外置**：阅读层的胶囊可以拖到游戏窗口外面放，位置会记住；收起时只留一条细线，原文、注音、翻译照常显示
+- **新手引导**：前 5 次进游戏会一步步介绍胶囊、Alt+T 菜单和文字设置，可以跳过，「教程」里能重看
+- **热键自定义**：Alt+M / T / H / L 都能改，鼠标侧键也能绑
+- **口语查词**：点读认得口语缩约和方言语尾（舐めんなし 这类）；可以导入个人辞典，也接入了 Weblio
+- **零延迟汉化识别**：放在游戏目录里的汉化、汉化启动程序、借码位的外挂汉化，都能直接当译文用
+- **文库和电子书**：在 MeguLit 里读轻小说和电子书，也能联网找书
+- **个人中心**：官网上的个人主页：收藏的句子能点读查词，单词本和阅读进度从电脑自动同步过去
+- **Alt+T 外观**：按面板分组重新排版，滑杆旁边能直接输入数字
+
+### 已发布
 
 | | |
 |---|---|
@@ -274,6 +289,16 @@
 需要 Windows 10 / 11 x64 和 Microsoft Edge WebView2 Runtime
 
 <br>
+
+<a id="zh-qq"></a>
+
+## 交流群
+
+<a href="https://qm.qq.com/q/C95LXYb5Sg"><img src="docs/assets/qq-group-qr.png" width="200" alt="MeguLit QQ 群 1131267542 二维码"></a>
+
+QQ 群：**1131267542** &nbsp;·&nbsp; 手机 QQ 扫码，或者[点这里用网页加群](https://qm.qq.com/q/C95LXYb5Sg)
+
+遇到问题、想适配的游戏、学日语的心得，都可以来群里说。MeguLit 首页 The Seed 旁边的「QQ 群」胶囊也有这张二维码，「用电脑 QQ 加群」能直接打开电脑 QQ 的加群窗口
 
 <a id="faq"></a>
 

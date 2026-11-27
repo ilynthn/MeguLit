@@ -77,7 +77,8 @@ function sampleOf(g,logs,wins,minLines){let most=null;
    an ASCII title slugified, else 'game-' + the title print */
 const SLUGS=readJson(path.join(__dirname,'slugs.json'))||{};
 const SLUG=/^[a-z0-9][a-z0-9-]{1,62}$/;
-function slugOf(g,gameKey){const exe=path.basename(g.exe);for(const k of [g.title+'|'+exe,g.title]){const v=SLUGS[k];if(typeof v==='string'&&SLUG.test(v))return v;}
+function slugOf(g,gameKey){/* the batch skeleton generator (tools/megulit-adapter/skeleton.cjs) names it from VNDB's latin title */if(typeof g.slug==='string'&&SLUG.test(g.slug))return g.slug;
+ const exe=path.basename(g.exe);for(const k of [g.title+'|'+exe,g.title]){const v=SLUGS[k];if(typeof v==='string'&&SLUG.test(v))return v;}
  if(gameKey&&!gameKey.startsWith('auto-')&&SLUG.test(gameKey))return gameKey;
  const ascii=String(g.title).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,62).replace(/-+$/,'');
  if(SLUG.test(ascii)&&!/[^\x00-\x7f]/.test(g.title.replace(/[～\s]/g,'')))return ascii;

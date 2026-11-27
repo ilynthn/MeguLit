@@ -30,8 +30,10 @@
    '.megulit-choice-layer{position:fixed;inset:0;pointer-events:none;z-index:30;background:none}'+
    '.megulit-choice{position:fixed;pointer-events:none;box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;background:none}'+
    '.megulit-choice-jp{position:relative;white-space:nowrap;line-height:1;color:transparent;text-shadow:none;background:none}'+
-   '.megulit-choice-jp rt{font-size:.5em;line-height:1;color:var(--tomoyo-gal-color,#fffaf2);text-shadow:var(--tomoyo-gal-shadow,0 0 2px #000,0 0 1px #000)}'+
-   '.megulit-choice-cn{position:absolute;top:calc(100% + .1em);left:50%;transform:translateX(-50%);white-space:nowrap;color:var(--tomoyo-translation-color,#ffe9a8);text-shadow:0 0 3px #000,0 0 2px #000,0 0 1px #000;font-size:.8em;line-height:1.2;background:none}'+
+   '.megulit-choice-jp rt{font-size:calc(.5em * var(--mg-choice-ruby-scale,1));font-family:var(--mg-choice-ruby-font,inherit);line-height:1;color:var(--tomoyo-gal-color,#fffaf2);text-shadow:var(--tomoyo-gal-shadow,0 0 2px #000,0 0 1px #000)}'+
+   /* 2026-11-28 the option's furigana and translation take the offsets from Alt+T 外观 → 选项; the Japanese copy is invisible, so moving it moves only its furigana */
+   '.megulit-choice-jp{translate:var(--mg-choice-ruby-x,0px) var(--mg-choice-ruby-y,0px)}'+
+   '.megulit-choice-cn{position:absolute;top:calc(100% + .1em);left:50%;transform:translateX(-50%);white-space:nowrap;color:var(--mg-choice-cn-color,var(--tomoyo-translation-color,#ffe9a8));font-family:var(--mg-choice-cn-font,inherit);translate:var(--mg-choice-cn-x,0px) var(--mg-choice-cn-y,0px);text-shadow:0 0 3px #000,0 0 2px #000,0 0 1px #000;font-size:.8em;line-height:1.2;background:none}'+
    /* options stacked line on line (CLANNAD's text box) leave no room below: the translation follows the option's last glyph on its row */
    '.megulit-choice-side .megulit-choice-cn{top:50%;left:calc(100% + .4em);transform:translateY(-50%)}'+
    '.megulit-choice-summary{position:fixed;display:grid;gap:.2em;pointer-events:none;color:white;text-shadow:0 0 3px black,1px 1px 2px black;font:clamp(14px,2.2vh,26px)/1.3 sans-serif}'+
@@ -42,13 +44,20 @@
    /* the art-text scan reads the option rows as art text: its copies go while the options are up */
    'body.megulit-choices-up .megulit-art{visibility:hidden!important}';
    if(!st.isConnected)d.head.append(st);}
+  /* the option settings of the current preferences, as variables on the layer; the font lists are the line's own (game-style.js) */
+  const gameStyle=w.TomoyoGameStyle,num=(v,f)=>Number.isFinite(Number(v))?Number(v):f,cnScale=p=>num(p.choiceCnScale,100)/100;
+  function paintStyle(p){if(!layer)return;const s=layer.style,set=(k,v)=>{if(v)s.setProperty(k,v);else s.removeProperty(k);};
+   set('--mg-choice-cn-color',/^#[0-9a-f]{6}$/i.test(p.choiceCnColor||'')?p.choiceCnColor:'');set('--mg-choice-cn-font',p.choiceCnFont&&gameStyle?.chineseFonts?.[p.choiceCnFont]||'');
+   set('--mg-choice-cn-x',num(p.choiceCnX,0)+'px');set('--mg-choice-cn-y',num(p.choiceCnY,0)+'px');
+   set('--mg-choice-ruby-scale',String(num(p.choiceRubyScale,100)/100));set('--mg-choice-ruby-font',p.choiceRubyFont&&(gameStyle?.japaneseFonts?.[p.choiceRubyFont]||(p.choiceRubyFont==='round'?'Meiryo,sans-serif':p.choiceRubyFont==='gothic'?'"MS Gothic",sans-serif':p.choiceRubyFont==='mincho'?'"MS Mincho",serif':''))||'');
+   set('--mg-choice-ruby-x',num(p.choiceRubyX,0)+'px');set('--mg-choice-ruby-y',num(p.choiceRubyY,0)+'px');}
   function clear(){d.body.classList.remove('megulit-choice-covers-line','megulit-choices-up');current=null;key='';translations=[];++request;layer?.remove();layer=null;w.__tomoyoHitRegionsRefresh?.();}
   function translate(texts){if(translationOn())send({type:'choiceTranslations',request:++request,items:texts,options:b.options?.()||{}});}
   function place(){
    if(!current){clear();return;}
    d.body.classList.add('megulit-choices-up');
    if(!layer||!layer.isConnected){layer=d.createElement('div');layer.className='megulit-choice-layer';d.body.append(layer);}
-   const info=b.galLayoutInfo?.(),dpr=w.devicePixelRatio||1,p=b.galPreferences?.()||{},nodes=[...layer.children];
+   const info=b.galLayoutInfo?.(),dpr=w.devicePixelRatio||1,p=b.galPreferences?.()||{},nodes=[...layer.children];paintStyle(p);
    if(current.geometryPending){
     d.body.classList.add('megulit-choice-covers-line');
     const summary=nodes[0]?.matches('.megulit-choice-summary')?nodes[0]:d.createElement('div');
@@ -76,8 +85,8 @@
     const next=current.items.slice(i+1).find(o=>o.y0>item.y0),gap=next?mapBox(next,current.sw,current.sh,info,dpr).y-(box.y+box.height):Infinity;/* an option OCR could not box may sit right under: then the translation stays on the row */node.classList.toggle('megulit-choice-side',gap<size*.8*1.25*.5||current.unboxed>0&&!next);const prev=current.items.slice(0,i).reverse().find(o=>o.y0<item.y0),before=prev?box.y-(mapBox(prev,current.sw,current.sh,info,dpr).y+mapBox(prev,current.sw,current.sh,info,dpr).height):Infinity;node.classList.toggle('megulit-choice-tight',Math.min(gap,before)<size*.3);
     const jp=node.querySelector('.megulit-choice-jp');if(jp.dataset.text!==item.text){jp.dataset.text=item.text;jp.textContent=item.text;
      const ask=item.text;Promise.resolve(b.rubyAnnotations?.(ask)).then(notes=>{if(jp.dataset.text===ask&&Array.isArray(notes)){jp.innerHTML=rubyHtml(ask,notes);if(current)place();}}).catch(()=>{});}
-    /* 2026-11-13 the drawn text never runs past the game's own row (ファタ: 35 px text over a 168 px row spilled out) */const fit=()=>{const wide=jp.scrollWidth;if(wide>0&&Math.abs(wide-box.width)>box.width*.04)node.style.fontSize=Math.max(10,Math.min(size*1.4,size*box.width/wide))+'px';};/* the invisible copy spans the game's row, so the ruby lands on the game's glyphs */fit();
-    const cn=node.querySelector('.megulit-choice-cn'),row=translations[i];cn.style.fontSize=Math.max(12,size*.8)+'px';cn.textContent=row?.text||'';b.markTranslationSource?.(cn,row);cn.title=row?.provider||row?.source||'';cn.hidden=!translationOn()||!row?.text;
+    /* 2026-11-13 the drawn text never runs past the game's own row (ファタ: 35 px text over a 168 px row spilled out) */const fit=()=>{/* measured with the furigana at its default size and font: a furigana set larger in 选项 must not shrink the copy off the game glyphs */const st=layer.style,keep=['--mg-choice-ruby-scale','--mg-choice-ruby-font'].map(k=>[k,st.getPropertyValue(k)]);for(const [k] of keep)st.removeProperty(k);const wide=jp.scrollWidth;for(const [k,v] of keep)if(v)st.setProperty(k,v);if(wide>0&&Math.abs(wide-box.width)>box.width*.04)node.style.fontSize=Math.max(10,Math.min(size*1.4,size*box.width/wide))+'px';};/* the invisible copy spans the game's row, so the ruby lands on the game's glyphs */fit();
+    const cn=node.querySelector('.megulit-choice-cn'),row=translations[i];cn.style.fontSize=Math.max(9,Math.max(12,size*.8)*cnScale(p))+'px';cn.textContent=row?.text||'';b.markTranslationSource?.(cn,row);cn.title=row?.provider||row?.source||'';cn.hidden=!translationOn()||!row?.text;
     /* a translation on the row must stay inside the game picture: smaller text first, then under the option */if(!cn.hidden&&node.classList.contains('megulit-choice-side')){const game=mapBox({x0:0,y0:0,x1:current.sw,y1:current.sh},current.sw,current.sh,info,dpr),right=game.x+game.width-4;let fs=parseFloat(cn.style.fontSize)||12;while(cn.getBoundingClientRect().right>right&&fs>11){fs-=1;cn.style.fontSize=fs+'px';}if(cn.getBoundingClientRect().right>right)node.classList.remove('megulit-choice-side');}
    });
    for(const extra of nodes.slice(current.items.length))extra.remove();
@@ -123,6 +132,8 @@
   b.galStatus=m=>{statusBefore?.(m);if(!m||typeof m!=='object')return;if(typeof m.hookCheckState==='string')checkState=m.hookCheckState;
    if(typeof m.hookSource==='string'&&m.hookSource.trim()&&m.hookSource!==lastLine){lastLine=m.hookSource;checkState='';clearTimeout(lineTimer);const t=m.hookSource;lineTimer=setTimeout(()=>{if(lastLine===t)lineDiagnostic(t);},2500);}};
   w.addEventListener('resize',()=>{if(current)place();});
+  /* a changed option setting (Alt+T 外观 → 选项, a work's saved settings) repaints the options that are up */
+  for(const name of ['applyGalPreferences','restoreGalSettings','previewGalPosition']){const before=b[name];if(typeof before!=='function')continue;b[name]=function(...args){const out=before.apply(this,args);if(current)place();return out;};}
   b.choiceOverlay={accept,clear,refresh:()=>{if(current)accept(current);},active:()=>!!current};
  }
  if(typeof module!=='undefined'&&module.exports)module.exports={rubyHtml,mapBox,install};

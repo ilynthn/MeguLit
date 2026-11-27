@@ -4,6 +4,7 @@ import {createDepth,markFlat,cachedDaily,rememberDaily,dailyIsFresh,dailySignatu
 import {exAttr,setExample} from './example-ruby.js';
 import {loadGsap} from './gsap-loader.js';
 import {seedBannerHTML,openSeedDialog} from './the-seed.js';
+import {qqPillHTML,wireQQCard} from './qq-group.js';
 import {createDock,openHandPicker,HAND_MAX} from './home-picker.js';
 import {dissolveOut,clearDissolve,readyImage,coverURL,warmDissolve} from './home-dissolve.js';
 import {pickHeadline,cachedHeadline,translateHeadline,headlineLabel,activitySummary,emptyActivityHTML} from './home-today.js';
@@ -447,14 +448,14 @@ export function monthHTML(all,locale,esc,w,fmtNum,today=new Date()){const y=toda
  /* every day carries its own grid cell: automatic placement after leading blanks was fragile (grimoire.css made days spill into extra columns and the month sat a day off) */
  const wd=locale==='en'?'MTWTFSS':'一二三四五六日',lk={zh:'查词',ja:'辞書引き',en:'lookups'}[locale]||'查词';
  return {active,month:m+1,html:`<div class="tv-month-cal"><div class="tv-month-wd">${[...wd].map(x=>`<span>${x}</span>`).join('')}</div><div class="tv-month-days">${days.join('')}</div></div><div class="tv-month-sum"><span><b>${fmtNum(chars)}</b><em>${esc(w.figChars||w.chars)}</em></span><span><b>${fmtNum(looks)}</b><em>${esc(lk)}</em></span><span><b>${best}<small>${esc(w.days)}</small></b><em>${esc(w.streak)}</em></span></div>`};}
-export function stopHomeTV(){if(!live)return;live.tl?.kill();clearTimeout(live.timer);clearInterval(live.beat);clearInterval(live.typer);live.depth?.stop();live.hand?.stop();live.cardTilts?.forEach(stop=>stop());live=null;}
+export function stopHomeTV(){if(!live)return;live.qq?.stop();live.tl?.kill();clearTimeout(live.timer);clearInterval(live.beat);clearInterval(live.typer);live.depth?.stop();live.hand?.stop();live.cardTilts?.forEach(stop=>stop());live=null;}
 
 export function homeTVSignature(model){return JSON.stringify([model.games.map(g=>[g.id,g.available,g.cover?.length,g.title,g.lastPlayedAt,g.readingSeconds,g.characters,
  g.learnedWords]),model.stats,model.preferences.homeShowcase,model.preferences.username]);}
 
 export function renderHomeTV(main,ctx){
  stopHomeTV();
- const {model,api,locale,esc,icon,number,duration,relativeTime,navigate,onLaunch,onDetail,onAdd,greeting,savePreferences}=ctx,w=copy[locale]||copy.zh;
+ const {model,api,locale,esc,icon,number,duration,relativeTime,navigate,onLaunch,onDetail,onAdd,greeting,savePreferences,toast}=ctx,w=copy[locale]||copy.zh;
  let shownLines=[],setting=cleanShowcase(model.preferences.homeShowcase),list=showcaseGames(model.games,setting),cur=0,token=0,shown=null;const pool=model.games.filter(g=>g.available!==false),
   randomGame=()=>{const rest=pool.filter(g=>g!==shown);return rest[Math.floor(Math.random()*rest.length)]||pool[0];};
  const date=new Date().toLocaleDateString({zh:'zh-CN',ja:'ja-JP',en:'en-US'}[locale],{month:'long',day:'numeric',weekday:'long'});
@@ -475,7 +476,9 @@ export function renderHomeTV(main,ctx){
  /* The Seed banner: a plaque on the right, above the recent-games rail */
  {root.insertAdjacentHTML('beforeend',seedBannerHTML(locale,esc));
   const b=root.querySelector('.seed-banner');b.addEventListener('click',()=>openSeedDialog({api,locale,esc}));}
- live={root,timer:0,beat:0,typer:0,depth:null};loadGsap().catch(()=>{});
+ /* 2026-11-28 QQ 交流群: a pill of the same kind beside The Seed (web/qq-group.js) */
+ root.insertAdjacentHTML('beforeend',qqPillHTML(locale,esc));const qqCard=wireQQCard(root.querySelector('.qq-anchor'),{api,locale,toast});
+ live={root,timer:0,beat:0,typer:0,depth:null,qq:qqCard};loadGsap().catch(()=>{});
  const art=(g,p)=>g.cover?`url("${String(g.cover).replace(/"/g,'%22')}") center/cover`:`linear-gradient(160deg,${p[0]},${p[2]} 70%)`;
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{const to=b.dataset.go;if(to==='detail'){if(shown)onDetail(shown.id);return;}if(to==='words')navigate('learning',
   'words');else if(to==='activity')navigate('statistics');else navigate(to);}));

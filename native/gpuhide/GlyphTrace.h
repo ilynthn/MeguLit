@@ -30,6 +30,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <chrono>
+#include <algorithm>
 
 struct GtGlyph { unsigned ord, at; uint32_t u; int bw, bh, cell, ink; std::vector<uint8_t> cov; };
 // tint: 0x01RRGGBB when the texels the glyph was written to carry a colour (the engine tints on the CPU), 0 = unknown / grey-only format
@@ -91,12 +92,25 @@ struct GlyphTrace {
   return false;
  }
  // 2. Texels (x, y, w, h) of texture tex were written; read(x, y) gives the written coverage (0..255) or -1.
- // The colour of a glyph where it was written (read / unread tint done on the CPU): the mean of up to 8 texels under the glyph's
- // strongest coverage, looked up from the glyph's own small bitmap. No search of the written image, a few texel reads per glyph.
+ // The colour of a glyph where it was written (read / unread tint done on the CPU): up to 8 texels under the glyph's strongest
+ // coverage, looked up from the glyph's own small bitmap. No search of the written image, a few texel reads per glyph.
+ // Texels inside the strokes first (coverage >= 200 and the four neighbours too): at the edge of a stroke the game blends the
+ // fill with its outline, shadow and anti-aliasing. Of those the most saturated one is the fill: blending only takes
+ // saturation away, and the mean of edge and inside came out grey-pink for a bright pink speaker colour (アイキス3 sexy, アヤメ
+ // #ff5ea8). Neutral text (white, grey: nothing saturated to go by) takes the per-channel median.
  template <class C> static uint32_t Tint(const GtGlyph &g, const C &rgb, int fx, int fy) {
-  long r = 0, gg = 0, b = 0; int n = 0; size_t total = g.cov.size(), step = total > 4096 ? total / 4096 : 1;
-  for (size_t i = 0; i < total && n < 8; i += step) if (g.cov[i] >= 200) { int c = rgb(fx + (int)(i % g.bw), fy + (int)(i / g.bw)); if (c < 0) return 0; r += (c >> 16) & 255; gg += (c >> 8) & 255; b += c & 255; n++; i += total / 9; }
-  if (n < 2) return 0; return 0x01000000u | ((uint32_t)(r / n) << 16) | ((uint32_t)(gg / n) << 8) | (uint32_t)(b / n);
+  size_t total = g.cov.size(), step = total > 4096 ? total / 4096 : 1; const int bw = g.bw, bh = g.bh;
+  auto inside = [&](size_t i) { int x = (int)(i % bw), y = (int)(i / bw); if (x < 1 || y < 1 || x >= bw - 1 || y >= bh - 1) return false;
+   return g.cov[i - 1] >= 200 && g.cov[i + 1] >= 200 && g.cov[i - bw] >= 200 && g.cov[i + bw] >= 200; };
+  int s[8]; int n = 0;
+  for (int pass = 0; pass < 2 && n < 2; pass++)
+   for (size_t i = 0; i < total && n < 8; i += step) if (g.cov[i] >= 200 && (pass ? !inside(i) : inside(i))) { int c = rgb(fx + (int)(i % bw), fy + (int)(i / bw)); if (c < 0) return 0; s[n++] = c; i += total / 9; }
+  if (n < 2) return 0;
+  auto ch = [](int c, int k) { return (c >> (16 - 8 * k)) & 255; };
+  int best = 0, bestSat = -1; for (int i = 0; i < n; i++) { int hi = (std::max)(ch(s[i], 0), (std::max)(ch(s[i], 1), ch(s[i], 2))), lo = (std::min)(ch(s[i], 0), (std::min)(ch(s[i], 1), ch(s[i], 2))); if (hi - lo > bestSat) { bestSat = hi - lo; best = i; } }
+  if (bestSat >= 40) return 0x01000000u | (uint32_t)(s[best] & 0xffffff);
+  uint32_t out = 0x01000000u; for (int k = 0; k < 3; k++) { int v[8]; for (int i = 0; i < n; i++) v[i] = ch(s[i], k); std::sort(v, v + n); out |= (uint32_t)v[n / 2] << (16 - 8 * k); }
+  return out;
  }
  template <class R> void Write(void *tex, int x, int y, int w, int h, bool whole, const R &read, unsigned now) { Write(tex, x, y, w, h, whole, read, [](int, int) { return -1; }, now); }
  template <class R, class C> void Write(void *tex, int x, int y, int w, int h, bool whole, const R &read, const C &rgb, unsigned now) {

@@ -588,6 +588,7 @@ class Reader{
      try{this.saveWorkPrompt(r.workKey,r.translationPrompt);}catch{reply('workPromptSaveFailed');}
     }break;
    case 'gameStyleUpdate':g?.styleSync.updateProfile(r.prefs||{});break;
+   case 'speakerColorsSave':if(r.key&&r.key===g?.styleSync.profileKey)g.styleSync.saveSpeakers(r.table,r.key);break; /* 2026-11-28 per-speaker colours (分角色) */
    case 'textPosMapSave':if(r.key)g?.styleSync.savePositionMap(r.map,r.key);break;
    case 'gameStyleImportList':g?.styleSync.status('importList',{gameStyleImportList:g.styleSync.savedWorks()});break;
    case 'gameStyleImportPreview':if(r.key===g?.styleSync.profileKey){const part=r.part==='position'?'position':'text',found=g.styleSync.importFrom(String(r.source||''),part);g.styleSync.status('importPreview',{gameStyleImportPart:part,gameStyleImportSource:String(r.source||''),gameStyleImportPrefs:found?.prefs||null,gameStyleImportMap:found?.map||null});}break;

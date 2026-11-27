@@ -32,6 +32,7 @@ const DOMAINS={
  'page.skipMergedTail':{number:[20,400],nullable:true,int:true},
  'choice.contentInterleave':{bool:true},
  'choice.dropEffectFrames':{bool:true},
+ 'choice.selectRecords':{bool:true},
  'safeMode.effectJudge':{bool:true},
  'choice.filters':{regexList:{max:20,chars:200}},
  'choice.pageFrames':{regexList:{max:20,chars:200}},

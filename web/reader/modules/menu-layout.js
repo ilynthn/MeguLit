@@ -156,9 +156,9 @@
   /* 颜色 page (user 2026-11-21: 「重灾区」): no folds; two flat sections, each one compact matrix. Columns are the two states,
      rows are 文字颜色 / 渐变 / 上色 / 下色 / 起点 %. The same inputs (same names, same handlers) are moved into the cells; a colour
      cell is a small swatch whose value is its tooltip; rows of a column whose gradient is off are dimmed. */
-  {const copy={zh:{dlg:'台词（已读 / 未读）',chc:'选项（已选 / 未选）',unread:'未读',read:'已读',unsel:'未选',sel:'已选',colour:'文字颜色',grad:'渐变',top:'上色',bottom:'下色',start:'起点 %'},
-    en:{dlg:'Lines (read / unread)',chc:'Choices (selected / unselected)',unread:'Unread',read:'Read',unsel:'Unselected',sel:'Selected',colour:'Text colour',grad:'Gradient',top:'Top',bottom:'Bottom',start:'Start %'},
-    ja:{dlg:'台詞（既読・未読）',chc:'選択肢（選択済み・未選択）',unread:'未読',read:'既読',unsel:'未選択',sel:'選択済み',colour:'文字色',grad:'グラデーション',top:'上の色',bottom:'下の色',start:'開始 %'}};
+  {const copy={zh:{dlg:'台词（已读 / 未读）',chc:'选项（已选 / 未选）',spk:'分角色',unread:'未读',read:'已读',unsel:'未选',sel:'已选',colour:'文字颜色',grad:'渐变',top:'上色',bottom:'下色',start:'起点 %'},
+    en:{dlg:'Lines (read / unread)',chc:'Choices (selected / unselected)',spk:'By character',unread:'Unread',read:'Read',unsel:'Unselected',sel:'Selected',colour:'Text colour',grad:'Gradient',top:'Top',bottom:'Bottom',start:'Start %'},
+    ja:{dlg:'台詞（既読・未読）',chc:'選択肢（選択済み・未選択）',spk:'キャラ別',unread:'未読',read:'既読',unsel:'未選択',sel:'選択済み',colour:'文字色',grad:'グラデーション',top:'上の色',bottom:'下の色',start:'開始 %'}};
    const C=copy[uiLang]||copy.zh;
    const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null){e.textContent=text;e.dataset.noI18n='';}return e;};
    /* the text panel is not inside the form yet when this runs: look the inputs up in the sections themselves */
@@ -189,7 +189,7 @@
     const reset=[...choiceBox.querySelectorAll(':scope>button')].pop();if(reset){reset.classList.add('tome-cm-link');c.head.append(reset);}
     if(font){font.classList.add('tome-cm-font');c.box.insertBefore(font,c.grid);}choiceBox.append(c.box);}
    /* flat: the two old folds go, their contents sit straight in the colour page */
-   palette.append(d.box,rest);palette.append(choiceBox||c.box);colours.remove();choiceColours.remove();palette.dataset.colourMatrix='';
+   palette.append(d.box,rest);palette.append(choiceBox||c.box);colours.remove();choiceColours.remove();/* 2026-11-28 分角色 (speaker-colors.js fills it): a third group of the colour page, after lines and choices (owner: 「把分角色放进颜色里」) */{const s=block(C.spk,[]);s.grid.remove();s.box.dataset.textSpeakerColors='';palette.append(s.box);}palette.dataset.colourMatrix='';
    const dim=()=>{for(const [i,name] of ['galTextGradient','galReadTextGradient'].entries()){const on=!!field(name)?.checked;for(const cell of d.grid.querySelectorAll('.tome-cm-cell[data-cm-row=g][data-cm-col="'+i+'"]'))cell.classList.toggle('tome-cm-off',!on);}
     for(const cell of palette.querySelectorAll('.tome-cm-cell')){const v=cell.querySelector('input[type=color]');if(v)cell.title=v.value;}};
    form.addEventListener('input',dim);form.addEventListener('change',dim);dim();const tick=setInterval(()=>{if(!document.contains(palette)){clearInterval(tick);return;}dim();},500);

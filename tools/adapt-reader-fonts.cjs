@@ -12,12 +12,12 @@ function adapt(name,text){
   if(from<0||to<0)throw Error('FONT_OPTIONS_ANCHOR');
   text=text.slice(0,from)+String.raw`   const ui=window.__tomeI18n?.get?.()||document.documentElement.lang.slice(0,2);
    const notes=({
-    zh:{sans:'系统字体 · 黑体',serif:'系统字体 · 明朝／衬线',mono:'系统字体 · 等宽',round:'圆润字形',inherit:'跟随正文',patch:'《素晴日》汉化字体',original:'游戏字体',optional:'需本机安装'},
-    en:{sans:'System font · sans-serif',serif:'System font · serif',mono:'System font · monospace',round:'Rounded',inherit:'Follow body text',patch:'Subahibi Chinese patch font',original:'Game font',optional:'Requires installation'},
-    ja:{sans:'システム · ゴシック',serif:'システム · 明朝',mono:'システム · 等幅',round:'丸みのある字形',inherit:'本文に合わせる',patch:'素晴らしき日々の中国語パッチ',original:'作品フォント',optional:'要インストール'}
+    zh:{sans:'系统字体 · 黑体',serif:'系统字体 · 明朝／衬线',mono:'系统字体 · 等宽',round:'圆润字形',inherit:'跟随正文',patch:'《素晴日》汉化字体',original:'游戏字体',optional:'需本机安装',bundled:'MeguLit 自带 · 无需安装'},
+    en:{sans:'System font · sans-serif',serif:'System font · serif',mono:'System font · monospace',round:'Rounded',inherit:'Follow body text',patch:'Subahibi Chinese patch font',original:'Game font',optional:'Requires installation',bundled:'Bundled with MeguLit · no install needed'},
+    ja:{sans:'システム · ゴシック',serif:'システム · 明朝',mono:'システム · 等幅',round:'丸みのある字形',inherit:'本文に合わせる',patch:'素晴らしき日々の中国語パッチ',original:'作品フォント',optional:'要インストール',bundled:'MeguLit 同梱 · インストール不要'}
    })[ui]||{};
    const option=(id,family,note)=>{const o=new Option(family,id);o.dataset.fontName=family;o.dataset.fontNote=note;o.dataset.noI18n='';return o;};
-   const built=gs.fontOptions[key].map(([id,family,kind,optional])=>option(id,family||notes.inherit,kind==='inherit'?'':optional?notes.optional:notes[kind]));
+   const built=gs.fontOptions[key].map(([id,family,kind,optional])=>option(id,family||notes.inherit,kind==='inherit'?'':optional==='bundled'?notes.bundled:optional?notes.optional:notes[kind]));
    const game=fontsOf(lang).map(f=>{register(f);const o=option('game:'+f.id,f.family,label()+' · '+notes.original);o.title=f.source||'';return o;});
    select.replaceChildren(...game,...built);
 `+text.slice(to);

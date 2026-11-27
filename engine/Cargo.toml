@@ -1,0 +1,24 @@
+[package]
+name = "megulit-engine"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Offline galgame script readers: unpack, decrypt and parse each engine's own scripts into one line model"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "megulit-engine"
+path = "src/bin/megulit-engine.rs"
+
+[dependencies]
+encoding_rs = "0.8"
+flate2 = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+debug = false

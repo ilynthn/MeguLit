@@ -11,6 +11,8 @@
      hide      engine-level hides (docs/hide-layers.md layers 1 and 2, and engine paths in the GDI / GPU layers): file + what it does;
                caveat: what it is known to break (the plan shows it, the person looks at that picture)
      seeds     The Seed/<engine>/ by status; defaults: core/profiles/engines/<id>.cjs
+     live      how the live check advances the game by window messages (tools/megulit-adapter/live.cjs toChoice): advance is the
+               ways in the order tried ('enter', 'centre' = a click in the middle of the game window, or 'x,y'), note says why
    Interface: capabilities(engine) -> one row (an unknown engine gets an empty row, never a guess); inventory() -> every row;
    markdown(rows) -> the table for a PR or the skill. A new engine trait learned while adapting a game goes into RULES here (or a
    reader / hook of the engine layer), never into a one-off script. */
@@ -25,7 +27,8 @@ const RULES={
  kirikiri:{label:'KiriKiri',registry:['KiriKiri'],seed:['kirikiri'],
   draw:[{kind:'kag',file:'native/krkrtext/KrkrText.cpp',note:'MeguLitKrkr KAG message layer DLL (ToMe_CHARS, roles, embed)'}],
   hide:[{how:'KAG message layer hides its own text (layer 2, ToMe_CHARS hidden=1)',file:'native/krkrtext/script.inc'},
-   {how:'no-KAG Layer.drawText source no-draw (DrawSkip, オルフレール)',file:'native/megulithook/MeguLitDrawSkip.h'}]},
+   {how:'no-KAG Layer.drawText source no-draw (DrawSkip, オルフレール)',file:'native/megulithook/MeguLitDrawSkip.h'}],
+  live:{advance:['enter','centre'],note:'ファタモルガーナの館 2026-11-27: Enter reads the prologue, one page then takes clicks only; title: click its Start item, never the middle (the game quit once)'}},
  siglus:{label:'SiglusEngine',registry:['SiglusEngine'],seed:['siglus'],
   draw:[{kind:'roles',file:'native/megulithook/SiglusDraw.h',sig:'tools/engine-sigs/siglus-draw.cjs'}],hide:[]},
  /* input: the level the live run's input starts on (core/cold-test/input-fallback.cjs). 2026-11-27 ハミダシクリエイティブ: posted clicks and
@@ -35,7 +38,8 @@ const RULES={
  tyrano:{label:'TyranoScript',registry:['TyranoScript'],seed:['tyrano'],draw:[],hide:[]},
  catsystem2:{label:'CatSystem2',registry:['CatSystem2'],seed:['catsystem2'],
   draw:[{kind:'roles',file:'native/megulithook/CS2Draw.h',sig:'tools/engine-sigs/cs2-draw.cjs'}],
-  hide:[{how:'ISLAND exact build: the composer skips the dialogue layout while hide is asked (one exe)',file:'native/megulithook/ToMeIslandDraw.h'}]},
+  hide:[{how:'ISLAND exact build: the composer skips the dialogue layout while hide is asked (one exe)',file:'native/megulithook/ToMeIslandDraw.h'}],
+  live:{advance:['enter'],note:'ISLAND 2026-11-27: posted clicks and hovers do nothing (title and text); keys do: Down Down Enter on the title is はじめから, Enter advances'}},
  qlie:{label:'QLIE',registry:['QLIE'],seed:['qlie'],draw:[],hide:[]},
  marble:{label:'Marble',registry:['Marble'],seed:[],draw:[],hide:[]},
  entis:{label:'Entis / Cotopha',registry:['Entis / Cotopha'],seed:[],draw:[],hide:[]},
@@ -115,7 +119,7 @@ function capabilities(engine){const id=ruleId(engine)||Object.keys(RULES).find(k
  if(readers.includes('bgi')||readers.includes('system4'))pairing.push('original-text:patch');
  const draw=r.draw.filter(d=>exists(d.file,d.mark)&&(!d.sig||exists(d.sig))).map(d=>({...d}));
  const hide=r.hide.filter(h=>exists(h.file,h.mark)).map(h=>({...h}));
- return {id,label:r.label,known:true,readers,pairing:[...new Set(pairing)],draw,hide,genericHide:GENERIC_HIDE.filter(h=>exists(h.file)),seeds:seedCounts(r.seed),defaults:exists('core/profiles/engines/'+id+'.cjs'),input:r.input||''};}
+ return {id,label:r.label,known:true,readers,pairing:[...new Set(pairing)],draw,hide,live:r.live?{advance:[...r.live.advance],note:r.live.note}:null,genericHide:GENERIC_HIDE.filter(h=>exists(h.file)),seeds:seedCounts(r.seed),defaults:exists('core/profiles/engines/'+id+'.cjs'),input:r.input||''};}
 function inventory(){return Object.keys(RULES).map(capabilities);}
 const cell=a=>a.length?a.join('<br>'):'—';
 function markdown(rows=inventory()){const head='| 引擎 | 剧本读取（RRFZ） | 画字钩子 | 引擎级隐藏 | 汉化配对 | seed / 默认设置 |\n|---|---|---|---|---|---|';

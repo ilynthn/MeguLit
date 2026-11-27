@@ -11,6 +11,7 @@
      lines      the live check passed: does the line change with the game          evidence: dialogue pictures
      dialogue   the live check passed: is the original really gone on screen     evidence: dialogue pictures (hidden desktops lied before)
      choice     the run reached a choice: are the options there and right          evidence: the choice picture
+     speakers   the live check passed: does the game colour lines by speaker (2026-11-28, アイキス3 sexy: アヤメ pink)  evidence: dialogue pictures
    2026-11-27 (owner: 实机验证，看换句、原文隐藏、选项): these three answers decide, not Cardinal
      stuck      the run stopped on a screen (title, name entry, black)          evidence: the last pictures
      readmode   the hide did not pass: ship the game in read mode?              evidence: dialogue pictures
@@ -46,11 +47,14 @@ function questions({identity={},caps={},cold=null,coldOut='',force=false,install
  if(!identity.release&&!identity.releaseGuess)q.push({id:'release',ask:'这是哪个发行版？'+((identity.releaseCandidates||[]).length?'VNDB 候选：'+identity.releaseCandidates.join('、'):'（例：DL 版、Steam 版、DVD 版、汉化硬盘版）'),evidence:pic(ev.title),free:true});
  const same=(identity.adapted||[]).filter(r=>r.same);
  if(same.length&&!force)q.push({id:'again',ask:'HANDOFF 已登记过这个作品和发行版（'+same.map(r=>r.status+' '+r.ref).join('；')+'），还要重新适配吗？',evidence:[],options:['yes','no']});
- if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'）'+(identity.vndbLookup?.engine?'，VNDB 记的是 '+identity.vndbLookup.engine:'')+(caps.luna?'，LunaHook 认为是 '+caps.luna:'')+'，这是什么引擎？',evidence:pic(ev.title),free:true});
+ if(caps.known===false)q.push({id:'engine',ask:'规则表认不出引擎（'+(caps.id||'unknown')+'）'+(identity.vndbLookup?.engine?'，VNDB 记的是 '+identity.vndbLookup.engine:'')+(caps.luna?'，LunaHook 认为是 '+caps.luna:'')+(caps.craft?'，craft-anything 认为是 '+caps.craft:'')+'，这是什么引擎？',evidence:pic(ev.title),free:true});
  const v=cold?.verdict||'';
  if(v==='pass'){q.push({id:'lines',ask:'这几张对话画面里，台词跟着游戏换句了吗（没有停在旧句、没有跳句）？',evidence:pic(ev.dialogue),options:['yes','no']});
   q.push({id:'dialogue',ask:'这几张对话画面里，游戏原文藏住了、没有残影吗？',evidence:pic(ev.dialogue),options:['yes','no']});
-  if(cold.checks?.choice?.measured||(cold.phases||[]).some(p=>/^choice/.test(String(p?.name||''))))q.push({id:'choice',ask:'这张是第一个选项：选项文字还在、能点吗？',evidence:pic(ev.choice||ev.last),options:['yes','no']});}
+  if(cold.checks?.choice?.measured||(cold.phases||[]).some(p=>/^choice/.test(String(p?.name||''))))q.push({id:'choice',ask:'这张是第一个选项：选项文字还在、能点吗？',evidence:pic(ev.choice||ev.last),options:['yes','no']});
+  /* 2026-11-28 (owner: 自动识别说话人…不像这样分人区分颜色…就老老实实提示该作品不分角色字体颜色) every adaptation answers whether the game colours
+     lines by speaker; the tester's checklist (test-request.cjs) then says what the reader's 分角色 tab must show */
+  q.push({id:'speakers',ask:'这几张对话画面里，不同角色的台词是不同颜色吗（分角色上色）？测试清单会按这个答案检查 Alt+T → 文字 → 颜色 → 分角色',evidence:pic(ev.dialogue),options:['yes','no']});}
  if(v==='fail'&&cold.checks?.hidden?.measured&&cold.checks.hidden.ok===false)q.push({id:'readmode',ask:'原文隐藏没过（'+(cold.checks.hidden.detail||'')+'），先按读模式发 seed 吗？',evidence:pic(ev.dialogue),options:['yes','no']});
  /* a Steam build without steam_appid.txt and no single appid from VNDB (千恋＊万花: 1144400 and 1221010) */
  if(/steam-appid-unknown/.test(String(cold?.stuck||''))){q.push({id:'steam',ask:'这是 Steam 版，冷测试要它的 appid'+((identity.steamCandidates||[]).length?'（VNDB 候选：'+identity.steamCandidates.join('、')+'）':'')+'，回 steam=<appid>，再加 --steam-appid 重跑',evidence:[],free:true});}

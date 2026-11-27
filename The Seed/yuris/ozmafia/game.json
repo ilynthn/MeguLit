@@ -1,0 +1,66 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "eefee2bf26fefb003221e3213fe3aa29db0eeb88b80d53708a160c22887995b9",
+ "layer": "game",
+ "source": "official",
+ "mode": "hide",
+ "settings": {
+  "lang": {
+   "ja": {
+    "annotation": "ruby",
+    "pairing": "patch"
+   }
+  },
+  "source": {
+   "versionMatch": "prints"
+  }
+ },
+ "exe": "",
+ "engine": "yuris",
+ "app": "megulit-adapter",
+ "issuedAt": "",
+ "prints": {
+  "pack": "8641cb417f42b3f74f0c0ba250714596dd1f275de69172a6a2c8e2873d846081",
+  "title": "7cbca2bbdc08138e461a5e219d9716c382999f34c02b8cca8c64700fa52b6e80",
+  "vndb": "v7833"
+ },
+ "seedFormat": 1,
+ "status": "skeleton",
+ "slug": "ozmafia",
+ "builds": [
+  "bc0ffaf2034c94b6dc9078435b7cb6b04d2f31f21ca361fcae2ddf65e1357397"
+ ],
+ "match": {
+  "exe": [
+   "ozmafia.exe"
+  ],
+  "titles": [
+   "OZMAFIA!!",
+   "Ozmafia"
+  ]
+ },
+ "sourceLangs": [
+  "ja"
+ ],
+ "rev": 1,
+ "ext": {
+  "versionPrints": {
+   "bc0ffaf2034c94b6dc9078435b7cb6b04d2f31f21ca361fcae2ddf65e1357397": {
+    "head": "4fb41d51a78bf7b0e991752fdd17a58673fcf9e651e2a6b3ee46c09c40d6de4a",
+    "pe": "1.0.0.0@504381ee",
+    "data": "59bd8af3f10e3ca1ad0b04b91682281a0b7a97c8ea5c7d07c650884c22344591",
+    "pack": "8641cb417f42b3f74f0c0ba250714596dd1f275de69172a6a2c8e2873d846081"
+   }
+  },
+  "adapter": {
+   "tool": "megulit-adapter",
+   "vndb": "v7833",
+   "release": "OZMAFIA!!（r15697） + 汉化外挂整包",
+   "source": "script:yuris",
+   "hide": "engine:HookBridge.cs",
+   "pairing": "patch",
+   "live": "tester"
+  }
+ }
+}
