@@ -27,6 +27,7 @@ test('pressing and dragging the home cover card never lets the hint box sit on t
  web=await startWeb(service);
  try{edge=await startEdge(path.join(temp,'edge'));}catch(error){if(error.message==='EDGE_NOT_FOUND')return t.skip('Edge unavailable');throw error;}
  const {send,evaluate}=edge;
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
  await send('Page.navigate',{url:`http://127.0.0.1:${web.address().port}/#%7B%7D`});
  const deadline=Date.now()+60000;
  while(!await evaluate(`!!document.querySelector('.tv-cover .tv-face')&&!!document.querySelector('.tv-pop')`).catch(()=>false)){assert.ok(Date.now()<deadline,'home page with its cover card');await sleep(200);}

@@ -582,7 +582,7 @@ export function renderHomeTV(main,ctx){
   coverEl.addEventListener('pointermove',e=>{if(e.buttons||coverEl.dataset.busy)return hidePop(true);placePop(e.clientX);if(!pop.classList.contains('on')){clearTimeout(popT);
   popT=setTimeout(()=>{if(!coverEl.dataset.busy)pop.classList.add('on');},520);}});coverEl.addEventListener('pointerleave',hidePop);coverEl.addEventListener('pointerdown',()=>hidePop(true));coverEl.addEventListener('pointerdown',e=>{pressAt=performance.now();
   pressXY=[e.clientX,e.clientY];});const spun=ms=>performance.now()-(+coverEl.dataset.spunAt||-1e9)<ms;coverEl.addEventListener('click',e=>{/* (user 2026-11-12) a long press or a drag only plays with the card; letting go never opens the detail. 2026-11-27: nor does a click that lands right after turning the card, or in the middle of a draw */if(spun(450)||coverEl.dataset.busy)return;if(e.detail&&(performance.now()-pressAt>350||Math.hypot(e.clientX-pressXY[0],
-  e.clientY-pressXY[1])>6))return;clearTimeout(clickTimer);clickTimer=setTimeout(()=>shown&&onDetail(shown.id),260);});coverEl.addEventListener('dblclick',e=>{e.preventDefault();
+  e.clientY-pressXY[1])>6))return;clearTimeout(clickTimer);clickTimer=setTimeout(()=>{if(shown&&!coverEl.dataset.busy)onDetail(shown.id);},260);});coverEl.addEventListener('dblclick',e=>{e.preventDefault();
   clearTimeout(clickTimer);if(spun(700))return;if(pool.length>1)draw(randomGame());});
  function draw(g){if(!g||!live||live.root!==root)return;paint(g);}
  if(list.length)paint(0,false);

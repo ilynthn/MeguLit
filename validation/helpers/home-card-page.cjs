@@ -18,6 +18,8 @@ async function openHome(t,{covers}){
  web=await startWeb(service);
  try{edge=await startEdge(path.join(temp,'edge'));}catch(error){if(error.message==='EDGE_NOT_FOUND'){t.skip('Edge unavailable');return null;}throw error;}
  const {send,evaluate}=edge;
+ /* a CI Windows session can have animations switched off, which the browser reports as reduced motion: the tests pin the normal motion unless one asks for reduced */
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
  await send('Page.navigate',{url:`http://127.0.0.1:${web.address().port}/#%7B%7D`});
  const deadline=Date.now()+60000;
  while(!await evaluate(`!!document.querySelector('.tv-cover .tv-face')&&document.querySelectorAll('.tv-chip').length>=${Math.min(covers.length,10)}`).catch(()=>false)){
