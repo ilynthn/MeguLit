@@ -3,22 +3,22 @@
 const messages = {
   zh: {
     heading: '发现', order: { match: '相关度', popular: '热门', date: '最新收录', year: '出版年份' },
-    search: '搜索书名、作者或 ISBN', loading: '正在读取 Z-Library…', empty: '没有找到图书', retry: '重试',
+    search: '搜索书名、作者或 ISBN', loading: '正在读取书源…', empty: '没有找到图书', retry: '重试',
     alias: title => '日文原名 · ' + title, original: '日文', open: '打开书页', source: '打开网站',
     local: '导入已下载文件', import: '下载并导入', added: '已加入书架', viewBook: '在书架中查看',
     duplicate: '已在书架', back: '上一页', next: '下一页', settings: '书源设置',
-    site: 'Z-Library 地址', proxy: 'HTTP 代理（可选）', save: '保存书源', saved: '书源已保存',
-    signIn: '登录 Z-Library', signOut: '退出登录', email: '邮箱', password: '密码',
+    unconfigured: '请先在书源设置中填写图书源网站。', lightNovels: '日文轻小说', site: '图书源网站', proxy: 'HTTP 代理（可选）', save: '保存书源', saved: '书源已保存',
+    signIn: '登录书源', signOut: '退出登录', email: '邮箱', password: '密码',
     signedIn: '登录已验证', signedOut: '登录后可直接下载并导入 PDF 或 EPUB',
-    check: '检查登录', verifying: '正在向 Z-Library 验证登录…', expired: '登录已失效，请重新登录',
+    check: '检查登录', verifying: '正在验证书源登录…', expired: '登录已失效，请重新登录',
     unverified: '本次无法验证登录，请检查网络后重试', quota: (used, limit) => `今日下载 ${used} / ${limit}`,
-    invalidOrigin: '请输入 HTTPS 网站地址，例如 https://z-library.ec',
+    invalidOrigin: '请输入有效的 HTTPS 网站地址',
     invalidProxy: '请输入有效的 HTTP 或 HTTPS 代理地址',
-    unavailable: '无法连接 Z-Library，请检查书源地址或网络设置',
-    auth: 'Z-Library 要求重新登录。也可在浏览器打开书页后导入已下载文件。',
+    unavailable: '无法连接书源，请检查书源地址或网络设置',
+    auth: '书源要求重新登录。也可在浏览器打开书页后导入已下载文件。',
     loginFailed: '登录失败，请检查账号和密码，或在浏览器登录该站点。',
     loginBrowser: '站点要求浏览器验证，可打开网站完成验证。',
-    limit: 'Z-Library 暂未提供下载链接，请检查账号额度或打开书页查看',
+    limit: '书源暂未提供下载链接，请检查账号额度或打开书页查看',
     rate: '书源请求过于频繁，请稍后再试',
     large: '文件太大，无法导入',
     importError: '导入失败，请打开书页下载文件后再导入',
@@ -33,19 +33,19 @@ const messages = {
   },
   ja: {
     heading: '発見', order: { match: '関連度', popular: '人気順', date: '新着順', year: '出版年順' },
-    search: '書名・著者・ISBN を検索', loading: 'Z-Library を読み込んでいます…', empty: '本が見つかりません', retry: '再試行',
+    search: '書名・著者・ISBN を検索', loading: '書籍ソースを読み込んでいます…', empty: '本が見つかりません', retry: '再試行',
     alias: title => '日本語原題 · ' + title, original: '日本語', open: '書籍ページ', source: 'サイトを開く',
     local: 'ダウンロード済みファイルを追加', import: 'ダウンロードして追加', added: '本棚に追加しました', viewBook: '本棚で開く',
     duplicate: '本棚にあります', back: '前へ', next: '次へ', settings: '書籍ソース設定',
-    site: 'Z-Library アドレス', proxy: 'HTTP プロキシ（任意）', save: '保存', saved: '設定を保存しました',
-    signIn: 'Z-Library にログイン', signOut: 'ログアウト', email: 'メールアドレス', password: 'パスワード',
+    unconfigured: '書籍ソース設定でサイトを入力してください。', lightNovels: '日本語のライトノベル', site: '書籍ソースのサイト', proxy: 'HTTP プロキシ（任意）', save: '保存', saved: '設定を保存しました',
+    signIn: '書籍ソースにログイン', signOut: 'ログアウト', email: 'メールアドレス', password: 'パスワード',
     signedIn: 'ログインを確認しました', signedOut: 'ログインすると PDF と EPUB を直接追加できます',
-    check: 'ログイン状態を確認', verifying: 'Z-Library のログイン状態を確認しています…', expired: 'セッションが切れました。再度ログインしてください',
+    check: 'ログイン状態を確認', verifying: '書籍ソースのログイン状態を確認しています…', expired: 'セッションが切れました。再度ログインしてください',
     unverified: 'ログイン状態を確認できませんでした。ネットワークを確認してください', quota: (used, limit) => `今日のダウンロード ${used} / ${limit}`,
     invalidOrigin: '有効な HTTPS のサイトアドレスを入力してください',
     invalidProxy: '有効な HTTP または HTTPS のプロキシを入力してください',
-    unavailable: 'Z-Library に接続できません。サイトとネットワーク設定を確認してください',
-    auth: 'Z-Library にログインしてください。ブラウザーでダウンロードしてから追加することもできます。',
+    unavailable: '書籍ソースに接続できません。サイトとネットワーク設定を確認してください',
+    auth: '書籍ソースにログインしてください。ブラウザーでダウンロードしてから追加することもできます。',
     loginFailed: 'ログインできません。認証情報を確認するか、ブラウザーでお試しください。',
     loginBrowser: 'サイトでブラウザー認証が必要です。',
     limit: 'ダウンロードできません。アカウントの上限または書籍ページを確認してください',
@@ -62,22 +62,22 @@ const messages = {
   },
   en: {
     heading: 'Discover', order: { match: 'Relevance', popular: 'Popular', date: 'Recently added', year: 'Publication year' },
-    search: 'Search title, author or ISBN', loading: 'Loading Z-Library…', empty: 'No books found', retry: 'Retry',
+    search: 'Search title, author or ISBN', loading: 'Loading the book source…', empty: 'No books found', retry: 'Retry',
     alias: title => 'Japanese title · ' + title, original: 'Japanese', open: 'Book page', source: 'Open website',
     local: 'Import a downloaded file', import: 'Download and import', added: 'Added to your shelf', viewBook: 'View on shelf',
     duplicate: 'Already on your shelf', back: 'Previous', next: 'Next', settings: 'Book source settings',
-    site: 'Z-Library address', proxy: 'HTTP proxy (optional)', save: 'Save source', saved: 'Source saved',
-    signIn: 'Sign in to Z-Library', signOut: 'Sign out', email: 'Email', password: 'Password',
+    unconfigured: 'Enter a website in Book source settings to get started.', lightNovels: 'Japanese light novels', site: 'Book source website', proxy: 'HTTP proxy (optional)', save: 'Save source', saved: 'Source saved',
+    signIn: 'Sign in to the book source', signOut: 'Sign out', email: 'Email', password: 'Password',
     signedIn: 'Sign-in verified', signedOut: 'Sign in to download and import PDFs or EPUBs directly',
-    check: 'Check sign-in', verifying: 'Verifying sign-in with Z-Library…', expired: 'Session expired. Sign in again.',
+    check: 'Check sign-in', verifying: 'Verifying sign-in with the book source…', expired: 'Session expired. Sign in again.',
     unverified: 'Could not verify sign-in. Check your connection and try again.', quota: (used, limit) => `Downloads today ${used} / ${limit}`,
     invalidOrigin: 'Enter a valid HTTPS website address',
     invalidProxy: 'Enter a valid HTTP or HTTPS proxy address',
-    unavailable: 'Could not reach Z-Library. Check the source and network settings.',
-    auth: 'Z-Library requires sign-in. You can also download the file in your browser and import it.',
+    unavailable: 'Could not reach the book source. Check the source and network settings.',
+    auth: 'The book source requires sign-in. You can also download the file in your browser and import it.',
     loginFailed: 'Could not sign in. Check your credentials or try signing in through your browser.',
     loginBrowser: 'The site requires browser verification. Open the site to continue.',
-    limit: 'Z-Library did not provide a download link. Check your account quota or open the book page.',
+    limit: 'The book source did not provide a download link. Check your account quota or open the book page.',
     rate: 'Too many requests. Try again in a moment.',
     large: 'This file is too large to import',
     importError: 'Import failed. Download the file from the book page and try importing it again.',
@@ -96,17 +96,17 @@ export const discoverMessages = locale => messages[locale] || messages.zh;
 
 function errorText(w, code, fallback) {
   return ({
-    ZLIB_INVALID_ORIGIN: w.invalidOrigin, ZLIB_INVALID_PROXY: w.invalidProxy, ZLIB_AUTH: w.auth,
-    ZLIB_DOWNLOAD_LINK: w.noLink, ZLIB_DOWNLOAD_LIMIT: w.limit, ZLIB_RATE_LIMIT: w.rate, NOVEL_FILE_TOO_LARGE: w.large,
-    ZLIB_WEB_REQUIRED: w.webRequired, ZLIB_FILE_NETWORK: w.transferError, ZLIB_FILE_HOST: w.noLink,
-    ZLIB_WRONG_LOGIN: w.loginFailed, ZLIB_VERIFY_FAILED: w.unverified, NOVEL_UNSUPPORTED: w.unsupported,
+    BOOK_SITE_UNCONFIGURED: w.unconfigured, BOOK_SITE_INVALID_ORIGIN: w.invalidOrigin, BOOK_SITE_INVALID_PROXY: w.invalidProxy, BOOK_SITE_AUTH: w.auth,
+    BOOK_SITE_DOWNLOAD_LINK: w.noLink, BOOK_SITE_DOWNLOAD_LIMIT: w.limit, BOOK_SITE_RATE_LIMIT: w.rate, NOVEL_FILE_TOO_LARGE: w.large,
+    BOOK_SITE_WEB_REQUIRED: w.webRequired, BOOK_SITE_FILE_NETWORK: w.transferError, BOOK_SITE_FILE_HOST: w.noLink,
+    BOOK_SITE_WRONG_LOGIN: w.loginFailed, BOOK_SITE_VERIFY_FAILED: w.unverified, NOVEL_UNSUPPORTED: w.unsupported,
   })[code] || fallback;
 }
 
 export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage, onLocal, onSettings, onBook, signal }) {
   const books = result?.books || [];
   host.innerHTML = `<header class="nv-discover-head">
-    <div><h2>${esc(w.heading)}</h2><p>Z-Library${result?.alias ? ' · ' + esc(w.alias(result.alias)) : ''}</p></div>
+    <div><h2>${esc(w.heading)}</h2>${result?.alias ? '<p>' + esc(w.alias(result.alias)) + '</p>' : !state.query && !result?.error ? '<p>' + esc(w.lightNovels) + '</p>' : ''}</div>
     <div class="nv-discover-links">
       ${result?.url ? `<button type="button" class="nv-ghost" data-source-site>${esc(w.source)}</button>` : ''}
       <button type="button" class="nv-ghost" data-source-local>${esc(w.local)}</button>
@@ -115,7 +115,7 @@ export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage
   </header>
   ${!result ? `<p class="nv-discover-status" role="status">${esc(w.loading)}</p>` : ''}
   ${result?.error ? `<div class="nv-discover-status"><p role="status">${esc(errorText(w, result.error, w.unavailable))}</p>
-    <button type="button" class="nv-ghost" data-source-page="${state.page}">${esc(w.retry)}</button></div>` : ''}
+    ${result.error !== 'BOOK_SITE_UNCONFIGURED' ? `<button type="button" class="nv-ghost" data-source-page="${state.page}">${esc(w.retry)}</button>` : ''}</div>` : ''}
   ${result && !result.error && !books.length ? `<p class="nv-discover-status" role="status">${esc(w.empty)}</p>` : ''}
   <div class="nv-discover-grid">${books.map((book, i) => `<article class="nv-discover-book">
     <button type="button" class="nv-discover-cover" data-source-open="${i}" aria-label="${esc(book.title)}" title="${esc(book.title)}">
@@ -328,12 +328,12 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
   host.innerHTML = `<h2 class="settings-section-title">${esc(w.settings)}</h2>
     <form class="panel" data-source-config>
       <label class="settings-row"><span class="settings-label">${esc(w.site)}</span>
-        <input name="origin" type="url" autocomplete="off" spellcheck="false" required></label>
+        <input name="origin" type="url" autocomplete="off" spellcheck="false"></label>
       <label class="settings-row"><span class="settings-label">${esc(w.proxy)}</span>
         <input name="proxy" type="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:7890"></label>
       <button type="submit" class="secondary">${esc(w.save)}</button>
     </form>
-    <form class="panel" data-source-account>
+    <form class="panel" data-source-account hidden>
       <p data-account-status role="status"></p>
       <label class="settings-row"><span class="settings-label">${esc(w.email)}</span>
         <input name="email" type="email" autocomplete="username" required></label>
@@ -356,7 +356,8 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
     settings.elements.origin.value = state.origin;
     settings.elements.proxy.value = state.proxy;
     const status = { verified: w.signedIn, expired: w.expired, unavailable: w.unverified, signedOut: w.signedOut };
-    heading.textContent = [status[state.status], new URL(state.origin).hostname,
+    account.hidden = !state.origin;
+    heading.textContent = [status[state.status],
       state.quota && w.quota(state.quota.used, state.quota.limit)].filter(Boolean).join(' · ');
     check.hidden = !state.hasSession;
     signOut.hidden = !state.hasSession;
@@ -373,7 +374,7 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
       update(await api('novel_source_config', { operation, ...values }));
       if (note) toast(note);
     } catch (error) {
-      const message = operation === 'login' && error.message === 'ZLIB_WEB_REQUIRED'
+      const message = operation === 'login' && error.message === 'BOOK_SITE_WEB_REQUIRED'
         ? w.loginBrowser : errorText(w, error.message, fallback);
       heading.textContent = message;
       toast(message);
@@ -388,7 +389,7 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
   };
   account.onsubmit = event => {
     event.preventDefault();
-    if (!current) return;
+    if (!current?.origin) return;
     const values = Object.fromEntries(new FormData(account));
     account.elements.password.value = '';
     run('login', { ...values, origin: current.origin }, w.loginFailed);
@@ -396,7 +397,7 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
   signOut.onclick = () => run('logout', {}, w.unavailable);
   check.onclick = () => run('verify', {}, w.unavailable);
   host.querySelector('[data-account-site]').onclick = () => {
-    if (current) api('novel_source_open', { url: current.origin }).catch(() => toast(w.unavailable));
+    if (current?.origin) api('novel_source_open', { url: current.origin }).catch(() => toast(w.unavailable));
   };
   await run('get', {}, w.unavailable);
 }

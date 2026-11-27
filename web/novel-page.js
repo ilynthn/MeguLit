@@ -796,14 +796,14 @@ export async function mountNovel(main, ctx) {
     renderDiscovery(null, signal);
     try {
       const { query, order } = discoverState;
-      const result = await api(query ? 'novel_search' : 'novel_discover', { source: 'zlib', query, order, page: pageNumber });
+      const result = await api(query ? 'novel_search' : 'novel_discover', { source: 'book-site', query, order, page: pageNumber });
       if (aliveNow() && !signal.aborted && tab === 'discover' && request === discoverState.request) {
         discoverResult = result;
         renderDiscovery(result, signal);
       }
     } catch {
       if (aliveNow() && !signal.aborted && tab === 'discover' && request === discoverState.request) {
-        renderDiscovery({ error: 'ZLIB_UNAVAILABLE' }, signal);
+        renderDiscovery({ error: 'BOOK_SITE_UNAVAILABLE' }, signal);
       }
     }
   }

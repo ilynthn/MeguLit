@@ -6,11 +6,11 @@ const flowSettings = require('./flow-settings.cjs');
 const online = require('./online.cjs');
 const local = require('./source/local.cjs');
 const wenku = require('./source/wenku.cjs');
-const zlib = require('./source/zlib.cjs');
+const bookSite = require('./source/book-site.cjs');
 const downloads = require('./source/downloads.cjs');
 const annotate = require('./annotate.cjs');
 
-const SOURCES = new Map([['local', local], ['wenku', wenku], ['zlib', zlib]]);
+const SOURCES = new Map([['local', local], ['wenku', wenku], ['book-site', bookSite]]);
 const source = id => SOURCES.get(String(id || 'local')) || local;
 
 async function dispatch(request, ctx) {
@@ -50,19 +50,19 @@ async function dispatch(request, ctx) {
     case 'novel_pdf':
       return library.pdfRange(db, root, String(request.id || ''), request);
     case 'novel_source_config':
-      return zlib.configuration(request, ctx);
+      return bookSite.configuration(request, ctx);
     case 'novel_source_open':
-      return zlib.openSite(request, ctx);
+      return bookSite.openSite(request, ctx);
     case 'novel_source_cover':
-      return zlib.cover(request, ctx);
+      return bookSite.cover(request, ctx);
     case 'novel_source_detail':
-      return zlib.detail(request, ctx);
+      return bookSite.detail(request, ctx);
     case 'novel_source_download_start':
       return downloads.start(request, ctx);
     case 'novel_source_download_status':
       return downloads.status(request, ctx);
     case 'novel_source_import': {
-      const result = await zlib.download(request, ctx);
+      const result = await bookSite.download(request, ctx);
       online.schedule(root, runtime, result.imported.map(book => book.id));
       return result;
     }
