@@ -107,12 +107,12 @@ function assemble(t,b,art,target,oldRoots,log){const notes=[...t.notes];
 
 function stateFile(dir){return path.join(dir,'integration.json');}
 /* --check: has main or a PR moved since the last build? */
-function moved(dir,{lsRemote=refs=>spawnSync('git',['ls-remote','https://github.com/ilynthn/MeguLit.git',...refs],{encoding:'utf8',windowsHide:true,timeout:60000})}={}){const s=readJson(stateFile(dir));if(!s?.built)return {due:true,why:'还没做过'};
+function moved(dir,{lsRemote=refs=>spawnSync('git',['ls-remote','https://github.com/ilynthn/MeguLit.git',...refs],{encoding:'utf8',windowsHide:true,timeout:60000}),cards:cardsDir}={}){const s=readJson(stateFile(dir));if(!s?.built)return {due:true,why:'还没做过'};
  const refs=['refs/heads/main',...Object.keys(s.built.heads||{}).map(n=>'refs/pull/'+n+'/head')];const r=lsRemote(refs);if(r.status!==0)return {due:false,error:'查不到 GitHub'};
  const now=Object.fromEntries(String(r.stdout).trim().split('\n').filter(Boolean).map(l=>l.split('\t').reverse()));
  if(now['refs/heads/main']&&now['refs/heads/main']!==s.built.main)return {due:true,why:'main 有新提交'};
  for(const [n,sha] of Object.entries(s.built.heads||{}))if(now['refs/pull/'+n+'/head']&&now['refs/pull/'+n+'/head']!==sha)return {due:true,why:'#'+n+' 有新提交'};
- const cardPrs=cards().map(c=>c.pr).filter(n=>!(n in (s.built.heads||{}))&&!(s.built.skipped||[]).some(x=>x.pr===n));if(cardPrs.length)return {due:true,why:'有新卡片 #'+cardPrs.join(' #')};
+ const cardPrs=cards(cardsDir).map(c=>c.pr).filter(n=>!(n in (s.built.heads||{}))&&!(s.built.skipped||[]).some(x=>x.pr===n));if(cardPrs.length)return {due:true,why:'有新卡片 #'+cardPrs.join(' #')};
  return {due:false};}
 
 function build(o={},{log=console.log}={}){const dir=path.resolve(o.dir||path.join(COPIES(),'testbuild-all'));fs.mkdirSync(dir,{recursive:true});

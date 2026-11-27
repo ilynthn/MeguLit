@@ -102,7 +102,7 @@ function readyBuild(card,{root,app,exe,title,pr,label='',refresh=null,games=null
  const ownNode=path.join(card,'node.exe'),src=path.join(root,'runtime','node.exe');if(!fs.existsSync(ownNode)&&fs.existsSync(src))fs.copyFileSync(src,ownNode);
  const node=fs.existsSync(ownNode)?'%~dp0node.exe':'node';
  const cmd=path.join(card,'开始测试.cmd');
- fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test: updates this test build to the newest main + PRs, closes the installed MeguLit, opens the test build;\r\nrem with a PR number (开始测试.cmd 1312) that card\'s game starts from it\r\n"'+node+'" "%~dp0test-start.cjs" "%~dp0." %*\r\nif errorlevel 1 pause\r\n');
+ fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test: updates this test build to the newest main + PRs, closes the installed MeguLit, opens the test build;\r\nrem with a PR number (this cmd 1312) that card\'s game starts from it\r\n"'+node+'" "%~dp0test-start.cjs" "%~dp0." %*\r\nif errorlevel 1 pause\r\n');
  return {cmd,port:portOf(pr)};}
 
 /* ---- the tester's checklist and the owner's card ------------------------------------------------------------------- */
