@@ -41,10 +41,10 @@
  /* 2026-11-26 (オルフレール, Ctrl fast-forward: one hooked line of 3996 characters, 8000 char tokens on the page; Cardinal r1/r2: the
     reader stopped answering for good after 89 s). Every mutation ran a report in a microtask and a report reads every token's style and
     boxes (110 ms for 8000 tokens): a typing line mutates every frame, so the page did nothing else. A report that took long holds the
-    next one back by three times its cost on large pages. A short line must report at once: a wall-clock stall during a small scan
-    is not evidence of a large page, and backing off then leaves the next line with stale click regions. */
+    next one back by three times its cost (at most a quarter of the time goes to regions, whatever the page holds); a page of normal size
+    (a report under 12 ms) reports at once as before. */
  let nextReport=0,reportTimer=0;const clock=()=>typeof performance==='object'&&performance?performance.now():Date.now();
- function runReport(){reportTimer=0;const t=clock(),nodes=report();const now=clock(),cost=now-t;nextReport=nodes>=256&&cost>12?now+cost*3:0;}
+ function runReport(){reportTimer=0;const t=clock();report();const now=clock(),cost=now-t;nextReport=cost>12?now+cost*3:0;}
  function schedule(){if(queued)return;queued=true;const wait=nextReport-clock();if(wait>0){if(!reportTimer)reportTimer=setTimeout(runReport,wait);}else queueMicrotask(runReport);}
  /* 2026-11-19 (1.4.17 candidate, user: 「打字机效果…像运行了两遍…像被啃了一块走又恢复」, every game): a character the typewriter has
     just let in starts its 70 ms fade at opacity 0. Counted as invisible, it and its neighbour dropped out of the window region
@@ -95,8 +95,8 @@
   const lookupDrag=Number(document.querySelector('.tomoyo-selection-card[data-lookup-drag]')?.dataset.lookupDrag)||0;
   const dragKey=lookupDrag?`lookup:${lookupDrag}:${menuOpen}:${innerWidth}:${innerHeight}:${scale}`:'';
   if(dragKey&&last===dragKey)return;
-  const clipRects=new Map(),nodes=bound?document.querySelectorAll(NODES):[];
-  for(const node of nodes){if(node.closest('body.megulit-choice-covers-line .sentence-window:not(.tome-island-page),body.megulit-choice-only .sentence-window:not(.tome-island-page)'))continue;if(!watched.has(node)){resize.observe(node);watched.add(node);}const style=getComputedStyle(node),isMenu=node.matches(MENUS);
+  const clipRects=new Map();
+  if(bound)for(const node of document.querySelectorAll(NODES)){if(node.closest('body.megulit-choice-covers-line .sentence-window:not(.tome-island-page),body.megulit-choice-only .sentence-window:not(.tome-island-page)'))continue;if(!watched.has(node)){resize.observe(node);watched.add(node);}const style=getComputedStyle(node),isMenu=node.matches(MENUS);
    if(node.matches('.tomoyo-cn-output')&&node.querySelector('.tome-translation-char'))continue;
    // Text Ranges include fragments scrolled out of sight. Those pixels must stay clickable in the game.
    const container=movedTranslationScroll(node)||node.closest('.megulit-dialogue-band');
@@ -115,7 +115,6 @@
   regions.sort((a,b)=>Number(a.menu)-Number(b.menu)||a.y-b.y||a.x-b.x);
   const merged=[];for(const r of regions){const p=merged.at(-1);if(p&&!p.menu&&!r.menu&&Math.abs(p.y-r.y)<=2&&Math.abs(p.height-r.height)<=2&&r.x<=p.x+p.width+2&&r.x+r.width>=p.x-2){/* Union on both sides: a region sorted first only by a 1px higher top (the moved wait marker) used to keep its left edge and drop the whole Japanese line left of it. */const top=Math.min(p.y,r.y),bottom=Math.max(p.y+p.height,r.y+r.height),left=Math.min(p.x,r.x);p.width=Math.max(p.x+p.width,r.x+r.width)-left;p.x=left;p.y=top;p.height=bottom-top;}else merged.push({...r});}regions.splice(0,regions.length,...compact(merged));/* #1136: the relayed 对话记录 keeps a native press where a drag is native-only (its scrollbar, sliders, drop-downs) */if(bound)for(const log of document.querySelectorAll('.tome-backlog[data-open]')){const spots=[],list=log.querySelector('.tome-log-list');if(list&&list.scrollHeight>list.clientHeight){const r=list.getBoundingClientRect(),cs=getComputedStyle(list),br=parseFloat(cs.borderRightWidth)||0,w=Math.max(12,list.offsetWidth-list.clientWidth-(parseFloat(cs.borderLeftWidth)||0)-br)/* an overlay scrollbar takes no layout width but is still dragged at the edge */;if(w>0)spots.push({left:r.right-br-w,top:r.top,right:r.right-br,bottom:r.bottom});}for(const c of log.querySelectorAll('input[type=range],select'))spots.push(c.getBoundingClientRect());for(const r of spots){const x=Math.floor(Math.max(0,r.left)*scale),y=Math.floor(Math.max(0,r.top)*scale),right=Math.ceil(Math.min(innerWidth,r.right)*scale),bottom=Math.ceil(Math.min(innerHeight,r.bottom)*scale);if(right>x&&bottom>y)regions.push({x,y,width:right-x,height:bottom-y,menu:true,nativeSpot:true});}}/* E533: art-text translations are painted (window region) but pass the pointer to the game (pass): a title card or button under them stays clickable *//* 2026-11-15 choices (ruby + translation over the game's options) and the placed name plate / options (text-place.js) are painted the same way: the click reaches the game's own button */if(bound)for(const node of document.querySelectorAll('.megulit-art-item .megulit-art-cn,.megulit-choice,.megulit-choice-cn,#megulit-place-extras span,#megulit-page-ahead>i')){const r=node.getBoundingClientRect();if(!r.width||!r.height||regions.length>=250)continue;const x=Math.max(0,r.left-8),y=Math.max(0,r.top-6),right=Math.min(innerWidth,r.right+8),bottom=Math.min(innerHeight,r.bottom+6);if(right>x&&bottom>y)regions.push({x:Math.floor(x*scale),y:Math.floor(y*scale),width:Math.ceil((right-x)*scale),height:Math.ceil((bottom-y)*scale),menu:false,pass:true});}const lookupGrip=lookupGripBox(scale),message={type:'galHitRegions',regions,menuOpen,lookupDrag,lookupGrip};
   const key=dragKey||JSON.stringify(message);if(key!==last){last=key;repaint();try{window.__tomoyoTranslateRequest(JSON.stringify(message));}catch{}try{missDiag(regions.filter(r=>!r.pass));}catch{}}
-  return nodes.length;
  }
  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['style','class','hidden','open','data-open','data-leaving','data-lookup-drag']});addEventListener('resize',schedule);document.addEventListener('scroll',schedule,true);document.addEventListener('transitionend',schedule,true);document.addEventListener('animationend',schedule,true);schedule();
 })();
