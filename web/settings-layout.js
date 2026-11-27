@@ -4,7 +4,7 @@ export const navigation=[
  {label:words('外观与主页','Appearance and home','外観・ホーム'),ids:['general','background']},
  {label:words('翻译与查词','Translation and lookup','翻訳・辞書'),ids:['translation','dictionary','lookup','speech']},
  {label:words('游戏中','In game','ゲーム中'),ids:['text','embedding','immersion','position','panels']},
- {label:words('学习与数据','Study and data','学習・データ'),ids:['study','reader','anki','library','data','online','personal']}
+ {label:words('学习与数据','Study and data','学習・データ'),ids:['study','reader','anki','library','novel-sources','data','online','personal']}
 ];
 // Crop values stay in storage and are edited by the visual crop dialog only.
 export function visibleFields(scope,fields){return fields.filter(field=>field.scope===scope&&!(scope==='background'&&(field.key.startsWith('crop.')||field.key.startsWith('glass')))&&!(scope==='online'&&PROFILE_KEYS.includes(field.key)));}
