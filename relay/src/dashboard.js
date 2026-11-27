@@ -74,7 +74,7 @@ code,.mono{font-family:var(--mono);font-size:12px}
 .stack{display:flex;flex-direction:column;gap:16px}
 .grid>*{grid-column:span 12;min-width:0}
 @media(min-width:760px){.grid>.s6,.grid>.s4,.grid>.s3{grid-column:span 6}.grid>.stack{grid-column:span 12;display:grid;grid-template-columns:1fr 1fr;align-items:start}.grid>.s8,.grid>.s12{grid-column:span 12}}
-@media(min-width:1280px){.grid>.stack{grid-column:span 4;display:flex}.grid>.s3{grid-column:span 3}.grid>.s4{grid-column:span 4}.grid>.s6{grid-column:span 6}.grid>.s8{grid-column:span 8}}
+@media(min-width:1280px){.grid>.stack{grid-column:span 4;display:flex;align-items:stretch}.grid>.s3{grid-column:span 3}.grid>.s4{grid-column:span 4}.grid>.s6{grid-column:span 6}.grid>.s8{grid-column:span 8}}
 @media(min-width:1280px) and (max-width:1599px){.grid>.s3{grid-column:span 6}}
 
 /* cards: 16px radius, 20px padding; nested tiles use 16 - 6 = 10px */
