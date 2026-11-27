@@ -84,6 +84,8 @@ function createTranslationService(fetcher = fetch, environmentKey = '') {
   function hasKey(base, provider) { const b = normalizeBase(base); return keyless(provider) || isLocalBase(b) || !!keyFor(b); }
   async function translate(text, options = {}, isCurrent = () => true, foreground) {
     if (typeof text !== 'string' || !text.trim() || text.length > 4000) throw new Error('台词为空或过长');
+    /* #1248 rich-text markup (<space=…>, <color>, …) is layout: the translator never sees it, whichever path sent the line */
+    if (text.includes('<')) { text = require('./rich-text.cjs').stripRichTextInJapanese(text); if (!text.trim()) return ''; }
     options = resolveOptions(options);
     if (!supportsTranslationTarget(options.provider, options.learnerLanguage)) {
       const error = Error('TRANSLATION_TARGET_UNSUPPORTED');

@@ -32,14 +32,21 @@ const GATE={leak:0.98,row:0.9,pair:0.9,choice:1};
 /* ---- 0 arguments ------------------------------------------------------------------------------------------------------ */
 function parseArgs(argv){const a=argv.slice(2),o={dir:'',exe:'',out:'',budgetMin:10,app:APP_DEFAULT,foreground:false,seedOut:'',skip:false};
  for(let i=0;i<a.length;i++){const k=a[i];
-  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';else if(k==='--no-skip')o.skip=false;else if(k==='--skip')o.skip=true;
+  if(k==='--exe')o.exe=a[++i]||'';else if(k==='--out')o.out=a[++i]||'';else if(k==='--budget-min')o.budgetMin=Number(a[++i]);else if(k==='--app')o.app=a[++i]||'';else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--seed-out')o.seedOut=a[++i]||'';else if(k==='--no-skip')o.skip=false;else if(k==='--skip')o.skip=true;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs cold <game folder> [--exe <relative path>] [--out <dir>] [--budget-min N]');
  if(!(o.budgetMin>0&&o.budgetMin<=60))throw Error('--budget-min must be 1..60');
  return o;}
 
 /* a display title from the download folder: 「[GAME][PC-JP] トリック･オア･アリス」→「トリック･オア･アリス」 */
-const titleOf=dir=>path.basename(path.resolve(dir)).replace(/\[[^\]]*\]/g,' ').replace(/[『』]/g,'').replace(/\s+/g,' ').trim()||path.basename(dir);
+/* 2026-11-27 (ハミダシクリエイティブ: the seed came out titled 「HamidashiCreative-ozmafia-joki」) an own copy (tools/game-copies.cjs,
+   .megulit-copy.json) is named after its source, not <name>-<owner>; a disc's program folder (Input, Game …) after its parent */
+const INSTALL_SUB=/^(input|game|games|data|bin|install|program|files?|disc\d*|disk\d*)$/i;
+function titleOf(dir){let base=path.resolve(dir);try{const m=JSON.parse(fs.readFileSync(path.join(base,'.megulit-copy.json'),'utf8'));if(m&&m.source)base=path.resolve(String(m.source));}catch{}
+ if(INSTALL_SUB.test(path.basename(base))&&path.dirname(base)!==base)base=path.dirname(base);
+ return path.basename(base).replace(/\[[^\]]*\]/g,' ').replace(/[『』]/g,'').replace(/\s+/g,' ').trim()||path.basename(base);}
+/* a seed folder name from a romanised title: 「Hamidashi Creative」 -> hamidashi-creative ('' when nothing usable is left) */
+const slugOf=s=>String(s||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,64).replace(/-+$/,'');
 const safeName=s=>String(s).replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').replace(/[. ]+$/,'').slice(0,80)||'game';
 const inside=(child,parent)=>{const r=path.relative(path.resolve(parent),path.resolve(child));return r===''||!!r&&!r.startsWith('..')&&!path.isAbsolute(r);};
 
@@ -73,12 +80,17 @@ const APP_PARTS=[['native'],['runtime','hook'],['runtime','hook-island'],['runti
 function copyTree(from,to,skip=null){const st=fs.statSync(from);if(st.isDirectory()){fs.mkdirSync(to,{recursive:true});for(const n of fs.readdirSync(from))if(!(skip&&skip.test(n)&&fs.existsSync(path.join(to,n))))copyTree(path.join(from,n),path.join(to,n),skip);return;}
  let same=false;try{const d=fs.statSync(to);same=d.size===st.size&&Math.abs(d.mtimeMs-st.mtimeMs)<2000;}catch{}if(!same){fs.copyFileSync(from,to);fs.utimesSync(to,st.atime,st.mtime);}}
 function prepareApp(app,root){if(!fs.existsSync(path.join(app,'native','ColdDesk.exe')))throw Error('no ColdDesk.exe under '+app+'\\native (pass --app <MeguLit install>)');
- for(const p of APP_PARTS){const src=path.join(app,...p);if(fs.existsSync(src))copyTree(src,path.join(root,...p),/^(ColdDesk|HookBridge|D3D9Probe)\.exe$/i);}
+ copyAppParts(app,root);
  fs.mkdirSync(path.join(root,'data','config'),{recursive:true});
  /* the cold test's own switches: no relay reports, no shot uploads (judge decides; nothing leaves this PC) */
  fs.writeFileSync(path.join(root,'data','config','library.json'),JSON.stringify({coldTest:true,coldTestShots:false,autoProfileShare:false,runtimeSampleShare:false,probeUpload:false},null,1));
- buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root);useCheckoutWgc(root);
+ buildColdDesk(root);buildHookBridge(root);useCheckoutHook(root,hookDirs(),app);useCheckoutWgc(root);
  return root;}
+/* the install's parts into the shared copy. The programs built from this checkout and the hook DLLs are never copied over once
+   there: useCheckoutHook picks the DLL. 2026-11-27 (ハミダシクリエイティブ): copying the install's DLL over the checkout's one and back
+   on every run rewrote a DLL another session's game had loaded -> EBUSY, prepareApp failed and the run ended */
+const APP_KEEP=/^(ColdDesk|HookBridge|D3D9Probe)\.exe$|^MeguLitHook(32|64)\.dll$/i;
+function copyAppParts(app,root){for(const p of APP_PARTS){const src=path.join(app,...p);if(fs.existsSync(src))copyTree(src,path.join(root,...p),APP_KEEP);}}
 /* MeguLitHook32/64.dll built from this repository's native/megulithook (a private native build; the DLLs are not in git) replace
    the install's copies in the copy only, like HookBridge.exe below: the engine-layer hook changes are what runs. A DLL without the
    hook version marker (an old or foreign build) is never used.
@@ -97,8 +109,9 @@ function pickHookDll(name,dirs){let best=null;dirs.forEach((dir,order)=>{const s
   const better=!best||c.drawSkip!==best.drawSkip?!best||c.drawSkip:c.own!==best.own?c.own:c.mtimeMs>best.mtimeMs;if(better)best=c;});
  return best;}
 let hookUsed={};
-function useCheckoutHook(root,dirs=hookDirs()){hookUsed={};for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){const pick=pickHookDll(name,dirs);
-  if(!pick){hookUsed[name]={src:'install',drawSkip:false};continue;}hookUsed[name]={src:pick.src,drawSkip:pick.drawSkip};
+function useCheckoutHook(root,dirs=hookDirs(),app=''){hookUsed={};for(const name of ['MeguLitHook32.dll','MeguLitHook64.dll']){let pick=pickHookDll(name,dirs);
+  if(!pick){hookUsed[name]={src:'install',drawSkip:false};let buf=null;for(const sub of ['runtime','native'])if(!buf&&app)try{buf=fs.readFileSync(path.join(app,sub,'megulithook',name));}catch{}
+   if(!buf)continue;pick={buf};}else hookUsed[name]={src:pick.src,drawSkip:pick.drawSkip};
   for(const dir of [path.join(root,'native','megulithook'),path.join(root,'runtime','megulithook')]){const dst=path.join(dir,name);let same=false;try{same=fs.readFileSync(dst).equals(pick.buf);}catch{}if(same)continue;fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(dst,pick.buf);}}
  return hookUsed;}
 /* ColdDesk.exe from this repository's native/ColdDesk.cs (it has --ignore-input; an older install may not): built with the .NET
@@ -178,10 +191,12 @@ const SLOW_LINES=60;
    it then: the next click waits 45 ms a character (driver readPerCharMs). KiriKiri no-KAG comes piece by piece while it types (オルフレール
    r5 with it: cold 230 s -> 306 s, total 554 s, nothing gained) */
 const WHOLE_LINE=new Set(['yuris']);
-async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,localeEmulator=null,skip=true,steamAppId='',vndb=''}={}){const Cold=require('../../services/cold-test.cjs');
+/* the input level the engine's rule row starts the live run on ('' = the ladder from PostMessage) */
+function inputFrom(engine){try{return require('./engines.cjs').capabilities(engine).input||'';}catch{return '';}}
+async function coldTest(root,loc,title,budgetMs,exeSha,{visible=false,realInput=false,localeEmulator=null,skip=true,steamAppId='',vndb=''}={}){const firstInput=inputFrom(loc.engine);const Cold=require('../../services/cold-test.cjs');
  const game={id:'adapt-'+crypto.createHash('sha1').update(loc.exe.toLowerCase()).digest('hex').slice(0,10),exe:loc.exe,engine:loc.engine,title,exeKey:exeSha||'',...(steamAppId?{steamAppId:String(steamAppId)}:{}),...(vndb?{vndb:String(vndb)}:{})};/* 2026-11-27 MeguLit-Adapter: a Steam build whose appid VNDB names (千恋＊万花 copy: blocked steam-appid-unknown) */
  /* no relay: the verdict of this tool is the only consumer */
- return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
+ return Cold.testOne(root,game,{budgetMs,ignoreInput:true,visible,localeEmulator,ocrMenu:true,hideProbe:true,choiceLocate:true,inputFallback:{inputCtlDir:INPUTCTL_DIR,foreground:visible,realInput,from:firstInput},driver:{targetLines:1000,afterChoice:5,choiceSequence:true,hoverStart:true,holdBlind:true,choiceQuietMs:1500,readQuietMs:600,readMinMs:1000,readPerCharMs:WHOLE_LINE.has(loc.engine)?45:0,...(skip===true?{}:{skip:false,slowLines:SLOW_LINES})},deps:{report:async()=>({state:'off'}),upload:async()=>({state:'off'}),steamRunning:()=>{try{return require('../../services/game-process.cjs').imageRunning('steam.exe');}catch{return false;}}}});}
 
 /* whole-screen pictures while a --foreground run goes (what the user would see: the game window and anything over it) */
 const SCREEN_PS=`Add-Type -AssemblyName System.Windows.Forms,System.Drawing;$d=$env:MEGULIT_SCREEN_DIR;$stop=Join-Path $d 'stop';$i=0;
@@ -275,10 +290,18 @@ function engineHook(loc){const t0=Date.now(),done=o=>({...o,ms:Date.now()-t0});
  try{const r=require(file).scanFile(loc.exe);const hits=Array.isArray(r?.hits)?r.hits.length:Array.isArray(r)?r.length:r?.hit?1:0;return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits});}
  catch(e){return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits:0,error:String(e.message||e).slice(0,160)});}}
 
-/* the kernel's own diagnostics for the run (the shared hook-diagnostics.log of the copied app, cut to the run's time) */
-function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:'',lunaEngine:''};if(!run?.startedAt)return out;
- const a=Date.parse(run.startedAt)-2000,z=Date.parse(run.endedAt||new Date().toISOString())+2000;let text='';try{text=fs.readFileSync(path.join(root,'logs','hook-diagnostics.log'),'utf8');}catch{return out;}
- const kept=[];for(const l of text.split(/\r?\n/)){const t=Date.parse(l.slice(0,28));if(!(t>=a&&t<=z))continue;kept.push(l);let m;
+/* the kernel's own diagnostics for the run (the shared hook-diagnostics.log of the copied app, cut to the run's time)
+   2026-11-27 (制服カノジョ3, Unity: the run's diagnostics said 「匹配到 Artemis 引擎」 and 「注入钩子: Artemis2」, lines of another agent's
+   Artemis game written into the same app copy's log in the same minutes) a log several games write into is cut to the run's own
+   process too: after LunaHook's 「进程 N 已连接」 the lines are that process's until the next one; with the run's pid known, another
+   process's lines are not this run's evidence (a log with no such line, or a run with no pid, is cut by time only, as before) */
+const ATTACHED=/(?:进程|Process|プロセス)\s*(\d+)\s*(?:已连接|attached|connected|に接続)/i;
+function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:'',lunaEngine:'',foreign:0};if(!run?.startedAt)return out;
+ const a=Date.parse(run.startedAt)-2000,z=Date.parse(run.endedAt||new Date().toISOString())+2000,pid=Number(run.pid)||0;let text='';try{text=fs.readFileSync(path.join(root,'logs','hook-diagnostics.log'),'utf8');}catch{return out;}
+ let owner=0;const kept=[];for(const l of text.split(/\r?\n/)){const t=Date.parse(l.slice(0,28));if(!(t>=a&&t<=z))continue;let m;
+  if((m=ATTACHED.exec(l)))owner=Number(m[1]);
+  if(pid&&owner&&owner!==pid){out.foreign++;continue;}
+  kept.push(l);
   if((m=/注入钩子: (.+?) [0-9A-F]{6,}$/.exec(l)))out.injected.push(m[1]);
   if((m=/aux noise (.+?) "(.*)"$/.exec(l))){out.auxNoise++;if(!out.auxSample)out.auxSample=m[1]+': '+m[2].slice(0,40);}
   if(/krkr wait kag/.test(l))out.kagWait=true;
@@ -310,13 +333,13 @@ function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=co
 /* ---- layer 4: the seed entry (The Seed/<engine>/<slug>/game.json + versions/<sha>.json), local only ---------------------------
    From the game layer diff-maker made, plus the seed fields (README of The Seed), checked with core/profiles/seed.cjs like
    seed-all.cjs. Written only for a pass (status verified); never into the repository, never uploaded. */
-function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
+function writeSeed(diffDir,{engine,title,exeName,exeSha,gameKey,slug:wanted='',titles=[]},seedOut){const SeedFormat=require('../../core/profiles/seed.cjs'),Probe=require('../diff-maker/probe.cjs');
  const read=f=>JSON.parse(fs.readFileSync(f,'utf8'));const gf=fs.readdirSync(diffDir).find(f=>/^game-.*\.json$/.test(f)),vf=fs.readdirSync(diffDir).find(f=>/^version-[0-9a-f]{64}\.json$/.test(f));
  if(!gf||!vf)throw Error('diff has no game/version document');
  const doc=read(path.join(diffDir,gf)),ver=read(path.join(diffDir,vf));const settings=JSON.parse(JSON.stringify(doc.settings||{}));delete settings.calibrate;settings.lang={ja:{annotation:'ruby'}};
  let slugs={};try{slugs=read(path.join(__dirname,'..','diff-maker','slugs.json'));}catch{}
- const slug=[slugs[title+'|'+exeName],slugs[title]].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
- const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[title]},sourceLangs:['ja'],rev:1};
+ const slug=[slugs[title+'|'+exeName],slugs[title],wanted].find(v=>typeof v==='string'&&/^[a-z0-9][a-z0-9-]{0,63}$/.test(v))||String(gameKey||'game').toLowerCase().replace(/[^a-z0-9-]/g,'-').slice(0,64);
+ const game={...doc,settings,key:doc.key||Probe.gameId(doc.prints||{}),seedFormat:1,status:'verified',slug,builds:[exeSha],match:{exe:[exeName],titles:[...new Set([title,...titles].filter(Boolean))]},sourceLangs:['ja'],rev:1};
  const version={...ver,rev:1};
  for(const [n,d,w] of [['game',game,{engine,slug}],['version',version,{engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}
  const dir=path.join(seedOut,engine,slug);fs.mkdirSync(path.join(dir,'versions'),{recursive:true});
@@ -370,7 +393,7 @@ async function run(opts,{log=console.log}={}){
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
   const stopScreen=opts.foreground?screenRecorder(path.join(out,'screen')):null;
   let cold=null;
-  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,localeEmulator,skip:opts.skip===true,steamAppId:opts.steamAppId||'',vndb:opts.vndb||''});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
+  await step('cold',async()=>{try{cold=await coldTest(root,loc,title,coldMs,probe?.exeSha256,{visible:opts.foreground,realInput:opts.realInput===true,localeEmulator,skip:opts.skip===true,steamAppId:opts.steamAppId||'',vndb:opts.vndb||''});}catch(e){cold={verdict:'blocked',why:'cold test threw: '+e.message};}});
   if(stopScreen){await stopScreen();result.foreground=true;result.artifacts.screen=fs.readdirSync(path.join(out,'screen')).filter(f=>/\.png$/i.test(f)).map(f=>path.join(out,'screen',f));}
   /* 2026-11-27 also after a blocked run (オルフレール 02:56: cleanup unconfirmed, no run folder): its Documents\A'sRing save with the read
      flags stayed, every later run started with the text already read (shown at once, Cardinal row 0.95 -> 0.6) */
@@ -424,4 +447,4 @@ function reexecIfOldNode(entry,argv,app){
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
 function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+module.exports={copyAppParts,inputFrom,slugOf,RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
