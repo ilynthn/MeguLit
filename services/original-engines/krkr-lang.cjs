@@ -16,8 +16,19 @@ const KS=n=>/\.ks$/i.test(n);
 const listMemo=new Map();
 function stamp(file){try{const s=fs.statSync(file);return s.size+'|'+s.mtimeMs;}catch{return '';}}
 function list(file){const k=file+'|'+stamp(file);if(listMemo.has(k))return listMemo.get(k);let t=null;try{t=xp3.list(file);}catch{}listMemo.set(k,t);if(listMemo.size>16)listMemo.delete(listMemo.keys().next().value);return t;}
+/* 2026-11-28 (owner: 汉化和日文在一个文件夹里的类型非常常见，一定要做好) other official multilingual releases name the per-language
+   archive differently: scenario_ja.xp3 + scenario_chs.xp3, data-jp.xp3 + data-sc.xp3, datajp.xp3 + datacn.xp3. Any
+   <base>[_-]<lang>.xp3 / <base><lang>.xp3 pair counts when the Japanese one of the same base holds .ks scenes and a Chinese
+   one sits beside it; data_<lang>.xp3 keeps its own rule above (Fata: the Japanese archive alone is enough). */
+const LANG_TAIL=/^(.*?)[_-]?(jp|ja|jpn|japanese|zh|cn|chs|sc|zhs|schinese|tw|zt|cht|tc|tchinese)\.xp3$/i;
+const langOf=tag=>/^(?:jp|ja|jpn|japanese)$/i.test(tag)?'ja':/^(?:tw|zt|cht|tc|tchinese)$/i.test(tag)?'zt':'zh';
+function anyBase(dir,files){const byBase=new Map();
+ for(const n of files){const m=LANG_TAIL.exec(n);if(!m||!m[1]||/^patch\d*$/i.test(m[1]))continue;const base=m[1].replace(/[_-]$/,'').toLowerCase(),lang=langOf(m[2]);
+  if(!byBase.has(base))byBase.set(base,{});const g=byBase.get(base);if(!g[lang])g[lang]=path.join(dir,n);}
+ for(const g of byBase.values()){if(!g.ja||!(g.zh||g.zt))continue;if(scripts(g.ja).length)return {ja:g.ja,zh:g.zh||g.zt};}
+ return null;}
 function archives(dir){let files=[];try{files=fs.readdirSync(dir);}catch{return null;}const find=re=>{const f=files.find(n=>re.test(n));return f?path.join(dir,f):null;};
- const ja=find(JA);if(!ja)return null;return {ja,zh:find(ZH)||find(ZT)};}
+ const ja=find(JA);if(!ja)return anyBase(dir,files);return {ja,zh:find(ZH)||find(ZT)};}
 /* Some multilingual Fata releases ship small language launchers that exit after starting the shared KiriKiri engine. */
 function launchTarget(executable){
  if(!executable||!/^fata_(?:jp|ja|zh|cn|chs|cht|tw|en|ru)\.exe$/i.test(path.basename(executable)))return null;
