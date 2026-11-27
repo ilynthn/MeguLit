@@ -89,6 +89,8 @@ page('at the right edge the tip slides to stay on screen; a title set later is t
  await hover(p,'right');const t=await tipBox(p);assert.equal(t.side,'top');assert.ok(t.x>=0&&t.x+t.w<=1280,'on screen: '+JSON.stringify(t));
  await p.evaluate(()=>{document.getElementById('mid').title='校准位置';});await p.waitForTimeout(50);
  assert.equal(await p.evaluate(()=>document.getElementById('mid').hasAttribute('title')),false);
+ assert.equal(await p.evaluate(()=>document.getElementById('mid').title),'校准位置','code reading el.title still gets the tooltip text');
+ assert.equal(await p.evaluate(()=>{const b=document.getElementById('mid');b.title='回到游戏原字位置';const r=b.dataset.mgTip+'|'+b.title;b.title='校准位置';return r;}),'回到游戏原字位置|回到游戏原字位置','writing el.title updates the tip');
  await hover(p,'mid');assert.match(await p.evaluate(()=>document.querySelector('.mg-tip').textContent),/校准位置/);
  await p.evaluate(()=>{document.getElementById('mid').title='';});await p.waitForTimeout(500);assert.equal(await tipBox(p),null,'an emptied title closes it');
 });
