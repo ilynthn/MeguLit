@@ -16,6 +16,9 @@
      node tools/megulit-adapter.cjs answer <out dir> id=value ...    answer the questions; when none is left the seed is written
      node tools/megulit-adapter.cjs publish <out dir> --repo <checkout on a branch> [--go]
                                     the seed into The Seed/, a commit, a PR, the HANDOFF row (dry run without --go)
+     node tools/megulit-adapter.cjs auto <download folder> [--name <short>] [--issue N] [--pr N] [--no-publish]
+                                    a finished download to the owner's test card with no person and no LLM: install, adapt (--tester),
+                                    PR, test build, checklist + card; a stuck note where a person decides (tools/megulit-adapter/auto.cjs)
      node tools/megulit-adapter.cjs inventory [--json]                what every engine has (from the code)
      node tools/megulit-adapter.cjs cold <game folder> ...            the cold stage alone (the old adapt-auto command line)
 
@@ -184,6 +187,7 @@ function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(p
  st.pr=url;st.state='published';saveState(st);return EXIT.done;}
 
 async function main(argv){const cmd=argv[2];
+ if(cmd==='auto')return require('./megulit-adapter/auto.cjs').main(argv.slice(3));
  if(cmd==='inventory'){const rows=Engines.inventory();console.log(argv.includes('--json')?JSON.stringify(rows,null,1):Engines.markdown(rows));return 0;}
  const runsGame=cmd!=='answer'&&cmd!=='publish';
  if(runsGame){let app=Cold.APP_DEFAULT;const i=argv.indexOf('--app');if(i>0&&argv[i+1])app=argv[i+1];const r=Cold.reexecIfOldNode(__filename,argv,app);if(r!==null)return r;Cold.prepareRuntime();}

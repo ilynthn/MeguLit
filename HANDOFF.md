@@ -40,6 +40,7 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
+| RRFZ · Codex | CMVS/CVNS 剧本按指令分类台词，提取说话人、语音和行号 | — | rrfz/cmvs-classify | 11-27 | 在做 |
 | 魚魚棟 · Claude | 点读查词支持口语缩约和方言语尾（舐めんなし、わかんねえ、ええやん）：还原后再查、最长前缀兜底、可选 AI 释义 | — | feat/colloquial-lookup | 11-28 | 等 CI（PR #1339） |
 | 魚魚棟 · Claude | 官网换新图标（点读台词框）：favicon、apple-touch-icon、manifest、结构化数据 logo；启动器图标和字标不动 | — | feat/site-favicon | 11-27 | 等 CI（PR #1333） |
 | 魚魚棟 · Claude | megulit.com 用户中心：网页登录看学习看板、收藏句子（点读查词）、单词本、阅读进度，PWA 离线；桌面端自动同步、「同步到网页」开关和删除云端数据 | — | feat/web-dashboard-relay · feat/web-dashboard-sync · feat/web-dashboard | 11-27 | 三个 PR 已开：服务端 #1329、桌面端 #1330（叠在 #1329 上）、网页 #1332；等 CI 和测试员，部署要等店主批准 |

@@ -942,10 +942,10 @@ function editGame(id){
   const game=model.games.find(g=>g.id===id);
   /* E281 (user: polish the add game dialog): the program comes first as one large card that shows the file name and its
      folder; picking it fills the name from the folder when the name is still empty. Paths can still be typed. */
-  const words=({zh:{kicker:'书架',sub:'选好游戏程序，名字会自动填上',pick:'选择游戏程序',pickSub:'游戏文件夹里的 .exe',change:'更换',path:'或直接粘贴路径',name:'游戏名称',namePh:'选好程序后自动填写'},
+  const words=({zh:{kicker:'书架',sub:'选好游戏程序，名字会自动填上',pick:'选择游戏程序',pickSub:'游戏文件夹里的 .exe',change:'更换',path:'或直接粘贴路径',name:'游戏名称',namePh:'选好程序后自动填写',finding:'正在查找作品名…'},
    en:{kicker:'Library',sub:'Pick the game program; the name fills itself in',pick:'Choose the game program',pickSub:'The .exe in the game folder',change:'Change',
-    path:'or paste a path',name:'Game name',namePh:'Filled in after picking the program'},
-   ja:{kicker:'ライブラリ',sub:'実行ファイルを選ぶと名前が自動で入ります',pick:'実行ファイルを選択',pickSub:'ゲームフォルダ内の .exe',change:'変更',path:'またはパスを貼り付け',name:'作品名',namePh:'実行ファイルを選ぶと自動入力'}})[locale]||{
+    path:'or paste a path',name:'Game name',namePh:'Filled in after picking the program',finding:'Looking up the title…'},
+   ja:{kicker:'ライブラリ',sub:'実行ファイルを選ぶと名前が自動で入ります',pick:'実行ファイルを選択',pickSub:'ゲームフォルダ内の .exe',change:'変更',path:'またはパスを貼り付け',name:'作品名',namePh:'実行ファイルを選ぶと自動入力',finding:'作品名を検索中…'}})[locale]||{
     };
   const dialog=modal(`<header class="game-dialog-head"><span class="game-dialog-kicker">${words.kicker}</span><h2>${game?text.editGame:text.addGame}</h2><p>${words.sub}</p></header><form id="game-form" class="game-form"><button type="button" class="exe-card" id="pick-exe" aria-label="${text.selectFile}"><span class="exe-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M12 11v5M9.5 13.5h5"/></svg></span><span class="exe-card-text"><strong data-exe-name>${words.pick}</strong><small data-exe-dir>${words.pickSub}</small></span><span class="exe-card-action" data-exe-action>${({zh:'浏览…',en:'Browse…',ja:'参照…'})[locale]}</span></button><label class="form-label game-path-label" for="game-exe">${text.executable} · ${words.path}</label><input id="game-exe" class="form-input game-path" required spellcheck="false" autocomplete="off" value="${esc(game?.executable||'')}"><label class="form-label" for="game-title">${words.name||text.gameTitle}</label><input id="game-title" class="form-input game-name" required maxlength="240" placeholder="${esc(words.namePh||'')}" value="${esc(game?.title||'')}">${game?`<label class="form-label" for="game-vndb">VNDB</label><input id="game-vndb" class="form-input" spellcheck="false" autocomplete="off" value="${esc(game.vndbId||'')}" placeholder="${({zh:'v12345 或 https://vndb.org/v12345，留空则自动匹配',en:'v12345 or https://vndb.org/v12345; leave empty to match automatically',ja:'v12345 または https://vndb.org/v12345（空欄で自動）'})[locale]}"><span class="form-label">${({zh:'封面',en:'Cover',ja:'カバー画像'})[locale]}</span><div class="image-picker"><img id="game-cover-preview" alt="" src="${esc(game.cover||'')}" ${game.cover?'':'hidden'}><button type="button" class="secondary" id="pick-cover">${({zh:'更换封面…',en:'Change cover…',ja:'画像を変更…'})[locale]}</button></div>`:''}<div class="dialog-actions"><button type="button" class="secondary" id="cancel-game">${text.cancel}</button><button class="primary" type="submit">${text.save}</button></div></form>`);
   dialog.classList.add('game-dialog');
@@ -955,6 +955,11 @@ function editGame(id){
    dialog.querySelector('[data-exe-name]').textContent=value?parts.at(-1):words.pick;dialog.querySelector('[data-exe-dir]').textContent=value?parts.slice(0,-1).join('\\'):words.pickSub;
    dialog.querySelector('[data-exe-action]').textContent=value?words.change:({zh:'浏览…',en:'Browse…',ja:'参照…'})[locale];};
   const folderName=value=>{const parts=String(value).split(/[\\/]+/).filter(Boolean);return (parts.at(-2)||'').trim();};
+  /* an empty name is filled with the work's name (the seed's, else VNDB's), the folder name only when neither knows the game;
+     autoTitle is what was filled in, so the save can tell it from a name the user typed (core/library-title.cjs) */
+  let autoTitle=null;
+  const fillTitle=async file=>{titleInput.placeholder=words.finding||'';let found=folderName(file);try{found=(await api('game_title_lookup',{executable:file}))?.title||found;}catch{}
+   titleInput.placeholder=words.namePh||'';if(!titleInput.value.trim()&&exeInput.value.trim()===file){titleInput.value=found;autoTitle=found;}};
   exeInput.addEventListener('input',()=>{titleInput.required=!discImagePaths([exeInput.value.trim()]).length;showExe();});showExe();
   dialog.querySelector('#cancel-game').addEventListener('click',()=>dialog.close());
   // A picked cover is saved at once, like a series cover; automatic metadata refresh keeps it.
@@ -962,11 +967,11 @@ function editGame(id){
    if(!path)return;const result=await api('game_cover',{id,path});const preview=dialog.querySelector('#game-cover-preview');preview.src=result.cover;preview.hidden=!result.cover;
    model=await api('home');renderRoute();toast(text.saved);}catch(error){toast(errorMessage(error));}finally{button.disabled=false;}});
   dialog.querySelector('#pick-exe').addEventListener('click',async()=>{try{const directory=game?(await api('game_original_executable',{id})).directory:undefined;
-   const file=await invoke(game?'pick_executable':'pick_patch_file',{directory,title:({zh:'选择游戏程序或光盘镜像',en:'Choose a game program or disc image',ja:'実行ファイルまたはディスクイメージを選択'})[locale]});if(file){if(!game&&discImagePaths([file]).length){dialog.close();await installDisc([file]);return;}exeInput.value=file;showExe();if(!titleInput.value.trim()){titleInput.value=folderName(file);
-   }}}catch{toast(text.serviceFailed);}});
+   const file=await invoke(game?'pick_executable':'pick_patch_file',{directory,title:({zh:'选择游戏程序或光盘镜像',en:'Choose a game program or disc image',ja:'実行ファイルまたはディスクイメージを選択'})[locale]});if(file){if(!game&&discImagePaths([file]).length){dialog.close();await installDisc([file]);return;}exeInput.value=file;showExe();if(!titleInput.value.trim())await fillTitle(file);
+   }}catch{toast(text.serviceFailed);}});
   // The VNDB entry is sent only when it was edited; a new entry refreshes the game's metadata right away.
   dialog.querySelector('#game-form').addEventListener('submit',async event=>{event.preventDefault();try{const paths=discImagePaths([exeInput.value.trim()]);if(!game&&paths.length){dialog.close();await installDisc(paths);return;}const vndbInput=dialog.querySelector('#game-vndb'),vndb=vndbInput&&vndbInput.value.trim()!==(game?.vndbId||'')?vndbInput.value:undefined;
-   const saved=await api('save_game',{id,title:dialog.querySelector('#game-title').value,executable:dialog.querySelector('#game-exe').value,vndb});dialog.close();
+   const saved=await api('save_game',{id,title:dialog.querySelector('#game-title').value,executable:dialog.querySelector('#game-exe').value,vndb,...(game?{}:{titleAuto:autoTitle!==null&&titleInput.value.trim()===autoTitle})});dialog.close();
    model=await api('home');renderRoute();toast(text.gameSaved);if(saved?.vndbChanged)api('game_enrich',{id,locale,refresh:true}).then(async()=>{model=await api('home');
    renderRoute();}).catch(()=>{});}catch(error){toast(errorMessage(error));}});
 }
@@ -1437,6 +1442,9 @@ async function start(){
      }
     await api('preserve_ui',{values:recovered});
     model=await api('home');setAppearance();document.documentElement.classList.add('app-boot-pre');shell();
+    /* 2026-11-27 a side-by-side test build says what it is (「测试版 · main＠abc1234 + PR #1312」, MEGULIT_TEST_BUILD; its updater is off) */
+    api('test_build').then(r=>{if(!r?.label||document.querySelector('.test-build-label'))return;const el=document.createElement('div');el.className='test-build-label';el.setAttribute('role','status');el.textContent=r.label;
+     el.style.cssText='position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:2147483000;pointer-events:none;font:12px/1.7 system-ui,sans-serif;padding:1px 12px;border-radius:10px;background:rgba(173,21,57,.88);color:#fff;white-space:nowrap';document.body.append(el);}).catch(()=>{});
     /* P0: start the check immediately; the update owns the startup queue until it is dismissed */
     if(!window.__megulitUpdateChecked){window.__megulitUpdateChecked=true;
      const updates=checkForUpdates({api,invoke,version:VERSION,toast});

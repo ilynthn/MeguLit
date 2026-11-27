@@ -716,8 +716,10 @@ async function dispatch(request,runtime=null) {
         if(!title)throw Error('INVALID_TITLE');
         if(!path.isAbsolute(executable)||!executable.toLowerCase().endsWith('.exe')||!fs.existsSync(executable)||!fs.statSync(executable).isFile())throw Error('INVALID_EXECUTABLE');
         if(request.id){
-          const existing=db.prepare('SELECT id,original FROM games WHERE id=?').get(String(request.id));if(!existing)throw Error('GAME_NOT_FOUND');
+          const existing=db.prepare('SELECT id,title,original FROM games WHERE id=?').get(String(request.id));if(!existing)throw Error('GAME_NOT_FOUND');
           const original=JSON.parse(existing.original);if(original.library)original.library.exe=executable;
+          /* a name the user changed is theirs: seed and VNDB matches no longer replace it (core/library-title.cjs) */
+          if(title!==existing.title)original.titleSource='user';
           // vndb: a VNDB entry chosen by the user ("" goes back to automatic matching); left out, it stays as it is.
           const vndb=request.vndb===undefined?undefined:require('./game-enrichment.cjs').vndbIdFrom(request.vndb),vndbChanged=vndb!==undefined&&vndb!==(original.vndbManual||'');
           if(vndbChanged){if(vndb)original.vndbManual=vndb;else delete original.vndbManual;
@@ -736,10 +738,15 @@ async function dispatch(request,runtime=null) {
         const sameSteam=match&&!match.removed_at&&original.library?.source==='steam'&&!original.library?.steamRejected&&/^\d+$/.test(String(original.library?.appid||''))&&String(match.executable||'').toLowerCase()===executable.toLowerCase();
         const source=sameSteam?'steam':'manual';
         original.library={...original.library,source,steamRejected:false,dir:path.dirname(executable),exe:executable,executableSignature:library.signature(executable)};
+        /* titleAuto: the add dialog filled the name itself (the work's name it looked up, or the folder name); false: the user typed
+           it. A folder or program name is replaced by the work's name once the seed or VNDB match is known (core/library-title.cjs) */
+        {const T=require('../core/library-title.cjs');original.titleSource=T.isFallback(title,executable)?'folder':request.titleAuto===true?'work':request.titleAuto===false?'user':'scan';}
         if(match)db.prepare("UPDATE games SET title=?,executable=?,source=?,removed_at=NULL,original=? WHERE id=?").run(title,executable,source,JSON.stringify(original),id);
         else db.prepare('INSERT INTO games(id,title,executable,source,original) VALUES (?,?,?,?,?)').run(id,title,executable,'manual',JSON.stringify(original));
         require('./series.cjs').autoGroup(db,root);runtime?.metadata().enqueue([id]);require('./torch-receive.cjs').enqueue(root,[id],{force:true,priority:'user'});return {id};
       }
+      /* the add dialog's name for a picked program: the seed's work name, else VNDB's, else the folder name (core/library-title.cjs) */
+      case 'game_title_lookup':return await require('./game-enrichment.cjs').lookupTitle(root,String(request.executable||'').trim());
       case 'hidden_games':return db.prepare('SELECT id,title FROM games WHERE hidden_at IS NOT NULL AND removed_at IS NULL ORDER BY title').all();
       case 'set_game_hidden':{
         const result=db.prepare('UPDATE games SET hidden_at=? WHERE id=? AND removed_at IS NULL').run(request.hidden===true?Math.floor(Date.now()/1000):null,String(request.id));
@@ -805,6 +812,7 @@ async function dispatch(request,runtime=null) {
       case 'update_apply':return await require('./update.cjs').apply(root,String(request.current||''));
       case 'update_start':{const u=require('./update.cjs');u.start(root,String(request.current||''),fetch,{forceLatest:request.forceLatest===true});return u.status();}
       case 'update_status':return require('./update.cjs').status();
+      case 'test_build':return {label:String(process.env.MEGULIT_TEST_BUILD||'').trim()};
       case 'update_install':return await require('./update.cjs').install(root);
       /* 2026-11-15 adaptation contribution consent (services/adapter-contrib.cjs): the update card's 同意并下一步 / 不参与, the beta note */
       case 'contrib_consent':return require('./adapter-contrib.cjs').consentState(root);

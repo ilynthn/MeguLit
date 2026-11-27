@@ -82,3 +82,6 @@ web/preview/*.local.js
 
 # release notes are written outside the repo (Release.ps1 -Notes <path>)
 /notes-*.md
+
+# megulit.com offline dictionary shards: built from the app dictionary by site/tools/build-web-dict.cjs before a site deploy
+site/public/dict/
