@@ -1,0 +1,24 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "e77a11486b6d94a42f9d7d39fd768b4e763f163b977d3eaed94cf9e13217f995",
+ "layer": "version",
+ "source": "official",
+ "settings": {
+  "source": {
+   "autoSelectSkip": [
+    "^YU-RIS2?$"
+   ]
+  }
+ },
+ "exe": "euphoriaHD.exe",
+ "engine": "yuris",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "exe": "e77a11486b6d94a42f9d7d39fd768b4e763f163b977d3eaed94cf9e13217f995",
+  "head": "a3ec0212e502ce3f14bf2686f13530e191e062f88779054073b115859c299723",
+  "pe": "1.0.0.0@5327a4a9"
+ },
+ "rev": 1
+}

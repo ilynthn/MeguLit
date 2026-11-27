@@ -1,0 +1,4 @@
+{"t":1795000000000,"m":{"type":"hookSource","text":"オープニングを見るオープニングを見るメインルームへメインルームへ","sourceName":"YU-RIS2","sourceCode":"HSNC:14@3E292:euphoriaHD.exe","hookActive":true,"streamProbe":0}}
+{"t":1795000000005,"m":{"type":"hookAuxText","text":"メインルームへメインルームへ","sourceName":"YU-RIS","role":0}}
+{"t":1795000000010,"m":{"type":"hookAuxText","text":"オープニングを見るオープニングを見るメインルームへメインルームへ","sourceName":"YU-RIS2","role":0}}
+{"t":1795000000015,"m":{"type":"hookAuxText","text":"オープニングを見るオープニングを見る","sourceName":"YU-RIS","role":0}}

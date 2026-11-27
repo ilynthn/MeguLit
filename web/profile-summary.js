@@ -9,6 +9,8 @@ const layerNames = {
 
 const settingNames = {
  'source.artemisQuoteSpans':'Artemis 跨片段引号台词合并',
+ 'source.autoSelectSkip':'不自动选为台词的文本流',
+ 'page.skipMergedTail':'快进合并文本只留最后几句（字数）',
  'source.siglusDbsNameColumn':'Siglus DBS 人名列编号',
  'placement.firstLineAnchor':'首行定位基准',
  'placement.dialogueArea':'游戏对话区参考位置',

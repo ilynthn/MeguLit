@@ -93,7 +93,7 @@ class HookNative{
   const now=this.bridgeProfile();if(this.process&&JSON.stringify(now)!==before)this.send({type:'profile',...now});}
  setOwnerTestGrant(token){const O=require('./owner-tests.cjs');if(token&&!O.identity(token,this.profileInput?.exe))return false;if(this.ownerTestGrant===token)return;require('./danganronpa-pc-source.cjs').clear(this);this.ownerTestCleanup?.();if(this.ownerTestGrant)O.revoke(this.ownerTestGrant);this.ownerTestGrant=token||null;if(!token)return;const target=this.target;if(!target||!O.bind(token,{pid:target.pid,birth:target.started})){O.revoke(token);this.ownerTestGrant=null;return;}this.ownerTestCleanup=O.onRevoke(token,()=>{this.ownerTestGrant=null;require('./danganronpa-pc-source.cjs').clear(this);this.profile=O.apply(this.profile,null,{});this.enabled=false;this.send({type:'disable',reason:'owner-test-revoked'});this.drawSync();});this.drawSync();}
  /* the part of the profile the bridge reads; keys left at null (kernel rule) are not sent */
- bridgeProfile(){const t=this.profile?.hide?.engineTrial||{},out={};for(const k of ['enabled','unconfirmedLines','clickMs','skipAside'])if(t[k]!==null&&t[k]!==undefined)out[k]=t[k];const profile={engineTrial:out};if(this.sadisticPage)profile.sadisticTrialLayout=true;if(this.profile?.engine==='artemis'&&this.profile?.source?.artemisQuoteSpans===true)profile.artemisQuoteSpans=true;return profile;}
+ bridgeProfile(){const t=this.profile?.hide?.engineTrial||{},out={};for(const k of ['enabled','unconfirmedLines','clickMs','skipAside'])if(t[k]!==null&&t[k]!==undefined)out[k]=t[k];const profile={engineTrial:out};if(this.sadisticPage)profile.sadisticTrialLayout=true;if(this.profile?.engine==='artemis'&&this.profile?.source?.artemisQuoteSpans===true)profile.artemisQuoteSpans=true;{const skip=this.profile?.source?.autoSelectSkip;if(Array.isArray(skip)&&skip.length)profile.autoSelectSkip=skip.filter(s=>typeof s==='string'&&s&&s.length<=100).slice(0,16);}return profile;}
  /* a game the library knows no engine for: the first page record of an engine text path (krkr -> kirikiri) adds that engine's diff */
  learnEngine(name){try{if(this.profile?.engine!=='unknown')return;const id=Profiles.engineId(name);if(!id||!Profiles.loadEngine(id))return;this.setProfile(Profiles.profileFor({...(this.profileInput||{}),engine:id}));}catch{}}
  notify(v){if(Object.entries(v).every(([k,value])=>this.state[k]===value))return;this.state={...this.state,...v};this.emit({type:'hook',...v});}
@@ -439,7 +439,7 @@ class HookNative{
     game. Refused: while the dialogue line is on the picture or a hook line is current, four or more groups at once (a menu, a
     settings page with its sample text), logos and OCR noise (art-filter), stacked short rows (a list), unreadable text, a part
     of the hook line, and the same text again within a minute. The line goes through source(), so line-once applies as to any line. */
- ocrLine(m){try{if(!m||m.source!=='ocr'||m.foreign===true||m.id==null)return;const O=this.ocr||(this.ocr={shown:new Map(),said:new Map(),done:new Set(),timer:null,lastText:''});
+ ocrLine(m){try{if(!m||m.source!=='ocr'||m.foreign===true||m.id==null)return;if(process.env.MEGULIT_HOOK_RECORD)try{fs.appendFileSync(process.env.MEGULIT_HOOK_RECORD,JSON.stringify({t:this.now(),m:{...m,type:'artText'}})+String.fromCharCode(10));}catch{}const O=this.ocr||(this.ocr={shown:new Map(),said:new Map(),done:new Set(),timer:null,lastText:''});
   if(m.visible!==true||typeof m.text!=='string'){O.shown.delete(m.id);this.ocrGroupGone(m.id);return;}
   /* a group is taken once, when its reading has stopped changing (a fade in or out reads as garble); later readings of the same group are ignored */
   if(O.done.has(m.id))return;const was=O.shown.get(m.id),now=this.now();
@@ -468,6 +468,10 @@ class HookNative{
    const flat=HookNative.flat(it.text);O.said.set(flat,now);if(O.said.size>200)O.said.delete(O.said.keys().next().value);take.push(it);}
   /* 2026-11-19 (素晴らしき日々, live: the notice screen's three paragraphs came as three lines in 30 ms, the reader kept only the last):
      the groups taken together are one screen, one line, top to bottom */
+  /* #1143 (euphoria HD title, live: 「・`最初から始める」「続きから始める」「おまけ」 came as three one-row groups in one flush, each passed alone and
+     the three were joined into one line that stayed on screen into the next scene). Short label rows stacked one under the other are a
+     menu whether the scan grouped them or not: the art-list rule (art-filter.cjs artList) also judges the groups taken together */
+  if(take.length>=2&&take.every(it=>(it.rows||[]).length<=1)&&require('./art-filter.cjs').artList(take.flatMap(it=>it.rows||[]))){this.trace('ocr lines refused (a list across '+take.length+' groups) '+JSON.stringify(take.map(it=>it.text.trim()).join('|').slice(0,60)));take.length=0;}
   if(take.length){const box=take.flatMap(it=>it.rows).reduce((b,r)=>{const x=+r?.x,y=+r?.y,w=+r?.w,h=+r?.h;if(![x,y,w,h].every(Number.isFinite))return b;return b?{x0:Math.min(b.x0,x),y0:Math.min(b.y0,y),x1:Math.max(b.x1,x+w),y1:Math.max(b.y1,y+h)}:{x0:x,y0:y,x1:x+w,y1:y+h};},null);
    const top=it=>Math.min(...it.rows.map(r=>+r?.y).filter(Number.isFinite),Infinity),text=take.slice().sort((a,b)=>top(a)-top(b)).map(it=>it.text.trim()).join(String.fromCharCode(10)),sw=take[0].sw,sh=take[0].sh;
    this.trace('ocr line '+JSON.stringify(text.slice(0,40)));O.lastText=text;
@@ -500,6 +504,11 @@ class HookNative{
  static ocrSentence(flat){const t=String(flat||''),n=[...t].length;return n>=12&&/[぀-ヿ]/.test(t)&&(/[。！？!?]/.test(t)||/(ます|ました|ましょう|ません|です|ください)/.test(t));}
  ocrLineRefused(it,now){const f=require('./art-filter.cjs'),t=String(it.text||'').trim(),flat=HookNative.flat(t),n=[...flat].length,O=this.ocr,kana=/[぀-ヿ]/.test(flat);
   if(it.dialogSeen)return 'the dialogue line is on the picture';
+  /* #1143 (euphoria HD, live: the opening choice オープニングを見る / メインルームへ was located and drawn, then the art scan read the same two
+     rows 0.3 s later, took them as a dialogue line and the new line cleared the choice; on the next choice a 3-character misreading of
+     the background, 「)第に」, did the same 10 s later). Rows that are the options on screen are the choice itself, and while located
+     options are on screen the art scan's text is no new line either (the hook still brings the next line), on every engine */
+  {const opts=(this.state?.hookChoices?.items||[]).map(i=>HookNative.flat(i?.text)).filter(Boolean);if(opts.length){const rows=(it.rows?.length?it.rows.map(r=>String(r?.text||'')):t.split(String.fromCharCode(10))).map(r=>HookNative.flat(r)).filter(Boolean);if(rows.length&&rows.every(r=>opts.some(o=>o===r||[...r].length>=2&&(o.includes(r)||r.includes(o)))))return 'the choice on screen';if((this.state?.hookChoices?.items||[]).some(i=>Number.isFinite(i?.y1)&&i.y1>i.y0))return 'a choice is on screen';}}
   const line=String(this.lastSource||'').trim();if(line&&line!==O.lastText&&this.engineDialog!==false&&now-(this.lastSourceAt||0)<OCR_LINE_QUIET_MS)return 'a hook line is current';
   /* a title or menu screen: three or more rows on the picture that are no Japanese group (START, LOAD, CONFIG, a copyright line) */
   /* 2026-11-21 (owner, STEINS;GATE: 「【フォーントリガー】ボタンで携帯電話を呼び出して、…」 a tutorial over the game's button legend was refused as a menu and never
@@ -563,6 +572,13 @@ class HookNative{
      has arrived, then the usual "part of the current line" check drops it */
   {const t=m.text;const at=setTimeout(()=>this.artCandidate(t),AUX_ART_DELAY_MS);at.unref?.();}try{this.textEffectsFrame(m.text);}catch{}/* 2026-11-19 (千恋＊万花 settings page: 「オオ」「テテ」 went to OCR as options) no choice candidates while the dialogue box is gone for a known reason */if(this.dialogGoneAt&&Date.now()-this.dialogGoneAt>=800){this.trace('choice aux skipped: dialogue box gone');return;}const C=this.choice||(this.choice=this.newChoiceCapture());if(/^SiglusEngine[234]$/.test(m.sourceName||''))C.noteSiglusFrame(m.text);const added=C.add(m.text,this.lastSource,this.speaker?.text);
   this.trace('choice aux '+String(m.sourceName||'').slice(0,40)+' role='+(m.role??'')+' added='+JSON.stringify(added)+' text='+JSON.stringify(String(m.text).slice(0,80)));
+  /* #1143 (euphoria HD, every engine): the stream taken as the dialogue drew the options of a choice screen together, other streams drew
+     them apart; the "line" is the options: it is taken back from the reader and the pieces go to the choice detector */
+  {const now=this.now();this.auxRecent=(this.auxRecent||[]).filter(x=>now-x.at<800);this.auxRecent.push({text:String(m.text),at:now});
+   if(!added.length&&this.lastSource&&now-(this.lastSourceAt||0)<800){const frame=ChoiceCapture.frameOf(this.lastSource,this.auxRecent.map(x=>x.text));
+    if(frame){this.trace('choice frame taken back from the dialogue '+JSON.stringify(frame));C.lines=C.lines.filter(l=>l!==HookNative.flat(this.lastSource).replace(/\s+/g,''));C.dialogue='';this.lastSource='';this.lastSourceAt=0;
+     this.notify({hookSource:'',hookSpeaker:'',hookSourceOrigin:'choice-frame',hookSequence:(this.state.hookSequence||0)+1});
+     for(const p of frame)added.push(...C.add(p,'',''));}}}
   if(!added.length)return;clearTimeout(this.choiceTimer);this.choiceTimer=setTimeout(()=>this.requestChoices(0),450);this.choiceTimer.unref?.();}
  /* 2026-11-21 (ファタモルガーナの館 r30: 「choice locate options=["お声が聞けて","かったです","か良ったか良でっす…"]」): a text effect's interleaved frame and a piece
     of the dialogue line are not options. Interleaved: one pair of characters three times or more, or few distinct characters for its length */
@@ -1187,8 +1203,16 @@ class HookNative{
   if(this.originalText){for(let i=cuts.length-1;i>=0;i--){const part=s.slice(cuts[i]).trim();if(part.length<2)continue;
    const r=this.resolveSource(part.replace(/^[^「『\s]{1,8}(?=[「『])/,''))||this.resolveSource(part);if(r&&(r.status==='exact'||r.status==='high')){for(let k=i-1;k>=Math.max(0,i-4);k--){const longer=s.slice(cuts[k]).trim(),q=this.resolveSource(longer);if(!q||q.status!=='exact'&&q.status!=='high')break;i=k;}return s.slice(cuts[i]).trim();}}}
   const speakers=[...s.matchAll(/(?:^|[。！？!?…」』])([^\s「」『』。！？!?…]{1,8})[「『]/g)];
-  if(speakers.length>=2){const at=speakers[speakers.length-1].index+(/^[。！？!?…」』]/.test(speakers[speakers.length-1][0])?1:0);const tail=s.slice(at).trim();if(tail.length>=2&&tail.length<s.length*.6)return tail;}
-  return s;
+  if(speakers.length>=2){const at=speakers[speakers.length-1].index+(/^[。！？!?…」』]/.test(speakers[speakers.length-1][0])?1:0);const tail=s.slice(at).trim();if(tail.length>=2&&tail.length<s.length*.6)return this.mergedTail(tail);}
+  return this.mergedTail(s);
+ }
+ /* #1143 (euphoria HD, Ctrl held: YU-RIS6 handed over 505 characters of narration after one speaker line, no script, one speaker, and
+    642 characters whose part after the last speaker was still 205: the reader drew all of it over the screen). page.skipMergedTail
+    (engine layer): a merged text, or its part after the last speaker, over twice that many characters keeps its last sentences up to
+    that many characters (at least the last one); null = the kernel: it stays as the rules above left it */
+ mergedTail(s){const keep=Profiles.get(this.profile,'page.skipMergedTail',null);if(!(Number.isFinite(keep)&&keep>0&&s.length>keep*2))return s;
+  const cuts=[];const re=/[。！？!?…」』）)―─]+(?=[^。！？!?…」』）)―─])/g;let m;while((m=re.exec(s)))cuts.push(m.index+m[0].length);if(!cuts.length)return s;
+  let i=cuts.length-1;while(i>0&&s.length-cuts[i-1]<=keep)i--;const tail=s.slice(cuts[i]).trim();return tail.length>=2?tail:s;
  }
  deliverSource(text,origin,engine='',nativeLine=0,authority){if(require('./danganronpa-pc-source.cjs').shouldBlock(this,authority,origin))return;
   if(require('./unity-il2cpp-source.cjs').shouldBlock(this.textPath,authority||{origin},this.target))return;

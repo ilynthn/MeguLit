@@ -1,5 +1,6 @@
 {
  "fata.jsonl": {"exe": "fata_jp.exe", "locate": ["……おはよう……", "…………"], "shown": ["……おはよう……"]},
  "atri.jsonl": {"exe": "ATRI-MyDearMoments-.exe", "locate": ["アトリを行かせるアトリは俺が預かる"], "shown": ["アトリを行かせる", "アトリは俺が預かる"]},
- "clannad.jsonl": {"exe": "SiglusEngine_Steam.exe", "locate": ["上書きで何か吹き込む", "やめておく"], "shown": ["上書きで何か吹き込む", "やめておく"]}
+ "clannad.jsonl": {"exe": "SiglusEngine_Steam.exe", "locate": ["上書きで何か吹き込む", "やめておく"], "shown": ["上書きで何か吹き込む", "やめておく"]},
+ "euphoria-hd.jsonl": {"exe": "euphoriaHD.exe", "locate": ["オープニングを見る", "メインルームへ"]}
 }

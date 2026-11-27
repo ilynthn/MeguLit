@@ -46,6 +46,17 @@ function balanced(line){let d=0;for(const c of String(line||'')){if('「『（(�
 function stripNames(line){let s=line,prev;do{prev=s;s=s.replace(/^【([^】]{1,16})】\1?/,'');}while(s!==prev&&s);return s;}
 class ChoiceCapture{
  constructor(now=()=>Date.now()){this.now=now;this.items=[];this.active=false;this.at=0;this.lines=[];this.names=new Set();this.dialogue='';this.grewAt=0;this.order=null;}
+ /* #1143 (euphoria HD: the first screen is a choice, no dialogue stream yet; the bridge took the stream that draws the options as the
+    dialogue and sent 「AABB」 as a line while other streams sent 「AA」 and 「BB」): a line made only of two or more distinct pieces that
+    other streams sent apart (each piece maybe drawn twice or three times in a row) is the options drawn together, not dialogue.
+    Returns the pieces in line order, or null. Every engine. */
+ static frameOf(line,texts){const d=plain(line);if(d.length<4||d.length>400)return null;
+  /* a spoken or narrated line (sentence end, quotes) cut into the pieces a typing stream flushed is no frame of options */
+  if(/[。！？!?「」『』]/.test(d))return null;
+  const keys=[...new Set((texts||[]).map(t=>{const k=plain(t);return SYMBOLIC.test(k)?k:halves(k);}).filter(k=>k.length>=2&&k.length<=40&&k.length<d.length&&japanese(k)))];
+  if(keys.length<2)return null;
+  const walk=(p,used)=>{if(p===d.length)return used.length>=2&&new Set(used).size>=2?used:null;for(const k of keys){if(!d.startsWith(k,p))continue;let q=p+k.length,n=1;while(n<3&&d.startsWith(k,q)){q+=k.length;n++;}for(let m=n;m>=1;m--){const r=walk(p+k.length*m,[...used,k]);if(r)return r;}}return null;};
+  const used=walk(0,[]);return used&&new Set(used).size===used.length?used:null;}
  /* the text pieces one frame stands for */
  static pieces(text){const out=[];for(const raw of String(text||'').split(/\r?\n|\\n/)){let parts=raw.split(BULLETS).map(s=>s.trim()).filter(Boolean);if(parts.length<2){const n=numbered(raw);if(n)parts=n;}
    for(const p of parts.length?parts:[raw]){let line=stripNames(p.trim()).replace(/^[\d０-９]+[.．、:：)\]]\s*/,'');const key=plain(line);const h=SYMBOLIC.test(key)?key:halves(key);if(h!==key)line=h;out.push({line,doubled:h!==key,list:parts.length>=2});}}

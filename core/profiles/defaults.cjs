@@ -10,6 +10,9 @@ module.exports={
  source:{
   /* Artemis64x: retain a quoted message split across one callback batch; only a measured version opts in. */
   artemisQuoteSpans:false,
+  /* #1143 HookBridge streams (RegExp sources on the stream name, e.g. '^YU-RIS2?$') never auto-selected as the dialogue stream; their
+     text stays auxiliary (choice candidates) even before a dialogue stream is chosen. [] = the kernel: any stream may be taken */
+  autoSelectSkip:[],
   siglusDbsNameColumn:null,
  },
  placement:{
@@ -56,6 +59,9 @@ module.exports={
   /* a hook line no page line took within holdMs is delivered from the hook text unless the reader already has it; false = the
      kernel: dropped while the page is up ("drawn nowhere on the page, dropped") */
   keepHeld:false,
+  /* #1143 a live line that is a merged fast-forward text (core/hook-native.cjs lastOfMerged) over twice this many characters, which neither the
+     script nor a speaker change could cut, keeps its last sentences up to this many characters; null = the kernel: such a text stays whole */
+  skipMergedTail:null,
  },
  choice:{
   /* engine-draw: frame pictures (RegExp sources on the KAG message layer's frameGraphic) of the game's choice page: its text is drawn by
