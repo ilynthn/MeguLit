@@ -11,7 +11,7 @@ const games=[
  {slug:'b',engine:'siglus',status:'skeleton',vndb:'v2',title:'Beta',alttitle:'ベータ',developers:[{id:'p1',name:'Studio A',original:'スタジオA'}],cover:'nsfw'},
  {slug:'c',engine:'bgi',status:'read',vndb:'v3',title:'Gamma',alttitle:'',developers:[{id:'p2',name:'Studio B',original:''}],cover:'safe'}];
 const PIXEL='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-const PAGE=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${['app.css','game-dialog.css','controls-b-tokens.css','seed-catalog.css'].map(f=>`<link rel="stylesheet" href="${f}">`).join('')}</head><body>
+const PAGE=`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${['app.css','game-dialog.css','controls-b-tokens.css','seed-catalog.css','scrollbar.css'].map(f=>`<link rel="stylesheet" href="${f}">`).join('')}</head><body>
 <script type="module">
 import {openSeedCatalog} from './seed-catalog.js';
 import {initNsfw} from './nsfw.js';
@@ -39,18 +39,18 @@ test('catalog dialog: normal mode, the NSFW question, search, R18 filter, closin
  try{
   const page=await pageFor(browser);
   const state=()=>page.evaluate(()=>{const d=document.querySelector('dialog.seed-catalog');return d&&{open:d.open,mode:d.dataset.mode,sub:d.querySelector('[data-sub]').textContent,
-   cards:d.querySelectorAll('.sc-card').length,imgs:d.querySelectorAll('.sc-cover img').length,hidden:d.querySelectorAll('.sc-cover[data-state=hidden]').length,veils:d.querySelectorAll('.sc-veil').length,
+   cards:d.querySelectorAll('.sc-card').length,imgs:d.querySelectorAll('.sc-grid .sc-cover img').length,hidden:d.querySelectorAll('.sc-cover[data-state=hidden]').length,veils:d.querySelectorAll('.sc-veil').length,
    covers:calls.filter(c=>c[0]==='seed_cover').map(c=>c[1].vndb+'|'+c[1].nsfw)};});
   const settle=()=>page.waitForTimeout(150);
   await page.evaluate(g=>{localStorage.clear();open_({games:g,offline:false,safeOnly:false});},games);await settle();
   let s=await state();
   assert.equal(s.open,true);assert.equal(s.sub,'3 部游戏 · 3 颗种子 · 2 个游戏社');assert.equal(s.cards,3);
   assert.equal(s.mode,'normal','the global setting is off');
-  assert.equal(s.hidden,0);assert.equal(s.veils,0);assert.equal(s.imgs,3,'the tested games show every cover, the adult one too');assert.ok(s.covers.includes('v2|true'));
+  assert.equal(s.hidden,0);assert.equal(s.veils,0);assert.equal(s.imgs,2,'the open studio shows every cover, the adult one too; the folded one loads its covers when opened');assert.ok(s.covers.includes('v2|true'));
   await page.click('[data-close]');await settle();
   await page.evaluate(()=>{setNsfw(true);return startNsfw();});await settle();
   await page.evaluate(g=>{calls.length=0;open_({games:g,offline:false,safeOnly:false});},games);await settle();s=await state();
-  assert.equal(s.mode,'nsfw','the global setting is on');assert.equal(s.veils,0);assert.equal(s.imgs,3);
+  assert.equal(s.mode,'nsfw','the global setting is on');assert.equal(s.veils,0);assert.equal(s.imgs,2);
   await page.fill('[data-search]','gamma');await settle();s=await state();assert.equal(s.cards,1);
   await page.click('[data-close]');await settle();s=await state();assert.equal(s,null,'Close removes the dialog');
   await page.evaluate(g=>{open_({games:g,offline:true,safeOnly:false});},games);await settle();
@@ -60,6 +60,61 @@ test('catalog dialog: normal mode, the NSFW question, search, R18 filter, closin
   assert.equal(s.mode,'normal');assert.equal(s.veils,1);assert.ok(!s.covers.some(c=>c.endsWith('|true')),'the R18 filter: no NSFW cover is asked for');
   assert.match(await page.textContent('.sc-veil'),/成人内容/);
   await page.mouse.click(5,5);await settle();s=await state();assert.equal(s,null,'a click on the backdrop closes it');
+ }finally{await browser.close();}
+});
+
+/* 2026-11-27 (user: 太乱了 滚动条也隐藏了 打开的时候分社自动折叠 只展开第一排): each studio is one folded row, only the first open */
+const many=[['p1','Studio A',['Alpha','Beta','Gamma']],['p2','Studio B',['Delta','Epsilon']],['p3','Studio C',['Kappa']],['p4','Studio D',['Eta']]]
+ .flatMap(([id,name,titles])=>titles.map((title,i)=>({slug:title.toLowerCase(),engine:'kirikiri',status:'verified',vndb:'v'+id+i,title,alttitle:'',developers:[{id,name,original:''}],cover:'safe'})));
+test('catalog dialog: studios open folded, only the first one open; a row folds, expand all, search, the scrollbar shows',{skip:!chromium&&'no playwright-core'},async()=>{
+ const browser=await chromium.launch({channel:'msedge',headless:true,ignoreDefaultArgs:['--hide-scrollbars']});
+ try{
+  const page=await pageFor(browser);await page.setViewportSize({width:1100,height:700});
+  /* which rows are open, by the DOM state, by aria and by what is actually drawn */
+  const rows=()=>page.evaluate(()=>[...document.querySelectorAll('dialog.seed-catalog .sc-group')].map(g=>{const b=g.querySelector('[data-toggle]'),f=g.querySelector('[data-fold]');
+   return {key:g.dataset.group,open:g.hasAttribute('data-open'),aria:b.getAttribute('aria-expanded'),h:Math.round(f.getBoundingClientRect().height),shown:getComputedStyle(f).visibility==='visible',thumbs:g.querySelectorAll('.sc-peek .sc-thumb').length};}));
+  const openKeys=async()=>(await rows()).filter(r=>r.open).map(r=>r.key);
+  const settle=()=>page.waitForTimeout(400);
+  await page.evaluate(g=>open_({games:g,offline:false,safeOnly:false}),many);await settle();
+  let r=await rows();
+  assert.deepEqual(r.map(x=>x.key),['p1','p2','p3','p4']);
+  assert.deepEqual(r.map(x=>x.open),[true,false,false,false],'only the first studio is open');
+  assert.deepEqual(r.map(x=>x.aria),['true','false','false','false']);
+  assert.ok(r[0].h>100&&r[0].shown,'the first studio shows its covers');
+  for(const x of r.slice(1)){assert.equal(x.h,0,x.key+' is one row');assert.equal(x.shown,false,x.key+' hides its cards');}
+  assert.equal(r[1].thumbs,2,'a folded row previews its covers');
+  assert.equal(await page.evaluate(()=>document.querySelectorAll('.sc-group:not([data-open]) .sc-grid img').length),0,'folded studios do not load their big covers yet');
+  /* the scrollbar is drawn, thin */
+  const bar=await page.evaluate(()=>{const b=document.querySelector('dialog.seed-catalog .sc-body');return b.offsetWidth-b.clientWidth;});
+  assert.ok(bar>0&&bar<=10,'the list has a thin visible scrollbar, got '+bar);
+  /* a click on the row opens it with a short height transition; again folds it */
+  assert.ok(await page.evaluate(()=>parseFloat(getComputedStyle(document.querySelector('[data-fold]')).transitionDuration)>0),'the height change is animated');
+  await page.click('.sc-group[data-group="p2"] [data-toggle]');await settle();
+  r=await rows();assert.deepEqual(await openKeys(),['p1','p2']);assert.equal(r[1].aria,'true');assert.ok(r[1].h>100&&r[1].shown);
+  assert.equal(await page.evaluate(()=>document.querySelectorAll('.sc-group[data-group="p2"] .sc-grid img').length),2,'opening loads its covers');
+  await page.click('.sc-group[data-group="p1"] [data-toggle]');await settle();
+  r=await rows();assert.deepEqual(await openKeys(),['p2']);assert.equal(r[0].h,0);assert.equal(r[0].aria,'false');
+  /* the introduction is its own button and does not fold the row */
+  await page.click('.sc-group[data-group="p3"] [data-dev]');await settle();assert.deepEqual(await openKeys(),['p2']);
+  /* expand all / fold all */
+  await page.click('[data-fold-all="1"]');await settle();assert.deepEqual(await openKeys(),['p1','p2','p3','p4']);
+  assert.equal(await page.evaluate(()=>document.querySelector('[data-fold-all="1"]').disabled),true);
+  await page.click('[data-fold-all="0"]');await settle();assert.deepEqual(await openKeys(),[]);
+  await page.click('.sc-group[data-group="p4"] [data-toggle]');await settle();assert.deepEqual(await openKeys(),['p4']);
+  /* search: the studios with a match open, the rest go away; clearing it gives back the rows as the user left them */
+  await page.fill('[data-search]','eta');await settle();
+  r=await rows();assert.deepEqual(r.map(x=>x.key),['p1','p4'],'Beta and Eta match, the other studios are hidden');assert.deepEqual(r.map(x=>x.open),[true,true]);assert.ok(r.every(x=>x.h>0&&x.shown));
+  await page.fill('[data-search]','studio c');await settle();r=await rows();assert.deepEqual(r.map(x=>[x.key,x.open]),[['p3',true]]);
+  await page.fill('[data-search]','');await settle();
+  r=await rows();assert.equal(r.length,4);assert.deepEqual(await openKeys(),['p4'],'what the user opened is remembered while the dialog is open');
+  /* a new opening starts folded again */
+  await page.click('[data-close]');await page.evaluate(g=>open_({games:g,offline:false,safeOnly:false}),many);await settle();
+  assert.deepEqual(await openKeys(),['p1']);
+  /* reduced motion: it just switches */
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await page.evaluate(()=>parseFloat(getComputedStyle(document.querySelector('[data-fold]')).transitionDuration)),0);
+  await page.click('.sc-group[data-group="p3"] [data-toggle]');
+  assert.ok(await page.evaluate(()=>document.querySelector('.sc-group[data-group="p3"] [data-fold]').getBoundingClientRect().height>0),'open at once, no transition');
  }finally{await browser.close();}
 });
 

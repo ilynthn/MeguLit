@@ -133,5 +133,7 @@ async function vndbReleases({titles=[],appid='',vnid=''}={},fetcher=globalThis.f
  const ext=urls=>{const u=(urls||[]).map(x=>x.url||'');return {steam:(/store\.steampowered\.com\/app\/(\d+)/.exec(u.find(x=>/steampowered/.test(x))||'')||[])[1]||'',dlsite:u.find(x=>/dlsite\.com/.test(x))||'',dmm:u.find(x=>/dmm\.(co\.jp|com)/.test(x))||''};};
  const releases=(r.results||[]).map(x=>({rid:x.id,title:x.title||'',engine:x.engine||'',langs:(x.languages||[]).map(l=>l.lang),patch:!!x.patch,official:!!x.official,released:x.released||'',platforms:x.platforms||[],ext:ext(x.extlinks)}));
  const zh=(vn?.titles||[]).find(t=>/^zh/.test(t.lang||''))?.title||'';
- return {vnid:id,how,title:vn?.title||'',zh,releases};}
+ /* ja: the original title (alttitle is VNDB's original-script title; a Japanese entry in titles otherwise) */
+ const ja=vn?.alttitle||(vn?.titles||[]).find(t=>t.lang==='ja')?.title||'';
+ return {vnid:id,how,title:vn?.title||'',ja,zh,releases};}
 module.exports={layoutFromTags,GameEnrichment,candidates,steamAppidFor,pickVn,vndbIdFrom,cleanTitle,jpForm,vndbReleases};

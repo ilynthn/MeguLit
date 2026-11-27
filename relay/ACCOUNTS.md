@@ -51,9 +51,13 @@ app calls from Node with no Origin, so no CORS change is needed.
 | DELETE | `/api/me` | Bearer | deletes the account, all sessions, all synced records |
 | GET | `/api/sync/:kind` | `?since=<seq>&limit=` | `{records:[{key,updated_at,deleted,data}],cursor,more}` |
 | PUT | `/api/sync/:kind` | `{records:[{key,updated_at,deleted?,data?}]}` | `{accepted,newer:[server records that won],cursor}` |
+| GET | `/api/sync` | Bearer | `{kinds:{<kind>:{cursor,records}}}`: newest seq and live record count per kind (the website pulls only kinds that moved) |
+| DELETE | `/api/sync` | Bearer, full session | 「删除云端数据」: every synced record of the account; the account and its sessions stay. 3 a day (`sync-wipe`) |
 
 Kinds and caps (per account): `words` 8 MB / 32 KB per record, `sentences` 4 MB / 40 KB, `reading` 1 MB / 1 KB,
-`settings` 512 KB / 32 KB. At most 500 records and 2 MB per PUT. Over the cap → `413 SYNC_QUOTA_EXCEEDED`.
+`settings` 512 KB / 32 KB, `progress` 256 KB / 1 KB, `study` 256 KB / 1 KB. `progress` (`{game,read,total?,seconds?,lastPlayedAt?}`)
+and `study` (`{day,lookups?,reviews?,newWords?,kana?,grammar?,anki?}`) take exactly those fields, numbers and a title only
+(`SCHEMA`), so no game text can be sent in them. At most 500 records and 2 MB per PUT. Over the cap → `413 SYNC_QUOTA_EXCEEDED`.
 
 Tokens: `mgl_` + 32 random bytes (base64url), stored as sha256. Sliding 180-day expiry. Rotated on use at most once a
 day: the new token comes back in the `x-megulit-token` response header, and the old one keeps working for 24 h so a
@@ -80,3 +84,15 @@ Only the kinds the user leaves on are uploaded. Records carry no game paths, exe
 install ids: game references are titles; settings are the per-game style profile with every path-like key and value
 removed (`services/account.cjs` `cleanSettings`, tested). The email is used only to send the code and is shown only to
 its owner in `/api/me`.
+
+## Website sessions (2026-11-27, megulit.com /me/)
+
+`POST /api/auth/verify` and `/api/auth/password` with `client:"web"` open a **read-only** session: `scope:'read'`
+(column added by `0042_web_sessions.sql`), 30-day sliding life, device name `网页 · <browser>`. It may call
+`GET /api/me`, `GET /api/sync`, `GET /api/sync/:kind` and sign itself out; anything else answers
+`403 READ_ONLY_SESSION`. Its reads are limited by the `RL_SYNC_GET` rate-limit binding (60/min per account, no D1 row);
+desktop sessions keep the D1 `acct` limit. CORS allows `megulit.com`, `www.megulit.com`, `cn.megulit.com` and exposes
+`x-megulit-token`, so the page keeps a rotated token. Without migration 0042 a website sign-in fails (never a full
+session); desktop sign-ins keep working.
+
+Deploy order: `wrangler d1 migrations apply megulit-relay --remote` (0042 only adds a column), then `wrangler deploy`.
