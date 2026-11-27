@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+'use strict';
+/* 2026-11-27 MeguLit-Adapter auto: a finished download runs on its own to the point where the owner can test it, with no LLM
+   (owner: 「以后新游戏来了你让脚本自动跑 你自己不要消费token 跑到给我测试的阶段了你再耗token去给我统计」).
+
+     node tools/megulit-adapter.cjs auto <download folder> [--name <short>] [--issue N] [--pr N] [--no-publish]
+                                         [--requests <dir>] [--copies <dir>] [--app <MeguLit install>]
+
+   Steps (each is kept in <runs>/<short>/auto.json; a rerun goes on from the first step not done):
+     1 install    tools/megulit-adapter/auto-install.cjs: archives, disc images, the game's own Inno installer, official updates,
+                  the Japanese exe of a Chinese overlay package -> <copies>\<short>-auto
+     2 adapt      the adapter itself with --tester (no game run here): identify, engine, script reader, a skeleton seed, the PR body
+                  and its test request. Exit 3 (a question for a person), a new engine or a failure stops here
+     3 publish    a worktree on adapt/<short> from origin/main, `publish --go` (seed commit, PR, HANDOFF row). --pr N takes an
+                  existing PR instead (a replay of a game that already has one); --no-publish stops before (dry run)
+     4 testbuild  <copies>\testbuild-<PR>\MeguLit: the installed MeguLit without its user data, this PR's core / services / web /
+                  The Seed / tools on top; start-test-megulit.cmd sets MEGULIT_SIDE_BY_SIDE=1 (the installed one is not retired)
+     5 request    <requests>\<PR>-<short>.md (the tester's checklist) and <requests>\cards\pending\<PR>.json (a card for the owner's
+                  test bench, the c1312.json shape; the main session puts pending cards into the page in one batch)
+   Where a person has to decide, <requests>\stuck\<short>.md says which step, what to decide and how to go on, and auto stops
+   (exit 3). Nothing here opens the game to check it: the owner's tester does that.
+   Exit codes: 0 a card is waiting, 3 stuck (a person decides), 2 bad arguments. */
+const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
+const Install=require('./auto-install.cjs');
+
+const REPO=path.join(__dirname,'..','..');
+const ADAPTER=path.join(REPO,'tools','megulit-adapter.cjs');
+const env=process.env;
+const ROOTS=()=>({auto:env.MEGULIT_AUTO_ROOT||'F:\\Agent\\work\\adapt-auto',copies:env.MEGULIT_COPIES_ROOT||'H:\\MeguLit-Copies',requests:env.MEGULIT_TEST_REQUESTS||'E:\\Apps\\test-requests',
+ app:env.MEGULIT_APP||'E:\\MeguLit',worktrees:env.MEGULIT_AUTO_WORKTREES||'F:\\Agent\\work\\wt'});
+const STEPS=['install','adapt','publish','testbuild','request'];
+const STEP_CN={install:'装游戏',adapt:'适配',publish:'开 PR',testbuild:'测试版',request:'测试清单和卡片'};
+const shortOf=dir=>String(path.basename(path.resolve(dir))).replace(/\[[^\]]*\]/g,' ').normalize('NFKC').replace(/[^\w\-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase().slice(0,40)||'game';
+
+function parse(argv){const o={dir:'',name:'',issue:0,pr:0,publish:true,requests:'',copies:'',app:''};
+ for(let i=0;i<argv.length;i++){const k=argv[i],v=()=>{if(i+1>=argv.length)throw Error(k+' needs a value');return argv[++i];};
+  if(k==='--name')o.name=v();else if(k==='--issue')o.issue=Number(v())||0;else if(k==='--pr')o.pr=Number(String(v()).replace(/.*\/pull\//,''))||0;
+  else if(k==='--no-publish')o.publish=false;else if(k==='--requests')o.requests=v();else if(k==='--copies')o.copies=v();else if(k==='--app')o.app=v();
+  else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
+ if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs auto <download folder> [--name <short>] [--issue N] [--pr N] [--no-publish]');
+ return o;}
+
+const readJson=f=>{try{return JSON.parse(fs.readFileSync(f,'utf8').replace(/^\uFEFF/,''));}catch{return null;}};
+const writeJson=(f,o)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify(o,null,1)+'\n');};
+
+/* ---- the default workers (tests replace them) ------------------------------------------------------------------------ */
+function adapterCli(args,{node=process.execPath}={}){const r=spawnSync(node,[ADAPTER,...args],{encoding:'utf8',windowsHide:true,timeout:3600000,maxBuffer:64<<20});
+ return {status:r.status===null?1:r.status,out:String(r.stdout||'')+String(r.stderr||'')+(r.error?'\n'+r.error.message:'')};}
+function sh(cmd,args,cwd){const r=spawnSync(cmd,args,{cwd,encoding:'utf8',windowsHide:true,timeout:600000});if(r.status!==0)throw Error(cmd+' '+args.join(' ')+': '+String(r.stderr||r.stdout||r.error?.message||'').trim().slice(-300));return String(r.stdout||'').trim();}
+/* a checkout of the PR's branch for publish (a new branch from origin/main) or for the test build (an existing PR's head) */
+function checkout({short,pr=0,root},{git=sh}={}){const dir=path.join(root,'adapt-'+short);
+ if(fs.existsSync(path.join(dir,'.git'))){if(pr){git('git',['fetch','origin','pull/'+pr+'/head'],dir);git('git',['checkout','--detach','FETCH_HEAD'],dir);}return dir;}
+ git('git',['fetch','origin','main'],REPO);
+ if(pr){git('git',['fetch','origin','pull/'+pr+'/head'],REPO);git('git',['worktree','add','--detach',dir,'FETCH_HEAD'],REPO);}
+ else{let branch='adapt/'+short;try{git('git',['rev-parse','--verify','refs/heads/'+branch],REPO);branch+='-'+Date.now().toString(36);}catch{}git('git',['worktree','add','-b',branch,dir,'origin/main'],REPO);}
+ return dir;}
+/* the installed MeguLit without user data, the checkout's code on top (robocopy: junctions skipped, long paths fine) */
+const SKIP_DIRS=['cache','data','logs','secrets','migration','validation'];
+const OVERLAY=['core','services','web','The Seed','tools'];
+function robocopy(from,to,extra=[]){const r=spawnSync('robocopy',[from,to,'/E','/XJ','/NFL','/NDL','/NJH','/NJS','/NP','/R:1','/W:1',...extra],{windowsHide:true,timeout:1800000});if(r.status===null||r.status>=8)throw Error('robocopy '+from+' -> '+to+' failed ('+r.status+')');}
+function testBuild({app,repo,target},{copy=robocopy}={}){const megulit=path.join(target,'MeguLit');
+ if(!fs.existsSync(path.join(app,'MeguLit.exe')))throw Error('找不到安装版 MeguLit：'+app);
+ copy(app,megulit,['/XD',...SKIP_DIRS.map(d=>path.join(app,d)),'/XF','*.rollback-*','*.bak-*']);
+ for(const d of OVERLAY)if(fs.existsSync(path.join(repo,d)))copy(path.join(repo,d),path.join(megulit,d));
+ for(const d of ['data','logs','cache'])fs.mkdirSync(path.join(megulit,d),{recursive:true});
+ const cmd=path.join(target,'start-test-megulit.cmd');
+ fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test build (side by side: the installed MeguLit keeps running)\r\nset MEGULIT_SIDE_BY_SIDE=1\r\nset MEGULIT_ROOT=%~dp0MeguLit\r\nstart "" "%~dp0MeguLit\\MeguLit.exe"\r\n');
+ return {dir:megulit,cmd};}
+
+/* ---- the tester's checklist and the owner's card ------------------------------------------------------------------- */
+const CHECKS=[['c1','对话框里的日文原文藏住了，没有残留','第一句先露一下再藏是故意的；说话人名牌可以留着'],['c2','阅读层日文和中文都在，点一下游戏就换一句，不停在旧句、不跳句',''],['c3','第一个选项：每个选项都有中文，点中文选项能选中','选项画面务必截图']];
+function checklist(a){const L=[];L.push('# '+a.pr+' '+a.title+' 实测清单（auto 生成）','',
+ '- PR：https://github.com/ilynthn/MeguLit/pull/'+a.pr+(a.issue?'（Refs #'+a.issue+'）':''),
+ '- 作品：'+a.title+(a.vndb?'（VNDB '+a.vndb+(a.release?'，'+a.release:'')+'）':'')+'，引擎 '+(a.engine||'?'),
+ '- 来源：'+a.src,'','## 游戏副本','','- 目录：`'+a.copy+'`','- 启动程序：`'+path.basename(a.exe)+'`'+(a.notes.length?'（'+a.notes.join('；')+'）':''),
+ '- 装法：'+a.installSteps.join('；'),'- 测试专用副本，随便存档；测完由主会话删','','## 测试版 MeguLit','',
+ '- 双击 `'+a.cmd+'`（带 `MEGULIT_SIDE_BY_SIDE=1`，不会关掉正式版；不带用户数据：空库，翻译 API 在设置里填）','- 游戏音量调到 0','',
+ '## 步骤','',...a.steps.map((s,i)=>(i+1)+'. '+s),'','## 通过','',...CHECKS.map(c=>'- '+c[1]+(c[2]?'（'+c[2]+'）':'')),'- 全程不崩、不卡、不闪','',
+ '## 回传截图','','1. 第 3 句左右的对话画面','2. 第 10 句左右的对话画面','3. 第一个选项画面（中文选项出来之后）','4. 选完选项后的下一句','',
+ '不通过时另附测试版 `MeguLit\\logs\\` 里最新的 `hook-diagnostics.log`。');
+ if(a.adapterRequest)L.push('','## 适配器给的说明','',a.adapterRequest.replace(/^#.*\n/,'').trim());
+ return L.join('\n')+'\n';}
+const STEPS_FOR=exe=>['双击测试版 MeguLit，游戏库 → 添加 `'+path.basename(exe)+'`，应显示已适配，从 MeguLit 启动','片头点掉，标题选「はじめから」（START），看前 10 句','继续点（或按住 Ctrl 快进）到第一个选项，停几秒','选一个中文选项，再往下点 3 句'];
+function nextOrder(dirs){let n=0;for(const d of dirs){let names=[];try{names=fs.readdirSync(d);}catch{}for(const f of names){const c=/\.json$/i.test(f)&&readJson(path.join(d,f));if(c&&Number(c.order)>n)n=Number(c.order);}}return n+1;}
+function card(a,order){return {id:String(a.pr),title:a.title,sub:'#'+a.pr+' · auto 生成 · 用 '+path.basename(a.exe)+' 启动'+(a.notes.length?'；'+a.notes[0]:''),game:a.exe,app:a.cmd,steps:a.steps,checks:CHECKS.map(c=>[...c]),order,done:false};}
+
+/* ---- stuck: which step, what a person decides, how to go on ------------------------------------------------------------ */
+function stuckNote(st,{step,why,decide,evidence=[]}){const L=['# '+st.short+' 卡在「'+STEP_CN[step]+'」（auto，'+new Date().toISOString().slice(0,16).replace('T',' ')+'）','',
+ '- 下载目录：`'+st.src+'`'+(st.issue?'，issue #'+st.issue:''),'- 卡在哪：'+why,'- 要人决定：'+decide,...evidence.map(e=>'- 证据：`'+e+'`'),'',
+ '## 决定后怎么继续','','```','node tools/megulit-adapter.cjs auto "'+st.src+'" --name '+st.short+(st.issue?' --issue '+st.issue:''),'```',
+ '（auto 从没做完的那一步接着跑；已做完的步骤记在 `'+st.file+'`）',''];
+ if(step==='adapt'&&st.adapterOut)L.splice(L.length-1,0,'','适配器的问题先回答：`node tools/megulit-adapter.cjs answer "'+st.adapterOut+'" <id>=<值> ...`，再跑上面的 auto。');
+ return L.join('\n')+'\n';}
+
+/* ---- the run ---------------------------------------------------------------------------------------------------------- */
+async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.requests?{requests:o.requests}:{}),...(o.copies?{copies:o.copies}:{}),...(o.app?{app:o.app}:{})};
+ const D={install:Install.install,adapter:adapterCli,checkout,testBuild,...deps};
+ const src=path.resolve(o.dir),short=o.name||shortOf(src),file=path.join(R.auto,'runs',short,'auto.json');
+ const st={short,src,issue:o.issue||0,file,steps:{},...readJson(file),short,src,file};if(o.issue)st.issue=o.issue;
+ const save=()=>{st.updatedAt=new Date().toISOString();writeJson(file,st);};
+ const stuckFile=path.join(R.requests,'stuck',short+'.md');
+ const stop=(step,why,decide,evidence=[])=>{st.stuck={step,why,decide,at:new Date().toISOString()};save();fs.mkdirSync(path.dirname(stuckFile),{recursive:true});
+  fs.writeFileSync(stuckFile,stuckNote(st,{step,why,decide,evidence}));log('# 卡在「'+STEP_CN[step]+'」：'+why+' → '+stuckFile);return 3;};
+ delete st.stuck;save();
+ /* 1 install */
+ if(!st.steps.install?.ok){log('# 1 装游戏 '+src);let r;try{r=await D.install(src,{short,root:R.copies,log});}catch(e){r={ok:false,why:String(e.message||e)};}
+  st.steps.install=r;save();if(!r.ok)return stop('install',r.why,'能不能装、怎么装（装好后把游戏目录放到副本目录或给 auto 指一个装好的目录）');}
+ const inst=st.steps.install;
+ /* 2 adapt (--tester: no game run; a skeleton seed, the PR body, the test request) */
+ const out=path.join(R.auto,'runs',short,'adapter');st.adapterOut=out;
+ if(!['ready','published'].includes(st.steps.adapt?.state)){log('# 2 适配 '+inst.exe);
+  const prev=readJson(path.join(out,'adapter.json'));
+  const r=prev&&prev.state==='waiting'?D.adapter(['answer',out]):D.adapter([inst.dir,'--exe',path.relative(inst.dir,inst.exe),'--tester','--out',out]);
+  const a=readJson(path.join(out,'adapter.json'))||{};
+  st.steps.adapt={exit:r.status,state:a.state||'',engine:a.engine||'',known:a.caps?.known!==false,title:a.title||'',seed:a.seed||'',review:a.review||'',tail:String(r.out||'').trim().split('\n').slice(-12).join('\n')};save();
+  if(/unknown argument: --tester/.test(r.out||''))return stop('adapt','这份适配器还没有 --tester（离线 skeleton seed，#1312 带来的）','先合 #1312，或在有 --tester 的检出上跑 auto');
+  if(r.status===3)return stop('adapt','适配器停下来问人（退出码 3）：\n'+(a.questions||[]).filter(q=>!(q.id in (a.answers||{}))).map(q=>'  - '+q.id+'：'+q.ask).join('\n'),'回答 review.html 里的问题',[a.review||path.join(out,'review.html')]);
+  if(a.caps&&a.caps.known===false)return stop('adapt','新引擎：规则表里没有'+(a.engine?'（'+a.engine+'）':'')+(a.caps.luna?'，LunaHook 认作 '+a.caps.luna:''),'用哪个引擎层（engines.cjs 加规则 / 剧本读取器），或这部先不适配',[path.join(out,'adapter.json')]);
+  if(a.state==='skipped')return stop('adapt','HANDOFF 里同发行版已适配过，适配器没重做','要不要重做（重做：answer again=yes）',[path.join(out,'adapter.json')]);
+  if(r.status!==0||a.state!=='ready')return stop('adapt','适配器没做完（退出码 '+r.status+'，状态 '+(a.state||'无')+(a.seedError?'，'+a.seedError:'')+'）：\n```\n'+st.steps.adapt.tail+'\n```','看日志决定怎么修（适配器/引擎层的活）',[path.join(out,'adapter.json')]);}
+ const ad=readJson(path.join(out,'adapter.json'))||{};
+ /* 3 publish */
+ if(!st.steps.publish?.pr){if(o.pr){st.steps.publish={pr:o.pr,how:'existing'};save();}
+  else if(!o.publish){log('# 3 不开 PR（--no-publish），停在这里');st.steps.publish={dry:true};save();return 0;}
+  else{log('# 3 开 PR');let repo='';try{repo=D.checkout({short,root:R.worktrees});}catch(e){return stop('publish','建分支检出失败：'+e.message,'看 git 的错误');}
+   if(st.issue){const body=path.join(out,'pr-body.md');try{const t=fs.readFileSync(body,'utf8');if(!t.includes('#'+st.issue))fs.writeFileSync(body,t.replace(/\n## 改动/,'\nRefs #'+st.issue+'\n\n## 改动'));}catch{}}
+   const r=D.adapter(['publish',out,'--repo',repo,'--go']);const a=readJson(path.join(out,'adapter.json'))||{};const n=Number(String(a.pr||'').replace(/.*\/pull\//,''))||0;
+   if(r.status!==0||!n)return stop('publish','publish --go 没开出 PR（退出码 '+r.status+'）：\n```\n'+String(r.out||'').trim().split('\n').slice(-8).join('\n')+'\n```','看错误；分支 '+repo);
+   st.steps.publish={pr:n,url:a.pr,repo};save();}}
+ const pr=st.steps.publish.pr;
+ /* 4 testbuild */
+ const tbDir=path.join(R.copies,'testbuild-'+pr);
+ if(!st.steps.testbuild?.cmd||!fs.existsSync(st.steps.testbuild.cmd)){log('# 4 测试版 '+tbDir);
+  try{const repo=st.steps.publish.repo||D.checkout({short,pr,root:R.worktrees});const t=D.testBuild({app:R.app,repo,target:tbDir});st.steps.testbuild={...t,repo};save();}
+  catch(e){return stop('testbuild','测试版没做出来：'+e.message,'看错误（安装版 MeguLit 在不在、空间够不够）');}}
+ /* 5 checklist + card */
+ const title=ad.title||st.steps.adapt?.title||short,args={pr,title,issue:st.issue,vndb:ad.answers?.vndb||ad.identity?.vndb||'',release:ad.answers?.release||ad.identity?.release||ad.identity?.releaseGuess||'',
+  engine:ad.caps?.label||ad.engine||'',src,copy:inst.dir,exe:inst.exe,notes:inst.notes||[],installSteps:inst.steps||[],cmd:st.steps.testbuild.cmd,steps:STEPS_FOR(inst.exe),
+  adapterRequest:(()=>{try{return fs.readFileSync(path.join(out,'test-request.md'),'utf8');}catch{return '';}})()};
+ const md=path.join(R.requests,pr+'-'+short+'.md');fs.mkdirSync(R.requests,{recursive:true});fs.writeFileSync(md,checklist(args));
+ const pending=path.join(R.requests,'cards','pending');fs.mkdirSync(pending,{recursive:true});const cf=path.join(pending,pr+'.json');
+ const order=readJson(cf)?.order||nextOrder([path.join(R.requests,'cards'),pending]);writeJson(cf,card(args,order));
+ st.steps.request={md,card:cf};save();try{fs.rmSync(stuckFile,{force:true});}catch{}
+ log('# 5 测试清单 '+md+'，卡片 '+cf);return 0;}
+
+async function main(argv){let o;try{o=parse(argv);}catch(e){console.error('megulit-adapter auto: '+e.message);return 2;}return auto(o);}
+module.exports={auto,main,parse,shortOf,checklist,card,stuckNote,testBuild,checkout,nextOrder,STEPS,CHECKS};
