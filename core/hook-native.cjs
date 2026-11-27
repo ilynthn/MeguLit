@@ -17,9 +17,9 @@ function speakerName(raw){const n=String(raw||'').replace(/[\x00-\x1f]/g,'').rep
    Whatever the engine, a name is split off into the speaker field: 【名前】 / ［名前］ alone or before the line, a name before
    a quote with a line break, ideographic space or colon in between, and – for names already seen – 名前「…」 and a bare
    名前 line. Returns {name,text}; text is '' when the string was only a name. */
-/* side-stream text waits this long for the dialogue line of the same moment before it may be art text */const AUX_ART_DELAY_MS=120;
+/* side-stream text waits this long for the dialogue line of the same moment before it may be art text */const AUX_ART_DELAY_MS=120;/* a name-like side-stream text this soon after a quoted line without a speaker is that line's name (noteAuxName) */const AUX_NAME_LATE_MS=400;/* a side-stream line from further back than this many lines, with no line for this long after it, is a screen of past lines (pastScreenAux) */const PAST_LINE_AGE=30,PAST_SCREEN_MS=800;
 /* OCR read lines (2026-11-19): a read group waits this long for the rest of the screen's groups; this many groups at once is a menu or settings page; a hook line this recent is current; the same text again within this long is the same screen */
-const HOOK_RETRY_MAX=6,HOOK_ATTACH_GRACE_MS=45000,OCR_LINE_SETTLE_MS=500,OCR_LINE_MAX_BLOCKS=4,OCR_LINE_QUIET_MS=5000,OCR_LINE_REPEAT_MS=60000,OCR_LINE_STALE_MS=60000;
+const HOOK_RETRY_MAX=6,HOOK_ATTACH_GRACE_MS=45000,OCR_LINE_SETTLE_MS=500,OCR_LINE_MAX_BLOCKS=4,OCR_LINE_QUIET_MS=5000,OCR_LINE_REPEAT_MS=60000,OCR_LINE_STALE_MS=60000,OCR_LINE_HOLD_MS=6000,OCR_LINE_EMPTY_MS=1500;
 const SKIP_BURST_GAP_MS=300,SKIP_BURST_SETTLE_MS=400,SKIP_BURST_MAX_HOLD_MS=800;
 const QUOTE_OPEN='「『（(',QUOTE_CLOSE='」』）)';
 function splitSpeaker(raw,known){const s=String(raw||'');const t=s.replace(/^[\s　]+/,'');if(!t)return {name:'',text:s};
@@ -93,7 +93,7 @@ class HookNative{
   const now=this.bridgeProfile();if(this.process&&JSON.stringify(now)!==before)this.send({type:'profile',...now});}
  setOwnerTestGrant(token){const O=require('./owner-tests.cjs');if(token&&!O.identity(token,this.profileInput?.exe))return false;if(this.ownerTestGrant===token)return;require('./danganronpa-pc-source.cjs').clear(this);this.ownerTestCleanup?.();if(this.ownerTestGrant)O.revoke(this.ownerTestGrant);this.ownerTestGrant=token||null;if(!token)return;const target=this.target;if(!target||!O.bind(token,{pid:target.pid,birth:target.started})){O.revoke(token);this.ownerTestGrant=null;return;}this.ownerTestCleanup=O.onRevoke(token,()=>{this.ownerTestGrant=null;require('./danganronpa-pc-source.cjs').clear(this);this.profile=O.apply(this.profile,null,{});this.enabled=false;this.send({type:'disable',reason:'owner-test-revoked'});this.drawSync();});this.drawSync();}
  /* the part of the profile the bridge reads; keys left at null (kernel rule) are not sent */
- bridgeProfile(){const t=this.profile?.hide?.engineTrial||{},out={};for(const k of ['enabled','unconfirmedLines','clickMs','skipAside'])if(t[k]!==null&&t[k]!==undefined)out[k]=t[k];const profile={engineTrial:out};if(this.sadisticPage)profile.sadisticTrialLayout=true;if(this.profile?.engine==='artemis'&&this.profile?.source?.artemisQuoteSpans===true)profile.artemisQuoteSpans=true;return profile;}
+ bridgeProfile(){const t=this.profile?.hide?.engineTrial||{},out={};for(const k of ['enabled','unconfirmedLines','clickMs','skipAside'])if(t[k]!==null&&t[k]!==undefined)out[k]=t[k];const profile={engineTrial:out};if(this.sadisticPage)profile.sadisticTrialLayout=true;if(this.profile?.engine==='artemis'&&this.profile?.source?.artemisQuoteSpans===true)profile.artemisQuoteSpans=true;{const skip=this.profile?.source?.autoSelectSkip;if(Array.isArray(skip)&&skip.length)profile.autoSelectSkip=skip.filter(s=>typeof s==='string'&&s&&s.length<=100).slice(0,16);}return profile;}
  /* a game the library knows no engine for: the first page record of an engine text path (krkr -> kirikiri) adds that engine's diff */
  learnEngine(name){try{if(this.profile?.engine!=='unknown')return;const id=Profiles.engineId(name);if(!id||!Profiles.loadEngine(id))return;this.setProfile(Profiles.profileFor({...(this.profileInput||{}),engine:id}));}catch{}}
  notify(v){if(Object.entries(v).every(([k,value])=>this.state[k]===value))return;this.state={...this.state,...v};this.emit({type:'hook',...v});}
@@ -111,8 +111,8 @@ class HookNative{
  gamePid(){return Number(this.target?.pid||this.windowState?.gameProcessId||this.state?.gameProcessId)||0;}
  resetSourceSession(){
   // Page and OCR history belong to the bound process, even if no HookBridge could start for it.
-  clearTimeout(this.ocr?.timer);
-  this.ocr=null;
+  clearTimeout(this.ocr?.timer);clearTimeout(this.ocr?.emptyTimer);
+  this.ocr=null;this.artScan=null;
   this.pageText=null;
   this.pageSaidSame=false;
   this.hookRecent=[];
@@ -129,6 +129,10 @@ class HookNative{
   this.unityBox=null;
   this.lastSource='';
   this.lastSourceAt=0;
+  /* Codex #1267: a screen of past lines (pending or shown) and a dated-screen recheck belong to the old process too; a hidden line
+     is shown again so the next game does not start under it */
+  const P=this.pastScreen;this.pastScreen=null;clearTimeout(P?.timer);clearTimeout(this.artRecheck);this.artRecheck=null;this.artDates=0;
+  if(P?.hidden)this.emit({type:'hookDialog',engine:'pastlines',visible:true});
  }
  configure(preferences,state){if(this.disposed)return;this.preferences=preferences;this.windowState=state;this.capGiveWay();const pid=Number(state.gameProcessId),hwnd=String(state.gameHwnd||'');this.wanted=(preferences.hookAutoStart||['hook','local'].includes(preferences.maskMode))&&preferences.bindEnabled===true&&preferences.hookProfile!=='off';if(this.nativeRuby&&(this.nativeRuby.pid!==pid||this.nativeRuby.started!==String(state.gameStarted||'')))this.clearNativeRuby();
   const previous=this.target;
@@ -163,7 +167,7 @@ class HookNative{
     and even the same size padded with spaces (20->20). Blanking the line in place (hide) is safe. So on a YU-RIS embed stream the game
     only hides the line and MeguLit draws the translation. */
  fixedSizeEmbed(){return (this.state?.hookThreads||[]).some(t=>t.selected&&/^EmbedYURIS/i.test(String(t.name||'')));}
- embedReply(id,trans,o={}){if(!this.process||!Number.isSafeInteger(id))return;const hide=o?.hide===true||!!trans&&this.fixedSizeEmbed();this.send({type:'embedReply',id,trans:hide?'':String(trans||'').slice(0,4000),...(hide?{hide:true}:{})});if(!this.embedModeSent||!(hide||trans))return;
+ embedReply(id,trans,o={}){if(!this.process||!Number.isSafeInteger(id))return;const hide=o?.hide===true||!!trans&&this.fixedSizeEmbed();this.send({type:'embedReply',id,trans:hide?'':String(trans||'').slice(0,4000),...(hide?{hide:true}:{})});if(!this.embedModeSent)return;/* #1128: a line the game keeps as it was (no answer in time, unreadable) is said too, so the overlay translates that line and only that one */if(!(hide||trans)){this.notify({embedLine:{source:String(o?.source||''),text:'',drawn:false}});return;}
   if(hide&&!this.glyphNoted){this.glyphNoted=true;this.trace?.('embed fallback: the game font has no glyphs for the translation; the game hides the line and MeguLit draws it');}
   this.notify({embedTranslating:!hide,embedLine:{source:String(o?.source||''),text:hide?'':String(o?.text||trans||''),drawn:!hide}});}
  tick(){if(this.ownerTestGrant)this.drawSync();
@@ -435,8 +439,8 @@ class HookNative{
     game. Refused: while the dialogue line is on the picture or a hook line is current, four or more groups at once (a menu, a
     settings page with its sample text), logos and OCR noise (art-filter), stacked short rows (a list), unreadable text, a part
     of the hook line, and the same text again within a minute. The line goes through source(), so line-once applies as to any line. */
- ocrLine(m){try{if(!m||m.source!=='ocr'||m.foreign===true||m.id==null)return;const O=this.ocr||(this.ocr={shown:new Map(),said:new Map(),done:new Set(),timer:null,lastText:''});
-  if(m.visible!==true||typeof m.text!=='string'){O.shown.delete(m.id);return;}
+ ocrLine(m){try{if(!m||m.source!=='ocr'||m.foreign===true||m.id==null)return;if(process.env.MEGULIT_HOOK_RECORD)try{fs.appendFileSync(process.env.MEGULIT_HOOK_RECORD,JSON.stringify({t:this.now(),m:{...m,type:'artText'}})+String.fromCharCode(10));}catch{}const O=this.ocr||(this.ocr={shown:new Map(),said:new Map(),done:new Set(),timer:null,lastText:''});
+  if(m.visible!==true||typeof m.text!=='string'){O.shown.delete(m.id);this.ocrGroupGone(m.id);return;}
   /* a group is taken once, when its reading has stopped changing (a fade in or out reads as garble); later readings of the same group are ignored */
   if(O.done.has(m.id))return;const was=O.shown.get(m.id),now=this.now();
   const rowTexts=Array.isArray(m.rows)&&m.rows.length?m.rows.map(r=>String(r?.text||'')):[m.text];
@@ -464,14 +468,47 @@ class HookNative{
    const flat=HookNative.flat(it.text);O.said.set(flat,now);if(O.said.size>200)O.said.delete(O.said.keys().next().value);take.push(it);}
   /* 2026-11-19 (素晴らしき日々, live: the notice screen's three paragraphs came as three lines in 30 ms, the reader kept only the last):
      the groups taken together are one screen, one line, top to bottom */
+  /* #1143 (euphoria HD title, live: 「・`最初から始める」「続きから始める」「おまけ」 came as three one-row groups in one flush, each passed alone and
+     the three were joined into one line that stayed on screen into the next scene). Short label rows stacked one under the other are a
+     menu whether the scan grouped them or not: the art-list rule (art-filter.cjs artList) also judges the groups taken together */
+  if(take.length>=2&&take.every(it=>(it.rows||[]).length<=1)&&require('./art-filter.cjs').artList(take.flatMap(it=>it.rows||[]))){this.trace('ocr lines refused (a list across '+take.length+' groups) '+JSON.stringify(take.map(it=>it.text.trim()).join('|').slice(0,60)));take.length=0;}
   if(take.length){const box=take.flatMap(it=>it.rows).reduce((b,r)=>{const x=+r?.x,y=+r?.y,w=+r?.w,h=+r?.h;if(![x,y,w,h].every(Number.isFinite))return b;return b?{x0:Math.min(b.x0,x),y0:Math.min(b.y0,y),x1:Math.max(b.x1,x+w),y1:Math.max(b.y1,y+h)}:{x0:x,y0:y,x1:x+w,y1:y+h};},null);
    const top=it=>Math.min(...it.rows.map(r=>+r?.y).filter(Number.isFinite),Infinity),text=take.slice().sort((a,b)=>top(a)-top(b)).map(it=>it.text.trim()).join(String.fromCharCode(10)),sw=take[0].sw,sh=take[0].sh;
    this.trace('ocr line '+JSON.stringify(text.slice(0,40)));O.lastText=text;
-   this.source({type:'hookSource',text,origin:'ocr',hookActive:true,...(box&&sw&&sh?{ocrRect:{...box,sw,sh}}:{})},'ocr');}
+   const before=this.state?.hookSequence;this.source({type:'hookSource',text,origin:'ocr',hookActive:true,...(box&&sw&&sh?{ocrRect:{...box,sw,sh}}:{})},'ocr');
+   const groups=new Set(take.filter(it=>!it.once).map(it=>it.id));O.current=this.state?.hookSequence!==before&&this.state?.hookSourceOrigin==='ocr'?{groups,sequence:this.state.hookSequence,shownAt:now}:null;if(O.current)this.ocrEmptyCheck();}
   if(wait>0)this.ocrSchedule(wait+20);}
+ /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run: the warning screen's notice, read by the art scan, stayed on the title screen
+    for the 26 s until the first story line; no hook line, no input, so nothing else could clear it). A line the art scan read
+    is on the picture: when every group it was made of has left the picture (the scan's hide after two reads without it), the
+    reader is cleared the way leaving the dialogue screen clears it (E530), unless a newer line has replaced it meanwhile. A
+    group read only once (a card that faded within a second) gives no hide and keeps its line as before. Any engine. */
+ ocrGroupGone(id){const O=this.ocr,C=O?.current;if(!C||!C.groups.delete(id)||C.groups.size)return;this.ocrClear('ocr line gone from the picture');}
+ /* #1267 (死に逝く君、館に芽吹く憎悪, live 2026-11-27: the warning page fading out was read once as garble 「にけ異カ′シーノ…含まれオの匍洋音」
+    and stayed over the title screen for minutes: a group read once gives no hide, and the title screen read as 0 groups, then as
+    a 4-group menu). The art scan's own count says the picture holds no line: no group at all, or a menu's worth of groups (a
+    title or settings screen, never taken as a line). While it says so for OCR_LINE_EMPTY_MS, a line the scan read (origin ocr,
+    still current) leaves the reader, but only after it was shown OCR_LINE_HOLD_MS, so a card that faded within a second can
+    still be read. Hook lines are never touched (their origin is not ocr). */
+ artScanCount(groups,foreign=0){if(groups==null){this.artScan=null;clearTimeout(this.ocr?.emptyTimer);return;}const n=(Number(groups)||0)+(Number(foreign)||0),now=this.now(),was=this.artScan;
+  this.artScan={empty:n===0||n>=OCR_LINE_MAX_BLOCKS,at:was&&was.empty===(n===0||n>=OCR_LINE_MAX_BLOCKS)?was.at:now};this.ocrEmptyCheck();}
+ ocrEmptyCheck(){const O=this.ocr,C=O?.current,S=this.artScan;clearTimeout(O?.emptyTimer);if(O)O.emptyTimer=null;if(!C||!S?.empty)return;
+  if(this.state?.hookSequence!==C.sequence||this.state?.hookSourceOrigin!=='ocr'){O.current=null;return;}
+  const due=Math.max((C.shownAt||0)+OCR_LINE_HOLD_MS,S.at+OCR_LINE_EMPTY_MS),now=this.now();
+  if(now>=due){this.ocrClear('ocr line gone: the art scan reads no line on the picture');return;}
+  O.emptyTimer=setTimeout(()=>this.ocrEmptyCheck(),due-now);O.emptyTimer.unref?.();}
+ ocrClear(why){const O=this.ocr,C=O?.current;if(!C)return;O.current=null;clearTimeout(O.emptyTimer);O.emptyTimer=null;
+  if(this.state?.hookSequence!==C.sequence||this.state?.hookSourceOrigin!=='ocr')return;
+  this.trace(why);this.lastSource='';this.lastSourceAt=0;this.sentencePieces?.reset();
+  this.notify({hookSource:'',hookSpeaker:'',hookSourceOrigin:'leave',hookSequence:(this.state.hookSequence||0)+1,hookMessage:'画面上的文字已消失，已清空阅读器'});}
  static ocrSentence(flat){const t=String(flat||''),n=[...t].length;return n>=12&&/[぀-ヿ]/.test(t)&&(/[。！？!?]/.test(t)||/(ます|ました|ましょう|ません|です|ください)/.test(t));}
  ocrLineRefused(it,now){const f=require('./art-filter.cjs'),t=String(it.text||'').trim(),flat=HookNative.flat(t),n=[...flat].length,O=this.ocr,kana=/[぀-ヿ]/.test(flat);
   if(it.dialogSeen)return 'the dialogue line is on the picture';
+  /* #1143 (euphoria HD, live: the opening choice オープニングを見る / メインルームへ was located and drawn, then the art scan read the same two
+     rows 0.3 s later, took them as a dialogue line and the new line cleared the choice; on the next choice a 3-character misreading of
+     the background, 「)第に」, did the same 10 s later). Rows that are the options on screen are the choice itself, and while located
+     options are on screen the art scan's text is no new line either (the hook still brings the next line), on every engine */
+  {const opts=(this.state?.hookChoices?.items||[]).map(i=>HookNative.flat(i?.text)).filter(Boolean);if(opts.length){const rows=(it.rows?.length?it.rows.map(r=>String(r?.text||'')):t.split(String.fromCharCode(10))).map(r=>HookNative.flat(r)).filter(Boolean);if(rows.length&&rows.every(r=>opts.some(o=>o===r||[...r].length>=2&&(o.includes(r)||r.includes(o)))))return 'the choice on screen';if((this.state?.hookChoices?.items||[]).some(i=>Number.isFinite(i?.y1)&&i.y1>i.y0))return 'a choice is on screen';}}
   const line=String(this.lastSource||'').trim();if(line&&line!==O.lastText&&this.engineDialog!==false&&now-(this.lastSourceAt||0)<OCR_LINE_QUIET_MS)return 'a hook line is current';
   /* a title or menu screen: three or more rows on the picture that are no Japanese group (START, LOAD, CONFIG, a copyright line) */
   /* 2026-11-21 (owner, STEINS;GATE: 「【フォーントリガー】ボタンで携帯電話を呼び出して、…」 a tutorial over the game's button legend was refused as a menu and never
@@ -525,7 +562,7 @@ class HookNative{
  static retainedPrevious(page,previous,current){if(!previous||!current)return false;let end=0;for(let at=page.indexOf(current);at>=0;at=page.indexOf(current,at+1)){if(at>end&&page.slice(end,at).includes(previous))return true;end=Math.max(end,at+current.length);}return page.slice(end).includes(previous);}
  /* share of the character pairs of `flat` found in the hooked lines of the last ten minutes (0 when nothing to compare) */
  static hookOverlap(flat,recent,now){const t=String(flat||'');if([...t].length<4||!Array.isArray(recent))return 0;const hay=recent.filter(r=>now-r.at<600000).map(r=>r.key).join(String.fromCharCode(10));if(!hay)return 0;const ch=[...t];let n=0,hit=0;for(let i=0;i+1<ch.length;i++){n++;if(hay.includes(ch[i]+ch[i+1]))hit++;}return n?hit/n:0;}
- auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(!text?.trim())return;if(text!==m.text)m={...m,text};this.auxPage(m);{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
+ auxText(m){if(this.sadisticPage&&['TextOutA','NNNhook'].includes(m.sourceName)&&this.sadisticPage.isRedraw(m.text))return;const text=this.stripHookAnnotations(m.text);if(!text?.trim())return;if(text!==m.text)m={...m,text};this.auxPage(m);this.noteAuxName(m.text);if(this.pastScreenAux(m.text))return;{const sp=splitSpeaker(m?.text,this.knownSpeakers);if(sp.name&&!sp.text.trim()){/* a name drawn just after a line is that line's (noteAuxName), not the next one's */if(!(this.now()-(this.lastSourceAt||0)<AUX_NAME_LATE_MS))this.speaker={text:sp.name,at:this.now()};this.noteSpeaker(sp.name);return;}}/* 2026-11-15 (沙耶の唄, user: 「ocr遮挡又出来了」): the dialogue hook sends each line on two thread contexts; the one not selected
     came here as aux text, went to the art path and its translation was drawn over the game's own line. A line from the same hook
     as the dialogue stream is dialogue, never art text. */
   if(m.sourceName&&this.dialogueHook&&String(m.sourceName)===this.dialogueHook)return;/* nor choice text (user: 「不是选项」) */
@@ -535,6 +572,13 @@ class HookNative{
      has arrived, then the usual "part of the current line" check drops it */
   {const t=m.text;const at=setTimeout(()=>this.artCandidate(t),AUX_ART_DELAY_MS);at.unref?.();}try{this.textEffectsFrame(m.text);}catch{}/* 2026-11-19 (千恋＊万花 settings page: 「オオ」「テテ」 went to OCR as options) no choice candidates while the dialogue box is gone for a known reason */if(this.dialogGoneAt&&Date.now()-this.dialogGoneAt>=800){this.trace('choice aux skipped: dialogue box gone');return;}const C=this.choice||(this.choice=this.newChoiceCapture());if(/^SiglusEngine[234]$/.test(m.sourceName||''))C.noteSiglusFrame(m.text);const added=C.add(m.text,this.lastSource,this.speaker?.text);
   this.trace('choice aux '+String(m.sourceName||'').slice(0,40)+' role='+(m.role??'')+' added='+JSON.stringify(added)+' text='+JSON.stringify(String(m.text).slice(0,80)));
+  /* #1143 (euphoria HD, every engine): the stream taken as the dialogue drew the options of a choice screen together, other streams drew
+     them apart; the "line" is the options: it is taken back from the reader and the pieces go to the choice detector */
+  {const now=this.now();this.auxRecent=(this.auxRecent||[]).filter(x=>now-x.at<800);this.auxRecent.push({text:String(m.text),at:now});
+   if(!added.length&&this.lastSource&&now-(this.lastSourceAt||0)<800){const frame=ChoiceCapture.frameOf(this.lastSource,this.auxRecent.map(x=>x.text));
+    if(frame){this.trace('choice frame taken back from the dialogue '+JSON.stringify(frame));C.lines=C.lines.filter(l=>l!==HookNative.flat(this.lastSource).replace(/\s+/g,''));C.dialogue='';this.lastSource='';this.lastSourceAt=0;
+     this.notify({hookSource:'',hookSpeaker:'',hookSourceOrigin:'choice-frame',hookSequence:(this.state.hookSequence||0)+1});
+     for(const p of frame)added.push(...C.add(p,'',''));}}}
   if(!added.length)return;clearTimeout(this.choiceTimer);this.choiceTimer=setTimeout(()=>this.requestChoices(0),450);this.choiceTimer.unref?.();}
  /* 2026-11-21 (ファタモルガーナの館 r30: 「choice locate options=["お声が聞けて","かったです","か良ったか良でっす…"]」): a text effect's interleaved frame and a piece
     of the dialogue line are not options. Interleaved: one pair of characters three times or more, or few distinct characters for its length */
@@ -664,6 +708,12 @@ class HookNative{
   const extracted=require('./source-ruby.cjs').extractSourceRuby(m.text);let ruby=extracted.ruby;m={...m,text:this.stripHookAnnotations(extracted.text)};
   if(typeof m.text==='string'&&!m.text.trim()&&extracted.text?.trim())return;
   if(this.pageRedraw(this.pageState,m.text)){this.trace('krkr page: hook redraw with the drawn line at its end, skipped chars='+m.text.length);return;}
+  /* #1267 live 2026-11-27 (ファタモルガーナの館（海市蜃楼之馆）, first choice: when the hook picked the choice stream, the reader's line became
+     「選択肢選択肢……おはよう………………」, the choice frame's label drawn twice and the option). heldChoiceParts drops that composite only once
+     the option is a recent choice key, but here the line came 1 ms before the side stream drew the option. A line opening with a
+     profile-declared frame label (choice.pageFrames) twice, with more after it, is the game's choice frame, never the dialogue line,
+     unless the script holds it exactly. Dialogue never doubles the label (the profile names it). */
+  if(this.choiceFrameLine(m.text)){this.trace('choice frame line left to the choice layer '+JSON.stringify(String(m.text).slice(0,30)));return;}
   /* 2026-11-14 a Japanese line that reached us decoded as GBK (no kana, decodes back to kana-rich Shift-JIS) is read as Japanese */
   if(typeof m.text==='string'&&!/[ぁ-ゖァ-ヺ]/.test(m.text)){const ja=HookNative.sjisAsGbk(m.text);if(ja){this.trace('Shift-JIS read as GBK, decoded again');m={...m,text:ja};}}
   this.languageCheck(m.text);this.japaneseGuard(m.text);
@@ -996,6 +1046,12 @@ class HookNative{
  /* a held hook line the reader already has: inside one recent line, or (a page dump) at least 80 % made of recent lines */
  heldCovered(text){const f=HookNative.flat(text),R=(this.recentSources||[]).filter(Boolean);if(!f)return true;if(R.some(r=>r.includes(f)))return true;
   const mark=new Uint8Array(f.length);for(const r of R){if(r.length<4)continue;let at=f.indexOf(r);while(at>=0){mark.fill(1,at,at+r.length);at=f.indexOf(r,at+1);}}let n=0;for(const v of mark)n+=v;return n>=f.length*.8;}
+ choiceFrameLine(text){if(typeof text!=='string')return false;const flat=HookNative.flat(text);
+  for(const f of Profiles.get(this.profile,'choice.pageFrames',[])){const label=/^\^([^\\[\](){}.*+?|^$]+)\$$/.exec(String(f))?.[1];
+   if(!label||!flat.startsWith(label+label)||flat.length<=2*label.length)continue;
+   let exact=false;if(this.originalText){try{exact=this.resolveSource(String(text).trim())?.status==='exact';}catch{}}
+   return !exact;}
+  return false;}
  heldChoiceParts(text){
   const shown=this.choice?.active&&Array.isArray(this.state?.hookChoices?.items)?this.state.hookChoices.items.map(i=>HookNative.flat(i?.text)).filter(Boolean):[];
   const confirmed=HookNative.glued(text,shown);
@@ -1147,8 +1203,16 @@ class HookNative{
   if(this.originalText){for(let i=cuts.length-1;i>=0;i--){const part=s.slice(cuts[i]).trim();if(part.length<2)continue;
    const r=this.resolveSource(part.replace(/^[^「『\s]{1,8}(?=[「『])/,''))||this.resolveSource(part);if(r&&(r.status==='exact'||r.status==='high')){for(let k=i-1;k>=Math.max(0,i-4);k--){const longer=s.slice(cuts[k]).trim(),q=this.resolveSource(longer);if(!q||q.status!=='exact'&&q.status!=='high')break;i=k;}return s.slice(cuts[i]).trim();}}}
   const speakers=[...s.matchAll(/(?:^|[。！？!?…」』])([^\s「」『』。！？!?…]{1,8})[「『]/g)];
-  if(speakers.length>=2){const at=speakers[speakers.length-1].index+(/^[。！？!?…」』]/.test(speakers[speakers.length-1][0])?1:0);const tail=s.slice(at).trim();if(tail.length>=2&&tail.length<s.length*.6)return tail;}
-  return s;
+  if(speakers.length>=2){const at=speakers[speakers.length-1].index+(/^[。！？!?…」』]/.test(speakers[speakers.length-1][0])?1:0);const tail=s.slice(at).trim();if(tail.length>=2&&tail.length<s.length*.6)return this.mergedTail(tail);}
+  return this.mergedTail(s);
+ }
+ /* #1143 (euphoria HD, Ctrl held: YU-RIS6 handed over 505 characters of narration after one speaker line, no script, one speaker, and
+    642 characters whose part after the last speaker was still 205: the reader drew all of it over the screen). page.skipMergedTail
+    (engine layer): a merged text, or its part after the last speaker, over twice that many characters keeps its last sentences up to
+    that many characters (at least the last one); null = the kernel: it stays as the rules above left it */
+ mergedTail(s){const keep=Profiles.get(this.profile,'page.skipMergedTail',null);if(!(Number.isFinite(keep)&&keep>0&&s.length>keep*2))return s;
+  const cuts=[];const re=/[。！？!?…」』）)―─]+(?=[^。！？!?…」』）)―─])/g;let m;while((m=re.exec(s)))cuts.push(m.index+m[0].length);if(!cuts.length)return s;
+  let i=cuts.length-1;while(i>0&&s.length-cuts[i-1]<=keep)i--;const tail=s.slice(cuts[i]).trim();return tail.length>=2?tail:s;
  }
  deliverSource(text,origin,engine='',nativeLine=0,authority){if(require('./danganronpa-pc-source.cjs').shouldBlock(this,authority,origin))return;
   if(require('./unity-il2cpp-source.cjs').shouldBlock(this.textPath,authority||{origin},this.target))return;
@@ -1262,15 +1326,75 @@ class HookNative{
   const part=text;let continues=0;/* not when the engine named a new speaker after the last line */if(paged&&!this.filterHookRedraws()&&!(this.speaker&&this.speaker.at>(this.lastSourceAt||0))){const c=this.pageText.continuation(text,this.now());if(c){this.trace('sentence continues the shown line ('+c.continues+' chars before)');text=c.text;continues=c.continues;}}
   this.beforeDialogue?.({hookSequence:(this.state.hookSequence||0)+1,hookSource:text,hookSourceOrigin:origin,hookSourceContinues:continues});
   this.learnBareName(text);
-  const speaker=this.speaker&&this.now()-this.speaker.at<2500?this.speaker.text:'';this.speaker=null;/* E416 the choice detector learns every dialogue line and speaker, whatever the engine */(this.choice||(this.choice=this.newChoiceCapture())).noteDialogue(text,speaker);/* E407 a new dialogue line ends the choice screen */if(text.replace(/\s+/g,'')!==String(this.lastSource||'').replace(/\s+/g,''))this.clearChoices('new dialogue line',400,text);this.lastSource=text;this.lastSourceAt=this.now();/* #468 the lines the game's own text gave (never an OCR line): an OCR reading of the same page is refused (ocrLineRefused) */if(origin!=='ocr'){const R=this.hookRecent||(this.hookRecent=[]);R.push({key:HookNative.flat(text),at:this.now()});if(R.length>24)R.shift();}this.palFlush?.();this.lastSourceStream=this.sourceStream||'';this.trace('source chars='+text.length+' sequence='+((this.state.hookSequence||0)+1));this.textEffectsLine(text,this.fxNext===true||origin==='placement');if(paged){/* the reader keeps the page's earlier lines above this one while the page stays (web hook-reader.js) */if(!continues&&this.pageText.pages){const same=this.pageText.samePage(this.now());this.pageSaidSame=same;this.emit({type:'hookPage',engine:'text',line:(this.state.hookSequence||0)+1,same,at:this.now()});}this.pageText.shown(part,text,this.now());}this.notify({...(this.lineUnreadable?(this.lineUnreadable=false,{hookLineUnreadable:false}):{}),hookActive:true,...(origin==='ocr'||engine==='saya-page-ocr'?{}:{processAttached:true,streamSelected:true,hookRecovering:false}),hookSource:text,...(preview||this.state.hookSourcePreview?{hookSourcePreview:preview}:{}),hookSpeaker:speaker,hookSourceEngine:engine,hookFlowGrid:engine==='nvl'?(this.flowGridName||''):'',...(()=>{const f=engine==='nvl'?this.flowLayout(text):null;/* E410 */return {hookFlowPageStart:f?.pageStart===true,hookFlowRow:f?.row||'',hookSourceIndex:Number.isSafeInteger(f?.index)?f.index:-1};})(),hookSourceContinues:continues,hookSourceLine:nativeLine,hookSourceOrigin:origin||'live',hookSourceRuby:this.sourceRuby?.get(text)||[],hookSequence:(this.state.hookSequence||0)+1,receivedText:!!text.trim(),hookMessage:engine==='saya-page-ocr'?'画面文字已匹配原版剧本':origin==='ocr'?'已读取画面文字':text.trim()?'已收到真实游戏台词':'收到空文本信号'});
+  const speaker=this.speaker&&this.now()-this.speaker.at<2500?this.speaker.text:'';this.speaker=null;/* E416 the choice detector learns every dialogue line and speaker, whatever the engine */(this.choice||(this.choice=this.newChoiceCapture())).noteDialogue(text,speaker);/* E407 a new dialogue line ends the choice screen */if(text.replace(/\s+/g,'')!==String(this.lastSource||'').replace(/\s+/g,''))this.clearChoices('new dialogue line',400,text);this.lastSource=text;this.lastSourceAt=this.now();/* #468 the lines the game's own text gave (never an OCR line): an OCR reading of the same page is refused (ocrLineRefused) */if(origin!=='ocr'){const R=this.hookRecent||(this.hookRecent=[]);R.push({key:HookNative.flat(text),at:this.now()});if(R.length>24)R.shift();}this.notePastLine(text,origin);this.palFlush?.();this.lastSourceStream=this.sourceStream||'';this.trace('source chars='+text.length+' sequence='+((this.state.hookSequence||0)+1));this.textEffectsLine(text,this.fxNext===true||origin==='placement');if(paged){/* the reader keeps the page's earlier lines above this one while the page stays (web hook-reader.js) */if(!continues&&this.pageText.pages){const same=this.pageText.samePage(this.now());this.pageSaidSame=same;this.emit({type:'hookPage',engine:'text',line:(this.state.hookSequence||0)+1,same,at:this.now()});}this.pageText.shown(part,text,this.now());}this.notify({...(this.lineUnreadable?(this.lineUnreadable=false,{hookLineUnreadable:false}):{}),hookActive:true,...(origin==='ocr'||engine==='saya-page-ocr'?{}:{processAttached:true,streamSelected:true,hookRecovering:false}),hookSource:text,...(preview||this.state.hookSourcePreview?{hookSourcePreview:preview}:{}),hookSpeaker:speaker,hookSourceEngine:engine,hookFlowGrid:engine==='nvl'?(this.flowGridName||''):'',...(()=>{const f=engine==='nvl'?this.flowLayout(text):null;/* E410 */return {hookFlowPageStart:f?.pageStart===true,hookFlowRow:f?.row||'',hookSourceIndex:Number.isSafeInteger(f?.index)?f.index:-1};})(),hookSourceContinues:continues,hookSourceLine:nativeLine,hookSourceOrigin:origin||'live',hookSourceRuby:this.sourceRuby?.get(text)||[],hookSequence:(this.state.hookSequence||0)+1,receivedText:!!text.trim(),hookMessage:engine==='saya-page-ocr'?'画面文字已匹配原版剧本':origin==='ocr'?'已读取画面文字':text.trim()?'已收到真实游戏台词':'收到空文本信号'});
   this.il2cppShown=require('./unity-il2cpp-source.cjs').tagged(authority)?{authority,sequence:this.state.hookSequence}:null;
  }
  /* #141 (CLANNAD: a bare name sent as its own string, with no brackets, before the 「…」 line). A short name-like line
     followed within 2 s by a quoted line is a name candidate; the second time it happens the name is learned, so from then
     on splitSpeaker moves it to the speaker field. Any engine. */
- learnBareName(text){const now=this.now(),c=this.nameCandidate,bare=String(text||'').trim();this.nameCandidate=null;
-  if(c&&now-c.at<2000&&/^[「『]/.test(bare)){const N=this.nameHits||(this.nameHits=new Map());const hits=(N.get(c.text)||0)+1;N.set(c.text,hits);if(N.size>400)N.delete(N.keys().next().value);if(hits>=2&&!this.knownSpeakers?.has(c.text)){this.noteSpeaker(c.text);this.trace('speaker name learned from bare lines');}if(this.knownSpeakers?.has(c.text)&&!this.speaker)this.speaker={text:c.text,at:now};}
+ learnBareName(text){const now=this.now(),c=this.nameCandidate||this.auxNameBefore(now),bare=String(text||'').trim(),quoted=/^[「『]/.test(bare),named=this.speaker&&now-this.speaker.at<2500;this.nameCandidate=null;this.auxNames=[];this.nameLate=null;
+  if(c&&now-c.at<2000&&quoted){if(this.nameHit(c.text)&&!this.speaker)this.speaker={text:c.text,at:now};}
+  else if(quoted&&!named)this.nameLate={at:now,sequence:(this.state.hookSequence||0)+1};
   if(bare.length>=1&&bare.length<=8&&speakerName(bare)===bare&&!/[\s　「『（(【［\[。、，,.！？!?…‥・～〜]/.test(bare))this.nameCandidate={text:bare,at:now};}
+ /* one more sighting of a name before a quoted line; learned (true) from the second */
+ nameHit(name){const N=this.nameHits||(this.nameHits=new Map());const hits=(N.get(name)||0)+1;N.set(name,hits);if(N.size>400)N.delete(N.keys().next().value);if(hits>=2&&!this.knownSpeakers?.has(name)){this.noteSpeaker(name);this.trace('speaker name learned from bare lines');}return !!this.knownSpeakers?.has(name);}
+ /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run: every line of the 对话记录 said 旁白). KiriKiri draws the name box on side
+    streams (KiriKiri1 / DrawText 「血塗れの男血塗れの男」, KiriKiri2 「男男」) while the dialogue stream sends the line alone, so the
+    bare-name learning above, which only looked at the dialogue stream, never saw a name. A short name-like side-stream text (kana
+    or kanji, a doubled frame read once) in the 2 s before a quoted line is that line's name candidate; the one most streams drew
+    wins, the latest on a tie. The side streams come 15 ms before the line about two times in three and 15 ms after it otherwise
+    (hook-events of that run: 191 before, 106 after): names within AUX_NAME_LATE_MS after a quoted line without a speaker belong to
+    it and are sent as a late hookSpeaker for the line (the reader's log puts the name on its row), never to the next line. Learned
+    on the second appearance like a bare name line, so a menu word never becomes a speaker. Any engine. */
+ noteAuxName(raw){const n=speakerName(String(raw||'').trim());if(!n||n.length>8||!/[ぁ-ヺ㐀-鿿々〆]/.test(n)||/[\s　「『（(【［\[。、，,.！？!?…‥・～〜]/.test(n))return;
+  const now=this.now(),late=!!this.nameLate&&now-this.nameLate.at<AUX_NAME_LATE_MS,A=(this.auxNames||[]).filter(x=>now-x.at<2000);A.push({text:n,at:now,late});if(A.length>24)A.shift();this.auxNames=A;
+  if(late&&!this.nameLateTimer){this.nameLateTimer=setTimeout(()=>{this.nameLateTimer=null;this.resolveLateName();},60);this.nameLateTimer.unref?.();}}
+ static pickAuxName(A){const count=new Map();for(const x of A)count.set(x.text,(count.get(x.text)||0)+1);let best=null;for(const x of A)if(!best||count.get(x.text)>=count.get(best.text))best=x;return best;}
+ auxNameBefore(now){const best=HookNative.pickAuxName((this.auxNames||[]).filter(x=>now-x.at<2000&&!x.late));return best?{text:best.text,at:best.at}:null;}
+ resolveLateName(){const L=this.nameLate,A=this.auxNames||[];this.nameLate=null;this.auxNames=A.filter(x=>!x.late);if(!L||(this.state.hookSequence||0)!==L.sequence)return;
+  const best=HookNative.pickAuxName(A.filter(x=>x.late));if(!best||!this.nameHit(best.text))return;this.trace('speaker name drawn after its line '+JSON.stringify(best.text));this.notify({hookSpeaker:best.text,hookSpeakerLate:L.sequence});}
+ /* 2026-11-26 (死に逝く君、館に芽吹く憎悪, integration run 12:50:53: the game's LOAD screen kept MeguLit's current line on it, and the
+    save slot's preview 「当時、街には多くの人々が溢れていた。」 with its per-glyph pieces became a three-option "choice" that OCR found
+    and the reader translated over the slots). The message window stays up under a KAG save screen, so no engine signal comes.
+    What the side streams draw there is a line the game gave long before (a save preview, or the game's own backlog): a whole
+    line of the dialogue history that is not among the last PAST_LINE_AGE lines, with no dialogue line following it, means the
+    game shows its own screen of past lines. Such text and its pieces are never choices or art; the reader's line is hidden
+    (hookDialog, followed with immersion off too) until the next dialogue line or until a side stream draws the current line
+    again. Skipping never counts. Any engine. */
+ notePastLine(text,origin){if(origin==='history'||origin==='leave')return;
+  if(this.pastScreen){const p=this.pastScreen;this.pastScreen=null;clearTimeout(p.timer);if(p.hidden){this.trace('game screen of past lines left: next line');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}}
+  const k=HookNative.flat(text);if([...k].length<8)return;const H=this.pastLines||(this.pastLines={n:0,at:new Map()});H.n++;H.at.delete(k);H.at.set(k,H.n);if(H.at.size>3000)H.at.delete(H.at.keys().next().value);}
+ pastKind(raw){const H=this.pastLines;if(!H||!H.n)return '';const t=String(raw||'');if(t.includes(String.fromCharCode(10)))return '';const k=HookNative.flat(LineOnce.collapse(t).text),n=[...k].length;if(n<6)return '';
+  const at=H.at.get(k);if(at!=null)return n>=8&&H.n-at>=PAST_LINE_AGE?'line':'';
+  if(n<6)return '';for(const [line,i] of H.at)if(H.n-i>=PAST_LINE_AGE&&line.length>k.length&&line.includes(k))return 'part';return '';}
+ /* the art scan read two or more rows with a date (save slots: native PageLocator DateRows) while no line came for 1.5 s: a save or
+    load screen; the line comes back when the dates leave the picture (the scan reads none, or stops for a new line) */
+ artScreen(m){try{const n=Number(m?.dates)||0,P=this.pastScreen;clearTimeout(this.artRecheck);this.artRecheck=null;
+  /* #1267 live 2026-11-27 (死に逝く君, LOAD screen with one slot): one date row is too little to call a save screen, but while a screen
+     of past lines is up it is that screen's; when the dates leave the picture the screen is closed and the line comes back */
+  this.artDates=n;if(n>=1&&P)P.dates=true;
+  if(n===0&&P?.hidden&&P.dates&&P.by!=='dates'){this.pastScreen=null;clearTimeout(P.timer);this.trace('game screen of past lines left: no dates on the picture');this.emit({type:'hookDialog',engine:'pastlines',visible:true});return;}
+  if(n>=2){if(P?.hidden||this.skipKey||!this.lastSource)return;
+   /* Codex #1267: PageLocator reports the dates only when their count changes, so a screen read within 1.5 s of the last line is
+      checked again once that time is up, unless the picture changed (another report) or a line came meanwhile */
+   const since=this.now()-(this.lastSourceAt||0);if(since<1500){const at=this.lastSourceAt;this.artRecheck=setTimeout(()=>{this.artRecheck=null;if(this.lastSourceAt===at)this.artScreen(m);},1500-since);this.artRecheck.unref?.();return;}
+   if(P)clearTimeout(P.timer);
+   this.pastScreen={seq:this.state?.hookSequence,at:this.now(),hidden:true,by:'dates'};this.trace('save or load screen: '+n+' rows with a date, reader line hidden');this.clearChoices?.('save or load screen');this.emit({type:'hookDialog',engine:'pastlines',visible:false});return;}
+  if(P?.hidden&&P.by==='dates'){this.pastScreen=null;this.trace('save or load screen left: no dates on the picture');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}}catch{}}
+ pastScreenAux(raw){try{
+  /* the current line drawn again: the screen of past lines is gone, also while its hide is still pending (Codex #1267: closed within
+     PAST_SCREEN_MS, the armed timer would hide the restored dialogue) */
+  const P=this.pastScreen;if(P&&this.lastSource&&HookNative.flat(LineOnce.collapse(String(raw||'')).text)===HookNative.flat(this.lastSource)){this.pastScreen=null;clearTimeout(P.timer);
+   if(P.hidden){this.trace('game screen of past lines left: the current line is drawn again');this.emit({type:'hookDialog',engine:'pastlines',visible:true});}else this.trace('game screen of past lines closed before the hide: the current line is drawn again');return false;}
+  /* nothing the side streams draw on that screen is a choice or art */if(P?.hidden)return true;
+  /* #1267 live 2026-11-27 (死に逝く君, LOAD screen with one slot: the preview's last row 「た。」 came 1 ms after the whole line was
+     recognised, too short to be a past line of its own, and became a one-option choice and art text): while a screen of past lines
+     is pending, a piece of the line that started it is that line too */
+  if(P?.line){const k=HookNative.flat(LineOnce.collapse(String(raw||'')).text);if(k&&P.line.includes(k)){this.trace('piece of the past line on a side stream '+JSON.stringify(String(raw).slice(0,40)));return true;}}
+  const kind=this.pastKind(raw);if(!kind)return false;
+  this.trace('past line on a side stream ('+kind+') '+JSON.stringify(String(raw).slice(0,40)));
+  if(kind==='line'&&!this.skipKey&&!P){const seq=this.state?.hookSequence,at=this.now();const S={seq,at,hidden:false,dates:this.artDates>0,line:HookNative.flat(LineOnce.collapse(String(raw||'')).text)};S.timer=setTimeout(()=>{if(this.pastScreen!==S||this.state?.hookSequence!==seq||this.skipKey||(this.lastSourceAt||0)>at)return;S.hidden=true;this.trace('game screen of past lines: reader line hidden');this.clearChoices?.('game screen of past lines');this.emit({type:'hookDialog',engine:'pastlines',visible:false});},PAST_SCREEN_MS);S.timer.unref?.();this.pastScreen=S;}
+  return true;}catch{return false;}}
  /* #141 names seen in a name stream or split from a line; at most 200 are kept. */
  noteSpeaker(n){const K=this.knownSpeakers||(this.knownSpeakers=new Set());if(!n||n.length>16)return;K.delete(n);K.add(n);if(K.size>200)K.delete(K.values().next().value);}
  markerTarget(v){this.waitTarget=v;this.syncMarker();this.flowMarker(v);}

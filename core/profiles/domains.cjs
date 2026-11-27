@@ -9,6 +9,7 @@
    sources with flags 'u': no backreferences, no nested quantifiers, bounded size). */
 const DOMAINS={
  'source.artemisQuoteSpans':{bool:true,layer:'version'},
+ 'source.autoSelectSkip':{regexList:{max:16,chars:100},layer:'version'},
  'source.siglusDbsNameColumn':{number:[0,2147483647],nullable:true,int:true,layer:'version'},
  'source.versionMatch':{enum:['exe','prints']},
  'placement.firstLineAnchor':{enum:[null,'glyph','box','page']},
@@ -25,6 +26,7 @@ const DOMAINS={
  'page.keepHeld':{bool:true},
  'page.filterHookRedraws':{bool:true},
  'page.hookAnnotationPatterns':{regexList:{max:16,chars:100}},
+ 'page.skipMergedTail':{number:[20,400],nullable:true,int:true},
  'choice.contentInterleave':{bool:true},
  'choice.dropEffectFrames':{bool:true},
  'safeMode.effectJudge':{bool:true},

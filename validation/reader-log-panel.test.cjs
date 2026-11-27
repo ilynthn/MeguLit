@@ -119,5 +119,26 @@ test('reader 对话记录 / Alt+T / 点读卡 open at full size, readable, rows 
   const card=await cdp.evaluate(CARD);
   assert.equal(card.transform,'none');assert.ok(card.scale==='none'||card.scale==='1','card scale '+card.scale);assert.ok(card.h>60,'card height '+card.h);assert.equal(card.minText,1,'card text keeps full opacity');
   assert.equal(card.senses,3);assert.equal(card.numbers,0,'no 01/02/03 prefixes on the senses');assert.ok(card.tint>=.88,'card tint floor over a bright game: '+card.tint);
+
+  /* 2026-11-26 (死に逝く君、館に芽吹く憎悪): the name box drawn 15 ms after its line arrives as a late hookSpeaker; the log row of that
+     line takes it, and an older row or a row with its own name does not */
+  const late=await cdp.evaluate(`(()=>{const b=window.__tomoyoChinese;b.hookActive=true;
+   const say=(src,who)=>{b.hookSourceText=src;b.hookSpeaker=who||'';b.onSourceText(src);};
+   say('消し炭になってしまった人間の腕を見て、その男は溜息混じりにつぶやいた。');b.onLateSpeaker('血塗れの男');const narration=b.backlogEntries().at(-1).name||'';
+   say('「……焼き過ぎたか」');b.onLateSpeaker('血塗れの男');const quoted=b.backlogEntries().at(-1).name||'';
+   say('「あんな奴に……」','美亜');b.onLateSpeaker('血塗れの男');const own=b.backlogEntries().at(-1).name||'';
+   b.hookSourceText='「次の行」';b.onLateSpeaker('血塗れの男');const stale=b.backlogEntries().at(-1).name||'';
+   return {narration,quoted,own,stale};})()`);
+  assert.deepEqual(late,{narration:'血塗れの男',quoted:'血塗れの男',own:'美亜',stale:'美亜'});
+
+  /* #1136: the open 对话记录 goes to the bridge as a relayed panel (presses kept from a polling game), its scrollbar and the
+     log settings' sliders / drop-downs as native spots inside it */
+  const hit=await cdp.evaluate(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const b=window.__tomoyoChinese;const sent=[];const real=window.__tomoyoTranslateRequest;
+   window.__tomoyoTranslateRequest=s=>{try{const m=JSON.parse(s);if(m.type==='galHitRegions')sent.push(m);}catch{}return real?.(s);};
+   for(let i=0;i<60;i++)b.onSourceText('これは記録を伸ばすための地の文その'+i+'です。');
+   setTimeout(()=>dispatchEvent(new CustomEvent('tome-region-applied',{detail:{surfaceWidth:innerWidth*devicePixelRatio,surfaceHeight:innerHeight*devicePixelRatio}})),0);
+   b.openBacklog();await w(1200);const last=sent.at(-1)?.regions||[];b.closeBacklog();await w(400);window.__tomoyoTranslateRequest=real;
+   return {relay:last.filter(r=>r.relay).length,spots:last.filter(r=>r.nativeSpot).length,spotsMenu:last.filter(r=>r.nativeSpot).every(r=>r.menu)};})()`);
+  assert.ok(hit.relay>=1,'log panel region marked relay: '+JSON.stringify(hit));assert.ok(hit.spots>=1,'the log scrollbar is a native spot: '+JSON.stringify(hit));assert.ok(hit.spotsMenu);
  }finally{await cdp?.stop();server?.close();await sleep(400);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}}
 });

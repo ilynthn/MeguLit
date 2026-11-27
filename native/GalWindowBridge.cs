@@ -162,7 +162,7 @@ public class GalWindowBridge {
     // the input thread calls it directly, so a dragged panel's glass does not wait for the next bridge loop (E139).
     static void GlassCommand(Dictionary<string,object> d){var boxes=new List<GlassLayer.Box>();object rects;if(d.TryGetValue("rects",out rects)&&rects is System.Collections.ArrayList){foreach(object item in (System.Collections.ArrayList)rects){var rect=item as Dictionary<string,object>;if(rect==null||boxes.Count>=16)continue;double x=Num(rect,"x",0),y=Num(rect,"y",0),w=Num(rect,"width",0),h=Num(rect,"height",0);if(w>0&&h>0&&w<=16384&&h<=16384&&Math.Abs(x)<32768&&Math.Abs(y)<32768)boxes.Add(new GlassLayer.Box((int)x,(int)y,(int)w,(int)h,(int)Num(rect,"radius",Num(d,"radius",0)),(int)Math.Max(0,Math.Min(60,Num(rect,"blur",18))),(int)Math.Max(0,Math.Min(95,Num(rect,"dim",0))),(int)Math.Max(0,Math.Min(300,Num(rect,"saturate",100))),(int)Math.Max(0,Math.Min(100,Num(rect,"alpha",100))),(int)Num(rect,"fx",x),(int)Num(rect,"fy",y),(int)Math.Max(0,Math.Min(16384,Num(rect,"fw",w))),(int)Math.Max(0,Math.Min(16384,Num(rect,"fh",h)))));}}
         Glass.Set(boxes,(int)Num(d,"radius",0));}
-    /* E533: Pass = painted (inside the window region) but never takes the pointer: art-text translations over game buttons */sealed class HitRegion{public Rect Bounds;public bool Pass;public bool Menu;public bool Lookup;}
+    /* E533: Pass = painted (inside the window region) but never takes the pointer: art-text translations over game buttons */sealed class HitRegion{public Rect Bounds;public bool Pass;public bool Menu;public bool Lookup;public bool Relay;public bool NativeSpot;}
     static readonly List<HitRegion> HitRegions=new List<HitRegion>();static string RegionKey="";static int LookupDragRegion;
     static ReaderPointerGate.LookupGrip LookupGrip;
     static bool ReadHitBounds(Dictionary<string,object> value,out Rect bounds){
@@ -594,7 +594,7 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
             // Only when needed: re-showing and re-activating the already visible, already active main window made it
             // hide and reappear once (with the Windows open animation) on the first menu after start.
             bool keepGame=FullscreenTarget()&&GetAncestor(GetForegroundWindow(),3)==GetAncestor(Target,3);if(!IsWindowVisible(Overlay))ShowWindow(Overlay,keepGame?4:5);if(!keepGame&&GetAncestor(GetForegroundWindow(),3)!=GetAncestor(Overlay,3))SetForegroundWindow(Overlay);IsShown=true;MenuFocusPending=false;}}}
-        else if(type=="hitRegions"){MenuRegionReady=Bool(d,"menuOpen");HitRegions.Clear();object regions;if(d.TryGetValue("regions",out regions)&&regions is System.Collections.ArrayList){foreach(object item in (System.Collections.ArrayList)regions){var rect=item as Dictionary<string,object>;Rect bounds;if(HitRegions.Count>=256)break;if(ReadHitBounds(rect,out bounds))HitRegions.Add(new HitRegion{Bounds=bounds,Pass=Bool(rect,"pass"),Menu=Bool(rect,"menu"),Lookup=Bool(rect,"lookup")});}}
+        else if(type=="hitRegions"){MenuRegionReady=Bool(d,"menuOpen");HitRegions.Clear();object regions;if(d.TryGetValue("regions",out regions)&&regions is System.Collections.ArrayList){foreach(object item in (System.Collections.ArrayList)regions){var rect=item as Dictionary<string,object>;Rect bounds;if(HitRegions.Count>=256)break;if(ReadHitBounds(rect,out bounds))HitRegions.Add(new HitRegion{Bounds=bounds,Pass=Bool(rect,"pass"),Menu=Bool(rect,"menu"),Lookup=Bool(rect,"lookup"),Relay=Bool(rect,"relay"),NativeSpot=Bool(rect,"nativeSpot")});}}
             LookupGrip=ReadLookupGrip(d);
             LookupDragRegion=TranslationMode&&HitRegions.Exists(h=>h.Lookup)?(int)Math.Max(0,Math.Min(Int32.MaxValue,Num(d,"lookupDrag",0))):0;
             RegionAckPending=MenuRegionReady;
@@ -693,7 +693,9 @@ static Rect SurfaceBounds(Rect reader,Rect game,System.Drawing.Rectangle scan){r
         PointerGate.Current=new ReaderPointerGate.Context(Overlay,GetAncestor(Target,2),client,LookupOpen,
             HitRegions.FindAll(h=>!h.Pass).ConvertAll(h=>h.Bounds).ToArray(),
             HitRegions.FindAll(h=>h.Menu).ConvertAll(h=>h.Bounds).ToArray(),
-            HitRegions.FindAll(h=>h.Lookup).ConvertAll(h=>h.Bounds).ToArray(),LookupGrip);
+            /* #1136 the 对话记录 (relay) is a MeguLit panel over a polling game like the word card: its presses are relayed, never native */
+            HitRegions.FindAll(h=>h.Lookup||h.Relay).ConvertAll(h=>h.Bounds).ToArray(),LookupGrip,
+            HitRegions.FindAll(h=>h.NativeSpot).ConvertAll(h=>h.Bounds).ToArray());
     }
     static bool? LastReaderContext;
     /* 2026-11-19 one reading of the foreground per tick and one decision for the layer (native/ReaderLayerPolicy.cs):

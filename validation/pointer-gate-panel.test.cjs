@@ -4,12 +4,15 @@ const N=f=>fs.readFileSync(path.join(__dirname,'..','native',f),'utf8');
 test('lookup card presses use the pointer gate while Alt+T controls retain native drags',()=>{
  const g=N('ReaderPointerGate.cs'),b=N('GalWindowBridge.cs');
  assert.match(b,/Lookup=Bool\(rect,"lookup"\)/);
- assert.match(b,/HitRegions\.FindAll\(h=>h\.Lookup\)\.ConvertAll\(h=>h\.Bounds\)\.ToArray\(\)/);
+ assert.match(b,/HitRegions\.FindAll\(h=>h\.Lookup\|\|h\.Relay\)\.ConvertAll\(h=>h\.Bounds\)\.ToArray\(\)/);
  assert.match(g,/if\(gesture\.Owner==null&&index>=0&&context\.NativeMenu\(point\.X,point\.Y\)\)return false;/);
  assert.match(g,/foreach\(var rect in LookupPanels\)if\(Contains\(rect,x,y\)\)return false;/);
  assert.doesNotMatch(b,/LookupOpen\?CreateRectRgn/,'lookup does not expand the overlay input region');
  assert.match(g,/context\.Grip\.Hit\(point\.X,point\.Y\)/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','web','reader','modules','interaction.js'),'utf8'),/menu:isMenu,\.\.\.\(lookup\?\{lookup:true\}/);
+ /* #1136: the 对话记录 is relayed like the card (a polling game never sees a press on it); Alt+T stays native */
+ assert.match(b,/Relay=Bool\(rect,"relay"\)/);
+ assert.match(fs.readFileSync(path.join(__dirname,'..','web','reader','modules','interaction.js'),'utf8'),/const relay=!lookup&&node\.matches\('\.tome-backlog'\);[\s\S]*?\.\.\.\(relay\?\{relay:true\}:\{\}\)/);
 });
 test('the live DOM resolves ambiguous wheel events before the bridge forwards them to the game',()=>{
  const g=N('ReaderPointerGate.cs'),r=fs.readFileSync(path.join(__dirname,'..','desktop','src','reader_pointer.rs'),'utf8');

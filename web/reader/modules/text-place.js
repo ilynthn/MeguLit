@@ -80,7 +80,13 @@
     'body.megulit-placed .megulit-place-window .tomoyo-cn-row{position:absolute!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:auto}',
     inline + '{display:block!important}',
     inline + ' :is(.sentence-text:not(.megulit-old-line),.tomoyo-cn-row,.tomoyo-cn-output):not([hidden]){display:inline!important;position:static!important;width:auto!important;padding:0!important;margin:0!important;text-indent:0!important;white-space:normal!important;overflow-wrap:anywhere!important;line-break:strict}',
-    inline + ' .sentence-text:not(.megulit-old-line) br,' + inline + ' .tomoyo-cn-output br.megulit-cn-br{display:none!important}',
+    /* #1104 (sugar, ファタモルガーナの館 with 中文紧随日文 on: every row of a page line and the lines after it ran together into one
+       left-hand paragraph): only the translation follows on; the Japanese keeps its own line breaks. A line's newline (a char
+       token "\n") breaks unless the game's own row breaks (br.megulit-row-br, which stay shown) already place the rows, or the
+       Japanese is set to one line; the translation's forced row breaks are the only ones hidden. */
+    inline + ' .sentence-text:not(.megulit-old-line):not(#megulit-x){white-space:pre-line!important}',
+    inline.replace('html body.', 'html body.megulit-jp-one-line.') + ' .sentence-text:not(.megulit-old-line):not(#megulit-x),' + inline + '.megulit-game-rows .sentence-text:not(.megulit-old-line):not(#megulit-x){white-space:normal!important}',
+    inline + ' .tomoyo-cn-output br.megulit-cn-br{display:none!important}',
     inline + ' .tomoyo-cn-row:has(.tomoyo-cn-output:not([hidden]):not(:empty))::before{content:" ";white-space:pre;word-spacing:max(0px,var(--tomoyo-gal-gap,0px))}',
   ].join('\n');
   document.head.append(style);
@@ -390,7 +396,25 @@
     (b.textPlaceAdvances = (b.textPlaceAdvances || 0) + 1); return changed;
   }
   b.textPlaceAdvance = advanceInput;
-  function bindAdvance() { if (b.textPlaceAdvanceBound || typeof b.galStatus !== 'function') return; b.textPlaceAdvanceBound = true; const previous = b.galStatus; b.galStatus = m => { previous(m); if (m?.type === 'readerInput' && m.complete === true) advanceInput(); }; }
+  /* #1132 (QQ essence 2026-11-23: after Alt+H the overlay came back with no text at all until the next line). With the cover off the
+     hook stops hiding, the game repaints the current line itself and core reports it `visible` with `hiding` ("the game's line is
+     there only until the hide is back"), which also clears its place. Alt+H again puts the hide back, but the game does not repaint
+     a line it already shows, so no hidden report comes for it: the reader kept leaving the Japanese to the game and had no place
+     for it. When the cover comes back on the same line, the reader takes the line back at once from its last place. */
+  let coverOn = true, coverLine = null;
+  function coverChanged(enabled) {
+    if (enabled === coverOn) return; coverOn = enabled;
+    if (!enabled) { coverLine = line && !line.cleared && line.text ? { line, text: readerLine() } : null; return; }
+    const held = coverLine; coverLine = null;
+    const now = readerLine(); if (!held || !now || held.text !== now) return;
+    if (drawnByGame && !drawnHiding) return; /* reading without hiding: the game's line is really on screen */
+    drawnByGame = ''; drawnHiding = false; drawnEmbedded = 0; briefSync(false);
+    document.body.classList.remove('megulit-place-gone', 'megulit-place-game-drawn');
+    if (!line || line.cleared) line = held.line;
+    schedule();
+  }
+  b.textPlaceCover = coverChanged;
+  function bindAdvance() { if (b.textPlaceAdvanceBound || typeof b.galStatus !== 'function') return; b.textPlaceAdvanceBound = true; const previous = b.galStatus; b.galStatus = m => { previous(m); if (m?.type === 'readerInput' && m.complete === true) advanceInput(); if (typeof m?.coverEnabled === 'boolean') coverChanged(m.coverEnabled); }; }
   /* the reader's own current line, characters only (the engine-placed path draws it: the orphan path never does) */
   function readerOwns(text) { const t = [...String(text || '')].filter(c => !blank(c)).join(''); if (!t) return false; const s = target()?.querySelector('.sentence-text:not(.megulit-old-line)'); const r = s ? [...s.querySelectorAll('.char-token')].map(x => x.textContent).join('').replace(/[\s　]/g, '') : ''; const src = [...String(b.hookSourceText || '')].filter(c => !blank(c)).join(''); return !!(r && (r === t || r.includes(t) || t.includes(r) && r.length >= t.length * .6)) || !!(src && (src === t || src.includes(t))); }
   function orphanItems() { const taken = new Set(extras.items.map(i => [...String(i.text || '')].filter(c => !blank(c)).join(''))); return orphans.filter(o => !taken.has(o.text) && !readerOwns(o.text) && !readerDrawn.has(o.text)).map(o => ({ id: 'orphan:' + o.text, kind: 'l', text: o.text, rects: o.rects, client: o.client })); }

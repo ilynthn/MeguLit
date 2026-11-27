@@ -10,6 +10,9 @@ const { HookNative } = require('./hook-native.cjs');
 const {HookControl}=require('./hook-control.cjs');
 const {GameStyleSync}=require('./game-style-sync.cjs');const {GameRuby}=require('./game-ruby.cjs');
 class GalNative {
+  /* #1267 the art scan's count from its status line (PageLocator 「art scan 3/0 本作品は…」): [groups, foreign], null when the scan
+     went on or off (count unknown), undefined for any other status */
+  static artScanCount(status){const t=String(status||''),c=/^art scan (\d+)\/(\d+)(?:\s|$)/.exec(t);return c?[+c[1],+c[2]]:/^art scan (on|off)$/.test(t)?null:undefined;}
   // layout: { native, config, hook, ... } from layout.cjs
   constructor(layout, overlayPid, onEvent, spawnNative = spawn) {
     this.layout = layout; this.folder = layout.config; this.onEvent = onEvent; this.state = { bound: false }; this.lastFrameId = 0;
@@ -62,7 +65,8 @@ class GalNative {
       // E306 OCR page locator (PageLocator.cs): sentence boxes go through the same page path as the native engines.
       if(message.type==='hookEngineLine'){this.hooks.pageLine?.(message);return;}
       if(message.type==='hookChoiceBoxes'){this.hooks.choiceBoxes?.(message);return;}
-      if(message.type==='pageLocateStatus'){this.hooks.trace?.('ocr page '+message.status);return;}
+      if(message.type==='pageLocateStatus'){this.hooks.trace?.('ocr page '+message.status);const c=GalNative.artScanCount(message.status);if(c!==undefined)this.hooks.artScanCount?.(...(c||[null]));return;}
+      if(message.type==='artScreen'){this.hooks.artScreen?.(message);return;}
       /* 2026-11-19 (素晴らしき日々: the opening quotes are pictures) what the art scan reads becomes a read-only line of the reader (hook-native ocrLine); drawing it over the picture stays with 文字图片翻译 (artText) */
       if(message.type==='artText'&&!this.state.gameProcessId)return;
       if(message.type==='artText'&&this.hooks.sayaOcrGroup(message))return;

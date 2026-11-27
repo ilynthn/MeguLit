@@ -70,3 +70,16 @@ test('exact script dialogue with repeated content and ordinary clean dialogue st
  const normal=sourceRig();normal.h.source({text:'扉の向こうから声が聞こえた。',sourceCode:'HWN-10',sourceName:'KiriKiri1'});assert.deepEqual(normal.out,['扉の向こうから声が聞こえた。']);
  const unknown=sourceRig();unknown.h.originalText=null;unknown.h.source({text:'あいうあいうあいう',sourceCode:'HWN-10',sourceName:'KiriKiri1'});assert.equal(unknown.out.length,1,'missing script evidence does not delete authored repetition');
 });
+/* #1267 live 2026-11-27 (ファタモルガーナの館（海市蜃楼之馆）, main 9a2df583, hook-events 19:50:08.489-08.749): the choice stream was the selected
+   hook, its composite 「選択肢選択肢……おはよう………………」 came 1 ms before any side stream drew the option, and the reader showed it as the
+   dialogue line. */
+test('the choice frame composite never becomes the dialogue line, even before its option was drawn alone (#1267 live)',()=>{
+ const r=sourceRig();r.h.source({text:'選択肢選択肢……おはよう………………',sourceCode:'HWN-10',sourceName:'KiriKiri1'});
+ assert.deepEqual(r.out,[],'the composite stays with the choice');
+ const line=sourceRig();line.h.source({text:'選択肢はもう残されていない。',sourceCode:'HWN-10',sourceName:'KiriKiri1'});
+ assert.deepEqual(line.out,['選択肢はもう残されていない。'],'a line that only mentions the word is dialogue');
+ const exact=sourceRig(true);exact.h.source({text:'選択肢選択肢……おはよう………………',sourceCode:'HWN-10',sourceName:'KiriKiri1'});
+ assert.equal(exact.out.length,1,'text the script holds exactly stays the line');
+ const other=sourceRig(false,P.profileFor({}));other.h.source({text:'選択肢選択肢……おはよう………………',sourceCode:'HWN-10',sourceName:'KiriKiri1'});
+ assert.equal(other.out.length,1,'a game without a declared frame label is not touched');
+});

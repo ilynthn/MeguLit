@@ -43,16 +43,16 @@
 | 魚魚棟 · Claude | F The Seed：已适配游戏显示绿色「已适配·默认配置已导入」，不再写只读模式 | #1113 | fix/f-seed | 11-26 | 完成：已合并 #1178 89ef9ea5 |
 | 魚魚棟 · Claude | relay：探针 / 想玩 / 诊断 / Yui 故障登记到汇总 issue（#1199 #1200 #1203 #1204），不再一条条开 | — | relay/issue-trackers（PR #1209） | 11-26 | 完成：1d42a52e 已合并，迁移 0030/0031/0041 已上线，relay 已部署 |
 | 魚魚棟 · Claude | Alt+T 常驻胶囊：三种风格可自选（默认屏幕顶部居中灵动岛 / 侧边竖向胶囊 / 角落小圆点），可拖动、可开关常驻 | #1138 | feat/alt-t-capsule | 11-26 | 完成：已合并 #1263 |
-| 魚魚棟 · Claude | 剩余问题：日志说话人显示成旁白；标题/读档画面盖着台词层；日志面板点击穿透 | #1136 | fix/reader-leftovers | 11-26 | PR #1267 检查已过，实机测试中（隐藏桌面），测完合并 |
-| 魚魚棟 · Claude | 剩余问题：雾之城文字挤左；Alt+H 再按没文本；双重译文另一来源 | #1104 #1132 #1128 | fix/display-leftovers | 11-26 | PR #1268 检查已过，实机测试中（隐藏桌面），测完合并 |
+| 魚魚棟 · Claude | 剩余问题：日志说话人显示成旁白；标题/读档画面盖着台词层；日志面板点击穿透 | #1136 | fix/reader-leftovers | 11-26 | 完成：已合并 #1267（实机：点击穿透、说话人、标题残行、单格读档、Fata 首个选项） |
+| 魚魚棟 · Claude | 剩余问题：雾之城文字挤左；Alt+H 再按没文本；双重译文另一来源 | #1104 #1132 #1128 | fix/display-leftovers | 11-26 | 完成：已合并 #1268（实机：#1104 修好、#1132 1 秒内回到当前句） |
 | 魚魚棟 · Claude | #1248 汇总反馈：译文冒韩文（开源模型低温度 + 韩文译文判失败）；魔法使いの夜整页不再自动只显示中文；其余图片反馈核对 main 已修 | #1116 #1102 #1101 #1105 #1106 #1108 #1141 #1143 | fix/1248-reports | 11-27 | 完成：已合并 #1284 |
 | 魚魚棟 · Claude | 自动适配命令行 `tools/adapt-auto.cjs`：游戏目录 → 探针 → 冷测试自动推进 → 差分 → Cardinal 验收 → result.json（目标每部 5–10 分钟） | — | krkr-drawtext | 11-26 | 完成：已合并 #1291，后续并进 MeguLit-Adapter（#1296） |
 | 魚魚棟 · Claude | KiriKiri 非 KAG 引擎层：DrawText 逐字双发去重、正文线程选择、按句接；原生「源头不画」隐藏原文（MeguLitHook32 `MeguLitDrawSkip.h`） | — | krkr-drawtext / krkr-native-nodraw | 11-26 | 完成：随 #1291 合并（源头不画 DLL 构建产物还只在本地，见 #1296） |
 | 魚魚棟 · Claude | 阅读层：源头不画时日文行由阅读层自己画；快进 4000 字长行导致页面卡死 | — | reader-nodraw | 11-26 | 完成：随 #1291 合并 |
 | 魚魚棟 · Claude | Cardinal 回放打分加强（实屏 OCR 证据、扣分说明、磁带版本化、快进段不计分、YU-RIS/BGI/通用回放模型）；Yui 启动阶段补漏、#1090 frontend-rejection | #1090 | yui-cardinal | 11-26 | 完成：随 #1291 合并 |
 | 魚魚棟 · Claude | 冷测试输入兜底（PostMessage → InputShim → SendInput）、自动回答改名弹窗、选项定位答复 | — | coldtest-inputshim | 11-26 | 完成：随 #1291 合并 |
-| 魚魚棟 · Claude | euphoria HD リマスター（YU-RIS）开头选项「オープニングを見る」「メインルームへ」没有翻译：查选项是否进翻译链，按四层修（seed 优先，缺能力补 YU-RIS 引擎层） | #1143 | fix/1143-yuris-choice-translate | 11-27 | PR #1295：修完开头选项；正在补两条附带问题（标题菜单被 OCR 读成台词、Ctrl 快进 500 字整段）并评估能否做成 YU-RIS / 全引擎通用修复 |
-| 魚魚棟 · Claude | **MeguLit-Adapter**（半自动适配器，合并画字钩子和引擎剧本读取，tools/adapt-auto.cjs 并进来只留一个入口 `tools/megulit-adapter.cjs`）：认游戏按 VNDB+发行版、原文优先用引擎剧本读取（复用 RRFZ 读取器）、画字钩子对齐兜底、引擎级隐藏优先、版本层按封包/剧本指纹、需要人看的地方停下给截图和一句话问题 | — | feat/megulit-adapter（PR #1296） | 11-27 | 进行中：PR #1296 已开；已接 VNDB 发行版、LunaHook 认引擎（静态指纹 + 运行时）、GARbro-Mod 1.0.2.3（旧包兜底）、GalTransl 第二意见；回归在排队等游戏锁 |
+| 魚魚棟 · Claude | euphoria HD リマスター（YU-RIS）开头选项「オープニングを見る」「メインルームへ」没有翻译：查选项是否进翻译链，按四层修（seed 优先，缺能力补 YU-RIS 引擎层） | #1143 | fix/1143-yuris-choice-translate | 11-27 | PR #1295 CI 全绿、7d29cab5 实机复测通过（标题无残留、第一屏选项有中文、快进只留最后一句、OCR 台词随图片撤下），完成，PR #1295 已合（47a1d886）；YU-RIS2 跳过不普遍（Monochrome Empire 台词在 YU-RIS2），保留按版本 seed |
+| 魚魚棟 · Claude | **MeguLit-Adapter**（半自动适配器，合并画字钩子和引擎剧本读取，tools/adapt-auto.cjs 并进来只留一个入口 `tools/megulit-adapter.cjs`）：认游戏按 VNDB+发行版、原文优先用引擎剧本读取（复用 RRFZ 读取器）、画字钩子对齐兜底、引擎级隐藏优先、版本层按封包/剧本指纹、需要人看的地方停下给截图和一句话问题 | — | feat/megulit-adapter（PR #1296） | 11-27 | 进行中：PR #1296；冷测试已开原文隐藏（千恋＊万花 row 9.66 leak 10）；ISLAND 窗口开在前台窗口后面已修，开隐藏 pass 534 句，leak 证据不足未确认；ファタ 已跑进正文，但正文原文没藏住（冷测试离开了 Krkr2wcs），选项仍未跑到 |
 | 魚魚棟 · Claude | 调研网上现成工具接进 MeguLit-Adapter（LunaHook/LunaTranslator 特殊码库、Textractor、VNR 数据库、GARbro、KrkrExtract、SiglusExtract、VNTextPatch、AssetStudio 等）：只调研不改仓库，结论交给 #1296 接入 | — | — | 11-27 | 完成：结论交给 #1296 接入（VNDB 发行版查询、LunaHook 认引擎、GARbro-Mod 升级、GalTransl 读取器兜底；OpenSpeedy 冷测试加速待确认） |
 | 魚魚棟 · Claude | たいせつなきみのために、ぼくにできるいちばんのこと（只要你不再悲伤）：开隐藏原文时译文颜色在设置色和原文色之间来回变；开「同步原文样式」后原文藏不干净（玩家きゅう 11-27 报）。作为 MeguLit-Adapter 的实验样本一起查 | — | — | 11-27 | 排队：等游戏下载完 |
 | 魚魚棟 · Claude | YU-RIS 引擎层：正文 N 倍逐字重复去重、正文线程选择 | — | engine-yuris | 11-26 | 暂停（已提交） |
@@ -69,7 +69,7 @@
 | RRFZ | 新增 AGENTS.md：贡献者与 AI 代理须遵守的仓库规范（分层修复、回归测试、PR 要求） | — | rrfz/agents-md | 11-26 | 完成：已合并 #1294 b4d89e6f |
 
 **@RRFZ：上表这些我们这边在做，请先别动；你在做的也请登记进来，我们看到就不碰。**
-| 魚魚棟 · Claude | 模拟器实验：Switch 模拟器（Eden/Ryubing）里读对话文本 + 换成等长空白隐藏原文、选项照常；样本 一部 Switch 乙游 + 海猫 Switch 版（DS 下载中） | — | exp/emulator-hook | 11-27 | 等 DS 下载 |
+| 魚魚棟 · Claude | 模拟器实验：Switch 模拟器（Eden/Ryubing）里读对话文本 + 换成等长空白隐藏原文、选项照常；样本 一部 Switch 乙游 + 海猫 Switch 版（DS 下载中） | — | exp/emulator-hook | 11-27 | 暂停：磁盘（E 盘剩余空间不足；adapt 下的 switch-otome 先留着） |
 
 ## 已放弃
 

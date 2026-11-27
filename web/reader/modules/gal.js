@@ -724,12 +724,49 @@
    const tip=document.createElement('div'); tip.className='megulit-bind-hint'; tip.dataset.noI18n=''; tip.dataset.ok=String(message.ok===true); tip.setAttribute('role','status'); tip.textContent=text;
    tip.style.cssText='position:fixed;left:50%;top:9%;transform:translateX(-50%);z-index:2147483000;max-width:min(560px,86vw);padding:10px 18px;border-radius:12px;background:rgba(18,12,14,.92);color:#f3e6da;font:500 14px/1.6 "Microsoft YaHei",sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.45);pointer-events:none;transition:opacity .3s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
    document.body.append(tip); setTimeout(()=>{tip.style.opacity='0';setTimeout(()=>tip.remove(),350);},message.ok===true?2600:4500); };
+  /* #1128 (QQ essence 2026-11-24, 死に逝く君 汉化硬盘版: one sentence with two translations on screen). With translation written back
+     (embedTranslation, or E352 auto embed from a patch table) the game draws its own translation of a line and the overlay must
+     not draw a second one. One page-wide switch did that (body.megulit-embed-translation, on with each written-back line, off with
+     each line the game's font could not draw or when the embed mode went off): a line the game had already drawn translated
+     then got MeguLit's translation as well. The decision is per line now: core says for each line whether the game drew its
+     translation (embedLine.drawn); a window whose current line the game translated hides its own translation, a line the game
+     left as it was (no answer in time, unreadable, font without the glyphs) shows MeguLit's. A line with no answer yet follows
+     the page-wide switch as before. */
+  const embedLines=new Map(),embedKey=s=>String(s||'').replace(/<r[^<>]*>|<\/r>/g,'').replace(/[^\p{L}\p{N}]/gu,'');let embedOn=false,embedFrame=0;
+  const embedFor=text=>{const k=embedKey(text);if(!k)return undefined;if(embedLines.has(k))return embedLines.get(k);
+    /* the window's line may lack the name the game wrote back with it (or carry one it did not): a long enough end match is the same line */
+    if(k.length>=4)for(const [s,v] of embedLines)if(s.length>=4&&(s.endsWith(k)||k.endsWith(s)))return v;return undefined;};
+  const embedSync=()=>{embedFrame=0;for(const w of document.querySelectorAll('.sentence-window')){const s=w.querySelector('.sentence-text:not(.megulit-old-line)'),v=s?embedFor(s.textContent):undefined;
+    w.classList.toggle('megulit-game-translated',v===true||v===undefined&&embedOn);}};
+  function embedTranslated(message){
+    if(!document.getElementById('megulit-embed-translation-style')){const st=document.createElement('style');st.id='megulit-embed-translation-style';
+     st.textContent='.sentence-window.megulit-game-translated .tomoyo-cn-output{display:none!important}';document.head.append(st);}
+    if(message.embedLine&&typeof message.embedLine.source==='string'){const k=embedKey(message.embedLine.source);if(k){embedLines.delete(k);embedLines.set(k,message.embedLine.drawn===true);if(embedLines.size>400)embedLines.delete(embedLines.keys().next().value);}}
+    if(typeof message.embedTranslating==='boolean'&&message.embedTranslating!==embedOn){embedOn=message.embedTranslating;document.body.classList.toggle('megulit-embed-translation',embedOn);
+     /* the mode went off: lines from now on are the game's own text; the line on screen keeps what the game drew for it.
+        A per-line hide reply (embedLine with drawn:false) also says embedTranslating:false but the mode stays: the other lines'
+        results are kept (Codex #1268: A drawn, B hidden, C drawn left B without its result and hid its overlay) */
+     if(!embedOn&&!message.embedLine){const cur=document.querySelector('.sentence-window.tomoyo-hook-reader .sentence-text:not(.megulit-old-line)')||document.querySelector('.sentence-window .sentence-text:not(.megulit-old-line)'),keep=cur?embedFor(cur.textContent):undefined,k=cur?embedKey(cur.textContent):'';
+      embedLines.clear();if(k&&keep!==undefined)embedLines.set(k,keep);}}
+    embedSync();if(!embedFrame){embedFrame=requestAnimationFrame(embedSync);setTimeout(embedSync,160);}
+  }
+  bridge.embedTranslatedSync=embedSync;
+  /* Codex #1268: the reader may paint a new line well after the status that decided it (cs2 / krkr / renpy / ocr wait up to 1.2 s
+     for the page report), so the per-line decision is taken again whenever a sentence window's content changes */
+  if(typeof MutationObserver==='function'){let embedWatch=0;new MutationObserver(records=>{if(embedWatch||!(embedOn||embedLines.size))return;
+   if(!records.some(r=>(r.target.nodeType===1?r.target:r.target.parentElement)?.closest?.('.sentence-window')))return;
+   embedWatch=requestAnimationFrame(()=>{embedWatch=0;embedSync();});}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
+  /* Codex #1268: the game session ended: its lines' results and the page switch belong to it, not to the next game */
+  const embedReset=()=>{embedLines.clear();embedOn=false;document.body.classList.remove('megulit-embed-translation');
+   for(const w of document.querySelectorAll('.sentence-window.megulit-game-translated'))w.classList.remove('megulit-game-translated');};
+  bridge.embedTranslatedReset=embedReset;
   bridge.galStatus = message => {
     if (typeof message.hookSourcePreview === 'boolean') bridge.setHookSourcePreview?.(message.hookSourcePreview);
     if ('hookSource' in message || message.type==='gameClosed') {
       const page=!!message.hookSource && ['saya-page-ocr','saya-script-read'].includes(message.hookSourceEngine);
       document.body.classList.toggle('megulit-saya-page',page);
       if(page)placeLayers();
+      if(message.type==='gameClosed'||message.hookSource===null)embedReset();
     }
     bridge.cardinalPair?.source(message);
     if(message?.type==='modeRequest'){if(window.__tomoyoMode?.requestToggle)window.__tomoyoMode.requestToggle();else send({type:'galToggleMode'});return;}
@@ -737,6 +774,8 @@
     if(typeof message.hookActive==='boolean'){bridge.hookActive=message.hookActive;if(!message.hookActive)bridge.hookSourceText='';}
     if(typeof message.hookSource==='string'){bridge.hookSourceText=message.hookSource;bridge.hookSpeaker=typeof message.hookSpeaker==='string'?message.hookSpeaker:'';
      }
+    /* a name the game drew just after its line (core noteAuxName): the current line's speaker, and its log row */
+    else if(message.hookSpeakerLate&&typeof message.hookSpeaker==='string'&&message.hookSpeaker){bridge.hookSpeaker=message.hookSpeaker;bridge.onLateSpeaker?.(message.hookSpeaker);}
     if(message.hookRubyDict&&typeof message.hookRubyDict==='object')bridge.gameRuby=message.hookRubyDict;
     /* Borrowed-code (Chinese patch) text was dropped: say why in the sentence window; the next real line clears it. */
     if(message.hookNotice){let n=document.querySelector('.megulit-hook-notice');const host=document.querySelector('.sentence-window');if(host&&!n){n=document.createElement('div');
@@ -747,9 +786,7 @@
     if(typeof message.scriptSource==='boolean'){document.body.classList.toggle('megulit-script-source',message.scriptSource);if(!document.getElementById('megulit-script-source-style')){
      const st=document.createElement('style');st.id='megulit-script-source-style';st.textContent='.megulit-script-toggle{display:none!important}body.megulit-script-source .megulit-script-toggle{display:flex!important}.megulit-script-hint{display:none;margin:0 0 8px;padding:8px 10px;border-radius:8px;background:rgba(92,184,120,.1);color:#bfe8c8;font-size:12px;line-height:1.5}body.megulit-script-source .megulit-script-hint{display:block}';
      document.head.append(st);}}
-    if(typeof message.embedTranslating==='boolean'){document.body.classList.toggle('megulit-embed-translation',message.embedTranslating);if(!document.getElementById('megulit-embed-translation-style')){
-     const st=document.createElement('style');st.id='megulit-embed-translation-style';st.textContent='body.megulit-embed-translation .tomoyo-cn-output{display:none!important}';
-     document.head.append(st);}}
+    if(message.embedLine||typeof message.embedTranslating==='boolean'||typeof message.hookSource==='string')embedTranslated(message);
     if(message.hookMessage)bridge.hookMessage=message.hookMessage;if(message.waitMarkerMessage){bridge.waitMarkerMessage=message.waitMarkerMessage;if(dialogFields?.waitMarkerState)dialogFields.waitMarkerState.textContent=message.waitMarkerMessage;
      }
     if(message.hookThreads)bridge.hookThreads=message.hookThreads;

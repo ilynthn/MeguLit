@@ -47,16 +47,18 @@ internal sealed class ReaderPointerGate {
         internal readonly IntPtr Overlay,Game;
         internal readonly GalWindowBridge.Rect Client;
         internal readonly bool Lookup;
-        internal readonly GalWindowBridge.Rect[] Hits,Menus,LookupPanels;
+        internal readonly GalWindowBridge.Rect[] Hits,Menus,LookupPanels,NativeSpots;
         internal readonly LookupGrip Grip;
-        internal Context(IntPtr overlay,IntPtr game,GalWindowBridge.Rect client,bool lookup,GalWindowBridge.Rect[] hits,GalWindowBridge.Rect[] menus=null,GalWindowBridge.Rect[] lookupPanels=null,LookupGrip grip=null){
+        internal Context(IntPtr overlay,IntPtr game,GalWindowBridge.Rect client,bool lookup,GalWindowBridge.Rect[] hits,GalWindowBridge.Rect[] menus=null,GalWindowBridge.Rect[] lookupPanels=null,LookupGrip grip=null,GalWindowBridge.Rect[] nativeSpots=null){
             Overlay=overlay;Game=game;Client=client;Lookup=lookup;Hits=hits;Menus=menus??new GalWindowBridge.Rect[0];
             LookupPanels=lookupPanels??new GalWindowBridge.Rect[0];
-            Grip=grip;
+            Grip=grip;NativeSpots=nativeSpots??new GalWindowBridge.Rect[0];
         }
         internal bool InMenu(int x,int y){foreach(var rect in Menus)if(Contains(rect,x,y))return true;return false;}
         // Keep Alt+T's native slider and resize gestures. The lookup card also sits over polling games.
         internal bool NativeMenu(int x,int y){
+            /* #1136: inside a relayed panel, the controls that need a native drag (the log's scrollbar, sliders, drop-downs) stay native */
+            foreach(var rect in NativeSpots)if(Contains(rect,x,y))return InMenu(x,y);
             foreach(var rect in LookupPanels)if(Contains(rect,x,y))return false;
             return InMenu(x,y);
         }
@@ -302,6 +304,7 @@ internal sealed class ReaderPointerGate {
         var lookup=new Context(IntPtr.Zero,IntPtr.Zero,client,true,hits,hits,hits);
         if(!line.Hit(300,620)||line.Hit(800,620)||line.Hit(900,600)||lookup.Hit(900,600)||lookup.Hit(-1,600)||lookup.Hit(1920,600))return false;
         if(!lookup.Hit(300,620)||lookup.NativeMenu(300,620)||!lookup.InMenu(300,620))return false;
+        {var log=new Context(IntPtr.Zero,IntPtr.Zero,client,false,hits,hits,hits,null,new[]{new GalWindowBridge.Rect(780,600,800,660)});if(log.NativeMenu(300,620)||!log.NativeMenu(790,620))return false;}
         if(!WheelToPanel(true,false,Wheel,-120)||!WheelToPanel(false,true,Wheel,120)||WheelToPanel(false,true,Wheel,-120)||
            WheelToPanel(false,true,HorizontalWheel,120)||WheelToPanel(false,false,Wheel,120))return false;
         /* only a press on the game itself, while the card is open and the game is in front, is a dismissal */
