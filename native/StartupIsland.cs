@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Per-pixel alpha startup surface. Draws at 2x resolution before compositing.
 // 2026-11-27 (user: 「启动器只保留进度条 最后动效取消变圆然后出来那个小脸 换成变形成透明的MeguLit的logo」): the surface is only
-// the progress bar; when it fills, the bar opens into a translucent glass MeguLit logo, holds, and fades. Windows'
-// "Animation effects" off (prefers-reduced-motion) skips the morph and the bar just fades.
+// the progress bar; when it fills, the bar turns into a small translucent MeguLit logo (no wider than the bar), holds, and fades.
+// The logo enters with the same move as the promo video's end card and the website entrance: the logo's own cape unfurls
+// left to right in 48 strips that ripple like cloth and settle, while the hat and letters land big -> small, soft -> sharp.
+// Every timing below is site/public/assets/js/intro.js (the video's 30 fps timing at double speed, Remotion source
+// megu-edit/src/concept/C2.tsx `Logo` / `CapeStrips`); here the cape unfurls out of the bar. Windows' "Animation effects"
+// off (prefers-reduced-motion) skips the logo and the bar just fades.
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -42,38 +46,37 @@ sealed class StartupIsland : Form {
  readonly string Flag; readonly Color Accent; readonly Stopwatch Clock=Stopwatch.StartNew();
  readonly List<IntPtr> Hidden=new List<IntPtr>(); readonly Timer Animation=new Timer();
  readonly float DpiScale;
- readonly Bitmap Logo,Frost; readonly bool Reduce;
- const float SurfaceW=300,SurfaceH=140,BarW=218,BarH=8,LogoW=250,LogoH=LogoW*780f/2014f,LogoAlpha=.62f;
+ readonly Bitmap Cape,Rest; readonly bool Reduce;
+ const float SurfaceW=300,SurfaceH=140,BarW=218,BarH=8,LogoW=230,LogoH=LogoW*780f/2014f,LogoAlpha=.62f;
+ // intro.js constants: 48 cape strips; ripple and rotation as drawn there; 30 px ripple at the video's 900 px logo width;
+ // 8 px blur at the site's 23rem (368 px) logo width.
+ const int CapeStrips=48;const float CapeRipple=30*LogoW/900f,RestBlur=8*LogoW/368f;
  [DllImport("dwmapi.dll")]static extern int DwmSetWindowAttribute(IntPtr h,int attribute,ref int value,int size);
  void Cloak(IntPtr h,bool hidden){int value=hidden?1:0;DwmSetWindowAttribute(h,13,ref value,4);}
- Bitmap LoadLogo(){
-  // docs/assets/logo.png, pre-scaled once to the 2x render size so every frame draws it 1:1.
-  int w=(int)Math.Ceiling(LogoW*2*DpiScale),h=(int)Math.Ceiling(LogoH*2*DpiScale);var logo=new Bitmap(w,h,PixelFormat.Format32bppPArgb);
-  using(var stream=typeof(StartupIsland).Assembly.GetManifestResourceStream("MeguLit.Logo"))
-  using(var original=new Bitmap(stream))using(var g=Graphics.FromImage(logo)){
+ Bitmap LoadArt(string name){
+  // native/splash-logo-cape.png and -rest.png (the video's logo_cape / logo_rest), pre-scaled once to the 2x render size.
+  int w=(int)Math.Ceiling(LogoW*2*DpiScale),h=(int)Math.Ceiling(LogoH*2*DpiScale);var art=new Bitmap(w,h,PixelFormat.Format32bppPArgb);
+  using(var stream=typeof(StartupIsland).Assembly.GetManifestResourceStream(name))
+  using(var original=new Bitmap(stream))using(var g=Graphics.FromImage(art)){
    g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.PixelOffsetMode=PixelOffsetMode.HighQuality;g.DrawImage(original,new Rectangle(0,0,w,h));
-  }return logo;
- }
- static Bitmap Silhouette(Bitmap source){
-  // The logo's shape in white: the frosted glass tint and the light sweep are drawn through it.
-  var white=new Bitmap(source.Width,source.Height,PixelFormat.Format32bppPArgb);
-  using(var g=Graphics.FromImage(white))using(var attributes=new ImageAttributes()){
-   var m=new ColorMatrix(new float[][]{new float[]{0,0,0,0,0},new float[]{0,0,0,0,0},new float[]{0,0,0,0,0},new float[]{0,0,0,1,0},new float[]{1,1,1,0,1}});
-   attributes.SetColorMatrix(m);g.DrawImage(source,new Rectangle(0,0,source.Width,source.Height),0,0,source.Width,source.Height,GraphicsUnit.Pixel,attributes);
-  }return white;
+  }return art;
  }
  [DllImport("user32.dll")]static extern bool SystemParametersInfo(uint action,uint param,out bool value,uint ini);
  static bool ReducedMotion(){bool on;return SystemParametersInfo(0x1042,0,out on,0)&&!on;}
 
  // Everything the surface shows at one moment. ms counts from the first frame; ready is when the bar filled (-1 = loading).
- public struct Frame { public double Opacity,Progress,Bar,Morph,Logo,Sheen,Edge; }
- public const long MorphReveal=390,MorphClose=1160,ReduceReveal=0,ReduceClose=240;
+ // Morph = how far the cape has unfurled, Logo = how far the hat and letters have landed, CapeMs = the cape's own clock.
+ public struct Frame { public double Opacity,Progress,Bar,Morph,Logo,Ripple,CapeMs,Drop; }
+ public const long MorphReveal=390,MorphClose=1160,ReduceReveal=0,ReduceClose=240,CapeStart=60;
+ static double Eo(double t,double a,double b,double p){return 1-Math.Pow(1-Math.Max(0,Math.Min(1,(t-a)/(b-a))),p);}
  public static Frame Compute(long ms,long ready,double progress,bool reduce){
-  var f=new Frame();f.Progress=progress;long e=ready<0?-1:ms-ready;double appear=Ease(ms/220.0);f.Sheen=-1;
+  var f=new Frame();f.Progress=progress;long e=ready<0?-1:ms-ready;double appear=Ease(ms/220.0);
   if(reduce||e<0){f.Bar=1;f.Opacity=appear*(e<0?1:1-Ease(e/220.0));return f;}
-  // 60-420 ms: the full bar opens vertically into the logo; the bar fades as the logo fills in; a light sweep crosses it.
-  f.Morph=Ease((e-60)/360.0);f.Bar=1-Ease((e-60)/220.0);f.Logo=Ease((e-110)/330.0);f.Sheen=(e-300)/480.0;
-  f.Edge=Math.Sin(Math.PI*Math.Max(0,Math.Min(1,(e-60)/560.0)));
+  // intro.js: unfurl = eo(t, 0, 475, 3); amp = 30 * scale * (1 - eo(t, 125, 800, 2)); rp = eo(t, 100, 575, 4); 850 ms
+  double t=e-CapeStart;f.CapeMs=Math.Max(0,t);
+  f.Morph=t<0?0:Eo(t,0,475,3);f.Ripple=1-Eo(t,125,800,2);f.Logo=t<0?0:Eo(t,100,575,4);
+  // the full bar settles onto the cape's line, and the unfurling cape takes its place left to right
+  f.Drop=Ease(e/240.0);f.Bar=1-Eo(t,380,475,2);
   f.Opacity=appear*(1-Ease((e-920)/220.0));return f;
  }
 
@@ -128,13 +131,13 @@ sealed class StartupIsland : Form {
  StartupIsland(string flag,string lang,Color accent,bool reduce){
   Flag=flag;Accent=accent;Reduce=reduce;
   using(var g=Graphics.FromHwnd(IntPtr.Zero))DpiScale=g.DpiX/96f;
-  Logo=LoadLogo();Frost=Silhouette(Logo);
+  Cape=LoadArt("MeguLit.LogoCape");Rest=LoadArt("MeguLit.LogoRest");
   FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;Text="MeguLit";StartPosition=FormStartPosition.Manual;
   ClientSize=new System.Drawing.Size((int)(SurfaceW*DpiScale),(int)(SurfaceH*DpiScale));
   var area=Screen.PrimaryScreen.WorkingArea;Location=new System.Drawing.Point(area.X+(area.Width-Width)/2,area.Y+(area.Height-Height)/2);
   Animation.Interval=20;Animation.Tick+=delegate{try{TickFrame();}catch(Exception e){Log(e);Close();}};
   Shown+=delegate{Clock.Restart();Animation.Start();};
-  FormClosed+=delegate{Animation.Stop();if(EventHook!=IntPtr.Zero)UnhookWinEvent(EventHook);Restore();Logo.Dispose();Frost.Dispose();Animation.Dispose();};
+  FormClosed+=delegate{Animation.Stop();if(EventHook!=IntPtr.Zero)UnhookWinEvent(EventHook);Restore();Cape.Dispose();Rest.Dispose();Animation.Dispose();};
  }
  void Log(Exception e){try{File.AppendAllText(Flag+".log",e.ToString()+Environment.NewLine);}catch{}}
  static double Ease(double t){t=Math.Max(0,Math.Min(1,t));return 1-Math.Pow(1-t,3);}
@@ -168,7 +171,7 @@ sealed class StartupIsland : Form {
   if(RevealStarted&&!Restored)FadeMain(elapsed-reveal);
   if(ms>45000){Close();return;}
   var frame=Compute(ms,ReadyAt,Progress,Reduce);
-  string key=frame.Opacity.ToString("F2")+":"+frame.Progress.ToString("F3")+":"+frame.Bar.ToString("F2")+":"+frame.Morph.ToString("F3")+":"+frame.Logo.ToString("F2")+":"+frame.Sheen.ToString("F2");
+  string key=frame.Opacity.ToString("F2")+":"+frame.Progress.ToString("F3")+":"+frame.Bar.ToString("F2")+":"+frame.Morph.ToString("F3")+":"+frame.Logo.ToString("F3")+":"+frame.CapeMs.ToString("F0")+":"+frame.Drop.ToString("F2");
   if(key!=LastFrame){using(var bitmap=Render(frame))Present(bitmap);LastFrame=key;}
   Animation.Interval=ReadyAt<0&&ms>800&&Math.Abs(ProgressTarget-Progress)<.001?80:20;
   if(++Frames==1){ShowWindow(Handle,4);if(IsWindowVisible(Handle))try{File.WriteAllText(Flag+".shown","1");}catch{}LaunchEngine();}
@@ -176,34 +179,60 @@ sealed class StartupIsland : Form {
  }
  static GraphicsPath Round(RectangleF r,float radius){var p=new GraphicsPath();float d=radius*2;p.AddArc(r.X,r.Y,d,d,180,90);p.AddArc(r.Right-d,r.Y,d,d,270,90);p.AddArc(r.Right-d,r.Bottom-d,d,d,0,90);p.AddArc(r.X,r.Bottom-d,d,d,90,90);p.CloseFigure();return p;}
  static float Lerp(float a,float b,double t){return a+(b-a)*(float)t;}
- static void DrawFaded(Graphics g,Bitmap image,RectangleF to,double alpha){
-  if(alpha<=0)return;using(var attributes=new ImageAttributes()){var m=new ColorMatrix();m.Matrix33=(float)Math.Min(1,alpha);attributes.SetColorMatrix(m);
-   g.DrawImage(image,new[]{to.Location,new PointF(to.Right,to.Top),new PointF(to.Left,to.Bottom)},new RectangleF(0,0,image.Width,image.Height),GraphicsUnit.Pixel,attributes);}
+ static ImageAttributes Faded(double alpha,bool white){
+  var m=new ColorMatrix();m.Matrix33=(float)Math.Max(0,Math.Min(1,alpha));
+  if(white){m.Matrix00=0;m.Matrix11=0;m.Matrix22=0;m.Matrix40=1;m.Matrix41=1;m.Matrix42=1;}
+  var a=new ImageAttributes();a.SetColorMatrix(m);return a;
+ }
+ static void DrawPart(Graphics g,Bitmap image,RectangleF from,RectangleF to,double alpha,bool white){
+  if(alpha<=0)return;using(var attributes=Faded(alpha,white))
+   g.DrawImage(image,new[]{to.Location,new PointF(to.Right,to.Top),new PointF(to.Left,to.Bottom)},from,GraphicsUnit.Pixel,attributes);
+ }
+ static void DrawFaded(Graphics g,Bitmap image,RectangleF to,double alpha){DrawPart(g,image,new RectangleF(0,0,image.Width,image.Height),to,alpha,false);}
+ void DrawLogo(Graphics g,Frame f,float x0,float y0){
+  // intro.js runCape(): each strip is a slice of the cape, lifted by the ripple and tilted while it is near the front
+  float sw=LogoW/CapeStrips,kx=Cape.Width/LogoW,amp=(float)(CapeRipple*f.Ripple),front=(float)(f.Morph*(CapeStrips+6)-3),beat=(float)(f.CapeMs/16.67);
+  for(int i=0;i<CapeStrips;i++){
+   float vis=Math.Max(0,Math.Min(1,front-i));if(vis<=0)break;
+   float u=(float)i/CapeStrips,near=Math.Max(0,Math.Min(1,1-(front-i)/6)),y=amp*(.35f+u)*(float)Math.Sin(u*7.5-beat*.32)-near*amp*1.2f;
+   var state=g.Save();g.TranslateTransform(x0+i*sw,y0+LogoH*.7f+y);g.RotateTransform(near*-8);
+   DrawPart(g,Cape,new RectangleF(i*sw*kx,0,(sw+1)*kx,Cape.Height),new RectangleF(-.5f,-LogoH*.7f,sw+1,LogoH),vis,false);g.Restore(state);
+  }
+  // the hat and letters: opacity rp * 1.6, scale 1.32 -> 1, blur (1 - rp) * 8 px
+  double rp=f.Logo;if(rp<=0)return;float k=(float)(1.32-.32*rp),w=LogoW*k,h=LogoH*k;var to=new RectangleF(x0+(LogoW-w)/2,y0+(LogoH-h)/2,w,h);
+  double blur=rp<.98?(1-rp)*RestBlur*2*DpiScale:0;
+  if(blur<1.5){DrawFaded(g,Rest,to,Math.Min(1,rp*1.6));return;}
+  // a blur by resampling: down to one pixel per blur radius and back up, smoothly
+  int bw=Math.Max(2,(int)(Rest.Width/blur)),bh=Math.Max(2,(int)(Rest.Height/blur));
+  using(var small=new Bitmap(bw,bh,PixelFormat.Format32bppPArgb)){
+   using(var s=Graphics.FromImage(small)){s.InterpolationMode=InterpolationMode.HighQualityBilinear;s.PixelOffsetMode=PixelOffsetMode.HighQuality;s.DrawImage(Rest,new Rectangle(0,0,bw,bh));}
+   var mode=g.InterpolationMode;g.InterpolationMode=InterpolationMode.HighQualityBilinear;DrawFaded(g,small,to,Math.Min(1,rp*1.6));g.InterpolationMode=mode;
+  }
  }
  Bitmap Render(Frame f){
   var result=new Bitmap(Width,Height,PixelFormat.Format32bppPArgb);
   using(var high=new Bitmap(Width*2,Height*2,PixelFormat.Format32bppPArgb)){
    using(var g=Graphics.FromImage(high)){
     g.ScaleTransform(2*DpiScale,2*DpiScale);g.SmoothingMode=SmoothingMode.AntiAlias;g.PixelOffsetMode=PixelOffsetMode.HighQuality;g.InterpolationMode=InterpolationMode.HighQualityBicubic;
-    float cx=SurfaceW/2,cy=SurfaceH/2,o=(float)f.Opacity;
-    // The opening: a rounded slit that starts as the bar and widens to frame the logo.
-    float sw=Lerp(BarW,LogoW+24,f.Morph),sh=Lerp(BarH,LogoH+20,f.Morph);var slit=new RectangleF(cx-sw/2,cy-sh/2,sw,sh);
-    if(f.Logo>0)using(var clip=Round(slit,Math.Min(sh/2,22))){
-     g.SetClip(clip);float k=Lerp(.94f,1,f.Morph);var to=new RectangleF(cx-LogoW*k/2,cy-LogoH*k/2,LogoW*k,LogoH*k);
-     DrawFaded(g,Logo,to,o*f.Logo*LogoAlpha);DrawFaded(g,Frost,to,o*f.Logo*.10);
-     if(f.Sheen>0&&f.Sheen<1)using(var band=new GraphicsPath()){
-      float bx=to.X-50+(to.Width+100)*(float)f.Sheen;band.AddPolygon(new[]{new PointF(bx,to.Y-4),new PointF(bx+30,to.Y-4),new PointF(bx+6,to.Bottom+4),new PointF(bx-24,to.Bottom+4)});
-      g.SetClip(band,CombineMode.Intersect);DrawFaded(g,Frost,to,o*f.Logo*.38*Math.Sin(Math.PI*f.Sheen));
+    float cx=SurfaceW/2,cy=SurfaceH/2,o=(float)f.Opacity,x0=cx-LogoW/2,y0=cy-LogoH/2;
+    if(f.Morph>0||f.Logo>0){
+     // the logo is drawn solid on its own layer, then laid down translucent with a faint frosted tint, so strip seams never show
+     using(var layer=new Bitmap(high.Width,high.Height,PixelFormat.Format32bppPArgb)){
+      using(var l=Graphics.FromImage(layer)){l.Transform=g.Transform;l.SmoothingMode=SmoothingMode.AntiAlias;l.PixelOffsetMode=PixelOffsetMode.HighQuality;l.InterpolationMode=InterpolationMode.HighQualityBicubic;DrawLogo(l,f,x0,y0);}
+      var whole=new RectangleF(0,0,layer.Width,layer.Height);var state=g.Save();g.ResetTransform();
+      DrawPart(g,layer,whole,whole,o*LogoAlpha,false);DrawPart(g,layer,whole,whole,o*.10,true);g.Restore(state);
      }
-     g.ResetClip();
     }
-    if(f.Edge>0)using(var pane=Round(slit,Math.Min(sh/2,22)))using(var edge=new Pen(Color.FromArgb((int)(70*o*f.Edge),255,255,255),.6f))g.DrawPath(edge,pane);
     if(f.Bar>0){
-     var bar=new RectangleF(cx-sw/2,cy-BarH/2,sw,BarH);int a=(int)(255*o*f.Bar);
+     // the bar, lowered onto the cape's line; the part the cape has already reached is gone
+     var bar=new RectangleF(cx-BarW/2,cy-BarH/2+(float)f.Drop*LogoH*.22f,BarW,BarH);int a=(int)(255*o*f.Bar);
+     float cut=f.Morph>0?x0+(float)(f.Morph*(CapeStrips+6)-3)*LogoW/CapeStrips:float.MinValue;
      using(var shape=Round(bar,BarH/2)){
+      g.SetClip(new RectangleF(Math.Max(cut,bar.X-1),bar.Y-2,bar.Right-Math.Max(cut,bar.X-1)+2,BarH+4));
       using(var bg=new SolidBrush(Color.FromArgb((int)(a*.98),27,27,32)))g.FillPath(bg,shape);
       using(var edge=new Pen(Color.FromArgb((int)(a*.14),255,255,255),.65f))g.DrawPath(edge,shape);
-      if(f.Progress>0){g.SetClip(shape);using(var fill=new SolidBrush(Color.FromArgb(a,Accent)))g.FillRectangle(fill,bar.X,bar.Y,bar.Width*(float)f.Progress,BarH);g.ResetClip();}
+      if(f.Progress>0){g.SetClip(shape,CombineMode.Intersect);using(var fill=new SolidBrush(Color.FromArgb(a,Accent)))g.FillRectangle(fill,bar.X,bar.Y,bar.Width*(float)f.Progress,BarH);}
+      g.ResetClip();
      }
     }
    }
@@ -219,7 +248,7 @@ sealed class StartupIsland : Form {
    if(ready<0&&target==1&&progress>.996&&ms>=850){progress=1;ready=ms;}
    var f=Compute(ms,ready,progress,Reduce);
    using(var b=Render(f))b.Save(Path.Combine(dir,i.ToString("D3")+".png"),ImageFormat.Png);
-   json.Append(i==0?"":",").AppendFormat(inv,"{{\"ms\":{0},\"opacity\":{1:F3},\"bar\":{2:F3},\"morph\":{3:F3},\"logo\":{4:F3}",ms,f.Opacity,f.Bar,f.Morph,f.Logo).Append('}');i++;
+   json.Append(i==0?"":",").AppendFormat(inv,"{{\"ms\":{0},\"opacity\":{1:F3},\"bar\":{2:F3},\"morph\":{3:F3},\"logo\":{4:F3},\"ripple\":{5:F3}",ms,f.Opacity,f.Bar,f.Morph,f.Logo,f.Ripple).Append('}');i++;
    if(ready>=0&&ms-ready>=(Reduce?ReduceClose:MorphClose))break;
   }
   File.WriteAllText(Path.Combine(dir,"timeline.json"),String.Format(inv,"{{\"scale\":{0},\"reduce\":{1},\"readyAt\":{2},\"revealAfter\":{3},\"closeAfter\":{4},\"frames\":[{5}]}}",DpiScale,Reduce?"true":"false",ready,Reduce?ReduceReveal:MorphReveal,Reduce?ReduceClose:MorphClose,json));

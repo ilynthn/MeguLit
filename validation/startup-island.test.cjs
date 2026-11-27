@@ -3,7 +3,8 @@
 // 2026-11-27 (user: 「下个版本启动器只保留进度条 最后动效取消变圆然后出来那个小脸 换成变形成透明的MeguLit的logo」).
 // Builds native/StartupIsland.exe with its real build script, runs its offscreen timeline (--frames: a scripted load,
 // no window, no engine) and reads the rendered PNG frames back: while loading only the bar is drawn; when the bar
-// fills it opens into a wide, translucent MeguLit logo (no 44 px circle, no face); the whole closing stays within the
+// fills it turns into a small translucent MeguLit logo, no wider than the bar (no 44 px circle, no face), entering with the
+// website's / promo video's logo move (its timings are checked frame by frame); the whole closing stays within the
 // old 1.16 s and the main window is revealed no later than before. With Windows animations off the bar just fades.
 const test=require('node:test'),assert=require('node:assert'),fs=require('fs'),path=require('path'),os=require('os'),zlib=require('zlib'),{execFileSync}=require('child_process');
 const root=path.join(__dirname,'..');
@@ -47,7 +48,7 @@ test('render test: the busy frame is the bar alone; the ready frame is the trans
  const base=path.join(work,'still');execFileSync(exe,[base,'zh','#ad1539','--render-test'],{windowsHide:true,timeout:60000});
  const busy=visible(readAlpha(base+'-busy.png')),ready=visible(readAlpha(base+'-ready.png'));
  assert.ok(busy.height<=12&&busy.width>=200,`busy: a thin full-width bar (${busy.width}x${busy.height})`);
- assert.ok(ready.width>=180,`ready: the wide logo, not a circle (got ${ready.width}x${ready.height})`);
+ assert.ok(ready.width>=150&&ready.width<=218,`ready: the logo, about as wide as the bar and no wider, not a circle (got ${ready.width}x${ready.height})`);
  assert.ok(ready.max<=0.8*255,`ready: translucent (strongest alpha ${ready.max})`);
 });
 
@@ -58,10 +59,18 @@ test('loading shows only the progress bar; the full bar turns into a translucent
   assert.ok(v.height>0&&v.height<=10*s,`at ${ms} ms only the 8 px bar is visible (got ${v.height} px tall)`);
   assert.ok(v.width>=200*s,`at ${ms} ms the bar is drawn at full width, not grown out of a circle (got ${v.width} px)`);}
  const hold=frame(index(ready+800));
- assert.ok(hold.width>=180*s,`the closing image is the wide logo (got ${hold.width} px wide; the old face circle was 44)`);
- assert.ok(hold.height>=80*s&&hold.height<=110*s,`logo height (got ${hold.height} px)`);
+ assert.ok(hold.width>=150*s,`the closing image is the logo (got ${hold.width} px wide; the old face circle was 44)`);
+ assert.ok(hold.width<=218*s,`the logo is small: no wider than the 218 px bar (got ${hold.width} px)`);
+ assert.ok(hold.height>=60*s&&hold.height<=95*s,`logo height (got ${hold.height} px)`);
  assert.ok(hold.max>40&&hold.max<=0.8*255,`the logo is translucent (strongest alpha ${hold.max})`);
- const mid=frame(index(ready+200));assert.ok(mid.height>10*s&&mid.height<hold.height+30*s,'mid-morph the bar has opened up');
+ const mid=frame(index(ready+300));assert.ok(mid.height>10*s,'mid-morph the logo is coming in where the bar was');
+ // the logo's entrance reuses the website's (site/public/assets/js/intro.js), started 60 ms after the bar fills:
+ // unfurl = eo(t, 0, 475, 3), ripple = 1 - eo(t, 125, 800, 2), letters rp = eo(t, 100, 575, 4)
+ const clamp=v=>Math.max(0,Math.min(1,v)),eo=(t,a,b,p)=>1-Math.pow(1-clamp((t-a)/(b-a)),p);
+ for(const f of timeline.frames.filter(f=>f.ms>=ready+60&&f.ms<=ready+900)){const t=f.ms-ready-60;
+  assert.ok(Math.abs(f.morph-eo(t,0,475,3))<.002,`cape unfurl at ${t} ms`);
+  assert.ok(Math.abs(f.ripple-(1-eo(t,125,800,2)))<.002,`cape ripple at ${t} ms`);
+  assert.ok(Math.abs(f.logo-eo(t,100,575,4))<.002,`letters landing at ${t} ms`);}
  assert.ok(timeline.revealAfter<=390,'the main window is revealed no later than before');
  assert.ok(timeline.closeAfter<=1160,'the closing takes no longer than the old 1.16 s');
  const last=timeline.frames.at(-1);assert.ok(last.ms-ready<=1160&&last.opacity<0.01,'faded out by the end');
