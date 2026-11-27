@@ -1,0 +1,18 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "bc0ffaf2034c94b6dc9078435b7cb6b04d2f31f21ca361fcae2ddf65e1357397",
+ "layer": "version",
+ "source": "official",
+ "settings": {},
+ "exe": "ozmafia.exe",
+ "engine": "yuris",
+ "app": "megulit-adapter",
+ "issuedAt": "",
+ "prints": {
+  "exe": "bc0ffaf2034c94b6dc9078435b7cb6b04d2f31f21ca361fcae2ddf65e1357397",
+  "head": "4fb41d51a78bf7b0e991752fdd17a58673fcf9e651e2a6b3ee46c09c40d6de4a",
+  "pe": "1.0.0.0@504381ee"
+ },
+ "rev": 1
+}
