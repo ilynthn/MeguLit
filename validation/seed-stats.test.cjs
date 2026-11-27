@@ -68,10 +68,15 @@ test('THE SEED: empty table → first stats call kicks a background refresh; the
 
 test('dashboard: gold THE SEED pane takes the full dumps slot; full dumps moved next to relay.log; meter clamps; panels render isolated',async()=>{
  const {DASHBOARD_HTML:h}=await mod('dashboard.js');
- assert.match(h,/pane c3 gold/);assert.match(h,/--gold:#e0a84b/);assert.match(h,/>the seed</);
- /* full dumps keeps its name (owner 2026-11-21), only moved below THE SEED, next to relay.log */
- assert.ok(h.indexOf('>the seed<')<h.indexOf('>full dumps<')&&h.indexOf('>full dumps<')<h.indexOf('>relay.log<'));
- assert.match(h,/function safe\(name,fn\)/);assert.match(h,/n=Math\.max\(0,Math\.min\(w,n\|0\)\)/);
+ assert.match(h,/pane c3 gold/);assert.match(h,/--gold:#e2b25c/);assert.match(h,/data-i18n="p\.seed"/);
+ /* full dumps keeps its name (owner 2026-11-21), only moved below THE SEED, next to the request log */
+ assert.ok(h.indexOf('data-i18n="p.seed"')<h.indexOf('data-i18n="p.full"')&&h.indexOf('data-i18n="p.full"')<h.indexOf('data-i18n="p.log"'));
+ assert.match(h,/function safe\(name,fn\)/);assert.match(h,/Math\.min\(100,Math\.max\(0,/);
+ /* 2026-11-27 zh/en switch: every dictionary key used by data-i18n exists, and both languages are filled in */
+ const {DASH_DICT}=await mod('dashboard-i18n.js');
+ for(const m of h.matchAll(/data-i18n(?:-ph|-aria)?="([^"]+)"/g))assert.ok(DASH_DICT[m[1]],'missing dictionary key '+m[1]);
+ for(const [k,v] of Object.entries(DASH_DICT)){assert.ok(v[0]&&v[1],'empty text for '+k);}
+ assert.match(h,/ml-dash-lang/);
 });
 
 test('THE SEED: GraphQL refused → tree counts still shown, the error reaches the panel, next run retries',async()=>{
