@@ -40,8 +40,23 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
+| RRFZ · Codex | CMVS/CVNS 剧本按指令分类台词，提取说话人、语音和行号 | — | rrfz/cmvs-classify | 11-27 | 在做 |
+| 魚魚棟 · Claude | 点读查词支持口语缩约和方言语尾（舐めんなし、わかんねえ、ええやん）：还原后再查、最长前缀兜底、可选 AI 释义 | — | feat/colloquial-lookup | 11-28 | 等 CI（PR #1339） |
+| 魚魚棟 · Claude | 官网换新图标（点读台词框）：favicon、apple-touch-icon、manifest、结构化数据 logo；启动器图标和字标不动 | — | feat/site-favicon | 11-27 | 等 CI（PR #1333） |
+| 魚魚棟 · Claude | megulit.com 用户中心：网页登录看学习看板、收藏句子（点读查词）、单词本、阅读进度，PWA 离线；桌面端自动同步、「同步到网页」开关和删除云端数据 | — | feat/web-dashboard-relay · feat/web-dashboard-sync · feat/web-dashboard | 11-27 | 三个 PR 已开：服务端 #1329、桌面端 #1330（叠在 #1329 上）、网页 #1332；等 CI 和测试员，部署要等店主批准 |
+| 魚魚棟 · Claude | The Seed「已种下的游戏」太乱、滚动条隐藏：游戏社默认折叠成一行（社名、部数、小封面），只展开第一个；全部展开/收起，搜索自动展开，细滚动条 | — | fix/seed-planted-collapse | 11-27 | CI 绿，待测试员实测（PR #1323） |
+| 魚魚棟 · Claude | 点过按钮后按 Shift 等键冒出黄色焦点框：只在键盘导航时显示，焦点框统一重做 | — | fix/focus-ring | 11-27 | 在做 |
+| 魚魚棟 · Claude | 游戏内新手引导：前 5 次进游戏分步高亮胶囊、Alt+T 菜单、个性化文本、点读、校准，可跳过；顶栏「教程」和 Alt+T 可重看，教程页配图 | — | feat/onboarding-tour | 11-27 | 等 CI，待测试员实测（PR #1324） |
+| 魚魚棟 · Claude | 游戏库标题停在文件夹名（Ozmafia-ozmafia-joki）：改成显示作品名（seed/VNDB），用户改过的名字不覆盖，老数据迁移，原名留作别名 | — | fix/library-title-from-work | 11-27 | 等 CI，待测试员实测（PR #1326） |
+| 魚魚棟 · Claude | 启动画面只留进度条，结尾不再变圆出小脸，改成进度条变形成半透明 MeguLit logo | — | feat/splash-logo | 11-27 | CI 全绿，待测试员实测（PR #1319） |
+| 魚魚棟 · Claude | 首页大卡牌按住往下压时，单击/双击提示框压在卡牌上：提示框挪到卡牌下方，按住、拖动、抽卡时不出现 | — | fix/home-card-press | 11-27 | 等 CI，待测试员实测（PR #1320） |
+| 魚魚棟 · Claude | 热键全部可自定义：Alt+M / Alt+T / Alt+H / Alt+L 可改组合键，也可绑鼠标侧键或中键加修饰键；冲突提示，Alt+T 菜单和设置里同一个「热键」面板，所有热键提示跟着设置变 | — | feat/custom-hotkeys | 11-27 | 在做 |
+| 魚魚棟 · Claude | 关于页感谢太少：除 MeguLit 外改成片尾致谢名单，名单数据在 web/credits.json | — | feat/credits-roll | 11-27 | CI 绿，待测试员实测（PR #1321） |
+| 魚魚棟 · Claude | 关于页链接行悬停时星芒比文字低、右侧值跟着右移：星芒按标签行框居中，值列不动 | — | fix/about-hover-align | 11-27 | 等合并（PR #1322，CI 绿） |
+| 魚魚棟 · Claude | MeguLit-Adapter auto：新游戏下载完自动装、适配、开 PR、做测试版和卡片（不花 LLM token），计划任务 watch | — | feat/adapter-auto-pipeline | 11-27 | 等 CI（PR #1318） |
+| 魚魚棟 · Claude | 传火碑门外草地重做：蓝调夜色草地和萤火，西门前扩成圆形草地，删掉水面上的椅子 | — | feat/torch-meadow-c | 11-27 | 等 CI，待测试员实测（PR #1314） |
 | 魚魚棟 · Claude | 选项实机：ファタ、千恋通过；ISLAND 选项（CatSystem2 select 记录）进不了阅读层，已修；适配器加 choice 实机步骤 | — | fix/choice-live | 11-27 | PR #1310 已开等 CI，待测试员实测（ISLAND） |
-| 魚魚棟 · Claude | 适配 OZMAFIA!!（YU-RIS）、ハミダシクリエイティブ（常轨脱离Creative，Artemis）：走 MeguLit-Adapter 实机验证，每部一个 seed PR | #1107 #1133 | claude/ozmafia-joki | 11-27 | #1303（常轨脱离）CI 全绿、#1312（OZMAFIA，叠在 #1303 上）等 CI；两部都等测试员实测（清单已交） |
+| 魚魚棟 · Claude | 适配 OZMAFIA!!（YU-RIS）、ハミダシクリエイティブ（常轨脱离Creative，Artemis）：走 MeguLit-Adapter 实机验证，每部一个 seed PR | #1107 #1133 | claude/ozmafia-joki | 11-27 | 等测试员实测：#1303（常轨脱离）和 #1312（OZMAFIA，叠在 #1303 上）CI 全绿，清单已交 |
 | 魚魚棟 · Claude | 制服カノジョ3（制服女友3，Unity/TMP）：原文漏出 <space=> 等 TMP 标签且同句重复；回 log 后原文没藏干净、台词消失 | #1248 | fix/unity-tmp-space-backlog | 11-27 | 等 CI + 测试员实测（PR #1309） |
 | 魚魚棟 · Claude | YU-RIS 引擎层：正文 N 倍逐字重复去重、正文线程选择 | — | engine-yuris | 11-26 | 暂停（已提交） |
 | 魚魚棟 · Claude | 模拟器实验：Switch 模拟器（Eden/Ryubing）里读对话文本 + 换成等长空白隐藏原文、选项照常；样本 一部 Switch 乙游 + 海猫 Switch 版（DS 下… | — | exp/emulator-hook | 11-27 | 暂停：磁盘（E 盘剩余空间不足；adapt 下的 swit… |

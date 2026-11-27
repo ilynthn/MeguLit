@@ -43,5 +43,5 @@ test('cold run: the largest draw skip count of the selected stream lands in run.
 
 test('MeguLit-Adapter cold stage: the result carries the count, and the checkout\'s marked hook DLL replaces the install copy',()=>{const A=read('tools/megulit-adapter/cold.cjs');
  assert.match(A,/skipped:runInfo\?\.drawSkipped\|\|0/);
- assert.match(A,/buildColdDesk\(root\);buildHookBridge\(root\);useCheckoutHook\(root\);/);
+ assert.match(A,/buildColdDesk\(root\);buildHookBridge\(root\);useCheckoutHook\(root,hookDirs\(\),app\);/);
  assert.match(A,/const HOOK_MARK='MeguLit_GDIHIDE armed version=2'/);assert.match(A,/if\(buf\.indexOf\(HOOK_MARK\)<0\)return;/,'an unmarked DLL is never used (validation/megulit-adapter-cold.test.cjs: which build wins)');});

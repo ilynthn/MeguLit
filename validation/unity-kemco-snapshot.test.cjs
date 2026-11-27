@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawnSync}=require('node:child_process');
-const {compileRoslyn}=require('./helpers/roslyn-compile.cjs');
+// This harness only needs C# 5, so use the Windows .NET Framework compiler rather than Visual Studio Roslyn.
+const compiler=path.join(process.env.SystemRoot||'C:/Windows','Microsoft.NET/Framework64/v4.0.30319/csc.exe');
 const base=path.join(__dirname,'../native/unitytext'),source=fs.readFileSync(path.join(base,'MeguLitUnityText.cs'),'utf8');
 function method(name){const start=source.indexOf(name);assert.ok(start>=0,name);let p=source.indexOf('{',start),n=0,end=p;for(;end<source.length;end++){if(source[end]==='{')n++;else if(source[end]==='}'&&--n===0)break;}return source.slice(start,end+1);}
 test('actual bounded KEMCO helper rejects incomplete snapshots and keeps page, role and permission identities separate',()=>{
@@ -25,7 +26,7 @@ class Check {
   Is(KemcoMethod(typeof(StringMes)),"actual metadata ABI returns string");Is(!KemcoMethod(typeof(VoidMes))&&!KemcoMethod(typeof(StaticMes))&&!KemcoMethod(typeof(WrongMes))&&!KemcoMethod(null),"wrong Mes ABI rejected");
   var rows=R(G(1),G(2,"本"));rows.Add(new List<KemcoSpriteSnapshot.Glyph>{G(3,"語")});var p=Read(rows);Is(p!=null&&p.text=="日本\\n語"&&p.rects.Count==3,"ordered rows");
   Is(Read(R(G(1,"\\ud83d\\ude00"))).rects.Count==1,"one unicode scalar");
-  Is(Read(R(G(1),G(2,"本",false)))?.text=="日","typewriter suffix");
+  var prefix=Read(R(G(1),G(2,"本",false)));Is(prefix!=null&&prefix.text=="日","typewriter suffix");
   Is(Read(R(G(1,"日",false),G(2)))==null,"typewriter gap");
   Is(Read(R(G(1,"日",false)))==null,"all parked");
   Is(Read(R(G(1),G(1)))==null,"duplicate root");Is(Read(R(G(0)))==null,"zero identity");
@@ -48,7 +49,7 @@ class Check {
  }
  static void Main(){Console.OutputEncoding=new System.Text.UTF8Encoding(false);new Check().Run();}
 }`);
-  compileRoslyn(['/nologo','/codepage:65001','/out:'+path.join(dir,'check.exe'),path.join(base,'KemcoSpriteSnapshot.cs'),path.join(dir,'check.cs')]);
+  const c=spawnSync(compiler,['/nologo','/codepage:65001','/out:'+path.join(dir,'check.exe'),path.join(base,'KemcoSpriteSnapshot.cs'),path.join(dir,'check.cs')],{windowsHide:true,encoding:'utf8',timeout:60000});assert.ifError(c.error);assert.equal(c.status,0,c.stdout+c.stderr);
   const r=spawnSync(path.join(dir,'check.exe'),[],{windowsHide:true,encoding:'utf8',timeout:5000});assert.ifError(r.error);assert.equal(r.status,0,r.stdout+r.stderr);
   const lines=r.stdout.trim().split(/\r?\n/);assert.match(lines.pop(),/^PASS 4\d$/);const {parseChars}=require('../core/text-paths.cjs');
   const parsed=lines.map(l=>{const x=parseChars(l);assert.ok(x,l);assert.equal(x.hidden,false);return x;});

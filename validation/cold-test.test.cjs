@@ -83,6 +83,18 @@ test('saves: a predicted place that did not exist is removed again; a crash is u
  const left=Saves.pending(P.root);assert.equal(left.length,1);assert.equal(Saves.restore(P.root,left[0]).ok,true);assert.ok(!fs.existsSync(p2.path),'the folder the run created is gone');
  assert.equal(snap.ok,true);});
 
+test('saves: a save folder named in the game\'s own .bat is predicted (ハミダシクリエイティブ, Artemis)',()=>{const P=pc();
+ const g=path.join(P.base,'Games','Hamidashi');fs.mkdirSync(g,{recursive:true});const exe=path.join(g,'hamidashi.exe');fs.writeFileSync(exe,'MZ');
+ const game={exe,engine:'artemis',title:'ハミダシクリエイティブ'};
+ assert.equal(Saves.locate(game,P.env).ok,false,'no bat yet -> no place');
+ /* Shift-JIS, as the game ships it: explorer "%APPDATA%\まどそふと\ハミダシ" */
+ const sjis=[0x82,0xdc,0x82,0xc7,0x82,0xbb,0x82,0xd3,0x82,0xc6,0x5c,0x83,0x6e,0x83,0x7e,0x83,0x5f,0x83,0x56];
+ fs.writeFileSync(path.join(g,'open-save.bat'),Buffer.concat([Buffer.from('@echo off\r\nexplorer "%APPDATA%\\'),Buffer.from(sjis),Buffer.from('"\r\n')]));
+ fs.writeFileSync(path.join(g,'delete-save.bat'),'del /F /Q "%APPDATA%\\Vendor\\Game2\\*"\r\necho %APPDATA%\r\n');
+ const loc=Saves.locate(game,P.env);assert.equal(loc.ok,true,loc.why);
+ const ps=loc.places.filter(p=>p.predicted).map(p=>path.relative(P.env.APPDATA,p.path)).sort();
+ assert.deepEqual(ps,[path.join('Vendor','Game2'),path.join('まどそふと','ハミダシ')].sort(),'Shift-JIS path decoded, wildcard dropped, bare %APPDATA% ignored');});
+
 test('saves: no place -> not tested; too big -> not tested; unguarded writes are found',()=>{const P=pc();
  const bare=path.join(P.base,'Games','Bare');fs.mkdirSync(bare,{recursive:true});fs.writeFileSync(path.join(bare,'Bare.exe'),'MZ');fs.writeFileSync(path.join(bare,'setting.ini'),'a');
  const none=Saves.locate({exe:path.join(bare,'Bare.exe'),engine:'',title:'Bare Game'},P.env);assert.equal(none.ok,false);assert.equal(none.why,'找不到存档位置','settings files alone are not a save place');

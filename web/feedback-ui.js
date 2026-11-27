@@ -22,7 +22,7 @@ const T = {
     upd: (y, m, d, title) => `${y}年${m}月${d}日 完善了《${title}》的内嵌使用`, updNote: '以上游戏只在作者本地做过部分测试，实际游玩中如果还有问题，欢迎继续反馈，会跟进修复',
     gamePlaceholder: '完整的游戏名（日文原名或商店里的名字）', gameRule: '请写完整、准确的游戏名：日文原名，或 Steam、DLsite 商店里的名字都可以。不要写缩写、简称或昵称（比如「夏天」「GG」），缩写很难找到是哪部游戏', gameShort: '这个名字很短，可能是缩写或简称。请写完整的游戏名；确定这就是全名的话，再点一次提交', submit: '提交', gameSent: '收到了，会尽快适配',
     noticeMore: '遇到问题了，可以在「关于」页点「一键上传问题反馈」，写一下原因，简短或详细都可以，日志会一起发过来。有什么建议，或者只是想留句话，也都很欢迎。谢谢支持！',
-    report: '一键上传问题反馈', noticeOff: '当前版本不再提示', noticeOffTip: '勾上后，这个版本启动时不再弹出这个窗口；更新到新版本会再提示一次。更新日志和使用教程随时可以在顶栏「教程」里看', ok: '知道了', next: '下一步：使用教程', back: '上一步', done: '完成', guideKicker: 'guide', guide: '教程',
+    report: '一键上传问题反馈', noticeOff: '当前版本不再提示', noticeOffTip: '勾上后，这个版本启动时不再弹出这个窗口；更新到新版本会再提示一次。更新日志和使用教程随时可以在顶栏「教程」里看', ok: '知道了', next: '下一步', back: '上一步', done: '完成', guideKicker: 'guide', guide: '教程',
     tabUpdates: '更新日志', tabGuide: '使用教程', tabReport: '问题反馈', tabGame: '想玩的游戏', reportText: '写一下原因，简短或详细都可以，最近的日志会一起发给作者。', gameText: '想玩什么游戏，把名字写在下面点提交，快的话半天，最晚一周内就能支持', close: '关闭', noUpdates: '暂时读不到更新日志，联网后再试',
   },
   ja: {
@@ -35,7 +35,7 @@ const T = {
     upd: (y, m, d, title) => `${y}年${m}月${d}日 「${title}」の埋め込み表示を改善しました`, updNote: '上のゲームは作者の手元で一部しか確認していません。実際に遊んで問題があれば、引き続き知らせてください。修正していきます',
     gamePlaceholder: '正式なゲーム名（原題やストアの表記）', gameRule: '正式なゲーム名をそのまま書いてください。原題や Steam・DLsite のストア表記がおすすめです。略称やあだ名だと、どの作品か特定できないことがあります', gameShort: '名前が短く、略称かもしれません。正式なタイトルを書いてください。これが正式名なら、もう一度送信してください', submit: '送信', gameSent: '受け取りました。できるだけ早く対応します',
     noticeMore: '困ったときは「について」ページの「不具合をまとめて送る」から、原因をひとこと書いて送ってください（短くても詳しくても OK）。ログも一緒に届きます。ご意見やひとことも大歓迎です',
-    report: '不具合をまとめて送る', noticeOff: 'このバージョンでは表示しない', noticeOffTip: 'チェックすると起動時にこの画面を出しません。更新履歴と使い方は上のバーの「チュートリアル」からいつでも見られます', ok: 'わかった', next: '次へ：使い方', back: '戻る', done: '完了', guideKicker: 'guide', guide: 'チュートリアル',
+    report: '不具合をまとめて送る', noticeOff: 'このバージョンでは表示しない', noticeOffTip: 'チェックすると起動時にこの画面を出しません。更新履歴と使い方は上のバーの「チュートリアル」からいつでも見られます', ok: 'わかった', next: '次へ', back: '戻る', done: '完了', guideKicker: 'guide', guide: 'チュートリアル',
     tabUpdates: '更新履歴', tabGuide: '使い方', tabReport: '不具合を送る', tabGame: '遊びたいゲーム', reportText: '原因をひとこと書いてください。最近のログも一緒に作者へ届きます。', gameText: '遊びたいゲームの名前を入れて送信してください。早ければ半日、遅くとも一週間以内に対応します', close: '閉じる', noUpdates: '更新履歴を読み込めません。オンラインで再度お試しください',
   },
   en: {
@@ -48,7 +48,7 @@ const T = {
     upd: (y, m, d, title) => `${new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })} · embedded mode for ${title} improved`, updNote: 'These were only partly tested on the author’s own machine. If anything still goes wrong when you play, please keep telling us and we’ll fix it',
     gamePlaceholder: 'Full game title (original or store name)', gameRule: 'Please write the full, exact title: the original Japanese title or the name on Steam or DLsite. Avoid abbreviations and nicknames, they make it hard to find the right game. For an exact build, use VNDB ID | engine | source language | EXE SHA-256 | script SHA-256', gameShort: 'This name is very short and may be an abbreviation. Please write the full title; if this is the full title, press Submit again', submit: 'Submit', gameSent: 'Got it; support is on the way',
     noticeMore: 'If something goes wrong, open About and use Report a problem: say what happened, briefly or in detail, and the logs come along. Ideas or just a hello are welcome too. Thanks for the support!',
-    report: 'Report a problem', noticeOff: "Don't show again for this version", noticeOffTip: 'When ticked, this window no longer opens at start-up. Updates and the tutorial stay under Tutorial in the top bar', ok: 'Got it', next: 'Next: how to use', back: 'Back', done: 'Done', guideKicker: 'guide', guide: 'Tutorial',
+    report: 'Report a problem', noticeOff: "Don't show again for this version", noticeOffTip: 'When ticked, this window no longer opens at start-up. Updates and the tutorial stay under Tutorial in the top bar', ok: 'Got it', next: 'Next', back: 'Back', done: 'Done', guideKicker: 'guide', guide: 'Tutorial',
     tabUpdates: 'Updates', tabGuide: 'How to use', tabReport: 'Report', tabGame: 'Request a game', reportText: 'Say what went wrong, briefly or in detail; recent logs go to the author with it.', gameText: 'Type a game you want to play and submit it; it usually takes half a day, a week at most', close: 'Close', noUpdates: 'Could not load the updates; try again when online',
   },
 };
@@ -242,11 +242,11 @@ export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', f
 <p class="startup-updates-empty" role="status">${esc(loadingUpdates[locale] || loadingUpdates.zh)}</p>
 <p class="dev-notice-more">${esc(t.noticeMore)}</p>
 <div class="dev-notice-offbar"><label class="dev-notice-off" title="${esc(t.noticeOffTip)}"><input type="checkbox" data-notice-off${noticeOff() ? ' checked' : ''}><span>${esc(t.noticeOff)}</span></label></div>
-<div class="dev-notice-actions"><button type="button" class="text-button" data-report>${esc(t.report)}</button><button type="button" class="primary" data-next>${esc(seedWords(locale).next)}</button></div></div>
-<div class="dev-notice-page" data-page="seed" hidden>${seedPageHTML(locale, esc, { left: `<button type="button" class="text-button" data-back>${esc(t.back)}</button>`, right: `<button type="button" class="primary" data-next-guide>${esc(t.next)}</button>` })}</div>
+<div class="dev-notice-actions"><button type="button" class="notice-go" data-next><span>${esc(seedWords(locale).next)}</span><svg class="notice-go-arrow" viewBox="0 0 20 12" aria-hidden="true"><path d="M1 6h17M13 1.5 18 6l-5 4.5"/></svg></button></div></div>
+<div class="dev-notice-page" data-page="seed" hidden>${seedPageHTML(locale, esc, { left: `<button type="button" class="text-button" data-back>${esc(t.back)}</button>`, right: `<button type="button" class="notice-go" data-next-guide><span>${esc(t.next)}</span><svg class="notice-go-arrow" viewBox="0 0 20 12" aria-hidden="true"><path d="M1 6h17M13 1.5 18 6l-5 4.5"/></svg></button>` })}</div>
 <div class="dev-notice-page" data-page="2" hidden><div class="dev-notice-top"><span>${esc(t.guideKicker)}</span><span data-page-no>3 / 3</span></div>
 <h2>${esc((GUIDE[locale] || GUIDE.zh).title)}</h2><div class="dev-notice-scroll">${guideHTML(locale, esc)}</div>
-<div class="dev-notice-actions"><button type="button" class="text-button" data-back>${esc(t.back)}</button><button type="button" class="secondary" data-ok>${esc(t.done)}</button></div></div>`;
+<div class="dev-notice-actions"><button type="button" class="text-button" data-back>${esc(t.back)}</button><button type="button" class="notice-go" data-ok><span>${esc(t.done)}</span></button></div></div>`;
   document.body.append(dialog);
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   const form = dialog.querySelector('form'), game = dialog.querySelector('.dev-notice-game'), status = dialog.querySelector('.feedback-status');
@@ -270,7 +270,7 @@ export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', f
     const total = seedSeen() || n === 'seed' || trail.includes('seed') ? 3 : 2;
     if (n === 'seed') seed.querySelector('[data-page-no]').textContent = '2 / 3';
     if (n === 2) two.querySelector('[data-page-no]').textContent = total === 3 ? '3 / 3' : '2 / 2';
-    shown.querySelector('.secondary, .primary').focus();
+    (shown.querySelector('.notice-go') || shown.querySelector('.secondary, .primary')).focus();
   };
   dialog.querySelector('[data-next]').onclick = () => { if (seedSeen()) { trail.push(2); page(2); } else { markSeedSeen(); trail.push('seed'); page('seed'); } };
   dialog.querySelector('[data-next-guide]').onclick = () => { trail.push(2); page(2); };
@@ -278,7 +278,6 @@ export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', f
   dialog.querySelector('[data-ok]').onclick = () => dialog.close();
   dialog.querySelector('[data-notice-close]').onclick = () => dialog.close();
   dialog.querySelector('[data-notice-off]').onchange = event => setNoticeOff(event.target.checked);
-  dialog.querySelector('[data-report]').onclick = () => { dialog.close(); openFeedback({ api, locale, esc, toast, version }); };
   dialog.showModal();
   window.megulitYuiStage?.('notice-open');
   const markVisible=()=>{

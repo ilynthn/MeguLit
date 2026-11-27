@@ -435,6 +435,7 @@ async function dispatch(request,runtime=null) {
       case 'reader_status':case 'reader_health':case 'reader_detach':case 'reader_attach':case 'reader_message':case 'reader_invoke':case 'model_status':case 'model_download':case 'model_cancel':case 'pack_status':case 'pack_download':case 'pack_cancel':case 'local_start':case 'local_stop':case 'runtime_download':case 'runtime_cancel':case 'speakers':case 'speakers_cached':case 'speech_preview':case 'sentence_voice':case 'sentence_voice_has':case 'kana_speak':case 'tokenize':case 'translate_preview':
         if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return await runtime.call(request);
       case 'home': try{require('./import-source.cjs').backfill(db);}catch{}return store.home(db,root);
+      case 'novel_shelf':case 'novel_scan':case 'novel_import':case 'novel_detail':case 'novel_chapter':case 'novel_find':case 'novel_online_search':case 'novel_online_save':case 'novel_online_clear':case 'novel_online_reviews':case 'novel_image':case 'novel_remove':case 'novel_progress':case 'novel_progress_save':case 'novel_bookmarks':case 'novel_bookmark_add':case 'novel_bookmark_remove':case 'novel_event':case 'novel_excerpts':case 'novel_excerpt_add':case 'novel_excerpt_remove':case 'novel_excerpt_translate':case 'novel_annotate':case 'novel_lookup':case 'novel_save_word':case 'novel_pdf':case 'novel_source_config':case 'novel_source_cover':case 'novel_source_open':case 'novel_source_detail':case 'novel_source_download_start':case 'novel_source_download_status':case 'novel_source_import':case 'novel_source_test':case 'novel_discover':case 'novel_search':return await require('./novel/index.cjs').dispatch(request,{db,root,runtime});
       case 'game_shots':case 'game_shot':{const game=db.prepare('SELECT executable FROM games WHERE id=? AND removed_at IS NULL').get(String(request.id));if(!game)throw Error('GAME_NOT_FOUND');const shots=require('./scene-shots.cjs');
         return request.action==='game_shots'?{items:shots.list(root,game.executable)}:shots.read(root,game.executable,String(request.file||''));}
       case 'game_cgs':case 'game_cg':{const game=db.prepare('SELECT executable FROM games WHERE id=? AND removed_at IS NULL').get(String(request.id));if(!game)throw Error('GAME_NOT_FOUND');const cg=require('./game-cg.cjs');
@@ -446,7 +447,7 @@ async function dispatch(request,runtime=null) {
       case 'review_full':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.reviews().full(String(request.platform),String(request.url||''));
       case 'game_reviews':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.reviews().page(String(request.id),String(request.platform),request.page,request.size,String(request.lang||'all'));
       case 'reviews_translate':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.reviews().translate(request.texts,String(request.target),String(request.source||'auto'));
-      case 'open_source':{const url=new URL(String(request.url));if(url.protocol!=='https:'||!['vndb.org','store.steampowered.com','steamcommunity.com','bgm.tv','2dfan.com','erogamescape.dyndns.org','github.com','plicy.net','megulit.com','platform.deepseek.com','cloud.siliconflow.cn','bailian.console.aliyun.com','aistudio.google.com','apps.ankiweb.net','ankiweb.net'].includes(url.hostname)||url.username||url.password)throw Error('INVALID_SOURCE_URL');const child=spawn('explorer.exe',[url.href],{windowsHide:true,detached:true,stdio:'ignore'});child.on('error',()=>{});child.unref();return {opened:true};}
+      case 'open_source':{const url=new URL(String(request.url));if(url.protocol!=='https:'||!['vndb.org','store.steampowered.com','steamcommunity.com','bgm.tv','2dfan.com','erogamescape.dyndns.org','github.com','plicy.net','megulit.com','platform.deepseek.com','cloud.siliconflow.cn','bailian.console.aliyun.com','aistudio.google.com','apps.ankiweb.net','zh.moegirl.org.cn','ndlsearch.ndl.go.jp','openlibrary.org','data1.library.sh.cn','ankiweb.net'].includes(url.hostname)||url.username||url.password)throw Error('INVALID_SOURCE_URL');const child=spawn('explorer.exe',[url.href],{windowsHide:true,detached:true,stdio:'ignore'});child.on('error',()=>{});child.unref();return {opened:true};}
       case 'game_locale_mode':{
         const id=String(request.id),row=db.prepare('SELECT original FROM games WHERE id=? AND removed_at IS NULL').get(id);
         if(!row)throw Error('GAME_NOT_FOUND');
@@ -709,8 +710,10 @@ async function dispatch(request,runtime=null) {
         if(!title)throw Error('INVALID_TITLE');
         if(!path.isAbsolute(executable)||!executable.toLowerCase().endsWith('.exe')||!fs.existsSync(executable)||!fs.statSync(executable).isFile())throw Error('INVALID_EXECUTABLE');
         if(request.id){
-          const existing=db.prepare('SELECT id,original FROM games WHERE id=?').get(String(request.id));if(!existing)throw Error('GAME_NOT_FOUND');
+          const existing=db.prepare('SELECT id,title,original FROM games WHERE id=?').get(String(request.id));if(!existing)throw Error('GAME_NOT_FOUND');
           const original=JSON.parse(existing.original);if(original.library)original.library.exe=executable;
+          /* a name the user changed is theirs: seed and VNDB matches no longer replace it (core/library-title.cjs) */
+          if(title!==existing.title)original.titleSource='user';
           // vndb: a VNDB entry chosen by the user ("" goes back to automatic matching); left out, it stays as it is.
           const vndb=request.vndb===undefined?undefined:require('./game-enrichment.cjs').vndbIdFrom(request.vndb),vndbChanged=vndb!==undefined&&vndb!==(original.vndbManual||'');
           if(vndbChanged){if(vndb)original.vndbManual=vndb;else delete original.vndbManual;
@@ -729,10 +732,15 @@ async function dispatch(request,runtime=null) {
         const sameSteam=match&&!match.removed_at&&original.library?.source==='steam'&&!original.library?.steamRejected&&/^\d+$/.test(String(original.library?.appid||''))&&String(match.executable||'').toLowerCase()===executable.toLowerCase();
         const source=sameSteam?'steam':'manual';
         original.library={...original.library,source,steamRejected:false,dir:path.dirname(executable),exe:executable,executableSignature:library.signature(executable)};
+        /* titleAuto: the add dialog filled the name itself (the work's name it looked up, or the folder name); false: the user typed
+           it. A folder or program name is replaced by the work's name once the seed or VNDB match is known (core/library-title.cjs) */
+        {const T=require('../core/library-title.cjs');original.titleSource=T.isFallback(title,executable)?'folder':request.titleAuto===true?'work':request.titleAuto===false?'user':'scan';}
         if(match)db.prepare("UPDATE games SET title=?,executable=?,source=?,removed_at=NULL,original=? WHERE id=?").run(title,executable,source,JSON.stringify(original),id);
         else db.prepare('INSERT INTO games(id,title,executable,source,original) VALUES (?,?,?,?,?)').run(id,title,executable,'manual',JSON.stringify(original));
         require('./series.cjs').autoGroup(db,root);runtime?.metadata().enqueue([id]);require('./torch-receive.cjs').enqueue(root,[id],{force:true,priority:'user'});return {id};
       }
+      /* the add dialog's name for a picked program: the seed's work name, else VNDB's, else the folder name (core/library-title.cjs) */
+      case 'game_title_lookup':return await require('./game-enrichment.cjs').lookupTitle(root,String(request.executable||'').trim());
       case 'hidden_games':return db.prepare('SELECT id,title FROM games WHERE hidden_at IS NOT NULL AND removed_at IS NULL ORDER BY title').all();
       case 'set_game_hidden':{
         const result=db.prepare('UPDATE games SET hidden_at=? WHERE id=? AND removed_at IS NULL').run(request.hidden===true?Math.floor(Date.now()/1000):null,String(request.id));
@@ -798,6 +806,7 @@ async function dispatch(request,runtime=null) {
       case 'update_apply':return await require('./update.cjs').apply(root,String(request.current||''));
       case 'update_start':{const u=require('./update.cjs');u.start(root,String(request.current||''),fetch,{forceLatest:request.forceLatest===true});return u.status();}
       case 'update_status':return require('./update.cjs').status();
+      case 'test_build':return {label:String(process.env.MEGULIT_TEST_BUILD||'').trim()};
       case 'update_install':return await require('./update.cjs').install(root);
       /* 2026-11-15 adaptation contribution consent (services/adapter-contrib.cjs): the update card's 同意并下一步 / 不参与, the beta note */
       case 'contrib_consent':return require('./adapter-contrib.cjs').consentState(root);

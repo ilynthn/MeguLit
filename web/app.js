@@ -46,6 +46,7 @@ import {renderSettings,stopSettings} from './settings.js';
 import {openProfilePanel} from './profile-panel.js';
 import {avatarHTML} from './leaderboard-view.js';
 import {openBackgroundCrop,backgroundGeometry} from './background-crop.js';
+import {mountNovel} from './novel-page.js';
 
 const app=document.querySelector('#app');
 let model={games:[],stats:{readingSeconds:0,words:0,lookups:0},preferences:{language:'zh',accent:'#ad1539'}};
@@ -252,7 +253,7 @@ function shell(){
     <header class="titlebar"><div class="grimoire-glow" aria-hidden="true"></div>
     <img class="brand-logo" src="assets/megulit-logo.svg" alt="MeguLit" width="3424" height="1452" draggable="false">
     <nav class="nav-history" aria-label="${({zh:'页面历史',ja:'ページ履歴',en:'Page history'})[locale]}"><button type="button" class="nav-step" data-nav-step="-1" disabled aria-label="${({zh:'返回上一页',ja:'前のページへ',en:'Back'})[locale]}" title="${({zh:'返回上一页',ja:'前のページへ',en:'Back'})[locale]} (Alt+←)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg></button><button type="button" class="nav-step" data-nav-step="1" disabled aria-label="${({zh:'前往下一页',ja:'次のページへ',en:'Forward'})[locale]}" title="${({zh:'前往下一页',ja:'次のページへ',en:'Forward'})[locale]} (Alt+→)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg></button></nav>
-    <span class="tab-ink" aria-hidden="true"></span>${(tabButton=>`<nav class="top-tabs top-tabs-main" aria-label="MeguLit">${['home','library','history','learning'].map(tabButton).join('')}<span class="top-sep" aria-hidden="true"></span>${['leaderboard','daily','torch'].map(tabButton).join('')}</nav>`)(item=>`<button class="top-tab" data-route="${item}" ${route===item?'aria-current="page"':''}>${item==='torch'?({zh:'传火碑',ja:'継火の碑',en:'Monument'})[locale]:item==='daily'?(dailyLabel[locale]||dailyLabel.zh)/* E415 */:item==='tools'?(grimoireWords[locale]||grimoireWords.zh).tools/* E377 */:item==='leaderboard'?(leaderboardLabel[locale]||leaderboardLabel.zh):item==='about'?(aboutLabel[locale]||aboutLabel.zh):text[item]}</button>`)}<div class="bar-tools" id="bar-tools"></div><div class="titlebar-end"><nav class="top-tabs top-tabs-util" aria-label="MeguLit"><button type="button" class="top-tab" data-top-feedback>${({zh:'反馈',ja:'不具合報告',en:'Report'})[locale]||'反馈'}</button><button type="button" class="top-tab" data-top-guide>${({zh:'教程',ja:'チュートリアル',en:'Tutorial'})[locale]||'教程'}</button>${['tools','settings','about'].map(item=>`<button class="top-tab" data-route="${item}" ${route===item?'aria-current="page"':''}>${item==='daily'?(dailyLabel[locale]||dailyLabel.zh)/* E415 */:item==='tools'?(grimoireWords[locale]||grimoireWords.zh).tools/* E377 */:item==='leaderboard'?(leaderboardLabel[locale]||leaderboardLabel.zh):item==='about'?(aboutLabel[locale]||aboutLabel.zh):text[item]}</button>`).join('')}</nav><button type="button" class="top-me" data-top-me aria-label="${({zh:'个人主页',ja:'プロフィール',en:'Profile'})[locale]}" title="${({zh:'个人主页',ja:'プロフィール',en:'Profile'})[locale]}"><span class="leaderboard-avatar is-default" aria-hidden="true"></span><span class="top-me-name">${({zh:'个人主页',ja:'プロフィール',en:'Profile'})[locale]}</span></button><div class="window-actions">${[['minimize','minus'],['maximize','maximize'],['close','close']].map(([action,symbol])=>`<button class="window-action" data-window="${action}" aria-label="${text[action]}" title="${text[action]}">${icon(symbol)}</button>`).join('')}</div></div></header><aside class="reader-notice" id="reader-notice" hidden role="status"><span class="reader-notice-title"></span><div class="reader-notice-actions"><button type="button">${{zh:'重新连接',en:'Reconnect',ja:'再接続'}[locale]}</button></div></aside>
+    <span class="tab-ink" aria-hidden="true"></span>${(tabButton=>`<nav class="top-tabs top-tabs-main" aria-label="MeguLit">${['home','library','novel','history','learning'].map(tabButton).join('')}<span class="top-sep" aria-hidden="true"></span>${['leaderboard','daily','torch'].map(tabButton).join('')}</nav>`)(item=>`<button class="top-tab" data-route="${item}" ${route===item?'aria-current="page"':''}>${item==='torch'?({zh:'传火碑',ja:'継火の碑',en:'Monument'})[locale]:item==='daily'?(dailyLabel[locale]||dailyLabel.zh)/* E415 */:item==='tools'?(grimoireWords[locale]||grimoireWords.zh).tools/* E377 */:item==='leaderboard'?(leaderboardLabel[locale]||leaderboardLabel.zh):item==='about'?(aboutLabel[locale]||aboutLabel.zh):text[item]}</button>`)}<div class="bar-tools" id="bar-tools"></div><div class="titlebar-end"><nav class="top-tabs top-tabs-util" aria-label="MeguLit"><button type="button" class="top-tab" data-top-feedback>${({zh:'反馈',ja:'不具合報告',en:'Report'})[locale]||'反馈'}</button><button type="button" class="top-tab" data-top-guide>${({zh:'教程',ja:'チュートリアル',en:'Tutorial'})[locale]||'教程'}</button>${['tools','settings','about'].map(item=>`<button class="top-tab" data-route="${item}" ${route===item?'aria-current="page"':''}>${item==='daily'?(dailyLabel[locale]||dailyLabel.zh)/* E415 */:item==='tools'?(grimoireWords[locale]||grimoireWords.zh).tools/* E377 */:item==='leaderboard'?(leaderboardLabel[locale]||leaderboardLabel.zh):item==='about'?(aboutLabel[locale]||aboutLabel.zh):text[item]}</button>`).join('')}</nav><button type="button" class="top-me" data-top-me aria-label="${({zh:'个人主页',ja:'プロフィール',en:'Profile'})[locale]}" title="${({zh:'个人主页',ja:'プロフィール',en:'Profile'})[locale]}"><span class="leaderboard-avatar is-default" aria-hidden="true"></span><span class="top-me-name">${({zh:'个人主页',ja:'プロフィール',en:'Profile'})[locale]}</span></button><div class="window-actions">${[['minimize','minus'],['maximize','maximize'],['close','close']].map(([action,symbol])=>`<button class="window-action" data-window="${action}" aria-label="${text[action]}" title="${text[action]}">${icon(symbol)}</button>`).join('')}</div></div></header><aside class="reader-notice" id="reader-notice" hidden role="status"><span class="reader-notice-title"></span><div class="reader-notice-actions"><button type="button">${{zh:'重新连接',en:'Reconnect',ja:'再接続'}[locale]}</button></div></aside>
     <div class="workspace"><div class="stage-cover" aria-hidden="true" hidden><i class="dtv-glyph"></i><span class="stage-marks"><i></i><i></i><i></i><i></i></span></div><main class="main" id="main" tabindex="-1"></main></div></div>`;
   document.querySelectorAll('[data-window]').forEach(button=>button.addEventListener('click',async()=>{try{if(route==='settings')await flushSettings().catch(()=>{
    });if(button.dataset.window==='close'&&model.preferences.closeAsk!==false){const choice=await closeDialog(locale);if(!choice)return;const values={closeToTray:choice.tray};
@@ -939,10 +940,10 @@ function editGame(id){
   const game=model.games.find(g=>g.id===id);
   /* E281 (user: polish the add game dialog): the program comes first as one large card that shows the file name and its
      folder; picking it fills the name from the folder when the name is still empty. Paths can still be typed. */
-  const words=({zh:{kicker:'书架',sub:'选好游戏程序，名字会自动填上',pick:'选择游戏程序',pickSub:'游戏文件夹里的 .exe',change:'更换',path:'或直接粘贴路径',name:'游戏名称',namePh:'选好程序后自动填写'},
+  const words=({zh:{kicker:'书架',sub:'选好游戏程序，名字会自动填上',pick:'选择游戏程序',pickSub:'游戏文件夹里的 .exe',change:'更换',path:'或直接粘贴路径',name:'游戏名称',namePh:'选好程序后自动填写',finding:'正在查找作品名…'},
    en:{kicker:'Library',sub:'Pick the game program; the name fills itself in',pick:'Choose the game program',pickSub:'The .exe in the game folder',change:'Change',
-    path:'or paste a path',name:'Game name',namePh:'Filled in after picking the program'},
-   ja:{kicker:'ライブラリ',sub:'実行ファイルを選ぶと名前が自動で入ります',pick:'実行ファイルを選択',pickSub:'ゲームフォルダ内の .exe',change:'変更',path:'またはパスを貼り付け',name:'作品名',namePh:'実行ファイルを選ぶと自動入力'}})[locale]||{
+    path:'or paste a path',name:'Game name',namePh:'Filled in after picking the program',finding:'Looking up the title…'},
+   ja:{kicker:'ライブラリ',sub:'実行ファイルを選ぶと名前が自動で入ります',pick:'実行ファイルを選択',pickSub:'ゲームフォルダ内の .exe',change:'変更',path:'またはパスを貼り付け',name:'作品名',namePh:'実行ファイルを選ぶと自動入力',finding:'作品名を検索中…'}})[locale]||{
     };
   const dialog=modal(`<header class="game-dialog-head"><span class="game-dialog-kicker">${words.kicker}</span><h2>${game?text.editGame:text.addGame}</h2><p>${words.sub}</p></header><form id="game-form" class="game-form"><button type="button" class="exe-card" id="pick-exe" aria-label="${text.selectFile}"><span class="exe-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M12 11v5M9.5 13.5h5"/></svg></span><span class="exe-card-text"><strong data-exe-name>${words.pick}</strong><small data-exe-dir>${words.pickSub}</small></span><span class="exe-card-action" data-exe-action>${({zh:'浏览…',en:'Browse…',ja:'参照…'})[locale]}</span></button><label class="form-label game-path-label" for="game-exe">${text.executable} · ${words.path}</label><input id="game-exe" class="form-input game-path" required spellcheck="false" autocomplete="off" value="${esc(game?.executable||'')}"><label class="form-label" for="game-title">${words.name||text.gameTitle}</label><input id="game-title" class="form-input game-name" required maxlength="240" placeholder="${esc(words.namePh||'')}" value="${esc(game?.title||'')}">${game?`<label class="form-label" for="game-vndb">VNDB</label><input id="game-vndb" class="form-input" spellcheck="false" autocomplete="off" value="${esc(game.vndbId||'')}" placeholder="${({zh:'v12345 或 https://vndb.org/v12345，留空则自动匹配',en:'v12345 or https://vndb.org/v12345; leave empty to match automatically',ja:'v12345 または https://vndb.org/v12345（空欄で自動）'})[locale]}"><span class="form-label">${({zh:'封面',en:'Cover',ja:'カバー画像'})[locale]}</span><div class="image-picker"><img id="game-cover-preview" alt="" src="${esc(game.cover||'')}" ${game.cover?'':'hidden'}><button type="button" class="secondary" id="pick-cover">${({zh:'更换封面…',en:'Change cover…',ja:'画像を変更…'})[locale]}</button></div>`:''}<div class="dialog-actions"><button type="button" class="secondary" id="cancel-game">${text.cancel}</button><button class="primary" type="submit">${text.save}</button></div></form>`);
   dialog.classList.add('game-dialog');
@@ -952,6 +953,11 @@ function editGame(id){
    dialog.querySelector('[data-exe-name]').textContent=value?parts.at(-1):words.pick;dialog.querySelector('[data-exe-dir]').textContent=value?parts.slice(0,-1).join('\\'):words.pickSub;
    dialog.querySelector('[data-exe-action]').textContent=value?words.change:({zh:'浏览…',en:'Browse…',ja:'参照…'})[locale];};
   const folderName=value=>{const parts=String(value).split(/[\\/]+/).filter(Boolean);return (parts.at(-2)||'').trim();};
+  /* an empty name is filled with the work's name (the seed's, else VNDB's), the folder name only when neither knows the game;
+     autoTitle is what was filled in, so the save can tell it from a name the user typed (core/library-title.cjs) */
+  let autoTitle=null;
+  const fillTitle=async file=>{titleInput.placeholder=words.finding||'';let found=folderName(file);try{found=(await api('game_title_lookup',{executable:file}))?.title||found;}catch{}
+   titleInput.placeholder=words.namePh||'';if(!titleInput.value.trim()&&exeInput.value.trim()===file){titleInput.value=found;autoTitle=found;}};
   exeInput.addEventListener('input',()=>{titleInput.required=!discImagePaths([exeInput.value.trim()]).length;showExe();});showExe();
   dialog.querySelector('#cancel-game').addEventListener('click',()=>dialog.close());
   // A picked cover is saved at once, like a series cover; automatic metadata refresh keeps it.
@@ -959,11 +965,11 @@ function editGame(id){
    if(!path)return;const result=await api('game_cover',{id,path});const preview=dialog.querySelector('#game-cover-preview');preview.src=result.cover;preview.hidden=!result.cover;
    model=await api('home');renderRoute();toast(text.saved);}catch(error){toast(errorMessage(error));}finally{button.disabled=false;}});
   dialog.querySelector('#pick-exe').addEventListener('click',async()=>{try{const directory=game?(await api('game_original_executable',{id})).directory:undefined;
-   const file=await invoke(game?'pick_executable':'pick_patch_file',{directory,title:({zh:'选择游戏程序或光盘镜像',en:'Choose a game program or disc image',ja:'実行ファイルまたはディスクイメージを選択'})[locale]});if(file){if(!game&&discImagePaths([file]).length){dialog.close();await installDisc([file]);return;}exeInput.value=file;showExe();if(!titleInput.value.trim()){titleInput.value=folderName(file);
-   }}}catch{toast(text.serviceFailed);}});
+   const file=await invoke(game?'pick_executable':'pick_patch_file',{directory,title:({zh:'选择游戏程序或光盘镜像',en:'Choose a game program or disc image',ja:'実行ファイルまたはディスクイメージを選択'})[locale]});if(file){if(!game&&discImagePaths([file]).length){dialog.close();await installDisc([file]);return;}exeInput.value=file;showExe();if(!titleInput.value.trim())await fillTitle(file);
+   }}catch{toast(text.serviceFailed);}});
   // The VNDB entry is sent only when it was edited; a new entry refreshes the game's metadata right away.
   dialog.querySelector('#game-form').addEventListener('submit',async event=>{event.preventDefault();try{const paths=discImagePaths([exeInput.value.trim()]);if(!game&&paths.length){dialog.close();await installDisc(paths);return;}const vndbInput=dialog.querySelector('#game-vndb'),vndb=vndbInput&&vndbInput.value.trim()!==(game?.vndbId||'')?vndbInput.value:undefined;
-   const saved=await api('save_game',{id,title:dialog.querySelector('#game-title').value,executable:dialog.querySelector('#game-exe').value,vndb});dialog.close();
+   const saved=await api('save_game',{id,title:dialog.querySelector('#game-title').value,executable:dialog.querySelector('#game-exe').value,vndb,...(game?{}:{titleAuto:autoTitle!==null&&titleInput.value.trim()===autoTitle})});dialog.close();
    model=await api('home');renderRoute();toast(text.gameSaved);if(saved?.vndbChanged)api('game_enrich',{id,locale,refresh:true}).then(async()=>{model=await api('home');
    renderRoute();}).catch(()=>{});}catch(error){toast(errorMessage(error));}});
 }
@@ -1349,8 +1355,11 @@ let stageWatch=null;function watchStage(){const main=document.querySelector('#ma
 let stopDetailPage=()=>{},torchMonument=null;
 /* 2026-11-26 (#1090) renderRoute is called without await from clicks, events and timers (24 places); work before its own try (stage, veil,
    the leaving page's stop, the fade) that threw became an unhandled rejection. Every failure is now a route failure, logged as one */
-function renderRoute(){return renderRouteNow().catch(error=>{window.megulitYuiStage?.('route-failed');console.error('renderRoute',route,error);});}
-async function renderRouteNow(){watchStage();
+function renderRoute(options){return renderRouteNow(options).catch(error=>{window.megulitYuiStage?.('route-failed');console.error('renderRoute',route,error);});}
+async function renderRouteNow({navigation=false}={}){
+  // Background refreshes must leave an open book mounted. Explicit navigation still closes it.
+  if(!navigation&&route==='novel'&&document.querySelector('#main.nv-reading'))return;
+  watchStage();
   stopDetailPage();stopDetailPage=()=>{};
   stopHistoryTranslations();stopHistoryTranslations=()=>{};
   const token=++pageToken,main=document.querySelector('#main');document.documentElement.dataset.stage=stageFor(route);applyVeil(model.preferences);syncStage();{
@@ -1382,7 +1391,7 @@ async function renderRouteNow(){watchStage();
      stopDetailPage=torchMonument.suspendTorchMonument;
      const hall=await torchMonument.openTorchMonument({api,locale,esc,toast,mount:main,onContextLost:()=>showFailure(Error('Torch WebGL context lost'))});
      if(!hall||token!==pageToken)return;
-    }else if(route==='home')home();else if(route==='library')library();else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();
+    }else if(route==='home')home();else if(route==='library')library();else if(route==='novel'){const novelCleanup=await mountNovel(main,{api,invoke,locale,text,esc,toast,isCurrent:()=>token===pageToken,navigate,openSettings:section=>{settingsSection=section;settingsProfile='';navigate('settings');}});if(token===pageToken)stopDetailPage=novelCleanup;else novelCleanup();}else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();
      const detailCleanup=await renderGamePage({main,id:selectedGameId,tab:(t=>(gameTab='',t))(gameTab),api,invoke,locale,text,esc,icon,cover,duration,datetime,relativeTime,number,definitions,isCurrent:()=>token===pageToken,
      onBack:()=>navigate(gameOrigin),onLaunch:startGame,onEdit:editGame,onJapaneseRestore:only=>japaneseRestore(only),onRemove:removeGame,onForum:game=>{setForumFilter({game:String(game?.title||''),engine:'',
      tag:'',mine:false});setLeaderboardView({tab:'forum'});navigate('leaderboard');},onLookup:word=>{pendingLookup=word;navigate('learning','dictionary');},onOriginalChanged:async()=>{model=await api('home');if(token===pageToken)renderRoute();
@@ -1414,12 +1423,13 @@ function stepNavigation(step){const target=navIndex+step,entry=navStack[target];
  const samePage=entry.route===route&&(entry.subtab||'')===(subtab||'')&&entry.game===selectedGameId&&entry.series===selectedSeriesId;pageState=entry.page??null;
  if(samePage&&pageNav.apply(pageState)){updateNavButtons();return;}if(!samePage)pageNav.expect(pageState);
  selectedGameId=entry.game;selectedSeriesId=entry.series;gameOrigin=entry.origin;navigate(entry.route,entry.subtab,true);}
+window.__megulitOpenLookup=word=>{pendingDictionaryQuery=String(word||'').slice(0,40);navigate('learning','dictionary');};
 async function navigate(next,tab='',replay=false){if(next!=='learning'||tab!=='kana')invoke('kanji_go_hide').catch(()=>{});const ticket=++navigationTicket;if(!replay&&navIndex<0){
  navStack.push(navEntry());navIndex=0;}if(route==='settings'){rememberSettingsScroll();try{await leaveSettings();}catch{toast({zh:'设置保存失败，请稍后重试',en:'Could not save settings. Please retry',
  ja:'設定を保存できませんでした'}[locale]);return;}}await retractTabs(next==='statistics'?'learning':next);if(ticket!==navigationTicket)return;route=next;subtab=tab;if(!replay){pageState=null;pageNav.reset();
  const entry=navEntry();if(!sameEntry(navStack[navIndex],entry)){navStack.splice(navIndex+1);navStack.push(entry);if(navStack.length>60)navStack.shift();navIndex=navStack.length-1;
  }else navStack[navIndex]=entry;}updateNavButtons();document.querySelectorAll('[data-route]').forEach(button=>{if(button.dataset.route===route||(route==='game'||route==='series')&&button.dataset.route==='library'||route==='statistics'&&button.dataset.route==='learning')button.setAttribute('aria-current',
- 'page');else button.removeAttribute('aria-current');});renderRoute();}
+ 'page');else button.removeAttribute('aria-current');});renderRoute({navigation:true});}
 async function start(){
   app.innerHTML=loading();
   if(!window.__megulitDiscDropBound){window.__megulitDiscDropBound=true;bindDiscDrop({invoke,internals:window.__TAURI_INTERNALS__,onImages:paths=>{installDisc(paths).catch(error=>toast(errorMessage(error)));}}).catch(()=>{window.__megulitDiscDropBound=false;});}
@@ -1430,6 +1440,9 @@ async function start(){
      }
     await api('preserve_ui',{values:recovered});
     model=await api('home');setAppearance();document.documentElement.classList.add('app-boot-pre');shell();
+    /* 2026-11-27 a side-by-side test build says what it is (「测试版 · main＠abc1234 + PR #1312」, MEGULIT_TEST_BUILD; its updater is off) */
+    api('test_build').then(r=>{if(!r?.label||document.querySelector('.test-build-label'))return;const el=document.createElement('div');el.className='test-build-label';el.setAttribute('role','status');el.textContent=r.label;
+     el.style.cssText='position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:2147483000;pointer-events:none;font:12px/1.7 system-ui,sans-serif;padding:1px 12px;border-radius:10px;background:rgba(173,21,57,.88);color:#fff;white-space:nowrap';document.body.append(el);}).catch(()=>{});
     /* P0: start the check immediately; the update owns the startup queue until it is dismissed */
     if(!window.__megulitUpdateChecked){window.__megulitUpdateChecked=true;
      const updates=checkForUpdates({api,invoke,version:VERSION,toast});

@@ -6,6 +6,44 @@ const { DatabaseSync } = require('node:sqlite');
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS novels (
+  id TEXT PRIMARY KEY, source TEXT NOT NULL DEFAULT 'local', remote_id TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL, author TEXT NOT NULL DEFAULT '', cover TEXT NOT NULL DEFAULT '',
+  intro TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '', languages TEXT NOT NULL DEFAULT '',
+  word_count INTEGER NOT NULL DEFAULT 0, chapter_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active', local_path TEXT NOT NULL DEFAULT '',
+  content_hash TEXT NOT NULL DEFAULT '', added_at INTEGER NOT NULL, last_opened_at INTEGER,
+  original TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS novel_chapters (
+  novel_id TEXT NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '',
+  chars INTEGER NOT NULL DEFAULT 0, cached_at INTEGER, PRIMARY KEY(novel_id,idx)
+);
+CREATE TABLE IF NOT EXISTS novel_progress (
+  novel_id TEXT PRIMARY KEY, chapter_idx INTEGER NOT NULL DEFAULT 0,
+  char_offset INTEGER NOT NULL DEFAULT 0, page INTEGER NOT NULL DEFAULT 0,
+  percent REAL NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS novel_bookmarks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, novel_id TEXT NOT NULL, chapter_idx INTEGER NOT NULL DEFAULT 0,
+  char_offset INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS novel_excerpts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, novel_id TEXT NOT NULL, chapter_idx INTEGER NOT NULL DEFAULT 0,
+  text TEXT NOT NULL, chapter_title TEXT NOT NULL DEFAULT '', translation TEXT NOT NULL DEFAULT '',
+  anki_note_id TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS novel_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, novel_id TEXT NOT NULL, seconds INTEGER NOT NULL DEFAULT 0,
+  characters INTEGER NOT NULL DEFAULT 0, occurred_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS novel_sources (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'wenku', base_url TEXT NOT NULL DEFAULT '',
+  cookie TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 0, checked_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS novel_events_by_time ON novel_events(occurred_at);
+CREATE INDEX IF NOT EXISTS novel_chapters_by_book ON novel_chapters(novel_id,idx);
 CREATE TABLE IF NOT EXISTS games (
  id TEXT PRIMARY KEY, legacy_id INTEGER UNIQUE, title TEXT NOT NULL,
  executable TEXT NOT NULL DEFAULT '', cover TEXT NOT NULL DEFAULT '',
@@ -219,7 +257,7 @@ function imageData(root,folder,name) {
 }
 function games(db,root,{includeRemoved=false}={}) {
   /* the readonly verdict of another build is shown as untested (services/hook-verdict.cjs) */let version;const build=()=>version??=require('./hook-verdict.cjs').appVersion(root);
-  return db.prepare(`SELECT g.*, MAX(s.started_at) AS last_read_at, COALESCE(SUM(s.active_seconds),0) AS reading_seconds, COALESCE(SUM(s.characters),0) AS characters,(SELECT COUNT(DISTINCT e.word_id) FROM examples e JOIN vocabulary v ON v.id=e.word_id WHERE e.game_id=g.id) AS learned_words FROM games g LEFT JOIN reading_sessions s ON g.id=s.game_id ${includeRemoved?'':'WHERE g.removed_at IS NULL'} GROUP BY g.id ORDER BY MAX(COALESCE(g.last_launched_at,0),COALESCE(MAX(s.started_at),0)) DESC,g.title`).all().map(g=>{let catalog={},vndbManual='';try{const original=JSON.parse(g.original||'{}');catalog=original.library||{};vndbManual=original.vndbManual||'';}catch{}return({id:g.id,title:g.title,vndbId:String(vndbManual||catalog.vndbId||''),executable:g.executable,source:g.source,aliases:Array.isArray(catalog.names)?catalog.names:[],status:g.status,removed:g.removed_at!=null,hidden:g.hidden_at!=null,lastLaunchedAt:g.last_launched_at||null,lastPlayedAt:Math.max(g.last_launched_at||0,g.last_read_at||0)||null,readingSeconds:g.reading_seconds,characters:g.characters,learnedWords:g.learned_words,engine:String(catalog.engine||''),localeMode:catalog.localeMode||(catalog.localeJapanese===true?'japanese':'auto'),hookSupport:require('./hook-verdict.cjs').shown(catalog,build()),cover:imageData(root,'covers',g.cover),available:!!g.executable&&fs.existsSync(g.executable)});});
+  return db.prepare(`SELECT g.*, MAX(s.started_at) AS last_read_at, COALESCE(SUM(s.active_seconds),0) AS reading_seconds, COALESCE(SUM(s.characters),0) AS characters,(SELECT COUNT(DISTINCT e.word_id) FROM examples e JOIN vocabulary v ON v.id=e.word_id WHERE e.game_id=g.id) AS learned_words FROM games g LEFT JOIN reading_sessions s ON g.id=s.game_id ${includeRemoved?'':'WHERE g.removed_at IS NULL'} GROUP BY g.id ORDER BY MAX(COALESCE(g.last_launched_at,0),COALESCE(MAX(s.started_at),0)) DESC,g.title`).all().map(g=>{let catalog={},vndbManual='',titleAliases=[];try{const original=JSON.parse(g.original||'{}');catalog=original.library||{};vndbManual=original.vndbManual||'';if(Array.isArray(original.titleAliases))titleAliases=original.titleAliases;}catch{}return({id:g.id,title:g.title,vndbId:String(vndbManual||catalog.vndbId||''),executable:g.executable,source:g.source,aliases:[...new Set([...(Array.isArray(catalog.names)?catalog.names:[]),...titleAliases])],status:g.status,removed:g.removed_at!=null,hidden:g.hidden_at!=null,lastLaunchedAt:g.last_launched_at||null,lastPlayedAt:Math.max(g.last_launched_at||0,g.last_read_at||0)||null,readingSeconds:g.reading_seconds,characters:g.characters,learnedWords:g.learned_words,engine:String(catalog.engine||''),localeMode:catalog.localeMode||(catalog.localeJapanese===true?'japanese':'auto'),hookSupport:require('./hook-verdict.cjs').shown(catalog,build()),cover:imageData(root,'covers',g.cover),available:!!g.executable&&fs.existsSync(g.executable)});});
 }
 function home(db,root,now = new Date()) {
   const {start,end}=dayBounds(now);

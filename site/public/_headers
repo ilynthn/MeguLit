@@ -6,6 +6,14 @@
   Cache-Control: public, max-age=0, must-revalidate
 /assets/js/*
   Cache-Control: public, max-age=0, must-revalidate
+/me/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /me/
+/me/manifest.webmanifest
+  Cache-Control: public, max-age=3600
+  Content-Type: application/manifest+json
+/dict/*
+  Cache-Control: public, max-age=2592000
 /assets/updates.json
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=300
@@ -15,4 +23,4 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; media-src 'self' blob: https://music.163.com https://*.music.126.net http://*.music.126.net; script-src 'self' 'sha256-b1f14HyACbI6aphm82Y/J1OruLFXZ6mVwEXhP50nZdE=' https://w.soundcloud.com https://static.cloudflareinsights.com; connect-src 'self' https://dl.megulit.com https://api.megulit.com https://api.github.com https://cloudflareinsights.com; frame-src https://w.soundcloud.com; frame-ancestors 'none'; base-uri 'self'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; media-src 'self' blob: https://music.163.com https://*.music.126.net http://*.music.126.net; script-src 'self' 'sha256-b1f14HyACbI6aphm82Y/J1OruLFXZ6mVwEXhP50nZdE=' https://w.soundcloud.com https://static.cloudflareinsights.com; connect-src 'self' https://dl.megulit.com https://api.megulit.com https://cn-api.megulit.com https://api.github.com https://cloudflareinsights.com; frame-src https://w.soundcloud.com; frame-ancestors 'none'; base-uri 'self'

@@ -10,6 +10,7 @@ import {openProfilePanel} from './profile-panel.js';
 import {enhanceSelects} from './select-control.js';
 import {configureSpeech} from './speech-settings.js';
 import {mountRuntimePacks} from './runtime-packs.js';
+import {discoverMessages, mountNovelSourceSettings} from './novel-discover.js';
 let stopPacks=()=>{};
 const categoryStateKey='tome-settings-open-categories';
 let savedCategories=null;
@@ -47,9 +48,9 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
  if(section==='personal'){openProfilePanel({api,locale,esc,toast,onClose:onProfileClose,openSettings:next=>{setSection(next);renderSettings({main,api,invoke,text,locale,esc,toast,heading,
   basicSettings,isCurrent,onSaved,onProfileClose,section:next,setSection,profile,setProfile}).catch(()=>toast(text.serviceFailed));}}).catch(()=>toast(text.serviceFailed));section='online';
   setSection(section);}
- if(section&&!data.groups.some(group=>group.id===section)&&section!=='data'&&section!=='account')section='general';
+ if(section&&!data.groups.some(group=>group.id===section)&&!['data','account','novel-sources'].includes(section))section='general';
  const sectionName=id=>id==='general'?labels.general:id==='personal'?profileLabel[locale]||profileLabel.zh:id==='account'?accountLabel[locale]||accountLabel.zh:id==='data'?{
-  zh:'数据与备份',en:'Data and backup',ja:'データ・バックアップ'}[locale]:data.groups.find(g=>g.id===id)?.label[locale];
+  zh:'数据与备份',en:'Data and backup',ja:'データ・バックアップ'}[locale]:id==='novel-sources'?discoverMessages(locale).settings:data.groups.find(g=>g.id===id)?.label[locale];
  if(savedCategories===null){for(const category of navigation)if(category.ids.includes(section))openCategories.add(category.ids[0]);}
  const navScroll=main.querySelector('.settings-nav')?.scrollTop??main.__settingsNavScroll??0;main.__settingsNavScroll=navScroll;
  {const shell=heading(text.settings)+`<div class="settings-layout"><nav class="settings-nav" aria-label="${text.settings}">${navigation.map(category=>`<details class="settings-category" data-category="${category.ids[0]}" ${openCategories.has(category.ids[0])?'open':''}><summary>${category.label[locale]}</summary><div class="settings-category-items">${category.ids.map(id=>`<button data-section="${id}" class="${section===id?'active':''}" ${section===id?'aria-current="page"':''}>${esc(sectionName(id))}</button>`).join('')}</div></details>`).join('')}</nav><div class="settings-content"></div></div>`;
@@ -89,6 +90,7 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
  /* E378 账号 page (web/account-ui.js) */
  if(section==='account'){const body=document.createElement('div');content.append(body);renderAccount({target:body,api,locale,esc,toast}).catch(()=>toast(text.serviceFailed));
   return;}
+ if(section==='novel-sources'){const body=document.createElement('div');content.append(body);await mountNovelSourceSettings(body,{api,locale,esc,toast});return;}
  const group=data.groups.find(g=>g.id===section),fields=visibleFields(section,data.fields),values=data.values[section];
  const scoped=['text','embedding','position'].includes(section);
  const pages=fieldPages(section,fields);let activePage=selectedPages.get(section)||pages[0].id;if(!pages.some(p=>p.id===activePage))activePage=pages[0].id;

@@ -6,16 +6,20 @@
    typewriter a typewriter calls the setter once per character; LunaHost hands the calls over as one string, so a line that
              the next line starts with is an earlier state of that line and is dropped (blank states too). */
 const KANA=/^[\u3041-\u309f\u30a0-\u30ffー・]+$/u,KANJI_END=/[\u3400-\u9fff々〆ヶ]$/u;
+/* #1248 TextMeshPro ruby is the same thing in relative units: 漢字<voffset=1em><size=50%>かんじ</size></voffset> (a size in % or em
+   is already relative to the text around it, ruby when at most 60 %) */
+function sizeOf(v){const m=/^(\d+(?:\.\d+)?)(%|em|px)?$/i.exec(String(v).trim());if(!m)return null;const n=+m[1],u=(m[2]||'').toLowerCase();return u==='%'?{rel:n/100}:u==='em'?{rel:n}:{abs:n};}
+function small(v,outer){const z=sizeOf(v);if(!z)return false;if(z.rel!==undefined)return z.rel<=0.6;return outer?z.abs<=outer*0.6:z.abs<=20;}
 function rubySize(text){
- const s=String(text||'');let outer=0,out='',at=0;const re=/<size=(\d+(?:\.\d+)?)>([^<]*)<\/size>|<size=(\d+(?:\.\d+)?)>/gi;let m;
+ const s=String(text||'');let outer=0,out='',at=0;const re=/<size=([\d.]+(?:%|em|px)?)>([^<]*)<\/size>|<size=([\d.]+(?:%|em|px)?)>/gi;let m;
  while((m=re.exec(s))){
-  if(m[3]){if(!outer||+m[3]>outer*0.6)outer=+m[3];continue;}
-  const n=+m[1],inner=m[2];
-  if(KANA.test(inner)&&KANJI_END.test(s.slice(0,m.index).replace(/<[^>]*>/g,''))&&(outer?n<=outer*0.6:n<=20)){out+=s.slice(at,m.index);at=m.index+m[0].length;}
+  if(m[3]){const z=sizeOf(m[3]);if(z&&z.abs!==undefined&&(!outer||z.abs>outer*0.6))outer=z.abs;continue;}
+  const inner=m[2];
+  if(KANA.test(inner)&&KANJI_END.test(s.slice(0,m.index).replace(/<[^>]*>/g,''))&&small(m[1],outer)){out+=s.slice(at,m.index);at=m.index+m[0].length;}
  }
  out+=s.slice(at);
  /* a typewriter stops mid-tag: an unclosed small kana run (or a cut-off tag) at the very end is the ruby being typed */
- return out.replace(/<size=(\d+(?:\.\d+)?)>[ぁ-ゟ゠-ヿー・]*(?:<\/?[a-z]*)?(?=\s*$)/i,(m0,n)=>(outer?+n<=outer*0.6:+n<=20)?'':m0).replace(/<\/?[a-z]*(?:=[^>]*)?(?=\s*$)/i,'');
+ return out.replace(/<size=([\d.]+(?:%|em|px)?)>[ぁ-ゟ゠-ヿー・]*(?:<\/?[a-z]*)?(?=\s*$)/i,(m0,n)=>small(n,outer)?'':m0).replace(/<\/?[a-z]*(?:=[^>]*)?(?=\s*$)/i,'');
 }
 function typewriter(text){
  const lines=String(text||'').split('\n');if(lines.length<3)return String(text||'');
@@ -45,6 +49,11 @@ class UnityBox{
   const key=last.replace(/\s+/g,'');/* a paragraph that grows the one just released early is a typewriter too: hold its next states the full time */if(!s.held&&s.shown&&key.length>s.shown.length&&key.startsWith(s.shown))s.typed=true;
   if(s.held){if(key.length>s.held.key.length&&key.startsWith(s.held.key))s.typed=true;else if(key!==s.held.key&&!s.typed)this.release(s);}/* a typewriter stream also carries other boxes between its steps (Tsuki: 「前略。」 amid a page being typed): there the held state is still dropped for the next one, as before */
   if(key===s.shown){this.cancel(s);return;}
+  /* #1248 (制服カノジョ3: 「今日は芹香の希望で山中にある、水着で…向かっている。」 was shown, then the box sent 「今日は芹香の希望で山中にある、」 again
+     and the next line was joined to that comma piece: 「…山中にある、……だが、登山道を…」). An unfinished piece the shown paragraph starts with
+     is an earlier typewriter state of that paragraph (the box typing it again), never a new line: it is not delivered. Rich-text
+     tags are gone before this (core/rich-text.cjs), so the tagged state matches the shown line. */
+  if(s.shown&&key.length<s.shown.length&&s.shown.startsWith(key)&&!DONE.test(last.trim()))return;
   if(DONE.test(last.trim())){this.cancel(s);s.shown=key;this.deliver(last,payload);return;}
   this.cancel(s);s.held={key,last,payload};s.timer=setTimeout(()=>this.release(s),s.typed?this.holdMs:this.quickHoldMs);s.timer.unref?.();
  }

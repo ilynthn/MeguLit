@@ -12,7 +12,7 @@ async function handle(line){
  try{if(line.length>512*1024)throw Error('REQUEST_TOO_LARGE');const envelope=JSON.parse(line);id=envelope.id;const request=envelope.request;
   if(!Number.isSafeInteger(id)||!request||typeof request.action!=='string')throw Error('INVALID_REQUEST');
   if(request.action==='__shutdown'){closing=true;await runtime.stop();reply({id,ok:true,data:{stopped:true}});input.close();return;}
-  if(closing)throw Error('RUNTIME_STOPPED');if(maintenance)throw Error('BACKUP_BUSY');if(request.action==='backup_apply'){if(active)throw Error('BACKUP_BUSY');maintenance=true;exclusive=true;}active++;counted=true;const data=await dispatch(request,runtime);reply({id,ok:true,data});
+  if(closing)throw Error('RUNTIME_STOPPED');if(maintenance)throw Error('BACKUP_BUSY');if(request.action==='backup_apply'){if(active||require('./novel/source/downloads.cjs').busy(root))throw Error('BACKUP_BUSY');maintenance=true;exclusive=true;}active++;counted=true;const data=await dispatch(request,runtime);reply({id,ok:true,data});
  }catch(error){const code=/^[A-Z_]+$/.test(error?.message)?error.message:'SERVICE_FAILED';
   /* E405 an unexpected exception used to vanish behind SERVICE_FAILED; its action, message and first stack lines go to
      logs/service-errors.log (request data never does) */
@@ -34,6 +34,8 @@ try{require('./probe-auto.cjs').start(root,()=>require('./store.cjs').openStore(
 require('./background-games.cjs').configure(()=>!!runtime.reader?.gamePid);
 try{require('./cold-test.cjs').start(root,()=>require('./store.cjs').openStore(root),{isPlaying:()=>{try{const r=runtime.reader;return !!(r&&r.gamePid);}catch{return false;}}});}catch{}
 require('./yui.cjs').start(root);
+/* 2026-11-27 favourites, study counts and reading progress upload by themselves for the website (services/account-auto.cjs) */
+try{require('./account-auto.cjs').start(root);}catch{}
 input.on('line',line=>{handle(line).catch(()=>{});});
 /* E426 the host is gone once stdin closes: a stop that never settles must not leave node.exe and its bridges behind */
 input.on('close',()=>{closing=true;setTimeout(()=>process.exit(0),6000).unref();try{require('./cold-test.cjs').stop();}catch{}runtime.stop().finally(()=>process.exit(0));});

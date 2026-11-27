@@ -1,0 +1,18 @@
+{
+  "name": "MeguLit",
+  "short_name": "MeguLit",
+  "description": "MeguLit 个人中心：学习看板、收藏的句子、单词本、阅读进度",
+  "id": "/me/",
+  "start_url": "/me/",
+  "scope": "/me/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#050304",
+  "theme_color": "#050304",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/assets/img/me-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/me-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/me-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
