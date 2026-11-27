@@ -60,6 +60,9 @@ function build(o,{log=console.log}={}){const card=path.resolve(o.card),prev=(()=
  const target=path.join(card,'app-'+t.main.slice(0,7)+'-'+t.pr.slice(0,7));
  if(!fs.existsSync(path.join(target,'.complete'))){log('# 组装测试版 '+target);fs.rmSync(target,{recursive:true,force:true});
   robocopy(b.root,target,['/XD',...['data','cache','logs','secrets','migration','validation'].map(d=>path.join(b.root,d)),'/XF','*.rollback-*','*.bak-*']);
+  /* the release ships no runtime\ (node, hook packs, Locale Emulator: 1.9 GB, fetched at first start); the installed app's is copied so the
+     build starts at once (MeguLit itself brings a pack up to date when main asks for a newer one) */
+  if(!fs.existsSync(path.join(target,'runtime','node.exe'))&&fs.existsSync(path.join(CONFIG_APP(),'runtime','node.exe'))){log('# 复制运行库');robocopy(path.join(CONFIG_APP(),'runtime'),path.join(target,'runtime'));}
   for(const d of OVERLAY)if(fs.existsSync(path.join(t.dir,d)))robocopy(path.join(t.dir,d),path.join(target,d),d==='The Seed'?['/PURGE']:[]);
   if(art){for(const f of fs.readdirSync(art.dir))if(/\.(exe|dll)$/i.test(f))fs.copyFileSync(path.join(art.dir,f),path.join(target,'native',f));}else notes.push('main 的 C++ 原生组件没下到，用 '+b.tag+' 的');
   /* C# from the tree */
