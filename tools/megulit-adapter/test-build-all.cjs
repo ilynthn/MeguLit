@@ -90,6 +90,7 @@ function assemble(t,b,art,target,oldRoots,log){const notes=[...t.notes];
  const ps=(file,args=[])=>run('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(t.dir,'native',file),...args],{cwd:path.join(t.dir,'native')});
  try{ps('Build-HookBridge.ps1',['-OutputPath',path.join(target,'native','HookBridge.exe')]);}catch(e){notes.push('HookBridge 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
  try{ps('Build-GalWindowBridge.ps1');const f=['GalWindowBridge.updated.exe','GalWindowBridge.exe'].map(n=>path.join(t.dir,'native',n)).find(x=>fs.existsSync(x));if(f)fs.copyFileSync(f,path.join(target,'native','GalWindowBridge.exe'));}catch(e){notes.push('GalWindowBridge 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
+ try{ps('Build-StartupIsland.ps1',['-OutputPath',path.join(target,'native','StartupIsland.exe')]);}catch(e){notes.push('启动画面 StartupIsland 没编出来，用 '+b.tag+' 的');log('# '+e.message);}
  /* C++ parts the PRs change: the PR session's own build (the last PR wins when two change one part); C# parts were built above */
  let comps=[];try{comps=JSON.parse(fs.readFileSync(path.join(t.dir,'native','native-builds.json'),'utf8'));}catch{}
  for(const c of comps){if((c.sources||[]).some(s=>/\.cs$/i.test(s)))continue;
