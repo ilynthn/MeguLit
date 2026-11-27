@@ -189,7 +189,7 @@
     const reset=[...choiceBox.querySelectorAll(':scope>button')].pop();if(reset){reset.classList.add('tome-cm-link');c.head.append(reset);}
     if(font){font.classList.add('tome-cm-font');c.box.insertBefore(font,c.grid);}choiceBox.append(c.box);}
    /* flat: the two old folds go, their contents sit straight in the colour page */
-   palette.append(d.box,rest);palette.append(choiceBox||c.box);/* 2026-11-28 分角色 (speaker-colors.js fills it): a third group of the colour page, after lines and choices (owner: 「把分角色放进颜色里」) */{const s=block(C.spk,[]);s.grid.remove();s.box.dataset.textSpeakerColors='';palette.append(s.box);}colours.remove();choiceColours.remove();palette.dataset.colourMatrix='';
+   palette.append(d.box,rest);palette.append(choiceBox||c.box);colours.remove();choiceColours.remove();/* 2026-11-28 分角色 (speaker-colors.js fills it): a third group of the colour page, after lines and choices (owner: 「把分角色放进颜色里」) */{const s=block(C.spk,[]);s.grid.remove();s.box.dataset.textSpeakerColors='';palette.append(s.box);}palette.dataset.colourMatrix='';
    const dim=()=>{for(const [i,name] of ['galTextGradient','galReadTextGradient'].entries()){const on=!!field(name)?.checked;for(const cell of d.grid.querySelectorAll('.tome-cm-cell[data-cm-row=g][data-cm-col="'+i+'"]'))cell.classList.toggle('tome-cm-off',!on);}
     for(const cell of palette.querySelectorAll('.tome-cm-cell')){const v=cell.querySelector('input[type=color]');if(v)cell.title=v.value;}};
    form.addEventListener('input',dim);form.addEventListener('change',dim);dim();const tick=setInterval(()=>{if(!document.contains(palette)){clearInterval(tick);return;}dim();},500);
