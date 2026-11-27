@@ -41,5 +41,5 @@ test('notice has two pages and the guide panel is reachable from the top bar', (
   for (const tab of ['updates', 'guide', 'report', 'game']) assert.ok(ui.includes(`['${tab}', t.tab`), tab);
   for (const l of ['zh', 'ja', 'en']) assert.ok(/next:.*back:.*done:.*guide:/.test(ui.split(`  ${l}: {`)[1] || ''), l);
   assert.ok(app.indexOf('data-top-guide') < app.indexOf("['tools','settings','about']"));
-  assert.match(app, /\[data-top-guide\]'\)\?\.addEventListener\('click',\(\)=>openGuide/);
+  assert.match(app, /\[data-top-guide\]'\)\?\.addEventListener\('click',\(\)=>.*openGuide/);
 });

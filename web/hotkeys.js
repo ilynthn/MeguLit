@@ -136,7 +136,7 @@
  const listeners=new Set();
  function set(bindings){const next=clean(bindings);const changed=ACTIONS.some(a=>next[a]!==current[a]);current=next;if(!changed)return false;
   for(const fn of [...listeners])try{fn(current);}catch(e){}
-  try{if(root&&typeof root.dispatchEvent==='function'&&typeof root.CustomEvent==='function')root.dispatchEvent(new root.CustomEvent('megu-hotkeys',{detail:{...current}}));}catch(e){}
+  try{if(root&&typeof root.dispatchEvent==='function'&&typeof root.CustomEvent==='function'){root.dispatchEvent(new root.CustomEvent('megu-hotkeys',{detail:{...current}}));root.dispatchEvent(new root.CustomEvent('megulit-hotkeys-changed',{detail:{...current}}));}}catch(e){}
   return true;}
  const get=action=>action?current[action]:{...current};
  const pageLang=()=>{try{return root.__tomeI18n&&root.__tomeI18n.get?root.__tomeI18n.get():(root.document&&root.document.documentElement.lang)||'zh';}catch(e){return 'zh';}};

@@ -49,8 +49,11 @@ export const GUIDE = {
 };
 
 import { levelSectionHTML } from './guide-levels.js';
+import { galleryHTML } from './onboarding-gallery.js';
 const pick = (table, locale) => table[locale] || table.zh;
-const hotkey = (key, locale) => globalThis.MeguHotkeys ? globalThis.MeguHotkeys.localize(key, locale) : key;
+/* 2026-11-27 hotkey names follow the user's bindings: MeguHotkeys (web/hotkeys.js) when loaded, else MeguLitHotkeys.label (web/hotkey-label.js); the text keeps today's default as the marker */
+const ACTION = { 'Alt+T': 'menu', 'Alt+H': 'cover', 'Alt+M': 'bind', 'Alt+L': 'log' };
+const hotkey = (key, locale) => globalThis.MeguHotkeys ? globalThis.MeguHotkeys.localize(key, locale) : (ACTION[key] && globalThis.MeguLitHotkeys?.label?.(ACTION[key])) || key;
 const kbd = (text, esc, locale) => esc(text).replace(/\[\[(.+?)\]\]/g, (all, key) => `<kbd>${esc(hotkey(key, locale))}</kbd>`);
 
 export function successHTML(locale, esc) {
@@ -61,7 +64,9 @@ export function successHTML(locale, esc) {
 export function guideHTML(locale, esc) {
   const g = pick(GUIDE, locale);
   /* the by-level section shows the plan for the level chosen on the Learning page (filled in by fillGuideLevel) */
-  return `<div class="guide-steps">${g.sections.map(s => s.level ? levelSectionHTML(locale, null, esc, '') : `<section class="guide-section"><h3>${esc(s.h)}</h3>${s.keys
+  /* 2026-11-27 the illustrated 新手引导 comes first; the full text follows under 详细说明 */
+  const more = { zh: '详细说明', en: 'More details', ja: '詳しい説明' }[locale] || '详细说明';
+  return `${galleryHTML(locale, esc)}<h3 class="guide-more">${esc(more)}</h3><div class="guide-steps">${g.sections.map(s => s.level ? levelSectionHTML(locale, null, esc, '') : `<section class="guide-section"><h3>${esc(s.h)}</h3>${s.keys
     ? `<dl class="guide-keys">${s.keys.map(([k, v]) => `<div><dt><kbd>${esc(hotkey(k, locale))}</kbd></dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${s.note ? `<p class="guide-keys-note">${esc(hotkey(s.note, locale))}</p>` : ''}`
     : `<ol>${s.steps.map(x => `<li>${kbd(x, esc, locale)}</li>`).join('')}</ol>`}</section>`).join('')}</div>`;
 }

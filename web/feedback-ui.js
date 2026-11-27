@@ -8,6 +8,7 @@
 
 import { successHTML, guideHTML, GUIDE } from './guide-content.js';
 import { fillGuideLevel } from './guide-levels.js';
+import { bindGallery } from './onboarding-gallery.js';
 import { seedPageHTML, seedWords, seedSeen, markSeedSeen, fillSeedCount } from './the-seed.js';
 import { feedbackIssueLabels } from './first-player.js';
 
@@ -301,6 +302,7 @@ export function mountDevNotice({ api, locale = 'zh', esc, toast, version = '', f
   empty.hidden = !list.hidden; /* fillUpdates draws the browser cache before its first await */
   fillSeedCount(seed, locale, api);
   fillGuideLevel(dialog, { api, locale, esc }); /* the by-level part of the guide follows the chosen level */
+  bindGallery({ api, toast }); /* 进游戏后再带我走一遍 in the illustrated tour */
   return dialog;
 }
 
@@ -354,5 +356,6 @@ export function openGuide({ api, locale = 'zh', esc, toast, version = '', tab = 
   };
   dialog.showModal();
   fillGuideLevel(dialog, { api, locale, esc }); /* the by-level part of the guide follows the chosen level */
+  bindGallery({ api, toast }); /* 进游戏后再带我走一遍 in the illustrated tour */
   return dialog;
 }

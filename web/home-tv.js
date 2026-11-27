@@ -1,4 +1,3 @@
-import {requestUiFrame,cancelUiFrame} from './idle-gate.js';
 import {activityCells} from './learning-activity.js';
 import {openLinesPicker} from './home-lines.js';
 import {createDepth,markFlat,cachedDaily,rememberDaily,dailyIsFresh,dailySignature,cachedActivity,rememberActivity} from './home-depth.js';
@@ -6,6 +5,7 @@ import {exAttr,setExample} from './example-ruby.js';
 import {loadGsap} from './gsap-loader.js';
 import {seedBannerHTML,openSeedDialog} from './the-seed.js';
 import {createDock,openHandPicker,HAND_MAX} from './home-picker.js';
+import {dissolveOut,clearDissolve,readyImage,coverURL,warmDissolve} from './home-dissolve.js';
 import {pickHeadline,cachedHeadline,translateHeadline,headlineLabel,activitySummary,emptyActivityHTML} from './home-today.js';
 
 const copy={
@@ -152,8 +152,11 @@ function swapScript(script,lines,onPick,soft){if(!script)return;const esc2=t=>St
    const no=el.querySelector('.tv-sno');if(no)keep(no.animate([{opacity:0},{opacity:1}],{duration:420,delay:k*90+260,easing:'ease-out',fill:'backwards'}));});}).catch(()=>{
     });}));}
 
-function busy(cover,ms){cover.dataset.busy='1';cover.classList.remove('touch');const face=cover.querySelector('.tv-face');if(face){face.style.transition='transform .25s ease-out';
- face.style.transform='';}clearTimeout(+cover.dataset.busyTimer||0);cover.dataset.busyTimer=setTimeout(()=>{delete cover.dataset.busy;},ms);}
+/* 2026-11-27 (user: 快速切换会卡) a card that is tilted or turned when a draw starts eases flat with one short animation; the face keeps its own transition,
+   so the per-frame tilt is never chased by a CSS transform transition afterwards (it used to be left at .25s after the first draw and lagged every move) */
+function busy(cover,ms){const face=cover.querySelector('.tv-face');if(face){const cur=getComputedStyle(face).transform;face.style.transform='';
+ if(cur&&cur!=='none'&&!calm())face.animate([{transform:cur},{transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.8,.2,1)'});}
+ cover.dataset.busy='1';cover.classList.remove('touch');clearTimeout(+cover.dataset.busyTimer||0);cover.dataset.busyTimer=setTimeout(()=>{delete cover.dataset.busy;},ms);}
 function outLayer(cover){const home=cover.closest('.tv-home');let layer=home.querySelector(':scope>.tv-outgoing');if(!layer){layer=document.createElement('div');
  layer.className='tv-outgoing';layer.setAttribute('aria-hidden','true');home.insertBefore(layer,home.querySelector(':scope>.tv-canvas'));}const h=home.getBoundingClientRect(),
  r=cover.getBoundingClientRect(),w=cover.offsetWidth*1.06;layer.style.width=w+'px';layer.style.left=(r.left+r.width/2-h.left-w/2)+'px';layer.style.top=(r.top+r.height/2-h.top-w*2/3)+'px';
@@ -192,14 +195,21 @@ function springTrack(targets,feel){const ch=['x','y','r','s','z','rx','ry','sx',
   if(Math.round(t/dt)%4===0)out.push({t,p:{...pos},v:{x:vel.x,y:vel.y}});
   t+=dt;if(t>last&&!moving){if(++settled>12)break;}else settled=0;}
  return out;}
+/* stops what an element is animating and eases it home from where it is drawn now, so an interrupted draw never stops halfway or jumps */
+function settleFrom(el,props,ms=280){const cs=getComputedStyle(el),from={};for(const p of props)from[p]=cs[p];el.getAnimations().forEach(x=>x.cancel());
+ const to=getComputedStyle(el),a={},b={};let moved=false;for(const p of props)if(from[p]!==to[p]){a[p]=from[p];b[p]=to[p];moved=true;}
+ if(moved&&!calm())el.animate([a,b],{duration:ms,easing:'cubic-bezier(.2,.8,.2,1)'});}
 function deal(cover,background,animate,mode='draw'){const flip=cover.querySelector('.tv-flip'),face=cover.querySelector('.tv-face'),artEl=cover.querySelector('.tv-art'),
- backFace=flip.querySelector('.tv-back'),pile=cover.closest('.tv-home')?.querySelector(':scope>.tv-pile');cover.querySelectorAll('.tv-old,.tv-sheen').forEach(n=>n.remove());
- cover.closest('.tv-home')?.querySelectorAll(':scope>.tv-outgoing>.tv-old').forEach(n=>n.remove());[flip,face,artEl,backFace,...(pile?[pile,...pile.children]:[])].forEach(el=>el.getAnimations().forEach(x=>x.cancel()));
- if(!animate||matchMedia('(prefers-reduced-motion:reduce)').matches||!artEl.style.background){artEl.style.background=background;return 0;}
- if(mode==='fade'){busy(cover,620);const fresh=document.createElement('div');fresh.className='tv-old';fresh.style.background=background;face.insertBefore(fresh,
-  face.querySelector('.tv-foil'));const a=fresh.animate([{clipPath:'inset(0 0 100% 0)',transform:'scale(1.06)'},{clipPath:'inset(0 0 0% 0)',
-  transform:'none'}],{duration:560,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});a.finished.then(()=>{artEl.style.background=background;fresh.remove();},
-  ()=>fresh.remove());return 260;}
+ backFace=flip.querySelector('.tv-back'),pile=cover.closest('.tv-home')?.querySelector(':scope>.tv-pile');cover.querySelectorAll('.tv-sheen,.tv-old:not(.tv-dissolve)').forEach(n=>n.remove());
+ /* decode the new picture now, so it can dissolve away later */readyImage(coverURL(background));
+ cover.closest('.tv-home')?.querySelectorAll(':scope>.tv-outgoing>.tv-old').forEach(n=>n.remove());settleFrom(flip,['transform']);settleFrom(face,['opacity']);settleFrom(backFace,['opacity']);artEl.getAnimations().forEach(x=>x.cancel());
+ if(pile){settleFrom(pile,['opacity'],180);[...pile.children].forEach(c=>c.getAnimations().forEach(x=>x.cancel()));}
+ if(!animate||!artEl.style.background){clearDissolve(face);artEl.style.background=background;warmDissolve(face);return 0;}
+ /* reduced motion: every change is a short cross-fade */if(calm())mode='fade';
+ /* 2026-11-27 (user: 换卡像卷帘门往下拉 → 溶解) the old picture breaks up into grains over the new one (home-dissolve.js); a change during a running one
+    slides in under it, the card keeps its tilt and stays live the whole time */
+ if(mode==='fade'){const old=artEl.style.background;if(old!==background){dissolveOut(face,old);artEl.style.background=background;}return 0;}
+ clearDissolve(face);
  const outDir=rnd(0,Math.PI*2),outDur=rnd(360,460);
  /* a field card that goes back into the hand (cover.dataset.stow, set by the draw) flies there itself; only a card that is not in the hand is thrown off */
  const stowed=cover.dataset.stow==='1';delete cover.dataset.stow;const old=document.createElement('div');old.className='tv-old';old.style.background=artEl.style.background;if(!stowed)outLayer(cover).appendChild(old);
@@ -283,18 +293,33 @@ function fitLeft(root){const left=root.querySelector('.tv-left'),title=root.quer
  /* 2026-11-15 (user: 每日热点的四个封面都要完整显示，没有例外) nothing is hidden or cropped any more: when the column is taller than the room above the title it is scaled down as a whole, covers keep their ratio */
  parts.forEach(p=>p.style.display='');hot?.classList.remove('is-compact');left.style.zoom='';let z=1;for(let k=0;k<3;k++){const r=left.getBoundingClientRect(),room=inkTop-14-r.top;if(r.bottom<=inkTop-14||room<=0)break;z=Math.max(.35,z*room/r.height);left.style.zoom=String(z);}/* 2026-11-19 (user: 切换游戏时左列随标题行数跳高度): the column's size changes with the title's line count; the change is eased in (FLIP, transform only, 260 ms) instead of jumping; reduced motion jumps */{const r=left.getBoundingClientRect(),was=left.__flRect;left.__flRect={h:r.height,w:r.width};if(was&&was.h>0&&r.height>0&&Math.abs(was.h-r.height)>2&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&left.animate){left.style.transformOrigin='0 0';left.animate([{transform:'scale('+(was.w/r.width)+','+(was.h/r.height)+')'},{transform:'none'}],{duration:260,easing:'cubic-bezier(.16,1,.3,1)'});}}}
 
-export function cardify(card){
+/* 2026-11-27 (user: 倾斜不要锁死) the home cover can also be turned by hand. Gestures on it, told apart by how far the pointer moves:
+   - click / double-click: the pointer barely moves (under SPIN_SLOP px); the home page opens the detail or draws a card
+   - press and hold: the card dips towards the pointer (the press tilt), nothing else
+   - press and drag on the card: it turns freely in 3D with the pointer (rubber band past ~60 degrees); drag on the ring just outside it: it rotates in its plane
+   - let go after a drag: it keeps its speed, slows down and springs back to its resting angle
+   A drag stamps data-spun-at, so the home page ignores the click and double-click that end it. */
+const SPIN_SLOP=6,SPIN_RING=56,SPIN_GAIN=.42,SPIN_LIMIT=64;
+const band=v=>{const a=Math.abs(v),k=SPIN_LIMIT*.7;if(a<=k)return v;const room=SPIN_LIMIT-k;return Math.sign(v)*(k+room*(1-Math.exp(-(a-k)/room)));};
+export function cardify(card,opts){
  const face=card.querySelector('.tv-face');if(!face)return ()=>{};
  // Pages repaint and call this again on the same card: keep one controller per card.
  if(card.__tiltStop)return card.__tiltStop;
+ const spin=!!(opts&&typeof opts==='object'&&opts.spin);
  const host=card.closest('.tv-home')||card.parentElement;
  const initialTransition=face.style.transition;
  const state={rx:0,ry:0,scale:1,x:.5,y:.5,strength:0};
  let target={...state},pointer=null,pressed=false,dirty=false,frame=0,lastAt=0,stopped=false;
+ /* free turning: angles, speeds (deg/s), and the drag in progress */
+ const free={on:false,rx:0,ry:0,rz:0,vx:0,vy:0,vz:0};let drag=null;
  // One clock owns the tilt. A CSS transform transition would restart at every pointer sample.
  face.style.transition='box-shadow .3s';
  const neutral=()=>({rx:0,ry:0,scale:1,x:.5,y:.5,strength:0});
  const paint=()=>{
+  if(free.on){face.style.transform=`rotateZ(${free.rz.toFixed(3)}deg) rotateX(${free.rx.toFixed(3)}deg) rotateY(${free.ry.toFixed(3)}deg) scale(1.02)`;
+   const lx=Math.max(0,Math.min(1,.5+free.ry/120)),ly=Math.max(0,Math.min(1,.5-free.rx/120));
+   face.style.setProperty('--px',`${(lx*100).toFixed(2)}%`);face.style.setProperty('--py',`${(ly*100).toFixed(2)}%`);
+   face.style.setProperty('--hue',`${(((lx*360+free.rz)%360+360)%360).toFixed(1)}deg`);card.classList.add('touch');return;}
   face.style.transform=state.strength<.001&&!pressed?'':
    `rotateX(${state.rx.toFixed(3)}deg) rotateY(${state.ry.toFixed(3)}deg) scale(${state.scale.toFixed(5)})`;
   face.style.setProperty('--px',`${(state.x*100).toFixed(2)}%`);
@@ -317,11 +342,21 @@ export function cardify(card){
   target={rx:(.5-y)*20*depth*strength,ry:(x-.5)*20*depth*strength,
    scale:1+(pressed?-.04:.03)*strength,x,y,strength};
  }
+ /* after a drag the speed carries on and a spring pulls back to rest (a touch under-damped, so a hard flick swings past and settles) */
+ function coast(dt){const k=46,c=10.5,s=dt/1000;let moving=false;
+  for(const [a,v] of [['rx','vx'],['ry','vy'],['rz','vz']]){free[v]+=(-k*free[a]-c*free[v])*s;free[a]+=free[v]*s;
+   if(Math.abs(free[a])>.05||Math.abs(free[v])>.6)moving=true;}
+  if(!moving){free.on=false;free.rx=free.ry=free.rz=free.vx=free.vy=free.vz=0;Object.assign(state,{rx:0,ry:0,scale:1.02});dirty=true;}}
  function tick(now){
   frame=0;if(stopped)return;if(!card.isConnected){stop();return;}
+  const elapsed=Math.max(0,now-lastAt);lastAt=now;
+  if(free.on){if(drag){paint();return;}
+   // Catch up over slow frames without taking an unstable step in the spring.
+   for(let left=Math.min(elapsed,2000);left>0&&free.on;){const dt=Math.min(left,16);coast(dt);left-=dt;}
+   paint();if(free.on||dirty)frame=requestAnimationFrame(tick);return;}
   if(dirty)aim();
-  // Cap the step after a stalled frame so re-entering never snaps to the target pose.
-  const dt=Math.min(32,Math.max(0,now-lastAt));lastAt=now;
+  // Keep pointer entry smooth, but let a return to rest follow wall-clock time.
+  const dt=target.strength?Math.min(32,elapsed):elapsed;
   const blend=1-Math.exp(-dt/100);
   let settled=true;
   for(const key of Object.keys(state)){
@@ -330,41 +365,73 @@ export function cardify(card){
    if(Math.abs(target[key]-state[key])>tolerance)settled=false;
   }
   if(settled)Object.assign(state,target);
-  paint();if(!settled)frame=requestUiFrame(tick);
+  paint();if(!settled)frame=requestAnimationFrame(tick);
  }
- function wake(){if(!stopped&&!frame){lastAt=performance.now();frame=requestUiFrame(tick);}}
+ // Gesture feedback must finish even when the window is visible but unfocused.
+ function wake(){if(!stopped&&!frame){lastAt=performance.now();frame=requestAnimationFrame(tick);}}
  // Only the home page calls stop(). Elsewhere a card that left the page drops its listeners at its next event.
  function alive(){if(card.isConnected)return true;stop();return false;}
  function move(event){
   if(!alive()||event.pointerType==='touch')return;
   pointer={x:event.clientX,y:event.clientY};dirty=true;wake();
  }
+ const angle=(x,y)=>{const r=card.getBoundingClientRect();return Math.atan2(y-(r.top+r.height/2),x-(r.left+r.width/2))*180/Math.PI;};
+ function begin(event,ring){if(!spin||card.dataset.busy)return;
+  drag={id:event.pointerId,x0:event.clientX,y0:event.clientY,ring,started:false,samples:[]};}
+ function dragMove(event){if(!drag||event.pointerId!==drag.id||!alive())return;
+  if(card.dataset.busy){cancelDrag();return;}
+  if(!drag.started){if(Math.hypot(event.clientX-drag.x0,event.clientY-drag.y0)<SPIN_SLOP)return;drag.started=true;pressed=false;
+   /* pick up from wherever the card is drawn now: the hover tilt, or a turn still coasting */
+   if(!free.on){free.rx=state.rx;free.ry=state.ry;free.rz=0;}free.on=true;free.vx=free.vy=free.vz=0;
+   drag.base={rx:free.rx,ry:free.ry,rz:free.rz};drag.x0=event.clientX;drag.y0=event.clientY;drag.a0=angle(event.clientX,event.clientY);
+   card.dataset.spinning='1';host.dataset.spinning='1';}
+  if(drag.ring){let a=angle(event.clientX,event.clientY)-drag.a0;a=((a+540)%360)-180;drag.base.rz+=a;drag.a0+=a;free.rz=drag.base.rz;}
+  else{free.rx=band(drag.base.rx-(event.clientY-drag.y0)*SPIN_GAIN);free.ry=band(drag.base.ry+(event.clientX-drag.x0)*SPIN_GAIN);}
+  const now=performance.now();drag.samples.push({t:now,rx:free.rx,ry:free.ry,rz:free.rz});while(drag.samples.length>2&&now-drag.samples[0].t>90)drag.samples.shift();
+  if(frame){cancelAnimationFrame(frame);frame=0;}paint();}
+ function release(){if(!drag)return;const d=drag;drag=null;if(!d.started)return;
+  const s=d.samples,a=s[0],b=s[s.length-1],span=a&&b?Math.max(16,b.t-a.t):0;
+  if(span&&performance.now()-b.t<60){free.vx=(b.rx-a.rx)/span*1000;free.vy=(b.ry-a.ry)/span*1000;free.vz=(b.rz-a.rz)/span*1000;}
+  const cap=v=>Math.max(-900,Math.min(900,v));free.vx=cap(free.vx);free.vy=cap(free.vy);free.vz=cap(free.vz);
+  free.rz=((free.rz%360)+540)%360-180;
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches)free.vx=free.vy=free.vz=0;
+  card.dataset.spunAt=String(Math.round(performance.now()));delete card.dataset.spinning;delete host.dataset.spinning;wake();}
+ function cancelDrag(){drag=null;delete card.dataset.spinning;delete host.dataset.spinning;}
  function leave(){if(!alive())return;pointer=null;pressed=false;dirty=true;wake();}
- function down(event){if(event.button!==0||event.pointerType==='touch')return;pressed=true;move(event);}
- function up(){if(!alive()||!pressed)return;pressed=false;dirty=true;wake();}
+ function down(event){if(event.button!==0||event.pointerType==='touch')return;pressed=true;move(event);begin(event,false);}
+ /* the ring around the card: a press that starts just outside the card, not on a control */
+ function hostDown(event){if(!spin||event.button!==0||event.pointerType==='touch'||card.contains(event.target))return;
+  if(event.target.closest?.('button,a,input,select,textarea,[role="button"],.tv-left,.tv-rail,.tv-dock,.seed-banner'))return;
+  const r=card.getBoundingClientRect(),dx=Math.max(r.left-event.clientX,0,event.clientX-r.right),dy=Math.max(r.top-event.clientY,0,event.clientY-r.bottom);
+  if(Math.hypot(dx,dy)>SPIN_RING)return;begin(event,true);}
+ function up(){if(!alive())return;release();if(!pressed)return;pressed=false;dirty=true;wake();}
  function geometry(){if(!alive())return;dirty=true;if(pointer)wake();}
  function visibility(){if(alive())reset();}
  function reset(){
-  if(frame)cancelUiFrame(frame);frame=0;pointer=null;pressed=false;
+  if(frame)cancelAnimationFrame(frame);frame=0;pointer=null;pressed=false;cancelDrag();
+  free.on=false;free.rx=free.ry=free.rz=free.vx=free.vy=free.vz=0;
   target=neutral();Object.assign(state,target);paint();
  }
  const busy=new MutationObserver(()=>{if(card.dataset.busy)reset();else geometry();});
  busy.observe(card,{attributes:true,attributeFilter:['data-busy']});
  host.addEventListener('pointermove',move,{passive:true});
  host.addEventListener('pointerleave',leave);
+ host.addEventListener('pointerdown',hostDown);
  card.addEventListener('pointerdown',down);
+ window.addEventListener('pointermove',dragMove,{passive:true});
  window.addEventListener('pointerup',up);
  window.addEventListener('pointercancel',up);
  window.addEventListener('blur',leave);
+ window.addEventListener('blur',up);
  window.addEventListener('resize',geometry);
  document.addEventListener('scroll',geometry,true);
  document.addEventListener('visibilitychange',visibility);
  function stop(){
   if(stopped)return;stopped=true;reset();busy.disconnect();
-  host.removeEventListener('pointermove',move);host.removeEventListener('pointerleave',leave);
-  card.removeEventListener('pointerdown',down);
+  host.removeEventListener('pointermove',move);host.removeEventListener('pointerleave',leave);host.removeEventListener('pointerdown',hostDown);
+  card.removeEventListener('pointerdown',down);window.removeEventListener('pointermove',dragMove);
   window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);
-  window.removeEventListener('blur',leave);window.removeEventListener('resize',geometry);
+  window.removeEventListener('blur',leave);window.removeEventListener('blur',up);window.removeEventListener('resize',geometry);
   document.removeEventListener('scroll',geometry,true);document.removeEventListener('visibilitychange',visibility);
   face.style.transition=initialTransition;delete card.__tiltStop;
  }
@@ -503,15 +570,20 @@ export function renderHomeTV(main,ctx){
  {const L=(sel,z)=>{const el=$(sel);return el?{el,z}:null;};live.depth=createDepth(root,{canvas,planes,layers:[L('.tv-left',7),L('.tv-figs',8),
   L('.tv-rail',24),L('.tv-dialog',5),L('.tv-title',9),L('.tv-marks',3),L('.tv-cshadow',-22)].filter(Boolean)});}
  const onResize=()=>{if(live&&live.root===root){fitLeft(root);}else removeEventListener('resize',onResize);};addEventListener('resize',onResize);
- live.cardTilts=[...root.querySelectorAll('.tv-cover,.tv-heat-card')].map(cardify);
+ live.cardTilts=[...root.querySelectorAll('.tv-cover,.tv-heat-card')].map(el=>cardify(el,{spin:el.classList.contains('tv-cover')}));
  const coverEl=$('.tv-cover');let clickTimer=0,pressAt=0,pressXY=[0,0];coverEl.setAttribute('aria-label',w.coverHint);const pop=document.createElement('div');pop.className='tv-pop';
   pop.innerHTML=`<p><i class="m1"></i><b>${w.tipClick}</b><span>${w.tipDetail}</span></p><p><i class="m2"></i><b>${w.tipDbl}</b><span>${w.tipDraw}</span></p>`;root.appendChild(pop);
-  let popT=0;const hidePop=()=>{clearTimeout(popT);pop.classList.remove('on');};coverEl.addEventListener('pointermove',e=>{const r=root.getBoundingClientRect();
-  pop.style.left=(e.clientX-r.left+18)+'px';pop.style.top=(e.clientY-r.top+20)+'px';if(!pop.classList.contains('on')){clearTimeout(popT);popT=setTimeout(()=>pop.classList.add('on'),
-  520);}});coverEl.addEventListener('pointerleave',hidePop);coverEl.addEventListener('pointerdown',hidePop);coverEl.addEventListener('pointerdown',e=>{pressAt=performance.now();
-  pressXY=[e.clientX,e.clientY];});coverEl.addEventListener('click',e=>{/* (user 2026-11-12) a long press or a drag only plays with the card; letting go never opens the detail */if(e.detail&&(performance.now()-pressAt>350||Math.hypot(e.clientX-pressXY[0],
-  e.clientY-pressXY[1])>6))return;clearTimeout(clickTimer);clickTimer=setTimeout(()=>shown&&onDetail(shown.id),260);});coverEl.addEventListener('dblclick',e=>{e.preventDefault();
-  clearTimeout(clickTimer);if(pool.length>1)draw(randomGame());});
+  let popT=0;const hidePop=now=>{clearTimeout(popT);if(now===true){pop.style.transition='none';pop.classList.remove('on');void pop.offsetWidth;pop.style.transition='';}else pop.classList.remove('on');};
+  /* 2026-11-27 (user: 按住卡牌往下压的话 这里会有bug) the hint used to follow the pointer onto the card and came back while the card was held, so it sat on the
+     tilted card. It now hangs under the card (above it when there is no room), clear of the widest hover tilt, and stays away while a button is down or a draw plays */
+  const placePop=x=>{const r=root.getBoundingClientRect(),c=coverEl.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,gap=c.height*.035+12;
+   let top=c.bottom-r.top+gap;if(top+h>r.height-8)top=c.top-r.top-gap-h;const left=Math.max(c.left-r.left,Math.min(x-r.left-w/2,c.right-r.left-w));
+   pop.style.left=Math.round(left)+'px';pop.style.top=Math.round(top)+'px';};
+  coverEl.addEventListener('pointermove',e=>{if(e.buttons||coverEl.dataset.busy)return hidePop(true);placePop(e.clientX);if(!pop.classList.contains('on')){clearTimeout(popT);
+  popT=setTimeout(()=>{if(!coverEl.dataset.busy)pop.classList.add('on');},520);}});coverEl.addEventListener('pointerleave',hidePop);coverEl.addEventListener('pointerdown',()=>hidePop(true));coverEl.addEventListener('pointerdown',e=>{pressAt=performance.now();
+  pressXY=[e.clientX,e.clientY];});const spun=ms=>performance.now()-(+coverEl.dataset.spunAt||-1e9)<ms;coverEl.addEventListener('click',e=>{/* (user 2026-11-12) a long press or a drag only plays with the card; letting go never opens the detail. 2026-11-27: nor does a click that lands right after turning the card, or in the middle of a draw */if(spun(450)||coverEl.dataset.busy)return;if(e.detail&&(performance.now()-pressAt>350||Math.hypot(e.clientX-pressXY[0],
+  e.clientY-pressXY[1])>6))return;clearTimeout(clickTimer);clickTimer=setTimeout(()=>{if(shown&&!coverEl.dataset.busy)onDetail(shown.id);},260);});coverEl.addEventListener('dblclick',e=>{e.preventDefault();
+  clearTimeout(clickTimer);if(spun(700))return;if(pool.length>1)draw(randomGame());});
  function draw(g){if(!g||!live||live.root!==root)return;paint(g);}
  if(list.length)paint(0,false);
  return stopHomeTV;
