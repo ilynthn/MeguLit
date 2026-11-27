@@ -49,7 +49,7 @@ class UnityBox{
   const key=last.replace(/\s+/g,'');/* a paragraph that grows the one just released early is a typewriter too: hold its next states the full time */if(!s.held&&s.shown&&key.length>s.shown.length&&key.startsWith(s.shown))s.typed=true;
   if(s.held){if(key.length>s.held.key.length&&key.startsWith(s.held.key))s.typed=true;else if(key!==s.held.key&&!s.typed)this.release(s);}/* a typewriter stream also carries other boxes between its steps (Tsuki: 「前略。」 amid a page being typed): there the held state is still dropped for the next one, as before */
   if(key===s.shown){this.cancel(s);return;}
-  /* #1248 (制服カノジョ: 「今日は芹香の希望で山中にある、水着で…向かっている。」 was shown, then the box sent 「今日は芹香の希望で山中にある、」 again
+  /* #1248 (制服カノジョ3: 「今日は芹香の希望で山中にある、水着で…向かっている。」 was shown, then the box sent 「今日は芹香の希望で山中にある、」 again
      and the next line was joined to that comma piece: 「…山中にある、……だが、登山道を…」). An unfinished piece the shown paragraph starts with
      is an earlier typewriter state of that paragraph (the box typing it again), never a new line: it is not delivered. Rich-text
      tags are gone before this (core/rich-text.cjs), so the tagged state matches the shown line. */
