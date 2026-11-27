@@ -4,7 +4,8 @@
 /* 2026-11-27 the watch behind the scheduled task \MeguLit\Adapt-Auto (every 15 minutes): every game order the DeepSeek download
    queue finished (<queue>\done\*.json, result ok / partial, an issue number) that this watch has not handled yet is run once through
    `node tools/megulit-adapter.cjs auto <root>\<name> --name <name> --issue <n>`. No LLM anywhere (owner: 「以后新游戏来了你让脚本自动跑
-   你自己不要消费token」); the main session only reads <requests>\cards\pending and <requests>\stuck.
+   你自己不要消费token」); the main session only reads <requests>\cards (the local test bench page shows them) and
+   <requests>\stuck. The runs' TEMP / TMP point at <auto root>\tmp: the scheduled task writes nothing on C:.
 
      node tools/adapt-auto-watch.cjs [--queue <done dir>] [--state <file>] [--dry] [--follow-main]
      node tools/adapt-auto-watch.cjs --baseline          mark every order already done as handled (no run): the first install
@@ -53,7 +54,8 @@ function followMain(log){const g=(...a)=>spawnSync('git',a,{cwd:REPO,encoding:'u
  if(String(g('status','--porcelain','--untracked-files=no').stdout).trim()){log('# 检出有改动，不跟 main');return;}
  const r=g('checkout','-q','--detach','origin/main');log(r.status===0?'# 检出跟到 origin/main':'# 跟 main 失败：'+String(r.stderr).trim());}
 
-function runAuto(order){const r=spawnSync(process.execPath,[path.join(REPO,'tools','megulit-adapter.cjs'),'auto',order.dir,'--name',order.name,'--issue',String(order.issue)],{encoding:'utf8',windowsHide:true,timeout:6*3600000,maxBuffer:64<<20});
+function runAuto(order){const tmp=path.join(AUTO_ROOT(),'tmp');fs.mkdirSync(tmp,{recursive:true});
+ const r=spawnSync(process.execPath,[path.join(REPO,'tools','megulit-adapter.cjs'),'auto',order.dir,'--name',order.name,'--issue',String(order.issue)],{env:{...process.env,TEMP:tmp,TMP:tmp,MEGULIT_GAME_LOCKS:process.env.MEGULIT_GAME_LOCKS||path.join(tmp,'locks')},encoding:'utf8',windowsHide:true,timeout:6*3600000,maxBuffer:64<<20});
  return {exit:r.status===null?1:r.status,out:String(r.stdout||'')+String(r.stderr||'')};}
 
 function installTask({node=process.execPath,run=spawnSync}={}){const tr='"'+node+'" "'+path.join(REPO,'tools','adapt-auto-watch.cjs')+'" --follow-main';

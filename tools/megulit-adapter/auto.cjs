@@ -15,8 +15,9 @@
                   existing PR instead (a replay of a game that already has one); --no-publish stops before (dry run)
      4 testbuild  <copies>\testbuild-<PR>\MeguLit: the installed MeguLit without its user data, this PR's core / services / web /
                   The Seed / tools on top; start-test-megulit.cmd sets MEGULIT_SIDE_BY_SIDE=1 (the installed one is not retired)
-     5 request    <requests>\<PR>-<short>.md (the tester's checklist) and <requests>\cards\pending\<PR>.json (a card for the owner's
-                  test bench, the c1312.json shape; the main session puts pending cards into the page in one batch)
+     5 request    <requests>\<PR>-<short>.md (the tester's checklist) and <requests>\cards\<PR>.json (a card for the owner's
+                  test bench, the c1312.json shape: the local page reads cards\*.json and shows it at once;
+                  the tester's results land in <requests>\results\<id>.json, a tested card is set done:true)
    Where a person has to decide, <requests>\stuck\<short>.md says which step, what to decide and how to go on, and auto stops
    (exit 3). Nothing here opens the game to check it: the owner's tester does that.
    Exit codes: 0 a card is waiting, 3 stuck (a person decides), 2 bad arguments. */
@@ -160,8 +161,9 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
   engine:ad.caps?.label||ad.engine||'',src,copy:inst.dir,exe:inst.exe,notes:inst.notes||[],installSteps:inst.steps||[],cmd:st.steps.testbuild.cmd,steps:STEPS_FOR(inst.exe),
   adapterRequest:(()=>{try{return fs.readFileSync(path.join(out,'test-request.md'),'utf8');}catch{return '';}})()};
  const md=path.join(R.requests,pr+'-'+short+'.md');fs.mkdirSync(R.requests,{recursive:true});fs.writeFileSync(md,checklist(args));
- const pending=path.join(R.requests,'cards','pending');fs.mkdirSync(pending,{recursive:true});const cf=path.join(pending,pr+'.json');
- const order=readJson(cf)?.order||nextOrder([path.join(R.requests,'cards'),pending]);writeJson(cf,card(args,order));
+ const cards=path.join(R.requests,'cards');fs.mkdirSync(cards,{recursive:true});const cf=path.join(cards,pr+'.json');
+ /* a rerun keeps the card's place and a done the tester already set */
+ const old=readJson(cf);const c=card(args,old?.order||nextOrder([cards]));if(old?.done)c.done=true;writeJson(cf,c);
  st.steps.request={md,card:cf};save();try{fs.rmSync(stuckFile,{force:true});}catch{}
  log('# 5 测试清单 '+md+'，卡片 '+cf);return 0;}
 

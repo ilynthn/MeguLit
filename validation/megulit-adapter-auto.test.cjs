@@ -108,7 +108,7 @@ test('auto: a download runs to a card of the test bench shape and a checklist; t
  assert.deepEqual(first.slice(first.indexOf('--vndb'),first.indexOf('--vndb')+2),['--vndb','v12345']);assert.deepEqual(first.slice(first.indexOf('--cn'),first.indexOf('--cn')+2),['--cn','测试游戏']);
  assert.deepEqual(A.calls[1].slice(0,1),['publish']);assert.ok(A.calls[1].includes('--go'));
  assert.match(fs.readFileSync(path.join(s.d,'auto','runs','test-game','adapter','pr-body.md'),'utf8'),/Refs #77/);
- const card=JSON.parse(fs.readFileSync(path.join(s.d,'req','cards','pending','4321.json'),'utf8'));
+ const card=JSON.parse(fs.readFileSync(path.join(s.d,'req','cards','4321.json'),'utf8'));
  assert.deepEqual(Object.keys(card),['id','title','sub','game','app','steps','checks','order','done']);
  assert.equal(card.id,'4321');assert.equal(card.title,'テストゲーム');assert.equal(card.game,path.join(s.copy,'Game.exe'));assert.equal(card.app,path.join(s.d,'copies','testbuild-4321','start-test-megulit.cmd'));
  assert.equal(card.checks.length,3);assert.match(card.checks[0][1],/原文/);assert.match(card.checks[1][1],/换一句/);assert.match(card.checks[2][1],/选项.*中文/);
@@ -130,7 +130,7 @@ test('auto: exit 3 stops with a stuck note; after the answer the ready state is 
  const before=A.calls.length;assert.equal(await Auto.auto({dir:s.dl,name:'test-game',pr:1312},{log:()=>{},deps}),0);
  assert.equal(A.calls.length,before,'the ready adapter is not run again (it would drop the answers)');
  assert.equal(fs.existsSync(path.join(s.d,'req','stuck','test-game.md')),false,'the stuck note goes once the card is out');
- assert.ok(fs.existsSync(path.join(s.d,'req','cards','pending','1312.json')));});
+ assert.ok(fs.existsSync(path.join(s.d,'req','cards','1312.json')));});
 
 test('auto: a new engine, an adapter without --tester and an install failure stop with what to decide',async t=>{const s=setup(t);
  const A=fakeAdapter(()=>({status:0,state:'ready',known:false}));
