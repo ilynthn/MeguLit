@@ -26,7 +26,8 @@ MIN_APP_VERSION_OVERRIDE = ""
 GITHUB_REPO = "ilynthn/MeguLit"
 LINK_DAYS = "30"
 # the website forms (src/feedback.js) post from these origins
-ALLOWED_ORIGINS = "https://megulit.com,https://www.megulit.com"
+# 2026-11-27 cn.megulit.com (EdgeOne) serves the same site, incl. the /me/ user centre
+ALLOWED_ORIGINS = "https://megulit.com,https://www.megulit.com,https://cn.megulit.com"
 # E379 avatars and weekly hot words (src/community.js)
 AVATAR_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 HOT_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8"
@@ -126,6 +127,13 @@ name = "RL_FORUM_GET"
 type = "ratelimit"
 namespace_id = "1009"
 simple = { limit = 120, period = 60 }
+
+# 2026-11-27 website (read-only session) sync reads, per account: no D1 row per request
+[[unsafe.bindings]]
+name = "RL_SYNC_GET"
+type = "ratelimit"
+namespace_id = "1010"
+simple = { limit = 60, period = 60 }
 
 [[durable_objects.bindings]]
 name = "SEED_NOTIFICATIONS"
