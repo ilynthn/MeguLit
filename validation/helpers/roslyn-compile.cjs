@@ -8,15 +8,8 @@ function findRoslynCompiler(){
  return compilers.find(file=>fs.existsSync(file));
 }
 
-function compileRoslyn(args,{retryTimeout=false}={}){
- const timeout=60000,options={windowsHide:true,encoding:'utf8',timeout};
- const deadline=retryTimeout?performance.now()+2*timeout:0;
- const csc=compilers[0];
- let r=spawnSync(csc,args,options);
- if(retryTimeout&&r.error?.code==='ETIMEDOUT'){
-  const remaining=Math.floor(deadline-performance.now());
-  if(remaining>0)r=spawnSync(csc,args,{...options,timeout:Math.min(timeout,remaining)});
- }
+function compileRoslyn(args){
+ const r=spawnSync(compilers[0],args,{windowsHide:true,encoding:'utf8',timeout:60000});
  assert.ifError(r.error);
  assert.equal(r.status,0,r.stdout+r.stderr);
 }

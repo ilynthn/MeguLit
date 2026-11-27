@@ -318,6 +318,12 @@ jobs:
             Record-BatchResult $job.Name $exitCode $outText $job.Timings
           }
 
+          # Compile the KEMCO snapshot harness before starting competing test workers.
+          $kemcoSnapshot = 'validation\unity-kemco-snapshot.test.cjs'
+          if ($standard -contains $kemcoSnapshot) {
+            $standard = @($standard | Where-Object { $_ -ne $kemcoSnapshot })
+            Invoke-ForegroundBatch 'kemco-snapshot' @($kemcoSnapshot) 1
+          }
           # The real-time reader replay needs regular browser samples even while the runner is busy.
           if ($replay.Count) {
             Invoke-ForegroundBatch 'replay' $replay 1
