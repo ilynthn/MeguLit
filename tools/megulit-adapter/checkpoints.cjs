@@ -51,7 +51,7 @@ function questions({identity={},caps={},cold=null,coldOut='',force=false,install
   if(cold.checks?.choice?.measured||(cold.phases||[]).some(p=>/^choice/.test(String(p?.name||''))))q.push({id:'choice',ask:'这张是第一个选项：选项文字还在、能点吗？',evidence:pic(ev.choice||ev.last),options:['yes','no']});
   /* 2026-11-28 (owner: 自动识别说话人…不像这样分人区分颜色…就老老实实提示该作品不分角色字体颜色) every adaptation answers whether the game colours
      lines by speaker; the tester's checklist (test-request.cjs) then says what the reader's 分角色 tab must show */
-  q.push({id:'speakers',ask:'这几张对话画面里，不同角色的台词是不同颜色吗（分角色上色）？测试清单会按这个答案检查 Alt+T → 文字 → 分角色',evidence:pic(ev.dialogue),options:['yes','no']});}
+  q.push({id:'speakers',ask:'这几张对话画面里，不同角色的台词是不同颜色吗（分角色上色）？测试清单会按这个答案检查 Alt+T → 文字 → 颜色 → 分角色',evidence:pic(ev.dialogue),options:['yes','no']});}
  if(v==='fail'&&cold.checks?.hidden?.measured&&cold.checks.hidden.ok===false)q.push({id:'readmode',ask:'原文隐藏没过（'+(cold.checks.hidden.detail||'')+'），先按读模式发 seed 吗？',evidence:pic(ev.dialogue),options:['yes','no']});
  /* a Steam build without steam_appid.txt and no single appid from VNDB (千恋＊万花: 1144400 and 1221010) */
  if(/steam-appid-unknown/.test(String(cold?.stuck||''))){q.push({id:'steam',ask:'这是 Steam 版，冷测试要它的 appid'+((identity.steamCandidates||[]).length?'（VNDB 候选：'+identity.steamCandidates.join('、')+'）':'')+'，回 steam=<appid>，再加 --steam-appid 重跑',evidence:[],free:true});}
