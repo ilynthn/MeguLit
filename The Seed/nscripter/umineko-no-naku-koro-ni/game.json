@@ -1,0 +1,141 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "4ca575ba304e9ec3b9c5ace9b9d7bdc1d50444b918a9aedf5b61432cd76e2719",
+ "layer": "game",
+ "source": "official",
+ "mode": "hide",
+ "settings": {
+  "source": {
+   "keepStream": [],
+   "stripCodes": [],
+   "embedGlyphPieces": [],
+   "versionMatch": "exe"
+  },
+  "placement": {
+   "lineOffsetY": 0,
+   "drawWhileBlanking": false,
+   "translationGrowsDown": false,
+   "orphanDraw": true
+  },
+  "page": {
+   "reportClear": false,
+   "engineRows": false,
+   "filterHookRedraws": false,
+   "hookAnnotationPatterns": [],
+   "pairByDrawn": false,
+   "keepHeld": false
+  },
+  "choice": {
+   "pageFrames": [],
+   "filters": [],
+   "contentInterleave": false,
+   "dropEffectFrames": false,
+   "ocrLoose": false
+  },
+  "hide": {
+   "textEffectsRead": false,
+   "glyphAfterLine": false
+  },
+  "draw": {
+   "roles": false
+  },
+  "safeMode": {
+   "effectJudge": false
+  },
+  "cardinal": {
+   "rev": 8,
+   "lines": 60,
+   "maxGapMs": 1500,
+   "sampleMs": 90,
+   "minIntervalMin": 30,
+   "maxLagMs": 80,
+   "weights": {
+    "row": 3,
+    "stable": 1,
+    "clean": 2,
+    "clear": 1,
+    "choice": 1,
+    "pair": 1,
+    "leak": 2
+   },
+   "thresholds": {
+    "settleMs": 300,
+    "shownRate": 0.9,
+    "stablePx": 0,
+    "cnOverlapPx": 2,
+    "lineMs": 700,
+    "burstMs": 300,
+    "calibGapMs": 1000,
+    "calibWatchMs": 2500,
+    "choiceMs": 3000,
+    "staleChars": 4,
+    "preflightMs": 1500
+   }
+  },
+  "lang": {
+   "ja": {
+    "annotation": "ruby"
+   }
+  }
+ },
+ "exe": "",
+ "engine": "nscripter",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "pack": "dc2b8cf72f5785b0219de93f91768c3b29dc6d6db41dfec2dd9e82d0ac7e3ce3",
+  "title": "931ddec6583a30e01d06639c9e870474eee793444040e44aabdbd56668431853",
+  "steam": "406550",
+  "vndb": "v24"
+ },
+ "seedFormat": 1,
+ "status": "skeleton",
+ "slug": "umineko-no-naku-koro-ni",
+ "builds": [
+  "7bd024621f91d3d30c8c7598472d25e00bf0e1d3d6a54eca9d88eef7cfba1034"
+ ],
+ "match": {
+  "exe": [
+   "うみねこのなく頃に.exe"
+  ],
+  "titles": [
+   "うみねこのなく頃に",
+   "海猫鸣泣之时",
+   "umineko-ep1"
+  ]
+ },
+ "sourceLangs": [
+  "ja"
+ ],
+ "rev": 1,
+ "ext": {
+  "adapter": {
+   "tool": "megulit-adapter skeleton",
+   "vndb": "v24",
+   "confidence": "medium",
+   "why": [
+    "引擎没有默认设置文件",
+    "引擎 NScripter",
+    "读出日文剧本 14313 句",
+    "craft 也认出 nscripter"
+   ],
+   "layers": [
+    "locate",
+    "craft",
+    "probe",
+    "identify",
+    "vndb",
+    "seed"
+   ]
+  },
+  "versionPrints": {
+   "7bd024621f91d3d30c8c7598472d25e00bf0e1d3d6a54eca9d88eef7cfba1034": {
+    "head": "5e7b1d2a35ae4d70628518b0206a22306cb137b91ad726cfb71f5730e717f7f7",
+    "pe": "0.0.0.0@46114c47",
+    "data": "2c0232a2797cec03520fad1a4da2b7ca93e09aab0db87319366009ec37911f1d",
+    "pack": "dc2b8cf72f5785b0219de93f91768c3b29dc6d6db41dfec2dd9e82d0ac7e3ce3"
+   }
+  }
+ }
+}

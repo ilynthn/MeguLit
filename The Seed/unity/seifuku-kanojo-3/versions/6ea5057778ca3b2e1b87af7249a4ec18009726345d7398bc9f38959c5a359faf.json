@@ -1,0 +1,34 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "6ea5057778ca3b2e1b87af7249a4ec18009726345d7398bc9f38959c5a359faf",
+ "layer": "version",
+ "source": "official",
+ "settings": {
+  "source": {
+   "artemisQuoteSpans": false,
+   "autoSelectSkip": []
+  },
+  "draw": {
+   "advhdInput": false,
+   "cmvsInput": false,
+   "fvpInput": false,
+   "minoriInput": false,
+   "spikechunsoftInput": false,
+   "kemcoSprites": false,
+   "embed": false,
+   "embedTranslation": true,
+   "viaRoles": []
+  }
+ },
+ "exe": "SEIFUKU3.exe",
+ "engine": "unity",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "exe": "6ea5057778ca3b2e1b87af7249a4ec18009726345d7398bc9f38959c5a359faf",
+  "head": "e96f9ae0428473d622cc460d32afb2c0b9eff80b9cb7506fe6058589a84849e9",
+  "pe": "6000.0.59.10268@68dd18f4"
+ },
+ "rev": 1
+}

@@ -1,0 +1,34 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "cb606dfbc7fd556a86b6113db81f404c4be996a3da50455a21ea3a51d30f2a17",
+ "layer": "version",
+ "source": "official",
+ "settings": {
+  "source": {
+   "artemisQuoteSpans": false,
+   "autoSelectSkip": []
+  },
+  "draw": {
+   "advhdInput": false,
+   "cmvsInput": false,
+   "fvpInput": false,
+   "minoriInput": false,
+   "spikechunsoftInput": false,
+   "kemcoSprites": false,
+   "embed": false,
+   "embedTranslation": true,
+   "viaRoles": []
+  }
+ },
+ "exe": "RealLive.exe",
+ "engine": "reallive",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "exe": "cb606dfbc7fd556a86b6113db81f404c4be996a3da50455a21ea3a51d30f2a17",
+  "head": "90f378f8e94f519d27fab6b7b11525c3d02c6726f1a4e95cb9e533c3e0b987b5",
+  "pe": "1.4.8.8@46831c56"
+ },
+ "rev": 1
+}

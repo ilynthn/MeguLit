@@ -1,0 +1,34 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "7bd024621f91d3d30c8c7598472d25e00bf0e1d3d6a54eca9d88eef7cfba1034",
+ "layer": "version",
+ "source": "official",
+ "settings": {
+  "source": {
+   "artemisQuoteSpans": false,
+   "autoSelectSkip": []
+  },
+  "draw": {
+   "advhdInput": false,
+   "cmvsInput": false,
+   "fvpInput": false,
+   "minoriInput": false,
+   "spikechunsoftInput": false,
+   "kemcoSprites": false,
+   "embed": false,
+   "embedTranslation": true,
+   "viaRoles": []
+  }
+ },
+ "exe": "うみねこのなく頃に.exe",
+ "engine": "nscripter",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "exe": "7bd024621f91d3d30c8c7598472d25e00bf0e1d3d6a54eca9d88eef7cfba1034",
+  "head": "5e7b1d2a35ae4d70628518b0206a22306cb137b91ad726cfb71f5730e717f7f7",
+  "pe": "0.0.0.0@46114c47"
+ },
+ "rev": 1
+}

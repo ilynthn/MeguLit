@@ -1,0 +1,137 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "a5e3914c1eaa28ae55b34355166dc841925c3e4ee0745a28c2d1f97a04492ffb",
+ "layer": "game",
+ "source": "official",
+ "mode": "hide",
+ "settings": {
+  "source": {
+   "keepStream": [],
+   "stripCodes": [],
+   "embedGlyphPieces": [],
+   "versionMatch": "exe"
+  },
+  "placement": {
+   "lineOffsetY": 0,
+   "drawWhileBlanking": false,
+   "translationGrowsDown": false,
+   "orphanDraw": true
+  },
+  "page": {
+   "reportClear": false,
+   "engineRows": false,
+   "filterHookRedraws": false,
+   "hookAnnotationPatterns": [],
+   "pairByDrawn": false,
+   "keepHeld": false
+  },
+  "choice": {
+   "pageFrames": [],
+   "filters": [],
+   "contentInterleave": false,
+   "dropEffectFrames": false,
+   "ocrLoose": false
+  },
+  "hide": {
+   "textEffectsRead": false,
+   "glyphAfterLine": false
+  },
+  "draw": {
+   "roles": false
+  },
+  "safeMode": {
+   "effectJudge": false
+  },
+  "cardinal": {
+   "rev": 8,
+   "lines": 60,
+   "maxGapMs": 1500,
+   "sampleMs": 90,
+   "minIntervalMin": 30,
+   "maxLagMs": 80,
+   "weights": {
+    "row": 3,
+    "stable": 1,
+    "clean": 2,
+    "clear": 1,
+    "choice": 1,
+    "pair": 1,
+    "leak": 2
+   },
+   "thresholds": {
+    "settleMs": 300,
+    "shownRate": 0.9,
+    "stablePx": 0,
+    "cnOverlapPx": 2,
+    "lineMs": 700,
+    "burstMs": 300,
+    "calibGapMs": 1000,
+    "calibWatchMs": 2500,
+    "choiceMs": 3000,
+    "staleChars": 4,
+    "preflightMs": 1500
+   }
+  },
+  "lang": {
+   "ja": {
+    "annotation": "ruby"
+   }
+  }
+ },
+ "exe": "",
+ "engine": "reallive",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "title": "4d01a20cd0d94a9059ce5e48080962b6efbde5d59a15a622e5a4c6c81a03de78",
+  "vndb": "v1413"
+ },
+ "seedFormat": 1,
+ "status": "skeleton",
+ "slug": "kichiku-megane",
+ "builds": [
+  "cb606dfbc7fd556a86b6113db81f404c4be996a3da50455a21ea3a51d30f2a17"
+ ],
+ "match": {
+  "exe": [
+   "RealLive.exe"
+  ],
+  "titles": [
+   "鬼畜眼鏡",
+   "kichiku-megane"
+  ]
+ },
+ "sourceLangs": [
+  "ja"
+ ],
+ "rev": 1,
+ "ext": {
+  "adapter": {
+   "tool": "megulit-adapter skeleton",
+   "vndb": "v1413",
+   "confidence": "medium",
+   "why": [
+    "引擎没有默认设置文件",
+    "引擎 RealLive",
+    "读出日文剧本 78980 句",
+    "craft 也认出 reallive"
+   ],
+   "layers": [
+    "locate",
+    "craft",
+    "probe",
+    "identify",
+    "vndb",
+    "seed"
+   ]
+  },
+  "versionPrints": {
+   "cb606dfbc7fd556a86b6113db81f404c4be996a3da50455a21ea3a51d30f2a17": {
+    "head": "90f378f8e94f519d27fab6b7b11525c3d02c6726f1a4e95cb9e533c3e0b987b5",
+    "pe": "1.4.8.8@46831c56",
+    "data": "e163081a7d7d926a05881fd958e1d819922b782fd8df5342d1be67171f193269"
+   }
+  }
+ }
+}
