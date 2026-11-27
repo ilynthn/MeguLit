@@ -6,10 +6,11 @@
    dropped, they are what makes the feature acceptable:
 
    1. Informed consent (consentState / setConsent)
-      library.json adapterContrib true|false is the player's decision. Public builds: off until the player presses
-      「同意并下一步」 under the update notes (web/update-notice.js) or turns the Settings switch on. Closed beta (version
-      x.y.z-beta.n, testers agreed in the group): on by default, but only after the in-app note was shown once
-      (adapterContribNoticeAt); the Settings switch turns it off at any time. Off = nothing is collected or sent.
+      library.json adapterContrib true|false is the player's decision. 2026-11-28 (user: over a thousand players agreed,
+      make it the default): every build, public and beta, is on by default once the in-app note was shown
+      (adapterContribNoticeAt, a startup toast in web/app.js that names the Settings switch); before the note nothing is
+      sent. Settings → 游戏库 turns it off at any time and an explicit no is never overridden. Off = nothing is collected
+      or sent.
    2. Only the game, nothing else (collect)
       only a game registered in the MeguLit library AND listed by the probe as not reading well; only files inside that
       game's own folder (real paths checked, links that leave the folder are refused); a folder that is a drive root, the
@@ -44,14 +45,14 @@ function atomic(file,v){fs.mkdirSync(path.dirname(file),{recursive:true});const 
 function appVersion(root){try{return require('./shared-adaptation.cjs').appVersion(root)||'';}catch{return '';}}
 const isBeta=v=>/^\d+\.\d+\.\d+-beta\.\d+$/i.test(String(v||'').replace(/^v/,''));
 /* consentState(root) → {enabled, decided, beta, ask, notice}
-   ask: the update card should show the consent text (public build, nothing decided yet)
-   notice: the beta note has not been shown yet (the beta default stays off until it has) */
+   ask: always false since 2026-11-28 (no build asks any more; kept for older callers)
+   notice: the startup note has not been shown yet (the default stays off until it has) */
 function consentState(root,{version=appVersion(root)}={}){
  const f=libFile(root);let lib=readJSON(f);const beta=isBeta(version);
  /* 2026-11-16: a beta player who saw the note (switch on) has agreed; record it once so a public build never asks again */
  if(typeof lib.adapterContrib!=='boolean'&&Number(lib.adapterContribNoticeAt)>0){lib={...lib,adapterContrib:true,adapterContribAt:Date.now(),adapterContribSource:'beta-notice'};try{atomic(f,lib);}catch{}}
  const decided=typeof lib.adapterContrib==='boolean',noticed=Number(lib.adapterContribNoticeAt)>0;
- return {enabled:decided?lib.adapterContrib:false,decided,beta,ask:!decided&&!beta,notice:!decided&&beta&&!noticed};}
+ return {enabled:decided?lib.adapterContrib:noticed,decided,beta,ask:false,notice:!decided&&!noticed};}
 const enabled=(root,o)=>consentState(root,o).enabled;
 /* the player's decision (the update card or Settings). Turning it off also deletes whatever is waiting locally. */
 function setConsent(root,on,{source='settings'}={}){const f=libFile(root);atomic(f,{...readJSON(f),adapterContrib:on===true,adapterContribAt:Date.now(),adapterContribSource:String(source).slice(0,20)});

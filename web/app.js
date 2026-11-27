@@ -159,8 +159,14 @@ function duration(seconds){seconds=Math.max(0,Math.round(seconds||0));/* short s
  }
 /* 2026-11-27 texts are written with the default keys (Alt+T…); shown with the ones chosen in 热键 (web/hotkeys.js) */
 const hk=t=>window.MeguHotkeys?window.MeguHotkeys.localize(t):t;
-function toast(message){clearTimeout(toastTimer);const element=document.querySelector('#toast');element.textContent=hk(message);element.classList.add('visible');toastTimer=setTimeout(()=>element.classList.remove('visible'),
- 4600);}
+function toast(message,ms=4600){clearTimeout(toastTimer);const element=document.querySelector('#toast');element.textContent=hk(message);element.classList.add('visible');toastTimer=setTimeout(()=>element.classList.remove('visible'),
+ ms);}
+/* 2026-11-28 adaptation contribution is on by default (services/adapter-contrib.cjs rule 1): the player is told once,
+   with where to turn it off, and only after that does anything get sent */
+const CONTRIB_NOTE={zh:'适配贡献已开启：读不好的游戏会上传剧本和启动程序给作者做适配，用完即删。可在 设置 → 游戏库 关闭',
+ ja:'適応協力が有効です：うまく読めないゲームのスクリプトと実行ファイルを適応のために送信し、使用後に削除します。設定 → ライブラリでオフにできます',
+ en:'Adaptation contribution is on: scripts and program code of games that do not read well are sent for adaptation and deleted after use. Turn it off in Settings → Library'};
+async function contribNotice(){try{const c=await api('contrib_consent');if(!c?.notice)return;toast(CONTRIB_NOTE[locale]||CONTRIB_NOTE.zh,12000);await api('contrib_notice_seen');}catch{}}
 function errorMessage(error){const code=typeof error==='string'?error:error?.message;return ({LOCALE_EMULATOR_REQUIRED:({zh:'日文转区组件（Locale Emulator）没能装好：再点一次启动会自动重新安装；仍不行请把 logs\\locale-emulator.log 发给作者',
  en:'Locale Emulator could not be set up: press Start again to retry the automatic install; if it still fails, send logs\\locale-emulator.log',ja:'Locale Emulator を準備できませんでした。もう一度起動すると自動で再インストールします'}[locale]),
  LOCALE_EMULATOR_DOWNLOAD_FAILED:({zh:'日文转区组件（Locale Emulator）下载失败：检查网络后再点一次启动，会自动重试（含国内镜像）',en:'Locale Emulator could not be downloaded: check your connection and press Start again',
@@ -1450,7 +1456,7 @@ async function start(){
     if(!window.__megulitUpdateChecked){window.__megulitUpdateChecked=true;
      const updates=checkForUpdates({api,invoke,version:VERSION,toast});
      afterStartupUpdate(updates,{notice:()=>{showHotDone();return route==='home'?mountDevNotice({api,locale,esc,toast,version:VERSION,canShow:()=>route==='home'&&!document.querySelector('dialog[open]')}):null;},
-      ready:()=>{startupDialogsReady=true;if(route==='home')maybeFirstRun({gamesCount:model.games.length,api,invoke,locale,esc,toast,onDone:()=>renderRoute()});}
+      ready:()=>{startupDialogsReady=true;contribNotice();if(route==='home')maybeFirstRun({gamesCount:model.games.length,api,invoke,locale,esc,toast,onDone:()=>renderRoute()});}
      }).catch(()=>{startupDialogsReady=true;});
      let showingRequired=false;
      const timer=setInterval(async()=>{if(showingRequired||updateIsRequired())return;try{const policy=await api('update_required_status');if(!policy)return;showingRequired=true;
