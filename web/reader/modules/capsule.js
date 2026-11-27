@@ -276,11 +276,11 @@
     const dot=button('card',DIAMOND,t('menuTip'));dot.className='mg-cap-dot';dot.dataset.show='idle rest open';dot.setAttribute('aria-expanded','false');
     const card=document.createElement('div');card.className='mg-cap-card';card.dataset.show='open';
     const head=document.createElement('div');head.className='mg-cap-head';head.innerHTML='<span>'+esc(t('brand'))+'</span><small>'+esc(t('cardTitle'))+'</small>';
-    const row=(act,key,label,go)=>button(act,(go?'<span class="mg-cap-go">›</span>':key?'<kbd>'+esc(key)+'</kbd>':'')+'<span>'+esc(label)+'</span>');
+    const row=(act,key,label,go)=>{/* the default key is the marker: menu / cover / log show the key the user set (web/hotkeys.js) */if(key&&(act==='menu'||act==='cover'||act==='log'))key=keyOf(act,key).replace(/ /g,'+');return button(act,(go?'<span class="mg-cap-go">›</span>':key?'<kbd>'+esc(key)+'</kbd>':'')+'<span>'+esc(label)+'</span>');};
     const pin=document.createElement('label');pin.className='mg-cap-pin';pin.innerHTML='<span>'+esc(t('pin'))+'</span>';
     const sw=document.createElement('input');sw.type='checkbox';sw.className='mg-cap-switch';sw.setAttribute('role','switch');sw.checked=prefs.on;sw.dataset.capPin='';pin.append(sw);
     const msg=document.createElement('div');msg.className='mg-cap-note';msg.setAttribute('role','status');msg.textContent=note;
-    card.append(head,row('menu',keyOf('menu','Alt+T').replace(/ /g,'+'),t('rowMenu')),row('cover',keyOf('cover','Alt+H').replace(/ /g,'+'),t('rowHide')),row('log',keyOf('log','L').replace(/ /g,'+'),t('rowLog')),row('tab:text','',t('rowText'),true),row('tab:calibrate','',t('rowCal'),true),pin,msg);
+    card.append(head,row('menu','Alt+T',t('rowMenu')),row('cover','Alt+H',t('rowHide')),row('log','L',t('rowLog')),row('tab:text','',t('rowText'),true),row('tab:calibrate','',t('rowCal'),true),pin,msg);
     surface.append(dot,card);
    }
    cur.g=null;cur.state='';paintTips();
