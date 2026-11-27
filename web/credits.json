@@ -14,6 +14,7 @@
     {"name": "MacType", "by": "snowie2000", "note": {"zh": "D2D 设备上下文的挂钩方式", "en": "Hooking the D2D device context", "ja": "D2D デバイスコンテキストのフック方法"}, "match": ["MacType"]},
     {"name": "DxWnd · Borderless Gaming", "note": {"zh": "强制无边框全屏的参考", "en": "References for forced borderless fullscreen", "ja": "強制ボーダーレス全画面の参考"}, "match": ["DxWnd", "Borderless Gaming"]},
     {"name": "GalTransl-GalGameReverse-Skill", "by": "GalTransl", "note": {"zh": "适配时的第二意见与引擎笔记", "en": "Second opinion and engine notes while adapting", "ja": "対応作業でのセカンドオピニオンとエンジンメモ"}, "match": ["GalTransl-GalGameReverse-Skill"]},
+    {"name": "Craft Anything", "by": "storytold", "note": {"zh": "适配前对游戏程序做静态分析：认引擎和画字方式", "en": "Static analysis of the game program before adapting: engine and text drawing", "ja": "対応前のゲーム本体の静的解析：エンジンと文字描画の特定"}, "match": ["Craft Anything", "storytold/craft-anything"]},
     {"name": "漢字でGO!", "by": "Micelle", "note": {"zh": "学习 → 五十音里打开的官方页面", "en": "Opened from 学习 → 五十音", "ja": "学習 → 五十音から開く公式ページ"}, "match": ["漢字でGO!"]}
    ]
   },
