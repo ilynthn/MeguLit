@@ -7,8 +7,8 @@
    tools/megulit-adapter/engines.cjs) -> game diff (The Seed data only) -> upload (a PR).
 
      node tools/megulit-adapter.cjs <game folder> [--exe <rel>] [--vndb v123] [--release "DL 版"] [--out <dir>] [--budget-min 10]
-                                    [--foreground] [--real-input] [--offline] [--tester] [--no-pairing] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
-         identify (VNDB + release, HANDOFF) -> engine -> script probe (RRFZ readers) -> plan (text source, pairing, hide) -> zero-latency pairing when a translation sits with the game (pairing.cjs)
+                                    [--foreground] [--real-input] [--offline] [--no-pairing] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
+         identify (VNDB + release, HANDOFF) -> engine -> static study (craft-anything) -> script probe (RRFZ readers) -> plan (text source, pairing, hide) -> zero-latency pairing when a translation sits with the game (pairing.cjs)
          -> live check: the game run with the hook and the hide (tools/megulit-adapter/cold.cjs; --foreground when the owner is away),
             a person looks at a few lines: the line changes, the original is hidden, the choice -> seed -> publish
          --cold  Cardinal replays the run as well, a background supplement: its scores are noted, never a gate
@@ -19,6 +19,11 @@
      node tools/megulit-adapter.cjs auto <download folder> [--name <short>] [--issue N] [--pr N] [--no-publish]
                                     a finished download to the owner's test card with no person and no LLM: install, adapt (--tester),
                                     PR, test build, checklist + card; a stuck note where a person decides (tools/megulit-adapter/auto.cjs)
+     node tools/megulit-adapter.cjs craft <game folder> [--exe <rel>] [--out <dir>]
+                                    the static study alone: craft-anything (MEGULIT_CRAFT_CLI) reads the program, never runs it:
+                                    engine words, text APIs, hide advice -> <out>/craft/report.md (a normal run does it too; --no-craft skips)
+     node tools/megulit-adapter.cjs skeleton <folder>... [--scan <library root>]... [--offline]
+                                    skeleton seeds for a whole batch, offline, with a confidence list (tools/megulit-adapter/skeleton.cjs)
      node tools/megulit-adapter.cjs inventory [--json]                what every engine has (from the code)
      node tools/megulit-adapter.cjs testbuild <target> [--app <MeguLit>] the tester's side-by-side MeguLit with this checkout's code
      node tools/megulit-adapter.cjs cold <game folder> ...            the cold stage alone (the old adapt-auto command line)
@@ -26,7 +31,7 @@
    Exit codes: 0 done, 1 fail, 2 inconclusive, 3 waiting for a person (<out>/review.html shows each question with its pictures).
    State: <out>/adapter.json (everything decided, every answer); nothing is written into the game folder. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
-const Copies=require('./game-copies.cjs'),SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
+const Copies=require('./game-copies.cjs'),SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs'),Craft=require('./megulit-adapter/craft.cjs');
 const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs'),Install=require('./megulit-adapter/install.cjs'),Pairing=require('./megulit-adapter/pairing.cjs');
 const REPO=path.join(__dirname,'..');
 const EXIT={done:0,fail:1,inconclusive:2,human:3};
@@ -37,7 +42,7 @@ function parseRun(argv){const a=argv.slice(2),o={steamAppId:'',copy:false,net:tr
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--offline')o.offline=true;else if(k==='--tester'){o.offline=true;o.tester=true;}else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--no-pairing')o.pairing=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;else if(k==='--no-install')o.install=false;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--real-input')o.realInput=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--no-pairing')o.pairing=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;else if(k==='--no-craft')o.craft=false;else if(k==='--no-install')o.install=false;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -59,10 +64,7 @@ function probe(loc,title,budgetMs){try{const P=require('../services/adapter-prob
    soundtrack, not a game disc */
 const DISC=/.(iso|mds|mdf|cue|ccd|img|nrg|cdi|chd|b5t|b6t|isz)$/i;
 function discImages(dir,depth=4,out=[]){let ents=[];try{ents=fs.readdirSync(dir,{withFileTypes:true});}catch{return out;}for(const e of ents){const f=path.join(dir,e.name);if(e.isDirectory()){if(depth>0)discImages(f,depth-1,out);}else if(DISC.test(e.name)&&!(/.cue$/i.test(e.name)&&ents.some(x=>/.(wav|flac|ape)$/i.test(x.name))))out.push(f);}return out;}
-const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.push('VNDB 记的引擎是 '+v.engine+'，和认出的不一样：先核对');if(v?.error)p.notes.push('VNDB 没查到（'+v.error+'），作品号 / 发行版问人');
- /* 2026-11-27 OZMAFIA!! (夜鸮汉化 PC 整包): the translation is an overlay, the Japanese release is whole; nothing to restore */
- const o=i.overlay;if(o)p.notes.push('外挂汉化：'+o.launchers.join(' / ')+' 从 '+o.scripts+'（'+o.count+' 个 .'+o.ext+'）换上中文剧本，日文原版程序和封包没动。用 '+(o.exe||'原版 exe')+' 启动就是日文原版，不用恢复、不写游戏文件；别从汉化启动器开');
- return p;};
+const withVndbNotes=(p,i)=>{const v=i.vndbLookup;if(v?.engineDiffers)p.notes.push('VNDB 记的引擎是 '+v.engine+'，和认出的不一样：先核对');if(v?.error)p.notes.push('VNDB 没查到（'+v.error+'），作品号 / 发行版问人');return p;};
 /* the registry did not know the engine: LunaHook's static checks name one (only then; an engine the registry named but the rule table
    lacks keeps its name, 樟脑丸: DDSystem, not LunaHook's loose EntisGLS check) (registry.lunaHook); the first class the rule table maps is
    taken, the others only go into the question */
@@ -98,12 +100,6 @@ function finish(st,log){const qs=Check.questions({install:st.install||[],identit
  st.questions=qs;const open=Check.open(qs,st.answers);st.review=Check.review(path.join(st.out,'review.html'),{title:'MeguLit-Adapter：'+st.title,summary:summary(st)},qs,st.answers);
  if(open.length){st.state='waiting';saveState(st);log('# 等人确认（'+open.length+' 个）：'+st.review);for(const q of open)log('  '+q.id+'：'+q.ask+(q.evidence.length?'  证据 '+q.evidence.join(' , '):''));return EXIT.human;}
  if(st.answers.again!==undefined&&!Check.yes(st.answers.again)){st.state='skipped';saveState(st);log('# 已适配过，不重做');return EXIT.done;}
- /* --tester (2026-11-27 owner: live checks go to the tester over UU remote): no game run here; a skeleton seed from what the adapter
-    already knows, a test request for the tester, the PR body says it waits for the tester */
- if(st.tester&&!st.cold){try{st.status='skeleton';st.seed=writeOfflineSeed(st);st.handoffRow=handoffRow(st);st.prBody=prBody(st);st.testRequest=testRequest(st);
-   fs.writeFileSync(path.join(st.out,'handoff-row.md'),st.handoffRow+'\n');fs.writeFileSync(path.join(st.out,'pr-body.md'),st.prBody);fs.writeFileSync(path.join(st.out,'test-request.md'),st.testRequest);st.state='ready';}
-  catch(e){st.state='fail';st.seedError=String(e.message||e);}
-  saveState(st);log('# '+st.state+(st.seed?' seed '+st.seed+'，测试清单 '+path.join(st.out,'test-request.md'):'')+(st.seedError?' '+st.seedError:''));return st.state==='ready'?EXIT.done:EXIT.fail;}
  if(!st.cold||st.cold.verdict==='inconclusive'){st.state='inconclusive';saveState(st);return EXIT.inconclusive;}
  const status=Check.status({cold:st.cold},st.answers);st.status=status;
  if(!status){st.state='fail';saveState(st);return EXIT.fail;}
@@ -128,36 +124,7 @@ function handoffRow(st){const g=JSON.parse(fs.readFileSync(path.join(st.seed,'ga
  return '| '+st.title+' | '+vndb+' | '+release+' | '+(st.caps.label||st.engine)+' | '+(g.status==='verified'?'verified':g.status==='read'?'read':'进行中')+' | 魚魚棟 · Claude | '+st.engine+'/'+g.slug+'（MeguLit-Adapter） |';}
 /* AGENTS.md: Chinese, three parts 问题 / 改动 / 验证, a work named 「原名（中文名）」, only what was verified */
 const workName=st=>{const cn=String(st.answers.cn||'').trim();return st.title+(cn&&cn!=='-'?'（'+cn+'）':'');};
-/* --tester: the seed from the adapter's own knowledge, no cold diff: the exe / pack / title prints, VNDB, the pairing; status
-   skeleton until the tester's live check (2026-11-27 OZMAFIA!!: the first seed made without running the game here) */
-function writeOfflineSeed(st){const SeedFormat=require('../core/profiles/seed.cjs'),GP=require('../core/game-print.cjs'),Probe=require('./diff-maker/probe.cjs');
- let pr={};try{pr=GP.prints(st.exe,{title:st.title,engine:st.engine})||{};}catch{}const exeSha=pr.exe||st.identity.prints.exe;if(!/^[0-9a-f]{64}$/.test(String(exeSha||'')))throw Error('no exe print for '+st.exe);
- const vndb=st.answers.vndb||st.identity.vndb,release=st.answers.release||st.identity.release||st.identity.releaseGuess;
- const prints={...(pr.pack?{pack:pr.pack}:{}),...(pr.title?{title:pr.title}:{}),...(vndb?{vndb}:{})};
- const slug=Cold.slugOf(st.identity.romaji)||Cold.slugOf(st.folderTitle)||'auto-'+exeSha.slice(0,10);
- const vp={};for(const k of ['head','pe','data','pack'])if(st.identity.prints[k])vp[k]=st.identity.prints[k];
- const game={schema:'megulit.game-diff',version:1,key:Probe.gameId(prints)||exeSha,layer:'game',source:'official',mode:'hide',
-  settings:{lang:{ja:{annotation:'ruby',pairing:st.plan.pairing.mode}},source:{versionMatch:'prints'}},exe:'',engine:st.engine,app:'megulit-adapter',issuedAt:'',prints,
-  seedFormat:1,status:'skeleton',slug,builds:[exeSha],match:{exe:[path.basename(st.exe)],titles:[...new Set([st.title,st.folderTitle].filter(Boolean))]},sourceLangs:['ja'],rev:1,
-  ext:{versionPrints:{[exeSha]:vp},adapter:{tool:'megulit-adapter',vndb:vndb||'',release:release||'',source:st.plan.source.kind==='script'?'script:'+st.plan.source.reader:'hook:'+st.plan.align,hide:st.plan.hide.kind==='engine'?'engine:'+path.basename(st.plan.hide.file):'generic',pairing:st.plan.pairing.mode,live:'tester'}}};
- const version={schema:'megulit.game-diff',version:1,key:exeSha,layer:'version',source:'official',settings:{},exe:path.basename(st.exe),engine:st.engine,app:'megulit-adapter',issuedAt:'',
-  prints:{exe:exeSha,...(pr.head?{head:pr.head}:{}),...(pr.pe?{pe:pr.pe}:{})},rev:1};
- for(const [n,d,w] of [['game',game,{engine:st.engine,slug}],['version',version,{engine:st.engine,file:exeSha+'.json'}]]){const r=SeedFormat.check(d,w);if(!r.ok)throw Error(n+' seed: '+r.errors.join('; '));}
- const dir=path.join(st.out,'seed',st.engine,slug);fs.mkdirSync(path.join(dir,'versions'),{recursive:true});
- fs.writeFileSync(path.join(dir,'game.json'),JSON.stringify(game,null,1)+'\n');fs.writeFileSync(path.join(dir,'versions',exeSha+'.json'),JSON.stringify(version,null,1)+'\n');return dir;}
-/* the tester's checklist (E:\Apps\test-requests\<PR>-<name>.md once the PR has a number): where the game is, how to start it, the steps,
-   what passes, which screenshots come back */
-function testRequest(st){const o=st.identity.overlay,exe=path.basename(st.exe);return ['# '+workName(st)+' 实测清单','',
- '## 游戏','','- 目录：`'+st.gameDir+'`','- 启动程序：`'+exe+'`'+(o?'（**不要**用 '+o.launchers.join(' / ')+'：那是汉化启动器，开出来是中文）':''),'- 引擎：'+(st.caps.label||st.engine)+'；剧本读取 '+(st.probe?.japaneseLines|0)+' 句日文','',
- '## 步骤','','1. 测试版 MeguLit → 游戏库 → 添加上面的 `'+exe+'`，应显示「已适配」','2. 从 MeguLit 启动，片头点掉，标题选「はじめから / Start」','3. 看前 10 句：游戏对话框里没有日文原文残留；阅读层日文和中文齐、每点一下跟着换句；点读能查词',
- '4. 按住 Ctrl 快进到第一个选项：选项上的日文还在，MeguLit 给每个选项出了中文、能点','5. 选第一个选项，再看 5 句','6. 关游戏和测试版 MeguLit；删掉这次新建的存档','',
- '## 通过','','- 第 3 步：原文不残留，换句对','- 第 4 步：每个选项都有中文、能点','- 全程不崩、不卡、不闪','',
- '## 回传截图','','1. 一句普通对话（带名字框）','2. 一句长句','3. 第一个选项画面（选项日文和中文都在）','4. 选完后的第一句','','不通过时另附测试版 `logs\\` 里最新的 `hook-diagnostics.log`',''].join('\n');}
-function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));
- if(st.tester)return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
-  '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status skeleton，等测试员实测后再升），由 MeguLit-Adapter 离线生成：',...summary(st).map(s=>'- '+s),'',
-  '## 验证','','- 离线：剧本读取 '+(st.probe?.japaneseLines|0)+' 句日文；seed 通过 The Seed 格式检查','- **待测试员实测**（测试清单另交）：阅读层换句、原文隐藏、第一个选项出中文',''].join('\n');
- return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
+function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
  '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status '+g.status+'），由 MeguLit-Adapter 生成：',...summary(st).map(s=>'- '+s),'- 版本层另记 exe 头尾 / PE 版本 / 剧本指纹 / 主封包指纹（`ext.versionPrints`，`source.versionMatch: prints`），补丁和汉化后的 exe 也认得','',
  '## 验证','','- 实机验证（开游戏'+(st.foreground?'前台':'隐藏桌面')+'跑几句，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人看截图确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 截图是游戏画面，没有 MeguLit 阅读层：选项译文要在 MeguLit 里再看一眼（未验证译文画面）','',...issueLine(st,g)].join('\n');}
 /* 2026-11-27 (アイキス3 sexy #1109) the request issue (answer issue=<n>): AGENTS.md, only a verified seed closes it, anything less is Refs */
@@ -167,6 +134,23 @@ async function pairingStep(st,loc,pr,log){const hints=Pairing.chineseHints(loc.g
  st.pairing={hints,...await Pairing.check({exe:loc.exe})};
  if(st.pairing.status==='ready')st.plan.pairing={mode:'patch',reader:st.plan.source.reader||'',chineseLines:st.pairing.translations,how:'original-text patch '+path.basename(st.pairing.source)};
  log('# '+Pairing.line(st.pairing));saveState(st);return st.pairing;}
+/* craftStage(loc, caps, out) -> null (craft-anything not set up on this PC) | {view, line, notes, caps?}: caps is set only when the rule
+   table had no engine and craft-anything names one it has (craftStatic); an engine the rule table lacks stays unknown with its name */
+function craftStage(loc,caps,out,crafter=Craft.study){const rep=crafter({gameDir:loc.gameDir,exe:loc.exe,out});if(!rep.ok&&/not set/.test(rep.error))return null;
+ const s=Craft.suggest(rep,caps);let next=null;const notes=[...s.notes];
+ if(rep.ok&&!caps.known&&s.engine){if(Engines.RULES[s.engine]&&s.strong){next={...Engines.capabilities(s.engine),craft:s.engine,craftStatic:true};notes.push('引擎由 craft-anything 静态认出（'+s.engineWhy+'）：特征写回 services/original-engines/registry.cjs 或 engines.cjs');}else next={...caps,craft:s.engine};}
+ try{fs.mkdirSync(path.join(out,'craft'),{recursive:true});fs.writeFileSync(path.join(out,'craft','report.md'),Craft.markdown(rep,s,{title:path.basename(loc.gameDir),adapterEngine:caps.known?caps.id:''}));}catch{}
+ const view={ok:rep.ok,error:rep.error,version:rep.version,engine:s.engine,engineWhy:s.engineWhy,agrees:s.agrees,hide:s.hide,textApis:rep.textApis.map(t=>t.id),freetype:rep.freetype,unity:rep.unity,report:path.join(out,'craft','report.md')};
+ return {view,line:Craft.note(rep,s),notes,caps:next};}
+/* node tools/megulit-adapter.cjs craft <game folder> [--exe <rel>] [--out <dir>]: the static study alone (no game run, no VNDB, no lock) */
+function craftCmd(args,{log=console.log,crafter}={}){let dir='',exe='',out='';for(let i=0;i<args.length;i++){if(args[i]==='--exe')exe=args[++i];else if(args[i]==='--out')out=args[++i];else if(!dir)dir=args[i];}
+ if(!dir)throw Error('usage: craft <game folder> [--exe <rel>] [--out <dir>]');dir=path.resolve(dir);const title=Cold.titleOf(dir);out=path.resolve(out||path.join(OUT_ROOT(),Cold.safeName(title)));
+ const loc=Cold.locate(dir,exe);if(!loc){log('# 找不到主程序（用 --exe 指定）');return EXIT.inconclusive;}
+ const caps=lunaCaps(Engines.capabilities(loc.engine),loc.gameDir,loc.engine);const cr=craftStage(loc,caps,out,crafter);
+ if(!cr){log('# MEGULIT_CRAFT_CLI 没设：craft-anything-cli.exe 的路径');return EXIT.inconclusive;}
+ log('# '+title+' 规则表 '+(caps.known?caps.id:'认不出')+(caps.luna?' (LunaHook '+caps.luna+')':''));log('# '+(cr.view.ok?cr.line:cr.view.error));for(const n of cr.notes)log('  '+n);log('# '+cr.view.report);
+ return cr.view.ok?EXIT.done:EXIT.inconclusive;}
+
 async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.resolve(o.dir));log('# own copy '+c.dir+(c.reused?' (kept)':' ('+Math.round(c.bytes/1048576)+' MB)'));o={...o,dir:c.dir};}
  const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(OUT_ROOT(),Cold.safeName(title)));
  fs.mkdirSync(out,{recursive:true});
@@ -183,6 +167,11 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(!loc&&discs.length){const st={tool:'megulit-adapter',out,title,dir,exe:'',engine:'',caps:{known:true},probe:null,identity:{vndb:o.vndb,release:o.release,releaseGuess:'',prints:{},adapted:[]},plan:{source:{kind:'hook',why:'not installed'},align:'hook',pairing:{mode:'machine'},hide:{kind:'generic'},notes:['只有光盘镜像，先安装']},install:discs,steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:true,startedAt:new Date().toISOString()};saveState(st);return finish(st,log);}
  if(!loc){log('# 找不到主程序（用 --exe 指定）');return EXIT.inconclusive;}
  let caps=lunaCaps(Engines.capabilities(loc.engine),loc.gameDir,loc.engine);if(caps.lunaStatic)loc.engine=caps.id;log('# '+title+' '+(loc.engine||'?')+(caps.luna?' (LunaHook '+caps.luna+')':'')+' '+loc.exe);
+ /* 2026-11-28 the static study (craft-anything, tools/megulit-adapter/craft.cjs) before the game ever runs: an engine the registry and
+    LunaHook did not name is taken from the program's own words and goes through the same probe, plan, live check and questions;
+    the import table says which text API draws the line, so the plan says early when the generic hide layers cannot catch it */
+ const cr=o.craft===false?null:craftStage(loc,caps,out,o.crafter);if(cr?.caps){caps=cr.caps;loc.engine=caps.id;}
+ if(cr)log('# craft '+(cr.view.ok?cr.line:cr.view.error));
  const pr=probe(loc,title,90000);log('# probe '+pr.step+' '+(pr.detected||'-')+' jp='+pr.japaneseLines+' zh='+pr.chineseLines);
  const readers=[...new Set([pr.detected,...caps.readers].filter(Boolean))];
  const identity=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:loc.engine,title,vndb:o.vndb,release:o.release,chineseBuild:pr.step==='chinese-build',readers});
@@ -191,9 +180,10 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(!identity.releaseGuess&&o.releaseGuess)identity.releaseGuess=o.releaseGuess;
  /* VNDB: the work, the release, the Chinese title, VNDB's engine (an answer only when unambiguous; --no-net or an error asks a person) */
  if(o.net){const v=await Ident.vndb({title,gameDir:loc.gameDir,vnid:o.vndb||identity.vndb,chineseBuild:pr.step==='chinese-build',engine:loc.engine});identity.steamAppId=o.steamAppId||v.steamAppId||'';identity.steamCandidates=v.steamCandidates||[];identity.vndbLookup={how:v.how,release:v.release,releaseHow:v.releaseHow,candidates:v.candidates,engine:v.vndbEngine,engineDiffers:v.engineDiffers,error:v.error,releases:v.releases.map(r=>({rid:r.rid,title:r.title,engine:r.engine,langs:r.langs,patch:r.patch,official:r.official,ext:r.ext}))};
-  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(v.latin)identity.latin=v.latin;if(v.ja)identity.ja=v.ja;if(v.romaji)identity.romaji=v.romaji;if(!identity.release&&v.release)identity.release=v.release+(identity.overlay?' + 汉化外挂整包':'');/* OZMAFIA!!: the Japanese release with a Chinese overlay beside it */identity.releaseCandidates=v.candidates;
+  if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(v.latin)identity.latin=v.latin;if(v.ja)identity.ja=v.ja;if(v.romaji)identity.romaji=v.romaji;if(!identity.release&&v.release)identity.release=v.release;identity.releaseCandidates=v.candidates;
   if(v.vndb)identity.adapted=Ident.sameRelease(Ident.adaptedRows(Ident.handoffText()),identity.vndb,identity.release||identity.releaseGuess);}
- const st={tool:'megulit-adapter',out,tester:o.tester===true,title:identity.ja||title,folderTitle:title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
+ const st={tool:'megulit-adapter',out,title:identity.ja||title,folderTitle:title,foreground:o.foreground,dir,exe:loc.exe,gameDir:loc.gameDir,engine:loc.engine,engineWhy:loc.why,caps,probe:pr,identity,plan:withVndbNotes(plan({caps,probe:pr}),identity),steps:STEPS,craft:cr?.view||null,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:o.offline,startedAt:new Date().toISOString()};
+ if(cr?.view.ok)st.plan.notes.push(cr.line,...cr.notes);
  if(o.vndb)st.answers.vndb=st.answers.vndb||o.vndb;if(o.cn)st.answers.cn=st.answers.cn||o.cn;if(o.release)st.answers.release=st.answers.release||o.release;
  /* our readers read nothing: GalTransl's detect + extractor as a second opinion (evidence and a porting pointer, never the text) */
  if(o.external&&SecondOpinion.wanted({probe:pr,caps})){st.external={galtransl:SecondOpinion.secondOpinion({gameDir:loc.gameDir,out})};const n=SecondOpinion.note(st.external.galtransl);if(n)st.plan.notes.push(n);log('# second opinion '+(n||st.external.galtransl.error));}
@@ -256,8 +246,11 @@ async function main(argv){const cmd=argv[2];
  /* the tester's build (tools/megulit-adapter/test-build.cjs): testbuild <target> [--app <installed MeguLit>] */
  if(cmd==='testbuild'){if(!argv[3])throw Error('usage: testbuild <target folder> [--app <installed MeguLit>]');const i=argv.indexOf('--app');const r=require('./megulit-adapter/test-build.cjs').testBuild(path.resolve(argv[3]),i>0&&argv[i+1]?{app:argv[i+1]}:{});console.log(JSON.stringify(r,null,1));return r.ok?0:1;}
  if(cmd==='auto')return require('./megulit-adapter/auto.cjs').main(argv.slice(3));
+ /* batch skeleton seeds over many folders, offline (tools/megulit-adapter/skeleton.cjs) */
+ if(cmd==='skeleton')return require('./megulit-adapter/skeleton.cjs').main(argv.slice(3));
+ if(cmd==='craft')return craftCmd(argv.slice(3));
  if(cmd==='inventory'){const rows=Engines.inventory();console.log(argv.includes('--json')?JSON.stringify(rows,null,1):Engines.markdown(rows));return 0;}
- const runsGame=cmd!=='answer'&&cmd!=='publish';
+ const runsGame=cmd!=='answer'&&cmd!=='publish'&&cmd!=='craft';
  if(runsGame){let app=Cold.APP_DEFAULT;const i=argv.indexOf('--app');if(i>0&&argv[i+1])app=argv[i+1];const r=Cold.reexecIfOldNode(__filename,argv,app);if(r!==null)return r;/* the game folder: the first argument that is not a flag or a flag's value (cold: after the word) */const rest=argv.slice(cmd==='cold'?3:2),VAL=/^--(exe|vndb|release|cn|out|budget-min|app|answer|lock-wait-min|steam-appid|seed-out)$/;let gd='';for(let k=0;k<rest.length;k++){if(VAL.test(rest[k])){k++;continue;}if(!rest[k].startsWith('--')){gd=rest[k];break;}}Cold.prepareRuntime(gd);}
  try{
   if(cmd==='cold')return await Cold.main([argv[0],argv[1],...argv.slice(3)]);
@@ -266,4 +259,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={issueLine,seedFiles,withSeedIds,refreshSeedIds,copySeedFiles,bumpSnapshot,updateCatalogSnapshot,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT,writeOfflineSeed,testRequest};
+module.exports={issueLine,seedFiles,withSeedIds,refreshSeedIds,copySeedFiles,bumpSnapshot,updateCatalogSnapshot,copyGame,lunaCaps,craftStage,craftCmd,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
