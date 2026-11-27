@@ -4,8 +4,8 @@
 // the progress bar; when it fills, the bar turns into a small translucent MeguLit logo (no wider than the bar), holds, and fades.
 // The logo enters with the same move as the promo video's end card and the website entrance: the logo's own cape unfurls
 // left to right in 48 strips that ripple like cloth and settle, while the hat and letters land big -> small, soft -> sharp.
-// Every timing below is site/public/assets/js/intro.js (the video's 30 fps timing at double speed, Remotion source
-// megu-edit/src/concept/C2.tsx `Logo` / `CapeStrips`); here the cape unfurls out of the bar. Windows' "Animation effects"
+// Every timing below is site/public/assets/js/intro.js (the video's 30 fps timing at double speed; in the video
+// project they are the `Logo` / `CapeStrips` components); here the cape unfurls out of the bar. Windows' "Animation effects"
 // off (prefers-reduced-motion) skips the logo and the bar just fades.
 using System;
 using System.Drawing;
