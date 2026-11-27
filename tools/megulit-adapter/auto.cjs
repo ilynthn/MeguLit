@@ -13,8 +13,8 @@
                   and its test request. Exit 3 (a question for a person), a new engine or a failure stops here
      3 publish    a worktree on adapt/<short> from origin/main, `publish --go` (seed commit, PR, HANDOFF row). --pr N takes an
                   existing PR instead (a replay of a game that already has one); --no-publish stops before (dry run)
-     4 testbuild  <copies>\testbuild-<PR>\MeguLit: the installed MeguLit without its user data, this PR's core / services / web /
-                  The Seed / tools on top; start-test-megulit.cmd sets MEGULIT_SIDE_BY_SIDE=1 (the installed one is not retired)
+     4 testbuild  the PR goes into the one combined test build <copies>\testbuild-all (tools/megulit-adapter/test-build-all.cjs): the newest
+                  main + every open, CI-green PR with a card not done; 开始测试.cmd [<PR>] is the one entry (updater off, a version label)
      5 request    <requests>\<PR>-<short>.md (the tester's checklist) and <requests>\cards\<PR>.json (a card for the owner's
                   test bench, the c1312.json shape: the local page reads cards\*.json and shows it at once;
                   the tester's results land in <requests>\results\<id>.json, a tested card is set done:true)
@@ -104,13 +104,6 @@ function readyBuild(card,{root,app,exe,title,pr,label='',refresh=null,games=null
  const cmd=path.join(card,'开始测试.cmd');
  fs.writeFileSync(cmd,'@echo off\r\nrem MeguLit test: updates this test build to the newest main + PRs, closes the installed MeguLit, opens the test build;\r\nrem with a PR number (开始测试.cmd 1312) that card\'s game starts from it\r\n"'+node+'" "%~dp0test-start.cjs" "%~dp0." %*\r\nif errorlevel 1 pause\r\n');
  return {cmd,port:portOf(pr)};}
-function testBuild({app,repo,target,exe,title,pr},{copy=robocopy}={}){const megulit=path.join(target,'MeguLit');
- if(!fs.existsSync(path.join(app,'MeguLit.exe')))throw Error('找不到安装版 MeguLit：'+app);
- copy(app,megulit,['/XD',...SKIP_DIRS.map(d=>path.join(app,d)),'/XF','*.rollback-*','*.bak-*']);
- for(const d of OVERLAY)if(fs.existsSync(path.join(repo,d)))copy(path.join(repo,d),path.join(megulit,d));
- for(const d of ['data','logs','cache'])fs.mkdirSync(path.join(megulit,d),{recursive:true});
- const r=readyBuild(target,{root:megulit,app,exe,title,pr});
- return {dir:megulit,cmd:r.cmd,port:r.port};}
 
 /* ---- the tester's checklist and the owner's card ------------------------------------------------------------------- */
 const CHECKS=[['c1','对话框里的日文原文藏住了，没有残留','第一句先露一下再藏是故意的；说话人名牌可以留着'],['c2','阅读层日文和中文都在，点一下游戏就换一句，不停在旧句、不跳句',''],['c3','第一个选项：每个选项都有中文，点中文选项能选中','选项画面务必截图']];
@@ -141,7 +134,7 @@ function stuckNote(st,{step,why,decide,evidence=[]}){const L=['# '+st.short+' �
 
 /* ---- the run ---------------------------------------------------------------------------------------------------------- */
 async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.requests?{requests:o.requests}:{}),...(o.copies?{copies:o.copies}:{}),...(o.app?{app:o.app}:{})};
- const D={install:Install.install,adapter:adapterCli,checkout,testBuild,vndb:a=>require('./identify.cjs').vndb(a),...deps};
+ const D={install:Install.install,adapter:adapterCli,checkout,testBuild,integrate:o=>require('./test-build-all.cjs').build(o),vndb:a=>require('./identify.cjs').vndb(a),...deps};
  const src=path.resolve(o.dir),short=o.name||shortOf(src),file=path.join(R.auto,'runs',short,'auto.json');
  const st={short,src,issue:o.issue||0,file,steps:{},...readJson(file),short,src,file};if(o.issue)st.issue=o.issue;if(o.pr)st.pr=o.pr;
  const save=()=>{st.updatedAt=new Date().toISOString();writeJson(file,st);};
@@ -180,21 +173,22 @@ async function auto(o,{log=console.log,deps={}}={}){const R={...ROOTS(),...(o.re
    if(r.status!==0||!n)return stop('publish','publish --go 没开出 PR（退出码 '+r.status+'）：\n```\n'+String(r.out||'').trim().split('\n').slice(-8).join('\n')+'\n```','看错误；分支 '+repo);
    st.steps.publish={pr:n,url:a.pr,repo};save();}}
  const pr=st.steps.publish.pr;
- /* 4 testbuild */
- const tbDir=path.join(R.copies,'testbuild-'+pr);
- if(!st.steps.testbuild?.cmd||!fs.existsSync(st.steps.testbuild.cmd)){log('# 4 测试版 '+tbDir);
-  try{const repo=st.steps.publish.repo||D.checkout({short,pr,root:R.worktrees});const t=D.testBuild({app:R.app,repo,target:tbDir,exe:inst.exe,title:ad.title||st.steps.adapt?.title||short,pr});st.steps.testbuild={...t,repo};save();}
-  catch(e){return stop('testbuild','测试版没做出来：'+e.message,'看错误（安装版 MeguLit 在不在、空间够不够）');}}
- /* 5 checklist + card */
+ /* 4 + 5: the card first (the integration build reads the cards), then the PR goes into the one combined test build
+    (<copies>\testbuild-all: main + every open, CI-green PR with a card not done; test-build-all.cjs). The PR's own CI may not be green yet:
+    it is left out until it is, and 开始测试.cmd integrates again by itself (a new card counts as a change) */
+ const cmdPath=path.join(R.copies,'testbuild-all','开始测试.cmd');
  const title=ad.title||st.steps.adapt?.title||short,args={pr,title,issue:st.issue,vndb:ad.answers?.vndb||ad.identity?.vndb||'',release:ad.answers?.release||ad.identity?.release||ad.identity?.releaseGuess||'',
-  engine:ad.caps?.label||ad.engine||'',src,copy:inst.dir,exe:inst.exe,notes:inst.notes||[],installSteps:inst.steps||[],cmd:st.steps.testbuild.cmd,steps:STEPS_FOR(inst.exe),
+  engine:ad.caps?.label||ad.engine||'',src,copy:inst.dir,exe:inst.exe,notes:inst.notes||[],installSteps:inst.steps||[],cmd:cmdPath+' '+pr,steps:STEPS_FOR(inst.exe),
   adapterRequest:(()=>{try{return fs.readFileSync(path.join(out,'test-request.md'),'utf8');}catch{return '';}})()};
  const md=path.join(R.requests,pr+'-'+short+'.md');fs.mkdirSync(R.requests,{recursive:true});fs.writeFileSync(md,checklist(args));
  const cards=path.join(R.requests,'cards');fs.mkdirSync(cards,{recursive:true});const cf=path.join(cards,pr+'.json');
  /* a rerun keeps the card's place and a done the tester already set */
  const old=readJson(cf);const c=card(args,old?.order||nextOrder([cards]));if(old?.done)c.done=true;writeJson(cf,c);
  st.steps.request={md,card:cf};save();try{fs.rmSync(stuckFile,{force:true});}catch{}
+ /* the combined build: a failure does not take the card back (it opens in the next 开始测试.cmd run) */
+ try{const t=D.integrate({add:[Number(pr)],dir:path.join(R.copies,'testbuild-all'),cards:path.join(R.requests,'cards'),oldRoots:{}});st.steps.testbuild={dir:t.root,cmd:cmdPath,merged:t.merged,skipped:t.skipped};save();}
+ catch(e){st.steps.testbuild={cmd:cmdPath,error:String(e.message||e)};save();log('# 合并测试版这次没做成（'+e.message+'）：卡片已写，下次 开始测试.cmd 会再集成');}
  log('# 5 测试清单 '+md+'，卡片 '+cf);return 0;}
 
 async function main(argv){let o;try{o=parse(argv);}catch(e){console.error('megulit-adapter auto: '+e.message);return 2;}return auto(o);}
-module.exports={readyBuild,portOf,auto,main,parse,meta,shortOf,checklist,card,stuckNote,testBuild,checkout,nextOrder,STEPS,CHECKS};
+module.exports={readyBuild,portOf,auto,main,parse,meta,shortOf,checklist,card,stuckNote,checkout,nextOrder,STEPS,CHECKS};
