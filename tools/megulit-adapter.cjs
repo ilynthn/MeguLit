@@ -17,6 +17,7 @@
      node tools/megulit-adapter.cjs publish <out dir> --repo <checkout on a branch> [--go]
                                     the seed into The Seed/, a commit, a PR, the HANDOFF row (dry run without --go)
      node tools/megulit-adapter.cjs inventory [--json]                what every engine has (from the code)
+     node tools/megulit-adapter.cjs testbuild <target> [--app <MeguLit>] the tester's side-by-side MeguLit with this checkout's code
      node tools/megulit-adapter.cjs cold <game folder> ...            the cold stage alone (the old adapt-auto command line)
 
    Exit codes: 0 done, 1 fail, 2 inconclusive, 3 waiting for a person (<out>/review.html shows each question with its pictures).
@@ -185,9 +186,12 @@ function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(p
  try{const f=path.join(wt,'HANDOFF.md');fs.writeFileSync(f,addHandoffRow(fs.readFileSync(f,'utf8'),st.handoffRow.replace(/（MeguLit-Adapter） \|$/,'（MeguLit-Adapter）'+url.replace(/.*\/pull\//,' PR #')+' |')));
   sh('git',['commit','-am','HANDOFF.md：登记 '+st.title+'（MeguLit-Adapter）'],wt);sh('git',['push','origin','HEAD:main'],wt);}
  finally{try{sh('git',['worktree','remove','--force',wt],repo);}catch{}}
+ /* the tester's checklist (tools/megulit-adapter/test-request.cjs), local only */const tr=process.env.MEGULIT_TEST_REQUESTS;if(tr){try{fs.mkdirSync(tr,{recursive:true});const file=path.join(tr,url.replace(/.*\/pull\//,'')+'-'+slug+'.md');fs.writeFileSync(file,require('./megulit-adapter/test-request.cjs').testRequest(st,{pr:url,workName}));log('# test request '+file);}catch(e){log('# test request not written: '+e.message);}}
  st.pr=url;st.state='published';saveState(st);return EXIT.done;}
 
 async function main(argv){const cmd=argv[2];
+ /* the tester's build (tools/megulit-adapter/test-build.cjs): testbuild <target> [--app <installed MeguLit>] */
+ if(cmd==='testbuild'){if(!argv[3])throw Error('usage: testbuild <target folder> [--app <installed MeguLit>]');const i=argv.indexOf('--app');const r=require('./megulit-adapter/test-build.cjs').testBuild(path.resolve(argv[3]),i>0&&argv[i+1]?{app:argv[i+1]}:{});console.log(JSON.stringify(r,null,1));return r.ok?0:1;}
  if(cmd==='inventory'){const rows=Engines.inventory();console.log(argv.includes('--json')?JSON.stringify(rows,null,1):Engines.markdown(rows));return 0;}
  const runsGame=cmd!=='answer'&&cmd!=='publish';
  if(runsGame){let app=Cold.APP_DEFAULT;const i=argv.indexOf('--app');if(i>0&&argv[i+1])app=argv[i+1];const r=Cold.reexecIfOldNode(__filename,argv,app);if(r!==null)return r;/* the game folder: the first argument that is not a flag or a flag's value (cold: after the word) */const rest=argv.slice(cmd==='cold'?3:2),VAL=/^--(exe|vndb|release|cn|out|budget-min|app|answer|lock-wait-min|steam-appid|seed-out)$/;let gd='';for(let k=0;k<rest.length;k++){if(VAL.test(rest[k])){k++;continue;}if(!rest[k].startsWith('--')){gd=rest[k];break;}}Cold.prepareRuntime(gd);}

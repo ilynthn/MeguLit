@@ -227,3 +227,26 @@ test('publish: only what The Seed allows is copied, and the engine snapshot\'s s
  assert.equal(Adapter.withSeedIds(" seedIds:'"+'0'.repeat(64)+"',\n",'f'.repeat(64))," seedIds:'"+'f'.repeat(64)+"',\n");
  const Cat=require('../services/seed-catalog.cjs'),{snapshot}=require('../services/seed-catalog-engine-map.cjs');
  assert.equal(Cat.seedIdsPrint(),snapshot.seedIds,'the bundled snapshot matches the seeds in this checkout');});
+
+/* 2026-11-27 (owner: 不再自己实机测试，测试员用 UU 远程测) publish writes the tester's checklist */
+test('test request: where the game copy is, how to start the test build, the steps, what passes, which pictures come back',()=>{
+ const {testRequest}=require('../tools/megulit-adapter/test-request.cjs');
+ const st={title:'アイキス3 sexy',exe:'H:/copies/aikiss3/Aikiss3.exe',engine:'nexas',caps:{label:'NeXAS'},answers:{vndb:'v32132',release:'豪華版'},identity:{}};
+ const md=testRequest(st,{pr:'https://github.com/o/r/pull/1304',app:'H:/test/megulit'});
+ assert.match(md,/^# 1304 アイキス3 sexy 实测清单/);assert.ok(md.includes('H:/copies/aikiss3/Aikiss3.exe'));assert.ok(md.includes(path.join('H:/test/megulit','启动测试版.cmd')),'the side-by-side launcher, not MeguLit.exe');
+ for(const h of ['## 游戏副本','## 启动测试版','## 操作','## 通过标准','## 回传截图'])assert.ok(md.includes(h),h);
+ assert.match(md,/中文选项/);});
+
+/* 2026-11-27 (owner: 测试员用 UU 远程测) the tester's side-by-side test build */
+test('test build: the installed app without user data, settings kept, this checkout overlaid, a side-by-side launcher; never on C:/E:',()=>{
+ const TB=require('../tools/megulit-adapter/test-build.cjs');const d=tmp(),app=path.join(d,'app'),repo=path.join(d,'repo'),target=path.join(d,'test');
+ const put=(f,s)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,s);};
+ for(const f of ['MeguLit.exe','MeguLit.exe.rollback-1415','native/HookBridge.exe','runtime/node.exe','core/old.cjs','data/megulit.sqlite','data/config/secrets.dpapi','data/preferences.json','cache/big.bin','logs/x.log','secrets/k'])put(path.join(app,f),'install');
+ for(const f of ['core/new.cjs','services/s.cjs','The Seed/nexas/x/game.json'])put(path.join(repo,f),'checkout');
+ let built=0;const r=TB.testBuild(target,{app,repo,noDrives:'',build:()=>{built++;return [['HookBridge.exe',true]];}});
+ assert.equal(r.ok,true,r.why);assert.equal(built,1);
+ assert.deepEqual(fs.readdirSync(target).sort(),['MeguLit.exe','The Seed','core','data','native','runtime','services','启动测试版.cmd'],'no cache, logs, secrets or rollback copies');
+ assert.deepEqual(fs.readdirSync(path.join(target,'data')).sort(),['config','preferences.json'],'settings come along, the library and vocabulary do not');
+ assert.deepEqual(fs.readdirSync(path.join(target,'core')),['new.cjs'],'the checkout replaces the installed code');
+ assert.match(fs.readFileSync(r.launcher,'utf8'),/set MEGULIT_SIDE_BY_SIDE=1/,'without it a second MeguLit retires the installed one');
+ assert.equal(TB.testBuild('E:/x',{app,repo,noDrives:'C,E'}).ok,false);});
