@@ -47,3 +47,21 @@ test('#1128 control: short real repeats and different neighbours stay as they we
   assert.equal(L.collapse('「待って……」「行かないで……」' + Y).text, '「待って……」「行かないで……」' + Y, 'two different quotes stay');
   assert.equal(L.collapse('そうだ。そうだ。').text, 'そうだ。', 'a whole frame drawn twice folded before too');
 });
+
+/* live 2026-11-27, same session after the fix above: 「んっ……？」「んっ……？」男の視線が、… was still shown twice. Two letters are under the
+   3-letter rule, which is there for a line the script really says twice. On a stream that has been drawing its lines twice (E408 evidence,
+   core/double-line.cjs) a doubled group is a redraw whatever its length; a stream that never drew twice keeps 「はい」「はい」. */
+const twice = s => s + '\u3000' + s + '\u3000';
+test('#1128 skip: a short quote drawn twice on a stream that draws lines twice is shown once', t => {
+  const f = fixture(t);
+  for (const s of ['背丈の低い草むらに男が立っていた。', '彼の全身は血に濡れ、異様な雰囲気を纏っていた。', 'すぐには、状況が理解できなかった。']) f.line(twice(s));
+  const Z = '男の視線が、美亜に向けられた。';
+  f.line('「んっ…？」　「んっ…？」　　' + twice(Z)); /* the frame as Krkr2wcs drew it while skipping */
+  assert.equal(f.shown.at(-1).replace(/[\s　]/g, ''), '「んっ…？」' + Z, JSON.stringify(f.shown.at(-1)));
+});
+test('#1128 control: a stream that never drew twice keeps a short line said twice', t => {
+  const f = fixture(t);
+  for (const s of ['背丈の低い草むらに男が立っていた。', '彼の全身は血に濡れ、異様な雰囲気を纏っていた。', 'すぐには、状況が理解できなかった。']) f.line(s);
+  f.line('「はい」「はい」男は頷いた。');
+  assert.equal(f.shown.at(-1), '「はい」「はい」男は頷いた。');
+});
