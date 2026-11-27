@@ -16,7 +16,7 @@ const GODAN = {
   る: { i: 'り', a: 'ら', e: 'れ', o: 'ろ', t: 'っ', d: 'っ' }
 };
 const RULES = [];
-const rule = (from, to) => RULES.push([from, to]);
+const rule = (from, to, allowWholeWord = false) => RULES.push([from, to, allowWholeWord]);
 for (const [end, row] of Object.entries(GODAN)) {
   for (const s of ['ます', 'ました', 'ません', 'ましょう', 'たい', 'たく', 'そう', 'ながら', 'に']) rule(row.i + s, end);
   for (const s of ['ない', 'なかった', 'なく', 'れる', 'せる', 'ず', 'ぬ', 'せない']) rule(row.a + s, end);
@@ -24,7 +24,7 @@ for (const [end, row] of Object.entries(GODAN)) {
   const voiced = end === 'ぐ' || end === 'ぬ' || end === 'ぶ' || end === 'む';
   rule(row.t + (voiced ? 'だ' : 'た'), end); rule(row.t + (voiced ? 'で' : 'て'), end);
 }
-rule('行った', '行く'); rule('行って', '行く');
+rule('行った', '行く', true); rule('行って', '行く', true);
 for (const s of ['ます', 'ました', 'ません', 'ましょう', 'たい', 'ない', 'なかった', 'なく', 'た', 'て', 'よう', 'られる', 'させる', 'れば', 'ず', 'ろ', 'そう', 'ながら']) rule(s, 'る');
 for (const s of ['かった', 'くない', 'くなかった', 'くて', 'ければ', 'く', 'さ', 'そう', 'すぎる', 'かったら']) rule(s, 'い');
 for (const s of ['し', 'しない', 'します', 'しました', 'した', 'して', 'しよう', 'される', 'させる', 'すれば', 'せず']) rule(s, 'する');
@@ -38,7 +38,7 @@ export function deinflect(surface) {
     if (!word || seen.has(word)) continue;
     seen.add(word); out.push(word);
     if (depth >= 2) continue;
-    for (const [from, to] of RULES) if (word.endsWith(from) && word.length > from.length) queue.push([word.slice(0, word.length - from.length) + to, depth + 1]);
+    for (const [from, to, allowWholeWord] of RULES) if (word.endsWith(from) && (allowWholeWord || word.length > from.length)) queue.push([word.slice(0, word.length - from.length) + to, depth + 1]);
     for (const [from, to] of PROGRESSIVE) if (word.endsWith(from) && word.length > from.length) queue.push([word.slice(0, word.length - from.length) + to, depth + 1]);
   }
   return out;

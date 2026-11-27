@@ -87,7 +87,7 @@ test('learning map keeps the selected words in place and learning pages follow t
 test('learning tabs leave wallpaper visible beside the capsule and cover scrolling text',async t=>{
  const server=await startWeb({});t.after(()=>server.close());
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'megu-learning-tabs-'));let edge;
- t.after(async()=>{await edge?.stop();fs.rmSync(profile,{recursive:true,force:true,maxRetries:3,retryDelay:200});});
+ t.after(async()=>{await edge?.stop();await fs.promises.rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:100});});
  try{edge=await startEdge(profile);}catch(error){if(error.message==='EDGE_NOT_FOUND')return t.skip('Edge unavailable');throw error;}
  const {send,evaluate}=edge,links=fs.readFileSync(path.join(__dirname,'../web/index.html'),'utf8').match(/<link rel="stylesheet" href="[^"]+">/g).join('');
  const html='<html><head>'+links+'</head><body><div class="app-backdrop"></div><div class="app-frame"><div class="workspace"><main class="main" data-page="learning"><nav class="tabs"><button class="tab active">Grammar</button><button class="tab">Kana</button></nav><div id="learning-content"><div id="scroll-probe" style="height:2000px;background:white"></div></div></main></div></div></body></html>';
