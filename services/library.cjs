@@ -97,7 +97,9 @@ function reconcile(root,items,{restoreRemoved=false,confirmedFolderMatches}={}){
   if(executable&&fs.existsSync(executable))try{require('./shared-adaptation.cjs').importFor(root,{executable,engine:item.engine||'',library:original.library,cheap:true});}catch{}
   const legacy=Number.isSafeInteger(item.mediaId)?item.mediaId:null,preferred=legacy==null?'':'game-'+legacy;
   const id=preferred&&!db.prepare('SELECT 1 FROM games WHERE id=?').get(preferred)?preferred:'game-'+crypto.randomUUID();
-  db.prepare('INSERT INTO games(id,legacy_id,title,executable,cover,source,original) VALUES(?,?,?,?,?,?,?)').run(id,legacy,item.title||path.win32.basename(item.exe||''),executable,cover,item.source||'scan',JSON.stringify(original));added++;
+  /* the title a scan found, or the program name; core/library-title.cjs tells a folder or program name from a work's */
+  const title=item.title||path.win32.basename(item.exe||'');original.titleSource=require('../core/library-title.cjs').scanned(title,executable);
+  db.prepare('INSERT INTO games(id,legacy_id,title,executable,cover,source,original) VALUES(?,?,?,?,?,?,?)').run(id,legacy,title,executable,cover,item.source||'scan',JSON.stringify(original));added++;
  }
  }db.exec('COMMIT');committed=true;if(added)try{require('./library-dedupe.cjs').dedupe(db,root);}catch(error){console.warn('library dedupe',error.message);}require('./series.cjs').autoGroup(db,root);return {added,updated};}catch(e){if(!committed)db.exec('ROLLBACK');throw e;}finally{db.close();}}
 module.exports={reconcile,matchGame,activeGameForProgram,signature};

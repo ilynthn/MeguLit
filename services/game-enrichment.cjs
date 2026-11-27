@@ -75,6 +75,7 @@ class GameEnrichment{
   if(!refresh&&Array.isArray(cached?.reviews?.[locale])&&Date.now()-cached.at<86400000&&coverPresent){
    await this.synopses.get({mediaId:game.row.legacy_id??id,titles,vndbId:vnid,appid,lang:locale});
    if(this.closed)throw Error('RUNTIME_STOPPED');
+   if(this.retitle(id,{key:await require('../core/auto-profile.cjs').exeKey(this.root,game.row.executable),vnid}))this.emit('library-updated',{id});
    return this.result(id,locale,cached);
   }
   // A Steam appid identifies the exact VNDB entry; it also corrects an earlier wrong title match.
@@ -109,12 +110,25 @@ class GameEnrichment{
    if(vn?.released&&/^\d{4}-\d{2}-\d{2}$/.test(vn.released))db.prepare("UPDATE series_memberships SET released_on=? WHERE game_id=? AND released_on='' AND release_order IS NULL").run(vn.released,id);
    require('./series.cjs').autoGroup(db,this.root);
   }finally{db.close();}
+  this.retitle(id,{key,vnid,vn});
   await this.synopses.get({mediaId:game.row.legacy_id??id,titles,vndbId:vnid,appid,lang:locale,refresh:refresh||corrected,rejectLegacy:corrected||!!manualVnid&&previousVnid!==vnid});
   if(this.closed)throw Error('RUNTIME_STOPPED');const value={...cached,matchedVnid:vnid,coverKey:coverKey||cached?.coverKey,at:Date.now(),vndb:vn?{rating:Number.isFinite(vn.rating)?vn.rating/10:null,votes:vn.votecount||0,url:`https://vndb.org/${vnid}`}:(corrected?null:cached?.vndb||null),steam:steamScore||cached?.steam||null,critic,reviews:{...cached?.reviews,[locale]:reviews.length?reviews:cached?.reviews?.[locale]||[]}};
   delete value.synopses;delete value.synopsisPolicy;
   // Preserve other games completed while this network request was in flight.
   const latest=store.readJSON(this.file);latest[id]=value;fs.mkdirSync(path.dirname(this.file),{recursive:true});fs.writeFileSync(this.file+'.tmp',JSON.stringify(latest));fs.renameSync(this.file+'.tmp',this.file);this.emit('library-updated',{id});return this.result(id,locale,value);
  }
+ /* the library title follows the work once the seed match or the VNDB match is known (core/library-title.cjs): a folder or
+    program name, or a scan's name, becomes the work's name; a name the user typed stays. VNDB's name is remembered in
+    original.vndbTitle, so a run that answers from the cache still has it. true when the title changed */
+ retitle(id,{key='',vnid='',vn=null}={}){const T=require('../core/library-title.cjs'),db=require('./store.cjs').openStore(this.root);try{
+  const row=db.prepare('SELECT title,executable,original FROM games WHERE id=?').get(id);if(!row)return false;
+  const original=JSON.parse(row.original||'{}'),lib=original.library||{},named=T.vndbTitle(vn);
+  if(named)original.vndbTitle=named;
+  const seed=T.seedTitle({executable:row.executable,title:row.title,engine:lib.engine,exeSha256:key,vndb:vnid||lib.vndbId||''});
+  const up=T.upgrade({title:row.title,executable:row.executable,original},T.workTitle({seed,vn:original.vndbTitle?{title:original.vndbTitle}:null}));
+  if(up){db.prepare('UPDATE games SET title=?,original=? WHERE id=?').run(up.title,JSON.stringify(up.original),id);return true;}
+  if(named)db.prepare('UPDATE games SET original=? WHERE id=?').run(JSON.stringify(original),id);
+  return false;}catch{return false;}finally{db.close();}}
  saveCover(id,src){const m=/^data:image\/(png|jpeg);base64,(.+)$/s.exec(src);if(!m)return '';const file='enriched-'+crypto.createHash('sha256').update(id).digest('hex').slice(0,16)+(m[1]==='png'?'.png':'.jpg'),folder=path.join(this.root,'data/assets/covers');fs.mkdirSync(folder,{recursive:true});fs.writeFileSync(path.join(folder,file),Buffer.from(m[2],'base64'));return file;}
  result(id,locale,value){const db=require('./store.cjs').openStore(this.root);try{const result=require('./game-detail.cjs').detail(db,this.root,id,locale);result.reception={vndb:value.vndb,steam:value.steam,critic:value.critic,reviews:value.reviews?.[locale]||[],at:value.at};return result;}finally{db.close();}}
 }
@@ -136,4 +150,16 @@ async function vndbReleases({titles=[],appid='',vnid=''}={},fetcher=globalThis.f
  /* ja: the original title (alttitle is VNDB's original-script title; a Japanese entry in titles otherwise) */
  const ja=vn?.alttitle||(vn?.titles||[]).find(t=>t.lang==='ja')?.title||'';
  return {vnid:id,how,title:vn?.title||'',ja,zh,releases};}
-module.exports={layoutFromTags,GameEnrichment,candidates,steamAppidFor,pickVn,vndbIdFrom,cleanTitle,jpForm,vndbReleases};
+/* the name the add dialog fills in for a picked program (bridge game_title_lookup): the seed's work name when this copy matches a
+   seed, else VNDB's original-script name for the folder or program name, else the folder name. -> {title, source:'seed'|'vndb'|'folder'} */
+async function lookupTitle(root,executable,fetcher=globalThis.fetch,{timeoutMs=6000}={}){
+ const T=require('../core/library-title.cjs'),folder=(String(executable).split(/[\\/]+/).filter(Boolean).at(-2)||'').trim();
+ const fallback={title:folder,source:'folder'};
+ if(!path.isAbsolute(executable)||!/\.exe$/i.test(executable)||!fs.statSync(executable,{throwIfNoEntry:false})?.isFile())return fallback;
+ const key=await require('../core/auto-profile.cjs').exeKey(root,executable);
+ const seed=T.seedTitle({executable,title:folder,exeSha256:key});if(seed)return {title:seed,source:'seed'};
+ try{for(const title of candidates({row:{executable,title:folder},original:{}}).slice(0,3)){
+  const r=await json(fetcher,'https://api.vndb.org/kana/vn',post({filters:['search','=',title],fields:'title,alttitle,titles.title,aliases',results:8,sort:'searchrank'}),timeoutMs);
+  const vn=pickVn(r.results||[],title);if(vn&&T.vndbTitle(vn))return {title:T.vndbTitle(vn),source:'vndb'};}}catch{}
+ return fallback;}
+module.exports={lookupTitle,layoutFromTags,GameEnrichment,candidates,steamAppidFor,pickVn,vndbIdFrom,cleanTitle,jpForm,vndbReleases};
