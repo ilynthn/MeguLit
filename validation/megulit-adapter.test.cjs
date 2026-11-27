@@ -215,3 +215,59 @@ test('live check: without Cardinal a passing run asks the person about line chan
  const live={verdict:'pass',checks:{},phases:[{name:'choice-try-1'}]};
  assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:live,coldOut:d}).map(q=>q.id),['lines','dialogue','choice'],'a choice the run reached is asked about without Cardinal');
  assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:{...live,phases:[]},coldOut:d}).map(q=>q.id),['lines','dialogue']);});
+
+/* 2026-11-27 (アイキス3 sexy: the dialogue evidence offered a whole-screen picture of another agent's game window, 死に逝く君) */
+test('checkpoints: a whole-screen picture taken while another process was in front is not offered as evidence of this game',()=>{
+ const d=tmp(),run=path.join(d,'run'),scr=path.join(d,'screen');fs.mkdirSync(run);fs.mkdirSync(scr);
+ for(const f of ['shot-1-intro.jpg','shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
+ fs.writeFileSync(path.join(run,'run.json'),JSON.stringify({pid:30792,launcherPid:58916}));
+ const pic=(n,fg)=>{const f=path.join(scr,'screen-'+n+'.png');fs.writeFileSync(f,'x');if(fg!==undefined)fs.writeFileSync(path.join(scr,'screen-'+n+'.fg'),String(fg));return f;};
+ const ours=pic('01',30792),other=pic('02',38212);
+ const cold={verdict:'pass',checks:{},phases:[{name:'fast',at:new Date(Date.now()+60000).toISOString()}]};
+ const ev=()=>Check.questions({identity:{vndb:'v1',cn:'-',release:'DL',adapted:[]},caps:{known:true},cold,coldOut:d}).find(q=>q.id==='dialogue').evidence;
+ assert.ok(!ev().includes(other),'the other game in front is no evidence: '+ev().join(', '));
+ fs.rmSync(other);fs.rmSync(path.join(scr,'screen-02.fg'));assert.ok(ev().includes(ours),'the game in front is evidence');
+ const old=pic('03');assert.ok(ev().includes(old),'a picture without the note (an older run) is kept');});
+
+/* 2026-11-27 (アイキス3 sexy: the seed folder came out as auto-500c434def) */
+test('seed slug: VNDB\'s latin title plus the ASCII words the game title adds; nothing usable leaves the old fallback',()=>{
+ assert.equal(Ident.slugFrom('アイキス3 sexy','Ai Kiss 3'),'ai-kiss-3-sexy','the edition word stays: sexy and cute are different seeds');
+ assert.equal(Ident.slugFrom('千恋＊万花','Senren * Banka'),'senren-banka');assert.equal(Ident.slugFrom('STEINS;GATE','Steins;Gate'),'steins-gate','no word twice');
+ assert.equal(Ident.slugFrom('オルフレール',''),'','no latin title: the caller keeps its fallback');});
+
+test('PR body: the request issue closes only with a verified seed (AGENTS.md: partial work is Refs)',()=>{
+ assert.deepEqual(Adapter.issueLine({answers:{issue:'1109'}},{status:'verified'}),['Fixes #1109','']);
+ assert.deepEqual(Adapter.issueLine({answers:{issue:'#1109'}},{status:'skeleton'}),['Refs #1109','']);
+ assert.deepEqual(Adapter.issueLine({answers:{}},{status:'verified'}),[]);});
+
+/* 2026-11-27 (PR #1304 CI: the-seed.test refused lines.json; seed-catalog-engines.test: the engine snapshot went stale with a new VNDB id) */
+test('publish: only what The Seed allows is copied, and the engine snapshot\'s seed-id print follows the seeds',()=>{
+ const d=tmp(),src=path.join(d,'seed'),dest=path.join(d,'repo','The Seed','nexas','x');const sha='a'.repeat(64);
+ fs.mkdirSync(path.join(src,'versions'),{recursive:true});for(const f of ['game.json','lines.json'])fs.writeFileSync(path.join(src,f),'{}');fs.writeFileSync(path.join(src,'versions',sha+'.json'),'{}');fs.writeFileSync(path.join(src,'versions','notes.txt'),'x');
+ Adapter.seedFiles(src,dest);assert.deepEqual(fs.readdirSync(dest).sort(),['game.json','versions']);assert.deepEqual(fs.readdirSync(path.join(dest,'versions')),[sha+'.json']);
+ assert.equal(Adapter.withSeedIds(" seedIds:'"+'0'.repeat(64)+"',\n",'f'.repeat(64))," seedIds:'"+'f'.repeat(64)+"',\n");
+ const Cat=require('../services/seed-catalog.cjs'),{snapshot}=require('../services/seed-catalog-engine-map.cjs');
+ assert.equal(Cat.seedIdsPrint(),snapshot.seedIds,'the bundled snapshot matches the seeds in this checkout');});
+
+/* 2026-11-27 (owner: 不再自己实机测试，测试员用 UU 远程测) publish writes the tester's checklist */
+test('test request: where the game copy is, how to start the test build, the steps, what passes, which pictures come back',()=>{
+ const {testRequest}=require('../tools/megulit-adapter/test-request.cjs');
+ const st={title:'アイキス3 sexy',exe:'H:/copies/aikiss3/Aikiss3.exe',engine:'nexas',caps:{label:'NeXAS'},answers:{vndb:'v32132',release:'豪華版'},identity:{}};
+ const md=testRequest(st,{pr:'https://github.com/o/r/pull/1304',app:'H:/test/megulit'});
+ assert.match(md,/^# 1304 アイキス3 sexy 实测清单/);assert.ok(md.includes('H:/copies/aikiss3/Aikiss3.exe'));assert.ok(md.includes(path.join('H:/test/megulit','启动测试版.cmd')),'the side-by-side launcher, not MeguLit.exe');
+ for(const h of ['## 游戏副本','## 启动测试版','## 操作','## 通过标准','## 回传截图'])assert.ok(md.includes(h),h);
+ assert.match(md,/中文选项/);});
+
+/* 2026-11-27 (owner: 测试员用 UU 远程测) the tester's side-by-side test build */
+test('test build: the installed app without user data, settings kept, this checkout overlaid, a side-by-side launcher; never on C:/E:',()=>{
+ const TB=require('../tools/megulit-adapter/test-build.cjs');const d=tmp(),app=path.join(d,'app'),repo=path.join(d,'repo'),target=path.join(d,'test');
+ const put=(f,s)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,s);};
+ for(const f of ['MeguLit.exe','MeguLit.exe.rollback-1415','native/HookBridge.exe','runtime/node.exe','core/old.cjs','data/megulit.sqlite','data/config/secrets.dpapi','data/preferences.json','cache/big.bin','logs/x.log','secrets/k'])put(path.join(app,f),'install');
+ for(const f of ['core/new.cjs','services/s.cjs','The Seed/nexas/x/game.json'])put(path.join(repo,f),'checkout');
+ let built=0;const r=TB.testBuild(target,{app,repo,noDrives:'',build:()=>{built++;return [['HookBridge.exe',true]];}});
+ assert.equal(r.ok,true,r.why);assert.equal(built,1);
+ assert.deepEqual(fs.readdirSync(target).sort(),['MeguLit.exe','The Seed','core','data','native','runtime','services','启动测试版.cmd'],'no cache, logs, secrets or rollback copies');
+ assert.deepEqual(fs.readdirSync(path.join(target,'data')).sort(),['config','preferences.json'],'settings come along, the library and vocabulary do not');
+ assert.deepEqual(fs.readdirSync(path.join(target,'core')),['new.cjs'],'the checkout replaces the installed code');
+ assert.match(fs.readFileSync(r.launcher,'utf8'),/set MEGULIT_SIDE_BY_SIDE=1/,'without it a second MeguLit retires the installed one');
+ assert.equal(TB.testBuild('E:/x',{app,repo,noDrives:'C,E'}).ok,false);});

@@ -16,7 +16,7 @@ test('decision core is pure (no Windows), generic (no engine or game names) and 
  assert.doesNotMatch(g,/#include <windows\.h>/);
  assert.doesNotMatch(g,/kirikiri|krkr|siglus|bgi|yuris|bruns|unity|renpy|clannad/i,'no engine or game names');
  assert.match(g,/static constexpr uint32_t ArmedFor = 60000/,'a line hides nothing once pushes stop for 60 s');
- assert.match(g,/bool hide = dk && \(pos >= 0 \|\| hidden\.count\(c\)\);/,'glyphs: in-order run of the line AND the dialogue font');
+ assert.match(g,/bool hide = dk && \(pos >= 0 \|\| \(hidden\.count\(c\) && !burst\)\);/,'glyphs: in-order run of the line AND the dialogue font');
  assert.match(g,/if \(hit && !dk && KnowsKey\(\) && drawn\.size\(\) < 4\)\s*hit = false;/,'short strings in another font stay');
  assert.match(g,/Report\("ToMe_GLYPHHIDE cache seq="/,'glyph cache detected and reported');
  const m=read('native/fontprobe/selftest/match.cpp');

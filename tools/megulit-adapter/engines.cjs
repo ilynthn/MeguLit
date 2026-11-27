@@ -83,7 +83,11 @@ const RULES={
  siasoft:{label:'SIA-Soft',registry:['SIA-Soft'],seed:['siasoft'],draw:[],hide:[]},
  silkys:{label:"Silky's",registry:["Silky's"],seed:['silkys'],draw:[],hide:[]},
  stuffscript:{label:'Stuff Script (Propeller)',registry:['Stuff Script (Propeller)'],seed:['stuffscript'],draw:[],hide:[]},
- nexas:{label:'NeXAS',registry:['NeXAS'],seed:[],draw:[],hide:[]},
+ /* 2026-11-27 (アイキス3 sexy) GetGlyphOutline in the dialogue font for the options too; the hook text carries @t/@k display codes */
+ nexas:{label:'NeXAS',registry:['NeXAS'],seed:['nexas'],draw:[],
+  hide:[{how:'glyph hide leaves the options drawn after a finished line and reports them as choice candidates (hide.glyphAfterLine)',file:'native/fontprobe/GlyphMatch.h',caveat:'the first glyph of the option burst stays hidden; the first glyph of a line can show when the game draws it before the hook text arrives'},
+   {how:'@ display codes stripped from the hook line before the glyph hide and the reader (source.stripCodes)',file:'core/profiles/engines/nexas.cjs'},
+   {how:'choice locate takes the half-read OCR rows of the outlined options (choice.ocrLoose)',file:'native/PageLocator.cs'}]},
  malie:{label:'Malie',registry:['Malie'],seed:[],draw:[],hide:[]},
  shiinario:{label:'ShiinaRio',registry:['ShiinaRio'],seed:[],draw:[],hide:[]},
  garbro:{label:'GARbro fallback',registry:[],readers:['garbro'],seed:['garbro'],draw:[],hide:[]},
