@@ -9,7 +9,7 @@
   "lang": {
    "ja": {
     "annotation": "ruby",
-    "pairing": "script"
+    "pairing": "patch"
    }
   },
   "source": {
@@ -59,7 +59,7 @@
    "release": "OZMAFIA!!（r15697） + 汉化外挂整包",
    "source": "script:yuris",
    "hide": "engine:HookBridge.cs",
-   "pairing": "script",
+   "pairing": "patch",
    "live": "tester"
   }
  }
