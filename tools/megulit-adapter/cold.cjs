@@ -284,9 +284,6 @@ function stuckOf({cold,run,diag,engine,minLines=8,visible=false}){const lines=co
  if(end==='exited')return '游戏自己退出了（启动弹窗？见 run/hook-status.log）';
  /* 2026-11-27 ISLAND on the visible desktop drew its title fine; only the client-area capture of the D3D window was black */
  /* 2026-11-27 the visible run's game lay under other windows (the bottom guard): every picture and real click missed it */
- /* 2026-11-27 (ISLAND, the first visible runs with the hide on: the game window was gone from the screen and every shot found another
-    window there; with the hide off the same copy ran 534 lines) */
- if(visible&&(run?.covered|0)>0&&lines<minLines&&run?.hideOn===true)return '开了原文隐藏后游戏窗口在屏幕上看不见（'+run.covered+' 张截图时不在最上层），截图和真实点击都落不到游戏上：先查这部游戏的隐藏组件是不是把整个画面藏掉了';
  if(visible&&(run?.covered|0)>0&&lines<minLines)return '游戏窗口被别的窗口挡住（'+run.covered+' 张截图时不在最上层），截图和真实点击都落不到游戏上';
  if(end==='black'||run?.black)return visible?'截图全黑（可见桌面上游戏在画，客户区截图截不到这个 D3D 窗口）':'黑屏（隐藏桌面画不出画面）';
  const ocr=String(run?.ocrText||'');

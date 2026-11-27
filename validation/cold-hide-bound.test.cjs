@@ -45,9 +45,3 @@ async function fullscreenRun(visible){const R=require('../services/cold-test-run
  await new Promise(r=>setTimeout(r,400));R.stopActive();const res=await p;fs.rmSync(dir,{recursive:true,force:true});return res;}
 test('visible run: the game\'s own full screen does not stop the run',async()=>{const r=await fullscreenRun(true);assert.notEqual(r.end,'fullscreen');assert.notEqual(r.stopped,'fullscreen');});
 test('hidden desktop: a full-screen app (the user playing) still stops the run',async()=>{const r=await fullscreenRun(false);assert.equal(r.end,'fullscreen');});
-
-/* ISLAND, the first visible runs with the hide on: the game window was gone from the screen (every shot found another window there) */
-test('the cold stage names a game window that vanished with the hide on, not other windows covering it',()=>{const A=require('../tools/megulit-adapter/cold.cjs');
- const cold={verdict:'inconclusive',why:'black-screen',lines:0};
- assert.match(A.stuckOf({cold,run:{end:'black',covered:3,hideOn:true},visible:true}),/开了原文隐藏后游戏窗口在屏幕上看不见/);
- assert.match(A.stuckOf({cold,run:{end:'black',covered:3},visible:true}),/被别的窗口挡住/,'without the hide on it is still other windows');});
