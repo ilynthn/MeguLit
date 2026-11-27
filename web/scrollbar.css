@@ -11,7 +11,7 @@
   .main .settings-layout>.settings-content,.settings-nav:hover,.statistics-ranking,.upd-notes,
   .lines-picker .lp-list,.story-page,.story-chapters,.story-ending-list,.story-viewer-thumbs,.story-drawer,
   .main[data-kids~="dtv-bg"] .detail-action-strip>.detail-actions,
-  .class-rite-schools,.tomoyo-menu-content,.tomoyo-cn-dialog,.lookup-tooltip,.mg-select-pop,#card-viewport
+  .seed-catalog .sc-body,.class-rite-schools,.tomoyo-menu-content,.tomoyo-cn-dialog,.lookup-tooltip,.mg-select-pop,#card-viewport
  ){
   --megu-scrollbar-size:12px;
   --megu-scrollbar-inset:4px;
