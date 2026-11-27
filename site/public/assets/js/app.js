@@ -162,7 +162,7 @@ function setNotes(which) {
 for (const b of $$('[data-notes]')) b.addEventListener('click', () => setNotes(b.dataset.notes));
 
 /* QQ 交流群 (header button, next-version line, footer): on a computer the card opens (QR code, the number with a copy
-   button, 「电脑 QQ 打开」 through tencent://, and the join page); on a phone the link goes straight to the join page */
+   button, 「电脑 QQ 打开」 through the official join page; the new QQ refuses tencent://groupwpa with 「加群参数不合法」); on a phone the link goes straight to the join page */
 const qqDialog = $('.qq-dialog');
 const qqWide = () => matchMedia('(hover: hover) and (pointer: fine)').matches && innerWidth >= 640;
 for (const a of $$('.js-qq-open')) a.addEventListener('click', e => {
