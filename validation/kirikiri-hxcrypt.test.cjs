@@ -145,7 +145,7 @@ test('a new HxCrypt profile retries only its empty scene cache',t=>{
   }));
   writeHxXp3(file,scheme,scheme.indexKeys[0],entries);
   const {size,mtimeMs}=fs.statSync(file);
-  const hash=crypto.createHash('sha256').update(file.toLowerCase()+'|'+size+'|'+mtimeMs+'|7').digest('hex');
+  const hash=crypto.createHash('sha256').update(file.toLowerCase()+'|'+size+'|'+mtimeMs+'|8').digest('hex');
   const cache=path.join(cacheDir,hash.slice(0,24)+'.json');
   const previous=JSON.stringify({schema:1,file,docs});
   fs.writeFileSync(cache,previous);

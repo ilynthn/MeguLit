@@ -10,7 +10,7 @@
 // Lines are the text between tags; "[l]" inside a physical line splits it into sentences on one row (the second one
 // continues the row), a new physical line ("[r]") is a new row, and the first line of each block starts a page.
 // "[if exp=…]A[endif][if exp=…]B[endif]" inside a line (a name the player sees one of) keeps the first branch.
-const fs=require('node:fs'),path=require('node:path'),xp3=require('./xp3.cjs');
+const fs=require('node:fs'),path=require('node:path'),xp3=require('./xp3.cjs'),{choiceScan}=require('./ks-choice.cjs');
 const JA=/^data_(?:jp|ja|jpn|japanese)\.xp3$/i,ZH=/^data_(?:zh|cn|chs|sc|zhs|schinese)\.xp3$/i,ZT=/^data_(?:tw|zt|cht|tc|tchinese)\.xp3$/i;
 const KS=n=>/\.ks$/i.test(n);
 const listMemo=new Map();
@@ -54,17 +54,21 @@ function parseRow(line){
  return {parts:parts.map(t=>t.trim()).filter(Boolean),clear};
 }
 // Blocks of one script: {key, rows:[[sentence,…],…]}; anchors: ASCII command/label lines.
-function blocks(text){const out=[],anchors=[];let rows=[],code=false;const close=key=>{if(rows.length)out.push({key,rows});rows=[];};
- for(const raw of String(text||'').split(/\r?\n/)){const t=raw.trim();
+function blocks(text){const out=[],anchors=[],chs=[],cs=choiceScan();let rows=[],code=false;
+ // a choice set sits after the block holding the rows read so far (open: not closed yet), else after the last closed one
+ const close=key=>{if(rows.length){const b={key,rows};out.push(b);for(const c of chs)if(c.open&&!c.block)c.block=b;}rows=[];};
+ const flush=()=>{const o=cs.take();if(o)chs.push({options:o,open:rows.length>0,prev:out[out.length-1]||null,block:null});};
+ for(const raw of String(text||'').split(/\r?\n/)){if(cs.stop)flush();const t=raw.trim();
   // E449 TJS between [iscript] / @iscript and [endscript] / @endscript is code, not text (config.ks).
   if(/^(?:@iscript\b|\[iscript\])/i.test(t)){code=true;continue;}if(code){if(/^(?:@endscript\b|\[endscript\])/i.test(t))code=false;continue;}
   if(!t||t[0]===';')continue;
   if(t[0]==='*'){if(ascii(t))anchors.push(t);close(t.includes('|')?t:null);continue;}
+  if(t[0]!=='*')cs.feed(t[0]==='@'?'['+t.slice(1)+']':t.replace(INLINE_IF,'$1'));
   if(t[0]==='@'){if(ascii(t))anchors.push(t);if(/^@(?:cm|er|ct)(?:\s|$)/i.test(t))close(null);continue;}
   const {parts,clear}=parseRow(t.replace(INLINE_IF,'$1'));
   if(parts.length)rows.push(parts);else if(ascii(t))anchors.push(t);
   if(clear)close(null);}
- close(null);return {blocks:out,anchors};}
+ flush();close(null);return {blocks:out,anchors,choices:chs};}
 // One scenario: Japanese lines with the Chinese of the same label, page starts and row continuations (local indices).
 /* Blocks without a label both languages share (unlabelled blocks: choices, whole scenes such as badend4.ks; labels
    regenerated in one language, memory1.ks) pair in order within the stretch between two shared labels, when that
@@ -75,17 +79,20 @@ function byOrder(ja,zh,byKey){const out=new Map(),jaKeys=new Set(ja.map(b=>b.key
  for(const [seg,list] of a){const other=z.get(seg);if(other&&other.length===list.length)list.forEach((b,i)=>out.set(b,other[i]));}
  return out;}
 function pair(jaText,zhText){const ja=blocks(jaText),zh=zhText?blocks(zhText):{blocks:[]},byKey=new Map();for(const b of zh.blocks)if(b.key&&!byKey.has(b.key))byKey.set(b.key,b);
- const lines=[],trans=[],starts=[],cont=[],ordered=byOrder(ja.blocks,zh.blocks,byKey);
- for(const b of ja.blocks){const z=(b.key&&byKey.get(b.key))||ordered.get(b)||null,jaFlat=b.rows.flat(),zhFlat=z?z.rows.flat():[];
+ const lines=[],trans=[],starts=[],cont=[],ordered=byOrder(ja.blocks,zh.blocks,byKey),ends=new Map();let last=null;
+ for(const b of ja.blocks){if(last)ends.set(last,lines.length-1);last=b;const z=(b.key&&byKey.get(b.key))||ordered.get(b)||null,jaFlat=b.rows.flat(),zhFlat=z?z.rows.flat():[];
   if(z&&zhFlat.length===jaFlat.length){let k=0;b.rows.forEach(row=>row.forEach((s,i)=>{const at=lines.length;if(!k)starts.push(at);if(i)cont.push(at);lines.push(s);trans.push(zhFlat[k++]);}));continue;}
   if(z&&z.rows.length===b.rows.length){b.rows.forEach((row,r)=>{const at=lines.length;if(!r)starts.push(at);lines.push(row.join(''));trans.push(z.rows[r].join(''));});continue;}
   /* Different shape (or no Chinese block): one line for the block, the Chinese block whole. */
   starts.push(lines.length);lines.push(b.rows.map(r=>r.join('')).join('\n'));trans.push(z?z.rows.map(r=>r.join('')).join('\n'):'');}
- return {lines,zh:trans,anchors:ja.anchors,starts,cont};}
+ if(last)ends.set(last,lines.length-1);
+ // choices come from the Japanese script; `after` is the last line of the block they follow (-1: before the first line)
+ const choices=ja.choices.map(c=>({after:(c.block||c.prev)?ends.get(c.block||c.prev):-1,options:c.options}));
+ return {lines,zh:trans,anchors:ja.anchors,starts,cont,choices};}
 // Scenes as the scene reader lists them (sorted by name); each one carries both languages.
 function scenes(dir){const a=archives(dir);if(!a)return [];const zhList=a.zh?new Map(scripts(a.zh).map(s=>[s.name.toLowerCase(),s])):new Map();
  return scripts(a.ja).map(s=>({name:s.name,read:()=>{const ja=entryText(a.ja,s.entry);if(ja==null)return Buffer.from('null');const z=zhList.get(s.name.toLowerCase());return Buffer.from(JSON.stringify({ja,zh:z?entryText(a.zh,z.entry):null}));}}));}
-function parse(buf){const doc=JSON.parse(buf.toString('utf8'));if(!doc||typeof doc.ja!=='string')return {lines:[],anchors:[]};const p=pair(doc.ja,doc.zh);return {lines:p.lines,anchors:p.anchors,zh:p.zh,starts:p.starts,cont:p.cont};}
+function parse(buf){const doc=JSON.parse(buf.toString('utf8'));if(!doc||typeof doc.ja!=='string')return {lines:[],anchors:[]};const p=pair(doc.ja,doc.zh),out={lines:p.lines,anchors:p.anchors,zh:p.zh,starts:p.starts,cont:p.cont};if(p.choices.length)out.choices=p.choices;return out;}
 // Page structure over the whole script, in the scene reader's line order (scenes concatenated by name).
 const pageMemo=new Map();
 function pages(dir){const a=archives(dir);if(!a)return null;const key=a.ja+'|'+stamp(a.ja)+'|'+(a.zh?stamp(a.zh):'');if(pageMemo.has(key))return pageMemo.get(key);

@@ -71,7 +71,7 @@ function runs(code){const out=[];let i=0;
   const st=i,raw=[],dbl=[];let n=0,quoted=false;
   for(;;){if(ch(i)){raw.push(code[i],code[i+1]);dbl.push(code[i],code[i+1]);n++;i+=2;continue;}
    if(code[i]===0x22){const q=readQuoted(i);if(q&&(q.n>0||n>0)){for(const x of q.raw)raw.push(x);for(const x of q.dbl)dbl.push(x);n+=q.n;quoted=true;i=q.next;continue;}}break;}
-  if(n>=2||(quoted&&n>=1)){const b=Buffer.from(raw);if(quoted&&raw.length!==dbl.length)b._dbl=Buffer.from(dbl);out.push(b);}
+  if(n>=2||(quoted&&n>=1)){const b=Buffer.from(raw);if(quoted&&raw.length!==dbl.length)b._dbl=Buffer.from(dbl);b._at=st;out.push(b);}
   if(i===st)i++;}
  return out;}
 const KANA=/[ぁ-ゖァ-ヺ]/,HAN=/[一-鿿]/;
@@ -91,11 +91,39 @@ function bytecode(raw,keyName){const h=header(raw);if(!h||h.at<=0||h.at+h.clen>r
 const tidy=t=>t.replace(/^[\s　]+|[\s　]+$/g,'');
 /* The language is decided per scenario: in a Japanese one a line without kana (「４月１５日（火）」, 「声…」) is still
    Shift-JIS, not GBK (it came out as 「係寧侾俆擔」) */
-function parse(buf){const lines=[];const code=Buffer.isBuffer(buf)?buf:Buffer.from(buf),list=runs(code);
+/* Selections (rlvm module_sel.cc, libreallive command.cc SelectElement; RLDev/Kepago docs): a command is
+   '#' type module opcode(u16) argc(u16) overload(u8); select_w/select/select_s2/select_s are type 0, module 2,
+   opcode 0..3, then an optional '(' window arg ')' and '{' element* '}'. An element is a 0x0a+u16 line marker, a ','
+   or a '(' condition ')' group (expressions: '$' 0xff i32, '$' t '[' expr ']', backslash op, nested parens, 0x30.. kind
+   bytes) before the option's text, which is raw Shift-JIS up to the next marker. */
+function skipGroup(code,p){let depth=0;for(let n=0;n<4000&&p<code.length;n++){const b=code[p];
+ if(b===0x28){depth++;p++;}else if(b===0x29){depth--;p++;if(depth===0)return p;}
+ else if(b===0x24){p+=code[p+1]===0xff?6:code[p+2]===0x5b?3:2;}else if(b===0x5c)p+=2;else p++;}
+ return -1;}
+function selects(code){const out=[];
+ for(let i=0;i+9<code.length;i++){if(code[i]!==0x23||code[i+1]!==0||code[i+2]!==2||code[i+3]>3||code[i+4]!==0||code[i+6]!==0)continue;
+  let p=i+8;if(code[p]===0x28){p=skipGroup(code,p);if(p<0)continue;}
+  if(code[p]!==0x7b)continue;p++;const opts=[];let ok=false;
+  for(let n=0;n<512&&p<code.length;n++){const b=code[p];
+   if(b===0x7d){ok=true;break;}
+   if(b===0x0a){p+=3;continue;}if(b===0x2c){p++;continue;}
+   if(b===0x28){p=skipGroup(code,p);if(p<0)break;continue;}
+   const st=p;while(p<code.length&&p-st<600){if(dblChar(code,p))p+=2;else if(code[p]===0x0a||code[p]===0x7d)break;else p++;}
+   if(p-st>=600)break;opts.push(code.subarray(st,p));}
+  if(ok&&opts.length){out.push({at:i,opts});i=p;}}
+ return out;}
+// An option as shown: quotes are not printed (an escaped quote is), then decoded like the scene's other lines.
+function optionBytes(raw){const o=[];for(let j=0;j<raw.length;){if(dblChar(raw,j)){o.push(raw[j],raw[j+1]);j+=2;continue;}
+ if(raw[j]===0x5c&&raw[j+1]===0x22){o.push(0x22);j+=2;continue;}if(raw[j]!==0x22)o.push(raw[j]);j++;}return Buffer.from(o);}
+function parse(buf){const lines=[],starts=[];const code=Buffer.isBuffer(buf)?buf:Buffer.from(buf),list=runs(code);
  let ja=0,zh=0;for(const r of list){if((r._dbl||r).length<=2)continue;const t=text(r);if(!t)continue;if(KANA.test(t))ja++;else zh++;}
  const sjis=r=>JUNK.test(sj.decode(r._dbl||r))?'':sj.decode(r);
- for(const r of list){const t=tidy(ja>zh?sjis(r):text(r));if(t&&(KANA.test(t)||HAN.test(t)))lines.push(t);}
- return {lines,anchors:[]};}
+ for(const r of list){const t=tidy(ja>zh?sjis(r):text(r));if(t&&(KANA.test(t)||HAN.test(t))){lines.push(t);starts.push(r._at);}}
+ const result={lines,anchors:[]},choices=[];
+ for(const s of selects(code)){const options=s.opts.map(o=>{const b=optionBytes(o);return tidy(ja>zh?sj.decode(b):(text(b)||sj.decode(b)));}).filter(Boolean);
+  if(!options.length)continue;let after=-1;for(let k=0;k<starts.length&&starts[k]<s.at;k++)after=k;choices.push({after,options});}
+ if(choices.length)result.choices=choices;
+ return result;}
 // REGNAME in Gameexe.ini picks the second key (rlvm archive.cc), when the folder has one.
 function keyFor(dir){let ini;for(const n of ['Gameexe.ini','GAMEEXE.INI','gameexe.ini']){try{ini=fs.readFileSync(path.join(dir,n));break;}catch{}}if(!ini)return null;
  const m=/#REGNAME\s*=\s*"([^"]*)"/.exec(sj.decode(ini));if(!m)return null;const r=m[1];
