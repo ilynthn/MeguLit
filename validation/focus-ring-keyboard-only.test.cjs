@@ -113,7 +113,14 @@ async function scenario(page,{label,clickTarget,tabTarget,shiftWatch=[]}){
 
 /* one headless Edge for the whole file: fewer launches and shutdowns on a busy CI runner */
 let browser=null;
-async function shared(){if(!browser){browser=await launch({viewport:{width:900,height:600}});serve(browser.page);}return browser.page;}
+async function shared(){
+ if(!browser){
+  browser=await launch({viewport:{width:900,height:600}});serve(browser.page);
+  // The fade-in assertion exercises normal motion, independent of the runner's OS preference.
+  await browser.page.c.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+ }
+ return browser.page;
+}
 test.after(async()=>{if(browser)await browser.close();});
 
 const mainBody=`<main class="main" style="padding:40px;display:flex;gap:18px;align-items:center">
