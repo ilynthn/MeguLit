@@ -74,7 +74,19 @@
   if(!outside(r,game))return {out:false};
   const p=placeOut({x:r.x,y:r.y},{w:r.w,h:r.h},screen);return {out:true,x:Math.round(p.x),y:Math.round(p.y)};
  }
- const core={KEY,STYLES,CORNERS,TOP,EDGE,PAD,clean,overlaps,placeA,placeB,placeC,placeOut,outside,dropAt,snapCorner,sideOf,clip};
+ /* 2026-11-28 (owner, P0: 「隐藏了alt+t胶囊所有功能就全部隐藏了」, 「常驻显示开关也无法打开」): the capsule's own button used to
+    toggle the whole overlay cover (Alt+H), which also took the hook out of the translation route, and 常驻 could not bring it back
+    while the cover was off. Now prefs.on is the one state behind 常驻 and the tuck button: tucking only folds the capsule into a
+    faint handle, the whole-layer hide stays on Alt+H (and the labelled row in the corner card), and turning the capsule on
+    also brings a hidden cover back so it is really seen. */
+ function press(prefs,act,ctx={}){
+  if(act==='fold')return {prefs:{...prefs,on:false},send:null};
+  if(act==='unfold')return {prefs:{...prefs,on:true},send:ctx.coverHidden?{type:'galToggleCover'}:null};
+  if(act==='cover')return {prefs,send:{type:'galToggleCover'}};
+  return {prefs,send:null};
+ }
+ const shownAs=(prefs,ctx={})=>prefs.on||ctx.menu||ctx.held?'capsule':'handle';
+ const core={KEY,STYLES,CORNERS,TOP,EDGE,PAD,clean,press,shownAs,overlaps,placeA,placeB,placeC,placeOut,outside,dropAt,snapCorner,sideOf,clip};
 
  function install(window){
   const document=window.document;
@@ -87,32 +99,32 @@
    show:{duration:.22,ease:'power2.out',stagger:.026},hide:{duration:.1,ease:'power1.in'},snap:{duration:.4,ease:'expo.out'},slip:{duration:.14,ease:'power1.out'}};
   const IDLE_ALPHA={a:.62,b:.55,c:.5};
   const T={
-   zh:{brand:'MeguLit',menuTip:'打开 / 收起 Alt+T 菜单\n按住拖动换位置，拖到游戏窗口外即外置',menuTipOut:'打开 / 收起 Alt+T 菜单\n已外置；拖回游戏画面即收回',translate:'翻译',text:'文字',calibrate:'校准',log:'记录',look:'外观',hide:'隐藏',
-    logTip:'对话记录（L）',hideTip:'隐藏 MeguLit 全部覆盖，Alt+H 恢复',lookTip:'外观与胶囊设置',
+   zh:{brand:'MeguLit',menuTip:'打开 / 收起 Alt+T 菜单\n按住拖动换位置，拖到游戏窗口外即外置',menuTipOut:'打开 / 收起 Alt+T 菜单\n已外置；拖回游戏画面即收回',translate:'翻译',text:'文字',calibrate:'校准',log:'记录',look:'外观',hide:'收起',
+    logTip:'对话记录（L）',hideTip:'收起胶囊，只留一个半透明小把手；原文、注音、译文和点读照常工作。隐藏全部覆盖用 Alt+H',lookTip:'外观与胶囊设置',
     cardTitle:'快捷键',rowMenu:'打开设置菜单',rowHide:'显示 / 隐藏全部覆盖',rowLog:'对话记录',rowText:'文字设置',rowCal:'校准位置',pin:'常驻显示',
-    pinOff:'已关闭常驻：Alt+T → 外观 可重新打开',
-    setTitle:'快捷胶囊',setHint:'游戏画面上的 MeguLit 入口：点它开关 Alt+T 菜单，按住拖动换位置，不会挡住台词；拖出游戏窗口可外置',setOut:'已外置到游戏窗口外',setOutHint:'位置会记住；游戏最小化时一起隐藏，恢复时回来',dock:'收回游戏窗口',setOn:'常驻显示',setOnHint:'关闭后只在打开 Alt+T 菜单时出现',
+    pinOff:'已收起成小把手：指上去变清楚，点一下展开',handleTip:'MeguLit 胶囊已收起：点一下展开',
+    setTitle:'快捷胶囊',setHint:'游戏画面上的 MeguLit 入口：点它开关 Alt+T 菜单，按住拖动换位置，不会挡住台词；拖出游戏窗口可外置',setOut:'已外置到游戏窗口外',setOutHint:'位置会记住；游戏最小化时一起隐藏，恢复时回来',dock:'收回游戏窗口',setOn:'常驻显示',setOnHint:'关闭后收成一个半透明小把手，指上去变清楚，点一下展开；原文、注音、译文和点读照常工作',
     setStyle:'样式',styleA:'顶部灵动岛',styleB:'侧边竖条',styleC:'角落圆点',
     descA:'屏幕顶部居中，平时缩成一条细线；指上去展开成快捷区，可左右拖动',descB:'贴在左右边缘，常驻几个快捷键；指上去显示名字，可上下拖动，拖过中线换边',
     descC:'角落半透明小圆点，几乎不挡画面；点开看快捷键和常驻开关，拖到四个角之一',reset:'位置复原'},
-   en:{brand:'MeguLit',menuTip:'Open / close the Alt+T menu\nDrag to move; drop it outside the game window to float it there',menuTipOut:'Open / close the Alt+T menu\nFloating; drag it back onto the game to dock it',translate:'Translate',text:'Text',calibrate:'Calibrate',log:'Log',look:'Look',hide:'Hide',
-    logTip:'Dialogue log (L)',hideTip:'Hide every MeguLit overlay; Alt+H brings it back',lookTip:'Appearance and capsule settings',
+   en:{brand:'MeguLit',menuTip:'Open / close the Alt+T menu\nDrag to move; drop it outside the game window to float it there',menuTipOut:'Open / close the Alt+T menu\nFloating; drag it back onto the game to dock it',translate:'Translate',text:'Text',calibrate:'Calibrate',log:'Log',look:'Look',hide:'Tuck',
+    logTip:'Dialogue log (L)',hideTip:'Tuck the capsule into a faint handle; text, readings, translation and lookup keep working. Alt+H hides every overlay',lookTip:'Appearance and capsule settings',
     cardTitle:'Shortcuts',rowMenu:'Open the settings menu',rowHide:'Show / hide all overlays',rowLog:'Dialogue log',rowText:'Text settings',rowCal:'Calibrate position',pin:'Always show',
-    pinOff:'Hidden. Alt+T → Look turns it back on',
-    setTitle:'Quick capsule',setHint:'MeguLit’s handle on the game screen: click it for the Alt+T menu, drag it to move. It keeps clear of the dialogue; drag it out of the game window to float it',setOut:'Floating outside the game window',setOutHint:'The spot is remembered. It hides while the game is minimised and comes back with it',dock:'Dock in the game',setOn:'Always show',setOnHint:'When off it only appears while the Alt+T menu is open',
+    pinOff:'Tucked into a small handle: point at it to see it, click to open',handleTip:'MeguLit capsule tucked away: click to open',
+    setTitle:'Quick capsule',setHint:'MeguLit’s handle on the game screen: click it for the Alt+T menu, drag it to move. It keeps clear of the dialogue; drag it out of the game window to float it',setOut:'Floating outside the game window',setOutHint:'The spot is remembered. It hides while the game is minimised and comes back with it',dock:'Dock in the game',setOn:'Always show',setOnHint:'When off it tucks into a faint handle: point at it to see it, click to open. Text, readings, translation and lookup keep working',
     setStyle:'Style',styleA:'Top island',styleB:'Side rail',styleC:'Corner dot',
     descA:'Top centre, a thin line while unused; point at it and it opens into a quick bar. Drag sideways',descB:'Docked to the left or right edge with the main keys; names show on hover. Drag up or down, across the middle to switch sides',
     descC:'A faint dot in a corner; click for the shortcuts and the always-show switch. Drops into any of the four corners',reset:'Reset position'},
-   ja:{brand:'MeguLit',menuTip:'Alt+T メニューを開く / 閉じる\nドラッグで移動。ゲーム画面の外に置くと独立表示',menuTipOut:'Alt+T メニューを開く / 閉じる\n独立表示中。ゲーム画面へ戻すと格納',translate:'翻訳',text:'文字',calibrate:'校正',log:'履歴',look:'外観',hide:'隠す',
-    logTip:'バックログ（L）',hideTip:'MeguLit の表示をすべて隠す。Alt+H で戻ります',lookTip:'外観とカプセルの設定',
+   ja:{brand:'MeguLit',menuTip:'Alt+T メニューを開く / 閉じる\nドラッグで移動。ゲーム画面の外に置くと独立表示',menuTipOut:'Alt+T メニューを開く / 閉じる\n独立表示中。ゲーム画面へ戻すと格納',translate:'翻訳',text:'文字',calibrate:'校正',log:'履歴',look:'外観',hide:'しまう',
+    logTip:'バックログ（L）',hideTip:'カプセルを半透明の小さなつまみにしまいます。原文・ルビ・訳文・タップ辞書はそのまま使えます。全体を隠すのは Alt+H',lookTip:'外観とカプセルの設定',
     cardTitle:'ショートカット',rowMenu:'設定メニューを開く',rowHide:'表示 / 非表示を切り替え',rowLog:'バックログ',rowText:'文字の設定',rowCal:'位置の校正',pin:'常に表示',
-    pinOff:'非表示にしました。Alt+T → 外観 で戻せます',
-    setTitle:'クイックカプセル',setHint:'ゲーム画面上の MeguLit の入口。クリックで Alt+T メニュー、ドラッグで移動。台詞には重なりません。ゲームウィンドウの外へ出すと独立表示',setOut:'ゲームウィンドウの外に表示中',setOutHint:'位置は記憶されます。ゲームを最小化すると一緒に隠れ、戻すと再表示',dock:'ゲーム画面に戻す',setOn:'常に表示',setOnHint:'オフの間は Alt+T メニューを開いたときだけ表示',
+    pinOff:'小さなつまみにしまいました。ポインタを合わせると表示、クリックで展開',handleTip:'MeguLit カプセル（しまい中）：クリックで展開',
+    setTitle:'クイックカプセル',setHint:'ゲーム画面上の MeguLit の入口。クリックで Alt+T メニュー、ドラッグで移動。台詞には重なりません。ゲームウィンドウの外へ出すと独立表示',setOut:'ゲームウィンドウの外に表示中',setOutHint:'位置は記憶されます。ゲームを最小化すると一緒に隠れ、戻すと再表示',dock:'ゲーム画面に戻す',setOn:'常に表示',setOnHint:'オフにすると半透明の小さなつまみになり、ポインタで表示、クリックで展開。原文・ルビ・訳文・タップ辞書はそのまま使えます',
     setStyle:'スタイル',styleA:'トップアイランド',styleB:'サイドレール',styleC:'コーナードット',
     descA:'画面上部中央。普段は細い線、ポインタを合わせるとクイックバーに。左右にドラッグ',descB:'左右の端に寄せて主なキーを常駐。ホバーで名前を表示。上下にドラッグ、中央を越えると反対側へ',
     descC:'隅の半透明の小さな点。クリックでショートカットと常駐スイッチ。四隅のどこかへ吸着',reset:'位置を戻す'}};
   const t=k=>(T[window.__tomeI18n?.get?.()]||T.zh)[k]??T.zh[k];
-  const GLYPH={zh:{translate:'译',text:'字',calibrate:'校',log:'记',hide:'隐'},ja:{translate:'訳',text:'字',calibrate:'校',log:'履',hide:'隠'},en:{translate:'Tr',text:'Aa',calibrate:'Ca',log:'Lg',hide:'Hd'}};
+  const GLYPH={zh:{translate:'译',text:'字',calibrate:'校',log:'记',hide:'收'},ja:{translate:'訳',text:'字',calibrate:'校',log:'履',hide:'収'},en:{translate:'Tr',text:'Aa',calibrate:'Ca',log:'Lg',hide:'Tk'}};
   const glyph=k=>(GLYPH[window.__tomeI18n?.get?.()]||GLYPH.zh)[k];
   let gsap=window.gsap||null;const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
   const loadGsap=()=>{if(gsap||loadGsap.p)return;loadGsap.p=1;const s=document.createElement('script');s.src=new URL('../vendor/gsap.min.js',document.baseURI).href;s.async=true;
@@ -139,6 +151,9 @@
 #mg-cap button:focus-visible,#mg-cap input:focus-visible{outline:1px solid rgba(214,164,52,.55);outline-offset:1px}
 #mg-cap.mg-cap-dragging button:active{transform:none}
 #mg-cap.mg-cap-dragging,#mg-cap.mg-cap-dragging *{cursor:var(--mg-cursor-grabbing,grabbing)!important}
+#mg-cap[data-folded] .mg-cap-b{transition:opacity .18s ease-out}
+#mg-cap[data-folded]:hover .mg-cap-b{opacity:1!important}
+#mg-cap[data-folded] .mg-cap-hit{cursor:var(--mg-cursor-pointer,pointer)}
 #mg-cap.mg-cap-outside .mg-cap-s{box-shadow:inset 0 0 0 1px rgba(214,164,52,.55)}
 #mg-cap .mg-cap-sigil{width:9px;height:9px;flex:none;fill:var(--red)}
 #mg-cap kbd{font:600 10.5px/1 "Cascadia Mono",Consolas,"Microsoft YaHei UI",monospace;letter-spacing:0;padding:3px 5px 2px;border-radius:5px;background:var(--tint);color:var(--ink2);box-shadow:inset 0 -1px 0 rgba(0,0,0,.35)}
@@ -245,7 +260,7 @@
     const left=document.createElement('div');left.className='mg-cap-g';left.dataset.show='open';
     const right=left.cloneNode();
     left.append(button('tab:translate',esc(t('translate'))),button('tab:text',esc(t('text'))),button('tab:calibrate',esc(t('calibrate'))));
-    right.append(button('log',esc(t('log')),t('logTip')),button('tab:misc',esc(t('look')),t('lookTip')),Object.assign(document.createElement('i'),{className:'mg-cap-sep'}),button('hide',esc(t('hide')),t('hideTip')));
+    right.append(button('log',esc(t('log')),t('logTip')),button('tab:misc',esc(t('look')),t('lookTip')),Object.assign(document.createElement('i'),{className:'mg-cap-sep'}),button('fold',esc(t('hide')),t('hideTip')));
     const brand=button('menu',DIAMOND+'<span>'+esc(t('brand'))+'</span><kbd>Alt T</kbd>',t('menuTip'));brand.classList.add('mg-cap-brand');brand.dataset.show='rest open';
     surface.append(left,brand,right);
    }else if(s==='b'){
@@ -253,7 +268,7 @@
     const brand=key('menu',DIAMOND,t('brand'),'Alt T',t('menuTip'));brand.classList.add('mg-cap-brand');
     const sep=()=>{const i=document.createElement('i');i.className='mg-cap-sep';i.dataset.show='rest open';return i;};
     surface.append(brand,sep(),key('tab:translate',esc(glyph('translate')),t('translate')),key('tab:text',esc(glyph('text')),t('text')),key('tab:calibrate',esc(glyph('calibrate')),t('calibrate')),sep(),
-     key('log',esc(glyph('log')),t('log'),'L',t('logTip')),key('hide',esc(glyph('hide')),t('hide'),'Alt H',t('hideTip')));
+     key('log',esc(glyph('log')),t('log'),'L',t('logTip')),key('fold',esc(glyph('hide')),t('hide'),'',t('hideTip')));
    }else{
     const dot=button('card',DIAMOND,t('menuTip'));dot.className='mg-cap-dot';dot.dataset.show='idle rest open';dot.setAttribute('aria-expanded','false');
     const card=document.createElement('div');card.className='mg-cap-card';card.dataset.show='open';
@@ -262,7 +277,7 @@
     const pin=document.createElement('label');pin.className='mg-cap-pin';pin.innerHTML='<span>'+esc(t('pin'))+'</span>';
     const sw=document.createElement('input');sw.type='checkbox';sw.className='mg-cap-switch';sw.setAttribute('role','switch');sw.checked=prefs.on;sw.dataset.capPin='';pin.append(sw);
     const msg=document.createElement('div');msg.className='mg-cap-note';msg.setAttribute('role','status');msg.textContent=note;
-    card.append(head,row('menu','Alt+T',t('rowMenu')),row('hide','Alt+H',t('rowHide')),row('log','L',t('rowLog')),row('tab:text','',t('rowText'),true),row('tab:calibrate','',t('rowCal'),true),pin,msg);
+    card.append(head,row('menu','Alt+T',t('rowMenu')),row('cover','Alt+H',t('rowHide')),row('log','L',t('rowLog')),row('tab:text','',t('rowText'),true),row('tab:calibrate','',t('rowCal'),true),pin,msg);
     surface.append(dot,card);
    }
    cur.g=null;cur.state='';paintTips();
@@ -338,7 +353,7 @@
    if(!slip||!animated()||cur.state==='idle'){apply();if(cur.tucked&&cur.state&&cur.state!=='idle'&&!cur.hovered&&!menuOpen())go('idle');return;}
    gsap.to(wrap,{opacity:0,duration:MOTION.slip.duration,ease:MOTION.slip.ease,onComplete:()=>{apply();gsap.to(wrap,{opacity:alpha(cur.state),duration:MOTION.slip.duration*1.6,ease:MOTION.slip.ease});}});
   }
-  const alpha=state=>state==='idle'?IDLE_ALPHA[cur.style]:1;
+  const alpha=state=>state==='idle'?IDLE_ALPHA[cur.style]*(folded()?.6:1):1;
   const shown=(el,state)=>(el.dataset.show||'').split(' ').includes(state);
   /* the clip is tweened through plain numbers: a computed clip-path folds equal sides together, which string tweening cannot follow */
   const clipNow={t:0,r:0,b:0,l:0,rad:0};
@@ -370,9 +385,14 @@
   }
   /* what the capsule should show when nobody is pointing at it */
   const menuOpen=()=>!!openDialog();
+  const folded=()=>shownAs(prefs,{menu:menuOpen(),held:!!cur.held||!!note})==='handle';
+  function paintFold(){const on=folded();if(rootEl.hasAttribute('data-folded')!==on){rootEl.toggleAttribute('data-folded',on);if(on)hit.dataset.mgTip=t('handleTip');else delete hit.dataset.mgTip;}}
+  function unfold(){setPrefs({on:true});if(cur.visible){timer('idle',null);go('rest');settle();}}
   function settle(){
    if(!cur.visible||drag)return;
-   if(cur.hovered){if(cur.style==='c'&&cur.state==='open')timer('leave',null);return;}
+   paintFold();if(folded()){timer('idle',null);timer('intent',null);go('idle');return;}
+   /* pointed at while it comes back from the handle (常驻 switched on, menu opened over it): show it, do not stay a line */
+   if(cur.hovered){if(cur.state==='idle'||cur.state==='')go(cur.style==='c'?'rest':'open');if(cur.style==='c'&&cur.state==='open')timer('leave',null);return;}
    /* 2026-11-27 the 新手引导 holds the capsule open while it explains it (onboarding.js), so it does not fade to idle under the light */
    if(cur.held){go(cur.held);timer('idle',null);return;}
    if(menuOpen()&&cur.style!=='c'){go(fitsOpen()?'open':'rest');timer('idle',null);return;}
@@ -393,7 +413,7 @@
    const b=bridge();
    if(name==='menu'){toggleMenu();return;}
    if(name==='log'){b.toggleBacklog?.();return;}
-   if(name==='hide'){send({type:'galToggleCover'});return;}
+   if(name==='fold'||name==='cover'){const r=press(prefs,name);if(r.send)send(r.send);if(name==='fold')setPrefs({on:false});return;}
    if(name==='card'){if(cur.state==='open'){go('rest');settle();}else{timer('idle',null);go('open');}return;}
    if(name.startsWith('tab:')){const key=name.slice(4),d=openDialog();
     if(d){if(d.dataset.menuTab===key){toggleMenu();return;}const tab=d.querySelector('.tomoyo-menu-tabs [data-menu-key="'+key+'"]');if(tab){tab.click();return;}}
@@ -401,20 +421,22 @@
   }
   surface.addEventListener('click',e=>{
    if(suppressClick){suppressClick=false;e.preventDefault();e.stopPropagation();return;}
+   if(folded()){e.stopPropagation();unfold();return;}
    const btn=e.target.closest('[data-act]');
    if(!btn){if(e.target.closest('.mg-cap-pin,.mg-cap-head'))return;if(cur.style==='a')act('menu');return;}
    e.stopPropagation();act(btn.dataset.act);
    if(cur.style==='c'&&btn.dataset.act!=='card'){go('rest');settle();}
    requestAnimationFrame(syncActive);
   });
-  hit.addEventListener('click',()=>{if(suppressClick){suppressClick=false;return;}if(cur.style==='a')act('menu');else if(cur.style==='b')go('open');else act('card');requestAnimationFrame(syncActive);});
+  hit.addEventListener('click',()=>{if(suppressClick){suppressClick=false;return;}if(folded()){unfold();return;}if(cur.style==='a')act('menu');else if(cur.style==='b')go('open');else act('card');requestAnimationFrame(syncActive);});
   surface.addEventListener('change',e=>{if(e.target.matches('[data-cap-pin]'))setPrefs({on:e.target.checked},{from:'card'});});
 
   /* hover: A and B open after a short intent delay; C only brightens and opens on click */
   rootEl.addEventListener('pointerover',e=>{if(rootEl.contains(e.relatedTarget)||drag)return;cur.hovered=true;cur.firstShow=false;timer('idle',null);timer('leave',null);
+   if(folded())return;
    if(cur.style==='c'){if(cur.state==='idle')go('rest');return;}
    if(cur.state!=='open')timer('intent',cur.state==='idle'?INTENT_MS+60:INTENT_MS,()=>{if(cur.hovered&&!drag)go('open');});});
-  rootEl.addEventListener('pointerout',e=>{if(rootEl.contains(e.relatedTarget)||drag)return;cur.hovered=false;timer('intent',null);
+  rootEl.addEventListener('pointerout',e=>{if(rootEl.contains(e.relatedTarget)||drag)return;cur.hovered=false;timer('intent',null);if(folded())return;
    timer('leave',cur.style==='c'&&cur.state==='open'?CARD_GRACE_MS:GRACE_MS,()=>{if(!cur.hovered)settle();});});
 
   /* drag: A along the top, B anywhere then onto the nearer edge, C anywhere then into the nearest corner */
@@ -465,8 +487,8 @@
    if(cur.style!=='a'||!cur.hovered)settle();
   }
 
-  /* visibility: bound to a game, and either 常驻 or while the Alt+T menu is open */
-  function wanted(){const body=document.body;return body.classList.contains('tomoyo-ui-translation')&&body.classList.contains('tomoyo-gal-bound')&&(prefs.on||menuOpen()||!!note);}
+  /* visibility: bound to a game; the capsule, or the handle it is tucked into (never nothing, so it can always be found again) */
+  function wanted(){const body=document.body;return body.classList.contains('tomoyo-ui-translation')&&body.classList.contains('tomoyo-gal-bound');}
   let tick=0;
   function refresh(){
    const want=wanted();
@@ -482,6 +504,7 @@
   function dock(){if(prefs.out.on)setPrefs({out:{...prefs.out,on:false}});}
   function setPrefs(patch,opt={}){
    const was=prefs;prefs=clean({...prefs,...patch});save();
+   if(!was.on&&prefs.on){const r=press(was,'unfold',{coverHidden:document.body.classList.contains('tomoyo-cover-hidden')});if(r.send)send(r.send);}
    if(was.out.on!==prefs.out.on||was.out.x!==prefs.out.x||was.out.y!==prefs.out.y){paintTips();if(!opt.rebuild&&prefs.style===cur.style)opt={...opt,relayout:true};}
    if(opt.from==='card'&&was.on&&!prefs.on){note=t('pinOff');const msg=surface.querySelector('.mg-cap-note');if(msg)msg.textContent=note;timer('note',2200,()=>{note='';const m=surface.querySelector('.mg-cap-note');if(m)m.textContent='';refresh();});}
    if(prefs.style!==cur.style||opt.rebuild){if(tl){tl.kill();tl=null;}build();cur.pos=null;cur.place=null;if(cur.visible){layout(true);go('rest',{instant:true});cur.firstShow=true;settle();}}
@@ -527,7 +550,7 @@
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&cur.style==='c'&&cur.state==='open'){go('rest');settle();}});
   document.fonts?.ready.then(()=>{if(cur.visible){cur.g=null;layout(true);if(cur.state)go(cur.state,{force:true,instant:true});}});
   build();
-  window.__megulitCapsule={prefs:()=>({...prefs}),set:(p,o)=>setPrefs(p,o||{}),state:()=>({state:cur.state,style:cur.style,visible:cur.visible,tucked:cur.tucked,out:prefs.out.on,side:rootEl.dataset.side||'',corner:(rootEl.dataset.v||'')+(rootEl.dataset.h||'')}),
+  window.__megulitCapsule={prefs:()=>({...prefs}),set:(p,o)=>setPrefs(p,o||{}),state:()=>({state:cur.state,style:cur.style,visible:cur.visible,tucked:cur.tucked,out:prefs.out.on,folded:folded(),side:rootEl.dataset.side||'',corner:(rootEl.dataset.v||'')+(rootEl.dataset.h||'')}),
    rect:()=>{const g=geom();return g&&cur.pos?vp(shape(g,cur.state||'rest')):null;},refresh:()=>{cur.g=null;layout(true);refresh();},hold:state=>{cur.held=['open','rest'].includes(state)?state:'';settle();},dock,core};
   schedule();
  }

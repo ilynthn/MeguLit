@@ -142,14 +142,14 @@ page('style C sits in a corner, unfolds into the shortcut card and snaps to the 
  assert.equal(JSON.parse(await p.evaluate(()=>localStorage.getItem('tomoyo-capsule'))).c.corner,'br');
 });
 
-page('a line drawn where the capsule sits pushes it aside; turning 常驻 off hides it',async p=>{
+page('a line drawn where the capsule sits pushes it aside; turning 常驻 off tucks it into a handle',async p=>{
  await p.evaluate(()=>{const w=document.createElement('div');w.className='tomoyo-cn-output';w.textContent='今天天气真好呢。今天天气真好呢。';w.style.cssText='position:fixed;left:440px;top:4px;width:400px;font:24px sans-serif;color:#fff';document.body.append(w);});
  await p.waitForTimeout(800);const r=await p.evaluate(()=>window.__megulitCapsule.rect());
  const t=await p.evaluate(()=>{const g=document.createRange();g.selectNodeContents(document.querySelector('.tomoyo-cn-output'));const b=g.getBoundingClientRect();return {x:b.left,y:b.top,w:b.width,h:b.height};});
  assert.ok(!core.overlaps(r,[t]),'moved off the line: '+JSON.stringify({r,t}));
  await p.evaluate(()=>window.__megulitCapsule.set({on:false}));await p.waitForTimeout(100);
- assert.equal(await p.evaluate(()=>document.getElementById('mg-cap').hidden),true);
- assert.equal(await p.evaluate(()=>window.__megulitCapsule.state().visible),false);
+ assert.equal(await p.evaluate(()=>document.getElementById('mg-cap').hidden),false,'never gone: a handle stays');
+ assert.equal(await p.evaluate(()=>window.__megulitCapsule.state().folded),true);
 });
 
 page('switching between window and full screen keeps each style on its spot',async p=>{
