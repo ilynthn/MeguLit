@@ -438,7 +438,7 @@
   const source=el('small','tome-bg-hint');source.dataset.gameSource='';
   const head=el('div','tome-look-head');head.append(copy('h4','','gameTitle'),copy('small','tome-bg-hint','gameText'),source);
   const preview=el('div','tome-look-preview');preview.setAttribute('aria-hidden','true');
-  for(const [p,c] of LOOK_PANELS){const tile=el('div','tome-look-tile');tile.dataset.lookTile=p;tile.append(el('b'),el('i'),el('u'),copy('span','tome-look-tile-name',c),copy('em','','sample'));preview.append(tile);}
+  for(const [p,c] of LOOK_PANELS){const tile=el('div','tome-look-tile');tile.dataset.lookTile=p;tile.append(el('b','tome-look-tile-scene'),el('i','tome-look-tile-picture'),el('u','tome-look-tile-tint'),copy('span','tome-look-tile-name',c),copy('em','','sample'));preview.append(tile);}
   box.append(head,preview);
   const unit=k=>k==='blur'||k==='radius'||k==='glassBlur'?'px':'%';
   const slider=(p,k,min,max)=>{const row=el('div','setting-row tome-look-row'),range=el('div','tome-bg-range'),i=el('input'),value=el('label','tome-look-num'),n=el('input'),u=el('span');
