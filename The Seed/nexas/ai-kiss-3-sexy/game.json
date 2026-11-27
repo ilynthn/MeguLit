@@ -1,0 +1,67 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "fd1979f328de221bf872e59e3dce0b0eeacae9b52aa3827d8d5c7dae2371b711",
+ "layer": "game",
+ "source": "official",
+ "mode": "hide",
+ "settings": {
+  "hide": {
+   "textEffectsRead": false
+  },
+  "lang": {
+   "ja": {
+    "annotation": "ruby",
+    "pairing": "script"
+   }
+  },
+  "source": {
+   "versionMatch": "prints"
+  }
+ },
+ "exe": "",
+ "engine": "nexas",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "pack": "25ba53c6e77f11e8d11ae7ebdfa0cf6c77b575ef6cfa8eeeabc5f19d4439e236",
+  "title": "a7cd04e571080271bfcbd2c05155813d305bb2f85c2d9a388a90b987a93cb6f9",
+  "vndb": "v32132"
+ },
+ "seedFormat": 1,
+ "status": "skeleton",
+ "slug": "ai-kiss-3-sexy",
+ "builds": [
+  "49799f5880f89b70af29ad479f5afea48d8c70a73b48fdc54a6e04cc08852cb6"
+ ],
+ "match": {
+  "exe": [
+   "Aikiss3.exe"
+  ],
+  "titles": [
+   "アイキス3 sexy"
+  ]
+ },
+ "sourceLangs": [
+  "ja"
+ ],
+ "rev": 1,
+ "ext": {
+  "versionPrints": {
+   "49799f5880f89b70af29ad479f5afea48d8c70a73b48fdc54a6e04cc08852cb6": {
+    "head": "5b6b869653185d20be80ecdbba831d34eba1db41b9b9ecf5327d2f5e8c2e65c9",
+    "pe": "1.42.255.2@62417a76",
+    "data": "739f42bce77550fbefa2c36cbfe387a6964732fc06d39776a1b2455d1a93135c",
+    "pack": "25ba53c6e77f11e8d11ae7ebdfa0cf6c77b575ef6cfa8eeeabc5f19d4439e236"
+   }
+  },
+  "adapter": {
+   "tool": "megulit-adapter",
+   "vndb": "v32132",
+   "release": "豪華版 DVD（r84077）+ Ver.1.03",
+   "source": "script:nexas",
+   "hide": "generic",
+   "pairing": "script"
+  }
+ }
+}

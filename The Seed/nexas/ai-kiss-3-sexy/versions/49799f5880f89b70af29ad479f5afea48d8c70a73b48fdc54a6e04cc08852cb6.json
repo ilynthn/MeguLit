@@ -1,0 +1,18 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "49799f5880f89b70af29ad479f5afea48d8c70a73b48fdc54a6e04cc08852cb6",
+ "layer": "version",
+ "source": "official",
+ "settings": {},
+ "exe": "Aikiss3.exe",
+ "engine": "nexas",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "exe": "49799f5880f89b70af29ad479f5afea48d8c70a73b48fdc54a6e04cc08852cb6",
+  "head": "5b6b869653185d20be80ecdbba831d34eba1db41b9b9ecf5327d2f5e8c2e65c9",
+  "pe": "1.42.255.2@62417a76"
+ },
+ "rev": 1
+}
