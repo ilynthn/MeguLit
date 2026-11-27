@@ -8,41 +8,45 @@
  'use strict';
  /* localStorage key in the reader; tomoyo- keys are mirrored to data/ui-state.json, the user's reader settings */
  const KEY='tomoyo-onboarding',LIMIT=5;
- /* target: selectors tried in order, the first one on screen is lit; several groups light several places.
-    menu: open / close the Alt+T menu for this step; tab: the menu page to show; capsule: hold the capsule open meanwhile. */
+ /* target: selectors tried in order, the first one on screen is lit (the hole in the dimmed screen).
+    act: what the user has to do before the tour moves on: 'open' (open the Alt+T menu by clicking the lit capsule),
+    'hotkey' (close and open the menu with the menu hotkey), 'tab' (click the lit tab); without act, 下一步 moves on.
+    after: where the hole moves once the act is done (the step then waits for 下一步).
+    menu: open / close the Alt+T menu on entering; tab: the page to show; capsule: hold the capsule open meanwhile. */
  const STEPS=[
-  {id:'capsule',image:'capsule',target:[['#mg-cap']],menu:'close',capsule:'open'},
-  {id:'hotkey',image:'hotkey',target:[['#mg-cap .mg-cap-brand','#mg-cap .mg-cap-dot','#mg-cap']],menu:'close',capsule:'open'},
+  {id:'capsule',image:'capsule',target:[['#mg-cap']],menu:'close',capsule:'open',act:'open'},
+  {id:'hotkey',image:'hotkey',target:[['#mg-cap .mg-cap-brand','#mg-cap .mg-cap-dot','#mg-cap']],capsule:'open',act:'hotkey'},
   {id:'pages',image:'pages',target:[['.tomoyo-cn-dialog[open] .tomoyo-menu-tabs']],menu:'open'},
-  {id:'text',image:'text',target:[['.tomoyo-cn-dialog[open] [data-menu-key="text"]'],['.tomoyo-cn-dialog[open] .tomoyo-menu-content .mg-subtabs','.tomoyo-cn-dialog[open] .tomoyo-menu-content']],menu:'open',tab:'text'},
+  {id:'text',image:'text',target:[['.tomoyo-cn-dialog[open] .tomoyo-menu-tabs [data-menu-key="text"]']],menu:'open',act:'tab',actTab:'text',
+   after:[['.tomoyo-cn-dialog[open] .tomoyo-menu-content .mg-subtabs','.tomoyo-cn-dialog[open] .tomoyo-menu-content']]},
   {id:'lookup',image:'lookup',target:[['.sentence-window .sentence-text']],menu:'close'},
-  {id:'help',image:'help',target:[['.tomoyo-cn-dialog[open] [data-menu-key="calibrate"]'],['.tomoyo-cn-dialog[open] .tome-menu-tour']],menu:'open',tab:'calibrate'}];
+  {id:'help',image:'help',target:[['.tomoyo-cn-dialog[open] .tomoyo-menu-tabs [data-menu-key="calibrate"]']],menu:'open',tab:'calibrate'}];
  const TEXT={
   zh:{kicker:'新手引导',skip:'跳过教程',prev:'上一步',next:'下一步',done:'开始玩',never:'不再显示',close:'关闭',replay:'进游戏后再带我走一遍',replayDone:'好的，下次进游戏会再带你走一遍',
-   replayNow:'已在游戏里打开引导',count:'前 {limit} 次进游戏会自动出现，点「跳过教程」就不再出现',again:'教程',againTip:'重看新手引导',more:'详细说明',
+   replayNow:'已在游戏里打开引导',count:'前 {limit} 次进游戏会自动出现，点「跳过教程」就不再出现',again:'教程',act:{open:'点亮着的胶囊继续',hotkey:'按 {menu} 两次继续',tab:'点亮着的页签继续'},againTip:'重看新手引导',more:'详细说明',
    steps:{
-    capsule:['这是小胶囊','MeguLit 在游戏画面上的入口。指上去展开快捷键，点中间的 MeguLit 打开菜单；按住能拖到别处，它会自己躲开台词。'],
-    hotkey:['用热键打开菜单','随时按 {menu} 打开或收起菜单，不用找胶囊。想看原版画面时按 {cover} 隐藏全部覆盖，再按一次回来。'],
+    capsule:['这是小胶囊','MeguLit 在游戏里的入口，指上去展开快捷键，按住能拖走。现在点一下中间的 MeguLit，打开菜单。'],
+    hotkey:['用热键开关菜单','不找胶囊也行：按 {menu} 把菜单收起来，再按一次打开。想看原版画面时按 {cover}。'],
     pages:['菜单里的各页','左边一列是各页：翻译选译法，文字改样式，校准对位置，内嵌管原文替换；学习、语音、记录、外观各管一摊。'],
-    text:['把字调成喜欢的样子','在「文字」页先选日文或中文，拖「字号」滑块改大小，切到「颜色」换颜色，改了马上看得到。想挪位置，去「校准」页点「拖动文本框」。'],
+    text:['把字调成喜欢的样子','点亮着的「文字」页签。这页拖「字号」滑块改大小，切到「颜色」换颜色，改了马上看得到；挪位置去「校准」点「拖动文本框」。'],
     lookup:['点一下就查词','在台词上点一个词，弹出读音和释义；拖选一整句，可以收藏或加进 Anki。'],
-    help:['出问题看这里','字没对上原文：进「校准」点「校准当前句」。想再看这套引导，点菜单右上角「教程」，或主界面顶栏「教程」。']}},
+    help:['出问题看这里','字没对上原文：进亮着的「校准」点「校准当前句」。想再看这套引导，点菜单右上角「教程」，或主界面顶栏「教程」。']}},
   en:{kicker:'Quick tour',skip:'Skip tutorial',prev:'Back',next:'Next',done:'Start playing',never:'Don’t show again',close:'Close',replay:'Walk me through it in the game again',replayDone:'Got it — the tour runs again next time you start a game',
-   replayNow:'The tour is open in the game',count:'Shows up for your first {limit} games. Skip tutorial turns it off for good',again:'Tutorial',againTip:'Replay the quick tour',more:'More details',
+   replayNow:'The tour is open in the game',count:'Shows up for your first {limit} games. Skip tutorial turns it off for good',again:'Tutorial',act:{open:'Click the lit capsule to go on',hotkey:'Press {menu} twice to go on',tab:'Click the lit tab to go on'},againTip:'Replay the quick tour',more:'More details',
    steps:{
-    capsule:['This is the capsule','MeguLit’s handle on the game screen. Point at it for the shortcuts, click MeguLit in the middle for the menu, hold and drag to move it. It keeps clear of the dialogue.'],
-    hotkey:['Open the menu with a hotkey','Press {menu} any time to open or close the menu. Press {cover} to hide every overlay and see the original screen, again to bring it back.'],
+    capsule:['This is the capsule','MeguLit’s handle in the game: point at it for the shortcuts, hold and drag to move it. Now click MeguLit in the middle to open the menu.'],
+    hotkey:['Toggle the menu with a hotkey','No need to find the capsule: press {menu} to close the menu, then once more to open it. {cover} shows the original screen.'],
     pages:['What each page does','The pages run down the left: Translate picks the translator, Text styles the lines, Calibration lines them up, Embedding replaces the original text; Study, Voice, Log and Appearance do what they say.'],
-    text:['Make the text yours','On Text, pick Japanese or Chinese, drag the size slider, and switch to Colour to recolour it; you see it at once. To move the text, use Drag text box on Calibration.'],
+    text:['Make the text yours','Click the lit Text tab. There the size slider changes the size and Colour the colour, live; to move the text, use Drag text box on Calibration.'],
     lookup:['Click a word to look it up','Click a word in the line for its reading and meaning. Drag across a whole sentence to save it or send it to Anki.'],
     help:['When something is off','Text not lined up with the original: open Calibration and click Calibrate current line. To see this tour again, click Tutorial at the top right of the menu, or Tutorial in the main window’s top bar.']}},
   ja:{kicker:'はじめてガイド',skip:'チュートリアルをスキップ',prev:'戻る',next:'次へ',done:'プレイを始める',never:'今後表示しない',close:'閉じる',replay:'次のゲームでもう一度案内する',replayDone:'次にゲームを起動したとき、もう一度案内します',
-   replayNow:'ゲーム内でガイドを開きました',count:'最初の {limit} 回の起動で表示されます。スキップすると以後は出ません',again:'チュートリアル',againTip:'はじめてガイドをもう一度',more:'詳しい説明',
+   replayNow:'ゲーム内でガイドを開きました',count:'最初の {limit} 回の起動で表示されます。スキップすると以後は出ません',again:'チュートリアル',act:{open:'光っているカプセルをクリック',hotkey:'{menu} を 2 回押して次へ',tab:'光っているタブをクリック'},againTip:'はじめてガイドをもう一度',more:'詳しい説明',
    steps:{
-    capsule:['これがカプセル','ゲーム画面上の MeguLit の入口。ポインタを合わせるとショートカット、中央の MeguLit をクリックでメニュー。ドラッグで移動でき、台詞は自動で避けます。'],
-    hotkey:['ホットキーでメニュー','{menu} でいつでもメニューを開閉。元の画面を見たいときは {cover} で全表示を隠し、もう一度押すと戻ります。'],
+    capsule:['これがカプセル','ゲーム内の MeguLit の入口。ポインタでショートカット、ドラッグで移動できます。中央の MeguLit をクリックしてメニューを開いてみましょう。'],
+    hotkey:['ホットキーでメニューを開閉','カプセルを探さなくても大丈夫。{menu} でメニューを閉じ、もう一度押して開きます。元の画面は {cover} で。'],
     pages:['メニューの各ページ','左の列が各ページです。翻訳は訳し方、文字は見た目、調整は位置合わせ、埋め込みは原文の置き換え。学習・音声・ログ・外観はその名のとおり。'],
-    text:['文字を好みの見た目に','「文字」ページで日本語か中国語を選び、サイズのスライダーで大きさ、「色」で色を変えるとすぐ反映されます。位置は「調整」ページの「テキスト枠をドラッグ」で。'],
+    text:['文字を好みの見た目に','光っている「文字」タブをクリック。サイズのスライダーで大きさ、「色」で色がすぐ変わります。位置は「調整」の「テキスト枠をドラッグ」で。'],
     lookup:['クリックで辞書','台詞の単語をクリックすると読みと意味が出ます。一文をドラッグで選ぶと、保存や Anki 追加ができます。'],
     help:['困ったときは','原文と位置がずれたら「調整」で「現在の文を調整」。このガイドをもう一度見るには、メニュー右上の「チュートリアル」か、メイン画面上部の「チュートリアル」を。']}}};
  const words=locale=>TEXT[locale]||TEXT.zh;
@@ -55,7 +59,7 @@
  function clean(value){
   let o=value;if(typeof o==='string'){try{o=JSON.parse(o);}catch{o=null;}}if(!o||typeof o!=='object'||Array.isArray(o))o={};
   const shown=Number.isFinite(Number(o.shown))?Math.min(LIMIT,Math.max(0,Math.floor(Number(o.shown)))):0;
-  return {shown,stopped:o.stopped===true,last:typeof o.last==='string'?o.last.slice(0,120):'',replay:o.replay===true};
+  return {shown,stopped:o.stopped===true,last:typeof o.last==='string'?o.last.slice(0,120):'',replay:o.replay===true,seen:o.seen===true};
  }
  /* A launch counts once however many status updates carry it (identity = game process id + start time, game-style-sync.cjs).
     The first LIMIT launches show the tour; skipping stops it at once; a replay asked for from the menu or the main window
@@ -68,7 +72,9 @@
   if(state.stopped||state.shown>=LIMIT)return {state:next,show:false};
   return {state:{...next,shown:state.shown+1},show:true,counted:true};
  }
- const stop=value=>({...clean(value),stopped:true,replay:false});
+ const stop=value=>({...clean(value),stopped:true,replay:false,seen:true});
+ /* the red dot on the 教程 buttons goes once the tour has been on screen */
+ const seen=value=>({...clean(value),seen:true});
  const replay=value=>({...clean(value),replay:true});
- return {KEY,LIMIT,STEPS,TEXT,words,image,fill,step,clean,launch,stop,replay,hotkey};
+ return {KEY,LIMIT,STEPS,TEXT,words,image,fill,step,clean,launch,stop,replay,seen,hotkey};
 });

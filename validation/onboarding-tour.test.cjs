@@ -67,7 +67,7 @@ test('the tour shows at the first five game launches, once per launch, and not a
 test('skip stops the tour at once and for good',{skip:!hasEdge&&'Edge not installed',timeout:120000},async()=>{
  await withReader(async({cdp,launch,tour,saved})=>{
   await launch('pid1|a');const t=await tour();assert.ok(t,'first launch shows the tour');assert.match(t.skip,/跳过教程/);
-  await cdp.evaluate(`document.querySelector('.mg-tour-card .mg-tour-skip').click()`);await sleep(80);
+  await cdp.evaluate(`document.querySelector('.mg-tour-skip').click()`);await sleep(80);
   assert.equal(await tour(),null,'gone right after the click');
   assert.equal(await cdp.evaluate(`!!document.querySelector('.tomoyo-cn-dialog[open]')`),false,'the menu the tour did not open stays closed');
   await sleep(600);assert.equal(saved()?.stopped,true,'the choice is in ui-state.json');
@@ -75,45 +75,87 @@ test('skip stops the tour at once and for good',{skip:!hasEdge&&'Edge not instal
  });
 });
 
-test('every step lights a real element on screen, names the hotkeys from MeguLitHotkeys, and has a picture',{skip:!hasEdge&&'Edge not installed',timeout:180000},async()=>{
+test('the spotlight: the hole sits on each step’s element, click steps go on only from the lit place or the real hotkey, nothing reaches the game',{skip:!hasEdge&&'Edge not installed',timeout:240000},async()=>{
  await withReader(async({cdp,launch,tour})=>{
-  /* a user who moved the menu to Ctrl+Q: the tour says Ctrl+Q, not Alt+T */
-  await launch('pid1|a',{before:"window.MeguLitHotkeys={label:a=>({menu:'Ctrl+Q',cover:'Ctrl+W'})[a]||''};"});
-  const seen=[];
-  for(let i=0;i<6;i++){
-   await sleep(900);const t=await tour();assert.ok(t,'step '+i+' on screen');seen.push(t.step);
-   assert.equal(t.dots,6,'six progress dots');assert.ok(t.title.length>1&&t.body.length>8,'step '+t.step+' has words');
-   assert.match(t.img,/assets\/onboarding\/[a-z]+\.webp$/,'step '+t.step+' has a picture');
-   assert.ok(await cdp.evaluate(`(async()=>{const i=document.querySelector('.mg-tour-shot img');if(!i.complete)await new Promise(r=>{i.onload=i.onerror=r;});return i.naturalWidth>300;})()`),t.step+': the picture loads');
-   assert.doesNotMatch(t.body,/Alt\+T|Alt\+H/,'step '+t.step+': no hotkey written into the text');
-   if(t.step==='hotkey')assert.match(t.body,/Ctrl\+Q[\s\S]*Ctrl\+W/,'the hotkey step names the user’s keys');
-   /* the menu opens with a short animation and the light follows it: give it up to 3 s to settle */
-   const probe=()=>cdp.evaluate(`(()=>{const out=[];for(const ring of document.querySelectorAll('.mg-tour-ring')){const sel=ring.dataset.target,all=sel?[...document.querySelectorAll(sel)]:[];
-     /* the capsule is laid out at its open size and clipped: its drawn shape is what the capsule reports */
-     const box=x=>x.id==='mg-cap'?(c=>c&&{left:c.x,top:c.y,right:c.x+c.w,bottom:c.y+c.h,width:c.w,height:c.h})(window.__megulitCapsule.rect()):x.getBoundingClientRect();
-     const el=all.find(x=>{const b=box(x);return b&&b.width>4&&b.height>4;})||all[0];
-     const r=ring.getBoundingClientRect(),e=el&&box(el);const visible=!!e&&e.width>4&&e.height>4&&getComputedStyle(el).visibility!=='hidden'&&!el.closest('[hidden]');
-     out.push({sel,exists:!!el,visible,covers:!!e&&r.left<=e.left+2&&r.top<=e.top+2&&r.right>=e.right-2&&r.bottom>=e.bottom-2&&r.width<=e.width+40&&r.height<=e.height+40});}return out;})()`);
-   let lit=await probe();for(let k=0;k<10&&!(lit.length&&lit.every(x=>x.exists&&x.visible&&x.covers));k++){await sleep(300);lit=await probe();}
-   assert.ok(lit.length>=1,t.step+': something is lit');
-   for(const x of lit){assert.ok(x.exists,t.step+': '+x.sel+' exists');assert.ok(x.visible,t.step+': '+x.sel+' is on screen');assert.ok(x.covers,t.step+': the light sits on '+x.sel);}
-   const card=await cdp.evaluate(`(()=>{const c=document.querySelector('.mg-tour-card').getBoundingClientRect();return c.left>=0&&c.top>=0&&c.right<=innerWidth&&c.bottom<=innerHeight;})()`);
-   assert.ok(card,t.step+': the card is inside the window');
-   if(t.step==='text')assert.equal(await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open]')?.dataset.menuTab`),'text','the text step shows the 文字 page');
-   if(i===1){await cdp.evaluate(`document.querySelector('.mg-tour-prev').click()`);await sleep(500);assert.equal((await tour()).step,'capsule','back goes one step back');
-    await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(500);}
-   if(i<5)await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);
-  }
-  assert.deepEqual(seen,['capsule','hotkey','pages','text','lookup','help']);
-  /* the last step's next ends the tour and closes the menu the tour opened */
+  await launch('pid1|a');
+  const step=async()=>(await tour())?.step;
+  /* the hole (the undimmed place) against the element it lights: the capsule reports its drawn shape, others their box */
+  const hole=()=>cdp.evaluate(`(()=>{const h=document.querySelector('.mg-tour-hole');if(!h||h.hidden)return null;const sel=h.dataset.target;
+   const box=x=>x.id==='mg-cap'?(c=>c&&{left:c.x,top:c.y,right:c.x+c.w,bottom:c.y+c.h,width:c.w,height:c.h})(window.__megulitCapsule.rect()):x.getBoundingClientRect();
+   const el=[...document.querySelectorAll(sel)].find(x=>{const b=box(x);return b&&b.width>4&&b.height>4;});const r=h.getBoundingClientRect(),e=el&&box(el);
+   const dim=getComputedStyle(h).boxShadow;
+   return {sel,exists:!!el,r:{x:r.left,y:r.top,w:r.width,h:r.height},e:e&&{x:e.left,y:e.top,w:e.width,h:e.height},dims:/200vmax|\\d{3,}px/.test(dim),
+    next:!document.querySelector('.mg-tour-next').hidden,wait:!document.querySelector('.mg-tour-wait').hidden};})()`);
+  /* the hole moves with a short animation and the menu opens with one: wait until it has settled on its element */
+  const settled=async name=>{let h;for(let k=0;k<20;k++){h=await hole();if(h&&h.exists&&h.e&&['x','y','w','h'].every(q=>Math.abs(h.r[q]-(h.e[q]+(q==='x'||q==='y'?-6:12)))<=2.5))return h;await sleep(150);}
+   assert.fail(name+': the hole is not on its element '+JSON.stringify(h));};
+  const click=async(x,y)=>{for(const type of ['mouseMoved','mousePressed','mouseReleased'])await cdp.send('Input.dispatchMouseEvent',{type,x,y,button:type==='mouseMoved'?'none':'left',clickCount:1});await sleep(250);};
+  const centre=h=>[h.r.x+h.r.w/2,h.r.y+h.r.h/2];
+  const menuOpen=()=>cdp.evaluate(`!!document.querySelector('.tomoyo-cn-dialog[open]')`);
+  const altT=async()=>{for(const type of ['keyDown','keyUp'])await cdp.send('Input.dispatchKeyEvent',{type,modifiers:1,key:'t',code:'KeyT',windowsVirtualKeyCode:84});await sleep(500);};
+  const lookupOpen=()=>cdp.evaluate(`!!document.querySelector('.tomoyo-selection-card')`);
+
+  /* 1 capsule: a click step */
+  assert.equal(await step(),'capsule');let h=await settled('capsule');
+  assert.ok(h.dims,'the screen around the hole is dimmed');assert.equal(h.next,false,'no 下一步 before the capsule is clicked');assert.equal(h.wait,true,'the card says what to do');
+  const line=await cdp.evaluate(`(()=>{const r=document.querySelector('.sentence-text .char-token').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()`);
+  await click(...line);assert.equal(await lookupOpen(),false,'a click on the dimmed line looks nothing up');
+  await click(60,60);assert.equal(await step(),'capsule','a click on the dim does not move on');assert.equal(await menuOpen(),false);
+  await click(...centre(h));await sleep(700);
+  assert.equal(await menuOpen(),true,'clicking the lit capsule opens the menu');assert.equal(await step(),'hotkey','and the tour moves on');
+
+  /* 2 hotkey: only the real hotkey moves on; the lit capsule is not clickable here */
+  h=await settled('hotkey');assert.equal(h.next,false);
+  await click(...centre(h));assert.equal(await menuOpen(),true,'the lit place does not take clicks in the hotkey step');assert.equal(await step(),'hotkey');
+  assert.match((await tour()).body,/Alt\+T/,'the hotkey named by MeguLitHotkeys');
+  await cdp.evaluate(`(()=>{window.__realHotkeys=window.MeguLitHotkeys;window.MeguLitHotkeys={label:a=>({menu:'Ctrl+Q',cover:'Ctrl+W'})[a]||''};dispatchEvent(new Event('megulit-hotkeys-changed'));return 1;})()`);
+  await sleep(200);const changed=await tour();assert.match(changed.body,/Ctrl\+Q[\s\S]*Ctrl\+W/,'a rebound hotkey shows at once');assert.doesNotMatch(changed.body,/Alt\+T|Alt\+H/,'no hotkey written into the words');
+  await cdp.evaluate(`(()=>{window.MeguLitHotkeys=window.__realHotkeys;dispatchEvent(new Event('megulit-hotkeys-changed'));return 1;})()`);
+  await altT();assert.equal(await menuOpen(),false,'Alt+T closes the menu');assert.equal(await step(),'hotkey','one press is not enough');
+  await altT();assert.equal(await menuOpen(),true,'Alt+T opens it again');await sleep(500);assert.equal(await step(),'pages','the real hotkey moved the tour on');
+
+  /* 3 pages: an explaining step, 下一步 moves on; 上一步 goes back to a done step without asking again */
+  h=await settled('pages');assert.equal(h.next,true);
+  await cdp.evaluate(`document.querySelector('.mg-tour-prev').click()`);await sleep(400);assert.equal(await step(),'hotkey');assert.equal((await hole()).next,true,'a step already done keeps 下一步');
+  await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(400);assert.equal(await step(),'pages');
+  await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(600);
+
+  /* 4 text: click the lit 文字 tab; the hole then moves to the text settings */
+  assert.equal(await step(),'text');h=await settled('text tab');assert.match(h.sel,/data-menu-key="text"/);assert.equal(h.next,false);
+  const other=await cdp.evaluate(`(()=>{const r=document.querySelector('.tomoyo-cn-dialog[open] [data-menu-key="voice"]').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()`);
+  await click(...other);assert.notEqual(await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open]').dataset.menuTab`),'voice','a dimmed tab does not take the click');
+  await click(...centre(h));
+  assert.equal(await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open]').dataset.menuTab`),'text','the lit tab took the click');
+  h=await settled('text settings');assert.match(h.sel,/mg-subtabs|menu-content/,'the hole moved to the text settings');assert.equal(h.next,true);
+  await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(600);
+
+  /* 5 lookup, 6 help: explaining steps */
+  assert.equal(await step(),'lookup');h=await settled('lookup');assert.match(h.sel,/sentence-text/);
   await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(700);
-  assert.equal(await tour(),null,'done closes the tour');
-  assert.equal(await cdp.evaluate(`!!document.querySelector('.tomoyo-cn-dialog[open]')`),false,'the menu the tour opened is closed again');
+  assert.equal(await step(),'help');h=await settled('help');assert.match(h.sel,/data-menu-key="calibrate"/);
+  const t=await tour();assert.equal(t.dots,6);assert.match(t.img,/assets\/onboarding\/help\.webp$/);
+  assert.ok(await cdp.evaluate(`(async()=>{const i=document.querySelector('.mg-tour-shot img');if(!i.complete)await new Promise(r=>{i.onload=i.onerror=r;});return i.naturalWidth>300;})()`),'the picture loads');
+  assert.ok(await cdp.evaluate(`(()=>{const c=document.querySelector('.mg-tour-card').getBoundingClientRect(),d=document.querySelector('.tomoyo-cn-dialog[open]').getBoundingClientRect();return c.left>=0&&c.top>=0&&c.right<=innerWidth&&c.bottom<=innerHeight&&(c.right<=d.left||c.left>=d.right);})()`),'the card is on screen and beside the menu');
+  await cdp.evaluate(`document.querySelector('.mg-tour-next').click()`);await sleep(700);
+  assert.equal(await tour(),null,'开始玩 closes the tour');assert.equal(await menuOpen(),false,'and the menu opened during the tour');
+
   /* Alt+T menu → 教程 opens it again, also after the five launches are used up */
-  await cdp.evaluate(`(()=>{localStorage.setItem('tomoyo-onboarding',JSON.stringify({shown:5,stopped:true}));window.__tomoyoChinese.toggleGalMenu();return 1;})()`);await sleep(1200);
-  assert.ok(await cdp.evaluate(`!!document.querySelector('.tomoyo-cn-dialog[open] .tome-menu-tour')`),'the menu has a 教程 button');
-  await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open] .tome-menu-tour').click()`);await sleep(900);
-  assert.equal((await tour())?.step,'capsule','教程 in the Alt+T menu starts the tour again');
+  await cdp.evaluate(`(()=>{localStorage.setItem('tomoyo-onboarding',JSON.stringify({shown:5,stopped:true,seen:true}));window.__tomoyoChinese.toggleGalMenu();return 1;})()`);await sleep(1200);
+  assert.ok(await cdp.evaluate(`!!document.querySelector('.tomoyo-cn-dialog[open] #mg-menu-tour')`),'the menu has a 教程 button');
+  await cdp.evaluate(`document.querySelector('.tomoyo-cn-dialog[open] #mg-menu-tour').click()`);await sleep(900);
+  assert.equal(await step(),'capsule','教程 in the Alt+T menu starts the tour again');
+  assert.equal((await hole()).next,true,'with the menu already open the capsule step is done');
+ });
+});
+
+test('the 教程 button in the Alt+T menu carries a red dot until the tour has been seen once',{skip:!hasEdge&&'Edge not installed',timeout:120000},async()=>{
+ await withReader(async({cdp,launch,saved})=>{
+  await launch('pid1|a',{before:"localStorage.setItem('tomoyo-onboarding',JSON.stringify({shown:5}));"});
+  await cdp.evaluate(`(()=>{window.__tomoyoChinese.toggleGalMenu();return 1;})()`);await sleep(1200);
+  const dot=()=>cdp.evaluate(`(()=>{const b=document.querySelector('.tomoyo-cn-dialog[open] #mg-menu-tour');if(!b)return null;const a=getComputedStyle(b,'::after');return {data:b.hasAttribute('data-new'),painted:a.content!=='none'&&parseFloat(a.width)>0,label:b.textContent.trim(),h:b.getBoundingClientRect().height};})()`);
+  let d=await dot();assert.ok(d,'教程 button');assert.equal(d.label,'教程');assert.ok(d.data&&d.painted,'red dot before the tour was ever seen');assert.ok(d.h<=26,'a slim button, about the height of ×');
+  await cdp.evaluate(`document.querySelector('#mg-menu-tour').click()`);await sleep(700);
+  d=await dot();assert.equal(d.data,false,'the dot goes once the tour is on screen');await sleep(600);assert.equal(saved()?.seen,true,'remembered in ui-state.json');
  });
 });
 
@@ -158,7 +200,7 @@ test('the launch count and the pictures: five launches, a repeated status counts
  assert.deepEqual(shown,[true,false,true,true,true,true,false]);assert.equal(s.shown,5);
  assert.equal(O.launch(O.stop({}),'x').show,false,'skipped before the first count: never');
  const again=O.launch(O.replay(O.stop({shown:5})),'y');assert.deepEqual([again.show,again.state.replay,again.state.shown],[true,false,5],'a replay shows once without counting');
- assert.deepEqual(O.clean('{"shown":99,"stopped":"yes"}'),{shown:5,stopped:false,last:'',replay:false},'bad stored values are cleaned');
+ assert.deepEqual(O.clean('{"shown":99,"stopped":"yes"}'),{shown:5,stopped:false,last:'',replay:false,seen:false},'bad stored values are cleaned');
  for(const s of O.STEPS)for(const l of ['zh','en','ja']){const f=path.join(WEB,'assets','onboarding',O.image(s.image,l));assert.ok(fs.existsSync(f)&&fs.statSync(f).size>1500,s.id+' '+l+' picture');
   assert.ok(O.TEXT[l].steps[s.id][0]&&O.TEXT[l].steps[s.id][1],s.id+' '+l+' words');}
 });

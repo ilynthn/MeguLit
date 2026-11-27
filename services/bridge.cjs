@@ -703,6 +703,12 @@ async function dispatch(request,runtime=null) {
         let saved={};try{saved=JSON.parse(values[KEY]||'{}')||{};}catch{}if(!saved||typeof saved!=='object'||Array.isArray(saved))saved={};values[KEY]=JSON.stringify({...saved,replay:true});fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(values,null,2));
         runtime?.emit('reader-event',{type:'onboarding',action:'replay'});return {replay:true};
       }
+      /* 教程 opened in the main window: the red dot on the 教程 buttons is done with */
+      case 'onboarding_seen':{
+        const KEY='tomoyo-onboarding',file=path.join(root,'data','ui-state.json'),values=cleanUiState(store.readJSON(file,{}));
+        let saved={};try{saved=JSON.parse(values[KEY]||'{}')||{};}catch{}if(!saved||typeof saved!=='object'||Array.isArray(saved))saved={};
+        values[KEY]=JSON.stringify({...saved,seen:true});fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(values,null,2));return {seen:true};
+      }
       case 'save_preferences':{const preferences=savePreferences(request);runtime?.emit('reader-event',{type:'appearance',preferences});if(request.values?.language)runtime?.emit('reader-event',{type:'language',language:preferences.language});return preferences;}
       case 'asset_get':return require('./assets.cjs').get(root,String(request.slot||'home'));
       case 'asset_preview':return require('./assets.cjs').preview(request.path);
