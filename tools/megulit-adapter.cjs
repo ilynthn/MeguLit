@@ -23,7 +23,7 @@
    State: <out>/adapter.json (everything decided, every answer); nothing is written into the game folder. */
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 const Copies=require('./game-copies.cjs'),SecondOpinion=require('./megulit-adapter/second-opinion.cjs'),Cold=require('./megulit-adapter/cold.cjs'),Engines=require('./megulit-adapter/engines.cjs'),Ident=require('./megulit-adapter/identify.cjs');
-const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs');
+const {plan,STEPS}=require('./megulit-adapter/plan.cjs'),Check=require('./megulit-adapter/checkpoints.cjs'),Install=require('./megulit-adapter/install.cjs');
 const REPO=path.join(__dirname,'..');
 const EXIT={done:0,fail:1,inconclusive:2,human:3};
 const GAME_LOCK=process.env.MEGULIT_GAME_LOCK||path.join(Cold.RUNS_ROOT,'.game.lock');
@@ -33,7 +33,7 @@ function parseRun(argv){const a=argv.slice(2),o={steamAppId:'',copy:false,net:tr
  for(let i=0;i<a.length;i++){const k=a[i],v=()=>{if(i+1>=a.length)throw Error(k+' needs a value');return a[++i];};
   if(k==='--exe')o.exe=v();else if(k==='--vndb')o.vndb=v().toLowerCase();else if(k==='--release')o.release=v();else if(k==='--cn')o.cn=v();else if(k==='--out')o.out=v();
   else if(k==='--budget-min')o.budgetMin=Number(v());else if(k==='--app')o.app=v();else if(k==='--answer')o.answers.push(v());else if(k==='--lock-wait-min')o.lockWaitMin=Number(v());
-  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;
+  else if(k==='--foreground')o.foreground=true;else if(k==='--offline')o.offline=true;else if(k==='--no-net')o.net=false;else if(k==='--no-external')o.external=false;else if(k==='--copy')o.copy=true;else if(k==='--steam-appid')o.steamAppId=v();else if(k==='--skip')o.skip=true;else if(k==='--force')o.force=true;else if(k==='--cold')o.cold=true;else if(k==='--no-install')o.install=false;
   else if(!k.startsWith('--')&&!o.dir)o.dir=k;else throw Error('unknown argument: '+k);}
  if(!o.dir)throw Error('usage: node tools/megulit-adapter.cjs <game folder> [--vndb v123] [--release "DL 版"] [--foreground] [--offline]');
  if(o.vndb&&!Ident.VNDB.test(o.vndb))throw Error('--vndb is v<number>');
@@ -124,6 +124,13 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(!fs.existsSync(dir)){log('# 游戏目录不存在：'+dir+'（Git Bash 的 /e/... 带 [ ] 时不转换，用 E:/...）');return EXIT.inconclusive;}
  const triage=Cold.unsupported(dir);if(triage&&!/光盘/.test(triage)){log('# '+triage);return EXIT.inconclusive;}
  const discs=discImages(dir),loc=/光盘/.test(triage)?null:Cold.locate(dir,o.exe);
+ /* 2026-11-27 (アイキス3 sexy) only disc images: installed by tools/megulit-adapter/install.cjs (mount the ISO, copy the game files, the
+    updates checked against their UpdateInf.dat) into MEGULIT_ADAPTER_GAMES, then the run goes on in the installed folder; what it
+    cannot install (bin+cue, two game discs, no space) still asks a person */
+ if(!loc&&discs.length&&o.install!==false){const r=(o.installer||Install.install)(dir,{root:GAMES_ROOT()});
+  if(r.ok){log('# installed '+r.dir+(r.reused?' (kept)':' ('+r.copied+' files)')+(r.updates.length?' + '+r.updates.map(u=>u.version).join(', '):'')+(r.bonus.length?'; bonus discs not installed: '+r.bonus.length:''));
+   return run({...o,dir:r.dir,release:o.release||'',releaseGuess:r.release,install:false,out:o.out||out},{log});}
+  log('# 自动安装没成：'+r.why);}
  if(!loc&&discs.length){const st={tool:'megulit-adapter',out,title,dir,exe:'',engine:'',caps:{known:true},probe:null,identity:{vndb:o.vndb,release:o.release,releaseGuess:'',prints:{},adapted:[]},plan:{source:{kind:'hook',why:'not installed'},align:'hook',pairing:{mode:'machine'},hide:{kind:'generic'},notes:['只有光盘镜像，先安装']},install:discs,steps:STEPS,cold:null,answers:Check.parseAnswers(o.answers),force:o.force,offline:true,startedAt:new Date().toISOString()};saveState(st);return finish(st,log);}
  if(!loc){log('# 找不到主程序（用 --exe 指定）');return EXIT.inconclusive;}
  let caps=lunaCaps(Engines.capabilities(loc.engine),loc.gameDir,loc.engine);if(caps.lunaStatic)loc.engine=caps.id;log('# '+title+' '+(loc.engine||'?')+(caps.luna?' (LunaHook '+caps.luna+')':'')+' '+loc.exe);
@@ -131,6 +138,8 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  const readers=[...new Set([pr.detected,...caps.readers].filter(Boolean))];
  const identity=Ident.identify({gameDir:loc.gameDir,exe:loc.exe,engine:loc.engine,title,vndb:o.vndb,release:o.release,chineseBuild:pr.step==='chinese-build',readers});
  if(o.steamAppId)identity.steamAppId=o.steamAppId;
+ /* the release word of the disc folder an install came from (パッケージ版, DL版 …) */
+ if(!identity.releaseGuess&&o.releaseGuess)identity.releaseGuess=o.releaseGuess;
  /* VNDB: the work, the release, the Chinese title, VNDB's engine (an answer only when unambiguous; --no-net or an error asks a person) */
  if(o.net){const v=await Ident.vndb({title,gameDir:loc.gameDir,vnid:o.vndb||identity.vndb,chineseBuild:pr.step==='chinese-build',engine:loc.engine});identity.steamAppId=o.steamAppId||v.steamAppId||'';identity.steamCandidates=v.steamCandidates||[];identity.vndbLookup={how:v.how,release:v.release,releaseHow:v.releaseHow,candidates:v.candidates,engine:v.vndbEngine,engineDiffers:v.engineDiffers,error:v.error,releases:v.releases.map(r=>({rid:r.rid,title:r.title,engine:r.engine,langs:r.langs,patch:r.patch,official:r.official,ext:r.ext}))};
   if(!identity.vndb&&v.vndb)identity.vndb=v.vndb;if(v.cn)identity.cn=v.cn;if(!identity.release&&v.release)identity.release=v.release;identity.releaseCandidates=v.candidates;
