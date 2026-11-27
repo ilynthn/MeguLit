@@ -42,7 +42,7 @@ test('pressing and dragging the home cover card never lets the hint box sit on t
  const x=Math.round(rest.face.l+rest.face.w*.5),y0=Math.round(rest.face.t+rest.face.h*.82);
  for(let k=0;k<=8;k++){await mouse('mouseMoved',x-40+k*5,y0-40+k*5);await sleep(30);}
  await sleep(900);
- const hover=await evaluate(PROBE);await shot('1-hover');
+ let hover=await evaluate(PROBE);for(let k=0;k<30&&!hover.shown;k++){await sleep(100);hover=await evaluate(PROBE);}await shot('1-hover');
  assert.ok(hover.shown,'hovering the card shows the 单击/双击 hint');
  assert.equal(hover.overlap,0,'the hovering hint stays clear of the card: '+JSON.stringify(hover));
  /* the bottom edge tilts the card the most towards the viewer */

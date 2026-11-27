@@ -34,7 +34,7 @@ async function openHome(t,{covers}){
   async click(x,y,count=1){await mouse('mouseMoved',x,y);await mouse('mousePressed',x,y,1,count);await mouse('mouseReleased',x,y,0,count);},
   /* the strip can reflow when a new title lands, so a chip is measured right before it is pressed */
   async chip(i){const p=(await page.chips())[i];await page.click(p.x,p.y);},
-  async dblclick(x,y){await page.click(x,y,1);await sleep(40);await page.click(x,y,2);},
+  async dblclick(x,y){await page.click(x,y,1);await page.click(x,y,2);},
   cover:()=>evaluate(`(()=>{const r=document.querySelector('.tv-cover').getBoundingClientRect();return {l:r.left,t:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2};})()`),
   chips:()=>evaluate(`[...document.querySelectorAll('.tv-chip')].map(b=>{const r=b.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})`),
   state:()=>evaluate(`(()=>{const c=document.querySelector('.tv-cover');if(!c)return {home:!!document.querySelector('.tv-home')};const face=c.querySelector('.tv-face'),flip=c.querySelector('.tv-flip'),art=c.querySelector('.tv-art'),pop=document.querySelector('.tv-pop');
