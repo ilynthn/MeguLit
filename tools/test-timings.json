@@ -160,6 +160,7 @@
  "validation/cpu-background-budget.test.cjs": 644,
  "validation/cpu-idle.test.cjs": 83,
  "validation/crash-witness.test.cjs": 118,
+ "validation/credits-roll.test.cjs": 17500,
  "validation/crossline-lookup.test.cjs": 140,
  "validation/cs2-position-canvas.test.cjs": 129,
  "validation/cursor-affordance.test.cjs": 85,

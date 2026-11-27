@@ -28,7 +28,10 @@ const RULES={
    {how:'no-KAG Layer.drawText source no-draw (DrawSkip, オルフレール)',file:'native/megulithook/MeguLitDrawSkip.h'}]},
  siglus:{label:'SiglusEngine',registry:['SiglusEngine'],seed:['siglus'],
   draw:[{kind:'roles',file:'native/megulithook/SiglusDraw.h',sig:'tools/engine-sigs/siglus-draw.cjs'}],hide:[]},
- artemis:{label:'Artemis',registry:['Artemis'],seed:['artemis'],draw:[],hide:[]},
+ /* input: the level the live run's input starts on (core/cold-test/input-fallback.cjs). 2026-11-27 ハミダシクリエイティブ: posted clicks and
+    Enter changed nothing, not even the title's hover colour; InputShim's cursor + click opened START and advanced every line */
+ artemis:{label:'Artemis',registry:['Artemis'],seed:['artemis'],draw:[],
+  hide:[{how:'Artemis2 layout call written back blank (layer 1), one stream per text layer: dialogue hidden, names and choices kept (core/profiles/engines/artemis.cjs source.embedGlyphPieces)',file:'native/megulithook/Artemis.cpp',mark:'hp.split = regoffset(ecx);',caveat:'只有 32 位、Artemis2 特征码命中的版本；64 位（THE SHELL）和 EmbedArtemis 版本没改'}],input:'inputctl'},
  tyrano:{label:'TyranoScript',registry:['TyranoScript'],seed:['tyrano'],draw:[],hide:[]},
  catsystem2:{label:'CatSystem2',registry:['CatSystem2'],seed:['catsystem2'],
   draw:[{kind:'roles',file:'native/megulithook/CS2Draw.h',sig:'tools/engine-sigs/cs2-draw.cjs'}],
@@ -108,7 +111,7 @@ function capabilities(engine){const id=ruleId(engine)||Object.keys(RULES).find(k
  if(readers.includes('bgi')||readers.includes('system4'))pairing.push('original-text:patch');
  const draw=r.draw.filter(d=>exists(d.file,d.mark)&&(!d.sig||exists(d.sig))).map(d=>({...d}));
  const hide=r.hide.filter(h=>exists(h.file,h.mark)).map(h=>({...h}));
- return {id,label:r.label,known:true,readers,pairing:[...new Set(pairing)],draw,hide,genericHide:GENERIC_HIDE.filter(h=>exists(h.file)),seeds:seedCounts(r.seed),defaults:exists('core/profiles/engines/'+id+'.cjs')};}
+ return {id,label:r.label,known:true,readers,pairing:[...new Set(pairing)],draw,hide,genericHide:GENERIC_HIDE.filter(h=>exists(h.file)),seeds:seedCounts(r.seed),defaults:exists('core/profiles/engines/'+id+'.cjs'),input:r.input||''};}
 function inventory(){return Object.keys(RULES).map(capabilities);}
 const cell=a=>a.length?a.join('<br>'):'—';
 function markdown(rows=inventory()){const head='| 引擎 | 剧本读取（RRFZ） | 画字钩子 | 引擎级隐藏 | 汉化配对 | seed / 默认设置 |\n|---|---|---|---|---|---|';

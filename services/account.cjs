@@ -19,7 +19,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 
 const KINDS=['words','sentences','reading','settings'];
 const DEFAULT_KINDS={words:true,sentences:true,reading:true,settings:true};
-const RECORD_CAP={words:32<<10,sentences:40<<10,reading:1<<10,settings:32<<10};
+const RECORD_CAP={words:32<<10,sentences:40<<10,reading:1<<10,settings:32<<10,progress:1<<10,study:1<<10};
 const USERNAME=/^[A-Za-z][A-Za-z0-9_]{2,19}$/;
 const PUSH_RECORDS=200,PUSH_BYTES=1500<<10,TIMEOUT=20000;
 
