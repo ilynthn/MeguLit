@@ -24,4 +24,4 @@ function migrateFontFollow(db,root){
  db.prepare('INSERT INTO meta(key,value) VALUES(?,?)').run(FLAG,JSON.stringify({at:new Date().toISOString(),...result}));
  return result;
 }
-module.exports={FLAG,migrateFontFollow,migrateFiles,follow};
+module.exports={FLAG,migrateFontFollow,migrateFiles,follow,rewrite};

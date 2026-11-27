@@ -196,7 +196,7 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
       ['yuGothicUI','Yu Gothic UI','sans'],['meiryoUI','Meiryo UI','sans'],['msPGothic','MS PGothic','sans'],
       ['msUIGothic','MS UI Gothic','sans'],['msPMincho','MS PMincho','serif'],['bizUDGothic','BIZ UDゴシック','sans'],
       ['bizUDPGothic','BIZ UDPゴシック','sans'],['bizUDMincho','BIZ UD明朝','serif'],['bizUDPMincho','BIZ UDP明朝','serif'],
-      ['notoSansJP','Noto Sans JP','sans'],['notoSerifJP','Noto Serif JP','serif'],
+      ['notoSansJP','Noto Sans JP','sans','bundled'],['notoSerifJP','Noto Serif JP','serif','bundled'],
     ],
     chineseFont:[
       ['patch','font.ttf','patch'],['simhei','SimHei','sans'],['yahei','Microsoft YaHei','sans'],
@@ -217,9 +217,11 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
       ['cascadia','Cascadia Mono','mono'],['courier','Courier New','mono'],['lucidaConsole','Lucida Console','mono'],
     ],
   };
+  /* Noto Sans JP ships in web/fonts (SIL OFL 1.1) and is the default furigana font: listed first, marked bundled, never 'install it first' */
   fontOptions.rubyFont=[
+    ...fontOptions.japaneseFont.filter(([id])=>id==='notoSansJP'),
     ['round','Meiryo','round'],['gothic','MS Gothic','sans'],['mincho','MS Mincho','serif'],['inherit','','inherit'],
-    ...fontOptions.japaneseFont.filter(([id])=>!['originalGothic','originalMincho','meiryo'].includes(id)),
+    ...fontOptions.japaneseFont.filter(([id])=>!['originalGothic','originalMincho','meiryo','notoSansJP'].includes(id)),
     ['meiryo','Meiryo','sans'],
   ];
   const englishFonts={inherit:'inherit'};

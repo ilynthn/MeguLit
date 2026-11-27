@@ -159,7 +159,7 @@
    "id": "fonts",
    "title": {"zh": "字体", "en": "Fonts", "ja": "フォント"},
    "items": [
-    {"name": "Noto Sans JP · Noto Serif JP", "by": "Google Fonts", "note": {"zh": "SIL Open Font License 1.1", "en": "SIL Open Font License 1.1", "ja": "SIL Open Font License 1.1"}, "match": ["Noto Sans JP"]}
+    {"name": "Noto Sans JP · Noto Serif JP", "by": "Google Fonts · Adobe", "note": {"zh": "注音默认字体，随 MeguLit 自带 · SIL Open Font License 1.1", "en": "Default furigana font, bundled with MeguLit · SIL Open Font License 1.1", "ja": "ふりがなの標準フォント（MeguLit 同梱）· SIL Open Font License 1.1"}, "match": ["Noto Sans JP"]}
    ]
   },
   {

@@ -10,10 +10,11 @@ html.tomoyo-ui-normal,body.tomoyo-ui-normal{background:transparent!important}bod
 /* An Alt+T right after launch opened the menu before its styles had loaded: unstyled sliders showed as a solid blue bar at the top. The menu stays invisible until every reader module is in. */
 html:not(.megulit-ready) .tomoyo-cn-dialog{visibility:hidden!important}
 
-/* Bundled Noto Sans JP / Noto Serif JP (SIL OFL 1.1, web/fonts/OFL-NotoJP.txt): the default furigana font and two
-   Japanese text choices that no longer need a system install. A locally installed copy still wins. */
-@font-face{font-family:'Noto Sans JP';src:local('Noto Sans JP'),url('../fonts/NotoSansJP.woff2') format('woff2');font-weight:100 900;font-display:swap}
-@font-face{font-family:'Noto Serif JP';src:local('Noto Serif JP'),url('../fonts/NotoSerifJP.woff2') format('woff2');font-weight:200 900;font-display:swap}
+/* Bundled Noto Sans JP / Noto Serif JP (SIL OFL 1.1, web/fonts/OFL.txt): the default furigana font and two
+   Japanese text choices that no longer need a system install. The bundled file comes first, so every PC draws the
+   same face whether or not a (possibly different) system copy is installed; local() is only a fallback. */
+@font-face{font-family:'Noto Sans JP';src:url('../fonts/NotoSansJP.woff2') format('woff2'),local('Noto Sans JP');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Noto Serif JP';src:url('../fonts/NotoSerifJP.woff2') format('woff2'),local('Noto Serif JP');font-weight:200 900;font-display:swap}
 /* Subtitle flow: the translation row keeps its height while a line is pending (no collapse and re-grow under the
    Japanese), the "translating" placeholder only fades in when the wait is long, and a finished translation fades in
    at its own place without moving anything above it. */
