@@ -22,6 +22,8 @@ const Watch=require('../tools/adapt-auto-watch.cjs');
 const tmp=()=>fs.mkdtempSync(path.join(process.env.MEGULIT_TMP||os.tmpdir(),'adapter-auto-'));
 const put=(f,data)=>{fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,data);};
 const FREE={bavail:1e6,bsize:1<<20};
+/* the fixtures live in the temp folder, which is on C: on CI: the copies-never-on-C:/E: rule is set per test (the last zip test) */
+process.env.MEGULIT_COPIES_NO_DRIVES='';
 /* a findGame stand-in for fixture folders (the real one needs an engine's marker files): the first plain exe */
 const find=d=>{const walk=x=>{for(const e of fs.readdirSync(x,{withFileTypes:true})){const f=path.join(x,e.name);if(e.isFile()&&/\.exe$/i.test(e.name)&&!/^(setup|unins|update)/i.test(e.name)&&!/(_cn|chs)\.exe$/i.test(e.name))return f;if(e.isDirectory()&&!/^data$/i.test(e.name)){const r=walk(f);if(r)return r;}}return '';};const exe=walk(d);return exe?{dir:path.dirname(exe),exe}:null;};
 
@@ -78,12 +80,12 @@ test('install: an Inno Setup disc runs its own installer silently, per user, int
 
 test('install: a .zip download is unpacked; a Chinese overlay package starts from the Japanese exe; C: is refused',{skip:process.platform!=='win32'},async t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
  const stage=path.join(d,'stage','Ozmafia');put(path.join(stage,'ozmafia.exe'),'ja');put(path.join(stage,'ozmafia_cn.exe'),'cn launcher');put(path.join(stage,'mai.dll'),'dll');put(path.join(stage,'pac','sc.ypf'),'p');
- const dl=path.join(d,'dl');fs.mkdirSync(dl);const z=spawnSync(path.join(process.env.SystemRoot||'C:\\Windows','System32','tar.exe'),['-a','-cf',path.join(dl,'Ozmafia.zip'),'-C',path.join(d,'stage'),'Ozmafia'],{encoding:'utf8'});assert.equal(z.status,0,z.stderr);
+ const dl=path.join(d,'dl');fs.mkdirSync(dl);const z=spawnSync(path.join(process.env.SystemRoot||'C:\\Windows','System32','tar.exe'),['-a','-cf',path.join(dl,'Ozmafia.zip'),'-C',path.join(d,'stage'),'Ozmafia'],{encoding:'utf8',windowsHide:true});assert.equal(z.status,0,z.stderr);
  const realFind=dir=>{const g=find(dir);return g?{dir:g.dir,exe:''}:null;};/* findGame knows the engine but not which of the two programs */
  const r=await Install.install(dl,{short:'ozmafia',root:path.join(d,'copies'),deps:{statfs:()=>FREE,seven:'',find:realFind,copy:(src,o)=>require('../tools/game-copies.cjs').prepareCopy(src,{...o,statfs:()=>FREE,noDrives:''})}});
  assert.equal(r.ok,true,r.why);assert.equal(path.basename(r.exe),'ozmafia.exe');assert.match(r.notes.join(),/ozmafia_cn\.exe/);
  assert.match(r.steps.join(),/解压 Ozmafia\.zip/);
- const c=await Install.install(dl,{short:'x',root:'C:\\MeguLit-Copies'});assert.equal(c.ok,false);assert.match(c.why,/C:/);});
+ const c=await Install.install(dl,{short:'x',root:'C:\\MeguLit-Copies',noDrives:'C,E'});assert.equal(c.ok,false);assert.match(c.why,/C:/);});
 
 /* ---- auto with fake workers: the adapter writes its state like the real one ------------------------------------------- */
 function fakeAdapter(script){const calls=[];return {calls,fn:args=>{calls.push(args);const out=args[0]==='answer'||args[0]==='publish'?args[1]:args[args.indexOf('--out')+1];const step=script(args,out);

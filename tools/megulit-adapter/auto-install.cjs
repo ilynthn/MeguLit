@@ -154,11 +154,11 @@ const noDrive=(dir,noDrives=process.env.MEGULIT_COPIES_NO_DRIVES??'C,E')=>{const
 const done=(dir)=>{try{return JSON.parse(fs.readFileSync(path.join(dir,'.megulit-auto-install.json'),'utf8')).complete===true;}catch{return false;}};
 
 /* -> {ok, dir, exe, how, steps, updates, notes, why} */
-async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies',log=()=>{},deps={}}={}){
+async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies',log=()=>{},deps={},noDrives=process.env.MEGULIT_COPIES_NO_DRIVES??'C,E'}={}){
  const D={extract:(img,dest)=>require('../../core/disc-image.cjs').extract(img,dest),run:spawnSync,statfs:fs.statfsSync,copy:Copies.prepareCopy,find:undefined,isUdf,mount:mountCopy,seven:sevenZip(),...deps};
  const steps=[],notes=[],fail=why=>({ok:false,why,steps,notes});src=path.resolve(src);
  if(!fs.existsSync(src))return fail('下载目录不存在：'+src);
- if(noDrive(root))return fail('副本不往 '+noDrive(root)+': 放（'+root+'）；设 MEGULIT_COPIES_ROOT');
+ if(noDrive(root,noDrives))return fail('副本不往 '+noDrive(root,noDrives)+': 放（'+root+'）；设 MEGULIT_COPIES_ROOT');
  const files=walk(src,4);
  if(/\[[0-9A-F]{16}\]/i.test(path.basename(src))||files.some(f=>/\.(nsp|xci|nsz|xcz)$/i.test(f))&&!files.some(f=>/\.exe$/i.test(f)))return fail('Switch 版（nsp/xci），PC 适配器不处理');
  const target=path.join(root,safeName(short)+'-auto');fs.mkdirSync(root,{recursive:true});
