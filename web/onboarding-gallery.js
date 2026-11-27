@@ -16,6 +16,7 @@ function stepHTML(locale, i, esc) {
 }
 
 export function galleryHTML(locale, esc) {
+  if (!O()) return '';
   const o = O(), w = o.words(locale), { s, body } = stepHTML(locale, 0, esc);
   return `<section class="tour-gallery" data-step="${s.id}" data-index="0" data-locale="${esc(locale)}" aria-roledescription="carousel">
 <figure class="tour-gallery-shot"><img src="${IMG(s.image, locale)}" alt="" decoding="async"></figure>
