@@ -71,9 +71,10 @@ code,.mono{font-family:var(--mono);font-size:12px}
 .sec>header p{margin:2px 0 0;font-size:14px;color:var(--dim)}
 .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;align-items:start}
 #overview .grid{align-items:stretch}
+.stack{display:flex;flex-direction:column;gap:16px}
 .grid>*{grid-column:span 12;min-width:0}
-@media(min-width:760px){.grid>.s6,.grid>.s4,.grid>.s3{grid-column:span 6}.grid>.s8,.grid>.s12{grid-column:span 12}}
-@media(min-width:1280px){.grid>.s3{grid-column:span 3}.grid>.s4{grid-column:span 4}.grid>.s6{grid-column:span 6}.grid>.s8{grid-column:span 8}}
+@media(min-width:760px){.grid>.s6,.grid>.s4,.grid>.s3{grid-column:span 6}.grid>.stack{grid-column:span 12;display:grid;grid-template-columns:1fr 1fr;align-items:start}.grid>.s8,.grid>.s12{grid-column:span 12}}
+@media(min-width:1280px){.grid>.stack{grid-column:span 4;display:flex}.grid>.s3{grid-column:span 3}.grid>.s4{grid-column:span 4}.grid>.s6{grid-column:span 6}.grid>.s8{grid-column:span 8}}
 @media(min-width:1280px) and (max-width:1599px){.grid>.s3{grid-column:span 6}}
 
 /* cards: 16px radius, 20px padding; nested tiles use 16 - 6 = 10px */
@@ -252,16 +253,17 @@ td.z{color:var(--fg);white-space:nowrap}
 </section>
 
 <section class="sec" id="calib"><header><h2 data-i18n="h.calib">校准与适配</h2><p data-i18n="hd.calib">适配库的进度、探针的状态，以及玩家回传的数据</p></header><div class="grid">
-    <section class="pane s3 gold"><header class="ch"><h3 class="ct" data-i18n="p.cardinal2">Cardinal 回放评分</h3><p class="cd" data-i18n="p.cardinal2.d">玩家回放后回传的评分：今日数量、升级为已验证、进入修复队列。</p></header>
-      <div class="cb" id="cardinal"><div class="empty" data-i18n="loading">加载中…</div></div>
-      <div class="cs"><span data-i18n="src">数据来源</span><code>/api/probe/stats · cardinal</code></div></section>
-    <section class="pane s3"><header class="ch"><h3 class="ct" data-i18n="p.why2">探针停在哪一步</h3><p class="cd" data-i18n="p.why2.d">玩家上报的探针按步骤分布，以及探针质量，单位：份。</p></header>
+    <section class="pane s4"><header class="ch"><h3 class="ct" data-i18n="p.why2">探针停在哪一步</h3><p class="cd" data-i18n="p.why2.d">玩家上报的探针按步骤分布，以及探针质量，单位：份。</p></header>
       <div class="cb" id="steps"><div class="empty" data-i18n="nodata">暂无数据</div></div>
       <div class="cs"><span data-i18n="src">数据来源</span><code>/api/probe/stats · steps · probeStates</code></div></section>
-    <section class="pane s3"><header class="ch"><h3 class="ct" data-i18n="p.adapters2">适配包与上传</h3><p class="cd" data-i18n="p.adapters2.d">适配包数量、举报，以及玩家贡献和诊断上传。</p></header>
+    <section class="pane s4"><header class="ch"><h3 class="ct" data-i18n="p.adapters2">适配包与上传</h3><p class="cd" data-i18n="p.adapters2.d">适配包数量、举报，以及玩家贡献和诊断上传。</p></header>
       <div class="cb" id="adp"><div class="empty" data-i18n="loading">加载中…</div></div>
       <div class="cs"><span data-i18n="src">数据来源</span><code>/api/probe/stats · ext.adapters</code></div></section>
-    <section class="pane s3"><header class="ch"><h3 class="ct" data-i18n="p.full2">完整转储</h3><p class="cd" data-i18n="p.full2.d">玩家上传的完整探针包：就绪、上传中、已完成，以及 R2 占用。</p></header>
+    <div class="s4 stack">
+    <section class="pane gold"><header class="ch"><h3 class="ct" data-i18n="p.cardinal2">Cardinal 回放评分</h3><p class="cd" data-i18n="p.cardinal2.d">玩家回放后回传的评分：今日数量、升级为已验证、进入修复队列。</p></header>
+      <div class="cb" id="cardinal"><div class="empty" data-i18n="loading">加载中…</div></div>
+      <div class="cs"><span data-i18n="src">数据来源</span><code>/api/probe/stats · cardinal</code></div></section>
+    <section class="pane"><header class="ch"><h3 class="ct" data-i18n="p.full2">完整转储</h3><p class="cd" data-i18n="p.full2.d">玩家上传的完整探针包：就绪、上传中、已完成，以及 R2 占用。</p></header>
       <div class="cb"><div class="cnt">
         <div><div class="v r" id="fReady">--</div><div class="k" data-i18n="f.ready">就绪</div></div>
         <div><div class="v" id="fUp">--</div><div class="k" data-i18n="f.uploading">上传中</div></div>
@@ -269,6 +271,7 @@ td.z{color:var(--fg);white-space:nowrap}
       <div class="m"><span class="k">R2</span><span class="bar" id="bR2"></span><span class="v" id="vR2">--</span></div>
       <div class="kv" style="margin-top:8px"><span class="k" data-i18n="f.stored">已存储</span><span class="v" id="fMB">--</span><span class="k" data-i18n="f.avg">平均每份</span><span class="v" id="fAvg">--</span><span class="k" data-i18n="f.last">最近上传</span><span class="v" id="fLast">--</span></div></div>
       <div class="cs"><span data-i18n="src">数据来源</span><code>/api/probe/stats · full</code></div></section>
+    </div>
 </div></section>
 
 <section class="sec" id="comm"><header><h2 data-i18n="h.comm">用户与社区</h2><p data-i18n="hd.comm">账号、同步、榜单与论坛的使用量</p></header><div class="grid">
