@@ -379,7 +379,7 @@ async function run(opts,{log=console.log}={}){
   try{result.gameKey=require('../../core/profiles/index.cjs').profileFor({engine:loc.engine,exe:loc.exe,title,exeSha256:probe?.exeSha256||undefined}).gameKey||'';}catch{}
   if(overtime('冷测试'))return finish(judge({cold:null}));
   /* cold test: what is left of the budget, less the reserve for diff + Cardinal */
-  const root=await step('prepareApp',()=>withSlot('adapter-app',()=>prepareApp(opts.app,path.join(RUNS_ROOT,'_app'))));result.wgcShot=wgcUsed?'yes':'missing';if(!wgcUsed)log('# MeguLitWgcShot.exe 没有：截图退回 PrintWindow');
+  const root=await step('prepareApp',()=>withSlot('adapter-app-'+path.basename(appRoot()),()=>prepareApp(opts.app,appRoot())));result.wgcShot=wgcUsed?'yes':'missing';if(!wgcUsed)log('# MeguLitWgcShot.exe 没有：截图退回 PrintWindow');
   const before=userDirs(),t0=Date.now();let located0=null;try{located0=require('../../core/cold-test/saves.cjs').locate({exe:loc.exe,engine:loc.engine,title});}catch{}
   const localeEmulator=localeEmulatorFor(root,loc,title);result.localeEmulator=!!localeEmulator;
   const coldMs=Math.max(120000,left()-RESERVE_MS);result.coldBudgetMs=coldMs;
@@ -438,5 +438,9 @@ function reexecIfOldNode(entry,argv,app){
  const node=path.join(app||APP_DEFAULT,'runtime','node.exe');if(!fs.existsSync(node))return null;
  const r=spawnSync(node,[entry,...argv.slice(2)],{stdio:'inherit',windowsHide:true,env:{...process.env,MEGULIT_ADAPT_REEXEC:'1'}});return r.status??EXIT.inconclusive;}
 /* core/layout.cjs reads MEGULIT_ROOT once: the hook, its logs and the cold worker (it inherits the env) use the copied binaries */
-function prepareRuntime(){if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=path.join(RUNS_ROOT,'_app');}
-module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,parseArgs,pickHookDll,hookDirs,useCheckoutHook,useCheckoutFont,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};
+/* 2026-11-27 (アイキス3 sexy: prepareApp failed with EBUSY copying runtimemegulithookMeguLitHook32.dll into the shared _app while
+   another agent's game had it loaded, and each run put its own checkout's DLLs into the copy the other run was using) one app copy
+   per game: _app-<game folder name> (about 50 MB of binaries), or MEGULIT_ADAPTER_APP_ROOT; no game folder = the old shared _app */
+function appRoot(gameDir='',env=process.env){if(env.MEGULIT_ADAPTER_APP_ROOT)return env.MEGULIT_ADAPTER_APP_ROOT;return gameDir?path.join(RUNS_ROOT,'_app-'+safeName(titleOf(gameDir)).slice(0,60)):path.join(RUNS_ROOT,'_app');}
+function prepareRuntime(gameDir=''){if(!process.env.MEGULIT_ADAPTER_APP_ROOT)process.env.MEGULIT_ADAPTER_APP_ROOT=appRoot(gameDir);if(!process.env.MEGULIT_ROOT)process.env.MEGULIT_ROOT=process.env.MEGULIT_ADAPTER_APP_ROOT;}
+module.exports={RUNS_ROOT,APP_DEFAULT,reexecIfOldNode,prepareRuntime,appRoot,parseArgs,pickHookDll,hookDirs,useCheckoutHook,useCheckoutFont,titleOf,safeName,unsupported,locate,engineOfGame,engineHook,hookDiagnostics,stuckOf,writeSeed,judge,useCheckoutWgc,withSlot,run,main,GATE,EXIT};

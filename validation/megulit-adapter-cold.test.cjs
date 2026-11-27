@@ -325,3 +325,10 @@ test('the app copy gets this checkout\'s glyph hide DLLs, rebuilt when a fontpro
  A.useCheckoutFont(root,repo,()=>{throw Error('must not build: the checkout DLLs are newer than the sources');});
  const old=new Date(Date.now()-3600e3);for(const f of FILES)fs.utimesSync(path.join(repo,'native',f),old,old);
  A.useCheckoutFont(root,repo,build);assert.equal(built,2,'a source newer than the DLL rebuilds');});
+
+/* 2026-11-27 (アイキス3 sexy: prepareApp failed with EBUSY on the shared _app, another agent's game had its hook DLL loaded) */
+test('each game gets its own app copy; MEGULIT_ADAPTER_APP_ROOT overrides; no game folder keeps the old shared one',()=>{
+ const a=A.appRoot('H:/copies/[220325][戯画] アイキス3 sexy',{}),b=A.appRoot('H:/copies/HamidashiCreative',{});
+ assert.notEqual(a,b,'two games never share an app copy');assert.equal(path.dirname(a),A.RUNS_ROOT);assert.match(path.basename(a),/^_app-アイキス3 sexy$/);
+ assert.equal(A.appRoot('H:/copies/HamidashiCreative',{MEGULIT_ADAPTER_APP_ROOT:'X:/own'}),'X:/own');
+ assert.equal(A.appRoot('',{}),path.join(A.RUNS_ROOT,'_app'));});

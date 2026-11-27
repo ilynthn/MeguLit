@@ -180,7 +180,7 @@ function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(p
 async function main(argv){const cmd=argv[2];
  if(cmd==='inventory'){const rows=Engines.inventory();console.log(argv.includes('--json')?JSON.stringify(rows,null,1):Engines.markdown(rows));return 0;}
  const runsGame=cmd!=='answer'&&cmd!=='publish';
- if(runsGame){let app=Cold.APP_DEFAULT;const i=argv.indexOf('--app');if(i>0&&argv[i+1])app=argv[i+1];const r=Cold.reexecIfOldNode(__filename,argv,app);if(r!==null)return r;Cold.prepareRuntime();}
+ if(runsGame){let app=Cold.APP_DEFAULT;const i=argv.indexOf('--app');if(i>0&&argv[i+1])app=argv[i+1];const r=Cold.reexecIfOldNode(__filename,argv,app);if(r!==null)return r;/* the game folder: the first argument that is not a flag or a flag's value (cold: after the word) */const rest=argv.slice(cmd==='cold'?3:2),VAL=/^--(exe|vndb|release|cn|out|budget-min|app|answer|lock-wait-min|steam-appid|seed-out)$/;let gd='';for(let k=0;k<rest.length;k++){if(VAL.test(rest[k])){k++;continue;}if(!rest[k].startsWith('--')){gd=rest[k];break;}}Cold.prepareRuntime(gd);}
  try{
   if(cmd==='cold')return await Cold.main([argv[0],argv[1],...argv.slice(3)]);
   if(cmd==='answer'){if(!argv[3])throw Error('usage: answer <out dir> id=value ...');return answer(argv[3],argv.slice(4));}
