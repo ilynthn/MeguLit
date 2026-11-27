@@ -40,7 +40,7 @@ test('a change that interrupts a running one picks up from the screen, and quick
  const chips=await page.chips(),c=await page.cover(),clip={x:c.l,y:c.t,width:c.w,height:c.h},mean=()=>page.pixels(clip,MEAN);
  const red=await mean(),green=[40,160,70];
  /* hold the first dissolve open (a slow CI machine takes seconds over the screenshot) so it is still running when it is interrupted */
- await evaluate(`document.querySelector('.tv-cover').style.setProperty('--tv-dissolve-ms','30000');1`);
+ await evaluate(`document.querySelector('.tv-cover').style.setProperty('--tv-dissolve-ms','10000');1`);
  await page.chip(1);await sleep(1000);
  const before=await mean();await page.shot(SHOTS,'switch-1-before-interrupt',clip);
  assert.ok(dist(before,red)>8,'the change to the second game has started: '+JSON.stringify({before,red}));
