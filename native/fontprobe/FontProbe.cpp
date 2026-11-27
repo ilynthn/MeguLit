@@ -128,7 +128,6 @@ void Command(std::string l) {
  else if ((l.rfind("EXTRA n ", 0) == 0 || l.rfind("EXTRA o ", 0) == 0) && l.size() > 8) { char k = l[6]; std::wstring t = Stripped(Wide(l.substr(8)));
   if (!t.empty() && t.size() <= 200) { if (k == 'n') Extras.erase(std::remove_if(Extras.begin(), Extras.end(), [](const Extra &e) { return e.kind == 'n'; }), Extras.end());
    if (Extras.size() >= 16) Extras.erase(Extras.begin()); Extras.push_back(Extra{++ExtraSeq, k, t, GetTickCount()}); extra = "ToMe_GLYPHDOT extra id=" + std::to_string(ExtraSeq) + " kind=" + std::string(1, k) + " text=" + Utf8(t); } }
- else if (l == "AFTERLINE on" || l == "AFTERLINE off") Hide.AfterLineNew = l == "AFTERLINE on"; // profile hide.glyphAfterLine (GlyphMatch.h)
  else if (l == "MARK on" || l == "MARK off") { InterlockedExchange(&MarkArmed, l == "MARK on" ? 1 : 0); InterlockedExchange(&MarkOn, 0); MarkLast = -1; } // two lines, once the engine is known to rasterise again
  else if (l == "EXTRA-CLEAR n" || l == "EXTRA-CLEAR o") { char k = l[12]; Extras.erase(std::remove_if(Extras.begin(), Extras.end(), [k](const Extra &e) { return e.kind == k; }), Extras.end()); }
  else if (l.rfind("FONT ", 0) == 0) { size_t sp = l.find(' ', 5); if (sp != std::string::npos) { GlyphHide::Key k; k.size = atoi(l.substr(5, sp - 5).c_str()); k.face = Clean(Wide(l.substr(sp + 1))); Hide.Seed(k); } }
