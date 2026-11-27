@@ -1,0 +1,31 @@
+{
+ "_comment": "Dialect sentence endings stripped before a dictionary lookup (core/colloquial.cjs). ending: the text cut from the end of the word; as: what it stands for when the ending is part of the inflection (行かへん = 行かない); region and note are shown in the lookup card. words: dialect words read as a standard dictionary word. Add rows freely; longer endings are tried first.",
+ "endings": [
+  { "ending": "じゃけん", "region": { "zh": "广岛、山口", "en": "Hiroshima, Yamaguchi", "ja": "広島・山口" }, "note": { "zh": "表示原因的句末词，相当于「だから」", "en": "sentence ending giving a reason, like 「だから」", "ja": "理由を表す文末表現。「だから」に当たる" } },
+  { "ending": "じゃけ", "region": { "zh": "广岛、山口", "en": "Hiroshima, Yamaguchi", "ja": "広島・山口" }, "note": { "zh": "表示原因或断定的句末词，相当于「だから」「だ」", "en": "sentence ending for a reason or assertion, like 「だから」 or 「だ」", "ja": "理由・断定の文末表現。「だから」「だ」に当たる" } },
+  { "ending": "さかい", "region": { "zh": "关西（偏旧）", "en": "Kansai (dated)", "ja": "関西（やや古風）" }, "note": { "zh": "表示原因，相当于「から」", "en": "gives a reason, like 「から」", "ja": "理由を表す。「から」に当たる" } },
+  { "ending": "やけん", "region": { "zh": "福冈、九州", "en": "Fukuoka, Kyushu", "ja": "福岡・九州" }, "note": { "zh": "相当于「だから」", "en": "like 「だから」", "ja": "「だから」に当たる" } },
+  { "ending": "だっぺ", "region": { "zh": "茨城、栃木", "en": "Ibaraki, Tochigi", "ja": "茨城・栃木" }, "note": { "zh": "推测或劝诱，相当于「だろう」", "en": "guess or invitation, like 「だろう」", "ja": "推量・勧誘。「だろう」に当たる" } },
+  { "ending": "だべ", "region": { "zh": "关东、东北、北海道", "en": "Kanto, Tohoku, Hokkaido", "ja": "関東・東北・北海道" }, "note": { "zh": "推测或确认，相当于「だろう」「でしょう」", "en": "guess or check, like 「だろう」", "ja": "推量・確認。「だろう」に当たる" } },
+  { "ending": "べさ", "region": { "zh": "北海道", "en": "Hokkaido", "ja": "北海道" }, "note": { "zh": "「べ」加语气词「さ」，相当于「だろう」", "en": "「べ」 plus 「さ」, like 「だろう」", "ja": "「べ」＋「さ」。「だろう」に当たる" } },
+  { "ending": "やで", "region": { "zh": "关西", "en": "Kansai", "ja": "関西" }, "note": { "zh": "断定加提醒，相当于「だよ」", "en": "assertion with emphasis, like 「だよ」", "ja": "断定＋念押し。「だよ」に当たる" } },
+  { "ending": "やん", "region": { "zh": "关西", "en": "Kansai", "ja": "関西" }, "note": { "zh": "确认、感叹，相当于「じゃないか」「じゃん」", "en": "check or exclamation, like 「じゃないか」", "ja": "確認・詠嘆。「じゃないか」に当たる" } },
+  { "ending": "ねん", "region": { "zh": "关西", "en": "Kansai", "ja": "関西" }, "note": { "zh": "说明、断定，相当于「のだ」「んだ」", "en": "explanation, like 「のだ」", "ja": "説明・断定。「のだ」に当たる" } },
+  { "ending": "へん", "as": "ない", "region": { "zh": "关西", "en": "Kansai", "ja": "関西" }, "note": { "zh": "否定，相当于「ない」（行かへん＝行かない）", "en": "negative, like 「ない」 (行かへん = 行かない)", "ja": "否定。「ない」に当たる（行かへん＝行かない）" } },
+  { "ending": "はる", "as": "れる", "region": { "zh": "京都、关西", "en": "Kyoto, Kansai", "ja": "京都・関西" }, "note": { "zh": "轻敬语，相当于「なさる」「〜れる」", "en": "light honorific, like 「なさる」", "ja": "軽い尊敬。「なさる」に当たる" } },
+  { "ending": "けん", "region": { "zh": "广岛、九州、四国", "en": "Hiroshima, Kyushu, Shikoku", "ja": "広島・九州・四国" }, "note": { "zh": "表示原因，相当于「から」", "en": "gives a reason, like 「から」", "ja": "理由を表す。「から」に当たる" } },
+  { "ending": "っぺ", "region": { "zh": "茨城、栃木", "en": "Ibaraki, Tochigi", "ja": "茨城・栃木" }, "note": { "zh": "推测或劝诱，相当于「だろう」「しよう」", "en": "guess or invitation, like 「だろう」", "ja": "推量・勧誘。「だろう」に当たる" } },
+  { "ending": "っちゃ", "region": { "zh": "富山、北九州等", "en": "Toyama, Kitakyushu and others", "ja": "富山・北九州など" }, "note": { "zh": "句末强调，相当于「のよ」「だよ」", "en": "sentence-final emphasis, like 「だよ」", "ja": "文末の強調。「だよ」に当たる" } },
+  { "ending": "ちゃ", "region": { "zh": "富山、北九州等", "en": "Toyama, Kitakyushu and others", "ja": "富山・北九州など" }, "note": { "zh": "句末强调，相当于「のよ」「だよ」", "en": "sentence-final emphasis, like 「だよ」", "ja": "文末の強調。「だよ」に当たる" } },
+  { "ending": "ばい", "region": { "zh": "九州", "en": "Kyushu", "ja": "九州" }, "note": { "zh": "告知、断定，相当于「よ」", "en": "telling, like 「よ」", "ja": "告知・断定。「よ」に当たる" } },
+  { "ending": "がや", "region": { "zh": "名古屋", "en": "Nagoya", "ja": "名古屋" }, "note": { "zh": "相当于「じゃないか」", "en": "like 「じゃないか」", "ja": "「じゃないか」に当たる" } },
+  { "ending": "ずら", "region": { "zh": "静冈、山梨", "en": "Shizuoka, Yamanashi", "ja": "静岡・山梨" }, "note": { "zh": "推测，相当于「だろう」", "en": "guess, like 「だろう」", "ja": "推量。「だろう」に当たる" } },
+  { "ending": "べ", "region": { "zh": "关东、东北、北海道", "en": "Kanto, Tohoku, Hokkaido", "ja": "関東・東北・北海道" }, "note": { "zh": "推测或劝诱，相当于「だろう」「しよう」", "en": "guess or invitation, like 「だろう」 or 「しよう」", "ja": "推量・勧誘。「だろう」「しよう」に当たる" } },
+  { "ending": "し", "region": { "zh": "山梨（甲州弁）等", "en": "Yamanashi (Koshu) and others", "ja": "山梨（甲州弁）など" }, "note": { "zh": "句末语气，加在命令、劝诱之后表示催促（舐めんなし≈舐めるなよ）；标准语里「し」也可表示列举理由", "en": "sentence-final particle urging the listener (舐めんなし ≈ 舐めるなよ); in standard Japanese 「し」 can also list reasons", "ja": "命令・勧誘に添える文末の語気（舐めんなし≈舐めるなよ）。共通語の「し」は理由の列挙にも使う" } }
+ ],
+ "words": {
+  "ええ": "良い",
+  "ほんま": "本当",
+  "ちゃう": "違う"
+ }
+}

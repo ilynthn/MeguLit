@@ -21,7 +21,8 @@ const TTL=[
 const ttlFor=pathname=>{for(const[re,s]of TTL)if(re.test(pathname))return s;return 0;};
 const MAX_ENTRIES=300;
 let required=null;
-const requiredStatus=()=>required?{...required}:null;
+/* a test build (MEGULIT_TEST_BUILD, services/update.cjs) is never told to update */
+const requiredStatus=()=>required&&!String(process.env.MEGULIT_TEST_BUILD||'').trim()?{...required}:null;
 function headerOf(init,name){const h=init?.headers;if(!h)return '';if(typeof h.get==='function')return h.get(name)||'';const k=Object.keys(h).find(k=>k.toLowerCase()===name);return k?String(h[k]):'';}
 function retryAfterSeconds(response){
  const raw=String(response?.headers?.get?.('retry-after')||'').trim();if(!raw)return 60;

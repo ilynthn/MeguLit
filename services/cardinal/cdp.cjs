@@ -65,8 +65,8 @@ class Page{
   }finally{this.loaded=null;}
  }
  /* fn: a function (called with arg) or an expression string */
- async evaluate(fn,arg){const expression=typeof fn==='function'?'('+fn+')('+(arg===undefined?'':JSON.stringify(arg))+')':String(fn);
-  const r=await this.c.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text||'evaluate failed');return r.result?.value;}
+ async evaluate(fn,arg,timeout){const expression=typeof fn==='function'?'('+fn+')('+(arg===undefined?'':JSON.stringify(arg))+')':String(fn);
+  const r=await this.c.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},timeout);if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text||'evaluate failed');return r.result?.value;}
  async waitForFunction(fn,arg,{timeout=30000}={}){const until=Date.now()+timeout;for(;;){try{if(await this.evaluate(fn,arg))return true;}catch{}if(Date.now()>until)throw Error('waitForFunction timeout');await sleep(100);}}
  addScriptTag({path:file}){return this.evaluate(fs.readFileSync(file,'utf8')+'\n;true');}
 }

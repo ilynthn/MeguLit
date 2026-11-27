@@ -160,7 +160,7 @@ return (async()=>{
    /* options the game showed (core/cardinal/timeline.cjs screenRow): only noted, never fed to the reader */
    if(step.screenChoice)out.screenChoices.push({step:stepIndex,at:elapsed(),texts:step.screenChoice.texts,span:Number.isFinite(step.screenChoice.until)?Math.max(0,step.screenChoice.until-step.t):null});
    if(step.choicePage&&krkr)modelCall(()=>{krkr.tick();out.krkr.choice.push({mark:step.choicePage,frame:step.frame||'選択肢',ui:krkr.st.uiDraw({parent:{frameGraphic:step.frame||'選択肢',height:400}}),cfg:JSON.parse(JSON.stringify(krkr.st.cfg,(k,v)=>v instanceof RegExp?String(v):v))});});
-   if(step.page)await page.evaluate(typeof step.page==="string"?"("+step.page+")()":step.page).catch(e=>out.errors.push('step page: '+e.message));
+   if(step.page)await page.evaluate(typeof step.page==="string"?"("+step.page+")()":step.page,undefined,step.pageTimeoutMs).catch(e=>out.errors.push('step page: '+e.message));
    if(step.mark){await sleep(step.settle??150);const s=await page.evaluate(()=>window.__replayProbe()).catch(e=>({error:e.message}));s.mark=step.mark;s.at=elapsed();s.hitRegions=hits();out.samples.push(s);}
    if(step.watch){const until=elapsed()+step.watch;while(elapsed()<until){const s=await page.evaluate(()=>window.__replayProbe()).catch(e=>({error:e.message}));s.mark=step.mark||('watch:'+step.watchName);s.at=elapsed();s.watch=true;s.hitRegions=hits();out.samples.push(s);await sleep(step.every||80);}}
    if(step.control){const dir=path.join(process.env.TEMP,'MeguLit','draw');await sleep(120);const files=fs.existsSync(dir)?fs.readdirSync(dir):[];out.control.push({mark:step.control,files:files.map(f=>({name:f,text:fs.readFileSync(path.join(dir,f)).slice(2).toString('utf16le')}))});}

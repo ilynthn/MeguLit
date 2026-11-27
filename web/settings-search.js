@@ -46,6 +46,7 @@ export function globalSearchEntries(data,text){return [
   themeMode:'明暗模式',avatar:'头像'})[key]||text[key]||key,en:key}})),
  {scope:'background',key:'homeBackground',label:{zh:'主页背景图片 选择图片 调整显示区域 使用已有背景图',en:'Home background image crop',ja:'ホーム背景画像'}},
  {scope:'data',key:'backup',label:{zh:'数据导入导出备份恢复',en:'Data import export backup restore',ja:'データ バックアップ 復元'}}
+ ,{scope:'hotkeys',key:'hotkeys',label:{zh:'热键 快捷键 Alt+T Alt+H Alt+M Alt+L 鼠标侧键 中键 自定义按键',en:'Hotkeys shortcuts keyboard mouse side button middle button',ja:'ホットキー ショートカット キー マウス サイドボタン'}}
  ,{scope:'speech',key:'voice-preview',label:{zh:'语音角色 情感 试听 惠惠咏唱 推荐声音下载',en:'Voice character emotion preview recommended voice downloads',ja:'音声キャラクター 感情 試聴 おすすめの声'}}
  ,{scope:'translation',key:'local-models',label:{zh:'翻译方式 免费在线机翻 API 本地翻译模型 下载部署 启动服务',en:'Translation type free online API local models download deploy server',
   ja:'翻訳方式 無料オンライン API ローカルモデル ダウンロード サーバー'}}

@@ -10,7 +10,7 @@
                      deep) named like the exe, the title, the Unity company/product (<exe>_Data/app.info) or the Ren'Py
                      config.save_directory
      predicted       where the engine will write on a first start (Unity LocalLow/<company>/<product>, Ren'Py
-                     %APPDATA%/RenPy/<dir>, KiriKiri savedata): it does not exist yet, so restoring = removing it again
+                     %APPDATA%/RenPy/<dir>, KiriKiri savedata, BGI UserData, NeXAS Save): it does not exist yet, so restoring = removing it again
    A game with no place found and none predicted is not tested.
 
    snapshot(root, places) copies every existing place into data/cold-test/snap/<id>/ and writes a journal first, so a crash
@@ -80,6 +80,8 @@ function locate(game,env=process.env){const exe=String(game?.exe||'');if(!exe)re
  if(/kirikiri|krkr/.test(engine))put(path.join(folder,'savedata'),'game',{predicted:true});
  /* 2026-11-26 (バトラーズ～召しませお嬢様: no save place, the cold test refused) BGI / Ethornell writes UserData next to the program on a first start */
  if(/^bgi|ethornell/.test(engine))put(path.join(folder,'UserData'),'game',{predicted:true});
+ /* 2026-11-27 (アイキス3 sexy: no save place, the cold test refused) NeXAS (GIGA) writes Save\Config.dat, Save%03d.dat next to the program on a first start */
+ if(/^nexas|giga/.test(engine))put(path.join(folder,'Save'),'game',{predicted:true});
  /* 2026-11-27 (ハミダシクリエイティブ, Artemis: no save place, the cold test refused) the game ships batch files that open / delete
     its save folder (セーブデータフォルダを開く.bat: %APPDATA%\まどそふと\ハミダシクリエイティブ) */
  for(const p of batchSavePlaces(folder,env))put(p.path,p.kind,{predicted:true});

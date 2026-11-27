@@ -265,14 +265,17 @@
   };
   document.addEventListener('keydown', event => {
     if(event.code==='Escape'&&dialog?.open){event.preventDefault();event.stopImmediatePropagation();dialog.dispatchEvent(new Event('cancel',{cancelable:true}));return;}
-    /* 2026-11-16 one path per hotkey: when the bridge holds Alt+T / Alt+H (RegisterHotKey) the page never handles them as well */
-    if (event.altKey && (event.code === 'KeyT' && bridge.nativeHotkeys?.menu === true || event.code === 'KeyH' && bridge.nativeHotkeys?.cover === true)) { event.preventDefault(); event.stopImmediatePropagation(); return; }
-    if (event.altKey && event.code === 'KeyH' && !event.repeat) {
+    /* 2026-11-27 the keys chosen in 热键 (web/hotkeys.js); Alt+T / Alt+H when that is not loaded */
+    const keys = window.MeguHotkeys, pressed = keys ? keys.fromKeyboard(event) : event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey && /^Key[TH]$/.test(event.code) ? 'Alt+' + event.code.slice(3) : '';
+    const isMenu = !!pressed && pressed === (keys ? keys.get('menu') : 'Alt+T'), isCover = !!pressed && pressed === (keys ? keys.get('cover') : 'Alt+H');
+    /* 2026-11-16 one path per hotkey: when the bridge holds the menu / cover key (RegisterHotKey) the page never handles it as well */
+    if (isMenu && bridge.nativeHotkeys?.menu === true || isCover && bridge.nativeHotkeys?.cover === true) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+    if (isCover && !event.repeat) {
       event.preventDefault(); event.stopImmediatePropagation();
       try { window.__tomoyoTranslateRequest(JSON.stringify({type:'galToggleCover'})); } catch {}
       return;
     }
-    if (event.altKey && event.code === 'KeyT' && !event.repeat) {
+    if (isMenu && !event.repeat) {
       event.preventDefault(); event.stopImmediatePropagation();
       if (bridge.toggleGalMenu) bridge.toggleGalMenu();
       else if (dialog?.open) dialog.dispatchEvent(new Event('cancel', { cancelable: true }));

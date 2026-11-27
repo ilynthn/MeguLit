@@ -3,7 +3,7 @@
  if(!document.documentElement||!window.__tomoyoChinese?.openSettings){document.addEventListener('DOMContentLoaded',installMenuLayout,{once:true});return;}
  const bridge=window.__tomoyoChinese;if(bridge.menuLayoutInstalled)return;bridge.menuLayoutInstalled=true;
  const ABOUT_HTML='';
- const categories=[['translate','翻译'],['text','文字'],['calibrate','校准'],['mask','内嵌'],['learn','学习'],['voice','语音'],['log','记录'],['misc','外观'],['about','关于']];
+ const categories=[['translate','翻译'],['text','文字'],['calibrate','校准'],['mask','内嵌'],['learn','学习'],['voice','语音'],['log','记录'],['misc','外观'],['hotkeys','热键'],['about','关于']];
  const style=document.createElement('style');style.textContent=`
  .tomoyo-cn-dialog { --menu-bg:var(--theme-surface,#18181b);--menu-border:var(--theme-border,#34343a);--menu-accent:var(--theme-primary,#e0495a); background:var(--menu-bg)!important;color:var(--theme-text,#e8e9ec)!important;border:1px solid var(--menu-border)!important;border-radius:16px!important;box-shadow:0 16px 60px #0005!important;padding:0!important;width:520px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100vh - 24px)!important;overflow:hidden!important;font:14px/1.55 'Microsoft YaHei',sans-serif!important; }
  .tomoyo-cn-dialog form { display:flex;flex-direction:column;height:min(730px,calc(100vh - 26px));margin:0; }
@@ -221,6 +221,9 @@
   placeSize('galJapaneseSize',jp,'galJapaneseFont');placeSize('galChineseSize',cn,'galChineseFont');for(const n of sizes)if(!n.querySelector('[name]'))n.remove();
   const history=document.createElement('details');history.className='tome-calibration-history';history.dataset.noI18n='';history.innerHTML='<summary></summary><div data-calibration-history-list></div>';calibration.append(history);
   group.append(text,calibration,panels.mask);
+  /* 2026-11-27 热键: the same panel as Settings → 热键 (web/hotkeys-panel.js); a key being recorded is let go by the bridge meanwhile */
+  const service=(action,params)=>window.__tomoyoInvoke('service',{request:{action,...params}});
+  window.MeguHotkeys?.mountPanel?.(panels.hotkeys,{lang:()=>window.__tomeI18n?.get?.()||'zh',load:()=>service('hotkeys_get'),save:changes=>service('hotkeys_save',{changes}),pause:paused=>service('hotkeys_pause',{paused})?.catch?.(()=>{})});
   const about=panels.about;about.classList.add('tomoyo-about');about.replaceChildren(window.__tomeAboutPanel?.()||document.createTextNode('MeguLit'));
   for(const n of [...form.children]){
    if(n===footer||n===group)continue;
@@ -228,7 +231,7 @@
    if(n.classList.contains('tomoyo-learning-panel')||n.querySelector('.tomoyo-learning-panel'))panels.learn.append(n);
    else if(n.querySelector('[name=font]')){n.style.display='none';general.append(n);}else panels.translate.append(n);
   }
-  content.append(panels.translate,group,panels.learn,panels.voice,panels.log,panels.misc,panels.about);form.prepend(header,nav,content);if(footer)form.append(footer);
+  content.append(panels.translate,group,panels.learn,panels.voice,panels.log,panels.misc,panels.hotkeys,panels.about);form.prepend(header,nav,content);if(footer)form.append(footer);
   bridge.calibrationMenuOpened?.(dialog);
   // Resizable like a normal window: drag any edge or corner. Size is remembered; double-click an edge to reset.
   // Normal window and translation overlay have very different sizes, so each mode remembers its own menu size.

@@ -12,8 +12,9 @@
 import * as THREE from './vendor/three/three.module.min.js';
 import {mergeGeometries} from './vendor/three/addons/utils/BufferGeometryUtils.js';
 import {ashlar,relief,coffers,rose,lancet,quarries,marble,marbleHQ,floorHQ,inlay,glowSprite,basalt,basketRelief} from './torch-textures.js';
-import {MIRROR_LEVEL,TERRACE,torchGroundHeight} from './torch-ground.js';
+import {MIRROR_LEVEL,TERRACE,GROUND_BOUNDS,torchGroundHeight} from './torch-ground.js';
 import {maps,isBakedTorchCanvas} from './torch-bake.js';
+import {buildMeadow,MEADOW_TURF,meadowPatch} from './torch-meadow.js';
 
 /* Twilight sky stays warm after sunset, but a sun below the horizon cannot cast direct light into the vault. */
 export function directSunVisibility(el){const t=Math.max(0,Math.min(1,el/2));return t*t*(3-2*t);}
@@ -471,22 +472,22 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
    add(new THREE.TorusGeometry(wr+.045,.105,8,64),exteriorTrim,[0,wy,NZ1+.62]);
    add(new THREE.TorusGeometry(wr+.1,.18,10,64),smooth,[0,wy,NZ1-.5]);windows.west={pos:new THREE.Vector3(0,wy,NZ1-.5),normal:new THREE.Vector3(0,0,1),r:wr};}
 
- /* The plateau shares its height function with the camera. Its sloped body continues below water. */
- const {halfWidth,back,front,run:slopeRun}=TERRACE,edge=halfWidth+slopeRun+1,z0=back-slopeRun-1,z1=front+slopeRun+1;
- const island=new THREE.PlaneGeometry(edge*2,z1-z0,low?44:74,low?58:92).rotateX(-Math.PI/2).translate(0,0,(z0+z1)/2);
+ /* The plateau and the meadow before the door share their height function with the camera. Their sloped body continues below water. */
+ const {back}=TERRACE,{x:edge,z0,z1}=GROUND_BOUNDS,cell=low?1.7:1.05;
+ const island=new THREE.PlaneGeometry(edge*2,z1-z0,Math.round(edge*2/cell),Math.round((z1-z0)/cell)).rotateX(-Math.PI/2).translate(0,0,(z0+z1)/2);
  const pts=island.attributes.position,colors=[];
- const dark=new THREE.Color(0x3d5438),green=new THREE.Color(0x7e9557),soil=new THREE.Color(0x574637),path=new THREE.Color(0x95836a);
+ const dark=new THREE.Color(MEADOW_TURF.dark),green=new THREE.Color(MEADOW_TURF.green),soil=new THREE.Color(MEADOW_TURF.soil),path=new THREE.Color(MEADOW_TURF.path);
  for(let i=0;i<pts.count;i++){
   const x=pts.getX(i),z=pts.getZ(i),height=torchGroundHeight(x,z);
   const hallInset=(1-THREE.MathUtils.smoothstep(Math.abs(x),12.8,13.45))
    *THREE.MathUtils.smoothstep(z,back+1,back+2)*(1-THREE.MathUtils.smoothstep(z,39,40));
   pts.setY(i,Math.min(-.012,height)-.14*hallInset-.20*THREE.MathUtils.smoothstep(-height,3.75,4));
-  const wave=.46+.12*Math.sin(x*.31+1.2*Math.sin(z*.28))+.09*Math.cos(z*.41+x*.51)+.06*Math.sin(x*1.53-z*.96);
-  const color=dark.clone().lerp(green,wave).lerp(soil,THREE.MathUtils.smoothstep(-height,2,4)*.75);
+  const wave=.25+.5*meadowPatch(x,z)+.06*Math.sin(x*1.53-z*.96);
+  const color=dark.clone().lerp(green,wave).lerp(soil,THREE.MathUtils.smoothstep(-height,3.4,4)*.6);
   const foot=Math.max(Math.abs(x)-13.9,back+1-z,z-41.2);
   color.multiplyScalar(.58+.42*THREE.MathUtils.smoothstep(foot,0,3));
   const trailX=.85*Math.sin(Math.max(0,z-42.6)*.24);
-  const entry=(1-THREE.MathUtils.smoothstep(Math.abs(x-trailX),.85,2.2))*THREE.MathUtils.smoothstep(z,40,43);
+  const entry=(1-THREE.MathUtils.smoothstep(Math.abs(x-trailX),.85,2.2))*THREE.MathUtils.smoothstep(z,40,43)*(1-THREE.MathUtils.smoothstep(z,49,53));
   color.lerp(path,entry*.50);
   color.toArray(colors,colors.length);
  }
@@ -497,56 +498,11 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
  skyFill(turf,0x34472f,.23);
  add(island,turf,null,null,{cast:false}).name='Church ground';
 
- const blades=keep(new THREE.MeshStandardMaterial({color:0x859c5a,roughness:.95,side:THREE.DoubleSide,emissive:0x385235,emissiveIntensity:.24}));
- skyFill(blades,0x40603c,.27);
- const grass=new THREE.BufferGeometry();
- grass.setAttribute('position',new THREE.Float32BufferAttribute([
-  -.08,0,0,.04,0,0,-.10,.33,0,  -.01,0,.03,.10,0,.03,.145,.44,.07,
-  0,0,-.07,0,0,.07,0,.38,-.085
- ],3));grass.computeVertexNormals();
- const grassAt=[],flowerAt=[[],[],[]],stems=[];
- const plantable=(x,z,y)=>y>MIRROR_LEVEL+.36&&
-  !(Math.abs(x)<14.3&&z>BACK&&z<NZ1+1.5)&&!(z>NZ1&&Math.abs(x)<3.4);
- const rand=(seed)=>{const f=Math.sin(seed*127.1+311.7)*43758.5453123;return f-Math.floor(f);};
- const islands=[[18,-2,4.5,6.1],[-19,1,5.3,8],[23,12,7.2,7.6],[-23,15,6.8,8.2],
-  [20.4,27,5.8,7.2],[-25.8,31,5.7,7.7],[14.8,47,6.5,8.8],[-12.8,48,6.2,9.1]];
- islands.forEach(([x,z,rx,rz],index)=>{
-  const rim=a=>1+.10*Math.sin(a*3+index)+.066*Math.cos(a*6-index);
-  for(let i=0;i<(low?100:220);i++){
-   const seed=index*4201+i*7,a=rand(seed)*Math.PI*2,r=Math.pow(rand(seed+3),.7+(index%3)*.26)*.96;
-   const px=x+Math.cos(a)*rx*r*rim(a),pz=z+Math.sin(a)*rz*r*rim(a),py=torchGroundHeight(px,pz);
-   if(plantable(px,pz,py))grassAt.push([px,py-.028,pz,rand(seed+1)*Math.PI*2,0,0,.25+rand(seed+5)*(.43+.29*(index%2))]);
-  }
-  for(let cluster=0;cluster<(low?3:6);cluster++){
-   const seed=index*1709+cluster*37;
-   const a=rand(seed)*Math.PI*2,r=.25+rand(seed+1)*.53;
-   const cx=x+Math.cos(a)*rx*r,cz=z+Math.sin(a)*rz*r;
-   for(let j=0;j<(low?5:9);j++){
-    const px=cx+(rand(seed+3+j*3)-.5)*1.35,pz=cz+(rand(seed+4+j*3)-.5)*1.35;
-    const scale=.63+rand(seed+5+j*3)*.81;
-    const py=torchGroundHeight(px,pz);
-    if(!plantable(px,pz,py))continue;
-    stems.push([px,py-.024,pz,0,0,0,scale]);
-    flowerAt[(index+cluster)%flowerAt.length].push([px,py-.024+scale*.30,pz,rand(seed+j)*Math.PI*2,0,0,scale]);
-   }
-  }
- });
- inst(grass,blades,grassAt,{cast:false}).name='Meadow grass';
- const stemGeo=new THREE.CylinderGeometry(.009,.013,.30,4).translate(0,.15,0);
- inst(stemGeo,blades,stems,{cast:false}).name='Wildflower stems';
- const petals=[];
- for(let j=0;j<5;j++){
-  const a=j*Math.PI*2/5;
-  petals.push(new THREE.SphereGeometry(.044,5,3).scale(1,.47,1.25).translate(Math.cos(a)*.058,0,Math.sin(a)*.058));
- }
- petals.push(new THREE.SphereGeometry(.032,6,4).translate(0,.015,0));
- const blossom=mergeGeometries(petals);petals.forEach(p=>p.dispose());
- flowerAt.forEach((points,i)=>{
-  const color=[0xf4deb5,0xbe9fd7,0xe5b5c1][i];
-  const mat=keep(new THREE.MeshStandardMaterial({color,roughness:.83,emissive:color,emissiveIntensity:.27}));
-  skyFill(mat,color,.22);
-  inst(blossom,mat,points,{cast:false}).name='Wildflower clusters';
- });
+ /* the meadow lives in torch-meadow.js; it keeps off the hall, its doorstep and the short trail that leaves the west door and fades into the meadow */
+ const meadow=buildMeadow({hall,keep,low,skyFill,reduced:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,
+  blocked:(x,z)=>(Math.abs(x)<14.3&&z>BACK&&z<NZ1+1.5)||(z>NZ1&&z<52&&Math.abs(x-.85*Math.sin(Math.max(0,z-42.6)*.24))<1.15)});
+ /* the water only shows the shore below the meadow, so blades stay out of the mirror pass */
+ skipInMirror.push(...meadow.mirrorSkip);
 
  /* ---- floor: mirror under polished marble; an inlaid runner up the nave and a porphyry rota before the stair ---- */
  const FL_W=2*AX+1,FL_Z0=BACK,FL_L=NZ1-FL_Z0,FL_Z=(FL_Z0+NZ1)/2;
@@ -716,7 +672,7 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
     const stretch=1/Math.max(.35,-dir.y);pool.scale.set(m.userData.r*2.6,m.userData.r*2.6*stretch,1);pool.rotation.z=-Math.atan2(dir.x,dir.z);pool.material.opacity=.18*w*m.userData.str;}}
   /* torches */
   flameMat.uniforms.uOn.value=hallState.torch;haloMat.opacity=hallState.torch*.5;flameMesh.visible=hallState.torch>.01;halos.forEach(x=>x.visible=flameMesh.visible);}
- function update(time,dt,renderer){applyTime(dt,renderer);flameMat.uniforms.uTime.value=time;sparkMat.uniforms.uPx.value=renderer.domElement.height/520;sparkMat.uniforms.uTime.value=time;sparkMat.uniforms.uOn.value=hallState.torch;sparks.visible=hallState.torch>.01;if(torchHeadMat)torchHeadMat.emissiveIntensity=hallState.torch*2.5;beams.children.forEach(b=>b.material.uniforms.uTime.value=time);
+ function update(time,dt,renderer){applyTime(dt,renderer);meadow.update(time,hallState,renderer);flameMat.uniforms.uTime.value=time;sparkMat.uniforms.uPx.value=renderer.domElement.height/520;sparkMat.uniforms.uTime.value=time;sparkMat.uniforms.uOn.value=hallState.torch;sparks.visible=hallState.torch>.01;if(torchHeadMat)torchHeadMat.emissiveIntensity=hallState.torch*2.5;beams.children.forEach(b=>b.material.uniforms.uTime.value=time);
   for(const l of torchLights){const f=.82+.12*Math.sin(time*7.3+l.userData.seed)+.06*Math.sin(time*17.1+l.userData.seed*3);l.intensity=hallState.torch*16*l.userData.k*f;}
   hallState.flicker=.88+.07*Math.sin(time*6.1)+.05*Math.sin(time*13.7+1.3);}
  /* the sun moves about 0.25° a minute: its shadow map is drawn again only after it has moved ~0.1° (or the moon took over) */

@@ -114,7 +114,12 @@ function refreshIcons(root,current,run=(file,args)=>{const c=require('node:child
  if(!root||!current)return false;const mark=path.join(root,'data','icon-refresh.json');let seen='';try{seen=JSON.parse(fs.readFileSync(mark,'utf8')).version||'';}catch{}
  if(seen===String(current))return false;try{run(path.join(process.env.SystemRoot||'C:\\Windows','System32','ie4uinit.exe'),['-show']);fs.mkdirSync(path.dirname(mark),{recursive:true});fs.writeFileSync(mark,JSON.stringify({version:String(current)}));return true;}catch{return false;}
 }
-async function check(current,fetcher=fetch,root=''){current=String(current||'').trim().replace(/^v/,'');tidyRollback(root);refreshIcons(root,current);try{require('./uninstall.cjs').registerSoon(root,current);}catch{}
+/* 2026-11-27 test builds (owner: 测试版不能触发更新): MEGULIT_TEST_BUILD=<label> (set by tools/megulit-adapter/test-start.cjs for a
+   side-by-side test copy) turns the updater off whole: nothing is checked, downloaded, installed or restarted. Unset: as before */
+const testBuild=()=>String(process.env.MEGULIT_TEST_BUILD||'').trim();
+async function check(current,fetcher=fetch,root=''){current=String(current||'').trim().replace(/^v/,'');
+ if(testBuild())return {current,latest:current,newer:false,required:false,hot:false,silent:true,notes:'',testBuild:testBuild()};
+ tidyRollback(root);refreshIcons(root,current);try{require('./uninstall.cjs').registerSoon(root,current);}catch{}
  const [releaseResult,p]=await Promise.all([latest(fetcher).then(value=>({value}),error=>({error})),policy(fetcher,root)]);
  const required=!!(p?.minVersion&&newer(p.minVersion,current));
  if(releaseResult.error){if(required)return {current,latest:p.latest,newer:true,required:true,policy:p,hot:false,silent:false,notes:'',page:'https://github.com/ilynthn/MeguLit/releases/latest'};throw releaseResult.error;}
@@ -150,6 +155,7 @@ async function download(urls,rel,fetcher,zip,root){
  return data;
 }
 function start(root,current,fetcher=fetch,{forceLatest=false}={}){current=String(current||'').trim().replace(/^v/,'');
+ if(testBuild())return Promise.resolve(status());
  if(forceLatest&&pendingForced)return pendingForced;
  /* A manual/silent download already in flight must finish before the forced full-package job starts. Never
     expose that earlier package as ready to the forced dialog, and never write two downloads to the same cache */
@@ -234,6 +240,7 @@ function hotFail(root,reason){const version=state.version||found?.version||'';if
  if(state.hot&&state.phase==='ready'){try{if(state.zip)fs.rmSync(state.zip,{force:true});}catch{}job=null;state={phase:'available',version,total:found?.size||0,received:0,hot:false};}
  return {recorded:true,version};}
 async function install(root,options={}){
+ if(testBuild())throw Error('TEST_BUILD_NO_UPDATE');
  if(state.phase!=='ready'||!state.zip||!fs.existsSync(state.zip))throw Error('UPDATE_NOT_READY');
  if(state.hot){
   /* written in place while MeguLit runs; the page then calls hot_reload. A failure leaves the old files and offers the full package. */

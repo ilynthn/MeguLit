@@ -596,7 +596,7 @@ html:not(#u):not(#v):is(:lang(zh-CN),:lang(ja-JP)) body :is(.dev-notice-top,.gam
 html:not(#u):not(#v) body dialog.profile-panel .profile-account button.secondary:last-child{box-shadow:none!important;background:none!important;color:var(--g-t3,#a08a80)!important;text-decoration:underline;text-underline-offset:4px}
 
 /* notice page 2: Done is the primary; the update list in regular weight */
-html:not(#u):not(#v) body dialog.game-dialog.dev-notice .dev-notice-actions button[data-ok].secondary.secondary.secondary{border-radius:10px!important;color:#fbeedd!important;background:radial-gradient(120% 140% at 0% 50%,rgba(196,40,58,.5),transparent 62%),linear-gradient(135deg,#3a1720 0%,#2a1219 45%,#1d1016 100%)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 42%,transparent),inset 0 0 0 3px rgba(20,10,12,.55),inset 0 0 0 4px color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent)!important}
+html:not(#u):not(#v) body dialog.game-dialog.dev-notice .dev-notice-actions button[data-ok]:not(.notice-go).secondary.secondary.secondary{border-radius:10px!important;color:#fbeedd!important;background:radial-gradient(120% 140% at 0% 50%,rgba(196,40,58,.5),transparent 62%),linear-gradient(135deg,#3a1720 0%,#2a1219 45%,#1d1016 100%)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-accent,#edb56e) 42%,transparent),inset 0 0 0 3px rgba(20,10,12,.55),inset 0 0 0 4px color-mix(in srgb,var(--gold-accent,#edb56e) 12%,transparent)!important}
 html:not(#u):not(#v) body dialog.game-dialog .dev-notice-updates li{font-weight:400!important}
 /* library: the search is a hairline field with left-aligned text; the wall fades at its sides */
 /* history: the font button sits fully inside the band */
@@ -792,12 +792,12 @@ html:not(#u):not(#v) body .lv-dialog .lv-opt small{margin:0!important}
 /* ==== r6 (user scores) ==== */
 /* one primary button for the whole app (user: every primary looked ugly): a clean crimson block, white text, square
    corners, a soft lift on hover — no gold rings, stars, sparkles or glow */
-html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button){
+html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button){
  height:42px!important;min-height:42px!important;min-width:0!important;padding:0 22px!important;gap:8px!important;border:0!important;border-radius:3px!important;
  background:linear-gradient(180deg,#b8293c,#94202f)!important;color:#fff7f0!important;text-shadow:none!important;font-size:14px!important;font-weight:600!important;letter-spacing:.06em!important;
  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 10px 22px -14px rgba(200,40,60,.9)!important;filter:none!important;transition:background .18s,box-shadow .18s,transform .12s!important}
-html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):hover:not(:disabled){background:linear-gradient(180deg,#c9323f,#a42433)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 14px 26px -12px rgba(220,50,70,.95)!important;transform:translateY(-1px)}
-html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):active:not(:disabled){transform:translateY(0) scale(.98)}
+html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):hover:not(:disabled){background:linear-gradient(180deg,#c9323f,#a42433)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 14px 26px -12px rgba(220,50,70,.95)!important;transform:translateY(-1px)}
+html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):active:not(:disabled){transform:translateY(0) scale(.98)}
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.dialog-actions button.primary,.dev-notice-form>button.primary):not(.icon-button)::before,
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play,.dialog-actions button.primary,.dev-notice-form>button.primary):not(.icon-button)::after,
 html:not(#u):not(#v):not(#w) body :is(button.primary,.g-btn.primary,.hero-play) .primary-label::after{content:none!important;display:none!important}
@@ -812,7 +812,7 @@ html:not(#u):not(#v):not(#w) body .main .settings-content .settings-row .setting
 /* ---- primary button, megu-edit: a galgame dialogue box you advance — paper-black box, hairline frame with a cut
    corner, a red rule at its foot and the "click to continue" ▼; on hover red ink sweeps in from the left like a line
    being typed and the ▼ bobs; on press a one-frame flash (beat hit) ---- */
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button){
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button){
  position:relative!important;overflow:hidden!important;isolation:isolate;
  height:44px!important;min-height:44px!important;padding:0 44px 0 20px!important;border-radius:0!important;
  clip-path:none!important;
@@ -820,13 +820,13 @@ html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.her
  background:linear-gradient(90deg,#b8293c,#9a1f30) no-repeat 0 0/0% 100%,linear-gradient(180deg,rgba(255,255,255,.04),transparent),#140d11!important;
  box-shadow:inset 0 0 0 1px rgba(232,220,200,.34),inset 0 -2px 0 #c8323c!important;
  transition:background-size .38s cubic-bezier(.2,.8,.2,1),box-shadow .2s,color .2s,transform .1s!important;transform:none}
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button)::after{
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button)::after{
  content:""!important;display:block!important;position:absolute!important;right:17px!important;left:auto!important;bottom:auto!important;margin-top:-3px;
  background:#c8323c!important;transition:background .2s;z-index:1;border:0!important;}
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):hover:not(:disabled){
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):hover:not(:disabled){
  background-size:100% 100%,auto,auto!important;box-shadow:inset 0 0 0 1px rgba(255,214,190,.5),inset 0 -2px 0 #f2b8a0!important;color:#fff!important;transform:none!important}
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):hover:not(:disabled)::after{background:#fff!important;}
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):active:not(:disabled){transform:translateY(1px)!important;animation:u-hit .12s steps(1)}
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):hover:not(:disabled)::after{background:#fff!important;}
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):active:not(:disabled){transform:translateY(1px)!important;animation:u-hit .12s steps(1)}
 @keyframes u-continue{50%{translate:0 3px}}
 @keyframes u-hit{0%{filter:brightness(2.2) saturate(.3)}100%{filter:none}}
 @media (prefers-reduced-motion:reduce){html body :is(button.primary,.g-btn.primary)::after{animation:none!important}}
@@ -975,8 +975,8 @@ html:not(#u):not(#v):not(#w) body .guide-panel .guide-tabs{gap:28px!important;bo
 html:not(#u):not(#v):not(#w) body .guide-panel .guide-tabs button{padding:10px 0!important;font-size:14px!important;background:none!important;border:0!important;color:var(--g-t3,#a08a80)!important}
 html:not(#u):not(#v):not(#w) body .guide-panel .guide-tabs button[aria-selected=true]{color:var(--g-t1,#f1e0d2)!important;box-shadow:inset 0 -2px 0 #c82f3b!important}
 /* the Guide's Close is a secondary, not the dialogue-box primary */
-html:not(#u):not(#v):not(#w):not(#x) body .guide-panel .dev-notice-actions button[data-ok]:not(.icon-button):not(.x){clip-path:none!important;padding:0 22px!important;font-family:inherit!important;background:rgba(255,255,255,.03)!important;box-shadow:inset 0 0 0 1px rgba(232,220,200,.22)!important}
-html:not(#u):not(#v):not(#w):not(#x) body .guide-panel .dev-notice-actions button[data-ok]:not(.icon-button):not(.x)::after{display:none!important}
+html:not(#u):not(#v):not(#w):not(#x) body .guide-panel .dev-notice-actions button[data-ok]:not(.notice-go):not(.icon-button):not(.x){clip-path:none!important;padding:0 22px!important;font-family:inherit!important;background:rgba(255,255,255,.03)!important;box-shadow:inset 0 0 0 1px rgba(232,220,200,.22)!important}
+html:not(#u):not(#v):not(#w):not(#x) body .guide-panel .dev-notice-actions button[data-ok]:not(.notice-go):not(.icon-button):not(.x)::after{display:none!important}
 @media (max-width:900px){html:not(#u):not(#v):not(#w) body .guide-steps{grid-template-columns:1fr}}
 html:not(#u):not(#v):not(#w) body .main .settings-content details.u-advanced{margin:8px 0 4px;border-top:1px solid var(--u-line)}
 html:not(#u):not(#v):not(#w) body .main .settings-content details.u-advanced>summary{cursor:pointer;list-style:none;padding:14px 0;font-family:var(--u-mono);font-size:12px;letter-spacing:.16em;color:var(--g-gold)}
@@ -1120,9 +1120,6 @@ html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-name:is(:hover,:focus-vi
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-name-input{width:min(320px,100%);height:auto!important;padding:0 0 2px!important;border:0!important;border-bottom:1px solid var(--g-gold,#edb56e)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font:600 clamp(28px,2.6vw,36px)/1.1 var(--g-serif,serif)!important;color:var(--g-t1,#f1e0d2)!important;outline:0}
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-note{display:block;margin-top:6px;font-size:12px;color:var(--g-t3,#a08a80)}
 html:not(#u):not(#v):not(#w):not(#x) body .profile-hero-note[data-status="rejected"]{color:#e2685e}
-html body .fx-mushroom{width:0;height:0}
-html body .fx-mushroom i{position:absolute;border-radius:50%;background:radial-gradient(closest-side,rgba(200,180,170,.3),rgba(140,120,115,.12) 60%,transparent);filter:blur(6px)}
-html body .fx-mushroom i.is-cap{background:radial-gradient(closest-side,rgba(215,190,175,.32),rgba(150,120,110,.12) 60%,transparent)}
 
 /* 转职: the school as a small coloured tag before the rank, the class-change link, the locked hint */
 html:not(#u):not(#v):not(#w) body .profile-rank-name{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:8px}
@@ -1258,7 +1255,6 @@ html body .fx-seal{stroke-width:1.3!important;}
 html body .fx-seal :is(circle,path){stroke-dasharray:1;stroke-dashoffset:1}
 html body .fx-seal text{font-size:8px!important}
 html body .fx-charge{border-radius:50%;}
-html body .fx-pillar{left:0;top:auto!important;bottom:0;width:26px;height:100vh;transform-origin:50% 100%;background:linear-gradient(to top,#fff,#ffe1b0 30%,rgba(255,120,60,.35) 75%,transparent);filter:blur(2px);mix-blend-mode:screen;box-shadow:0 0 40px 10px rgba(255,140,70,.45)}
 html body .fx-fire{width:340px!important;height:340px!important;background:radial-gradient(closest-side,#fff8e0 0,#ffd27a 18%,#ff7a2a 42%,rgba(200,30,30,.6) 64%,rgba(60,10,10,.25) 80%,transparent)!important;mix-blend-mode:screen}
 html body .fx-fire.is-inner{width:200px!important;height:200px!important;background:radial-gradient(closest-side,#fff,#fff0c0 40%,rgba(255,170,80,.5) 70%,transparent)!important}
 html body .fx-ring{box-shadow:0 0 0 2px rgba(255,244,230,.95),0 0 18px 4px rgba(255,150,80,.7),inset 0 0 18px 2px rgba(255,150,80,.5)!important}
@@ -1334,7 +1330,6 @@ html body .dict-shards i.d1{color:#c9a46a!important}
 html body .dict-shards i.d2{color:#a8404a!important}
 html body .fx-ring.is-dust{filter:none!important}
 html body :is(.gm-jd-opt.miss,.gm-choice.wrong){box-shadow:inset 0 0 0 2px #e2423e,0 0 16px rgba(226,66,62,.45)!important;color:#ffd2a8!important;text-shadow:0 0 6px #ff7a2a,0 0 14px rgba(255,90,40,.6)}
-html body .class-rite-white{inset:0;}
 html body .class-rite-motto{display:block;margin:18px 0 0;max-width:30em;font-size:14px;line-height:1.8;color:var(--g-t2,#c3ab9c);quotes:none}
 html body .class-rite-reveal p{font-size:15px!important;color:var(--g-gold,#edb56e)!important}
 html body .class-rite-xp{align-items:flex-end!important;text-align:right}
@@ -1425,7 +1420,6 @@ html body dialog.class-rite .class-rite-glyph{opacity:0!important}
 /* Explosion (user): 30% smaller, half the strength; no light pillar; the pit at the clicked point is visible again (the
    wrong answer no longer sits above it); cracks blend in — dark engraved lines with a faint light lip, not bright
    wires; the hot glow only on the pit's lip */
-html body .fx-pillar{display:none!important}
 html body .fx-seal{width:160px!important;height:160px!important}
 html body .fx-charge{width:24px!important;height:24px!important}
 html body .fx-core{width:40px!important;height:40px!important}
@@ -1488,11 +1482,11 @@ html:not(#u):not(#v):not(#w):not(#x) body .dict-field{z-index:0!important}
    One button everywhere: the dialogue-box look stays, its "continue" mark now points onward (▸) and is centred with a
    transform so no parent rule can drop it; four states — rest, hover (red ink sweep, mark slides right), press (1px down
    plus the one-frame hit), disabled (40%, no rule, no ink). The tools page's solid "open" and the kana start join it. */
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button)::after{
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button)::after{
  width:6px!important;height:9px!important;margin:0!important;top:50%!important;inset:50% 18px auto auto!important;transform:translateY(-50%)!important;clip-path:polygon(0 0,100% 50%,0 100%)!important}
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):hover:not(:disabled)::after{animation:u-onward .8s ease-in-out infinite!important}
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):hover:not(:disabled)::after{animation:u-onward .8s ease-in-out infinite!important}
 @keyframes u-onward{50%{translate:3px 0}}
-html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]):not(.icon-button):disabled{
+html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary,.dev-notice-form>button.primary,.dev-notice-actions button[data-ok]:not(.notice-go)):not(.icon-button):disabled{
  opacity:.4!important;filter:none!important;cursor:not-allowed!important;background:#140d11!important;box-shadow:inset 0 0 0 1px rgba(232,220,200,.22)!important}
 html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.dialog-actions button.primary):not(.icon-button):disabled::after{background:rgba(232,220,200,.5)!important;animation:none!important}
 html:not(#u):not(#v):not(#w):not(#x) body :is(button.primary,.g-btn.primary,.hero-play,.g-blank .acts button.go,.v-index .mg-cta,.dialog-actions button.primary):not(.icon-button)>span[aria-hidden="true"]:last-child{display:none!important}
@@ -1528,10 +1522,8 @@ html body .dict-hit{width:1200px!important}
 html body .dict-hit>i{left:600px!important}
 html body .dict-hit-line{width:1100px!important;height:2px!important;top:0!important;}
 html body .dict-launch :is(#lookup-form,.lookup-form){outline:1px solid transparent;backface-visibility:hidden;will-change:transform}
-/* 转职 (judge fx7): the cast leaves the panel and covers the window (rite-stage.js fades it out with distance); the
-   white field is opaque white that opens and closes as an iris from the burst — never translucent white over the red */
+/* The class-change animation fades out as it extends beyond the panel. */
 html body .class-rite-fx.is-wide{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:20!important}
-html body .class-rite-white{mix-blend-mode:normal!important;}
 
 /* ==== round 11 ==== */
 /* settings width (judge r10: half the pages still ran to 1551 and showed beside the search bar when scrolled): every
@@ -1570,20 +1562,8 @@ html:not(#u):not(#v):not(#w):not(#x) body .gm-page .gm-stgs>#gm-stage-panel{grid
    clipped by its box */
 html body .dict-hit{overflow:visible!important}
 html body .dict-hit-line{background:linear-gradient(90deg,rgba(232,196,138,0),rgba(232,196,138,.85) 26%,#fff0d2 50%,rgba(232,196,138,.85) 74%,rgba(232,196,138,0))!important;box-shadow:0 0 12px 2px rgba(232,196,138,.5)!important}
-/* the white bloom (reader-class.js places it on the burst point): a disc three window-widths across, pure white to
-   past half its radius and feathered beyond, so no frame shows a small hard white shape */
-html body .class-rite-white{position:fixed!important;right:auto;bottom:auto;width:300vmax!important;height:300vmax!important;border-radius:50%;clip-path:none!important;
- background:radial-gradient(circle,#fff 0,#fff 52%,rgba(255,255,255,0) 68%)!important;z-index:30!important;pointer-events:none;will-change:transform,opacity}
-/* the white lifts as an iris opening from its centre (a hole with a soft edge), not by fading — no frame lays
-   translucent white over the dark card */
 @property --h{syntax:'<percentage>';inherits:true;initial-value:0%}
-html body .class-rite-white{--h:0%;opacity:1!important;-webkit-mask-image:radial-gradient(circle,transparent calc(var(--h) - 2.5%),#000 var(--h));mask-image:radial-gradient(circle,transparent calc(var(--h) - 2.5%),#000 var(--h))}
 
-/* (judge fx9: the opening iris left a grey band) its edge burns warm: a thin orange-gold ring rides just inside the
-   white as it opens, so the white meets the card through warm light, never through grey */
-@property --ro{syntax:'<number>';inherits:true;initial-value:0}
-html body .class-rite-white::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:var(--ro);
- background:radial-gradient(circle,rgba(255,140,60,0) calc(var(--h) - 3%),rgba(255,140,60,1) calc(var(--h) - 1.6%),rgba(255,196,120,1) calc(var(--h) - .2%),rgba(255,236,200,.6) calc(var(--h) + 1.6%),rgba(255,255,255,0) calc(var(--h) + 3.5%))}
 html body .dict-hit-line{mix-blend-mode:screen}
 /* sliders (judge r11): the number box ends on the column's right edge like every other control */
 html:not(#u):not(#v):not(#w):not(#x) body .settings-content .setting-slider{padding-right:0!important;margin-right:0!important}

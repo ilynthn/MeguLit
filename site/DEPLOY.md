@@ -211,3 +211,17 @@ Check: `curl https://cn-api.megulit.com/api/health` must answer `{"ok":true,"ser
 The app races `api.megulit.com` and `cn-api.megulit.com` on `/api/health` (`services/relay-config.cjs`) and uses the
 faster one; `cn-dl` is an extra mirror for runtime packs, Anki and Hugging Face files; the notice list also tries
 `cn.megulit.com`. Until the `cn-*` names resolve, everything quietly stays on Cloudflare.
+
+## User centre (megulit.com/me/, 2026-11-27)
+
+Static files in `site/public/me/`, `assets/js/me*.{js,mjs}`, `assets/css/me.css`, deployed with the rest of the site. Needs the relay changes of the web-session PR first (`wrangler d1 migrations apply megulit-relay --remote`, then `wrangler deploy` in `relay/`).
+
+Before `wrangler deploy -c site/wrangler.toml` build the dictionary files (they are not committed, about 65 MB, 2049 files):
+
+```bash
+node site/tools/build-web-dict.cjs <path to jmdict.json of the app>
+```
+
+- Changing a file the service worker precaches (`me/sw.js` lists them): bump `VERSION` in `site/public/me/sw.js`.
+- A rebuilt dictionary with a new format goes to a new folder (`/dict/v2/`, `DICT_URL` in `assets/js/me-dict.mjs`): the files are cached for 30 days.
+- `cn.megulit.com` (EdgeOne) serves the same site; `cn-api.megulit.com` is the API the page falls back to. Both are already in the relay's `ALLOWED_ORIGINS` and the site CSP.

@@ -43,7 +43,12 @@ function identify({gameDir,exe,engine='',title='',vndb='',release='',chineseBuil
  if(!out.vndb&&title){const t=GP.fold(title);const hit=rows.filter(r=>GP.fold(r.game)===t);if(hit.length===1&&VNDB.test(hit[0].vndb))out.vndb=hit[0].vndb;}
  if(out.vndb)out.adapted=sameRelease(rows,out.vndb,out.release||out.releaseGuess);
  return out;}
-module.exports={identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB};
+/* 2026-11-27 (アイキス3 sexy: the seed folder came out as auto-500c434def) a readable seed slug from VNDB's latin title, plus the
+   ASCII words the game's own title adds (アイキス3 sexy + Ai Kiss 3 -> ai-kiss-3-sexy: the sexy / cute editions differ); '' when
+   neither gives one */
+function slugFrom(title,latin){const words=s=>String(s||'').normalize('NFKC').toLowerCase().match(/[a-z0-9]+/g)||[];const base=words(latin);if(!base.length)return '';
+ const extra=words(title).filter(w=>!base.includes(w)&&!/^d+$/.test(w));const s=[...base,...extra].join('-').slice(0,64).replace(/-+$/,'');return /^[a-z0-9][a-z0-9-]{0,63}$/.test(s)?s:'';}
+module.exports={slugFrom,identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB};
 /* 2026-11-27 VNDB (services/game-enrichment.cjs vndbReleases, the one owner of VNDB queries): the work id, its releases, the release
    this copy most likely is, the Chinese title and the engine VNDB records. Only an unambiguous answer is taken; otherwise the
    candidates go into the question. vndb({title, gameDir, vnid, chineseBuild, engine}, {lookup}) -> {vndb, how, cn, release, releaseHow,
@@ -51,9 +56,9 @@ module.exports={identify,adaptedRows,sameRelease,dataPrint,handoffText,VNDB};
 const RELEASE_LABEL=[[/download|ダウンロード|dl版|dl edition/i,'DL 版'],[/package|パッケージ/i,'パッケージ版'],[/steam/i,'Steam 版'],[/renewal|hd|remaster|リマスター/i,'HD / リニューアル版']];
 const labelOf=r=>{for(const [re,l] of RELEASE_LABEL)if(re.test(r.title))return l+'（'+r.rid+'）';return r.title+'（'+r.rid+'）';};
 async function vndb({title='',gameDir='',vnid='',chineseBuild=false,engine=''}={},{lookup=null,timeoutMs=8000}={}){
- const E=require('../../services/game-enrichment.cjs');lookup=lookup||E.vndbReleases;const appid=steamOf(gameDir);const out={steamAppId:'',vndb:'',how:'',cn:'',release:'',releaseHow:'',candidates:[],releases:[],vndbEngine:'',engineDiffers:false,error:''};
+ const E=require('../../services/game-enrichment.cjs');lookup=lookup||E.vndbReleases;const appid=steamOf(gameDir);const out={steamAppId:'',vndb:'',how:'',cn:'',latin:'',release:'',releaseHow:'',candidates:[],releases:[],vndbEngine:'',engineDiffers:false,error:''};
  let r;try{r=await lookup({titles:[...new Set([title,E.cleanTitle(title),E.jpForm(E.cleanTitle(title))].filter(Boolean))],appid,vnid},undefined,{timeoutMs});}catch(e){out.error=String(e.message||e).slice(0,120);return out;}
- if(!r)return out;out.vndb=r.vnid;out.how=r.how;out.cn=r.zh||'';out.ja=r.ja||'';out.romaji=r.title||'';
+ if(!r)return out;out.vndb=r.vnid;out.how=r.how;out.cn=r.zh||'';out.ja=r.ja||'';out.romaji=r.title||'';out.latin=r.title||'';
  const win=r.releases.filter(x=>!x.platforms.length||x.platforms.includes('win')),trial=x=>/trial|体験版|demo/i.test(x.title);out.releases=win;
  const steam=appid&&win.find(x=>x.ext.steam===appid);
  const zh=chineseBuild?win.filter(x=>x.patch&&x.langs.some(l=>/^zh/.test(l))):[];

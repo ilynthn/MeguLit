@@ -161,8 +161,15 @@
   line.append(word);if(m.forms?.length){const shape=el('span','tomoyo-word-form');shape.append(el('b','',m.surface+' · '+m.forms.join(' · ')),el('small','',m.rules.join('；')));
   shape.title=m.source||'本地活用规则';line.append(shape);}else line.append(el('span'));const posCell=el('span','tomoyo-word-pos',m.wordClass||entry?.pos?.join('、')||'');line.append(posCell);
   parent.append(line);mojiFacts(word.textContent,entry?.readings?.[0]||m.reading||'').then(f=>{if(f&&line.isConnected)paintFacts(posCell,f);});const reading=el('div','tomoyo-word-reading',entry?.readings?.[0]||m.reading||'');if(m.reading&&entry?.readings?.[0]&&m.reading!==entry.readings[0])reading.append(el('small',
-  '',`句中：${m.reading}`));parent.append(reading);if(m.ambiguity)parent.append(el('small','tomoyo-muted',m.ambiguity));if(result.match_note)parent.append(el('small',
-  'tomoyo-muted',result.match_note));}
+  '',`句中：${m.reading}`));parent.append(reading);if(m.ambiguity)parent.append(el('small','tomoyo-muted',m.ambiguity));if(result.colloquial)parent.append(colloquialLine(result.colloquial));if(result.match_note)parent.append(el('small',
+  'tomoyo-muted tomoyo-match-note',result.match_note));}
+ /* QQ group (舐めんなし, ええやん): a word read colloquially (core/colloquial.cjs). A cut dialect ending is tagged 「方言语尾」; when only a
+    prefix was found, the found part is bold and the rest is shown as not looked up. */
+ const say=(zh,en,ja)=>({zh,en,ja})[window.__tomeI18n?.get?.()]||zh;
+ function colloquialLine(c){const line=el('div','tomoyo-colloquial');
+  if(c.prefix){line.append(el('b','tomoyo-colloquial-found',c.matched),el('span','tomoyo-muted tomoyo-colloquial-rest',c.rest),el('small','tomoyo-muted',' '+say('只查到前面部分','first part only','先頭部分のみ')));}
+  if(c.dialect){const tag=el('span','tomoyo-dialect-tag',say('方言语尾','Dialect ending','方言の語尾')+'「'+c.dialect.ending+'」');tag.style.cssText='display:inline-block;margin:4px 6px 0 0;padding:0 6px;border:1px solid currentColor;border-radius:8px;font-size:11px;opacity:.85';tag.title=c.dialect.note?.[window.__tomeI18n?.get?.()]||c.dialect.note?.zh||'';line.append(tag);}
+  return line;}
  function renderLocal(result,host){host.replaceChildren();const analysis=result.selection_analysis;if(analysis&&!analysis.exact&&analysis.parts?.length>1){host.append(el('h3',
   'tomoyo-selected-phrase',analysis.surface),el('div','tomoyo-muted','按句子结构分段 · 点一个词展开完整释义'));
    // Group the words into phrases (文節: content words plus the particles/auxiliaries attached to them) and label
@@ -234,9 +241,9 @@
      source; without a key the card says so and how to add one (DeepSeek recommended). */
   const keyHint=()=>{ai.hidden=false;ai.replaceChildren(el('strong','','上下文解释需要你自己的 AI API Key'),keyGuide(),button('打开设置',()=>{b.openSettings();document.querySelector('[data-menu-key=learn]')?.click();
    setTimeout(()=>{const d=document.querySelector('.tomoyo-learning-models');if(d){d.open=true;d.scrollIntoView({block:'start'});}},120);}));place();};
-  async function askAI(mode){if(!card||current!==mine)return;ai.hidden=false;ai.textContent=mode==='summary'?'AI 正在归纳词典义项…':'AI 正在结合台词解释…';place();try{const value=await explain(mine,
+  async function askAI(mode){if(!card||current!==mine)return;ai.hidden=false;ai.textContent=mode==='summary'?'AI 正在归纳词典义项…':mode==='gloss'?say('AI 正在给出释义…','Asking the AI…','AI に問い合わせ中…'):'AI 正在结合台词解释…';place();try{const value=await explain(mine,
    mode);if(current!==mine||!card)return;card.__megulitAi=(value.kind==='summary'||value.kind==='explain'||value.kind==='context')&&value.text?{kind:value.kind,
-   text:String(value.text).slice(0,2000)}:card.__megulitAi;ai.replaceChildren(el('strong','',value.kind==='moji'?'MOJi 辞書':value.kind==='translation'?'选区翻译':value.kind==='summary'?'AI 归纳（可对照上方词典原义项）':'AI 上下文解释'),
+   text:String(value.text).slice(0,2000)}:card.__megulitAi;ai.replaceChildren(el('strong','',value.kind==='moji'?'MOJi 辞書':value.kind==='translation'?'选区翻译':value.kind==='summary'?'AI 归纳（可对照上方词典原义项）':value.kind==='gloss'?say('AI 释义','AI gloss','AI による語釈'):'AI 上下文解释'),
    el('div','',value.text));}catch(e){if(current===mine&&card){if(e.message==='CONTEXT_KEY_REQUIRED'||e.message==='LOOKUP_MODEL_REQUIRED'){keyHint();return;}ai.textContent=e.message;
    }}place();}
   /* #1110 Weblio 国語辞典 / 日中中日辞典 for the word (its dictionary form when the local lookup found one), fetched on demand by the
@@ -254,7 +261,8 @@
     if(text)translated.replaceChildren(el('strong','',value.provider?label+' · '+value.provider:label),line('',text));else translated.hidden=true;place();},
     e=>{if(current!==mine||!card)return;translated.replaceChildren(el('strong','',label),line('tomoyo-muted',e.message||'选区翻译失败'));place();});}
   try{result=result||await b.localLookup('lookup_exact',args);if(current!==mine||!card)return;
-   looked=result;renderLocal(result,body);b.decorateWordActions?.(card,args,result,{drag});userDict(result,args,body,mine);if(b.options?.()?.lookupProvider==='weblio')askWeblio();place();}catch(e){if(current===mine&&card){status.textContent=e.message;
+   looked=result;renderLocal(result,body);/* nothing found even colloquially: an AI gloss on request (the player's own AI key, the context-explanation source) */
+   if(!result?.entries?.length&&!drag)body.append(button(say('AI 释义','AI gloss','AI による語釈'),()=>askAI('gloss')));b.decorateWordActions?.(card,args,result,{drag});userDict(result,args,body,mine);if(b.options?.()?.lookupProvider==='weblio')askWeblio();place();}catch(e){if(current===mine&&card){status.textContent=e.message;
     /* the built-in reading parts can fail (offline, Sudachi download): the player's own dictionaries and Weblio still answer for the selection */
     userDict(null,args,body,mine);if(b.options?.()?.lookupProvider==='weblio')askWeblio();place();}}
  }

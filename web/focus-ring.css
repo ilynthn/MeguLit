@@ -1,0 +1,25 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* The one focus ring of every MeguLit page; focus-mode.js decides when the page is being navigated by keyboard.
+   - Pointer use (the default): no ring at all, even after Shift/Ctrl or a game shortcut, including the browser's own ring.
+   - Keyboard navigation: a thin warm-gold hairline that follows the control's own corner radius, fading in and out
+     (focus-mode.js animates --focus-ring-a with the Web Animations API, so no control loses its own transitions).
+   Text fields are left out: they keep their own focus styles because they show focus on click too.
+   Important declarations in a cascade layer outrank every unlayered !important rule, so the older per-page rings
+   (gold 2px, paper 1.5px, red 2px ...) all give way to this one without touching their files. */
+@property --focus-ring-a{syntax:'<number>';inherits:false;initial-value:1}
+:root{
+ --focus-ring-tone:var(--g-gold,var(--gold-accent,#edb56e));
+ --focus-ring-strength:80%;
+ --focus-ring-width:1.5px;
+ --focus-ring-style:solid;
+ --focus-ring:color-mix(in srgb,var(--focus-ring-tone) var(--focus-ring-strength),transparent);
+}
+:root[data-theme=light]{--focus-ring-strength:88%}
+/* a default gap; controls whose own rule sets an offset (negative ones inside clipped lists) keep theirs */
+:where(:is(:root[data-input-mode=keyboard],:host-context(:root[data-input-mode=keyboard]))) :is(:focus-visible,[data-focus-leaving]){outline-offset:2px}
+@layer megulit-focus-ring{
+ :focus-visible:not(textarea,[contenteditable]:not([contenteditable=false]),input:not([type=checkbox],[type=radio],[type=range],[type=button],[type=submit],[type=reset],[type=color],[type=file],[type=image])){outline:none!important}
+ :is(:root[data-input-mode=keyboard],:host-context(:root[data-input-mode=keyboard])) :is(:focus-visible,[data-focus-leaving]:not(:focus)):not(textarea,[contenteditable]:not([contenteditable=false]),input:not([type=checkbox],[type=radio],[type=range],[type=button],[type=submit],[type=reset],[type=color],[type=file],[type=image])){
+  outline:var(--focus-ring-width) var(--focus-ring-style) color-mix(in srgb,var(--focus-ring-tone) calc(var(--focus-ring-a) * var(--focus-ring-strength)),transparent)!important;
+ }
+}

@@ -462,10 +462,10 @@ public sealed class PageLocator : IDisposable {
  // ones drawn as a row of their own come back, with their pixel boxes, so the reader can draw over the buttons.
  readonly object OcrLock = new object();
  int ChoiceSerial;
- public void RequestChoices(IntPtr target, List<string> options) {
+ public void RequestChoices(IntPtr target, List<string> options, bool loose = false) {
   if (target == IntPtr.Zero || options == null || options.Count == 0 || options.Count > 12) return;
   int serial = Interlocked.Increment(ref ChoiceSerial);
-  ThreadPool.QueueUserWorkItem(_ => { try { LocateChoices(target, options, serial); } catch (Exception e) { Emit(new { type = "pageLocateStatus", status = "choice error " + e.Message }); } });
+  ThreadPool.QueueUserWorkItem(_ => { try { LocateChoices(target, options, serial, loose); } catch (Exception e) { Emit(new { type = "pageLocateStatus", status = "choice error " + e.Message }); } });
  }
  /* an option made only of punctuation (「…………」) has nothing OCR could match */
  static bool Missing(List<Row> rows, List<string> options) { foreach (var o in options) { if (Plain(o, null).Length < 2) continue; if (Find(rows, o) == null) return true; } return false; }
@@ -497,7 +497,7 @@ public sealed class PageLocator : IDisposable {
  }
  /* the boxes of the options on the OCR rows (shared by the live locator and --choice-file) */
  /* the boxes of the options on the OCR rows (shared by the live locator and --choice-file) */
- static void ChoiceItems(List<Row> rows, List<string> options, List<object> items, List<string> missed) {
+ static void ChoiceItems(List<Row> rows, List<string> options, List<object> items, List<string> missed, bool loose = false) {
   var rowOf = new int[options.Count]; var used = new HashSet<int>();
   for (int k = 0; k < options.Count; k++) {
    string option = options[k]; rowOf[k] = -1;
@@ -531,18 +531,52 @@ public sealed class PageLocator : IDisposable {
     used.Add(r); rowOf[k] = r; missed.Remove(options[k]); items.Add(new { text = options[k], x0 = q.Left, y0 = q.Top, x1 = q.Right, y1 = q.Bottom }); break;
    }
   }
- } public static string ChoiceFile(string file, string optionList) {
+  if (loose) LooseChoices(rows, options, items, missed, rowOf, used);
+ }
+ /* 2026-11-27 (アイキス3 sexy, NeXAS: yellow options with a dark outline on a white box; Windows OCR read 「１・ちょっと教えて欲しい」 as
+    「1。ちょっとい」 and 「２・当然みんなの事はちゃんと知ってる」 as 「2・当んな鵺ゃんと加てる」, half the characters and few wrong ones, so
+    no option reached Find's 60 %) profile choice.ocrLoose: a still missed option takes the unused row that is plainly its own:
+    at least 45 % of the option, at least 70 % of the row, and over twice what that row shares with any other option. */
+ static void LooseChoices(List<Row> rows, List<string> options, List<object> items, List<string> missed, int[] rowOf, HashSet<int> used) {
+  var plainOpt = new string[options.Count]; for (int k = 0; k < options.Count; k++) plainOpt[k] = Plain(options[k], null);
+  for (int k = 0; k < options.Count; k++) {
+   if (rowOf[k] >= 0 || !missed.Contains(options[k]) || plainOpt[k].Length < 4) continue;
+   int best = -1, bestL = 0;
+   for (int r = 0; r < rows.Count; r++) {
+    if (used.Contains(r)) continue; string row = Plain(rows[r].Text, null); if (row.Length < 3) continue;
+    int l = Lcs(row, plainOpt[k]); if (l < plainOpt[k].Length * 0.45 || l < row.Length * 0.7 || l <= bestL) continue;
+    bool own = true; for (int o = 0; o < options.Count && own; o++) if (o != k && Lcs(row, plainOpt[o]) * 2 >= l) own = false;
+    if (own) { best = r; bestL = l; }
+   }
+   if (best < 0) continue;
+   var q = rows[best].Box; used.Add(best); rowOf[k] = best; missed.Remove(options[k]); items.Add(new { text = options[k], x0 = q.Left, y0 = q.Top, x1 = q.Right, y1 = q.Bottom });
+  }
+ }
+ /* LooseChoices on the OCR rows of the アイキス3 sexy choice screen (GalWindowBridge --self-test) */
+ public static bool LooseSelfTest() {
+  var opts = new List<string> { "１・ちょっと教えて欲しい", "２・当然みんなの事はちゃんと知ってる" };
+  Func<string, int, Row> row = (t, y) => new Row(t, new Rectangle(410, y, 440, 32));
+  var rows = new List<Row> { row("1 。 ち ょ っ と い", 210), row("2 ・ 当 ん な 鵺 ゃ ん と 加 て る", 260), row("Save", 690) };
+  var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, opts, items, missed);
+  if (items.Count != 0 || missed.Count != 2) return false; /* the strict match finds neither */
+  items.Clear(); missed.Clear(); ChoiceItems(rows, opts, items, missed, true);
+  if (items.Count != 2 || missed.Count != 0) return false;
+  /* a row that is not plainly one option (shares as much with the other) stays unplaced */
+  var opts2 = new List<string> { "ちょっと待って", "ちょっと考える" };
+  items.Clear(); missed.Clear(); ChoiceItems(new List<Row> { row("ちょっと", 210) }, opts2, items, missed, true);
+  return items.Count == 0 && missed.Count == 2;
+ } public static string ChoiceFile(string file, string optionList, bool loose = false) {
   var locator = new PageLocator(m => { }); try { locator.Engine = OcrEngine.TryCreateFromLanguage(new Language("ja")); } catch { } if (locator.Engine == null) return "no Japanese OCR";
   var options = new List<string>(optionList.Split('|'));
   using (var src = new Bitmap(file)) using (var image = new Bitmap(src.Width, src.Height, PixelFormat.Format24bppRgb)) {
    using (var g = Graphics.FromImage(image)) g.DrawImage(src, 0, 0, src.Width, src.Height);
    var rows = locator.Read(image, image.Width, image.Height); if (Missing(rows, options)) rows = Merge(rows, locator.ReadBands(image, image.Width, image.Height));
-   var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, options, items, missed);
+   var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, options, items, missed, loose);
    return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(new { items = items, missed = missed });
   }
  }
 
- void LocateChoices(IntPtr target, List<string> options, int serial) {
+ void LocateChoices(IntPtr target, List<string> options, int serial, bool loose = false) {
   if (!EngineTried) { EngineTried = true; try { Engine = OcrEngine.TryCreateFromLanguage(new Language("ja")); } catch { Engine = null; } }
   if (Engine == null) { Emit(new { type = "hookChoiceBoxes", serial = serial, items = new object[0], missed = options.ToArray(), rows = new string[0], status = "no Japanese OCR" }); return; }
   foreach (int ms in new[] { 250, 700, 1500 }) {
@@ -559,7 +593,7 @@ public sealed class PageLocator : IDisposable {
        overlapping horizontal bands and the rows found there are added */
     if (ms == 1500 && serial == ChoiceSerial && Missing(rows, options)) rows = Merge(rows, ReadBands(image, w, h, serial));
    }
-   var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, options, items, missed);
+   var items = new List<object>(); var missed = new List<string>(); ChoiceItems(rows, options, items, missed, loose);
    if (items.Count >= 2 || ms == 1500) {
     var seen = new List<string>(); foreach (var r in rows) { if (seen.Count >= 24) break; seen.Add(r.Text.Length > 40 ? r.Text.Substring(0, 40) : r.Text); }
     Emit(new { type = "hookChoiceBoxes", serial = serial, sw = w, sh = h, items = items.ToArray(), missed = missed.ToArray(), rows = seen.ToArray(), status = items.Count >= 2 ? "found" : "miss" });

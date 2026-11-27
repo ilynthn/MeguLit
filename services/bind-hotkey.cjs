@@ -23,7 +23,9 @@ function classify(m){
  return 'ok';
 }
 const words=lang=>WORDS[String(lang||'zh').slice(0,2)]||WORDS.zh;
-const message=(kind,lang,detail='')=>{const w=words(lang);if(kind==='bound')return w.bound+(String(detail||'').trim()||'?');if(kind==='failed')return w.failed+String(detail||'');return w[kind]||w.none;};
+/* 2026-11-27 the words are written with Alt+M; with the service root they name the key chosen in 热键 (services/hotkeys.cjs) */
+function withKey(text,lang,root){if(!root)return text;let key;try{const keys=require('../web/hotkeys.js'),b=require('../core/hotkeys.cjs').read(require('node:path').join(root,'data','config')).bind;key=b?keys.label(b,lang):keys.actionName('bind',lang);}catch{return text;}return String(text).split('Alt+M').join(key);}
+const message=(kind,lang,detail='',root)=>{const w=words(lang);if(kind==='bound')return w.bound+(String(detail||'').trim()||'?');if(kind==='failed')return w.failed+String(detail||'');return withKey(w[kind]||w.none,lang,root);};
 /* One bind for Alt+M, the 校准 page's 点选 and its window list (2026-11-15, user: 方便先开游戏再开megulit 或者megulit不小心关了中途要链接).
    GalNative.bind → the bridge binds the window → 'bound' → HookNative.configure attaches HookBridge to that process (it connects
    first and injects only when Luna_CheckIfNeedInject says the DLL is not there yet, so a DLL left by an earlier MeguLit is
@@ -39,8 +41,8 @@ function bindWindow(reader,w,settings,emit){
 }
 function request(reader,m,emit,lang){
  const kind=classify(m),title=String(m?.title||'').slice(0,200);
- if(kind!=='ok'){emit({type:'bindHotkeyResult',ok:false,kind,title,pick:m?.pick===true,message:message(kind,lang)});return false;}
- if(!reader.gal){emit({type:'bindHotkeyResult',ok:false,kind:'busy',title,message:message('busy',lang)});return false;}
+ if(kind!=='ok'){emit({type:'bindHotkeyResult',ok:false,kind,title,pick:m?.pick===true,message:message(kind,lang,'',reader.root)});return false;}
+ if(!reader.gal){emit({type:'bindHotkeyResult',ok:false,kind:'busy',title,message:message('busy',lang,'',reader.root)});return false;}
  return bindWindow(reader,m,reader.gal.preferences,emit);
 }
 /* bridge messages after a hotkey bind: 'bound' for that window says done, an 'error' soon after says why not */
@@ -61,13 +63,13 @@ function runningGames(windows,games,skipProcess=''){
  for(const w of windows||[]){const name=String(w.processName||'').toLowerCase(),g=byName.get(name);if(!g||!name||name===skip||seen.has(g.id))continue;seen.add(g.id);out.push({id:g.id,title:String(g.title||name),hwnd:String(w.hwnd||''),processName:String(w.processName||'')});}
  return out;
 }
-function runningHint(found,lang){if(!found.length)return '';const titles=found.slice(0,3).map(f=>f.title).join(lang==='en'?', ':'、');return (RUNNING[String(lang||'zh').slice(0,2)]||RUNNING.zh)(titles);}
+function runningHint(found,lang,root){if(!found.length)return '';const titles=found.slice(0,3).map(f=>f.title).join(lang==='en'?', ':'、');return withKey((RUNNING[String(lang||'zh').slice(0,2)]||RUNNING.zh)(titles),lang,root);}
 /* reader.event: 'ready' asks the bridge for the open windows once (a few seconds later, after its own auto-bind had a chance);
    the 'windows' answer to that request is checked against the library */
 function startupScan(reader,m,emit,lang,games){
  if(m.type==='ready'){if(reader.runningScanDone)return;reader.runningScanDone=true;const t=setTimeout(()=>{if(reader.gamePid||!reader.gal)return;reader.runningScanWanted=Date.now();reader.gal.send({type:'windows'});},4000);t.unref?.();return;}
  if(!Array.isArray(m.windows)||!reader.runningScanWanted||Date.now()-reader.runningScanWanted>15000)return;reader.runningScanWanted=0;
  if(reader.gamePid)return;const p=reader.gal?.preferences||{},found=runningGames(m.windows,games(),p.bindEnabled===true?p.gameProcess:'');
- if(found.length)emit({type:'runningGameHint',games:found.map(f=>({id:f.id,title:f.title})),message:runningHint(found,lang)});
+ if(found.length)emit({type:'runningGameHint',games:found.map(f=>({id:f.id,title:f.title})),message:runningHint(found,lang,reader.root)});
 }
 module.exports={classify,message,request,bindWindow,follow,runningGames,runningHint,startupScan};

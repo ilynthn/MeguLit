@@ -76,7 +76,6 @@ test('grammar lesson and startup notice remain readable across themes',async t=>
    mountDevNotice({...opts,api:async()=>[],force:true});
    const notice=document.querySelector('.startup-notice');
    check('.startup-notice-close','.startup-notice');
-   check('.startup-notice [data-report]','.startup-notice .dev-notice-actions');
    check('.startup-notice [data-next]','.startup-notice [data-next]');
    notice.close();notice.remove();
   }

@@ -46,7 +46,7 @@ test('Alt+M refuses MeguLit, the desktop and Explorer with a hint in the UI lang
 
 test('the native hotkey reports the window in front, the service binds it, the home toggle is gone',()=>{
  const cs=read('native/GalWindowBridge.cs');
- assert.match(cs,/wParam\.ToUInt64\(\)==0x543\)\{BindHotkey\(\);\}/,'Alt+M runs BindHotkey');
+ assert.match(cs,/else if\(id==0x543\)\{BindHotkey\(\);\}/,'Alt+M (or the key chosen for it) runs BindHotkey');
  assert.match(cs,/static void BindHotkey\(bool pick=false\)\{[^\n]*GetForegroundWindow\(\)[^\n]*GetAncestor\(fg,2\)/);assert.match(cs,/type="bindHotkey",hwnd=/);
  assert.doesNotMatch(cs,/type="homeHotkey"/);
  assert.match(read('core/gal-native.cjs'),/message\.type==='bindHotkey'\)\) \{ this\.onEvent\(message\)/);
@@ -58,7 +58,8 @@ test('the native hotkey reports the window in front, the service binds it, the h
 test('every Alt+M label says it binds the current window (zh / ja / en), none calls it the home toggle',()=>{
  const files=['web/reader/modules/menu-layout.js','web/reader/modules/polish.js','web/reader/modules/settings.js','web/reader/modules/i18n.js','web/guide-content.js','site/public/assets/js/guide.js','native/GalWindowBridge.cs'];
  for(const f of files){const s=read(f);assert.doesNotMatch(s,/Alt\+M[^'"\n]{0,12}(开关主页|开关 MeguLit 主页|显示／隐藏 MeguLit 主页|切换翻译文本框|切换普通界面)/,f);assert.doesNotMatch(s,/k\('M'\) \+ ' (显示 \/ 隐藏 MeguLit 主页|MeguLit ホームの表示|shows or hides the MeguLit home)/,f);}
- assert.match(read('web/reader/modules/polish.js'),/<kbd>Alt\+M<\/kbd>绑定窗口</);
+ /* 2026-11-27 the key row is built from the chosen keys (web/hotkeys.js); its default names Alt+M 绑定窗口 */
+ assert.match(read('web/reader/modules/polish.js'),/H\.hintRow\(/);{const H=require(path.join(__dirname,'..','web','hotkeys.js'));assert.equal(H.label(H.DEFAULTS.bind,'zh'),'Alt+M');assert.equal(H.actionName('bind','zh'),'绑定窗口');}
  assert.match(read('web/reader/modules/menu-layout.js'),/Alt\+M 绑定窗口 · Alt\+T/);
  assert.match(read('web/reader/modules/settings.js'),/Alt\+M 绑定当前游戏窗口，Alt\+T 开关菜单/);
  const i18n=read('web/reader/modules/i18n.js');for(const k of ['绑定窗口','Alt+M 绑定当前游戏窗口，Alt+T 开关菜单','Alt+M 绑定窗口 · Alt+T 开关菜单 · 拖动即时预览','绑定游戏窗口','先开游戏后开 MeguLit，或 MeguLit 重开后，用这里或 Alt+M 重新连接'])assert.ok(i18n.includes(`'${k}':[`),'i18n en/ja for '+k);
