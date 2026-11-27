@@ -154,13 +154,28 @@ function answer(out,args,{log=console.log}={}){const st=readState(path.resolve(o
 function sh(cmd,args,cwd){const r=spawnSync(cmd,args,{cwd,encoding:'utf8',windowsHide:true,timeout:300000});if(r.status!==0)throw Error(cmd+' '+args.join(' ')+': '+String(r.stderr||r.stdout||r.error?.message).slice(-400));return String(r.stdout||'').trim();}
 function addHandoffRow(text,row){const lines=text.split('\n');let at=-1,on=false;for(let i=0;i<lines.length;i++){if(/^##\s/.test(lines[i])){if(on)break;on=/已适配的游戏/.test(lines[i]);continue;}if(on&&/^\|/.test(lines[i]))at=i;}
  if(at<0)throw Error('HANDOFF.md has no 已适配的游戏 table');lines.splice(at+1,0,row);return lines.join('\n');}
+/* 2026-11-27 (ハミダシクリエイティブ, PR #1303 CI): what goes into The Seed is only what validation/the-seed.test.cjs takes: game.json,
+   story.json, versions/<exe SHA-256>.json. The adapter's lines.json (the reader's lines) stays in the run folder */
+const SEED_FILE=/^(game|story)\.json$|^versions[\\/][0-9a-f]{64}\.json$/;
+function copySeedFiles(src,dest){const out=[];const walk=rel=>{for(const e of fs.readdirSync(path.join(src,rel),{withFileTypes:true})){const r=rel?path.join(rel,e.name):e.name;
+  if(e.isDirectory()){walk(r);continue;}if(!SEED_FILE.test(r))continue;fs.mkdirSync(path.dirname(path.join(dest,r)),{recursive:true});fs.copyFileSync(path.join(src,r),path.join(dest,r));out.push(r);}};
+ walk('');return out;}
+/* The Seed's engine overview ships a count snapshot keyed to the seeded VNDB ids (services/seed-catalog-engine-map.cjs seedIds); a
+   new seeded work changes the key (validation/seed-catalog-engines.test.cjs) and leaves that engine's count of not-yet-seeded works
+   one lower. bumpSnapshot(text, fp, engine, isNew) -> the new file text ('' when nothing changes) */
+function bumpSnapshot(text,fp,engine,isNew){const m=/seedIds:'([0-9a-f]{64})'/.exec(text);if(!m||m[1]===fp)return '';
+ let t=text.replace(m[0],"seedIds:'"+fp+"'");if(isNew&&engine)t=t.replace(new RegExp('(\\n\\s*'+engine.replace(/[^a-z0-9_]/gi,'')+':)(\\d+)'),(s,a,n)=>a+Math.max(0,Number(n)-1));return t;}
+function updateCatalogSnapshot(repo,engine){const file=path.join(repo,'services','seed-catalog-engine-map.cjs');if(!fs.existsSync(file))return '';
+ const r=spawnSync(process.execPath,['-e',"const c=require('./services/seed-catalog.cjs');const ids=[...new Set(c.seedList().map(g=>g.vndb).filter(Boolean))].sort();console.log(require('crypto').createHash('sha256').update(JSON.stringify(ids)).digest('hex'))"],{cwd:repo,encoding:'utf8',windowsHide:true});
+ const fp=String(r.stdout||'').trim();if(!/^[0-9a-f]{64}$/.test(fp))return '';const t=bumpSnapshot(fs.readFileSync(file,'utf8'),fp,engine,true);if(!t)return '';
+ fs.writeFileSync(file,t);return 'seed-catalog snapshot: seedIds -> '+fp.slice(0,12)+', '+engine+' -1';}
 function publish(out,{repo='',go=false,log=console.log}={}){const st=readState(path.resolve(out));if(st.state!=='ready')throw Error('not ready to publish (state '+st.state+'); answer the questions first');
  if(!repo)throw Error('--repo <a MeguLit checkout on its own branch> is needed');const slug=path.basename(st.seed),dest=path.join(repo,'The Seed',st.engine,slug);
  const plan=['copy '+st.seed+' -> '+dest,'git add + commit "The Seed: '+st.title+'（MeguLit-Adapter）"','git push -u origin HEAD','gh pr create --body-file '+path.join(st.out,'pr-body.md'),'HANDOFF.md 已适配的游戏 += '+st.handoffRow+' (origin/main)'];
  if(!go){log('# dry run (add --go):');for(const p of plan)log('  '+p);return EXIT.done;}
  const branch=sh('git',['rev-parse','--abbrev-ref','HEAD'],repo);if(/^(main|master|HEAD)$/.test(branch))throw Error('the checkout is on '+branch+': make a branch first');
- fs.mkdirSync(dest,{recursive:true});fs.cpSync(st.seed,dest,{recursive:true});
- sh('git',['add','--',path.relative(repo,dest)],repo);sh('git',['commit','-m','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）'],repo);sh('git',['push','-u','origin','HEAD'],repo);
+ copySeedFiles(st.seed,dest);const snap=updateCatalogSnapshot(repo,st.engine);if(snap)log('# '+snap);
+ sh('git',['add','--',path.relative(repo,dest),...(snap?[path.join('services','seed-catalog-engine-map.cjs')]:[])],repo);sh('git',['commit','-m','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）'],repo);sh('git',['push','-u','origin','HEAD'],repo);
  const url=sh('gh',['pr','create','--title','The Seed：'+workName(st)+' 适配（MeguLit-Adapter）','--body-file',path.join(st.out,'pr-body.md')],repo);log('# PR '+url);
  const wt=path.join(st.out,'handoff-wt');sh('git',['fetch','origin','main'],repo);sh('git',['worktree','add','--detach',wt,'origin/main'],repo);
  try{const f=path.join(wt,'HANDOFF.md');fs.writeFileSync(f,addHandoffRow(fs.readFileSync(f,'utf8'),st.handoffRow.replace(/（MeguLit-Adapter） \|$/,'（MeguLit-Adapter）'+url.replace(/.*\/pull\//,' PR #')+' |')));
@@ -179,4 +194,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={copySeedFiles,bumpSnapshot,updateCatalogSnapshot,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};

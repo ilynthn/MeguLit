@@ -124,6 +124,14 @@ test('samples: disc images ask for an install (soundtrack .cue beside .wav does 
  const y=plan({caps:Engines.capabilities('yuris'),probe:{step:'parse-failed',detail:'yuris',detected:null}});
  assert.ok(y.notes.some(n=>/选项/.test(n)),'caveat shown');assert.ok(y.notes.some(n=>/读取器/.test(n)),'parse-failed is a reader gap');});
 
+test('publish: only the files The Seed takes are copied; a new seeded work re-keys the engine count snapshot (ハミダシクリエイティブ CI)',()=>{
+ const d=tmp(),src=path.join(d,'seed'),dest=path.join(d,'repo','The Seed','artemis','x'),sha='a'.repeat(64);fs.mkdirSync(path.join(src,'versions'),{recursive:true});
+ for(const f of ['game.json','lines.json',path.join('versions',sha+'.json'),path.join('versions','notes.txt')])fs.writeFileSync(path.join(src,f),'{}');
+ assert.deepEqual(Adapter.copySeedFiles(src,dest).sort(),['game.json',path.join('versions',sha+'.json')].sort());assert.ok(!fs.existsSync(path.join(dest,'lines.json')));
+ const text="const snapshot={\n at:1,\n seedIds:'"+'b'.repeat(64)+"',\n counts:{\n  kirikiri:4487,\n  artemis:252,\n }\n};";
+ const t=Adapter.bumpSnapshot(text,'c'.repeat(64),'artemis',true);assert.match(t,/seedIds:'c{64}'/);assert.match(t,/artemis:251,/);assert.match(t,/kirikiri:4487,/);
+ assert.equal(Adapter.bumpSnapshot(text,'b'.repeat(64),'artemis',true),'','same seeded ids: nothing changes');});
+
 test('naming: an own copy is named after its source, a disc program folder after its parent, the seed after VNDB (ハミダシクリエイティブ)',async()=>{
  const Cold=require('../tools/megulit-adapter/cold.cjs');const d=tmp();const copy=path.join(d,'HamidashiCreative-ozmafia-joki');fs.mkdirSync(copy);
  fs.writeFileSync(path.join(copy,'.megulit-copy.json'),JSON.stringify({source:path.join(d,'hamidashi-creative','HamidashiCreative','Input'),owner:'ozmafia-joki'}));
