@@ -127,7 +127,7 @@ test('nickname rules match the relay; fetch output is sanitized',async t=>{
 
 test('top tab 排行榜 sits between 学习 and 工具 and the page renders the not-ready state',async()=>{
  const app=fs.readFileSync(path.join(__dirname,'..','web','app.js'),'utf8');
- assert.ok(app.includes("['home','library','history','learning'].map(tabButton)"));assert.ok(app.includes("['leaderboard','daily','torch'].map(tabButton)"));assert.ok(app.includes("['tools','settings','about'].map("));assert.ok(app.includes('data-top-me'));
+ assert.ok(app.includes("['home','library','novel','history','learning'].map(tabButton)"));assert.ok(app.includes("['leaderboard','daily','torch'].map(tabButton)"));assert.ok(app.includes("['tools','settings','about'].map("));assert.ok(app.includes('data-top-me'));
  const view=await import(pathToFileURL(path.join(__dirname,'..','web','leaderboard-view.js')).href);
  assert.deepEqual(view.leaderboardLabel,{zh:'排行榜',ja:'ランキング',en:'Leaderboard'});
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
