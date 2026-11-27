@@ -57,7 +57,9 @@ function green(pr,{view=n=>JSON.parse(gh(['pr','view',String(n),'--repo','ilynth
 
 /* ---- 2 the tree ------------------------------------------------------------------------------------------------------- */
 function tree(prs,log){const dir=path.join(COPIES(),'testbuild-src','integration');
- git(['fetch','-q','origin','main',...prs.map(n=>'+refs/pull/'+n+'/head:refs/remotes/origin/pr/'+n),'+refs/heads/'+AUTO_BRANCH+':refs/remotes/origin/'+AUTO_BRANCH]);
+ git(['fetch','-q','origin','main',...prs.map(n=>'+refs/pull/'+n+'/head:refs/remotes/origin/pr/'+n)]);
+ /* 2026-11-28: #1318 merged and its branch was deleted; a missing branch = its test-build mode is on main */
+ const autoThere=spawnSync('git',['fetch','-q','origin','+refs/heads/'+AUTO_BRANCH+':refs/remotes/origin/'+AUTO_BRANCH],{cwd:REPO,windowsHide:true}).status===0;
  if(!fs.existsSync(path.join(dir,'.git'))){fs.mkdirSync(path.dirname(dir),{recursive:true});git(['worktree','add','-f','-B','test/integration',dir,'origin/main']);}
  git(['checkout','-q','-f','-B','test/integration','origin/main'],dir);git(['clean','-q','-fd'],dir);
  const merged=[],skipped=[],heads={};
@@ -66,7 +68,7 @@ function tree(prs,log){const dir=path.join(COPIES(),'testbuild-src','integration
   const files=String(spawnSync('git',['diff','--name-only','--diff-filter=U'],{cwd:dir,encoding:'utf8'}).stdout||'').trim().split('\n').filter(Boolean);
   spawnSync('git',['merge','--abort'],{cwd:dir,windowsHide:true});skipped.push({pr:n,why:'合不进来（冲突：'+(files.slice(0,4).join('、')||String(r.stderr).trim().slice(-120))+'）'});log('# #'+n+' 合不进来，跳过');}
  /* the test-build mode while #1318 is not on main: only its own files, as a patch */
- const inMain=spawnSync('git',['merge-base','--is-ancestor','origin/'+AUTO_BRANCH,'origin/main'],{cwd:dir}).status===0,notes=[];
+ const inMain=!autoThere||spawnSync('git',['merge-base','--is-ancestor','origin/'+AUTO_BRANCH,'origin/main'],{cwd:dir}).status===0,notes=[];
  if(!inMain&&!merged.includes(AUTO_PR)){const diff=spawnSync('git',['diff','origin/main...origin/'+AUTO_BRANCH,'--',...TEST_MODE_FILES],{cwd:dir,encoding:'utf8',maxBuffer:64<<20}).stdout||'';
   if(diff.trim()){const f=path.join(path.dirname(dir),'test-mode.patch');fs.writeFileSync(f,diff);const a=spawnSync('git',['apply','--3way',f],{cwd:dir,encoding:'utf8',windowsHide:true});
    if(a.status!==0){spawnSync('git',['checkout','-f','HEAD','--',...TEST_MODE_FILES],{cwd:dir,windowsHide:true});notes.push('测试版模式（#1318）补不进来：更新器照旧开着，界面没有版本标签');}
