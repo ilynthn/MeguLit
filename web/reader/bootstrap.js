@@ -45,6 +45,8 @@ function event(message){if(message.type==='libraryOnly'&&message.enabled){loaded
  if(message.type==='call'){deliver({replies:[message]});return;}
  /* Alt+M bound the window in front, or said why not (services/bind-hotkey.cjs) */
  if(message.type==='bindHotkeyResult'){b.bindHotkeyResult?.(message);return;}
+ /* 2026-11-27 再带我走一遍 from the main window (services/bridge.cjs onboarding_replay) */
+ if(message.type==='onboarding'){if(message.action==='replay')b.onboardingReplay?.();return;}
  const method={glassFrame:'glassFrame',gameStyleStatus:'gameStyleStatus',hookTextPos:'textPosition',lineStyleSample:'lineStyleSample',textPlace:'textPlace',textPlaceMode:'textPlaceMode',textPlaceExtra:'textPlaceExtra',textPlacePage:'textPlacePage',artText:'artText',enginePreferences:'enginePreferences',hookPage:'hookPage',waitMarkerFrame:'waitMarkerFrame',maskFrame:'galMaskFrame'}[message.type];
  if(method){b[method]?.(message);return;}
  if(message.type==='workTranslationPrompt'){b.workTranslationPrompt?.(message.key,message.prompt);return;}

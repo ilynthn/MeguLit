@@ -696,6 +696,13 @@ async function dispatch(request,runtime=null) {
         const values=cleanUiState(request.values),file=path.join(root,'data','ui-state.json');
         fs.writeFileSync(file,JSON.stringify(values,null,2));return {keys:Object.keys(values).length};
       }
+      /* 2026-11-27 新手引导 again (教程 in the top bar): the reader shows it now if a game is on, else ui-state.json keeps the wish for the next launch */
+      case 'onboarding_replay':{
+        /* the key and its shape belong to web/onboarding-steps.js (KEY, replay); web/ is inside the exe, so it is not required from here */
+        const KEY='tomoyo-onboarding',file=path.join(root,'data','ui-state.json'),values=cleanUiState(store.readJSON(file,{}));
+        let saved={};try{saved=JSON.parse(values[KEY]||'{}')||{};}catch{}if(!saved||typeof saved!=='object'||Array.isArray(saved))saved={};values[KEY]=JSON.stringify({...saved,replay:true});fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(values,null,2));
+        runtime?.emit('reader-event',{type:'onboarding',action:'replay'});return {replay:true};
+      }
       case 'save_preferences':{const preferences=savePreferences(request);runtime?.emit('reader-event',{type:'appearance',preferences});if(request.values?.language)runtime?.emit('reader-event',{type:'language',language:preferences.language});return preferences;}
       case 'asset_get':return require('./assets.cjs').get(root,String(request.slot||'home'));
       case 'asset_preview':return require('./assets.cjs').preview(request.path);

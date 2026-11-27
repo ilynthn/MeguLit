@@ -341,6 +341,8 @@
   function settle(){
    if(!cur.visible||drag)return;
    if(cur.hovered){if(cur.style==='c'&&cur.state==='open')timer('leave',null);return;}
+   /* 2026-11-27 the 新手引导 holds the capsule open while it explains it (onboarding.js), so it does not fade to idle under the light */
+   if(cur.held){go(cur.held);timer('idle',null);return;}
    if(menuOpen()&&cur.style!=='c'){go(fitsOpen()?'open':'rest');timer('idle',null);return;}
    if(cur.state==='open'||cur.state===''){go('rest');}
    if(cur.tucked){go('idle');return;}
@@ -483,7 +485,7 @@
   document.fonts?.ready.then(()=>{if(cur.visible){cur.g=null;layout(true);if(cur.state)go(cur.state,{force:true,instant:true});}});
   build();
   window.__megulitCapsule={prefs:()=>({...prefs}),set:(p,o)=>setPrefs(p,o||{}),state:()=>({state:cur.state,style:cur.style,visible:cur.visible,tucked:cur.tucked,side:rootEl.dataset.side||'',corner:(rootEl.dataset.v||'')+(rootEl.dataset.h||'')}),
-   rect:()=>{const g=geom();return g&&cur.pos?vp(shape(g,cur.state||'rest')):null;},refresh:()=>{cur.g=null;layout(true);refresh();},core};
+   rect:()=>{const g=geom();return g&&cur.pos?vp(shape(g,cur.state||'rest')):null;},refresh:()=>{cur.g=null;layout(true);refresh();},hold:state=>{cur.held=['open','rest'].includes(state)?state:'';settle();},core};
   schedule();
  }
  return {core,install};

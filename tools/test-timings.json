@@ -539,6 +539,7 @@
  "validation/ocr-page.test.cjs": 648,
  "validation/ocr-read-lines.test.cjs": 604,
  "validation/ocr-snap.test.cjs": 225,
+ "validation/onboarding-tour.test.cjs": 69476,
  "validation/opening-art.test.cjs": 264,
  "validation/opening-three.test.cjs": 137,
  "validation/ordinary-seed.test.cjs": 9923,

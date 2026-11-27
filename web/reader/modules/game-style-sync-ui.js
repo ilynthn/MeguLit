@@ -189,6 +189,8 @@
     type:'gameStyleCaptureReady',id:m.gameStyleCaptureId})));
   }
   if(m.gameStyleState==='profile')setTimeout(()=>firstRunTip(m),0);
+  /* 2026-11-27 one event per status that names a launch; the 新手引导 (onboarding.js) counts launches from it */
+  if(m.gameStyleState==='profile'&&m.gameStyleIdentity)window.dispatchEvent(new CustomEvent('megulit-game-launch',{detail:{identity:String(m.gameStyleIdentity),key:m.gameStyleKey||''}}));
   if(m.gameStyleState==='profile'){
    const changed=(m.gameStyleKey||'')!==session.key||!!m.gameStyleIdentity&&m.gameStyleIdentity!==gameIdentity;
    if(changed||!dirty()&&!saving){if(changed){itemUndo=storedUndo(m.gameStyleKey,m.gameStyleSavedAt);measurementSerial++;clearInterval(correctionTimer);saving=null;aligning=false;gameIdentity=m.gameStyleIdentity||'';
