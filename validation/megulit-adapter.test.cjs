@@ -213,3 +213,8 @@ test('seed slug: VNDB\'s latin title plus the ASCII words the game title adds; n
  assert.equal(Ident.slugFrom('アイキス3 sexy','Ai Kiss 3'),'ai-kiss-3-sexy','the edition word stays: sexy and cute are different seeds');
  assert.equal(Ident.slugFrom('千恋＊万花','Senren * Banka'),'senren-banka');assert.equal(Ident.slugFrom('STEINS;GATE','Steins;Gate'),'steins-gate','no word twice');
  assert.equal(Ident.slugFrom('オルフレール',''),'','no latin title: the caller keeps its fallback');});
+
+test('PR body: the request issue closes only with a verified seed (AGENTS.md: partial work is Refs)',()=>{
+ assert.deepEqual(Adapter.issueLine({answers:{issue:'1109'}},{status:'verified'}),['Fixes #1109','']);
+ assert.deepEqual(Adapter.issueLine({answers:{issue:'#1109'}},{status:'skeleton'}),['Refs #1109','']);
+ assert.deepEqual(Adapter.issueLine({answers:{}},{status:'verified'}),[]);});

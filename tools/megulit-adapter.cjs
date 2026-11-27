@@ -116,7 +116,9 @@ function handoffRow(st){const g=JSON.parse(fs.readFileSync(path.join(st.seed,'ga
 const workName=st=>{const cn=String(st.answers.cn||'').trim();return st.title+(cn&&cn!=='-'?'（'+cn+'）':'');};
 function prBody(st){const c=st.cold||{},g=JSON.parse(fs.readFileSync(path.join(st.seed,'game.json'),'utf8'));return ['## 问题','',workName(st)+'（VNDB '+(st.answers.vndb||st.identity.vndb||'未知')+'，'+(st.answers.release||st.identity.release||st.identity.releaseGuess||'发行版未知')+'）还没有 The Seed 适配。','',
  '## 改动','','只加 `The Seed/'+st.engine+'/'+path.basename(st.seed)+'/`（纯数据，status '+g.status+'），由 MeguLit-Adapter 生成：',...summary(st).map(s=>'- '+s),'- 版本层另记 exe 头尾 / PE 版本 / 剧本指纹 / 主封包指纹（`ext.versionPrints`，`source.versionMatch: prints`），补丁和汉化后的 exe 也认得','',
- '## 验证','','- 实机验证（开游戏'+(st.foreground?'前台':'隐藏桌面')+'跑几句，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人看截图确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 截图是游戏画面，没有 MeguLit 阅读层：选项译文要在 MeguLit 里再看一眼（未验证译文画面）',''].join('\n');}
+ '## 验证','','- 实机验证（开游戏'+(st.foreground?'前台':'隐藏桌面')+'跑几句，静音）：'+(c.verdict||'没跑'),...(c.reasons||[]).map(r=>'  - '+r),'- 人看截图确认：',...(st.questions||[]).map(q=>'  - '+q.ask+' → '+(st.answers[q.id]??'未答')),'- 截图是游戏画面，没有 MeguLit 阅读层：选项译文要在 MeguLit 里再看一眼（未验证译文画面）','',...issueLine(st,g)].join('\n');}
+/* 2026-11-27 (アイキス3 sexy #1109) the request issue (answer issue=<n>): AGENTS.md, only a verified seed closes it, anything less is Refs */
+function issueLine(st,g){const n=String(st.answers.issue||'').replace(/^#/,'');if(!/^\d{1,7}$/.test(n))return [];return [(g.status==='verified'?'Fixes #':'Refs #')+n,''];}
 
 async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.resolve(o.dir));log('# own copy '+c.dir+(c.reused?' (kept)':' ('+Math.round(c.bytes/1048576)+' MB)'));o={...o,dir:c.dir};}
  const dir=path.resolve(o.dir),title=Cold.titleOf(dir),out=path.resolve(o.out||path.join(OUT_ROOT(),Cold.safeName(title)));
@@ -188,4 +190,4 @@ async function main(argv){const cmd=argv[2];
   return await run(parseRun(argv));}
  catch(e){console.error('megulit-adapter: '+(e.message||e));return EXIT.inconclusive;}}
 if(require.main===module)main(process.argv).then(c=>{process.exitCode=c;});
-module.exports={copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
+module.exports={issueLine,copyGame,lunaCaps,discImages,parseRun,gameLock,probe,run,answer,publish,addHandoffRow,handoffRow,prBody,writeSeed,finish,main,EXIT};
