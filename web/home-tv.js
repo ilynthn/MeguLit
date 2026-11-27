@@ -1,4 +1,3 @@
-import {requestUiFrame,cancelUiFrame} from './idle-gate.js';
 import {activityCells} from './learning-activity.js';
 import {openLinesPicker} from './home-lines.js';
 import {createDepth,markFlat,cachedDaily,rememberDaily,dailyIsFresh,dailySignature,cachedActivity,rememberActivity} from './home-depth.js';
@@ -347,14 +346,17 @@ export function cardify(card,opts){
  function coast(dt){const k=46,c=10.5,s=dt/1000;let moving=false;
   for(const [a,v] of [['rx','vx'],['ry','vy'],['rz','vz']]){free[v]+=(-k*free[a]-c*free[v])*s;free[a]+=free[v]*s;
    if(Math.abs(free[a])>.05||Math.abs(free[v])>.6)moving=true;}
-  if(!moving){free.on=false;free.rx=free.ry=free.rz=free.vx=free.vy=free.vz=0;Object.assign(state,{rx:0,ry:0,scale:1.02});dirty=true;}
-  return moving;}
+  if(!moving){free.on=false;free.rx=free.ry=free.rz=free.vx=free.vy=free.vz=0;Object.assign(state,{rx:0,ry:0,scale:1.02});dirty=true;}}
  function tick(now){
   frame=0;if(stopped)return;if(!card.isConnected){stop();return;}
-  // Cap the step after a stalled frame so re-entering never snaps to the target pose.
-  const dt=Math.min(32,Math.max(0,now-lastAt));lastAt=now;
-  if(free.on){if(drag){paint();return;}const moving=coast(dt);paint();if(moving||dirty)frame=requestUiFrame(tick);return;}
+  const elapsed=Math.max(0,now-lastAt);lastAt=now;
+  if(free.on){if(drag){paint();return;}
+   // Catch up over slow frames without taking an unstable step in the spring.
+   for(let left=Math.min(elapsed,2000);left>0&&free.on;){const dt=Math.min(left,16);coast(dt);left-=dt;}
+   paint();if(free.on||dirty)frame=requestAnimationFrame(tick);return;}
   if(dirty)aim();
+  // Keep pointer entry smooth, but let a return to rest follow wall-clock time.
+  const dt=target.strength?Math.min(32,elapsed):elapsed;
   const blend=1-Math.exp(-dt/100);
   let settled=true;
   for(const key of Object.keys(state)){
@@ -363,9 +365,10 @@ export function cardify(card,opts){
    if(Math.abs(target[key]-state[key])>tolerance)settled=false;
   }
   if(settled)Object.assign(state,target);
-  paint();if(!settled)frame=requestUiFrame(tick);
+  paint();if(!settled)frame=requestAnimationFrame(tick);
  }
- function wake(){if(!stopped&&!frame){lastAt=performance.now();frame=requestUiFrame(tick);}}
+ // Gesture feedback must finish even when the window is visible but unfocused.
+ function wake(){if(!stopped&&!frame){lastAt=performance.now();frame=requestAnimationFrame(tick);}}
  // Only the home page calls stop(). Elsewhere a card that left the page drops its listeners at its next event.
  function alive(){if(card.isConnected)return true;stop();return false;}
  function move(event){
@@ -385,7 +388,7 @@ export function cardify(card,opts){
   if(drag.ring){let a=angle(event.clientX,event.clientY)-drag.a0;a=((a+540)%360)-180;drag.base.rz+=a;drag.a0+=a;free.rz=drag.base.rz;}
   else{free.rx=band(drag.base.rx-(event.clientY-drag.y0)*SPIN_GAIN);free.ry=band(drag.base.ry+(event.clientX-drag.x0)*SPIN_GAIN);}
   const now=performance.now();drag.samples.push({t:now,rx:free.rx,ry:free.ry,rz:free.rz});while(drag.samples.length>2&&now-drag.samples[0].t>90)drag.samples.shift();
-  if(frame){cancelUiFrame(frame);frame=0;}paint();}
+  if(frame){cancelAnimationFrame(frame);frame=0;}paint();}
  function release(){if(!drag)return;const d=drag;drag=null;if(!d.started)return;
   const s=d.samples,a=s[0],b=s[s.length-1],span=a&&b?Math.max(16,b.t-a.t):0;
   if(span&&performance.now()-b.t<60){free.vx=(b.rx-a.rx)/span*1000;free.vy=(b.ry-a.ry)/span*1000;free.vz=(b.rz-a.rz)/span*1000;}
@@ -405,7 +408,7 @@ export function cardify(card,opts){
  function geometry(){if(!alive())return;dirty=true;if(pointer)wake();}
  function visibility(){if(alive())reset();}
  function reset(){
-  if(frame)cancelUiFrame(frame);frame=0;pointer=null;pressed=false;cancelDrag();
+  if(frame)cancelAnimationFrame(frame);frame=0;pointer=null;pressed=false;cancelDrag();
   free.on=false;free.rx=free.ry=free.rz=free.vx=free.vy=free.vz=0;
   target=neutral();Object.assign(state,target);paint();
  }

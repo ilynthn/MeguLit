@@ -39,18 +39,18 @@ test('a change that interrupts a running one picks up from the screen, and quick
  const page=await openHome(t,{covers:[RED,GREEN,BLUE]});if(!page)return;const {evaluate}=page;
  const chips=await page.chips(),c=await page.cover(),clip={x:c.l,y:c.t,width:c.w,height:c.h},mean=()=>page.pixels(clip,MEAN);
  const red=await mean(),green=[40,160,70];
- /* a slow dissolve, so the moment of the interruption can be caught on screen */
- await evaluate(`document.querySelector('.tv-cover').style.setProperty('--tv-dissolve-ms','2400');1`);
+ /* slow the first dissolve so it is still running after the pre-interruption screenshot */
+ await evaluate(`document.querySelector('.tv-cover').style.setProperty('--tv-dissolve-ms','4000');1`);
  await page.click(chips[1].x,chips[1].y);await sleep(1000);
  const before=await mean();await page.shot(SHOTS,'switch-1-before-interrupt',clip);
  assert.ok(dist(before,red)>8,'the change to the second game has started: '+JSON.stringify({before,red}));
+ await evaluate(`document.querySelector('.tv-cover').style.removeProperty('--tv-dissolve-ms');1`);
  await page.click(chips[2].x,chips[2].y);
- const after=await mean();await page.shot(SHOTS,'switch-2-after-interrupt',clip);
  const layers=await page.state();
+ const after=await mean();await page.shot(SHOTS,'switch-2-after-interrupt',clip);
  /* the red of the first game only keeps fading: dropping the running change (as the old wipe did) jumps the card back to red */
  assert.ok(dist(after,red)>=dist(before,red)-12,'no jump back when a change is interrupted: '+JSON.stringify({before,after,red}));
  assert.ok(layers.dissolve>=2,'the interrupted change keeps going under the new one: '+JSON.stringify(layers));
- await evaluate(`document.querySelector('.tv-cover').style.removeProperty('--tv-dissolve-ms');1`);
  /* quick changes, one every 90 ms, then let it settle */
  await evaluate(`(()=>{window.__gaps=[];let last=0;const f=t=>{if(last)__gaps.push(t-last);last=t;if(!window.__stopGaps)requestAnimationFrame(f);};requestAnimationFrame(f);return 1;})()`);
  const order=[0,1,2,0,2,1,0,1];for(const i of order){await page.click(chips[i].x,chips[i].y);await sleep(90);}
