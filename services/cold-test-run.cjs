@@ -55,8 +55,17 @@ function ocrItems(lines){const out=[],ls=(Array.isArray(lines)?lines:[]).map(l=>
 const OCR_NOT_START=/設定|環境|コンフィグ|config|option|オプション|おまけ|extra|鑑賞|ギャラリー|gallery|終了|exit|quit|システム|system/i;
 /* OCR rows that are pieces of the hook's option text: most of a row's characters appear in it, at least 5 of them; topmost first */
 const plainOf=t=>String(t||'').replace(/[\s、。・…‥〃″'"`,.！？!?「」『』（）()]/g,'');
-function choiceItems(lines,aux){const a=plainOf(aux);if(a.length<8)return [];const out=[];
- for(const l of Array.isArray(lines)?lines:[]){const t=plainOf(l?.text);if(t.length<5||!(l.w>0&&l.h>0))continue;let hit=0;for(const c of t)if(a.includes(c))hit++;if(hit/t.length<0.75)continue;
+/* 2026-11-27 (ハミダシクリエイティブ, Artemis2 split by text layer: each choice button is its own layer stream and came as auxiliary
+   text, one button per line: 'aux Artemis2 role 0 chars=2 text=好き', '... chars=6 text=そうでもない'): auxiliary pieces that come within
+   1.5 s of each other are one option text for choiceItems. -> {text, at} | null (the line is not auxiliary text) */
+const AUX_JOIN_MS=1500;
+function auxPiece(line,prev,prevAt,now){const m=/(?:^|\s)aux \S+ role \d+ chars=\d+ text=(.+?)\s*$/.exec(String(line||''));if(!m)return null;
+ return {text:prev&&now-prevAt<AUX_JOIN_MS?prev+m[1]:m[1],at:now};}
+/* 2026-11-27 (ハミダシクリエイティブ, Artemis: 「好き」「そうでもない」 came as one label 「好きそうでもない」): a short row (2-4 characters) counts
+   when it is word for word in the option text; a longer one when most of its characters are */
+function choiceItems(lines,aux){const a=plainOf(aux);if(a.length<4)return [];const out=[];
+ for(const l of Array.isArray(lines)?lines:[]){const t=plainOf(l?.text);if(t.length<2||!(l.w>0&&l.h>0))continue;
+  if(t.length<5){if(!a.includes(t))continue;}else{let hit=0;for(const c of t)if(a.includes(c))hit++;if(hit/t.length<0.75)continue;}
   if(out.some(o=>Math.abs(o.y-l.y)<Math.max(8,l.h/2)))continue;out.push({role:'choice',text:String(l.text).replace(/\s+/g,''),ocr:t.slice(0,40),x:l.x|0,y:l.y|0,w:l.w|0,h:l.h|0});}
  return out.sort((p,q)=>p.y-q.y);}
 /* options the kernel wants located + OCR rows -> the 'hookChoiceBoxes' answer GalWindowBridge gives (client px, the window as the screen):
@@ -81,7 +90,7 @@ function nameOffered(text){const rows=String(text||'').split(/\\n|\n/).map(r=>r.
  return k<0?'':rows.slice(k+1).find(r=>r.length<=10&&!/[「」『』。、？！?!]/.test(r))||'';}
 function inputLadder(cfg,ctx){const {res,runDir,send,post}=ctx;const dir=String(cfg.inputCtlDir||'');
  const hasCtl=!!dir&&fs.existsSync(path.join(dir,'InputCtl32.exe'))&&fs.existsSync(path.join(dir,'InputShim32.dll'));
- const ladder=new InputFallback.Ladder(InputFallback.ladder({inputCtl:hasCtl,foreground:cfg.foreground===true}),cfg.ladder||{});
+ const ladder=new InputFallback.Ladder(InputFallback.ladder({inputCtl:hasCtl,foreground:cfg.foreground===true,realInput:cfg.realInput===true,from:String(cfg.from||'')}),cfg.ladder||{});
  if(dir&&!hasCtl)ladder.record.errors.push('no InputCtl32.exe / InputShim32.dll in '+dir);
  let dialogAt=-1e9,helper=null,inited=false,shotN=0,shotA=null,queued=null,cur=ladder.level,closed=false;const held=new Set();
  const bits=()=>{try{return require('../core/locale-emulator.cjs').x86(ctx.exe)?32:64;}catch{return 32;}};
@@ -185,7 +194,7 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
   /* the hook: same component a played game gets, its trace into the run folder; every trace line is counted here too */
   const attach=()=>{if(hooks||!res.pid||!res.window||!started)return;try{
    const Hook=deps.Hook||require('../core/hook-native.cjs').HookNative;const layout={...(deps.layout||require('../core/layout.cjs')),logs:runDir};
-   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const sc=/(?:^|\s)source chars=(\d+)/.exec(String(line));if(sc){srcChars=+sc[1];srcAt=now();}}{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}{const q=/"([\s\S]*)"\s*$/.exec(String(line));if(q&&/[入人][力カ]/.test(q[1]))nameHint=nameOffered(q[1])||nameHint;}/* 2026-11-27 (ファタモルガーナの館: 'choice options filtered 2 -> 0' at the end of the prologue, then 'filtered 5 -> 2' made of typewriter pieces of the next line, were counted as choices: the driver pressed Down + Enter and clicked, the game opened its config screen, or the run ended 5 lines later before the real first choice) only options the kernel found on the screen (its locate answered by this runner's OCR: 'choice ocr … found=N', N >= 2) are a choice; candidates and filter counts are not */if(/(?:^|\s)choice ocr \S+ found=([2-9]|\d{2,})\b/.test(String(line)))res.choices++;const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();
+   Hook.traceTap=line=>{if(/(?:^|\s)(?:source chars=|choice aux |aux )/.test(String(line)))hookTextAt=now();{const sc=/(?:^|\s)source chars=(\d+)/.exec(String(line));if(sc){srcChars=+sc[1];srcAt=now();}}{const m=/(?:^|\s)choice aux .* text="(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=8){choiceAux=m[1];choiceAuxAt=now();}}/* 2026-11-27 (ハミダシクリエイティブ, Artemis2: the options joined into one short line the bridge drops as a label: 'label not shown Artemis2 "好きそうでもない"') a label is option text too; choiceItems only takes it with OCR rows that are in it */{const m=/(?:^|\s)label not shown \S+ "(.*)"\s*$/.exec(String(line));if(m&&m[1].length>=4){choiceAux=m[1];choiceAuxAt=now();}}{const a=auxPiece(line,choiceAux,choiceAuxAt,now());if(a){choiceAux=a.text;choiceAuxAt=a.at;}}{const q=/"([\s\S]*)"\s*$/.exec(String(line));if(q&&/[入人][力カ]/.test(q[1]))nameHint=nameOffered(q[1])||nameHint;}/* 2026-11-27 (ファタモルガーナの館: 'choice options filtered 2 -> 0' at the end of the prologue, then 'filtered 5 -> 2' made of typewriter pieces of the next line, were counted as choices: the driver pressed Down + Enter and clicked, the game opened its config screen, or the run ended 5 lines later before the real first choice) only options the kernel found on the screen (its locate answered by this runner's OCR: 'choice ocr … found=N', N >= 2) are a choice; candidates and filter counts are not */if(/(?:^|\s)choice ocr \S+ found=([2-9]|\d{2,})\b/.test(String(line)))res.choices++;const e=parseTrace(line);if(!e)return;if(e.kind==='line'){res.lines++;lastLineAt=now();
     /* a new line: what the OCR read is another screen now (Monochrome Empire: the title's start item, clicked again on its name entry) */
     for(let i=menu.length-1;i>=0;i--)if(menu[i].ocr)menu.splice(i,1);}};
    /* 2026-11-26 the hook's status events (bridge errors, attach state) next to its trace, so a run that never connects says why */
@@ -256,4 +265,4 @@ function runOne(opts,deps={}){const {root='',exe,runDir,budgetMs=360000,profile=
     else if(a.do==='shot'){const file=path.join(runDir,'shot-'+(++shotN)+'-'+String(a.tag).replace(/[^a-z0-9-]/gi,'')+'.jpg');send('shot '+shotWidth+' '+file);}}},TICK);
   timer.unref?.();});}
 
-module.exports={hookSetup,tapeOfRun,TAPE_SLOW,TAPE_FAST,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};
+module.exports={auxPiece,hookSetup,tapeOfRun,TAPE_SLOW,TAPE_FAST,nameOffered,runOne,helperPath,menuItem,ocrItems,choiceItems,locateAnswer,ocr,stopActive:()=>stopActive?.()};

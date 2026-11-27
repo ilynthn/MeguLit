@@ -10,7 +10,11 @@
 const zlib=require('node:zlib');
 
 /* the levels a run may use: inputctl only with the testbed's InputCtl, sendinput only on the visible desktop */
-function ladder({inputCtl=false,foreground=false}={}){return ['post',...(inputCtl?['inputctl']:[]),...(foreground?['sendinput']:[])];}
+/* sendinput moves the user's own mouse: only with realInput (session rule 2026-11-27: input goes into the game only, PostMessage or
+   InputShim). from: the engine's first level (tools/megulit-adapter/engines.cjs RULES input) when it is on the ladder; 2026-11-27
+   ハミダシクリエイティブ (Artemis) polls the cursor and keys, ignored every posted click and Enter, and answered InputShim at once */
+function ladder({inputCtl=false,foreground=false,realInput=false,from=''}={}){const l=['post',...(inputCtl?['inputctl']:[]),...(foreground&&realInput?['sendinput']:[])];
+ const k=from?l.indexOf(from):-1;return k>0?l.slice(k):l;}
 
 /* a PNG (8-bit gray / RGB / RGBA / gray+alpha, not interlaced: what ColdDesk's System.Drawing writes) -> {w,h,px: Uint8Array gray} | null */
 function pngGray(buf){try{if(!Buffer.isBuffer(buf)||buf.length<33||buf.readUInt32BE(0)!==0x89504e47)return null;

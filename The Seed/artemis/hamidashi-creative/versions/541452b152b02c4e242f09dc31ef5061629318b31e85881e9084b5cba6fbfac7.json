@@ -1,0 +1,18 @@
+{
+ "schema": "megulit.game-diff",
+ "version": 1,
+ "key": "541452b152b02c4e242f09dc31ef5061629318b31e85881e9084b5cba6fbfac7",
+ "layer": "version",
+ "source": "official",
+ "settings": {},
+ "exe": "hamidashi.exe",
+ "engine": "artemis",
+ "app": "diff-maker/5",
+ "issuedAt": "",
+ "prints": {
+  "exe": "541452b152b02c4e242f09dc31ef5061629318b31e85881e9084b5cba6fbfac7",
+  "head": "c9045944669bade3d1de16d31bb8f00ab99f1ff4fe83db7228032394bfb95dd4",
+  "pe": "0.0.0.0@5ed5c5d6"
+ },
+ "rev": 1
+}
