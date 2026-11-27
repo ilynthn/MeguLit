@@ -5,7 +5,7 @@ import {receptionMessages} from './game-reception.js';
 import {seriesMessages} from './series-i18n.js';
 // SPDX-License-Identifier: GPL-3.0-or-later
 export const messages={
- zh:{brandSub:'游玩 · 翻译 · 学习',home:'首页',library:'游戏库',history:'历史',learning:'学习',settings:'设置',morning:'早上好，欢迎回来',afternoon:'下午好，欢迎回来',evening:'晚上好，欢迎回来',welcomeSub:'继续你的日语冒险',
+ zh:{brandSub:'游玩 · 翻译 · 学习',home:'首页',library:'游戏库',novel:'文库',history:'历史',learning:'学习',settings:'设置',morning:'早上好，欢迎回来',afternoon:'下午好，欢迎回来',evening:'晚上好，欢迎回来',welcomeSub:'继续你的日语冒险',
   lastPlayed:'上次游玩',continue:'继续游玩',neverPlayed:'尚未游玩',today:'今天',yesterday:'昨天',myLibrary:'我的游戏库',viewAll:'查看全部',readingFootprint:'阅读足迹',todayReading:'今日阅读',collectedWords:'已收录单词',
   todayLookups:'今日查词',minutes:'分钟',hours:'小时',searchGames:'搜索游戏',search:'搜索',allGames:'全部作品',noGames:'你的下一段冒险，从这里开始',noGamesSub:'游戏库为空，添加作品后即可在这里继续游玩',noResults:'没有找到匹配的内容',
   sessions:'阅读会话',dialogue:'对话记录',words:'单词',sentences:'句子',trash:'回收站',kana:'五十音',kanagames:'假名游戏',readwords:'读过的词',grammar:'语法',appearance:'外观',general:'通用',language:'界面语言',
@@ -20,7 +20,7 @@ export const messages={
   wordOf:'个单词',readToday:'今天继续前进一点点',localOnly:'数据保存在本机',review:'复习',dictionary:'词典',lookup:'查词',lookupHint:'输入日语单词',emptyLookup:'输入单词，查询本地辞书',noDefinition:'没有找到释义',
   detail:'作品详情',lastPlayedLabel:'最后游玩',noOtherGames:'其他作品会显示在这里',all:'全部',copy:'复制',copied:'已复制',invalidTitle:'请输入游戏名称',reviewDone:'本轮复习完成',showAnswer:'显示答案',next:'下一个',
   reviewStart:'开始复习',reviewSub:'重温已收录的单词',back:'返回',selected:'已选择',restoreWindow:'打开主页'},
- ja:{brandSub:'プレイ · 翻訳 · 学習',home:'ホーム',library:'ライブラリ',history:'履歴',learning:'学習',settings:'設定',morning:'おはようございます',afternoon:'おかえりなさい',evening:'こんばんは、おかえりなさい',
+ ja:{brandSub:'プレイ · 翻訳 · 学習',home:'ホーム',library:'ライブラリ',novel:'文庫',history:'履歴',learning:'学習',settings:'設定',morning:'おはようございます',afternoon:'おかえりなさい',evening:'こんばんは、おかえりなさい',
   welcomeSub:'日本語の冒険を、続けよう',lastPlayed:'前回のプレイ',continue:'プレイを続ける',neverPlayed:'未プレイ',today:'今日',yesterday:'昨日',myLibrary:'マイライブラリ',viewAll:'すべて見る',readingFootprint:'読書のあしあと',
   todayReading:'今日の読書',collectedWords:'登録した単語',todayLookups:'今日の辞書検索',minutes:'分',hours:'時間',searchGames:'作品を検索',search:'検索',allGames:'すべての作品',noGames:'次の冒険を、ここから',
   noGamesSub:'作品を追加すると、ここからプレイを続けられます',noResults:'該当する項目がありません',sessions:'読書セッション',dialogue:'会話ログ',words:'単語',sentences:'例文',trash:'ごみ箱',kana:'五十音',kanagames:'仮名ゲーム',
@@ -37,7 +37,7 @@ export const messages={
   localOnly:'データはこの端末に保存されます',review:'復習',dictionary:'辞書',lookup:'検索',lookupHint:'日本語の単語を入力',emptyLookup:'単語を入力してローカル辞書を検索',noDefinition:'意味が見つかりません',detail:'作品情報',
   lastPlayedLabel:'最終プレイ',noOtherGames:'ほかの作品がここに表示されます',all:'すべて',copy:'コピー',copied:'コピーしました',invalidTitle:'作品名を入力してください',reviewDone:'今回の復習が完了しました',showAnswer:'答えを見る',
   next:'次へ',reviewStart:'復習を始める',reviewSub:'登録した単語を振り返りましょう',back:'戻る',selected:'選択済み',restoreWindow:'ホームを開く'},
- en:{brandSub:'Play · Translate · Learn',home:'Home',library:'Library',history:'History',learning:'Learn',settings:'Settings',morning:'Good morning, welcome back',
+ en:{brandSub:'Play · Translate · Learn',home:'Home',library:'Library',novel:'Novels',history:'History',learning:'Learn',settings:'Settings',morning:'Good morning, welcome back',
   afternoon:'Good afternoon, welcome back',evening:'Good evening, welcome back',welcomeSub:'Your next chapter in Japanese',lastPlayed:'Last played',continue:'Continue playing',
   neverPlayed:'Not played yet',today:'Today',yesterday:'Yesterday',myLibrary:'My library',viewAll:'View all',readingFootprint:'Reading footprint',todayReading:'Read today',
   collectedWords:'Words collected',todayLookups:'Lookups today',minutes:'min',hours:'hr',searchGames:'Search games',search:'Search',allGames:'All games',noGames:'Your next adventure starts here',

@@ -12,7 +12,7 @@ async function handle(line){
  try{if(line.length>512*1024)throw Error('REQUEST_TOO_LARGE');const envelope=JSON.parse(line);id=envelope.id;const request=envelope.request;
   if(!Number.isSafeInteger(id)||!request||typeof request.action!=='string')throw Error('INVALID_REQUEST');
   if(request.action==='__shutdown'){closing=true;await runtime.stop();reply({id,ok:true,data:{stopped:true}});input.close();return;}
-  if(closing)throw Error('RUNTIME_STOPPED');if(maintenance)throw Error('BACKUP_BUSY');if(request.action==='backup_apply'){if(active)throw Error('BACKUP_BUSY');maintenance=true;exclusive=true;}active++;counted=true;const data=await dispatch(request,runtime);reply({id,ok:true,data});
+  if(closing)throw Error('RUNTIME_STOPPED');if(maintenance)throw Error('BACKUP_BUSY');if(request.action==='backup_apply'){if(active||require('./novel/source/downloads.cjs').busy(root))throw Error('BACKUP_BUSY');maintenance=true;exclusive=true;}active++;counted=true;const data=await dispatch(request,runtime);reply({id,ok:true,data});
  }catch(error){const code=/^[A-Z_]+$/.test(error?.message)?error.message:'SERVICE_FAILED';
   /* E405 an unexpected exception used to vanish behind SERVICE_FAILED; its action, message and first stack lines go to
      logs/service-errors.log (request data never does) */
