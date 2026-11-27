@@ -28,4 +28,14 @@ test('the bridge sends AFTERLINE to the font DLL and the DLL sets the matcher fr
  assert.ok(cs.includes('text=StripCodes(text);'),'the selected line is stripped before the glyph hide and the reader see it');
  assert.ok(cs.includes('if(!StripCodesSelfTest())'),'checked by --self-test');
  assert.ok(read('native/fontprobe/FontProbe.cpp').includes('l == "AFTERLINE off") { Hide.AfterLineNew = l == "AFTERLINE on"'));
- assert.match(read('native/fontprobe/GlyphMatch.h'),/\(hidden\.count\(c\) && !done\)/);});
+ assert.ok(read('native/fontprobe/GlyphMatch.h').includes('(hidden.count(c) && !burst)'),'the after-line rule in the matcher (its behaviour: native/fontprobe/selftest/match.cpp)');});
+
+/* 2026-11-27 (the options reached the kernel, but Windows OCR read the yellow outlined options at half their characters and the
+   60 % locate missed both): NeXAS asks the choice locate for its plainly-one-option rows too (PageLocator LooseChoices, checked by
+   GalWindowBridge --self-test on the OCR rows of that screen and by --choice-file on the screenshot) */
+test('NeXAS choices: the locate request carries loose; other engines keep the strict locate',()=>{
+ assert.equal(P.profileFor({engine:'nexas',exe:'D:/games/aikiss3/Aikiss3.exe',title:'x'}).choice.ocrLoose,true);
+ assert.equal(P.profileFor({engine:'kirikiri',exe:'D:/x/other.exe',title:'other'}).choice.ocrLoose,false);
+ assert.ok(read('core/gal-native.cjs').includes("this.send({type:'choiceLocate',options,...(this.hooks.profile?.choice?.ocrLoose===true?{loose:true}:{})});"));
+ assert.ok(read('native/GalWindowBridge.cs').includes('PageLocate.RequestChoices(Target,options,Bool(d,"loose"))'));
+ assert.ok(read('native/GalWindowBridge.cs').includes('if(!PageLocator.LooseSelfTest())return 2;'),'checked by --self-test');});

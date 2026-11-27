@@ -188,7 +188,7 @@ int main()
       int a = Walk(m, o1, G, 1200), b = Walk(m, o2, G, 1200);
       if (strict)
       {
-        Check(a == 0 && b == 0, "after-line: options drawn after the whole line are not hidden");
+        Check(a == 1 && b == 0, "after-line: options drawn (as a burst) after the whole line are not hidden, but the burst's first glyph");
         Check(Walk(m, line, G, 1300) == (int)line.size(), "after-line: the engine rasterising the line again still hides all of it");
         Check(m.Glyph(L'」', G, 1350, false, "ggo") && m.Glyph(L'」', G, 1350, true, "ggo"), "after-line: the size query + bitmap pair of the last character is hidden");
         Matcher half;
@@ -203,7 +203,14 @@ int main()
         most.SetLine(line, 3000);
         Walk(most, line.substr(0, line.size() - 3), G, 3100);
         Check(most.Glyph(L'ち', G, 3300, true, "ggo"), "after-line: 0.2 s after the last placed glyph, a hidden character is still hidden");
-        Check(Walk(most, o1, G, 4000) == 0, "after-line: 90 % placed and quiet for 0.8 s, the options are drawn");
+        Check(Walk(most, o1, G, 4000) == 1, "after-line: 90 % placed and quiet for 0.8 s, the options are drawn (but the burst's first glyph)");
+        // the next line typed before its text arrived (one glyph per 31 ms): characters the line hid stay hidden
+        Matcher typing;
+        typing.AfterLineNew = true;
+        typing.SetLine(line, 20000);
+        Walk(typing, line, G, 20100);
+        Check(typing.Glyph(L'ち', G, 22000, true, "ggo") && typing.Glyph(L'と', G, 22031, true, "ggo"), "after-line: the next line typing before its text keeps the old rule");
+        Check(typing.Glyph(L'と', G, 22031, true, "ggo"), "after-line: the second call of a pair takes the first call's decision");
         // the next line's 「 is rasterised before its text reaches the hide: after a finished line an opening bracket in the
         // dialogue font starts the next line
         Matcher next;
@@ -212,6 +219,32 @@ int main()
         Walk(next, L"何か杏センパイの呼び方がおかしかった気がする。", G, 5100);
         Check(Walk(next, L"アヤメちゃん", G, 6000) == 0, "after-line: the next speaker's name (not in the line) is drawn");
         Check(next.Glyph(L'「', G, 6010, true, "ggo"), "after-line: the next line's opening bracket is hidden");
+        // the options are reported as text once they go quiet (the reader's choice candidates)
+        std::vector<std::string> got;
+        Matcher opt;
+        opt.AfterLineNew = true;
+        opt.Report = [&](const std::string &r) { if (r.rfind("ToMe_GLYPHHIDE afterline text ", 0) == 0) got.push_back(r.substr(30)); };
+        opt.SetLine(line, 7000);
+        Walk(opt, line, G, 7100);
+        Walk(opt, o1 + o2, G, 9000);
+        opt.Tick(9100);
+        Check(got.empty(), "after-line text: not reported while the glyphs may still be coming");
+        opt.Tick(9400);
+        Check(got.size() == 1 && got[0] == Utf8(o1 + o2), "after-line text: the options reported once, as drawn");
+        // NeXAS asks for every glyph twice (size query + bitmap): once the line walk saw that, the report has each character once,
+        // and a character really doubled in the text (……) stays doubled
+        auto twice = [](const std::wstring &s) { std::wstring t; for (wchar_t c : s) t += std::wstring(2, c); return t; };
+        std::vector<std::string> got2;
+        Matcher pairs;
+        pairs.AfterLineNew = true;
+        pairs.Report = [&](const std::string &r) { if (r.rfind("ToMe_GLYPHHIDE afterline text ", 0) == 0) got2.push_back(r.substr(30)); };
+        pairs.SetLine(line, 10000);
+        Walk(pairs, twice(line), G, 10100);
+        pairs.SetLine(L"もう一度……いいか？", 11000);
+        Walk(pairs, twice(L"もう一度……いいか？"), G, 11100);
+        Walk(pairs, twice(o1 + L"……"), G, 13000);
+        pairs.Tick(13400);
+        Check(got2.size() == 1 && got2[0] == Utf8(o1 + L"……"), "after-line text: paired calls reported once per character, a real …… kept");
       }
       else
         Check(a + b > 10, "kernel rule (off): option characters the line hid are hidden (the old behaviour, kept by default)");

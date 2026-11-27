@@ -42,6 +42,7 @@ const DOMAINS={
  'hide.engineTrial.clickMs':{number:[100,10000],nullable:true,int:true,layer:'version'},
  'hide.engineTrial.skipAside':{enum:[null,true,false],layer:'version'},
  'hide.glyphAfterLine':{bool:true},
+ 'choice.ocrLoose':{bool:true},
  'selfCheck.window':{number:[5,200]},
  'selfCheck.minLines':{number:[1,200]},
  'selfCheck.hideVisible':{number:[0,1]},
