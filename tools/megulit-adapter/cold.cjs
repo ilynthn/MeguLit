@@ -290,10 +290,18 @@ function engineHook(loc){const t0=Date.now(),done=o=>({...o,ms:Date.now()-t0});
  try{const r=require(file).scanFile(loc.exe);const hits=Array.isArray(r?.hits)?r.hits.length:Array.isArray(r)?r.length:r?.hit?1:0;return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits});}
  catch(e){return done({route:'engine-draw',hook:id+'-draw',sig:path.relative(REPO,file),hits:0,error:String(e.message||e).slice(0,160)});}}
 
-/* the kernel's own diagnostics for the run (the shared hook-diagnostics.log of the copied app, cut to the run's time) */
-function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:'',lunaEngine:''};if(!run?.startedAt)return out;
- const a=Date.parse(run.startedAt)-2000,z=Date.parse(run.endedAt||new Date().toISOString())+2000;let text='';try{text=fs.readFileSync(path.join(root,'logs','hook-diagnostics.log'),'utf8');}catch{return out;}
- const kept=[];for(const l of text.split(/\r?\n/)){const t=Date.parse(l.slice(0,28));if(!(t>=a&&t<=z))continue;kept.push(l);let m;
+/* the kernel's own diagnostics for the run (the shared hook-diagnostics.log of the copied app, cut to the run's time)
+   2026-11-27 (制服カノジョ3, Unity: the run's diagnostics said 「匹配到 Artemis 引擎」 and 「注入钩子: Artemis2」, lines of another agent's
+   Artemis game written into the same app copy's log in the same minutes) a log several games write into is cut to the run's own
+   process too: after LunaHook's 「进程 N 已连接」 the lines are that process's until the next one; with the run's pid known, another
+   process's lines are not this run's evidence (a log with no such line, or a run with no pid, is cut by time only, as before) */
+const ATTACHED=/(?:进程|Process|プロセス)\s*(\d+)\s*(?:已连接|attached|connected|に接続)/i;
+function hookDiagnostics(root,run,dest){const out={injected:[],auxNoise:0,auxSample:'',kagWait:false,selected:'',lunaEngine:'',foreign:0};if(!run?.startedAt)return out;
+ const a=Date.parse(run.startedAt)-2000,z=Date.parse(run.endedAt||new Date().toISOString())+2000,pid=Number(run.pid)||0;let text='';try{text=fs.readFileSync(path.join(root,'logs','hook-diagnostics.log'),'utf8');}catch{return out;}
+ let owner=0;const kept=[];for(const l of text.split(/\r?\n/)){const t=Date.parse(l.slice(0,28));if(!(t>=a&&t<=z))continue;let m;
+  if((m=ATTACHED.exec(l)))owner=Number(m[1]);
+  if(pid&&owner&&owner!==pid){out.foreign++;continue;}
+  kept.push(l);
   if((m=/注入钩子: (.+?) [0-9A-F]{6,}$/.exec(l)))out.injected.push(m[1]);
   if((m=/aux noise (.+?) "(.*)"$/.exec(l))){out.auxNoise++;if(!out.auxSample)out.auxSample=m[1]+': '+m[2].slice(0,40);}
   if(/krkr wait kag/.test(l))out.kagWait=true;

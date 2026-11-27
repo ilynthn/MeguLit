@@ -165,8 +165,22 @@ test('hookDiagnostics: injected hooks, dropped dialogue, the selected stream, cu
  fs.writeFileSync(path.join(root,'logs','hook-diagnostics.log'),['2026-11-26T06:00:00.0000000Z info 0 注入钩子: KiriKiri1 005240D0','2026-11-26T06:23:43.5970284Z info 0 注入钩子: EmbedKrkr2 005E3389',
   '2026-11-26T06:23:45.0137487Z krkr wait kag','2026-11-26T06:24:10.0151891Z auto-select KiriKiri2 (first dialogue stream of 3)','2026-11-26T06:24:37.2574944Z aux noise tTVPNativeBaseBitmap::DrawText "私私もも"'].join('\n'));
  const d=A.hookDiagnostics(root,{startedAt:'2026-11-26T06:23:43Z',endedAt:'2026-11-26T06:24:56Z'},path.join(root,'cut.log'));
- assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2',lunaEngine:''});
+ assert.deepEqual(d,{injected:['EmbedKrkr2'],auxNoise:1,auxSample:'tTVPNativeBaseBitmap::DrawText: 私私もも',kagWait:true,selected:'KiriKiri2',lunaEngine:'',foreign:0});
  assert.equal(fs.readFileSync(path.join(root,'cut.log'),'utf8').split('\n').filter(Boolean).length,4,'only the run\'s lines');});
+
+/* 2026-11-27 制服カノジョ3 (Unity) was reported as 「Artemis」: another agent's Artemis game wrote into the same app copy's log in the
+   same minutes. Another process's lines are not this run's evidence */
+test('hookDiagnostics: another game in the same log is not this run (pid)',()=>{const root=tmp();fs.mkdirSync(path.join(root,'logs'));
+ fs.writeFileSync(path.join(root,'logs','hook-diagnostics.log'),[
+  '2026-11-27T08:13:48.0000000Z info 0 进程 31112 已连接','2026-11-27T08:13:50.1600000Z embed hook pending EXHMXF2@Unity.TextMeshPro:TMPro:TMP_Text:set_text:1:JIT:UNITY',
+  '2026-11-27T08:15:28.0080881Z info 0 进程 77896 已连接','2026-11-27T08:15:28.1068249Z info 0 匹配到 Artemis 引擎','2026-11-27T08:15:28.1406915Z info 0 注入钩子: Artemis2 0054EFF0',
+  '2026-11-27T08:15:40.0000000Z info 0 进程 31112 已连接','2026-11-27T08:15:41.0000000Z auto-select 292e4ffc3e0:4126:0'].join('\n'));
+ const run={startedAt:'2026-11-27T08:13:47Z',endedAt:'2026-11-27T08:16:00Z'};
+ const d=A.hookDiagnostics(root,{...run,pid:31112},path.join(root,'cut.log'));
+ assert.equal(d.lunaEngine,'','the other game\'s engine match is not this game\'s');assert.deepEqual(d.injected,[]);assert.equal(d.selected,'292e4ffc3e0:4126:0');assert.equal(d.foreign,3);
+ assert.doesNotMatch(fs.readFileSync(path.join(root,'cut.log'),'utf8'),/Artemis/);
+ /* no pid (an older run.json): time only, as before */
+ assert.equal(A.hookDiagnostics(root,run,null).lunaEngine,'Artemis');});
 
 test('writeSeed: a verified seed entry in The Seed layout, checked by core/profiles/seed.cjs',()=>{const DM=require('../tools/diff-maker/index.cjs');const d=tmp();
  const m=DM.make(path.join(__dirname,'helpers','diff-maker','probes','senren-banka'));const [dir]=DM.write(m,{out:path.join(d,'diff')});

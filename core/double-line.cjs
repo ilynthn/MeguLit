@@ -14,6 +14,10 @@ const doubled=p=>p.length>=4&&p.length%2===0&&p.slice(0,p.length/2)===p.slice(p.
 class DoubleLine{
  constructor(now=()=>Date.now()){this.now=now;this.streams=new Map();}
  state(stream){const key=String(stream||'');let s=this.streams.get(key);if(!s){s={singles:[],frames:[]};this.streams.set(key,s);if(this.streams.size>64)this.streams.delete(this.streams.keys().next().value);}return s;}
+ /* #1128: the stream drew one of its last frames twice (the evidence fix() keeps), for core/line-once.js collapse({min}) */
+ drawsTwice(stream){const s=this.streams.get(String(stream||''));return !!s&&s.frames.some(Boolean);}
+ /* #1128: a frame the line-once fold found drawn twice inside (skip frames are never a plain X+X) is evidence as well */
+ noteDoubled(stream){const s=this.state(stream);if(s.frames.length)s.frames[s.frames.length-1]=true;else s.frames.push(true);}
  /* returns {text, collapsed, reason} */
  /* drawn: the frame as the stream sent it, before other normalizers (repeat-normalizer, the script lookup) undid its doubling.
     2026-11-15 (死に逝く君、館に芽吹く憎悪, Krkr2wcs draws many lines twice 「X　X　」): the stream's "draws twice" evidence is taken

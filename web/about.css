@@ -55,17 +55,20 @@
 .ab-tlink:disabled{opacity:.6;cursor:default}
 .ab-state{font-size:13px;color:var(--ab-t2)}.ab-state:empty{display:none}
 .ab-links{margin:0;padding:0;list-style:none}
-.ab-links button{position:relative;display:grid;grid-template-columns:104px minmax(0,1fr);align-items:baseline;gap:16px;width:100%;padding:var(--ab-row) 0;border:0;border-bottom:1px solid var(--ab-rule2);background:none;text-align:left;color:var(--ab-text);font:16px/1.6 var(--ab-serif);transition:padding .22s cubic-bezier(.2,.8,.2,1)}
+.ab-links button{display:grid;grid-template-columns:104px minmax(0,1fr);align-items:baseline;gap:16px;width:100%;padding:var(--ab-row) 0;border:0;border-bottom:1px solid var(--ab-rule2);background:none;text-align:left;color:var(--ab-text);font:16px/1.6 var(--ab-serif)}
 .ab-links li:first-child button{padding-top:0}
 .ab-links li:last-child button{border-bottom:0}
 /* the value sits right after its label at a readable size; the arrow keeps the far end */
-.ab-links button small{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-width:0;font:14.5px/1.6 var(--ab-serif);color:var(--ab-t2);transition:color .15s}
-.ab-links button small i{font-style:normal;color:var(--ab-t3)}
-.ab-links button::before{content:"";position:absolute;left:0;top:50%;width:6px;height:6px;margin-top:-2px;background:var(--ab-red);transform:rotate(45deg) scale(0);transition:transform .2s}
-.ab-links li:first-child button::before{margin-top:-8px}
-.ab-links button:is(:hover,:focus-visible){padding-left:18px;outline:0}
-.ab-links button:is(:hover,:focus-visible)::before{transform:rotate(45deg) scale(1)}
-.ab-links button:is(:hover,:focus-visible) small{color:var(--ab-text)}
+.ab-links button small{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-width:0;font:14.5px/1.6 var(--ab-serif);color:var(--ab-t2)}
+.ab-links button small i{font-style:normal;color:var(--ab-t3);transition:color .15s}
+/* hover: only the label slides over to make room for the diamond, so the value column never moves. The diamond hangs
+   off the label's own line box (top:0;bottom:0;margin:auto), so it centres on the label whatever the row padding is */
+.ab-links button span{position:relative;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.ab-links button span::before{content:"";position:absolute;right:100%;top:0;bottom:0;width:6px;height:6px;margin:auto 12px auto 0;background:var(--ab-red);transform:rotate(45deg) scale(0);transition:transform .2s}
+.ab-links button:is(:hover,:focus-visible){outline:0}
+.ab-links button:is(:hover,:focus-visible) span{transform:translateX(18px)}
+.ab-links button:is(:hover,:focus-visible) span::before{transform:rotate(45deg) scale(1)}
+.ab-links button:is(:hover,:focus-visible) small i{color:var(--ab-text)}
 
 /* ── 一起走过 — three plain figures from this PC ── */
 .ab-stats{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 16px}

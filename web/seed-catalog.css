@@ -143,3 +143,46 @@ html:not(#u):not(#v):not(#w) body .seed-catalog .sc-back:hover{border-color:var(
 .sc-fail{display:flex;flex-direction:column;align-items:center;gap:14px}
 .sc-pager{display:flex;align-items:center;justify-content:center;gap:22px;margin:38px 0 6px;font:500 12px/1 var(--t-mono,monospace);letter-spacing:.04em;color:var(--g-t2,#c3ab9c);font-variant-numeric:tabular-nums}
 @media (max-width:720px){.sc-tabs{padding-left:18px;padding-right:18px;gap:24px}.sc-engines{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.sc-grid{grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:26px 14px}}
+
+/* 2026-11-27 (user: 太乱了 滚动条也隐藏了 打开的时候分社自动折叠 只展开第一排): one row per developer, folded; the first one open
+   so the rest read as rows that open. The row is one button (logo, name, count, a few small covers, the chevron); the
+   developer's introduction moved to its own small button at the row's end. */
+.sc-group,.sc-group:first-child{padding-top:0}
+.sc-group h3{gap:10px;margin:0;padding:0;border-bottom:1px solid var(--g-rule,rgba(237,181,110,.11))}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-toggle{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:12px;height:auto!important;min-height:58px!important;margin:0!important;padding:10px 8px!important;border:0!important;border-radius:2px!important;
+ background:none!important;box-shadow:none!important;font:inherit!important;letter-spacing:inherit!important;color:inherit!important;text-align:left;cursor:pointer;transition:background-color .2s}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-toggle:hover{background:color-mix(in srgb,var(--g-gold,#edb56e) 6%,transparent)!important}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-toggle:focus-visible{outline:1.5px solid color-mix(in srgb,var(--g-gold,#edb56e) 80%,transparent)!important;outline-offset:-2px}
+.sc-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .2s}
+.sc-toggle:hover .sc-name,.sc-group[data-open] .sc-name{color:var(--g-gold,#edb56e)}
+.sc-toggle small{flex:none}
+.sc-peek{flex:none;display:flex;align-items:center;gap:6px;margin-left:auto;transition:opacity .2s}
+.sc-group[data-open] .sc-peek{opacity:0;visibility:hidden}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-thumb{width:28px;aspect-ratio:3/4;border-radius:2px;overflow:hidden;transform:none;transition:none;box-shadow:0 0 0 1px var(--g-rule,rgba(237,181,110,.11)),0 4px 10px -4px rgba(0,0,0,.8)}
+.sc-thumb::after{content:none}
+.sc-more{min-width:26px;font:600 11px/1 var(--t-mono,monospace);letter-spacing:.02em;color:var(--g-t3,#8a746b);font-variant-numeric:tabular-nums}
+.sc-chev{flex:none;width:7px;height:7px;margin:0 6px 3px 4px;border:solid var(--g-t2,#c3ab9c);border-width:0 1.5px 1.5px 0;transform:rotate(-45deg);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.sc-group[data-open] .sc-chev{transform:translateY(-2px) rotate(45deg);border-color:var(--g-gold,#edb56e)}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-dev{flex:none;height:26px!important;min-height:0!important;margin:0!important;padding:0 10px!important;border:1px solid var(--g-rule-strong,rgba(237,181,110,.24))!important;border-radius:13px!important;background:none!important;box-shadow:none!important;
+ font:500 12px/1 var(--mgc-ui,sans-serif)!important;letter-spacing:.02em!important;color:var(--g-t2,#c3ab9c)!important}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-dev:hover,html:not(#u):not(#v):not(#w) body .seed-catalog .sc-dev[aria-expanded=true]{border-color:color-mix(in srgb,var(--g-gold,#edb56e) 60%,transparent)!important;color:var(--g-gold,#edb56e)!important}
+.sc-dev::after{font-size:9px;margin-left:5px}
+.sc-panel{margin:12px 0 4px}
+/* the height change: grid rows 0fr to 1fr, short; under reduced motion it just switches */
+.sc-fold{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .22s cubic-bezier(.2,.8,.2,1),visibility 0s linear .22s}
+.sc-group[data-open]>.sc-fold{grid-template-rows:1fr;visibility:visible;transition:grid-template-rows .22s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.sc-fold-in{min-height:0;overflow:clip;overflow-clip-margin:24px}
+.sc-fold-in>.sc-grid{padding:20px 0 30px}
+@media (prefers-reduced-motion:reduce){.sc-fold,.sc-group[data-open]>.sc-fold,.sc-chev,.sc-peek,.sc-name,html:not(#u):not(#v):not(#w) body .seed-catalog .sc-toggle{transition:none!important}}
+/* expand all / fold all, quiet text buttons above the list */
+.sc-tools{display:flex;justify-content:flex-end;align-items:center;gap:2px;padding:12px 0 6px}
+.sc-tools[hidden]{display:none}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-fold-all{height:26px!important;min-height:0!important;margin:0!important;padding:0 8px!important;border:0!important;border-radius:2px!important;background:none!important;box-shadow:none!important;
+ font:500 12px/1 var(--mgc-ui,sans-serif)!important;color:var(--g-t2,#c3ab9c)!important;cursor:pointer}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-fold-all:hover:not(:disabled){color:var(--g-gold,#edb56e)!important}
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-fold-all:disabled{opacity:.4;cursor:default}
+.sc-fold-all+.sc-fold-all::before{content:"·";margin-right:10px;color:var(--g-t3,#8a746b)}
+/* the scrollbar shows (scrollbar.css draws it), thin and in the dialog's gold */
+html:not(#u):not(#v):not(#w) body .seed-catalog .sc-body{--megu-scrollbar-size:8px;--megu-scrollbar-inset:2px;--megu-scrollbar-min:36px;
+ --megu-scrollbar-track:color-mix(in srgb,var(--g-gold,#edb56e) 12%,transparent);--megu-scrollbar-thumb:color-mix(in srgb,var(--g-gold,#edb56e) 48%,transparent)}
+@media (max-width:720px){.sc-peek .sc-thumb:nth-child(n+3){display:none}}
