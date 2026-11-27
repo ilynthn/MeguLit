@@ -43,9 +43,9 @@ test('checkpoints: unknown work and release are asked; a pass asks for the dialo
  const d=tmp(),run=path.join(d,'run');fs.mkdirSync(run);for(const f of ['shot-1-intro.jpg','shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
  const cold={verdict:'pass',checks:{choice:{measured:true,ok:true}},phases:[]};
  const qs=Check.questions({identity:{vndb:'',release:'',releaseGuess:'',adapted:[]},caps:{known:true},cold,coldOut:d});
- assert.deepEqual(qs.map(q=>q.id),['vndb','cn','release','dialogue','choice']);
+ assert.deepEqual(qs.map(q=>q.id),['vndb','cn','release','lines','dialogue','choice']);
  assert.ok(qs.find(q=>q.id==='dialogue').evidence.every(f=>/line-\d+/.test(f)));
- assert.equal(Check.status({cold},{dialogue:'yes',choice:'yes'}),'verified');assert.equal(Check.status({cold},{dialogue:'no'}),'skeleton');assert.equal(Check.status({cold},{}),'');
+ assert.equal(Check.status({cold},{lines:'yes',dialogue:'yes',choice:'yes'}),'verified');assert.equal(Check.status({cold},{lines:'no',dialogue:'yes',choice:'yes'}),'skeleton','a line that does not change with the game is no verified seed');assert.equal(Check.status({cold},{dialogue:'no'}),'skeleton');assert.equal(Check.status({cold},{}),'');
  const fail={verdict:'fail',checks:{hidden:{measured:true,ok:false,detail:'leak 0'}}};
  assert.ok(Check.questions({identity:{vndb:'v1',release:'DL'},caps:{},cold:fail}).some(q=>q.id==='readmode'));
  assert.equal(Check.status({cold:fail},{readmode:'yes'}),'read');
@@ -181,3 +181,16 @@ test('Steam build: VNDB\'s one appid goes to the cold test; two appids (千恋�
  const q=Check.questions({identity:{vndb:'v1',cn:'-',release:'x',steamCandidates:v.steamCandidates},caps:{},cold:{verdict:'inconclusive',stuck:'冷测试没开始：steam-appid-unknown'}});
  assert.deepEqual(q.map(x=>x.id),['steam']);assert.match(q[0].ask,/1144400、1221010/);
  assert.equal(Adapter.parseRun(['node','x','E:/g','--steam-appid','1144400']).steamAppId,'1144400');});
+
+/* 2026-11-27 (owner: 不再用冷测试加 Cardinal 打分来验证适配，改成实机验证，RRFZ 的路子): the run is a live check a person looks at; Cardinal is an
+   optional background supplement (--cold), never a gate. Before, a run without Cardinal stayed inconclusive and nobody was asked */
+test('live check: without Cardinal a passing run asks the person about line changes, the hidden original and the choice',()=>{const A=require('../tools/megulit-adapter/cold.cjs');
+ const cold={verdict:'pass',lines:34,restored:true},diff={ok:true,mode:'hide',cost:0,over:[]};
+ const j=A.judge({cold,diff,card:null,live:true});assert.equal(j.verdict,'pass');assert.ok(j.reasons.some(r=>/Cardinal 没跑/.test(r)));
+ const withCard=A.judge({cold,diff,card:{ok:true,errors:[],result:{lines:20,scores:{row:0.3,leak:0},applies:{}}},live:true});assert.equal(withCard.verdict,'pass','Cardinal scores never fail a live check');assert.ok(withCard.reasons.some(r=>/后台补充/.test(r)));
+ assert.equal(A.judge({cold:{...cold,verdict:'fail',why:'hideVisible'},diff,card:null,live:true}).verdict,'fail','the run\'s own self-check still fails it');
+ assert.equal(A.judge({cold,diff,card:null}).verdict,'inconclusive','the old cold + Cardinal path is unchanged');
+ const d=tmp(),run=path.join(d,'run');fs.mkdirSync(run);for(const f of ['shot-2-line-3.jpg','shot-3-line-15.jpg'])fs.writeFileSync(path.join(run,f),'x');
+ const live={verdict:'pass',checks:{},phases:[{name:'choice-try-1'}]};
+ assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:live,coldOut:d}).map(q=>q.id),['lines','dialogue','choice'],'a choice the run reached is asked about without Cardinal');
+ assert.deepEqual(Check.questions({identity:{vndb:'v1',release:'DL',cn:'-'},caps:{known:true},cold:{...live,phases:[]},coldOut:d}).map(q=>q.id),['lines','dialogue']);});

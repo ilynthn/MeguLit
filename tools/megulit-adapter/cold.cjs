@@ -220,7 +220,10 @@ function cardinal(runDir,run,loc,exeSha,title,outFile,{timeoutMs=600000,shots=''
 
 /* ---- 6 verdict ---------------------------------------------------------------------------------------------------------- */
 /* {unsupported, cold, diff, card} → {verdict, reasons, checks}. Every check must be measured; a missing one is inconclusive. */
-function judge({unsupported:why='',cold=null,diff=null,card=null}={}){const reasons=[],checks={};
+/* live (2026-11-27, owner: 不再用冷测试加 Cardinal 打分验证适配，改成实机验证): the run is the live check a person (or the adapter's
+   reviewer) looks at: line changes, the original hidden, the choice. Cardinal is an optional background supplement; its scores are noted,
+   never a gate, and an offline 'read' search is a note for the person, not a fail */
+function judge({unsupported:why='',cold=null,diff=null,card=null,live=false}={}){const reasons=[],checks={};
  const done=v=>({verdict:v,reasons,checks});
  if(why){reasons.push(why);return done('inconclusive');}
  if(!cold){reasons.push('冷测试没有跑');return done('inconclusive');}
@@ -231,6 +234,8 @@ function judge({unsupported:why='',cold=null,diff=null,card=null}={}){const reas
  if(cold.verdict==='fail'){fail=true;reasons.push('冷测试自检没过线，只能读模式：'+(cold.why||''));}
  else reasons.push('冷测试自检 '+cold.verdict+'（'+(cold.lines|0)+' 句'+(cold.verdict==='edge'?'，接近阈值 '+cold.near:'')+'）');
  if(!diff?.ok){reasons.push('差分没做出来：'+(diff?.why||'未运行'));return done(fail?'fail':'inconclusive');}
+ if(live){if(diff.mode==='read')reasons.push('离线搜索没有过线的隐藏组合（'+(diff.over||[]).join(',')+'），看截图里原文藏没藏住');
+  reasons.push(card?.ok?'Cardinal（后台补充，不挡流程）：'+Object.entries(card.result.scores||{}).map(([k,v])=>k+' '+v).join('，'):'Cardinal 没跑：实机验证由人看截图（换句、原文隐藏、选项）');return done(fail?'fail':'pass');}
  if(diff.mode==='read'){fail=true;reasons.push('离线搜索没有过线的隐藏组合（'+(diff.over||[]).join(',')+'）');}
  if(!card?.ok){reasons.push('Cardinal 回放没结果：'+(card?.why||'未运行'));return done(fail?'fail':'inconclusive');}
  const r=card.result,s=r.scores||{},ap=r.applies||{};
@@ -384,11 +389,11 @@ async function run(opts,{log=console.log}={}){
   result.diff=diff;if(diff.ok)result.layers.game={diff:diff.dir,mode:diff.mode};
   /* Cardinal (only when the cold run has lines to replay) */
   let card=null;
-  if(runCopy&&(cold.lines|0)>0){if(overtime('Cardinal 回放'))return finish(judge({cold,diff,card:null}));
+  if(runCopy&&(cold.lines|0)>0&&opts.cardinal!==false){if(overtime('Cardinal 回放'))return finish(judge({cold,diff,card:null,live:opts.live===true}));
    await step('cardinal',()=>{const file=path.join(out,'cardinal.json');card=cardinal(runCopy,runInfo,loc,probe?.exeSha256||'',title,file,{timeoutMs:Math.max(CARDINAL_MIN_MS,left()),shots:result.foreground?shotSample(path.join(out,'screen'),path.join(out,'screen-sample'),20):''});if(card.ok)result.artifacts.cardinal=file;
     fs.writeFileSync(path.join(out,'cardinal.log'),card.log||'');result.cardinal=card.ok?{scores:card.result.scores,applies:card.result.applies,total:card.result.total,lines:card.result.lines,errors:card.errors}:{why:card.why};
     log('# cardinal '+(card.ok?JSON.stringify(card.result.scores):card.why));});}
-  const j=judge({cold,diff,card});
+  const j=judge({cold,diff,card,live:opts.live===true});
   /* layer 4: the seed entry, only for a pass */
   if(j.verdict==='pass'&&opts.seedOut)await step('seed',()=>{try{result.layers.seed=writeSeed(diff.dir,{engine:loc.engine,title,exeName:path.basename(loc.exe),exeSha:probe.exeSha256,gameKey:result.gameKey},path.resolve(opts.seedOut));result.artifacts.seed=result.layers.seed;}
    catch(e){j.reasons.push('seed 没写出：'+e.message);}});
