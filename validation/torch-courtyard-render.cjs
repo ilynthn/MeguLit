@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 'use strict';
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {startService,startWeb,startEdge,png}=require('./library-views-perf.cjs');
-// Usage: node validation/torch-courtyard-render.cjs [--high]
-const out=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-courtyard-'));
+const {renderTemp}=require('./helpers/render-temp.cjs');
+// Usage: node validation/torch-courtyard-render.cjs [--high] [--keep]
+/* removed when the run ends, whatever the outcome; --keep leaves it for the screenshots */
+const temp=renderTemp('megulit-courtyard-'),out=temp.dir;
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const tier=process.argv.includes('--high')?'high':'low';
 const seedCover='data:image/png;base64,'+png(32,48,[145,36,116],[24,52,84]).toString('base64');
@@ -179,5 +181,5 @@ const seedCover='data:image/png;base64,'+png(32,48,[145,36,116],[24,52,84]).toSt
   const errors=await evaluate('window.errors.filter(e=>/WebGLProgram|Shader Error|THREE.WebGLRenderer/.test(e))');
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({tier,geometry,eastDay,eastNight,coverCalls:calls,out}));
- }finally{await cdp?.stop();web?.close();await service.stop();}
-})().catch(error=>{console.error(error);console.error(out);process.exitCode=1;});
+ }finally{await cdp?.stop();web?.close();await service.stop();temp.remove();}
+})().catch(error=>{console.error(error);if(temp.keep)console.error(out);process.exitCode=1;});

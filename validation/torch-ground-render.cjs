@@ -2,8 +2,11 @@
 // Usage: node validation/torch-ground-render.cjs after high
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const {startService,startWeb,startEdge,png}=require('./library-views-perf.cjs');
+const {renderTemp}=require('./helpers/render-temp.cjs');
 const phase=process.argv[2]||'after',tier=process.argv[3]||'high',out=path.join(os.tmpdir(),'megu-ground-evidence',phase+'-'+tier);
-fs.mkdirSync(out,{recursive:true});const profile=fs.mkdtempSync(path.join(os.tmpdir(),'megu-ground-test-'));
+/* the screenshots stay in one fixed folder per phase and tier (overwritten each run) for the before/after comparison;
+   the service root and browser profile are removed when the run ends */
+fs.mkdirSync(out,{recursive:true});const temp=renderTemp('megu-ground-test-'),profile=temp.dir;
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const service=startService(profile);let cdp,web;
@@ -126,5 +129,5 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
    await wait('d.camera.position.z===20.5&&d.camera.position.y===5.45');
   }
   assert.deepEqual(await ev('glErrors'),[]);console.log(JSON.stringify({out,tier,baked:await ev('d.ao.baked'),facts}));
- }finally{await cdp?.stop();web?.close();await service.stop();}
+ }finally{await cdp?.stop();web?.close();await service.stop();temp.remove();}
 })().catch(e=>{console.error(e,out);process.exitCode=1});
