@@ -7,7 +7,7 @@
    tools/megulit-adapter/engines.cjs) -> game diff (The Seed data only) -> upload (a PR).
 
      node tools/megulit-adapter.cjs <game folder> [--exe <rel>] [--vndb v123] [--release "DL 版"] [--out <dir>] [--budget-min 10]
-                                    [--foreground] [--offline] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
+                                    [--foreground] [--real-input] [--offline] [--skip] [--force] [--app <MeguLit install>] [--answer id=value ...]
          identify (VNDB + release, HANDOFF) -> engine -> script probe (RRFZ readers) -> plan (text source, pairing, hide)
          -> live check: the game run with the hook and the hide (tools/megulit-adapter/cold.cjs; --foreground when the owner is away),
             a person looks at a few lines: the line changes, the original is hidden, the choice -> seed -> publish
