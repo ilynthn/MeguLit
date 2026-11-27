@@ -86,6 +86,25 @@ const INSTALLER_EXE=/^(setup|install|installer|autorun|uninst|unins\d*|uninstall
 /* the disc root (or one folder down) holds a program that is not an installer -> the game is plain files on the disc */
 function discGameExe(root){for(const f of walk(root,1))if(/\.exe$/i.test(f)&&!INSTALLER_EXE.test(path.basename(f))&&!isInno(f))return f;return '';}
 function innoOnDisc(root){for(const f of walk(root,1))if(/\.exe$/i.test(f)&&isInno(f))return f;return '';}
+/* the data parts an Inno installer looks for beside itself (Launcher.exe -> Launcher-1.bin …): when the disc was read with 8.3 names
+   (LAUNCHER.BIN, LAUNCHE2.BIN) they are missing and the installer stops on a 「次のディスクを挿入」 prompt nobody answers (制服カノジョ3
+   replay: 24 minutes) -> '' when it has parts or needs none, else the reason */
+function innoPartsMissing(exe){const stem=path.basename(exe).replace(/\.exe$/i,''),names=list(path.dirname(exe)).map(e=>e.name);
+ const parts=names.filter(n=>new RegExp('^'+stem.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'-\\d+\\.bin$','i').test(n));
+ const bins=names.filter(n=>/\.bin$/i.test(n));return !parts.length&&bins.length?'安装程序要的 '+stem+'-1.bin 等分卷不在（只读到 '+bins.slice(0,3).join('、')+'）':'';}
+/* a UDF disc (DVD: BEA01 / NSR02-03 after the ISO descriptors): its ISO 9660 side may carry only 8.3 names, so it is copied out
+   through Windows' own mount (an .mdf is reached under an .iso name: a hard link beside it, or a copy on another volume) */
+function isUdf(image,{open=fs.openSync,read=fs.readSync,close=fs.closeSync}={}){let fd;try{fd=open(image,'r');const b=Buffer.alloc(5);
+  for(let lba=16;lba<40;lba++){if(read(fd,b,0,5,lba*2048+1)!==5)break;const s=b.toString('latin1');if(s==='NSR02'||s==='NSR03')return true;}return false;}catch{return false;}finally{if(fd!==undefined)try{close(fd);}catch{}}}
+async function mountCopy(image,dest,{run=spawnSync,work=path.dirname(dest)}={}){let iso=image,made='';
+ if(!/\.iso$/i.test(image)){iso=path.join(work,path.basename(image).replace(/\.[^.]+$/,'')+'.mount.iso');try{fs.rmSync(iso,{force:true});fs.linkSync(image,iso);}catch{fs.copyFileSync(image,iso);}made=iso;}
+ const ps=s=>run('powershell.exe',['-NoProfile','-NonInteractive','-Command',s],{encoding:'utf8',windowsHide:true,timeout:600000});
+ const q=s=>"'"+String(s).replace(/'/g,"''")+"'";
+ try{const m=ps('$d=Mount-DiskImage -ImagePath '+q(iso)+' -PassThru; ($d|Get-Volume).DriveLetter');const letter=String(m.stdout||'').trim().slice(-1);
+  if(m.status!==0||!/^[A-Z]$/i.test(letter))throw Error('挂载失败：'+String(m.stderr||m.stdout||'').trim().slice(0,160));
+  try{const r=run('robocopy',[letter+':\\',dest,'/E','/NFL','/NDL','/NJH','/NJS','/NP','/R:1','/W:1'],{windowsHide:true,timeout:3600000});if(r.status===null||r.status>=8)throw Error('robocopy 从光盘复制失败（'+r.status+'）');}
+  finally{ps('Dismount-DiskImage -ImagePath '+q(iso));}}
+ finally{if(made)try{fs.rmSync(made,{force:true});}catch{}}}
 function dropInstaller(target){for(const e of list(target)){const f=path.join(target,e.name);if(e.isDirectory()?INSTALLER_DIR.test(e.name):INSTALLER_FILE.test(e.name))fs.rmSync(f,{recursive:true,force:true});}
  for(const f of walk(target,32))try{fs.chmodSync(f,0o666);}catch{}}
 
@@ -136,7 +155,7 @@ const done=(dir)=>{try{return JSON.parse(fs.readFileSync(path.join(dir,'.megulit
 
 /* -> {ok, dir, exe, how, steps, updates, notes, why} */
 async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies',log=()=>{},deps={}}={}){
- const D={extract:(img,dest)=>require('../../core/disc-image.cjs').extract(img,dest),run:spawnSync,statfs:fs.statfsSync,copy:Copies.prepareCopy,find:undefined,seven:sevenZip(),...deps};
+ const D={extract:(img,dest)=>require('../../core/disc-image.cjs').extract(img,dest),run:spawnSync,statfs:fs.statfsSync,copy:Copies.prepareCopy,find:undefined,isUdf,mount:mountCopy,seven:sevenZip(),...deps};
  const steps=[],notes=[],fail=why=>({ok:false,why,steps,notes});src=path.resolve(src);
  if(!fs.existsSync(src))return fail('下载目录不存在：'+src);
  if(noDrive(root))return fail('副本不往 '+noDrive(root)+': 放（'+root+'）；设 MEGULIT_COPIES_ROOT');
@@ -164,14 +183,15 @@ async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies'
   const g=sets.game[0],disc=target+'.disc',need=fs.statSync(g.image).size*2;
   if(freeOn(root,D.statfs)-need<MIN_FREE)return fail('空间不够：'+root+' 剩 '+Math.round(freeOn(root,D.statfs)/GB)+' GB，装要约 '+Math.round(need/GB)+' GB，还得留 15 GB');
   if(!done(disc)){fs.rmSync(disc,{recursive:true,force:true});fs.mkdirSync(disc,{recursive:true});log('# 读光盘镜像 '+path.basename(g.image));
-   try{await D.extract(g.image,disc);}catch(e){return fail('读光盘镜像失败（'+g.kind+' '+path.basename(g.image)+'）：'+String(e.message||e).slice(0,160)+'；要人挂载/安装');}
+   try{if(D.isUdf(g.image)){steps.push('UDF 光盘：用 Windows 挂载读出（ISO 9660 那面只有 8.3 文件名）');await D.mount(g.image,disc,{run:D.run,work:root});}else await D.extract(g.image,disc);}catch(e){return fail('读光盘镜像失败（'+g.kind+' '+path.basename(g.image)+'）：'+String(e.message||e).slice(0,160)+'；要人挂载/安装');}
    fs.writeFileSync(path.join(disc,'.megulit-auto-install.json'),JSON.stringify({complete:true,image:g.image}));}
   steps.push('读出光盘 '+path.basename(g.image)+'（'+g.kind+'）');
   const plain=discGameExe(disc),inno=plain?'':innoOnDisc(disc);
   if(plain){fs.rmSync(target,{recursive:true,force:true});fs.renameSync(disc,target);fs.rmSync(path.join(target,'.megulit-auto-install.json'),{force:true});dropInstaller(target);how='disc-files';steps.push('光盘上就是游戏文件：直接用，去掉安装程序自己的文件');}
-  else if(inno){const link=linkInPath(target);if(link)return fail('副本路径经过联接/链接 '+link+'，Inno 安装程序不接受；换 MEGULIT_COPIES_ROOT');
+  else if(inno){const miss=innoPartsMissing(inno);if(miss){fs.rmSync(disc,{recursive:true,force:true});return fail(miss+'：光盘没读全，不运行安装程序（会卡在换盘提示）；要人挂载安装');}
+   const link=linkInPath(target);if(link)return fail('副本路径经过联接/链接 '+link+'，Inno 安装程序不接受；换 MEGULIT_COPIES_ROOT');
    const logf=target+'.install.log';log('# 运行游戏自带的 Inno 安装程序 '+path.basename(inno)+'（静默、当前用户）');
-   const r=D.run(inno,innoArgs(target,logf),{windowsHide:true,timeout:3600000,cwd:path.dirname(inno)});
+   const r=D.run(inno,innoArgs(target,logf),{windowsHide:true,timeout:1800000,cwd:path.dirname(inno)});
    if(r.status!==0||!walk(target,3).some(f=>/\.exe$/i.test(f)&&!/^unins/i.test(path.basename(f))))return fail('Inno 安装程序 '+path.basename(inno)+' 没装成（退出码 '+r.status+(r.error?'，'+r.error.message:'')+'），日志 '+logf+'；可能要管理员权限，要人装');
    fs.rmSync(disc,{recursive:true,force:true});how='inno';steps.push('运行游戏自带的 Inno 安装程序 '+path.basename(inno)+'：/VERYSILENT /CURRENTUSER 装到副本');}
   else return fail('光盘上既不是游戏文件也不是 Inno 安装程序（'+list(disc).map(e=>e.name).slice(0,6).join('、')+'），要人装');}
@@ -188,4 +208,4 @@ async function install(src,{short,root=Copies.copiesRoot()||'H:\\MeguLit-Copies'
  if(how!=='kept'&&how!=='copy')mark(how,{updates:applied});
  return {ok:true,dir:target,exe:g.exe,how,steps,updates:applied,notes,why:''};}
 
-module.exports={install,archives,unpack,sevenZip,discSets,isInno,innoArgs,linkInPath,discGameExe,innoOnDisc,dropInstaller,parseUpdateInf,updates,applyUpdate,pickExe,OVERLAY_EXE,BONUS};
+module.exports={innoPartsMissing,isUdf,mountCopy,install,archives,unpack,sevenZip,discSets,isInno,innoArgs,linkInPath,discGameExe,innoOnDisc,dropInstaller,parseUpdateInf,updates,applyUpdate,pickExe,OVERLAY_EXE,BONUS};

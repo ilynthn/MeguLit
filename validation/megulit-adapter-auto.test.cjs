@@ -176,3 +176,17 @@ test('watch: finished game orders with an issue run once; baseline marks without
  const s2=JSON.parse(fs.readFileSync(state,'utf8'));s2.orders.a={running:true};fs.writeFileSync(state,JSON.stringify(s2));
  fs.writeFileSync(path.join(d,'auto','watch.lock'),String(process.pid));await Watch.main(['--queue',q,'--state',state],{log:()=>{},run});assert.equal(ran.length,1,'locked');
  fs.rmSync(path.join(d,'auto','watch.lock'));await Watch.main(['--queue',q,'--state',state],{log:()=>{},run});assert.equal(ran.length,2);assert.equal(ran[1].name,'a');});
+
+test('install: a UDF disc read with 8.3 names never starts its Inno installer (it would wait on a disk prompt); UDF goes through the mount',async t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ const dl=path.join(d,'dl'),root=path.join(d,'copies');
+ /* the ISO 9660 side of 制服カノジョ3's DVD: LAUNCHER.EXE beside LAUNCHER.BIN / LAUNCHE2.BIN, not Launcher-1.bin */
+ put(path.join(dl,'disc','SEIFUKU3.mdf'),iso({'LAUNCHER.EXE':'MZ Inno Setup Setup Data (6.2.0)','LAUNCHER.BIN':'p1','LAUNCHE2.BIN':'p2'}));
+ const ran=[];const r=await Install.install(dl,{short:'s3',root,deps:{statfs:()=>FREE,run:(exe,args)=>{ran.push(exe);return {status:0};},isUdf:()=>false,find}});
+ assert.equal(r.ok,false);assert.match(r.why,/LAUNCHER-1\.bin/);assert.deepEqual(ran,[],'the installer is not run');
+ /* a UDF image is read by the mount, which gives the long names: then the installer runs */
+ const udf=Buffer.alloc(40*2048);udf.write('CD001',16*2048+1,'latin1');udf.write('BEA01',18*2048+1,'latin1');udf.write('NSR02',19*2048+1,'latin1');
+ const f=path.join(d,'udf.mdf');fs.writeFileSync(f,udf);assert.equal(Install.isUdf(f),true);assert.equal(Install.isUdf(path.join(dl,'disc','SEIFUKU3.mdf')),false);
+ const mounted=[];const mount=async(img,dest)=>{mounted.push(img);put(path.join(dest,'Launcher.exe'),'MZ Inno Setup Setup Data (6.2.0)');put(path.join(dest,'Launcher-1.bin'),'p1');};
+ const run=(exe,args)=>{ran.push(path.basename(exe));put(path.join(args.find(a=>a.startsWith('/DIR=')).slice(5),'SEIFUKU3.exe'),'g');return {status:0};};
+ const r2=await Install.install(dl,{short:'s3b',root,deps:{statfs:()=>FREE,run,isUdf:()=>true,mount,find}});
+ assert.equal(r2.ok,true,r2.why);assert.equal(mounted.length,1);assert.deepEqual(ran,['Launcher.exe']);assert.match(r2.steps.join(),/UDF/);});
