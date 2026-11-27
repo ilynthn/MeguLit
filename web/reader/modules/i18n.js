@@ -234,7 +234,7 @@ Object.assign(ZH,{"隐藏点击等待图标（绘制 Hook，仅支持已适配�
  Object.assign(ZH,{"注音字体与描边": ["Furigana font & outline", "ふりがなフォントと縁取り"], "隐藏点击等待图标（取周围色自然融合）": ["Hide wait icon (blend with surrounding colours)", "待機アイコンを隠す（周囲の色になじませる）"],
   "只覆盖当前确认的一个等待符，取邻近像素融合；不会累积历史遮挡位置": ["Covers one confirmed current wait icon using nearby pixels; no saved or accumulated mask positions.", "確認済みの待機アイコン1個のみ、周囲の色で補完します。過去の位置は保存しません。"]});
  // Sentences built from numbers + English words (e.g. "494 sentences read"): [regex, 中文, 日本語] with $1… placeholders.
- Object.assign(ZH,{'语音':['Voice','音声'],'记录':['Log','ログ'],'朗读语音':['Speech voice','読み上げ音声'],'Anki 制卡':['Anki cards','Anki カード作成'],'保存语音设置':['Save voice settings',
+ Object.assign(ZH,{'语音':['Voice','音声'],'记录':['Log','ログ'],'热键':['Hotkeys','ホットキー'],'朗读语音':['Speech voice','読み上げ音声'],'Anki 制卡':['Anki cards','Anki カード作成'],'保存语音设置':['Save voice settings',
   '音声設定を保存'],'■ 停止':['■ Stop','■ 停止'],'绑定游戏后检测版本':['Detected after binding a game','ゲームをバインドすると判定'],'在游戏里点一下推进一句，MeguLit 就会开始读':['Choose a hook mode below, then advance one line in the game',
   '下のフック方式を選び、ゲームで1行進めてください'],'只检查游戏自己的画面，MeguLit 的译文不算在内':['Checks the game\'s own picture; the overlay is not counted','ゲーム自体の画面を確認します（オーバーレイは対象外）'],'检查范围沿用下方「原文字扫描范围」；画面检查只在本机处理':['The check uses the scan range below; screenshots never leave this PC',
   '確認範囲は下の「原文スキャン範囲」。画面確認はこの PC 内だけで行います'],'对话文本流':['Dialogue text stream','セリフのテキストストリーム'],'原文隐藏':['Hide original text','原文の非表示'],'点击等待图标':['Click-wait icon','クリック待ちアイコン'],
