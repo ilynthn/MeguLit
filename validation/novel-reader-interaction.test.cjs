@@ -49,6 +49,7 @@ test('文库点读、选句、Escape 和三种翻页模式', { skip: !edgeInstal
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   browser=await startEdge(path.join(temp, 'edge'));
   await browser.send('Emulation.setDeviceMetricsOverride',{width:940,height:760,deviceScaleFactor:1,mobile:false});
+  await browser.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
   await browser.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/'});
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const deadline = Date.now() + 20000;
