@@ -126,10 +126,10 @@ async function run(o,{log=console.log}={}){if(o.copy){const c=copyGame(path.reso
  if(!fs.existsSync(dir)){log('# 游戏目录不存在：'+dir+'（Git Bash 的 /e/... 带 [ ] 时不转换，用 E:/...）');return EXIT.inconclusive;}
  const triage=Cold.unsupported(dir);if(triage&&!/光盘/.test(triage)){log('# '+triage);return EXIT.inconclusive;}
  const discs=discImages(dir),loc=/光盘/.test(triage)?null:Cold.locate(dir,o.exe);
- /* 2026-11-27 (アイキス3 sexy) only disc images: installed by tools/megulit-adapter/install.cjs (mount the ISO, copy the game files, the
-    updates checked against their UpdateInf.dat) into MEGULIT_ADAPTER_GAMES, then the run goes on in the installed folder; what it
+ /* 2026-11-27 (アイキス3 sexy) only disc images: installed by tools/megulit-adapter/install.cjs (the image read out by core/disc-image.cjs, the
+    installer's files dropped, the updates checked against their UpdateInf.dat) into MEGULIT_ADAPTER_GAMES, then the run goes on in the installed folder; what it
     cannot install (bin+cue, two game discs, no space) still asks a person */
- if(!loc&&discs.length&&o.install!==false){const r=(o.installer||Install.install)(dir,{root:GAMES_ROOT()});
+ if(!loc&&discs.length&&o.install!==false){const r=await (o.installer||Install.install)(dir,{root:GAMES_ROOT()});
   if(r.ok){log('# installed '+r.dir+(r.reused?' (kept)':' ('+r.copied+' files)')+(r.updates.length?' + '+r.updates.map(u=>u.version).join(', '):'')+(r.bonus.length?'; bonus discs not installed: '+r.bonus.length:''));
    return run({...o,dir:r.dir,release:o.release||'',releaseGuess:r.release,install:false,out:o.out||out},{log});}
   log('# 自动安装没成：'+r.why);}

@@ -9,13 +9,15 @@
    files in the image root (the *.pac, the program, Movie\), so installing = copying those files, leaving the installer's own ones;
    the update = the files its UpdateInf.dat lists, each checked against the size and CRC-32 written there (what Update.exe checks).
 
-   discSets(dir)        the game disc among the images (bonus discs / soundtracks are skipped); only an .iso can be mounted by
-                        Windows (an .mds beside an .iso is the same disc; bin+cue / mdf / nrg are reported, not mounted)
+   discSets(dir)        the game disc among the images (bonus discs / soundtracks are skipped): an .iso (an .mds beside it is the
+                        same disc) or a .cue / .bin; .mdf / .nrg / ... alone are reported, not read
    updates(dir)         update folders: UpdateInf.dat + Data\ (GIGA); oldest version first
    parseUpdateInf(buf)  {title, about, version, regKey, regValue, files:[{name, size, crc}]}
-   install(dir,{target}) mount, copy, apply the updates, unmount -> {ok, dir, why, image, copied, updates:[{version, files}]}
-   The mount is spawnSync PowerShell with windowsHide (a PowerShell started from bash would show a console over the game). */
-const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib'),{spawnSync}=require('node:child_process');
+   install(dir,{target}) the image's files read out with core/disc-image.cjs (ISO 9660 / raw bin, no mount, nothing on the disc
+                        run), the installer's own files dropped, the updates applied -> {ok, dir, why, image, copied, updates}
+   (A first version mounted the ISO through PowerShell; core/disc-image.cjs already owns reading disc images.) */
+const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
+const Disc=require('../../core/disc-image.cjs');
 
 const IMAGE=/\.(iso|mds|mdf|cue|ccd|img|nrg|cdi|chd|b5t|b6t|isz)$/i;
 /* bonus discs and music: not the game (特典 alone is not enough: a bonus scenario disc is a second image to report, not the game) */
@@ -32,15 +34,16 @@ const list=d=>{try{return fs.readdirSync(d,{withFileTypes:true});}catch{return [
 function nameOf(folder){const raw=path.basename(folder).replace(/\[[^\]]*\]/g,' ').replace(/\((iso|mds|mdf|bin|cue|ccd|img|nrg)[^)]*\)/ig,' ');
  const m=RELEASE.exec(raw);return {name:raw.replace(RELEASE,' ').replace(/\s+/g,' ').trim(),release:m?m[1]:''};}
 
-/* -> {game:[{image, mount, kind}], bonus:[image], unmountable:[image]} over four levels */
+/* -> {game:[{image, kind, folder}], bonus:[image], unmountable:[image]} over four levels */
 function discSets(dir,depth=4){const found=[];const walk=(d,n)=>{for(const e of list(d)){const f=path.join(d,e.name);if(e.isDirectory()){if(n>0)walk(f,n-1);}else if(IMAGE.test(e.name))found.push(f);}};walk(dir,depth);
  const out={game:[],bonus:[],unmountable:[]};const byFolder=new Map();for(const f of found){const k=path.dirname(f);if(!byFolder.has(k))byFolder.set(k,[]);byFolder.get(k).push(f);}
  for(const [folder,files] of byFolder){const names=list(folder).map(e=>e.name);
   /* a .cue beside .wav / .flac / .ape is a music disc */
   if(files.every(f=>/\.cue$/i.test(f))&&names.some(n=>/\.(wav|flac|ape)$/i.test(n))){out.bonus.push(...files);continue;}
   if(BONUS.test(path.basename(folder))){out.bonus.push(...files);continue;}
-  const iso=files.find(f=>/\.iso$/i.test(f));
-  if(iso)out.game.push({image:iso,mount:iso,kind:files.some(f=>/\.mds$/i.test(f))?'iso+mds':'iso',folder});
+  const iso=files.find(f=>/\.iso$/i.test(f)),cue=files.find(f=>/\.cue$/i.test(f));
+  if(iso)out.game.push({image:iso,kind:files.some(f=>/\.mds$/i.test(f))?'iso+mds':'iso',folder});
+  else if(cue&&fs.existsSync(Disc.imageOf(cue))&&Disc.imageOf(cue)!==cue)out.game.push({image:Disc.imageOf(cue),kind:'bin+cue',folder});
   else out.unmountable.push(...files);}
  return out;}
 
@@ -73,21 +76,14 @@ function applyUpdate(u,target){const files=[];for(const e of u.inf.files){const 
   if(crcOf(dst)!==e.crc)return {ok:false,files,why:'复制后 '+e.name+' 的 CRC 不对'};files.push(e.name);}
  return {ok:true,files,why:''};}
 
-/* the disc root -> the game folder, without the installer's files; read-only flags dropped (the game writes Save\ next to itself) */
-function copyDisc(root,target){let n=0;const walk=(from,to,top)=>{fs.mkdirSync(to,{recursive:true});for(const e of list(from)){const f=path.join(from,e.name),t=path.join(to,e.name);
-  if(e.isDirectory()){if(top&&INSTALLER_DIR.test(e.name))continue;walk(f,t,false);}else if(e.isFile()){if(top&&INSTALLER_FILE.test(e.name))continue;fs.copyFileSync(f,t);try{fs.chmodSync(t,0o666);}catch{}n++;}}};
- walk(root,target,true);return n;}
-
-/* Windows' own mount (ISO only); -> drive root like 'I:\' */
-function psMount(image){const q=s=>"'"+String(s).replace(/'/g,"''")+"'";
- const r=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','$i=Mount-DiskImage -ImagePath '+q(image)+' -PassThru;($i|Get-Volume).DriveLetter'],{encoding:'utf8',windowsHide:true,timeout:120000});
- const l=/^([A-Z])\s*$/m.exec(r.stdout||'');if(!l)throw Error('挂载失败：'+String(r.stderr||r.stdout||'').trim().slice(0,160));return l[1]+':\\';}
-function psUnmount(image){spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"Dismount-DiskImage -ImagePath '"+String(image).replace(/'/g,"''")+"' | Out-Null"],{windowsHide:true,timeout:60000});}
+/* the installer's own files at the top of the read-out disc are dropped; -> files left */
+function dropInstaller(target){for(const e of list(target)){const f=path.join(target,e.name);if(e.isDirectory()?INSTALLER_DIR.test(e.name):INSTALLER_FILE.test(e.name))fs.rmSync(f,{recursive:true,force:true});}
+ let n=0;const walk=d=>{for(const e of list(d)){const f=path.join(d,e.name);if(e.isDirectory())walk(f);else{n++;try{fs.chmodSync(f,0o666);}catch{}}}};walk(target);return n;}
 
 /* -> {ok, dir, why, image, copied, updates, bonus, unmountable, name, release} */
-function install(dir,{target='',root='',mount=psMount,unmount=psUnmount,statfs=fs.statfsSync,minFree=15*2**30,noDrives=process.env.MEGULIT_ADAPTER_NO_DRIVES??'C,E'}={}){
+async function install(dir,{target='',root='',extract=Disc.extract,statfs=fs.statfsSync,minFree=15*2**30,noDrives=process.env.MEGULIT_ADAPTER_NO_DRIVES??'C,E'}={}){
  const sets=discSets(dir),base={bonus:sets.bonus,unmountable:sets.unmountable};
- if(!sets.game.length)return {ok:false,...base,why:sets.unmountable.length?'光盘镜像不是 ISO（'+sets.unmountable.map(f=>path.basename(f)).slice(0,2).join('、')+'），Windows 挂载不了':'没有游戏光盘镜像'};
+ if(!sets.game.length)return {ok:false,...base,why:sets.unmountable.length?'光盘镜像读不了（'+sets.unmountable.map(f=>path.basename(f)).slice(0,2).join('、')+'，只读得了 .iso / bin+cue）':'没有游戏光盘镜像'};
  if(sets.game.length>1)return {ok:false,...base,why:'有 '+sets.game.length+' 张游戏光盘，不知道装哪张：'+sets.game.map(g=>path.basename(g.folder)).join(' / ')};
  const g=sets.game[0],nm=nameOf(g.folder),dest=target||path.join(root,nm.name||'game');
  const drive=(/^([A-Za-z]):/.exec(path.resolve(dest))||[])[1]||'';
@@ -97,8 +93,8 @@ function install(dir,{target='',root='',mount=psMount,unmount=psUnmount,statfs=f
  let copied=0;
  if(!done){const need=fs.statSync(g.image).size;fs.mkdirSync(path.dirname(dest),{recursive:true});const st=statfs(path.dirname(dest)),free=Number(st.bavail)*Number(st.bsize);
   if(free-need<minFree)return {ok:false,...base,why:'空间不够：'+path.dirname(dest)+' 剩 '+Math.round(free/2**30)+' GB，装要 '+Math.round(need/2**30)+' GB，还得留 15 GB'};
-  let at='';try{at=mount(g.mount);copied=copyDisc(at,dest);}catch(e){return {ok:false,...base,image:g.image,why:String(e.message||e).slice(0,200)};}finally{if(at)try{unmount(g.mount);}catch{}}}
+  try{fs.mkdirSync(dest,{recursive:true});await extract(g.image,dest);copied=dropInstaller(dest);}catch(e){return {ok:false,...base,image:g.image,why:'读光盘镜像失败：'+String(e.message||e).slice(0,160)};}}
  const applied=[];for(const u of ups){const r=applyUpdate(u,dest);if(!r.ok)return {ok:false,...base,dir:dest,image:g.image,copied,updates:applied,why:r.why};applied.push({version:u.inf.version,files:r.files,regKey:u.inf.regKey});}
  return {ok:true,...base,dir:dest,image:g.image,kind:g.kind,copied,reused:done,updates:applied,name:nm.name,release:nm.release,why:''};}
 
-module.exports={discSets,updates,parseUpdateInf,applyUpdate,copyDisc,install,nameOf,BONUS,INSTALLER_FILE};
+module.exports={discSets,updates,parseUpdateInf,applyUpdate,dropInstaller,install,nameOf,BONUS,INSTALLER_FILE};
