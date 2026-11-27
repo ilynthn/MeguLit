@@ -19,16 +19,17 @@
  // The Alt+T menu, backlog and lookup card each have their own six values (user, 2026-11-03: the menu's opacity changed
  // the other two). Old saves held one shared set: each panel starts from it.
  const PANELS=['menu','log','card'],PANEL_KEYS=['blur','dim','saturate','alpha','radius','border','glassBlur','glassDim','glassSaturate'];
+ const LOOK_PANELS=[['menu','menuSurface'],['log','logSurface'],['card','cardSurface']],LOOK_MODES=[['image','modeImage'],['glass','modeGlass'],['both','modeBoth'],['plain','modePlain']];
  const pictureLimit=48,highlightStart=40,pictureInkTint=10;
  {const old=gcfg.panels||{},next={};for(const p of PANELS){next[p]={};for(const k of PANEL_KEYS){const v=Number(old[p]?.[k]??gcfg[k]??gameDefaults[k]);next[p][k]=Number.isFinite(v)?v:gameDefaults[k];
   }}gcfg.panels=next;}
  const T={
-  zh:{glassDim:'毛玻璃变暗',glassSaturate:'毛玻璃饱和度',gameTitle:'游戏内面板',gameText:'Alt+T 菜单、对话记录和点读窗口的背景；默认使用主页背景图片',custom:'游戏内面板单独使用一张图片',sourceHome:'图片：跟随主页背景（可在 MeguLit 主页设置中单独更换）',
+  zh:{more:'更多',surfaceRow:'背景',capImage:'背景图效果',capGlass:'毛玻璃效果',sample:'今日は、いい天気ですね。',glassGo:'毛玻璃：实时读取面板背后的画面（游戏、桌面或其他窗口）再模糊；效果在「更多」里调',glassDim:'毛玻璃变暗',glassSaturate:'毛玻璃饱和度',gameTitle:'游戏内面板',gameText:'Alt+T 菜单、对话记录和点读窗口的背景；默认使用主页背景图片',custom:'游戏内面板单独使用一张图片',sourceHome:'图片：跟随主页背景（可在 MeguLit 主页设置中单独更换）',
    sourceCustom:'图片：游戏内面板单独图片（在 MeguLit 主页设置中更换）',radius:'圆角',surfaces:'面板背景',menuSurface:'Alt+T 菜单',logSurface:'对话记录',cardSurface:'点读弹窗',modeImage:'背景图',modeGlass:'毛玻璃',
    modeBoth:'背景图 + 毛玻璃',modePlain:'纯色',glassBlur:'毛玻璃模糊',glassTip:'毛玻璃由 MeguLit 实时读取面板背后的画面（游戏、桌面或其他窗口）再模糊；毛玻璃的模糊、变暗和饱和度在各面板分区里单独调，背景模糊等只作用于背景图',border:'边框亮度',alpha:'面板不透明度',
    picture:'背景图片',title:'主页背景',text:'换成自己的图片，并可加模糊、变暗和毛玻璃面板；文本框翻译模式不受影响',pick:'选择图片',adjust:'调整显示区域',cropTitle:'调整显示区域',cropHint:'拖动方框选择显示区域，滚轮或滑块缩放；主页已实时预览',zoom:'缩放',
    ok:'确认',cancel:'取消',clear:'恢复默认',blur:'背景模糊',dim:'背景变暗',saturate:'饱和度',glass:'毛玻璃面板（侧栏、作品卡片、菜单）',glassBlur:'毛玻璃模糊',glassAlpha:'毛玻璃不透明度',none:'未设置背景图片',set:'已设置背景图片'},
-  en:{glassDim:'Darken glass',glassSaturate:'Glass saturation',gameTitle:'In-game panels',gameText:'Background of the Alt+T menu, backlog and lookup card; uses the home picture by default',
+  en:{more:'More',surfaceRow:'Background',capImage:'Picture effects',capGlass:'Glass effects',sample:'今日は、いい天気ですね。',glassGo:'Frosted glass: MeguLit reads whatever is behind the panel live (game, desktop or other windows) and blurs it; tune it under More',glassDim:'Darken glass',glassSaturate:'Glass saturation',gameTitle:'In-game panels',gameText:'Background of the Alt+T menu, backlog and lookup card; uses the home picture by default',
    custom:'Use a separate picture for in-game panels',sourceHome:'Picture: follows the home background (a separate one can be set on the home settings page)',sourceCustom:'Picture: separate in-game picture (change it on the home settings page)',
    radius:'Corner radius',surfaces:'Panel background',menuSurface:'Alt+T menu',logSurface:'Backlog',cardSurface:'Lookup card',modeImage:'Picture',modeGlass:'Frosted glass',
    modeBoth:'Picture + frosted glass',modePlain:'Plain colour',glassBlur:'Glass blur',glassTip:'Frosted glass: MeguLit reads whatever is behind the panel live (game, desktop or other windows) and blurs it. Glass blur, darkening and saturation are set per panel below; background blur and the like only affect the picture',
@@ -36,7 +37,7 @@
    pick:'Choose picture',adjust:'Adjust visible area',cropTitle:'Adjust visible area',cropHint:'Drag the frame to choose the visible area; zoom with the wheel or slider. The home page previews it live',
    zoom:'Zoom',ok:'Confirm',cancel:'Cancel',clear:'Restore default',blur:'Background blur',dim:'Darken background',saturate:'Saturation',glass:'Frosted-glass panels (sidebar, work cards, menu)',
    glassBlur:'Glass blur',glassAlpha:'Glass opacity',none:'No background picture',set:'Background picture set'},
-  ja:{glassDim:'すりガラスを暗く',glassSaturate:'すりガラスの彩度',gameTitle:'ゲーム内パネル',gameText:'Alt+T メニュー・ログ・辞書カードの背景。既定ではホーム背景の画像を使います',custom:'ゲーム内パネルに別の画像を使う',sourceHome:'画像：ホーム背景と同じ（ホームの設定で個別に変更できます）',
+  ja:{more:'詳細',surfaceRow:'背景',capImage:'背景画像の効果',capGlass:'すりガラスの効果',sample:'今日は、いい天気ですね。',glassGo:'すりガラス：パネルの後ろ（ゲーム・デスクトップ・ほかのウィンドウ）をリアルタイムで読み取ってぼかします。効果は「詳細」で調整',glassDim:'すりガラスを暗く',glassSaturate:'すりガラスの彩度',gameTitle:'ゲーム内パネル',gameText:'Alt+T メニュー・ログ・辞書カードの背景。既定ではホーム背景の画像を使います',custom:'ゲーム内パネルに別の画像を使う',sourceHome:'画像：ホーム背景と同じ（ホームの設定で個別に変更できます）',
    sourceCustom:'画像：ゲーム内パネル専用（ホームの設定で変更）',radius:'角の丸み',surfaces:'パネルの背景',menuSurface:'Alt+T メニュー',logSurface:'ログ',cardSurface:'辞書カード',modeImage:'背景画像',modeGlass:'すりガラス',
    modeBoth:'背景画像＋すりガラス',modePlain:'単色',glassBlur:'すりガラスのぼかし',glassTip:'すりガラスは MeguLit がパネルの後ろ（ゲーム・デスクトップ・ほかのウィンドウ）をリアルタイムで読み取ってぼかします。すりガラスのぼかし・暗さ・彩度は下の各パネルで個別に調整でき、背景のぼかしなどは背景画像だけに効きます',
    border:'枠の明るさ',alpha:'パネルの不透明度',picture:'背景画像',title:'ホーム背景',text:'好きな画像に変更し、ぼかし・暗さ・すりガラスのパネルを加えられます。字幕の翻訳モードには影響しません',pick:'画像を選択',adjust:'表示範囲を調整',cropTitle:'表示範囲を調整',
@@ -126,7 +127,63 @@
   .tome-bg-panels{display:flex;flex-direction:column;gap:6px;margin-top:12px}.tome-bg-panels>details{border:1px solid rgba(127,127,127,.18);border-radius:10px;padding:0 12px}
   .tome-bg-panels>details>summary{cursor:pointer;padding:8px 0;font-size:12.5px;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px;outline:none}.tome-bg-panels>details>summary::-webkit-details-marker{display:none}
   .tome-bg-panels>details>summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s;opacity:.7}.tome-bg-panels>details[open]>summary::before{transform:rotate(45deg)}
-  .tome-bg-panels>details>.tome-bg-grid{padding-bottom:10px}`;
+  .tome-bg-panels>details>.tome-bg-grid{padding-bottom:10px}
+  /* Alt+T 外观 page (buildGameLook). Labels 14px in the text colour, hints 12.5px in the picture-aware muted colour, groups
+     apart by space and a hairline, value fields beside every slider. */
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look{container-type:inline-size;display:flex;flex-direction:column;gap:0;margin:0;font-size:14px;line-height:1.5}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look [hidden]{display:none!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-head{display:flex;flex-direction:column;gap:4px;margin:2px 0 14px}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-head>h4{margin:0!important;font-size:16px!important;font-weight:650!important;color:var(--theme-text,#ece6e0)!important;letter-spacing:.01em}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-head>small,.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-bg-hint{display:block;margin:0!important;font-size:12.5px!important;line-height:1.6!important;color:var(--tome-picture-muted,#b9b4c4)!important;text-wrap:pretty}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:2px 0 6px}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile{position:relative;height:78px;overflow:hidden;isolation:isolate;border-radius:var(--r,18px);border:1px solid rgba(255,255,255,var(--bd,.08));transition:border-radius .15s ease-out}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile>b{position:absolute;inset:-14px;background:radial-gradient(circle at 22% 30%,#f6d39a 0 9%,transparent 30%),linear-gradient(135deg,#5d6fae 0%,#b98aa8 48%,#efb38e 100%)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile>i{position:absolute;inset:0;display:none;background:var(--img,none) center/cover}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile>u{position:absolute;inset:0;background:var(--theme-surface,#121218);opacity:var(--a,.62)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile>span{position:absolute;left:10px;top:7px;font-size:12px;font-weight:600;color:var(--theme-text,#ece6e0);opacity:.92}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile>em{position:absolute;left:10px;right:8px;bottom:8px;font-style:normal;font-size:12.5px;color:var(--theme-text,#ece6e0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=menu]{--r:var(--tome-menu-radius,18px);--bd:var(--tome-menu-border,.08);--a:var(--tome-menu-alpha,.62);--img:var(--tome-menu-image,none);--gb:var(--tome-menu-glass-blur,18px);--gl:var(--tome-menu-glass-bright,1);--gs:var(--tome-menu-glass-sat,1)}
+  html:is(:not([data-tome-menu-surface]),[data-tome-menu-surface=image],[data-tome-menu-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=menu]>i{display:block}
+  html[data-tome-menu-surface=both] .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=menu]>i{opacity:.55}
+  html:is([data-tome-menu-surface=glass],[data-tome-menu-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=menu]>b{filter:blur(calc(var(--gb) / 2)) brightness(var(--gl)) saturate(var(--gs))}
+  html:is([data-tome-menu-surface=glass],[data-tome-menu-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=menu]>u{opacity:calc(var(--a) * .6)}
+.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=log]{--r:var(--tome-log-radius,18px);--bd:var(--tome-log-border,.08);--a:var(--tome-log-alpha,.62);--img:var(--tome-log-image,none);--gb:var(--tome-log-glass-blur,18px);--gl:var(--tome-log-glass-bright,1);--gs:var(--tome-log-glass-sat,1)}
+  html:is(:not([data-tome-log-surface]),[data-tome-log-surface=image],[data-tome-log-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=log]>i{display:block}
+  html[data-tome-log-surface=both] .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=log]>i{opacity:.55}
+  html:is([data-tome-log-surface=glass],[data-tome-log-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=log]>b{filter:blur(calc(var(--gb) / 2)) brightness(var(--gl)) saturate(var(--gs))}
+  html:is([data-tome-log-surface=glass],[data-tome-log-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=log]>u{opacity:calc(var(--a) * .6)}
+.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=card]{--r:var(--tome-card-radius,18px);--bd:var(--tome-card-border,.08);--a:var(--tome-card-alpha,.62);--img:var(--tome-card-image,none);--gb:var(--tome-card-glass-blur,18px);--gl:var(--tome-card-glass-bright,1);--gs:var(--tome-card-glass-sat,1)}
+  html:is(:not([data-tome-card-surface]),[data-tome-card-surface=image],[data-tome-card-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=card]>i{display:block}
+  html[data-tome-card-surface=both] .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=card]>i{opacity:.55}
+  html:is([data-tome-card-surface=glass],[data-tome-card-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=card]>b{filter:blur(calc(var(--gb) / 2)) brightness(var(--gl)) saturate(var(--gs))}
+  html:is([data-tome-card-surface=glass],[data-tome-card-surface=both]) .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile[data-look-tile=card]>u{opacity:calc(var(--a) * .6)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-group{display:flex;flex-direction:column;gap:2px;padding:18px 0 14px;border-top:1px solid color-mix(in srgb,var(--theme-text,#eee) 9%,transparent)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-preview+.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-group{margin-top:12px}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-title{display:flex;align-items:center;gap:8px;margin:0 0 6px!important;font-size:15px!important;font-weight:650!important;color:var(--theme-text,#ece6e0)!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row{display:grid!important;grid-template-columns:minmax(6.5em,9.5em) minmax(0,1fr)!important;align-items:center!important;column-gap:16px!important;min-height:42px!important;height:auto!important;margin:0!important;padding:3px 0!important;border:0!important;background:none!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-label{font-size:14px;color:var(--theme-text,#ece6e0);white-space:normal;line-height:1.35}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row>.tome-bg-range{display:flex!important;align-items:center;gap:12px;min-width:0;flex:none!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row input[type=range]{flex:1 1 auto;min-width:60px;margin:0!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-num{position:relative;display:inline-flex!important;align-items:center;flex:none;width:76px;height:32px;margin:0!important;padding:0!important;border:0!important;background:none!important;cursor:text}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-num>input[type=number]{width:100%!important;min-width:0!important;height:32px!important;min-height:0!important;margin:0!important;padding:0 26px 0 8px!important;border-radius:8px!important;
+   border:1px solid color-mix(in srgb,var(--theme-text,#eee) 14%,transparent)!important;background:color-mix(in srgb,var(--theme-text,#eee) 6%,transparent)!important;color:var(--theme-text,#ece6e0)!important;
+   font:inherit!important;font-size:13.5px!important;font-variant-numeric:tabular-nums;text-align:right!important;box-shadow:none!important;transition:border-color .15s,background-color .15s}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-num>input[type=number]:hover{border-color:color-mix(in srgb,var(--theme-text,#eee) 26%,transparent)!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-num>input[type=number]:focus{outline:none;border-color:var(--menu-accent,#e0495a)!important;background:color-mix(in srgb,var(--menu-accent,#e0495a) 10%,transparent)!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-num>span{position:absolute;right:8px;font-size:12px;color:var(--tome-picture-muted,#b9b4c4);pointer-events:none}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-chips{--mg-seg-cols:2;margin:0!important}
+  @container (min-width:560px){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-chips{--mg-seg-cols:4}}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-chips>button{font-size:13px!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more{margin:6px 0 0!important;padding:0!important;border:0!important;background:none!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary{display:inline-flex!important;align-items:center;gap:8px;min-height:32px!important;padding:4px 0!important;font-size:13px!important;font-weight:600;color:var(--tome-picture-muted,#b9b4c4)!important;list-style:none;cursor:pointer;background:none!important;border:0!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary::-webkit-details-marker{display:none}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more>summary:hover{color:var(--theme-text,#ece6e0)!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-more[open]{padding-bottom:4px!important}
+  .tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-cap{margin:10px 0 2px;font-size:12.5px;font-weight:600;color:var(--tome-picture-muted,#b9b4c4)}
+  @container (max-width:400px){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look .tome-look-row{grid-template-columns:minmax(0,1fr)!important;row-gap:4px!important;padding:6px 0!important}.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-preview{grid-template-columns:minmax(0,1fr)}.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look-tile{height:56px}}
+  @media (prefers-reduced-motion:reduce){.tomoyo-cn-dialog:not(#q1):not(#q2):not(#q3) .tome-look *{transition:none!important}}`;
  document.head.append(style);document.body.prepend(layer);
 
  // Visible area of the home picture (user, 2026-11-02): crop = {x,y,zoom}. x/y are background-position percentages and
@@ -366,15 +423,52 @@
   for(const [k,copy] of [['menu','menuSurface'],['log','logSurface'],['card','cardSurface']]){const select=el('select');select.dataset.gameSurface=k;for(const [v,
    c] of [['image','modeImage'],['glass','modeGlass'],['both','modeBoth'],['plain','modePlain']]){const o=new Option('',v);o.dataset.bgCopy=c;select.add(o);}select.onchange=()=>{
    gcfg.surfaces={...gameDefaults.surfaces,...gcfg.surfaces,[k]:select.value};saveGame();};surf.append(row(copy,select));}
-  if(inGame){const source=el('small','tome-bg-hint');source.dataset.gameSource='';box.append(h,desc,source,grid,surf);misc.prepend(box);}
+  if(inGame){buildGameLook(misc);return;}
   else{box.append(h,desc,row('custom',sw),pic,grid,surf);misc.append(box);}refreshGameMenu();
  }
+ /* 2026-11-28 (user: alt+t现在的外观设置还是非常不好用啊 很拥挤 而且 易读性很差): the Alt+T 外观 page is laid out by panel. Each
+    panel is one group: background as chips, the three everyday sliders, and its picture and glass sliders under 更多. Every
+    slider row is label | slider | value, and the value is a number field that can be typed into. The strip at the top shows
+    the three panels with their current values and repaints as they change. Same controls, data attributes and storage
+    as before (data-game-panel / data-game-key / data-game-surface, localStorage tome-menu-background). */
+ function buildGameLook(misc){
+  const el=(tag,cls)=>{const n=document.createElement(tag);if(cls)n.className=cls;return n;};
+  const copy=(tag,cls,key)=>{const n=el(tag,cls);n.dataset.bgCopy=key;return n;};
+  const box=el('section','tome-bg-menu tome-game-bg tome-look');box.dataset.noI18n='';
+  const source=el('small','tome-bg-hint');source.dataset.gameSource='';
+  const head=el('div','tome-look-head');head.append(copy('h4','','gameTitle'),copy('small','tome-bg-hint','gameText'),source);
+  const preview=el('div','tome-look-preview');preview.setAttribute('aria-hidden','true');
+  for(const [p,c] of LOOK_PANELS){const tile=el('div','tome-look-tile');tile.dataset.lookTile=p;tile.append(el('b','tome-look-tile-scene'),el('i','tome-look-tile-picture'),el('u','tome-look-tile-tint'),copy('span','tome-look-tile-name',c),copy('em','','sample'));preview.append(tile);}
+  box.append(head,preview);
+  const unit=k=>k==='blur'||k==='radius'||k==='glassBlur'?'px':'%';
+  const slider=(p,k,min,max)=>{const row=el('div','setting-row tome-look-row'),range=el('div','tome-bg-range'),i=el('input'),value=el('label','tome-look-num'),n=el('input'),u=el('span');
+   i.type='range';i.min=min;i.max=max;i.step='any';i.dataset.gamePanel=p;i.dataset.gameKey=k;
+   n.type='number';n.min=min;n.max=max;n.step=1;n.inputMode='numeric';n.dataset.numPanel=p;n.dataset.numKey=k;u.textContent=unit(k);
+   const set=v=>{v=Number(v);if(!Number.isFinite(v)){refreshGameMenu();return;}v=Math.min(max,Math.max(min,v));gcfg.panels[p][k]=Number(v.toFixed(3));saveGame();};
+   i.oninput=()=>set(i.value);n.onchange=()=>set(n.value===''?NaN:n.value);
+   /* Enter applies the typed value at once; change alone waits for the field to lose focus. */
+   n.onkeydown=e=>{if(e.key==='Enter'){set(n.value===''?NaN:n.value);n.select();}};
+   value.append(n,u);range.append(i,value);row.append(copy('span','tome-look-label',k),range);return row;};
+  for(const [p,c] of LOOK_PANELS){const group=el('section','tome-look-group');group.dataset.lookGroup=p;
+   const row=el('div','setting-row tome-look-row tome-look-surface'),chips=el('div','mg-subtabs tome-look-chips'),select=el('select');chips.setAttribute('role','tablist');
+   select.dataset.gameSurface=p;select.hidden=true;select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+   for(const [v,cc] of LOOK_MODES){select.add(new Option(t(cc),v));const chip=copy('button','',cc);chip.type='button';chip.dataset.surfacePick=v;chip.setAttribute('role','tab');
+    chip.onclick=()=>{select.value=v;select.dispatchEvent(new Event('change'));};chips.append(chip);}
+   select.onchange=()=>{gcfg.surfaces={...gameDefaults.surfaces,...gcfg.surfaces,[p]:select.value};saveGame();};
+   chips.append(select);row.append(copy('span','tome-look-label','surfaceRow'),chips);
+   const more=el('details','tome-look-more');more.append(copy('summary','','more'),copy('div','tome-look-cap','capImage'),slider(p,'blur',0,40),slider(p,'dim',0,85),slider(p,'saturate',0,200),
+    copy('div','tome-look-cap','capGlass'),slider(p,'glassBlur',0,40),slider(p,'glassDim',0,85),slider(p,'glassSaturate',0,200));
+   group.append(copy('h5','tome-look-title',c),row,slider(p,'alpha',20,100),slider(p,'radius',0,28),slider(p,'border',0,40),more);box.append(group);}
+  misc.prepend(box);refreshGameMenu();
+ }
  function refreshGameMenu(){for(const box of document.querySelectorAll('.tome-game-bg')){for(const select of box.querySelectorAll('[data-game-surface]')){const v=gcfg.surfaces?.[select.dataset.gameSurface]||'image';
-  if(select.value!==v)select.value=v;}for(const node of box.querySelectorAll('[data-bg-copy]')){const text=t(node.dataset.bgCopy);if(node.textContent!==text)node.textContent=text;
+  if(select.value!==v)select.value=v;for(const chip of select.parentElement.querySelectorAll('[data-surface-pick]')){const on=String(chip.dataset.surfacePick===v);if(chip.getAttribute('aria-selected')!==on)chip.setAttribute('aria-selected',on);
+   const pick=chip.dataset.surfacePick,tip=pick==='glass'||pick==='both'?t('glassGo'):t(chip.dataset.bgCopy);if(chip.title!==tip)chip.title=tip;}}for(const node of box.querySelectorAll('[data-bg-copy]')){const text=t(node.dataset.bgCopy);if(node.textContent!==text)node.textContent=text;
   }const st=box.querySelector('[data-bg-state]');if(st)st.textContent=gameImage?t('set'):t('none');const acts=box.querySelector('.tome-bg-actions');if(acts)acts.hidden=!gcfg.custom;
   const src=box.querySelector('[data-game-source]');if(src)src.textContent=gcfg.custom&&gameImage?t('sourceCustom'):t('sourceHome');
   for(const input of box.querySelectorAll('[data-game-key]')){const k=input.dataset.gameKey;if(input.type==='checkbox'){input.checked=!!gcfg[k];continue;}const v=gcfg.panels[input.dataset.gamePanel]?.[k];
-   if(document.activeElement!==input)input.value=v;input.parentElement.querySelector('output').textContent=v+(k==='blur'||k==='radius'||k==='glassBlur'?' px':'%');
+   if(document.activeElement!==input)input.value=v;const out=input.parentElement.querySelector('output');if(out)out.textContent=v+(k==='blur'||k==='radius'||k==='glassBlur'?' px':'%');
+   const num=input.parentElement.querySelector('[data-num-key]');if(num){if(document.activeElement!==num)num.value=String(Math.round(v));const label=t(k);if(num.getAttribute('aria-label')!==label)num.setAttribute('aria-label',label);}
    }}}
  function saveGame(){try{localStorage.setItem(GAME_KEY,JSON.stringify(gcfg));}catch{}paint();refreshGameMenu();}
  b.backgroundPanel=()=>{const host=document.createElement('div');buildMenu(host);return host.firstElementChild;};
@@ -383,7 +477,9 @@
   const dialog=document.querySelector('.tomoyo-cn-dialog[open]');
   if(dialog){if(!dialog.querySelector(':scope>.tome-menu-bg')){const layer=document.createElement('div');layer.className='tome-menu-bg';layer.setAttribute('aria-hidden',
    'true');layer.append(document.createElement('b'),document.createElement('i'));dialog.prepend(layer);}
-   const misc=dialog.querySelector('[data-menu-category=misc]');if(misc&&!misc.querySelector('.tome-game-bg'))buildGameMenu(misc,true);}
+   const misc=dialog.querySelector('[data-menu-category=misc]');if(misc&&!misc.querySelector('.tome-game-bg'))buildGameMenu(misc,true);
+   /* the panel groups come first on the page, whichever of them and the capsule's own section was mounted first */
+   const look=misc?.querySelector(':scope>.tome-look');if(look&&misc.firstElementChild!==look)misc.prepend(look);}
   const page=document.querySelector('.settings-page'),content=page?.querySelector('.settings-content'),nav=page?.querySelector('.settings-tabs');if(!content||!nav)return;
   let tab=nav.querySelector('[data-tome-bg-tab]');if(!tab){tab=document.createElement('button');tab.type='button';tab.dataset.tomeBgTab='';tab.dataset.noI18n='';
    tab.className=nav.querySelector('button')?.className||'';tab.classList.remove('active');tab.onclick=()=>{content.classList.remove('tome-about-selected','tomoyo-learning-selected');

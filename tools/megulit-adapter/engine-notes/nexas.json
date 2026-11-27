@@ -1,0 +1,37 @@
+{
+ "schema": "megulit.engine-notes",
+ "version": 1,
+ "engine": "nexas",
+ "how": "REA 6.10.1 + Ghidra 12.2 headless static analysis of the shipped program (read only, nothing run). One analysis per engine, shared by every game of the engine; addresses belong to the build named in sample and are re-found by signature in other builds",
+ "sample": {
+  "game": "アイキス3 sexy",
+  "vndb": "v32132",
+  "exe": "Aikiss3.exe",
+  "exeSha256": "49799f5880f89b70af29ad479f5afea48d8c70a73b48fdc54a6e04cc08852cb6",
+  "arch": "x86",
+  "analysedAt": "2026-11-28",
+  "analysisSeconds": 190
+ },
+ "text": {
+  "api": ["GDI32!GetGlyphOutlineA", "GDI32!TextOutA (imported, by name)"],
+  "glyphRasterizer": {
+   "procedure": "0x628120",
+   "size": 1025,
+   "calls": ["0x6283b5", "0x6283ea"],
+   "note": "the only caller of GetGlyphOutlineA: every glyph of the message window goes through it; the engine-level hook point candidate (decompile next)"
+  }
+ },
+ "choices": {
+  "classes": ["CSelectMenuBase", "CSelectMenu", "CNovelSelectMenu", "CSelectMenuManagerBase", "CSelectMenuManager", "CSelectButtonManager"],
+  "strings": ["SelectMenu Frame", "SelectMenu Select", "NovelSelectMenu Select", "SystemSE_Select"],
+  "resources": ["SelectMenu.spm"],
+  "note": "MSVC RTTI names: the choice menu is its own object with buttons (CSelectButtonManager), not text in the message window; reading the option texts and button rectangles from these objects replaces the OCR locate (next: xrefs of the vftables, decompile the button layout)"
+ },
+ "archives": {
+  "named": ["Config.pac"],
+  "note": "only Config.pac is a literal; the other .pac names (Script.pac, Bgm.pac …) are built at run time"
+ },
+ "limits": [
+  "each REA CLI command re-imports and re-analyses the program (about 190 s each): run the follow-up queries in one REA session (MCP) or decompile-all once and read the files"
+ ]
+}

@@ -41,10 +41,12 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
-| 魚魚棟 · Claude | 台词按说话人上色：取游戏原色不再发灰（アイキス3 sexy アヤメ），颜色页新增「分角色」按作品改色 | — | feat/speaker-colors | 11-28 | 等 CI（PR #1359） |
+| 魚魚棟 · Claude | megulit-engine：Rust 直读引擎剧本（设计文档 + KiriKiri 原型） | — | claude/megulit-engine | 11-28 | 等 CI（PR #1365） |
+| 魚魚棟 · Claude | 批量骨架 seed 生成器：一批目录离线认引擎、算 key、写 skeleton seed，出可信度清单（基于 #1362） | — | claude/seed-skeleton-batch | 11-28 | 等 CI（PR #1366） |
+| 魚魚棟 · Claude | 台词按说话人上色：取游戏原色不再发灰（アイキス3 sexy アヤメ），颜色页新增「分角色」按作品改色 | — | feat/speaker-colors | 11-28 | 等合并（PR #1359，CI 全绿） |
 | 魚魚棟 · Claude | 注音字体默认 Noto Sans JP，随 MeguLit 自带、优先用自带文件；下拉框标「自带」；旧默认 Meiryo 的老用户迁移过去 | — | claude/bundled-noto-ruby | 11-28 | 在做 |
 | 魚魚棟 · Claude | 修 main：统一提示接管 title 后 el.title 仍能读写提示（#1344 合并后校准按钮测试失败） | — | claude/fix-main-tip-title | 11-28 | 等合并（PR #1350，CI 全绿） |
-| 魚魚棟 · Claude | Alt+T 外观页重新排版：按面板分组、滑杆旁可输入数值、不常用项收进「更多」、顶部实时预览 | — | claude/alt-t-appearance-layout | 11-28 | 等 CI（PR #1361） |
+| 魚魚棟 · Claude | Alt+T 外观新增「选项」组：选项译文的颜色、字号、字体、位置和选项注音的字号、字体、位置可调，按作品保存 | — | claude/altt-choice-style | 11-28 | 等 CI（PR #1363） |
 | RRFZ · Codex | CMVS/CVNS 剧本按指令分类台词，提取说话人、语音和行号 | — | rrfz/cmvs-classify | 11-27 | 在做 |
 | 魚魚棟 · Claude | 点读查词支持口语缩约和方言语尾（舐めんなし、わかんねえ、ええやん）：还原后再查、最长前缀兜底、可选 AI 释义 | — | feat/colloquial-lookup | 11-28 | 等 CI（PR #1339） |
 | 魚魚棟 · Claude | 官网换新图标（点读台词框）：favicon、apple-touch-icon、manifest、结构化数据 logo；启动器图标和字标不动 | — | feat/site-favicon | 11-27 | 等 CI（PR #1333） |
@@ -68,4 +70,5 @@
 | 魚魚棟 · Claude | 模拟器实验：Switch 模拟器（Eden/Ryubing）里读对话文本 + 换成等长空白隐藏原文、选项照常；样本 一部 Switch 乙游 + 海猫 Switch 版（DS 下… | — | exp/emulator-hook | 11-27 | 暂停：磁盘（E 盘剩余空间不足；adapt 下的 swit… |
 | 魚魚棟 · Claude | 适配 アイキス3 sexy（NeXAS，包装版 + 1.03）：选项被字形隐藏吃掉（hide.glyphAfterLine）、钩子文本带 @ 控制码（source.stripCodes）、选项 OCR 定位（choice.ocrLoose）；写回适配器（光盘安装、GIGA 更新、testbuild、测试清单等） | #1109 | adapt/aikiss3-sexy | 11-27 | PR #1304 等 CI，待测试员实测（测试清单已交测试员） |
 | 魚魚棟 · Claude | MeguLit-Adapter 加 craft 静态分析阶段（craft-anything：开游戏前核对引擎、画字 API、隐藏方式） | — | claude/amazing-aryabhata-a55dfa | 11-28 | 等 CI（PR #1362） |
+| RRFZ · Codex | アオイトリ（青鸟）中央气泡原文没藏住、字幕飘到气泡外（11-25 后 main 回归，二分中） | — | rrfz/aoitori-overlay-regress | 11-27 | 二分中 |
 
