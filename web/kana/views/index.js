@@ -33,12 +33,16 @@ const wk={};week.forEach(r=>r.log.filter(l=>!l.ok).forEach(l=>{wk[l.show]=(wk[l.
 const weak=Object.entries(wk).sort((a,b)=>b[1]-a[1]).slice(0,4);
 const bestAcc=runs.filter(r=>!(r.only&&r.only.length)&&r.log.length).reduce((b,r)=>Math.max(b,D.achievement(r.log).pct),0);
 const ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
-const hira=D.LESSONS.filter(l=>l.id.startsWith('h'));
-const grid='あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもや　ゆ　よらりるれろわ　　　をん';
 const GAMES=t.games;
-/* 2026-11-13 (user: the lesson rail was useless and jumped straight into practice): the board switches 平假名 / 片假名 / 浊音,
-   the title arrows and a click on the board only move the current lesson; only the 继续 button (or Enter) starts one */
-const SETS=[[t.hira,grid,'h'],[t.kata,D.toKata(grid),'k'],[t.daku,D.DAKU_LIST.join(''),'d']];
+/* 2026-11-13 (user: the lesson rail was useless and jumped straight into practice): the title arrows and a click on the board
+   only move the current lesson; only the 继续 button (or Enter) starts one.
+   2026-11-28 (owner: 然后这边的那些拗音啥的呢？？): the board is 清音 / 浊音・半浊音 / 拗音 / 特殊音, with 平假名 / 片假名 as a switch
+   above it instead of a tab each */
+const CAT_NAMES={zh:['清音','浊音 · 半浊音','拗音','特殊音'],ja:['清音','濁音 · 半濁音','拗音','特殊音'],en:['Basic','Voiced','Contracted','Special']}[KL()]||['清音','浊音 · 半浊音','拗音','特殊音'];
+const SCRIPTS=[['h',t.hira],['k',t.kata]];
+const catOf=L=>L.cat||(L.id.startsWith('d')?'daku':'seion');
+const lessonFor=(cat,script)=>D.LESSONS.find(l=>catOf(l)===cat&&l.script===script&&!lessons[l.id])||D.LESSONS.find(l=>catOf(l)===cat&&l.script===script)||D.LESSONS.find(l=>catOf(l)===cat);
+const GAIRAI_NOTE={zh:'外来音（ファ、ティ、ヴァ……）只用片假名写，切到「片假名」查看',ja:'外来音（ファ・ティ・ヴァ…）はカタカナだけで書きます。「カタカナ」に切り替えてください',en:'Loanword sounds (ファ, ティ, ヴァ…) are written only in katakana; switch to Katakana'}[KL()];
 const lessonOf=k=>D.LESSONS.find(l=>l.kana.includes(k));
 const DIFFS=t.diffs;
 
@@ -54,8 +58,9 @@ el.innerHTML=`<main class="mg-page">
 
  <section class="mg-board">
   <div class="mg-board-grid">
-   <header><span class="mg-seg" role="radiogroup" aria-label="${t.board}">${SETS.map((x,i)=>`<button type="button" role="radio" data-set="${i}" aria-checked="${i===0}">${x[0]}</button>`).join('')}</span><span class="mg-legend">${LV.map((t,i)=>`<span><i class="m${i}"></i>${t}</span>`).join('')}<span><i class="m4"></i>${({zh:'当前课',ja:'現在の課',en:'Current'})[KL()]||'当前课'}</span></span></header>
+   <header><span class="mg-seg mg-script-seg" role="radiogroup" aria-label="${t.hira} / ${t.kata}">${SCRIPTS.map(([v,n])=>`<button type="button" role="radio" data-script="${v}" aria-checked="${v==='h'}">${n}</button>`).join('')}</span><span class="mg-seg" role="radiogroup" aria-label="${t.board}">${CAT_NAMES.map((x,i)=>`<button type="button" role="radio" data-set="${i}" aria-checked="${i===0}">${x}</button>`).join('')}</span><span class="mg-legend">${LV.map((t,i)=>`<span><i class="m${i}"></i>${t}</span>`).join('')}<span><i class="m4"></i>${({zh:'当前课',ja:'現在の課',en:'Current'})[KL()]||'当前课'}</span></span></header>
    <div class="mastery" role="grid" aria-label="${t.boardAria}" data-board></div>
+   <p class="mg-board-note" data-board-note hidden></p>
   </div>
   <aside class="mg-board-side">
    <div class="mk-card" data-mk-card hidden></div>
@@ -77,23 +82,28 @@ el.innerHTML=`<main class="mg-page">
   <button class="mg-tile" data-go="kanji.html"><em>${t.kanji}</em><b lang="ja">漢</b><small>${t.kanjiSub}</small></button>
  </section>
 </main>`;
-let cur=next,set=0;
+let cur=next,set=0,script='h';
 const stage=el.querySelector('[data-stage]'),board=el.querySelector('[data-board]');
-function drawStage(L){cur=L;const nu=L.kana.find(k=>lv(k)<2)||L.kana[0],cf=L.kana.map(k=>D.confusables(k)).find(Boolean),ks=SETS.find(x=>x[2]===L.id[0])[1].replace(/　/g,'').split(''),kn=ks.filter(k=>lv(k)>=2).length,i=D.LESSONS.indexOf(L);
+function drawStage(L){cur=L;const nu=L.kana.find(k=>lv(k)<2)||L.kana[0],cf=L.kana.map(k=>D.confusables(k)).find(Boolean),ks=D.boardOf(catOf(L),L.script).filter(Boolean),kn=ks.filter(k=>lv(k)>=2).length,i=D.LESSONS.indexOf(L);
  stage.innerHTML=`<div class="mg-stage-kana" aria-hidden="true"><span class="mg-ghost">${esc(nu)}</span><b>${esc(nu)}</b></div>
   <div class="mg-stage-copy">
-   <h1><span class="mg-title">${esc(L.title)}</span><small class="mg-script">${esc(L.script==='k'?t.kata:L.id.startsWith('d')?t.daku:t.hira)}</small><span class="mg-pick"><button type="button" data-step="-1" aria-label="prev"${i?'':' disabled'}>‹</button><small class="mg-num">${i+1}/${D.LESSONS.length}</small><button type="button" data-step="1" aria-label="next"${i<D.LESSONS.length-1?'':' disabled'}>›</button></span></h1>
+   <h1><span class="mg-title">${esc(L.title)}</span><small class="mg-script">${esc((L.script==='k'?t.kata:t.hira)+' · '+CAT_NAMES[D.CATS.indexOf(catOf(L))])}</small><span class="mg-pick"><button type="button" data-step="-1" aria-label="prev"${i?'':' disabled'}>‹</button><small class="mg-num">${i+1}/${D.LESSONS.length}</small><button type="button" data-step="1" aria-label="next"${i<D.LESSONS.length-1?'':' disabled'}>›</button></span></h1>
    <p class="mg-sub">${started?t.left(L.kana.filter(k=>lv(k)<2).length):t.steps}${cf&&cf.tip?` · ${esc(cf.g.join(' / '))} ${t.confuse}`:''}</p>
    <div class="mg-row"><button class="mg-cta" data-go="lesson.html?id=${L.id}">${started?t.go:t.start}<kbd>Enter</kbd></button>
     <div class="mg-prog"><div class="mg-barcode" aria-label="${kn} / ${ks.length} ${t.familiar}"><i style="width:${ks.length?kn/ks.length*100:0}%"></i></div><small class="mg-num">${String(kn).padStart(2,'0')}<em>/${ks.length}</em></small></div></div>
   </div>`;
- stage.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const n=D.LESSONS[i+ +b.dataset.step];if(!n)return;const s2=SETS.findIndex(x=>x[2]===n.id[0]);drawStage(n);if(s2!==set)drawBoard(s2);else markRow();});}
+ stage.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const n=D.LESSONS[i+ +b.dataset.step];if(!n)return;const s2=D.CATS.indexOf(catOf(n));drawStage(n);if(s2!==set||n.script!==script)drawBoard(s2,n.script);else markRow();});}
 function markRow(){board.querySelectorAll('[data-mk]').forEach(x=>x.classList.toggle('row',lessonOf(x.dataset.mk)===cur));}
-function drawBoard(n){set=n;const g=SETS[n][1];board.classList.toggle('d',n===2);
+function drawBoard(n,sc=script){set=n;script=sc;const cat=D.CATS[n],g=D.boardOf(cat,sc);
+ for(const [c,on] of [['d',cat==='daku'],['y',cat==='yoon'],['s',cat==='special'&&sc==='k'],['sh',cat==='special'&&sc==='h']])board.classList.toggle(c,on);
  el.querySelectorAll('[data-set]').forEach(b=>b.setAttribute('aria-checked',String(+b.dataset.set===n)));
- board.innerHTML=[...g].map(c=>c==='　'?'<span class="gap"></span>':`<button type="button" class="m${lv(c)}" data-mk="${c}" title="${c} · ${LV[lv(c)]}" aria-label="${c} ${D.romaOf(c)} ${LV[lv(c)]}">${c}</button>`).join('');markRow();}
-drawStage(next);drawBoard(Math.max(0,SETS.findIndex(x=>x[2]===next.id[0])));
-el.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const n=+b.dataset.set;const L=D.LESSONS.find(l=>l.id[0]===SETS[n][2]&&!lessons[l.id])||D.LESSONS.find(l=>l.id[0]===SETS[n][2]);drawStage(L);drawBoard(n);open='';card.hidden=true;empty.hidden=false;});
+ el.querySelectorAll('[data-script]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.script===sc)));
+ const note=el.querySelector('[data-board-note]');if(note){note.hidden=!(cat==='special'&&sc==='h');note.textContent=GAIRAI_NOTE;}
+ board.innerHTML=g.map(c=>!c?'<span class="gap"></span>':`<button type="button" class="m${lv(c)}${c.length>1?' w2':''}" data-mk="${c}" title="${c} · ${LV[lv(c)]}" aria-label="${c} ${D.romaOf(c)} ${LV[lv(c)]}">${c}</button>`).join('');markRow();}
+drawStage(next);drawBoard(Math.max(0,D.CATS.indexOf(catOf(next))),next.script);
+const pickBoard=(n,sc)=>{drawStage(lessonFor(D.CATS[n],sc));drawBoard(n,sc);open='';card.hidden=true;empty.hidden=false;};
+el.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>pickBoard(+b.dataset.set,script));
+el.querySelectorAll('[data-script]').forEach(b=>b.onclick=()=>pickBoard(set,b.dataset.script));
 ctx.onKey?.(e=>{const tg=e.target;if(e.key==='Enter'&&!e.isComposing&&!(tg&&tg.closest&&tg.closest('button,input,select,textarea,a'))){e.preventDefault();stage.querySelector('.mg-cta')?.click();}});
 el.querySelector('.mg-voice')?.append(ctx.voicePicker({note:false}));
 

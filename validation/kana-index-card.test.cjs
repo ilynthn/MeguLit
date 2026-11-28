@@ -40,12 +40,13 @@ test('kana index familiarity card shows counterpart script without duplicate rea
   /* 1. Hiragana kanji word still shows counterpart katakana and reading; pure-kana word omits duplicate reading */
   el.querySelector('[data-mk="あ"]').click();
   const hiraSmall=el.querySelector('.mk-head small').textContent;
-  el.querySelector('[data-set="2"]').click();
+  el.querySelector('[data-set="1"]').click();
   el.querySelector('[data-mk="ず"]').click();
   const pureKanaSmall=el.querySelector('.mk-head small').textContent;
 
-  /* 2. Katakana cell shows hiragana counterpart and non-duplicated katakana example */
-  el.querySelector('[data-set="1"]').click();
+  /* 2. Katakana cell shows hiragana counterpart and non-duplicated katakana example (2026-11-28: 平/片 is a switch, 清音 a tab) */
+  el.querySelector('[data-script="k"]').click();
+  el.querySelector('[data-set="0"]').click();
   const stageBefore=el.querySelector('.mg-prog .mg-num').textContent;
   const subBefore=el.querySelector('.mg-sub').textContent;
   const cellA=el.querySelector('[data-mk="ア"]');

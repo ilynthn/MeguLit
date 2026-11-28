@@ -15,7 +15,7 @@ el.innerHTML=`<div class="wrap">
       <button data-v="h" aria-pressed="true">平假名</button><button data-v="k" aria-pressed="false">片假名</button>
     </div>
     <div class="seg" id="cat" role="group" aria-label="分类">
-      <button data-v="seion" aria-pressed="true">清音</button><button data-v="daku" aria-pressed="false">浊音 · 半浊音</button><button data-v="yoon" aria-pressed="false">拗音</button>
+      <button data-v="seion" aria-pressed="true">清音</button><button data-v="daku" aria-pressed="false">浊音 · 半浊音</button><button data-v="yoon" aria-pressed="false">拗音</button><button data-v="special" aria-pressed="false">特殊音</button>
     </div>
     <label class="switch"><input type="checkbox" id="romaji" checked>罗马音</label>
     <span class="spacer"></span>
@@ -57,6 +57,16 @@ const DAKU=[
  ["ぱ","p",["ぱ","ぴ","ぷ","ぺ","ぽ"],["pa","pi","pu","pe","po"]]
 ];
 const YOON_BASE=[["き","k"],["し","sh"],["ち","ch"],["に","ny"],["ひ","hy"],["み","my"],["り","ry"],["ぎ","gy"],["じ","j"],["び","by"],["ぴ","py"]];
+/* 2026-11-28 特殊音: 促音・长音, then the katakana-only loanword sounds (kept here in hiragana form; the table shows them in katakana) */
+const SPECIAL=[
+ ["促音 · 长音","",["っ","ー",null,null,null],["(促音)","(长音)",null,null,null]],
+ ["ファ 组","",["ふぁ","ふぃ","ふぇ","ふぉ","ふゅ"],["fa","fi","fe","fo","fyu"]],
+ ["ティ 组","",["てぃ","でぃ","とぅ","どぅ","でゅ"],["ti","di","tu","du","dyu"]],
+ ["ウィ 组","",["うぃ","うぇ","うぉ","いぇ",null],["wi","we","wo","ye",null]],
+ ["ヴ 组","",["ゔぁ","ゔぃ","ゔ","ゔぇ","ゔぉ"],["va","vi","vu","ve","vo"]],
+ ["シェ 组","",["しぇ","ちぇ","じぇ",null,null],["she","che","je",null,null]],
+ ["ツァ 组","",["つぁ","つぃ","つぇ","つぉ",null],["tsa","tsi","tse","tso",null]]
+];
 const YOON=YOON_BASE.map(([b,c])=>{const ys=["ゃ","ゅ","ょ"],vs=["a","u","o"];const r=c==="sh"||c==="ch"||c==="j"?vs.map(v=>c+v):vs.map(v=>c+(c.endsWith("y")?"":"y")+v);return [b,c,ys.map(y=>b+y),r]});
 
 const ORIGIN_H={あ:"安",い:"以",う:"宇",え:"衣",お:"於",か:"加",き:"幾",く:"久",け:"計",こ:"己",さ:"左",し:"之",す:"寸",せ:"世",そ:"曽",た:"太",ち:"知",つ:"川",て:"天",と:"止",な:"奈",に:"仁",ぬ:"奴",ね:"祢",の:"乃",は:"波",ひ:"比",ふ:"不",へ:"部",ほ:"保",ま:"末",み:"美",む:"武",め:"女",も:"毛",や:"也",ゆ:"由",よ:"与",ら:"良",り:"利",る:"留",れ:"礼",ろ:"呂",わ:"和",を:"遠",ん:"无"};
@@ -83,7 +93,7 @@ const saveM=()=>ctx.store.put(ctx.store.KEY.m,mastery);
 const LV=["未学","见过","熟悉","掌握"];
 
 let state={script:"h",cat:"seion",romaji:ctx.store.get(ctx.store.KEY.p,{}).romaji!==false,sel:{r:0,c:0}};
-const data=()=>state.cat==="seion"?SEION:state.cat==="daku"?DAKU:YOON;
+const data=()=>state.cat==="seion"?SEION:state.cat==="daku"?DAKU:state.cat==="special"?(state.script==="k"?SPECIAL:SPECIAL.slice(0,1)):YOON;
 const ncols=()=>state.cat==="yoon"?3:5;
 const disp=k=>k&&(state.script==="k"?toKata(k):k);
 const rare=k=>["ぢ","づ"].includes(k);
@@ -93,10 +103,10 @@ function renderTable(){
   const rows=data(),n=ncols(),t=$("#table");
   t.className="table"+(state.cat==="yoon"?" yoon":"");
   t.style.gridTemplateColumns=`56px repeat(${n},minmax(0,1fr))`;
-  const heads=state.cat==="yoon"?["ゃ","ゅ","ょ"]:[...(state.script==="k"?COLK:COLH)].map(c=>c+"段");
+  const heads=state.cat==="yoon"?["ゃ","ゅ","ょ"]:state.cat==="special"?["","","","",""]:[...(state.script==="k"?COLK:COLH)].map(c=>c+"段");
   let html=`<div></div>`+heads.map(h=>`<div class="colhead">${state.cat==="yoon"&&state.script==="k"?toKata(h):h}</div>`).join("");
   rows.forEach((row,ri)=>{
-    const label=state.cat==="yoon"?disp(row[0])+" +":row[0]==="ん"?disp("ん"):disp(row[0])+"行";
+    const label=state.cat==="special"?row[0]:state.cat==="yoon"?disp(row[0])+" +":row[0]==="ん"?disp("ん"):disp(row[0])+"行";
     html+=`<div class="rowhead">${label}</div>`;
     for(let ci=0;ci<n;ci++){
       const k=row[2][ci],r=row[3][ci];
@@ -110,9 +120,11 @@ function renderTable(){
   el.classList.toggle("hide-romaji",!state.romaji);
   const notes={seion:["や行 只有 3 个、わ行 只有 2 个：其余位置在现代日语里没有假名","「ん」单独成行，不属于任何段","点击格子查看详情，彩色小点是你的熟悉度"],
     daku:["浊音 = 清音右上加「゛」，半浊音 = は行 加「゜」","ぢ / づ 与 じ / ず 同音，只在少数词里出现（灰色标「少用」）"],
-    yoon:["拗音 = い段假名 + 小写 ゃ / ゅ / ょ，合成一个音节","小写字要写得明显更小，否则会读成两个音：きや ≠ きゃ"]}[state.cat];
+    yoon:["拗音 = い段假名 + 小写 ゃ / ゅ / ょ，合成一个音节","小写字要写得明显更小，否则会读成两个音：きや ≠ きゃ"],
+    special:["促音「っ」：停顿一拍，把下一个辅音读紧（きって kitte）；长音「ー」：把前一个元音拉长一拍（ケーキ keeki）",
+     state.script==="k"?"外来音：片假名加小写 ァ ィ ゥ ェ ォ ュ，拼出日语原本没有的音，只用在外来词里":"外来音（ファ、ティ、ヴァ……）只用片假名写，切到「片假名」查看"]}[state.cat];
   $("#tnote").innerHTML=notes.map(x=>`<span>${x}</span>`).join("");
-  $("#subtitle").textContent={seion:"清音 · 46",daku:"浊音 20 · 半浊音 5",yoon:"拗音 · 33"}[state.cat]+(state.script==="k"?" · 片假名":" · 平假名");
+  $("#subtitle").textContent={seion:"清音 · 46",daku:"浊音 20 · 半浊音 5",yoon:"拗音 · 33",special:state.script==="k"?"促音 · 长音 · 外来音 26":"促音 · 长音"}[state.cat]+(state.script==="k"?" · 片假名":" · 平假名");
   renderProgress();
 }
 function renderProgress(){
@@ -124,15 +136,15 @@ function cur(){const row=data()[state.sel.r],k=row[2][state.sel.c];return {k,d:d
 
 /* ======== 详情 ======== */
 const kvgCache={};let animTok=0;
-async function kvg(ch){if(kvgCache[ch])return kvgCache[ch];const hex=ch.codePointAt(0).toString(16).padStart(5,"0");
-  const txt=await fetch(ctx.base+`kanjivg/${hex}.svg`).then(r=>r.ok?r.text():"");if(!txt)return kvgCache[ch]=[];
-  const doc=new DOMParser().parseFromString(txt,"image/svg+xml");
-  return kvgCache[ch]=[...doc.querySelectorAll("path[id*='-s']")].sort((a,b)=>+a.id.split("-s")[1]-+b.id.split("-s")[1]).map(p=>p.getAttribute("d"))}
-async function drawStroke(ch){
-  const tok=++animTok,ds=await kvg(ch);if(tok!==animTok)return;const box=$("#mini");if(!box)return;
-  box.innerHTML=ds.map(d=>`<path d="${d}" class="gh"/>`).join("")+ds.map((d,i)=>`<path d="${d}" class="st"/>`).join("")+ds.map((d,i)=>{const m=d.match(/M\s*([\d.]+)[ ,]([\d.]+)/);return `<text x="${+m[1]-8}" y="${+m[2]-2}" class="sn" opacity="0">${i+1}</text>`}).join("");
-  $("#scount").textContent=ds.length+" 画";
-  const ps=[...box.querySelectorAll(".st")],ns=[...box.querySelectorAll(".sn")];
+/* KanjiVG via data.js (it also supplies ー and ヴ); 拗音 / 外来音 have no strokes of their own, so each character gets its own box */
+async function drawStroke(word){
+  const chars=[...word],tok=++animTok,all=await Promise.all(chars.map(c=>ctx.data.strokesOf(c,ctx.base)));if(tok!==animTok)return;
+  const boxes=[...el.querySelectorAll(".mini")];if(!boxes.length)return;
+  const ps=[],ns=[];
+  boxes.forEach((box,b)=>{const ds=all[b]||[];
+    box.innerHTML=ds.map(d=>`<path d="${d}" class="gh"/>`).join("")+ds.map(d=>`<path d="${d}" class="st"/>`).join("")+ds.map((d,i)=>{const m=d.match(/M\s*([\d.]+)[ ,]([\d.]+)/);return `<text x="${+m[1]-8}" y="${+m[2]-2}" class="sn" opacity="0">${i+1}</text>`}).join("");
+    ps.push(...box.querySelectorAll(".st"));ns.push(...box.querySelectorAll(".sn"));});
+  $("#scount").textContent=all.map(ds=>ds.length).join(" + ")+" 画";
   ps.forEach(p=>{const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L});
   if(matchMedia("(prefers-reduced-motion:reduce)").matches){ps.forEach((p,i)=>{p.style.strokeDashoffset=0;ns[i].setAttribute("opacity",1)});return}
   let i=0;(function next(){if(tok!==animTok||i>=ps.length){ps.forEach(p=>p.classList.remove("cur"));return}
@@ -143,28 +155,29 @@ function confusables(d){
   for(const g of CONF_GROUPS){if(g.includes(d)){const key=g.join("-");return {g,tip:CONF_TIP[key]||""}}}return null;
 }
 function renderDetail(){
-  const {k,d,r,row,ci}=cur(),isY=state.cat==="yoon",other=state.script==="k"?k:toKata(k);
+  const {k,d,r,row,ci}=cur(),isY=[...k].length>1,isS=state.cat==="special",other=state.script==="k"?k:toKata(k);
   const base=isY?d[0]:null;
   const origin=!isY&&state.cat==="seion"?(state.script==="k"?ORIGIN_K[d]:ORIGIN_H[d]):null;
-  const w=(state.script==="k"?WORD_K:WORD_H)[d]||WORD_H[k];
+  const w=(state.script==="k"?WORD_K:WORD_H)[d]||WORD_H[k]||(x=>x&&[x[1],x[2]])(ctx.data.wordOf(d));
   const lv=mastery[d]||0,conf=!isY?confusables(d):null;
-  const pos=isY?`${disp(row[0])} + 小${disp(k.slice(1))}`:row[0]==="ん"?"特殊音节 · 拨音":`${disp(row[0])}行 · ${disp(COLH[ci])}段`;
+  const pos=isS?(isY?`${d[0]} + 小${d.slice(1)} · 外来音`:d==="ー"?"特殊音 · 长音":d==="ヴ"?"外来音 · ウ + ゛":"特殊音 · 促音"):isY?`${disp(row[0])} + 小${disp(k.slice(1))}`:row[0]==="ん"?"特殊音节 · 拨音":`${disp(row[0])}行 · ${disp(COLH[ci])}段`;
   let stroke;
-  if(isY) stroke=`<div class="d-text">由 <b class="ja" style="font-size:18px;color:var(--paper-ink)">${base}</b> 和小写的 <b class="ja" style="font-size:18px;color:var(--paper-ink)">${d.slice(1)}</b> 组成，读成一个音节「${r}」，不是「${toRomajiTwo(k)}」两拍</div>`;
-  else stroke=`<div class="d-stroke"><div class="mini-grid"><svg viewBox="0 0 109 109" id="mini"></svg></div><div>${origin?`<p><b>${origin}</b>字源 · 「${origin}」→ ${d}</p>`:state.cat==="daku"?`<p>由「${disp(baseOf(k))}」加「${"ぱぴぷぺぽ".includes(k)?"゜":"゛"}」</p>`:""}<button class="pill" id="replay">重播笔顺</button> <span id="scount" style="font-size:12px;color:var(--paper-3)"></span></div></div>`;
-  const note=SOUND_NOTE[k];
+  const minis=`<div class="mini-grid${isY?" multi":""}">${[...d].map(()=>'<svg viewBox="0 0 109 109" class="mini"></svg>').join("")}</div>`;
+  if(isY) stroke=`<div class="d-stroke">${minis}<div><p class="d-text">由 <b class="ja" style="font-size:18px;color:var(--paper-ink)">${base}</b> 和小写的 <b class="ja" style="font-size:18px;color:var(--paper-ink)">${d.slice(1)}</b> 组成，读成一个音节「${r}」${isS?"，只在外来词里出现":`，不是「${toRomajiTwo(k)}」两拍`}</p><button class="pill" id="replay">重播笔顺</button> <span id="scount" style="font-size:12px;color:var(--paper-3)"></span></div></div>`;
+  else stroke=`<div class="d-stroke">${minis}<div>${origin?`<p><b>${origin}</b>字源 · 「${origin}」→ ${d}</p>`:state.cat==="daku"?`<p>由「${disp(baseOf(k))}」加「${"ぱぴぷぺぽ".includes(k)?"゜":"゛"}」</p>`:""}<button class="pill" id="replay">重播笔顺</button> <span id="scount" style="font-size:12px;color:var(--paper-3)"></span></div></div>`;
+  const note=SOUND_NOTE[k]||(isS?ctx.data.hintOf(d):"");
   $("#detail").innerHTML=`<div class="ribbon"></div>
    <div class="d-top"><div class="d-kana${isY?" yo":""}">${d}</div>
      <div class="d-meta"><div class="rom">${r}</div><div class="pair">${state.script==="k"?"平 ":"片 "}${state.script==="k"?k:toKata(k)}</div><div class="pos">${pos}</div></div>
      <button class="sound" id="snd" aria-label="播放发音">${speaker}</button></div>
-   <div class="d-sec"><div class="d-label">${isY?"组成":"笔顺"}</div>${stroke}</div>
+   <div class="d-sec"><div class="d-label">${isY?"组成 · 笔顺":"笔顺"}</div>${stroke}</div>
    ${note?`<div class="d-sec"><div class="d-label">发音要点</div><p class="d-text">${note}</p></div>`:""}
    <div class="d-sec"><div class="d-label">例词</div>${w&&w[0]!=="—"?`<div class="d-word"><span class="w">${hl(w[0],d)}</span><span>${w[1]}</span><button class="pill" id="wsnd">♪</button></div>`:`<p class="d-text">${w?w[1]:"—"}</p>`}</div>
    ${conf?`<div class="d-sec"><div class="d-label">容易混淆<span>点击切换</span></div><div class="confuse">${conf.g.map(x=>`<button class="${x===d?"self":""}" data-jump="${x}"><b>${x}</b><small>${romajiOf(x)}</small></button>`).join("")}</div>${conf.tip?`<p class="d-text">${conf.tip}</p>`:""}</div>`:""}
    <div class="d-sec"><div class="d-label">我的熟悉度<span>按 1–4 也可以</span></div>
      <div class="levels">${LV.map((n,i)=>`<button data-l="${i}" aria-pressed="${i===lv}"><i></i>${n}</button>`).join("")}</div>
      <p class="lv-note">练习答对会自动升级，这里可以手动修正</p></div>`;
-  if(!isY){drawStroke(d);$("#replay").onclick=()=>drawStroke(d)}
+  drawStroke(d);$("#replay").onclick=()=>drawStroke(d);
   $("#snd").onclick=()=>say(d);
   const ws=$("#wsnd");if(ws)ws.onclick=()=>say(w[0]);
   $("#detail").querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>setLevel(+b.dataset.l));
@@ -172,11 +185,11 @@ function renderDetail(){
 }
 const hl=(w,d)=>w.split(d).join(`<mark>${d}</mark>`);
 function baseOf(k){const m={が:"か",ぎ:"き",ぐ:"く",げ:"け",ご:"こ",ざ:"さ",じ:"し",ず:"す",ぜ:"せ",ぞ:"そ",だ:"た",ぢ:"ち",づ:"つ",で:"て",ど:"と",ば:"は",び:"ひ",ぶ:"ふ",べ:"へ",ぼ:"ほ",ぱ:"は",ぴ:"ひ",ぷ:"ふ",ぺ:"へ",ぽ:"ほ"};return m[k]||k}
-function romajiOf(x){for(const set of [SEION,DAKU])for(const row of set)for(let i=0;i<5;i++)if(row[2][i]&&(row[2][i]===x||toKata(row[2][i])===x))return row[3][i];return ""}
+function romajiOf(x){for(const set of [SEION,DAKU,SPECIAL])for(const row of set)for(let i=0;i<5;i++)if(row[2][i]&&(row[2][i]===x||toKata(row[2][i])===x))return row[3][i];return ""}
 function toRomajiTwo(k){return romajiOf(k[0])+" + "+({"ゃ":"ya","ゅ":"yu","ょ":"yo"}[k[1]])}
 function jump(x){
   const isK=/[゠-ヿ]/.test(x),h=isK?toHira(x):x;
-  for(const [cat,set] of [["seion",SEION],["daku",DAKU],["yoon",YOON]])for(let r=0;r<set.length;r++){const c=set[r][2].indexOf(h);if(c>=0){state.script=isK?"k":"h";state.cat=cat;state.sel={r,c};syncSeg();renderTable();renderDetail();say(x);return true}}
+  for(const [cat,set] of [["seion",SEION],["daku",DAKU],["yoon",YOON],["special",SPECIAL]])for(let r=0;r<set.length;r++){const c=set[r][2].indexOf(h);if(c>=0){state.script=isK?"k":"h";state.cat=cat;state.sel={r,c};syncSeg();renderTable();renderDetail();say(x);return true}}
   return false;
 }
 function setLevel(l){const {d}=cur();mastery[d]=l;saveM();renderTable();renderDetail()}
