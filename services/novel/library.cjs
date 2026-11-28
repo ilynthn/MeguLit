@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const txt = require('./parse-txt.cjs');
 const epub = require('./parse-epub.cjs');
 const { isbnOf } = require('./identity.cjs');
+const editions = require('./editions.cjs');
 
 const MAX_FILE = 64 * 1024 * 1024;
 const MAX_PDF = 256 * 1024 * 1024;
@@ -101,25 +102,38 @@ function lookupState(root, id, value) {
   catch { return null; }
 }
 
+function cacheOnlineCover(root, id, bytes) {
+  const ext = imageExt(bytes);
+  if (!ext || bytes.length > COVER_MAX) throw Error('NOVEL_ONLINE_COVER');
+  const name = 'online-cover-' + sha1(bytes).slice(0, 12) + ext;
+  const folder = assetRoot(root, id);
+  fs.mkdirSync(folder, { recursive: true });
+  const file = path.join(folder, name);
+  if (!fs.existsSync(file)) {
+    const temp = file + '.' + process.pid + '.tmp';
+    fs.writeFileSync(temp, bytes);
+    fs.renameSync(temp, file);
+  }
+  return name;
+}
+
+function canFetchCover(book) {
+  return book.source === 'local' && !book.cover && path.extname(book.local_path || '').toLowerCase() === '.epub';
+}
+
+function bookCover(root, row, online = readOnlineInfo(root, row.id), state = lookupState(root, row.id)) {
+  return linkedCover(root, row.id, online?.coverFile) || coverDataUrl(root, row.id, row.cover) ||
+    linkedCover(root, row.id, state?.cover?.file);
+}
+
 function setOnlineInfo(db, root, id, online, bytes, provider = 'bangumi') {
   if (!onlineFiles.has(provider)) throw Error('NOVEL_ONLINE_PROVIDER');
   if (!/^novel-[a-f\d]{16}$/.test(String(id))) throw Error('NOVEL_NOT_FOUND');
-  const row = db.prepare("SELECT cover FROM novels WHERE status='active' AND id=?").get(id);
+  const row = db.prepare("SELECT id, cover FROM novels WHERE status='active' AND id=?").get(id);
   if (!row) throw Error('NOVEL_NOT_FOUND');
   if (online) {
     if (bytes) {
-      const ext = imageExt(bytes);
-      if (!ext || bytes.length > COVER_MAX) throw Error('NOVEL_ONLINE_COVER');
-      const name = 'online-cover-' + sha1(bytes).slice(0, 12) + ext;
-      const folder = assetRoot(root, id);
-      fs.mkdirSync(folder, { recursive: true });
-      const file = path.join(folder, name);
-      if (!fs.existsSync(file)) {
-        const temp = file + '.' + process.pid + '.tmp';
-        fs.writeFileSync(temp, bytes);
-        fs.renameSync(temp, file);
-      }
-      online = { ...online, coverFile: name };
+      online = { ...online, coverFile: cacheOnlineCover(root, id, bytes) };
     }
     writeJson(onlineFile(root, id, provider), online);
   } else {
@@ -128,7 +142,7 @@ function setOnlineInfo(db, root, id, online, bytes, provider = 'bangumi') {
   }
   const localCover = coverDataUrl(root, id, row.cover);
   const coverRecord = provider === 'bangumi' ? online : readOnlineInfo(root, id);
-  return { provider, online, cover: linkedCover(root, id, coverRecord?.coverFile) || localCover, hasLocalCover: Boolean(localCover) };
+  return { provider, online, cover: bookCover(root, row, coverRecord), hasLocalCover: Boolean(localCover) };
 }
 
 /* ---------------- 导入 ---------------- */
@@ -146,6 +160,9 @@ async function parseFile(file, bytes) {
     return {
       title: book.title,
       isbn: book.isbn,
+      sourceIsbn: book.sourceIsbn,
+      aliases: book.aliases,
+      series: book.series,
       author: book.author,
       intro: book.intro,
       language: book.language,
@@ -242,14 +259,40 @@ function insertBook(db, root, file, book, hash, bytes, owned) {
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     id, 'local', '', book.title, authorValue, coverName, book.intro || '', '',
     language, chars, book.chapters.length, 'active', sourcePath, hash, createdAt, null,
-    JSON.stringify({ ext, encoding: book.encoding || '', isbn: book.isbn || '' })
+    JSON.stringify({ ext, encoding: book.encoding || '', isbn: book.isbn || '', sourceIsbn: book.sourceIsbn || '', aliases: book.aliases || [], series: book.series || null, originalTitle: book.originalTitle || '' })
   );
   const insertChapter = db.prepare('INSERT OR REPLACE INTO novel_chapters (novel_id,idx,title,chars,cached_at) VALUES (?,?,?,?,?)');
   book.chapters.forEach((chapter, index) => insertChapter.run(id, index, chapter.title, chapter.chars, createdAt));
   return { id, title: book.title, chapters: book.chapters.length, chars, cover: coverName, language };
 }
 
-async function importFiles(root, db, paths, { owned = false, onProgress } = {}) {
+function applyDownloadMetadata(book, candidates, ext, bound) {
+  if (!candidates?.length) return;
+  const declared = editions.languageOf(book);
+  const title = editions.label(book.title);
+  const select = item => {
+    const siteTitle = editions.label(item.title);
+    const language = editions.languageOf(item);
+    if (declared && declared !== 'und' && language && declared !== language) return false;
+    if (title.volume !== siteTitle.volume || title.part !== siteTitle.part || title.compound !== siteTitle.compound) return false;
+    if (book.isbn && editions.identifiers(item.isbn).includes(book.isbn)) return true;
+    if (title.full !== siteTitle.full) return false;
+    return !book.author || !item.author || book.author.normalize('NFKC').replace(/\s/g, '') === item.author.normalize('NFKC').replace(/\s/g, '');
+  };
+  const matches = ext === '.pdf' && bound ? candidates : candidates.filter(select);
+  if (matches.length !== 1) return;
+  const trusted = matches[0];
+  book.title = ext === '.pdf' && bound ? trusted.title : book.title;
+  book.author ||= trusted.author;
+  book.language = declared && declared !== 'und' ? book.language : editions.languageOf(trusted) || book.language;
+  book.isbn ||= editions.identifiers(trusted.isbn).find(isbn =>
+    editions.languageOf(trusted) === 'ja' ? isbn.startsWith('9784') : !isbn.startsWith('9784')) || isbnOf(trusted.isbn);
+  book.aliases = [...new Set([...(book.aliases || []), trusted.alternate, ...(trusted.aliases || [])].filter(Boolean))].slice(0, 16);
+  const knownOriginal = trusted.originalTitle || (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(trusted.alternate || '') ? trusted.alternate : '');
+  if (knownOriginal) book.originalTitle = knownOriginal;
+}
+
+async function importFiles(root, db, paths, { owned = false, onProgress, catalogue, boundCatalogue = false } = {}) {
   const seen = new Set();
   const result = { imported: [], skipped: [], failed: [] };
   for (const file of (Array.isArray(paths) ? paths : []).slice(0, 200)) {
@@ -272,6 +315,7 @@ async function importFiles(root, db, paths, { owned = false, onProgress } = {}) 
       if (duplicate) { result.skipped.push({ path: target, ...duplicate, reason: 'DUPLICATE' }); continue; }
       onProgress?.('parse');
       const book = await parseFile(target, bytes);
+      if (owned) applyDownloadMetadata(book, catalogue, ext, boundCatalogue);
       if (ext !== '.pdf' && !book.chapters.length) throw Error('NOVEL_EMPTY');
       const concurrent = existing();
       if (concurrent) { result.skipped.push({ path: target, ...concurrent, reason: 'DUPLICATE' }); continue; }
@@ -317,12 +361,57 @@ function progressOf(db, id) {
   return { chapterIdx: row.chapter_idx, charOffset: row.char_offset, page: row.page, percent: row.percent, updatedAt: row.updated_at };
 }
 
+function editionRecords(root, rows) {
+  return rows.map(row => {
+    let meta;
+    try { meta = JSON.parse(row.original || '{}'); } catch { meta = {}; }
+    const online = readOnlineInfo(root, row.id);
+    const aliases = [...(Array.isArray(meta?.aliases) ? meta.aliases : [])];
+    let author = row.author;
+    let originalTitle = meta?.originalTitle;
+    if (online && online.title) {
+      const a = editions.label(row.title);
+      const published = [online.title, online.alternate].filter(Boolean).map(editions.label);
+      const confirmed = published.some(entry => entry.key === a.key &&
+        (entry.volume == null || entry.volume === a.volume) && entry.part === a.part);
+      if (confirmed) {
+        aliases.push(online.title, online.alternate, ...(Array.isArray(online.aliases) ? online.aliases : []));
+        author ||= online.author;
+        if (!originalTitle && online.title && (editions.languageOf(row) === 'ja' || online.alternate)) originalTitle = online.title;
+      }
+    }
+    return { id: row.id, title: row.title, author, languages: row.languages,
+      format: kindOf(path.extname(row.local_path || '').toLowerCase()), aliases, originalTitle, series: meta?.series,
+      isbn: meta?.isbn, sourceIsbn: meta?.sourceIsbn, hash: row.content_hash };
+  });
+}
+
+function searchEditionRecords(db, root) {
+  const rows = db.prepare("SELECT id,title,author,languages,local_path,original,content_hash FROM novels WHERE status='active'").all();
+  return editionRecords(root, rows).map(record => ({
+    ...record, alternate: record.originalTitle
+  }));
+}
+
+function editionGroups(db, root) {
+  return editions.groups(searchEditionRecords(db, root));
+}
+
+function editionsFor(db, root, id) {
+  return editionGroups(db, root).find(group => group.some(book => book.id === id)) || [];
+}
+
+function editionSummary({ id, title, languages, format }) {
+  return { id, title, languages, format };
+}
+
 function shelf(db, root) {
   const rows = db.prepare(`SELECT n.*, (SELECT COUNT(*) FROM novel_chapters c WHERE c.novel_id=n.id) chapters
     FROM novels n WHERE n.status='active' ORDER BY COALESCE(n.last_opened_at,n.added_at) DESC, n.title`).all();
-  const books = rows.map(row => {
+  const items = rows.map(row => {
     const progress = progressOf(db, row.id);
     const online = readOnlineInfo(root, row.id);
+    const state = lookupState(root, row.id);
     return {
       id: row.id,
       title: row.title,
@@ -335,7 +424,9 @@ function shelf(db, root) {
       source: row.source,
       addedAt: row.added_at,
       lastOpenedAt: row.last_opened_at,
-      cover: linkedCover(root, row.id, online?.coverFile) || coverDataUrl(root, row.id, row.cover),
+      cover: bookCover(root, row, online, state),
+      coverPending: state?.cover?.status === 'pending',
+      editionPending: state?.sources?.bangumi?.status === 'pending',
       progress: progress ? {
         chapterIdx: progress.chapterIdx,
         percent: Math.max(0, Math.min(1, progress.percent || 0)),
@@ -343,8 +434,20 @@ function shelf(db, root) {
       } : null
     };
   });
+  const byId = new Map(items.map(book => [book.id, book]));
+  const records = editionRecords(root, rows);
+  const books = editions.groups(records).map(([first, ...others]) => {
+    const book = byId.get(first.id);
+    const displayTitle = editions.canonicalTitle(first);
+    const bookNames = [...first.aliases, first.title, ...others.flatMap(item => [item.title, ...item.aliases])];
+    if (!others.length) return { ...book, title: displayTitle, aliases: [...new Set(bookNames)] };
+    const versions = others.map(item => byId.get(item.id));
+    return { ...book, title: displayTitle, aliases: [...new Set(bookNames)], editions: [first, ...others].map(editionSummary),
+      editionPending: book.editionPending || versions.some(version => version.editionPending) };
+  });
+  const collections = editions.collections(books, new Map(records.map(record => [record.id, record])));
   const totals = books.reduce((sum, book) => ({ books: sum.books + 1, chapters: sum.chapters + book.chapterCount, chars: sum.chars + book.chars }), { books: 0, chapters: 0, chars: 0 });
-  return { books, totals };
+  return { books, collections, totals };
 }
 
 function onlineDetails(root, id) {
@@ -362,10 +465,12 @@ function detail(db, root, id) {
   const chapters = db.prepare('SELECT idx,title,chars FROM novel_chapters WHERE novel_id=? ORDER BY idx').all(row.id);
   const online = onlineDetails(root, row.id);
   const localCover = coverDataUrl(root, row.id, row.cover);
+  const versions = editionsFor(db, root, row.id);
+  const displayTitle = versions.length ? editions.canonicalTitle(versions[0]) : editions.label(row.title).title;
   return {
     book: {
       id: row.id,
-      title: row.title,
+      title: displayTitle,
       author: row.author,
       intro: row.intro,
       languages: row.languages,
@@ -373,12 +478,13 @@ function detail(db, root, id) {
       chars: row.word_count,
       chapterCount: row.chapter_count,
       localPath: row.local_path,
-      cover: linkedCover(root, row.id, online.online?.coverFile) || localCover,
+      cover: bookCover(root, row, online.online, online.onlineLookup),
       hasLocalCover: Boolean(localCover),
       ...online,
       addedAt: row.added_at
     },
     chapters: chapters.map(chapter => ({ idx: chapter.idx, title: chapter.title, chars: chapter.chars })),
+    editions: versions.map(editionSummary),
     progress: progressOf(db, row.id)
   };
 }
@@ -443,14 +549,31 @@ async function findInBook(db, root, id, request = {}) {
 }
 
 /* 单张插图：读文件回 base64，前端按需取 */
-function image(root, id, name) {
+async function image(root, id, name) {
   if (!/^novel-[a-f0-9]{16}$/.test(id) || !/^img-[a-f0-9]{12}\.(?:jpe?g|png|webp|gif)$/.test(name)) throw Error('NOVEL_IMAGE_NOT_FOUND');
   const file = path.join(assetRoot(root, id), name);
   try {
-    const stat = fs.lstatSync(file);
+    const stat = await fs.promises.lstat(file);
     if (!stat.isFile() || stat.size > 12 * 1024 * 1024) throw Error('NOVEL_IMAGE_NOT_FOUND');
-    return { name, mime: IMAGE_MIME[path.extname(name)], data: fs.readFileSync(file).toString('base64') };
+    const data = await fs.promises.readFile(file, 'base64');
+    return { name, mime: IMAGE_MIME[path.extname(name)], data };
   } catch { throw Error('NOVEL_IMAGE_NOT_FOUND'); }
+}
+
+
+function savePdfCover(db, root, id, data) {
+  if (!/^novel-[a-f\d]{16}$/.test(id)) throw Error('NOVEL_NOT_FOUND');
+  const row = db.prepare("SELECT id, cover, local_path FROM novels WHERE id=? AND status='active'").get(id);
+  if (!row || path.extname(row.local_path || '').toLowerCase() !== '.pdf') throw Error('NOVEL_NOT_FOUND');
+  if (row.cover) return { cover: coverDataUrl(root, id, row.cover) };
+  if (typeof data !== 'string' || data.length > Math.ceil(COVER_MAX / 3) * 4 || !/^[a-z\d+/]+={0,2}$/i.test(data)) {
+    throw Error('NOVEL_ONLINE_COVER');
+  }
+  const bytes = Buffer.from(data, 'base64');
+  if (imageExt(bytes) !== '.jpg' || bytes.length > COVER_MAX) throw Error('NOVEL_ONLINE_COVER');
+  const cover = cacheOnlineCover(root, id, bytes);
+  db.prepare("UPDATE novels SET cover=? WHERE id=? AND COALESCE(cover,'')=''").run(cover, id);
+  return { cover: coverDataUrl(root, id, cover) };
 }
 
 async function pdfRange(db, root, id, { begin, end }) {
@@ -638,7 +761,8 @@ function removeExcerpt(db, id, excerptId) {
   return { removed: true };
 }
 module.exports = {
+  editionsFor, editionGroups, searchEditionRecords,
   importFiles, scanFolder, shelf, detail, preview, chapter, findInBook, remove, getProgress, saveProgress, readOnlineInfo, setOnlineInfo, onlineDetails, lookupState,
   bookmarks, addBookmark, removeBookmark, recordEvent, excerpts, addExcerpt, translateExcerpt, removeExcerpt,
-  coverDataUrl, image, pdfRange, kindOf, limitOf, MAX_FILE
+  coverDataUrl, bookCover, cacheOnlineCover, canFetchCover, imageExt, image, pdfRange, savePdfCover, kindOf, limitOf, MAX_FILE
 };

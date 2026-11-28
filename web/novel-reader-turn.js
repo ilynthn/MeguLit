@@ -1,126 +1,81 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 const active = new WeakMap();
-const pageSnapshots = new WeakMap();
+const curlSurfaces = new WeakMap();
 const curlFrames = new WeakMap();
-const lastCurl = new WeakMap();
-const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
+const lastInput = new WeakMap();
 
 export function stopReaderTurn(root) {
   active.get(root)?.();
 }
 
-export function invalidateReaderTurnSnapshot(root) {
-  pageSnapshots.delete(root);
+function curlSurface(root) {
+  let surface = curlSurfaces.get(root);
+  if (surface) return surface;
+  const layer = document.createElement('div');
+  layer.className = 'nr-page-turn';
+  layer.setAttribute('aria-hidden', 'true');
+  const make = className => {
+    const div = document.createElement('div');
+    div.className = className;
+    return div;
+  };
+  const paper = make('nr-page-paper');
+  const reverse = make('nr-page-reverse');
+  const gradient = make('nr-page-fold-gradient');
+  const shade = make('nr-page-cast-shadow');
+  reverse.append(gradient);
+  layer.append(paper, shade, reverse);
+  surface = { layer, paper, reverse, gradient, shade };
+  curlSurfaces.set(root, surface);
+  return surface;
 }
 
-export function captureReaderPage(root, viewport, body) {
-  const cached = pageSnapshots.get(root);
-  if (cached) {
-    cached.copy.style.transform = body.style.transform;
-    return cached;
-  }
-  const surface = root.getBoundingClientRect();
-  const bounds = viewport.getBoundingClientRect();
-  const paper = document.createElement('div');
-  paper.className = 'nr-page-paper';
-  const fragment = document.createElement('div');
-  fragment.className = 'nr-page-fragment';
-  Object.assign(fragment.style, { left: bounds.left - surface.left + 'px', top: bounds.top - surface.top + 'px',
-    width: bounds.width + 'px', height: bounds.height + 'px' });
-  const copy = body.cloneNode(true);
-  copy.style.transform = body.style.transform;
-  copy.style.width = bounds.width + 'px';
-  if (root.dataset.dir === 'v') copy.style.left = -viewport.scrollLeft + 'px';
-  fragment.append(copy);
-  paper.append(fragment);
-  const snapshot = { paper, copy, width: surface.width, height: surface.height };
-  if (root.dataset.dir === 'h') pageSnapshots.set(root, snapshot);
-  return snapshot;
-}
+export function turnReaderPage(root, viewport, body, mode, forward, previous = '', outgoing = [], shift = 0) {
+  const now = performance.now();
+  const rapid = now - (lastInput.get(root) ?? -Infinity) < 145;
+  lastInput.set(root, now);
+  stopReaderTurn(root);
 
-export function turnReaderPage(root, body, mode, forward, previous, snapshot) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches || mode === 'scroll') {
-    stopReaderTurn(root);
-    return;
-  }
-  const interrupted = active.has(root);
-  active.get(root)?.(snapshot);
-  if (mode === 'slide' && !snapshot) {
-    const animation = body.animate([{ transform: previous }, { transform: body.style.transform }],
-      { duration: interrupted ? 100 : 165, easing: 'cubic-bezier(.12,.74,.23,1)' });
-    const finish = () => {
-      if (active.get(root) !== finish) return;
-      active.delete(root);
-      animation.cancel();
-    };
-    active.set(root, finish);
-    animation.finished.then(finish, finish);
-    return;
-  }
-  if (!snapshot) return;
-  let layer = snapshot.layer;
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.className = 'nr-page-turn';
-    layer.setAttribute('aria-hidden', 'true');
-    layer.inert = true;
-    layer.append(snapshot.paper);
-    snapshot.layer = layer;
-  }
-  if (!layer.isConnected) root.append(layer);
   const animations = [];
-  let finished = false;
-  const finish = replacement => {
-    if (finished) return;
-    finished = true;
+  let release = () => {};
+  const animate = (element, frames, timing) => animations.push(element.animate(frames, timing));
+  if (mode === 'fade') {
+    const timing = { duration: rapid ? 120 : 155, easing: 'ease-in-out', fill: 'both' };
+    animate(viewport, [{ opacity: outgoing.length ? .73 : .18 }, { opacity: 1 }], timing);
+    // Keep the outgoing illustration on its existing surface while the new page fades in underneath.
+    const hold = { translate: shift + 'px', zIndex: 1, pointerEvents: 'none' };
+    for (const picture of outgoing) animate(picture, [{ ...hold, opacity: .88 }, { ...hold, opacity: 0 }], timing);
+  } else if (mode === 'slide' && previous && !rapid) {
+    animate(body, [{ transform: previous }, { transform: body.style.transform }],
+      { duration: 165, easing: 'cubic-bezier(.17,.72,.25,1)' });
+  } else if (mode === 'curl' && !rapid) {
+    // The fold is independent of the text and images. Only the live spread needs rasterizing.
+    const { layer, paper, reverse, gradient, shade } = curlSurface(root);
+    const { clientWidth: width, clientHeight: height } = root;
+    if (!width || !height) return;
+    const frames = getCurlFrames(root, width, height, forward);
+    gradient.style.setProperty('--nr-fold-side', forward ? 'to right' : 'to left');
+    gradient.style.width = frames.gradientWidth + 'px';
+    root.append(layer);
+    const timing = { duration: 235, fill: 'both' };
+    animate(paper, frames.front, timing);
+    animate(reverse, frames.reverse, timing);
+    animate(gradient, frames.gradient, timing);
+    animate(shade, frames.shade, timing);
+    release = () => layer.remove();
+  } else {
+    const distance = (forward ? 1 : -1) * (mode === 'curl' ? 14 : 25);
+    const frames = [{ translate: distance + 'px', opacity: .84 }, { translate: '0', opacity: 1 }];
+    animate(viewport, frames, { duration: rapid ? 85 : 125, easing: 'ease-out' });
+  }
+  const finish = () => {
+    if (active.get(root) !== finish) return;
+    active.delete(root);
     for (const animation of animations) animation.cancel();
-    if (replacement !== snapshot) layer.remove();
-    if (active.get(root) === finish) active.delete(root);
+    release();
   };
   active.set(root, finish);
-
-  if (mode !== 'curl') {
-    const slide = mode === 'slide';
-    const distance = (forward ? -1 : 1) * root.clientWidth;
-    const timing = { duration: slide ? 165 : interrupted ? 65 : 105, easing: 'ease-out', fill: 'both' };
-    animations.push(layer.animate(slide ? [{ translate: '0' }, { translate: distance + 'px' }]
-      : [{ opacity: .72 }, { opacity: 0 }], timing));
-    if (slide) animations.push(root.querySelector('.nr-reading-spread')
-      .animate([{ translate: -distance + 'px' }, { translate: '0' }], timing));
-    animations[0].finished.then(() => finish(), () => finish());
-    return;
-  }
-
-  snapshot.curl ??= createCurl(layer);
-  const { reverse, gradient, shade } = snapshot.curl;
-  const { width: w, height: h } = snapshot;
-  if (!w || !h) { finish(); return; }
-  const frames = getCurlFrames(root, w, h, forward);
-  gradient.style.setProperty('--nr-fold-side', forward ? 'to right' : 'to left');
-  gradient.style.width = frames.gradientWidth + 'px';
-  // Keep a full curl for an isolated flip and shorten overlapping turns in a burst.
-  const now = performance.now();
-  const interval = now - (lastCurl.get(root) ?? -Infinity);
-  lastCurl.set(root, now);
-  const timing = { duration: clamp(interval * 1.2, 105, 265), fill: 'both' };
-  for (const [element, keyframes] of [
-    [snapshot.paper, frames.front], [reverse, frames.reverse],
-    [gradient, frames.gradient], [shade, frames.shade],
-  ]) animations.push(element.animate(keyframes, timing));
-  animations[0].finished.then(() => finish(), () => finish());
-}
-
-function createCurl(layer) {
-  // A soft leaf bends at a moving diagonal crease. Clip its front, reverse and shadows separately.
-  const reverse = document.createElement('div');
-  reverse.className = 'nr-page-reverse';
-  const gradient = document.createElement('div');
-  gradient.className = 'nr-page-fold-gradient';
-  reverse.append(gradient);
-  const shade = document.createElement('div');
-  shade.className = 'nr-page-cast-shadow';
-  layer.append(shade, reverse);
-  return { reverse, gradient, shade };
+  animations[0].finished.then(finish, finish);
 }
 
 function getCurlFrames(root, w, h, forward) {
@@ -141,7 +96,7 @@ function getCurlFrames(root, w, h, forward) {
   const samples = 14;
   for (let sample = 0; sample <= samples; sample++) {
     const raw = sample / samples;
-    const t = 1 - (1 - raw) ** 2;
+    const t = 1 - (1 - raw) ** 3;
     const bow = Math.sin(Math.PI * t);
     const lift = maxLift * bow;
     const lean = Math.min(h * .13, 136) * bow;
@@ -153,7 +108,7 @@ function getCurlFrames(root, w, h, forward) {
       const y = h * i / 8;
       curled.push([line(y) - lift * (.48 + .52 * Math.sin(Math.PI * i / 8)), y]);
     }
-    frames.front.push({ clipPath: poly([[0, 0], [top, 0], [bottom, h], [0, h]]) });
+    frames.front.push({ opacity: .5 * (1 - raw), clipPath: poly([[0, 0], [top, 0], [bottom, h], [0, h]]) });
     const fold = poly([[top, 0], [bottom, h], ...curled.reverse()]);
     frames.reverse.push({ clipPath: fold, opacity: Math.min(1, bow * 7) });
     const angle = Math.atan2(x(top) - x(bottom), h);

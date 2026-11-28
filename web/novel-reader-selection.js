@@ -3,7 +3,7 @@ const matches = (node, selector) => node.parentElement?.closest(selector);
 
 function baseNodes(para) {
   const walker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT, {
-    acceptNode: node => matches(node, 'rt, rp') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    acceptNode: node => matches(node, 'rt, rp, .nr-inline-translation') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
   });
   const nodes = [];
   let start = 0;
@@ -29,7 +29,7 @@ export function baseRanges(para, start, end) {
 export function baseTextHit(body, x, y) {
   const at = document.elementFromPoint(x, y);
   const para = at?.closest('p[data-off]');
-  if (!para || !body.contains(para) || at.closest('rt, rp')) return null;
+  if (!para || !body.contains(para) || at.closest('rt, rp, .nr-inline-translation')) return null;
   const caret = document.caretRangeFromPoint?.(x, y);
   if (!caret || !para.contains(caret.startContainer)) return null;
   const word = at.closest('.nr-word');

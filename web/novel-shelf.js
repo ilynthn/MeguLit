@@ -12,6 +12,7 @@ function readingDuration(seconds, locale, w) {
 }
 
 function bookExtent(book, w) {
+  if (book.collection) return w.volumes(book.collection.books.length);
   if (book.format === 'pdf') return 'PDF';
   return [w.chapters(book.chapterCount), w.chars(book.chars), book.languages?.toUpperCase()].filter(Boolean).join(' · ');
 }
@@ -60,8 +61,7 @@ export function createCoverPreview(page, { api, esc, w, locale, isCurrent }) {
       <div class="nv-preview-art">${cover ? `<img src="${esc(cover)}" alt="">` : `<span class="nv-spine"><span>${esc(book.title)}</span></span>`}</div>
       <div class="nv-preview-copy nv-preview-facts">
         <p>${esc(bookExtent(book, w))}</p>
-        <p>${esc(w.progress(book.progress?.percent ?? 0))}</p>
-        <p>${esc(w.readingTime)} <span data-nv-time>…</span></p>
+        ${book.collection ? '' : `<p>${esc(w.progress(book.progress?.percent ?? 0))}</p><p>${esc(w.readingTime)} <span data-nv-time>…</span></p>`}
       </div>`;
     page.append(panel);
     panel.showPopover();
@@ -72,6 +72,7 @@ export function createCoverPreview(page, { api, esc, w, locale, isCurrent }) {
     addEventListener('resize', close, { signal });
     addEventListener('blur', close, { signal });
 
+    if (book.collection) return;
     let preview;
     try { preview = await api('novel_detail', { id: book.id, preview: true }); } catch {
       if (valid()) panel.querySelector('[data-nv-time]').textContent = '—';
@@ -225,8 +226,8 @@ function createFlowFeature(flow, rail, { getBook, api, esc, w, locale, openBook 
     face.innerHTML = `<div class="nv-flow-facts">
       <div class="nv-flow-byline"><h3>${esc(book.title)}</h3><p>${esc(book.author || w.noAuthor)}</p></div>
       <p>${esc(bookExtent(book, w))}</p>
-      <div class="nv-flow-progress"><p>${esc(w.progress(progress))}</p><span aria-hidden="true" style="--nv-read:${progress}"></span></div>
-      <p>${esc(w.readingTime)} <span data-nv-time>…</span></p>
+      ${book.collection ? '' : `<div class="nv-flow-progress"><p>${esc(w.progress(progress))}</p><span aria-hidden="true" style="--nv-read:${progress}"></span></div>
+      <p>${esc(w.readingTime)} <span data-nv-time>…</span></p>`}
     </div>`;
 
     pose.append(volume);
@@ -245,7 +246,7 @@ function createFlowFeature(flow, rail, { getBook, api, esc, w, locale, openBook 
     node.dataset.open = '';
     node.onclick = () => { if (current === feature) openBook(card); };
     const time = face.querySelector('[data-nv-time]');
-    api('novel_detail', { id: book.id, preview: true }).then(data => {
+    if (time) api('novel_detail', { id: book.id, preview: true }).then(data => {
       if (current !== feature || !node.isConnected) return;
       time.textContent = readingDuration(data.seconds, locale, w);
       fit(feature);

@@ -2,6 +2,14 @@
 
 const messages = {
   zh: {
+    epubEncrypted:'该 EPUB 的正文已加密，无法导入。', epubPackage:'这个 EPUB 缺少可读取的书籍目录。', epubContent:'EPUB 中没有找到可读取的章节。', epubDamaged:'下载文件不是有效的 EPUB，或文件已损坏。',
+    authWebsite:'登录或验证', authWaiting:'请在浏览器完成登录或验证。书目恢复后将自动返回。', loggedOut:'已清除该书源的登录会话', catalogUnavailable:'这个网址没有返回可用书目。可切到浏览器查看网站。',
+    websiteTitle:'网页书源', websiteName:'名称（可选）', websiteUrl:'网站网址', websiteAdd:'添加网页书源', edit:'编辑', remove:'移除', cancel:'取消',
+    websiteModes:{system:'跟随系统网络',direct:'直连',proxy:'使用已配置的代理'}, websiteOpen:'在浏览器打开', websiteGuide:'在打开的窗口浏览、登录或完成人机验证。下载的 EPUB 和 PDF 会自动加入书架。',
+    websiteBrowser:'需要安装 Edge 或 Chrome 才能打开网页书源。', websiteBusy:'正在导入图书…', websiteDownloading:'正在下载…', websiteDone:'已加入书架', websiteFailed:'有文件导入失败，可重新下载后重试。',
+    alternate:'备用图书源网站', connection:'连接方式', connections:{auto:'自动（直连优先）',direct:'仅直连',proxy:'仅代理'},
+    providers:{auto:'自动选择', 'book-site':'自定义图书源', bangumi:'Bangumi', openlibrary:'Open Library'}, provider:'图书来源', catalogOnly:'可到原站查看阅读或借阅选项。', accountSite:'登录网站',
+    siteBrowser:'此网站要求浏览器验证，或当前地址未提供应用可用的书目接口。', fallback:'自定义书源暂不可用，已切换到备用目录。',
     heading: '发现', order: { match: '相关度', popular: '热门', date: '最新收录', year: '出版年份' },
     search: '搜索书名、作者或 ISBN', loading: '正在读取书源…', empty: '没有找到图书', retry: '重试',
     alias: title => '日文原名 · ' + title, original: '日文', open: '打开书页', source: '打开网站',
@@ -32,6 +40,14 @@ const messages = {
     noLink: '书源没有返回可用的下载链接，可打开原书页查看。',
   },
   ja: {
+    epubEncrypted:'暗号化された EPUB 本文は取り込めません。', epubPackage:'EPUB の書籍情報を読み込めません。', epubContent:'EPUB に読み込める章がありません。', epubDamaged:'有効な EPUB ファイルを取得できませんでした。',
+    authWebsite:'ログイン・認証', authWaiting:'ブラウザーでログインまたは認証してください。カタログに接続できると自動的に戻ります。', loggedOut:'このソースのログイン情報を削除しました', catalogUnavailable:'この URL ではカタログを取得できません。ブラウザーでサイトを開いてください。',
+    websiteTitle:'ウェブ書籍ソース', websiteName:'名前（任意）', websiteUrl:'サイトの URL', websiteAdd:'ウェブソースを追加', edit:'編集', remove:'削除', cancel:'キャンセル',
+    websiteModes:{system:'システムの接続設定に従う',direct:'直接接続',proxy:'設定済みプロキシを使用'}, websiteOpen:'ブラウザーで開く', websiteGuide:'開いたウィンドウで閲覧、ログイン、認証ができます。ダウンロードした EPUB と PDF は本棚に追加されます。',
+    websiteBrowser:'ウェブソースを開くには Edge または Chrome が必要です。', websiteBusy:'書籍を追加しています…', websiteDownloading:'ダウンロード中…', websiteDone:'本棚に追加しました', websiteFailed:'追加できないファイルがあります。再度ダウンロードしてください。',
+    alternate:'予備の書籍サイト', connection:'接続方法', connections:{auto:'自動（直接接続を優先）',direct:'直接接続のみ',proxy:'プロキシのみ'},
+    providers:{auto:'自動選択', 'book-site':'カスタム書籍サイト', bangumi:'Bangumi', openlibrary:'Open Library'}, provider:'書籍ソース', catalogOnly:'閲覧や貸出については元のサイトをご確認ください。', accountSite:'ログイン先',
+    siteBrowser:'ブラウザーでの認証が必要か、このサイトに対応する検索 API がありません。', fallback:'カスタム書籍ソースに接続できないため、予備のカタログを表示しています。',
     heading: '発見', order: { match: '関連度', popular: '人気順', date: '新着順', year: '出版年順' },
     search: '書名・著者・ISBN を検索', loading: '書籍ソースを読み込んでいます…', empty: '本が見つかりません', retry: '再試行',
     alias: title => '日本語原題 · ' + title, original: '日本語', open: '書籍ページ', source: 'サイトを開く',
@@ -61,6 +77,14 @@ const messages = {
     noLink: 'ダウンロードリンクがありません。書籍ページを確認してください。',
   },
   en: {
+    epubEncrypted:'The EPUB has encrypted text.', epubPackage:'The EPUB is missing a readable package document.', epubContent:'No readable chapters were found in the EPUB.', epubDamaged:'The downloaded file is not a valid EPUB or is damaged.',
+    authWebsite:'Sign in or verify', authWaiting:'Finish signing in or verifying in the browser. The catalog will resume automatically when available.', loggedOut:'This source’s sign-in session was cleared', catalogUnavailable:'This address returned no compatible catalog. Open the website in the browser.',
+    websiteTitle:'Website sources', websiteName:'Name (optional)', websiteUrl:'Website URL', websiteAdd:'Add website source', edit:'Edit', remove:'Remove', cancel:'Cancel',
+    websiteModes:{system:'Use system network settings',direct:'Direct',proxy:'Use configured proxy'}, websiteOpen:'Open in browser', websiteGuide:'Browse, sign in, or complete verification in the browser window. Downloaded EPUB and PDF files are added to your shelf.',
+    websiteBrowser:'Install Edge or Chrome to open website sources.', websiteBusy:'Importing your book…', websiteDownloading:'Downloading…', websiteDone:'Added to your shelf', websiteFailed:'Some files could not be imported. Download them again and retry.',
+    alternate:'Backup book source website', connection:'Connection', connections:{auto:'Auto (direct first)',direct:'Direct only',proxy:'Proxy only'},
+    providers:{auto:'Automatic', 'book-site':'Custom book source', bangumi:'Bangumi', openlibrary:'Open Library'}, provider:'Book provider', catalogOnly:'Open the original site for reading or borrowing options.', accountSite:'Sign-in website',
+    siteBrowser:'This site requires browser verification or does not provide a compatible catalog API.', fallback:'The custom source is unavailable. Showing a backup catalog.',
     heading: 'Discover', order: { match: 'Relevance', popular: 'Popular', date: 'Recently added', year: 'Publication year' },
     search: 'Search title, author or ISBN', loading: 'Loading the book source…', empty: 'No books found', retry: 'Retry',
     alias: title => 'Japanese title · ' + title, original: 'Japanese', open: 'Book page', source: 'Open website',
@@ -96,6 +120,8 @@ export const discoverMessages = locale => messages[locale] || messages.zh;
 
 function errorText(w, code, fallback) {
   return ({
+    NOVEL_EPUB_ENCRYPTED: w.epubEncrypted, NOVEL_EPUB_PACKAGE: w.epubPackage, NOVEL_EPUB_CONTENT: w.epubContent, NOVEL_EPUB_DAMAGED: w.epubDamaged,
+    NOVEL_WEBSITE_BROWSER_MISSING: w.websiteBrowser, NOVEL_WEBSITE_CATALOG_UNAVAILABLE: w.catalogUnavailable,
     BOOK_SITE_UNCONFIGURED: w.unconfigured, BOOK_SITE_INVALID_ORIGIN: w.invalidOrigin, BOOK_SITE_INVALID_PROXY: w.invalidProxy, BOOK_SITE_AUTH: w.auth,
     BOOK_SITE_DOWNLOAD_LINK: w.noLink, BOOK_SITE_DOWNLOAD_LIMIT: w.limit, BOOK_SITE_RATE_LIMIT: w.rate, NOVEL_FILE_TOO_LARGE: w.large,
     BOOK_SITE_WEB_REQUIRED: w.webRequired, BOOK_SITE_FILE_NETWORK: w.transferError, BOOK_SITE_FILE_HOST: w.noLink,
@@ -103,19 +129,26 @@ function errorText(w, code, fallback) {
   })[code] || fallback;
 }
 
-export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage, onLocal, onSettings, onBook, signal }) {
+export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage, onLocal, onSettings, onBook, onProvider, onImported, onRead, onRefresh, signal }) {
   const books = result?.books || [];
+  const website = result?.website;
+  const providers = [...Object.entries(w.providers), ...(state.websites || []).map(site => ['website-' + site.id, site.name])];
   host.innerHTML = `<header class="nv-discover-head">
-    <div><h2>${esc(w.heading)}</h2>${result?.alias ? '<p>' + esc(w.alias(result.alias)) + '</p>' : !state.query && !result?.error ? '<p>' + esc(w.lightNovels) + '</p>' : ''}</div>
+    <div><h2>${esc(w.heading)}</h2>${website ? '<p>' + esc(website.name) + '</p>' : result?.alias ? '<p>' + esc(w.alias(result.alias)) + '</p>' : result?.provider ? '<p>' + esc(w.providers[result.provider]) + '</p>' : ''}</div>
     <div class="nv-discover-links">
+      <select data-source-provider aria-label="${esc(w.provider)}">${providers.map(([key, label]) => `<option value="${key}" ${state.source === key ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
+      ${website ? `<button type="button" class="nv-primary" data-website-open>${esc(w.websiteOpen)}</button>` : ''}
       ${result?.url ? `<button type="button" class="nv-ghost" data-source-site>${esc(w.source)}</button>` : ''}
       <button type="button" class="nv-ghost" data-source-local>${esc(w.local)}</button>
       ${onSettings ? `<button type="button" class="nv-ghost" data-source-settings>${esc(w.settings)}</button>` : ''}
     </div>
   </header>
+  ${result?.fallbackError ? `<p class="nv-discover-status" role="status">${esc(w.fallback)}</p>` : ''}
   ${!result ? `<p class="nv-discover-status" role="status">${esc(w.loading)}</p>` : ''}
-  ${result?.error ? `<div class="nv-discover-status"><p role="status">${esc(errorText(w, result.error, w.unavailable))}</p>
+  ${result?.error ? `<div class="nv-discover-status"><p role="status">${esc(result.auth ? w.authWaiting : result.error === 'BOOK_SITE_WEB_REQUIRED' ? w.siteBrowser : errorText(w, result.error, w.unavailable))}</p>
     ${result.error !== 'BOOK_SITE_UNCONFIGURED' ? `<button type="button" class="nv-ghost" data-source-page="${state.page}">${esc(w.retry)}</button>` : ''}</div>` : ''}
+  ${website ? `<section class="nv-discover-status">${!result.adapter && !result.auth ? '<p>' + esc(w.websiteGuide) + '</p>' : ''}
+    <p data-website-status role="status"></p><button type="button" class="nv-ghost" data-website-book hidden>${esc(w.viewBook)}</button></section>` : ''}
   ${result && !result.error && !books.length ? `<p class="nv-discover-status" role="status">${esc(w.empty)}</p>` : ''}
   <div class="nv-discover-grid">${books.map((book, i) => `<article class="nv-discover-book">
     <button type="button" class="nv-discover-cover" data-source-open="${i}" aria-label="${esc(book.title)}" title="${esc(book.title)}">
@@ -124,14 +157,16 @@ export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage
     </button>
     <h3><button type="button" data-source-entry="${i}" title="${esc(book.title)}">${esc(book.title)}</button></h3>
     ${book.author ? `<p>${esc(book.author)}</p>` : ''}
-    <p>${esc([book.japanese ? w.original : book.language, book.year, book.extension.toUpperCase(), book.size].filter(Boolean).join(' · '))}</p>
+    <p>${esc([book.japanese ? w.original : book.language, book.year, (book.extension || '').toUpperCase(), book.size].filter(Boolean).join(' · '))}</p>
   </article>`).join('')}</div>
   ${result && (state.page > 1 || result.more) && !result.error ? `<nav class="nv-discover-pagination">
     <button type="button" class="nv-ghost" data-source-page="${state.page - 1}" ${state.page <= 1 ? 'disabled' : ''}>${esc(w.back)}</button>
     <span>${state.page}</span>
     <button type="button" class="nv-ghost" data-source-page="${state.page + 1}" ${!result.more ? 'disabled' : ''}>${esc(w.next)}</button>
   </nav>` : ''}`;
-  const site = url => api('novel_source_open', { url }).catch(() => toast(w.unavailable));
+  host.querySelector('[data-source-provider]').onchange = event => onProvider?.(event.target.value);
+  if (website) bindWebsiteDiscovery(host, { website, api, w, toast, onImported, onRead, onRefresh, signal, reason: result.auth, authUrl: result.authUrl, state });
+  const site = url => api(result?.catalog ? 'open_source' : 'novel_source_open', { url }).catch(() => toast(w.unavailable));
   host.querySelector('[data-source-site]')?.addEventListener('click', () => site(result.url));
   host.querySelector('[data-source-local]').onclick = onLocal;
   host.querySelector('[data-source-settings]')?.addEventListener('click', onSettings);
@@ -143,9 +178,10 @@ export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage
       if (!entry.isIntersecting) continue;
       const button = entry.target;
       covers.unobserve(button);
-      const { cover } = books[Number(button.dataset.sourceOpen)];
+      const { cover, id } = books[Number(button.dataset.sourceOpen)];
       if (!cover) continue;
-      api('novel_source_cover', { url: cover }).then(({ data }) => {
+      const picture = website ? websiteRequest(api, website, 'cover', { bookId: id }) : api('novel_source_cover', { url: cover, source: result.provider, origin: result.host });
+      picture.then(({ data }) => {
         if (signal?.aborted || !button.isConnected || !/^data:image\/(?:jpeg|png|webp|gif);base64,/.test(data)) return;
         const image = new Image();
         image.alt = '';
@@ -167,10 +203,14 @@ export function paintDiscovery(host, { state, result, api, esc, w, toast, onPage
   });
 }
 
+export function novelImportError(locale, code) {
+  return errorText(discoverMessages(locale), code, code);
+}
+
 const activePhases = new Set(['resolving', 'downloading', 'importing']);
 
 export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, signal, backButton, onBack, onLocal, onSettings, onImported, onRead }) {
-  const { origin, book: initialBook, preview, proxiedCovers } = selection;
+  const { origin, catalog, provider, website, book: initialBook, preview, proxiedCovers } = selection;
   const ref = { origin, id: initialBook.id, hash: initialBook.hash };
   let book = initialBook;
   let currentTask = { phase: 'idle' };
@@ -225,7 +265,8 @@ export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, sig
   async function loadPicture(source) {
     if (!source) return;
     try {
-      const url = proxiedCovers && !source.startsWith('data:') ? (await api('novel_source_cover', { url: source })).data : source;
+      const url = !source.startsWith('data:') && website ? (await websiteRequest(api, website, 'cover', { bookId: book.id })).data
+        : proxiedCovers && !source.startsWith('data:') ? (await api('novel_source_cover', { url: source, source: provider, origin })).data : source;
       if (signal.aborted || !safeImage.test(url)) return;
       const image = new Image();
       image.referrerPolicy = 'no-referrer';
@@ -292,7 +333,8 @@ export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, sig
   }
 
   select('[data-nv-back]').onclick = onBack;
-  select('[data-source-original]').onclick = () => api('novel_source_open', { url: book.url })
+  select('[data-source-original]').onclick = () => (website ? websiteRequest(api, website, 'open', { bookId: book.id })
+    : api(catalog ? 'open_source' : 'novel_source_open', { url: book.url }))
     .catch(() => { if (!signal.aborted) detailsNote.textContent = w.unavailable; });
   select('[data-source-file]').onclick = onLocal;
   select('[data-source-account-settings]')?.addEventListener('click', onSettings);
@@ -301,6 +343,30 @@ export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, sig
     const version = ++pollVersion;
     drawProgress({ phase: 'resolving', received: 0, total: 0 });
     try {
+      if (website) {
+        const previous = await websiteRequest(api, website, 'status');
+        let result = await websiteRequest(api, website, 'download', { bookId: book.id });
+        if (result.auth) {
+          detailsNote.textContent = w.authWaiting;
+          if (!await waitWebsiteAuth(api, website, result.auth, { bookId: book.id, authUrl: result.authUrl }, signal)) throw Error('BOOK_SITE_AUTH');
+          detailsNote.textContent = '';
+          result = await websiteRequest(api, website, 'download', { bookId: book.id });
+          if (result.auth) throw Error('BOOK_SITE_AUTH');
+        }
+        drawProgress({ phase: 'downloading' });
+        for (let i = 0; !signal.aborted && i < 200; i++) {
+          const status = await websiteRequest(api, website, 'status');
+          if (status.last?.at && status.last.at !== previous.last?.at) {
+            drawProgress({ phase: 'done', bookId: status.last.bookId });
+            return;
+          }
+          if (status.failed > previous.failed) throw Error('NOVEL_PARSE_FAILED');
+          if (status.importing) drawProgress({ phase: 'importing', step: 'read' });
+          await new Promise(resolve => setTimeout(resolve, 1300));
+        }
+        if (!signal.aborted) throw Error('BOOK_SITE_FILE_NETWORK');
+        return;
+      }
       const task = await api('novel_source_download_start', { ...ref, title: book.title, extension: book.extension });
       if (!signal.aborted && version === pollVersion) await follow(version, task);
     } catch (error) {
@@ -311,7 +377,12 @@ export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, sig
   showMetadata();
   select('[data-nv-back]').focus({ preventScroll: true });
   loadPicture(preview || book.cover);
-  if (!book.downloadable) { detailsNote.textContent = w.unsupported; return; }
+  if (!book.downloadable) {
+    download.hidden = true;
+    detailsNote.textContent = catalog ? w.catalogOnly : w.unsupported;
+    return;
+  }
+  if (website) return;
   follow(pollVersion);
   api('novel_source_detail', ref).then(details => {
     if (signal.aborted) return;
@@ -323,18 +394,152 @@ export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, sig
   }).catch(() => { if (!signal.aborted) detailsNote.textContent = w.detailUnavailable; });
 }
 
+
+const websiteRequest = (api, site, operation, extra) => api('novel_website_sources', { operation, id: site.id, ...extra });
+
+async function waitWebsiteAuth(api, site, reason, state, signal) {
+  await websiteRequest(api, site, 'authenticate', { reason, authUrl: state?.authUrl, bookId: state?.bookId, query: state?.query, order: state?.order, page: state?.page });
+  while (!signal.aborted) {
+    const { authStatus } = await websiteRequest(api, site, 'authStatus');
+    if (authStatus === 'ready') return true;
+    if (authStatus !== 'pending') return false;
+    await new Promise(resolve => setTimeout(resolve, 850));
+  }
+  return false;
+}
+
+function bindWebsiteDiscovery(host, { website, api, w, toast, onImported, onRead, onRefresh, signal, reason, authUrl, state }) {
+  const open = host.querySelector('[data-website-open]');
+  const status = host.querySelector('[data-website-status]');
+  const book = host.querySelector('[data-website-book]');
+  let timer;
+  let last;
+  const request = operation => api('novel_website_sources', { operation, id: website.id });
+
+  async function refresh() {
+    if (signal.aborted) return;
+    try {
+      const result = await request('status');
+      if (signal.aborted) return;
+      status.textContent = result.importing ? w.websiteBusy : result.downloading ? w.websiteDownloading
+        : result.failed ? w.websiteFailed : result.last ? w.websiteDone : '';
+      if (result.last?.at !== last?.at) {
+        last = result.last;
+        if (last) onImported?.();
+      }
+      book.hidden = !last;
+      book.onclick = () => { if (last) onRead?.(last.bookId); };
+      timer = setTimeout(refresh, 1700);
+    } catch (error) {
+      if (!signal.aborted) status.textContent = errorText(w, error.message, w.unavailable);
+    }
+  }
+
+  open.onclick = async () => {
+    open.disabled = true;
+    try {
+      if (reason) {
+        status.textContent = w.authWaiting;
+        if (await waitWebsiteAuth(api, website, reason, { ...state, authUrl }, signal)) onRefresh?.();
+      } else await request('open');
+    }
+    catch (error) { toast(errorText(w, error.message, w.unavailable)); }
+    finally { if (!signal.aborted) open.disabled = false; }
+  };
+  signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+  if (reason) void open.onclick();
+  else void refresh();
+}
+
+async function mountWebsiteSettings(host, { api, esc, w, toast }) {
+  host.innerHTML = `<h3 class="settings-section-title">${esc(w.websiteTitle)}</h3>
+    <form class="panel" data-website-form>
+      <label class="settings-row"><span class="settings-label">${esc(w.websiteName)}</span><input name="name" maxlength="60"></label>
+      <label class="settings-row"><span class="settings-label">${esc(w.websiteUrl)}</span><input name="url" type="url" autocomplete="off" spellcheck="false" required></label>
+      <label class="settings-row"><span class="settings-label">${esc(w.connection)}</span><select name="mode">
+        ${Object.entries(w.websiteModes).map(([value,label]) => `<option value="${value}">${esc(label)}</option>`).join('')}
+      </select></label>
+      <button type="submit" class="secondary">${esc(w.websiteAdd)}</button>
+      <button type="button" class="secondary" data-website-cancel hidden>${esc(w.cancel)}</button>
+      <div data-website-list></div>
+    </form>`;
+  const form = host.querySelector('[data-website-form]');
+  const list = host.querySelector('[data-website-list]');
+  const submit = form.querySelector('[type=submit]');
+  const cancel = form.querySelector('[data-website-cancel]');
+  const request = (operation, fields) => api('novel_website_sources', { operation, ...fields });
+  let sites = [];
+  let editing = null;
+  let pending = false;
+
+  function select(site) {
+    editing = site?.id || null;
+    form.elements.name.value = site?.name || '';
+    form.elements.url.value = site?.url || '';
+    form.elements.mode.value = site?.mode || 'system';
+    submit.textContent = editing ? w.save : w.websiteAdd;
+    cancel.hidden = !editing;
+  }
+
+  function render() {
+    list.innerHTML = sites.map(site => `<details class="nv-website-settings-row"><summary title="${esc(site.url)}">${esc(site.name)}</summary><div class="settings-row"><span class="settings-label">${esc(w.websiteModes[site.mode] || w.websiteModes.system)}</span><div>
+      ${[['authenticate',w.authWebsite],['logout',w.signOut],['open',w.websiteOpen],['edit',w.edit],['remove',w.remove]].map(([action,label]) => `<button type="button" class="secondary" data-website-action="${action}" data-id="${esc(site.id)}">${esc(label)}</button>`).join('')}
+    </div></div></details>`).join('');
+  }
+
+  async function run(operation, fields) {
+    if (pending) return;
+    pending = true;
+    try {
+      const result = await request(operation, fields);
+      if (!host.isConnected) return;
+      if (result.sites) {
+        sites = result.sites;
+        render();
+      }
+      if (operation === 'save') { select(null); toast(w.saved); }
+      if (operation === 'logout') toast(w.loggedOut);
+      if (operation === 'remove' && editing === fields.id) select(null);
+    } catch (error) {
+      if (host.isConnected) toast(errorText(w, error.message, w.unavailable));
+    } finally { pending = false; }
+  }
+
+  form.onsubmit = event => {
+    event.preventDefault();
+    void run('save', { ...Object.fromEntries(new FormData(form)), id: editing });
+  };
+  cancel.onclick = () => select(null);
+  list.onclick = event => {
+    const button = event.target.closest('[data-website-action]');
+    if (!button) return;
+    const site = sites.find(item => item.id === button.dataset.id);
+    if (!site) return;
+    const action = button.dataset.websiteAction;
+    if (action === 'edit') { select(site); form.elements.url.focus(); }
+    else void run(action, { id: site.id });
+  };
+  await run('list');
+}
+
 export async function mountNovelSourceSettings(host, { api, locale, esc, toast }) {
   const w = discoverMessages(locale);
   host.innerHTML = `<h2 class="settings-section-title">${esc(w.settings)}</h2>
     <form class="panel" data-source-config>
       <label class="settings-row"><span class="settings-label">${esc(w.site)}</span>
         <input name="origin" type="url" autocomplete="off" spellcheck="false"></label>
+      <label class="settings-row"><span class="settings-label">${esc(w.alternate)}</span>
+        <input name="alternate" type="url" autocomplete="off" spellcheck="false"></label>
+      <label class="settings-row"><span class="settings-label">${esc(w.connection)}</span>
+        <select name="connection">${Object.entries(w.connections).map(([value,label]) => `<option value="${value}">${esc(label)}</option>`).join('')}</select></label>
       <label class="settings-row"><span class="settings-label">${esc(w.proxy)}</span>
         <input name="proxy" type="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:7890"></label>
       <button type="submit" class="secondary">${esc(w.save)}</button>
     </form>
+    <section data-website-settings></section>
     <form class="panel" data-source-account hidden>
       <p data-account-status role="status"></p>
+      <label class="settings-row"><span class="settings-label">${esc(w.accountSite)}</span><select name="accountOrigin"></select></label>
       <label class="settings-row"><span class="settings-label">${esc(w.email)}</span>
         <input name="email" type="email" autocomplete="username" required></label>
       <label class="settings-row"><span class="settings-label">${esc(w.password)}</span>
@@ -355,8 +560,13 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
     current = state;
     settings.elements.origin.value = state.origin;
     settings.elements.proxy.value = state.proxy;
+    settings.elements.alternate.value = state.alternate || '';
+    settings.elements.connection.value = state.connection || 'auto';
+    const origins = [...new Set([state.origin, state.alternate].filter(Boolean))];
+    account.elements.accountOrigin.replaceChildren(...origins.map(url => new Option(new URL(url).hostname, url)));
+    if (state.accountOrigin) account.elements.accountOrigin.value = state.accountOrigin;
     const status = { verified: w.signedIn, expired: w.expired, unavailable: w.unverified, signedOut: w.signedOut };
-    account.hidden = !state.origin;
+    account.hidden = !origins.length;
     heading.textContent = [status[state.status],
       state.quota && w.quota(state.quota.used, state.quota.limit)].filter(Boolean).join(' · ');
     check.hidden = !state.hasSession;
@@ -389,15 +599,17 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
   };
   account.onsubmit = event => {
     event.preventDefault();
-    if (!current?.origin) return;
+    if (!current?.accountOrigin) return;
     const values = Object.fromEntries(new FormData(account));
     account.elements.password.value = '';
-    run('login', { ...values, origin: current.origin }, w.loginFailed);
+    run('login', { ...values, origin: current.accountOrigin }, w.loginFailed);
   };
-  signOut.onclick = () => run('logout', {}, w.unavailable);
-  check.onclick = () => run('verify', {}, w.unavailable);
+  const accountOrigin = () => ({ accountOrigin: account.elements.accountOrigin.value });
+  account.elements.accountOrigin.onchange = () => run('verify', accountOrigin(), w.unavailable);
+  signOut.onclick = () => run('logout', accountOrigin(), w.unavailable);
+  check.onclick = () => run('verify', accountOrigin(), w.unavailable);
   host.querySelector('[data-account-site]').onclick = () => {
-    if (current?.origin) api('novel_source_open', { url: current.origin }).catch(() => toast(w.unavailable));
+    if (current?.accountOrigin) api('novel_source_open', { url: current.accountOrigin }).catch(() => toast(w.unavailable));
   };
-  await run('get', {}, w.unavailable);
+  await Promise.all([run('get', {}, w.unavailable), mountWebsiteSettings(host.querySelector('[data-website-settings]'), { api, esc, w, toast })]);
 }

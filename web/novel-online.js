@@ -25,7 +25,7 @@ const labels = {
 
 export const novelOnlineLabels = locale => labels[locale] || labels.zh;
 
-export function bindNovelOnline(detail, { book, api, esc, locale, isCurrent }) {
+export function bindNovelOnline(detail, { book, api, esc, locale, isCurrent, onCover }) {
   const t = novelOnlineLabels(locale);
   const sidebar = detail.querySelector('.nv-detail-side');
   const names = { bangumi: 'Bangumi', ndl: t.ndl, openlibrary: 'Open Library', shlibrary: t.shlibrary, moegirl: t.moegirl };
@@ -112,6 +112,10 @@ export function bindNovelOnline(detail, { book, api, esc, locale, isCurrent }) {
       const { book: next } = await api('novel_detail', { id: book.id, onlineOnly: true });
       if (!attached()) return;
       render(next);
+      if (next.cover && next.cover !== book.cover) {
+        book.cover = next.cover;
+        onCover?.(next.cover);
+      }
       if (next.onlineLookup?.pending) setTimeout(refresh, 1500);
     } catch {}
   }

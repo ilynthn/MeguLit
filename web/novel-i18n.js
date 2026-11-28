@@ -1,5 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* 文库页的文案：跟 web/i18n.js 分开维护，避免动到主界面那张大表。 */
+export function editionOptions(editions, selected, locale, esc) {
+  const labels = { zh: ['语言版本', '语言未标明'], ja: ['言語版', '言語未設定'], en: ['Edition language', 'Unknown language'] };
+  const [title, unknown] = labels[locale] || labels.zh;
+  const names = new Intl.DisplayNames([locale || 'zh'], { type: 'language', fallback: 'none' });
+  const language = edition => {
+    const raw = edition.languages || edition.language || '';
+    if (/^(?:japanese|jpn|日文|日语|日本語)$/i.test(raw)) return names.of('ja');
+    if (/^(?:chinese|zho|chi|中文)$/i.test(raw)) return names.of('zh');
+    if (/^(?:english|eng)$/i.test(raw)) return names.of('en');
+    try { return names.of(raw.replaceAll('_', '-')) || raw || unknown; }
+    catch { return raw || unknown; }
+  };
+  return `<label class="nv-edition-picker"><span>${esc(title)}</span><select aria-label="${esc(title)}" data-nv-edition>${
+    editions.map(edition => `<option value="${esc(edition.id)}" ${edition.id === selected ? 'selected' : ''}>${
+      esc([language(edition), (edition.format || edition.extension || '').toUpperCase(), edition.title].filter(Boolean).join(' · '))
+    }</option>`).join('')
+  }</select></label>`;
+}
+
 export const novelMessages = {
   zh: {
     addBooks: "新增书籍",
@@ -35,6 +54,7 @@ export const novelMessages = {
     chars: n => (n >= 10000 ? `${(n / 10000).toFixed(1)} 万字` : `${n} 字`),
     progress: p => `读到 ${Math.round(p * 100)}%`,
     back: '返回书架',
+    backToCollection:'返回合集', volumes:n => `${n} 册`,
     start: '开始阅读',
     remove: '移出书架',
     removeConfirm: '再点一次确认',
@@ -140,6 +160,7 @@ export const novelMessages = {
     chars: n => (n >= 10000 ? `${(n / 10000).toFixed(1)} 万字` : `${n} 字`),
     progress: p => `${Math.round(p * 100)}% 読了`,
     back: '本棚へ戻る',
+    backToCollection:'シリーズへ戻る', volumes:n => `${n} 冊`,
     start: '読み始める',
     remove: '本棚から外す',
     removeConfirm: 'もう一度押して確定',
@@ -270,6 +291,7 @@ export const novelMessages = {
     chapters: n => `${n} chapters`,
     chars: n => (n >= 10000 ? `${Math.round(n / 1000)}k characters` : `${n} characters`),    progress: p => `${Math.round(p * 100)}% read`,
     back: 'Back to shelf',
+    backToCollection:'Back to collection', volumes:n => `${n} ${n === 1 ? 'volume' : 'volumes'}`,
     start: 'Start reading',
     remove: 'Remove',
     removeConfirm: 'Click again to confirm',

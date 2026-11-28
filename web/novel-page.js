@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* 文库页（route = novel）：书架 / 本地导入 / 发现。
    与主界面共用 invoke('service') 与主题令牌，不引框架、不建构建链。 */
-import { novelMessages } from './novel-i18n.js';
+import { editionOptions, novelMessages } from './novel-i18n.js';
 import { bindNovelOnline, novelOnlineLabels } from './novel-online.js';
 import { openReader } from './novel-reader.js';
-import { openPdfReader } from './novel-pdf-reader.js';
-import { discoverMessages, paintDiscovery, paintDiscoveryDetail } from './novel-discover.js';
+import { createPdfCover, openPdfReader } from './novel-pdf-reader.js';
+import { discoverMessages, novelImportError, paintDiscovery, paintDiscoveryDetail } from './novel-discover.js';
 import { capsuleSpringFrames } from './capsule-spring.js';
 import { applyShelfFlowSettings, bindShelfFlow, createCoverPreview, liftCoverForDetail } from './novel-shelf.js';
 
 const SORT_KEY = 'megulit-novel-sort';
 const VIEW_KEY = 'megulit-novel-view';
+const DISCOVER_SOURCE_KEY = 'megulit-novel-discover-source';
 const BOOK_EXT = /\.(txt|md|epub|zip|pdf)$/i;
 const fileKind = file => /\.pdf$/i.test(file) ? 'pdf' : /\.(epub|zip)$/i.test(file) ? 'epub' : 'txt';
 const sortKeys = ['recent', 'added', 'title', 'author', 'progress'];
@@ -90,7 +91,7 @@ export async function mountNovel(main, ctx) {
   let alive = true;
   let tab = 'shelf';
   let localBack = 'shelf';
-  const discoverState = { page: 1, query: '', order: 'popular', request: 0 };
+  const discoverState = { page: 1, query: '', order: 'popular', source: readChoice(DISCOVER_SOURCE_KEY, Object.keys(sourceText.providers)), request: 0 };
   let discoverTimer;
   let discoverView;
   let discoverResult;
@@ -102,9 +103,15 @@ export async function mountNovel(main, ctx) {
   let flowBook;
   let query = '';
   let shelfRequest;
+  let shelfCoverTimer;
+  const triedPdfCovers = new Set();
+  let pdfCoverJob;
   const collator = new Intl.Collator(['zh', 'en', 'ja'].includes(locale) ? locale : 'zh', {numeric: true, sensitivity: 'base'});
   let bookId = '';
   let shelf = null;
+  let collectionId = '';
+  let rootShelfQuery = '';
+  let renderedBooks = new Map();
   let scanning = false;
   let importing = false;
   let candidates = [];
@@ -167,6 +174,7 @@ export async function mountNovel(main, ctx) {
     discoverView?.abort();
     discoveredBook = null;
     if (tab === 'discover' && next === 'shelf') shelf = null;
+    if (targetId || next === 'discover') collectionId = '';
     if (next === 'local') localBack = tab;
     tab = next;
     bookId = targetId;
@@ -174,6 +182,8 @@ export async function mountNovel(main, ctx) {
     clear.hidden = !search.value;
     searchField.hidden = true;
     searchToggle.setAttribute('aria-expanded', 'false');
+    sortButton.hidden = false;
+    searchToggle.hidden = false;
     const searchLabel = tab === 'discover' ? sourceText.search : w.searchBooks;
     search.setAttribute('aria-label', searchLabel);
     searchToggle.setAttribute('aria-label', searchLabel);
@@ -271,8 +281,10 @@ export async function mountNovel(main, ctx) {
   const persistChoice = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
   function updateSortOptions() {
     const onDiscovery = tab === 'discover';
+    const provider = discoverResult?.provider || discoverState.source;
+    const orders = provider === 'bangumi' ? ['match', 'popular'] : provider === 'openlibrary' ? ['match', 'popular', 'year'] : Object.keys(sourceText.order);
     sortOptions.innerHTML = onDiscovery
-      ? options('sort', Object.keys(sourceText.order), sourceText.order, discoverState.order)
+      ? options('sort', orders, sourceText.order, orders.includes(discoverState.order) ? discoverState.order : 'match')
       : options('sort', sortKeys, w.sort, sort);
   }
   updateViewButton();
@@ -332,7 +344,8 @@ export async function mountNovel(main, ctx) {
       /* 没有封面时竖排书名当书脊，和参考图的立体书架一个意思 */
       : `<span class="nv-spine${view === 'flow' ? ' nv-flow-blank' : ''}"><span>${esc(book.title)}</span></span>`;
     const percent = Math.round((book.progress?.percent || 0) * 100);
-    const label = `aria-label="${esc(book.title)}" data-nv-book="${esc(book.id)}"`;
+    const groupLabel = book.collection ? w.volumes(book.collection.books.length) : '';
+    const label = `aria-label="${esc([book.title,groupLabel].filter(Boolean).join(' · '))}" data-nv-book="${esc(book.id)}"${book.collection ? ' data-nv-collection-card' : ''}`;
     if (view === 'flow') return `<button type="button" class="nv-flow-book" tabindex="-1" ${label}>
       <span class="nv-flow-book-render" aria-hidden="true"><span class="nv-flow-volume">
         <span class="nv-flow-spine"><span data-nv-number></span></span>
@@ -348,12 +361,13 @@ export async function mountNovel(main, ctx) {
     </button>`;
     if (view === 'cover') return `<button type="button" class="nv-card" ${label}>
       <span class="nv-book-object"><span class="nv-book-block"><span class="nv-cover">${cover}</span></span></span>
+      ${book.collection ? `<span class="nv-collection-card-title">${esc(book.title)}<small>${esc(groupLabel)}</small></span>` : ''}
     </button>`;
     return `<button type="button" class="nv-card nv-list-row" ${label}>
       <span class="nv-cover">${cover}</span><span class="nv-list-copy">
       <span class="nv-card-title">${esc(book.title)}</span>
       <span class="nv-card-author">${esc(book.author || w.noAuthor)}</span>
-      <span class="nv-card-meta">${book.format === 'pdf' ? 'PDF' : `${esc(w.chapters(book.chapterCount))} · ${esc(w.chars(book.chars))}`}</span>
+      <span class="nv-card-meta">${book.collection ? esc(groupLabel) : book.format === 'pdf' ? 'PDF' : `${esc(w.chapters(book.chapterCount))} · ${esc(w.chars(book.chars))}`}</span>
       </span>${percent ? `<span class="nv-card-progress">${esc(w.progress(percent / 100))}</span>` : ''}
     </button>`;
   }
@@ -361,6 +375,19 @@ export async function mountNovel(main, ctx) {
   function openBook(card) {
     if (bookId) return;
     preview.close();
+    const target = renderedBooks.get(card.dataset.nvBook);
+    if (target?.collection) {
+      releaseShelfFlow();
+      flowBook = target.collection.books[0];
+      collectionId = target.collection.id;
+      rootShelfQuery = query;
+      query = '';
+      search.value = '';
+      clear.hidden = true;
+      main.scrollTop = 0;
+      renderShelf();
+      return;
+    }
     if (view === 'flow') flowBook = card.dataset.nvBook;
     bookId = card.dataset.nvBook;
     const flow = bodyEl.querySelector('.nv-flow');
@@ -370,21 +397,97 @@ export async function mountNovel(main, ctx) {
   }
 
   async function paintShelf() {
-    if (shelf) { renderShelf(); return; }
+    if (shelf) { renderShelf(); pollShelfCovers(); fillShelfPdfCovers(); return; }
     bodyEl.innerHTML = `<div class="nv-loading">${esc(w.loading)}</div>`;
     try {
       const data = await loadShelf();
       if (!aliveNow() || tab !== 'shelf' || bookId || reading) return;
       shelf = data;
       renderShelf();
+      pollShelfCovers();
+      fillShelfPdfCovers();
     } catch (error) {
       if (aliveNow() && tab === 'shelf' && !bookId) bodyEl.innerHTML = emptyState(w.fileError, String(error?.message || error));
     }
   }
 
+  function fillShelfPdfCovers() {
+    if (pdfCoverJob) return;
+    pdfCoverJob = (async () => {
+      while (aliveNow() && tab === 'shelf' && !bookId && !reading && shelf) {
+        const book = shelf.books.find(book => book.format === 'pdf' && !book.cover && !triedPdfCovers.has(book.id));
+        if (!book) break;
+        triedPdfCovers.add(book.id);
+        const cover = await createPdfCover(api, book.id);
+        const current = shelf?.books.find(item => item.id === book.id);
+        if (current && cover) {
+          current.cover = cover;
+          if (aliveNow() && tab === 'shelf' && !bookId && !reading) renderShelf();
+        }
+      }
+    })().finally(() => { pdfCoverJob = null; });
+  }
+
+  function pollShelfCovers() {
+    clearTimeout(shelfCoverTimer);
+    if (!shelf?.books.some(book => book.coverPending || book.editionPending)) return;
+    shelfCoverTimer = setTimeout(async () => {
+      if (!aliveNow() || tab !== 'shelf' || bookId || reading) return;
+      try {
+        const next = await loadShelf();
+        if (!aliveNow() || tab !== 'shelf' || bookId || reading) return;
+        const signature = book => [book.cover, ...(book.editions || []).map(edition => edition.id)].join('|');
+        const previous = new Map(shelf?.books.map(book => [book.id, signature(book)]));
+        shelf = next;
+        if (previous.size !== next.books.length || next.books.some(book => previous.get(book.id) !== signature(book))) renderShelf();
+        pollShelfCovers();
+      } catch { /* A later shelf refresh can pick up the cached covers. */ }
+    }, 1800);
+  }
+
+  function shelfEntries() {
+    const data = new Map(shelf.books.map(book => [book.id, book]));
+    const collections = (shelf.collections || []).filter(group => group.books.every(id => data.has(id)));
+    const opened = collections.find(group => group.id === collectionId);
+    if (opened) return { collection: opened, books: opened.books.map(id => data.get(id)) };
+    collectionId = '';
+    const consumed = new Set(collections.flatMap(group => group.books));
+    const grouped = collections.map(group => {
+      const members = group.books.map(id => data.get(id));
+      const featured = members.find(book => book.cover) || members[0];
+      return { ...featured, id: group.id, title: group.title, collection: group, progress: null,
+        aliases: members.flatMap(book => [book.title, ...(book.aliases || [])]),
+        lastOpenedAt: Math.max(...members.map(book => book.lastOpenedAt || book.addedAt || 0)),
+        addedAt: Math.max(...members.map(book => book.addedAt || 0)) };
+    });
+    return { books: [...shelf.books.filter(book => !consumed.has(book.id)), ...grouped], collection: null };
+  }
+
+  function drawCollectionHeader(collection) {
+    bodyEl.querySelector('[data-nv-collection-head]')?.remove();
+    if (!collection) return;
+    const header = document.createElement('header');
+    header.dataset.nvCollectionHead = '';
+    header.className = 'nv-collection-head';
+    header.innerHTML = `<button type="button" class="nv-back">‹ ${esc(w.back)}</button>
+      <h2>${esc(collection.title)}</h2><span>${esc(w.volumes(collection.books.length))}</span>`;
+    header.querySelector('button').onclick = () => {
+      releaseShelfFlow();
+      flowBook = collection.id;
+      collectionId = '';
+      query = rootShelfQuery;
+      search.value = query;
+      clear.hidden = !query;
+      main.scrollTop = 0;
+      renderShelf();
+    };
+    bodyEl.prepend(header);
+  }
+
   function renderShelf(animate = false) {
     preview.close();
-    const {books} = shelf;
+    const { books, collection } = shelfEntries();
+    renderedBooks = new Map(books.map(book => [book.id, book]));
     if (!books.length) {
       releaseShelfFlow();
       bodyEl.innerHTML = emptyState(w.shelfEmpty, w.shelfEmptySub, `<button type="button" class="nv-primary" data-nv-go-local>${esc(w.addBooks)}</button>`);
@@ -393,7 +496,7 @@ export async function mountNovel(main, ctx) {
     }
     const terms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean);
     const matches = books.filter(book => {
-      const text = normalizeSearch([book.title, book.author].join(' '));
+      const text = normalizeSearch([book.title, book.author, ...(book.aliases || []), ...(book.editions || []).map(edition => edition.title)].join(' '));
       return terms.every(term => text.includes(term));
     });
     const byTitle = (a, b) => collator.compare(a.title, b.title);
@@ -404,15 +507,16 @@ export async function mountNovel(main, ctx) {
       author: (a, b) => Number(!a.author) - Number(!b.author) || collator.compare(a.author || '', b.author || ''),
       progress: (a, b) => (b.progress?.percent ?? 0) - (a.progress?.percent ?? 0)
     };
-    matches.sort((a, b) => comparators[sort](a, b) || byTitle(a, b) || collator.compare(a.id, b.id));
+    if (!collection || sort !== 'recent') matches.sort((a, b) => comparators[sort](a, b) || byTitle(a, b) || collator.compare(a.id, b.id));
     if (!matches.length) {
       releaseShelfFlow();
       bodyEl.innerHTML = emptyState(w.noMatches, w.noMatchesHint);
+      drawCollectionHeader(collection);
       return;
     }
 
-    const currentFlowBook = bodyEl.querySelector('.nv-flow') ? shelfFlow?.id() : flowBook;
-    let grid = bodyEl.querySelector(`[data-nv-layout="${view}"]`);
+    const currentFlowBook = shelfFlow?.id() ?? flowBook;
+    let grid = view === 'flow' && !shelfFlow ? null : bodyEl.querySelector(`[data-nv-layout="${view}"]`);
     const move = animate && grid && view !== 'flow' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     const oldCards = new Map(Array.from(grid?.children ?? [], card => [card.dataset.nvBook, card]));
     const positions = new Map();
@@ -437,7 +541,7 @@ export async function mountNovel(main, ctx) {
         applyShelfFlowSettings(flow, shelf.flowSettings);
         flow.prepend(grid);
         shelfFlow = bindShelfFlow(grid, { title: flow.querySelector('[data-title]'), main, openBook, alignToolbar: alignFlowToolbar,
-          getBook: id => shelf.books.find(book => book.id === id), api, esc, w, locale });
+          getBook: id => renderedBooks.get(id), api, esc, w, locale });
       } else {
         grid.onclick = event => {
           const card = event.target.closest('[data-nv-book]');
@@ -448,9 +552,14 @@ export async function mountNovel(main, ctx) {
     }
     const template = document.createElement('template');
     const cards = matches.map(book => {
-      if (oldCards.has(book.id)) return oldCards.get(book.id);
+      const old = oldCards.get(book.id);
+      const count = String(book.collection?.books.length || 0);
+      if (old && old.dataset.nvTitle === book.title && old.dataset.nvCount === count &&
+          (old.querySelector('.nv-cover img, .nv-flow-cover img')?.getAttribute('src') || '') === (book.cover || '')) return old;
       template.innerHTML = bookCard(book);
       const card = template.content.firstElementChild;
+      card.dataset.nvTitle = book.title;
+      card.dataset.nvCount = count;
       if (view === 'cover') {
         const cover = card.querySelector('.nv-book-object');
         cover.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch') preview.open(book, cover); });
@@ -462,6 +571,7 @@ export async function mountNovel(main, ctx) {
       return card;
     });
     grid.replaceChildren(...cards);
+    drawCollectionHeader(collection);
     if (view === 'flow') shelfFlow.reset(currentFlowBook);
     if (move) {
       const movement = cards.flatMap(card => {
@@ -544,7 +654,7 @@ export async function mountNovel(main, ctx) {
       : `<span class="nv-spine nv-spine-lg"><span>${esc(book.title)}</span></span>`;
     bodyEl.innerHTML = `
       <div class="nv-detail">
-        <button type="button" class="nv-back" data-nv-back>‹ ${esc(w.back)}</button>
+        <button type="button" class="nv-back" data-nv-back>‹ ${esc(collectionId ? w.backToCollection : w.back)}</button>
         <div class="nv-detail-layout">
           <div class="nv-detail-main">
             <div class="nv-detail-top">
@@ -554,6 +664,7 @@ export async function mountNovel(main, ctx) {
                 <p class="nv-detail-author">${esc(book.author || w.noAuthor)}</p>
                 <p class="nv-detail-facts">${book.format === 'pdf' ? 'PDF' : `${esc(w.chapters(book.chapterCount))} · ${esc(w.chars(book.chars))} · ${esc((book.languages || '').toUpperCase() || '—')}`}</p>
                 ${book.intro ? `<p class="nv-detail-intro">${esc(book.intro)}</p>` : ''}
+                ${detail.editions?.length > 1 ? editionOptions(detail.editions, id, locale, esc) : ''}
                 <div class="nv-detail-actions">
                   <button type="button" class="nv-primary" data-nv-read>${esc(startAt ? w.continueReading : w.start)}</button>
                   <button type="button" class="nv-ghost" data-nv-remove>${esc(w.remove)}</button>
@@ -569,7 +680,22 @@ export async function mountNovel(main, ctx) {
         </div>
       </div>`;
     const detailView = bodyEl.querySelector('.nv-detail');
-    bindNovelOnline(detailView, { book, api, esc, locale, isCurrent: aliveNow });
+    detailView.querySelector('[data-nv-edition]')?.addEventListener('change', event => {
+      bookId = event.target.value;
+      paint();
+    });
+    if (book.format === 'pdf' && !book.cover) createPdfCover(api, book.id).then(cover => {
+      if (!cover || !detailView.isConnected || !aliveNow()) return;
+      book.cover = cover;
+      detailView.querySelector('.nv-detail-cover').innerHTML = coverHtml(cover);
+      shelf = null;
+    });
+    bindNovelOnline(detailView, { book, api, esc, locale, isCurrent: aliveNow, onCover: cover => {
+      const target = detailView.querySelector('.nv-detail-cover');
+      if (target && cover) target.innerHTML = coverHtml(cover);
+      // Returning to the shelf should pick up the new image even if polling paused here.
+      shelf = null;
+    } });
     if (entry) {
       const target = bodyEl.querySelector('.nv-detail-cover img');
       const incoming = bodyEl.querySelectorAll(flight ? '.nv-detail > .nv-back, .nv-detail-meta, .nv-detail-contents, .nv-detail-side' : '.nv-detail');
@@ -582,7 +708,7 @@ export async function mountNovel(main, ctx) {
     }
     bodyEl.querySelector('[data-nv-back]').onclick = () => { bookId = ''; paint(); };
     const open = (chapterIdx, charOffset, startPage) => {
-      reading = { id: book.id, format: book.format, chapterIdx: chapterIdx || 0, charOffset: charOffset || 0, startPage };
+      reading = { id: book.id, format: book.format, hasCover: Boolean(book.cover), chapterIdx: chapterIdx || 0, charOffset: charOffset || 0, startPage };
       paint();
     };
     bodyEl.querySelector('[data-nv-read]').onclick = () => open(startAt?.chapterIdx || 0, startAt?.charOffset || 0, startAt?.page || 0);
@@ -654,7 +780,7 @@ export async function mountNovel(main, ctx) {
       const failed = result.failed.length;
       if (done) toast(w.importDone(done));
       else if (skipped && !failed) toast(w.importSkipped(skipped));
-      else if (failed) toast(`${w.importFailed(failed)} · ${result.failed[0].error}`);
+      else if (failed) toast(`${w.importFailed(failed)} · ${novelImportError(locale, result.failed[0].error)}`);
       shelf = null;
       candidates = [];
       navigateShelf('shelf');
@@ -762,10 +888,16 @@ export async function mountNovel(main, ctx) {
   function renderDiscovery(result, signal) {
     paintDiscovery(bodyEl, {
       state: discoverState, result, api, esc, w: sourceText, toast, signal,
-      onPage: fetchDiscovery, onLocal: () => navigateShelf('local'), onSettings: discoverSettings,
+      onImported: () => { shelf = null; }, onRead: id => navigateShelf('shelf', id),
+      onProvider: source => {
+        discoverState.source = source;
+        persistChoice(DISCOVER_SOURCE_KEY, source);
+        fetchDiscovery(1);
+      },
+      onRefresh: () => { void invoke?.('window_action', { action: 'show_home' }).catch(() => {}); fetchDiscovery(discoverState.page); }, onPage: fetchDiscovery, onLocal: () => navigateShelf('local'), onSettings: discoverSettings,
       onBook: (book, preview, index) => {
         clearTimeout(discoverTimer);
-        discoveredBook = { origin: result.host, book, preview, index, scroll: main.scrollTop, proxiedCovers: result.proxiedCovers };
+        discoveredBook = { origin: result.host, provider: result.provider, catalog: result.catalog, website: result.website, book, preview, index, scroll: main.scrollTop, proxiedCovers: result.proxiedCovers };
         main.scrollTop = 0;
         paint();
       },
@@ -795,10 +927,23 @@ export async function mountNovel(main, ctx) {
     const signal = newDiscoveryView();
     renderDiscovery(null, signal);
     try {
-      const { query, order } = discoverState;
-      const result = await api(query ? 'novel_search' : 'novel_discover', { source: 'book-site', query, order, page: pageNumber });
+      if (!discoverState.websites) {
+        const { sites } = await api('novel_website_sources', { operation: 'list' });
+        if (!aliveNow() || signal.aborted) return;
+        discoverState.websites = sites;
+        discoverState.source = readChoice(DISCOVER_SOURCE_KEY, [...Object.keys(sourceText.providers), ...sites.map(site => 'website-' + site.id)]);
+      }
+      const { query, order, source } = discoverState;
+      const website = discoverState.websites.find(site => 'website-' + site.id === source);
+      const preferred = pageNumber > 1 ? discoverResult?.provider : '';
+      const result = website ? { website, proxiedCovers: true, ...await api('novel_website_sources', {
+        operation: 'browse', id: website.id, query, order, page: pageNumber
+      }) } : await api(query ? 'novel_search' : 'novel_discover', { source, query, order, page: pageNumber, preferred });
       if (aliveNow() && !signal.aborted && tab === 'discover' && request === discoverState.request) {
         discoverResult = result;
+        sortButton.hidden = false;
+        searchToggle.hidden = false;
+        updateSortOptions();
         renderDiscovery(result, signal);
       }
     } catch {
@@ -860,7 +1005,7 @@ export async function mountNovel(main, ctx) {
         api, esc, toast, w, locale,
         windowAction: action => invoke('window_action', { action }),
         lookup: word => { try { window.__megulitOpenLookup?.(word); } catch { /* 没挂上就算了 */ } },
-        id: target.id,
+        id: target.id, hasCover: target.hasCover,
         chapterIdx: target.chapterIdx, charOffset: target.charOffset, startPage: target.startPage,
         onExit: done
       });
@@ -896,6 +1041,7 @@ export async function mountNovel(main, ctx) {
       document.body.classList.remove('nv-reading-body');
     }
     routeObserver.disconnect();
+    clearTimeout(shelfCoverTimer);
     clearTimeout(discoverTimer);
     discoverView?.abort();
     toolbarMotion?.cancel();

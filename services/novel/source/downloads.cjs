@@ -9,7 +9,7 @@ const tasks = new Map();
 const terminal = new Set(['done', 'failed']);
 const busy = root => [...tasks].some(([key, task]) => key.startsWith(root + '\0') && !terminal.has(task.phase));
 const keyFor = (request, root) => {
-  const config = bookSite.readConfig(root);
+  const config = bookSite.configForOrigin(root, request.origin);
   const { id, hash } = bookSite.bookRef(request, config);
   return [root, config.origin, id, hash].join('\0');
 };

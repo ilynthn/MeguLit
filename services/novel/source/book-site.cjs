@@ -11,9 +11,10 @@ const { spawn } = require('node:child_process');
 const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { SecretStore } = require('../../../core/secrets.cjs');
-const { bestMatch, titleParts } = require('../identity.cjs');
+const { attachEditionAliases } = require('../editions.cjs');
+const { expand, wikiAliases } = require('../search-titles.cjs');
 const { searchBangumi } = require('../online.cjs');
-const { importFiles, limitOf, readOnlineInfo } = require('../library.cjs');
+const { importFiles, limitOf } = require('../library.cjs');
 const { decodeEntities } = require('../parse-epub.cjs');
 
 const DISCOVERY_QUERY = 'ライトノベル';
@@ -21,9 +22,9 @@ const ORDERS = new Set(['match', 'popular', 'date', 'year']);
 const PAGE_SIZE = 24;
 // Only proxy off-site covers that the current catalog returned.
 const recentCovers = new Map();
+const knownEditions = new Map();
 const kana = /[\p{Script=Hiragana}\p{Script=Katakana}]/u;
 const normalize = value => String(value ?? '').normalize('NFKC').trim();
-const titleKey = value => normalize(value).replace(/[^\p{L}\p{N}]/gu, '');
 const clip = (value, size = 250) => normalize(value).slice(0, size);
 const publicHost = hostname => /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]+$/i.test(hostname) &&
   !/\.(?:local|localhost|internal|home|test)$/i.test(hostname);
@@ -56,23 +57,45 @@ function proxyOf(value) {
   throw Error('BOOK_SITE_INVALID_PROXY');
 }
 
+const routes = new Map();
+const connectionOf = value => ['direct', 'proxy'].includes(value) ? value : 'auto';
 const settingsFile = root => path.join(root, 'data', 'config', 'novel-discover.json');
 function readConfig(root) {
   try {
     const config = JSON.parse(fs.readFileSync(settingsFile(root), 'utf8'));
-    return { origin: originOf(config.origin), proxy: proxyOf(config.proxy) };
+    return { origin: originOf(config.origin), alternate: originOf(config.alternate), proxy: proxyOf(config.proxy), connection: connectionOf(config.connection) };
   } catch {
-    return { origin: '', proxy: '' };
+    return { origin: '', alternate: '', proxy: '', connection: 'auto' };
   }
 }
 
 function saveConfig(root, request) {
-  const config = { origin: originOf(request.origin), proxy: proxyOf(request.proxy) };
+  const previous = readConfig(root);
+  const config = { origin: originOf(request.origin), alternate: originOf(request.alternate ?? previous.alternate),
+    proxy: proxyOf(request.proxy), connection: connectionOf(request.connection ?? previous.connection) };
+  if (config.connection === 'proxy' && !config.proxy) throw Error('BOOK_SITE_INVALID_PROXY');
   const file = settingsFile(root);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file + '.tmp', JSON.stringify(config));
   fs.renameSync(file + '.tmp', file);
   return config;
+}
+
+function configuredOrigin(config, origin) {
+  if (!origin || (origin !== config.origin && origin !== config.alternate)) throw Error('BOOK_SITE_INVALID_ORIGIN');
+  return origin;
+}
+
+function connectionRoutes(config, origin, reuse = false) {
+  if (config.connection === 'direct' || !config.proxy) return [''];
+  if (config.connection === 'proxy') return [config.proxy];
+  return reuse && routes.get(origin) === config.proxy ? [config.proxy, ''] : ['', config.proxy];
+}
+
+function configForOrigin(root, value) {
+  const config = readConfig(root);
+  const origin = configuredOrigin(config, value || config.origin || config.alternate);
+  return { ...config, origin, proxy: connectionRoutes(config, origin, true)[0] };
 }
 
 function vault(root) {
@@ -89,7 +112,7 @@ function cookieOf(root, origin) {
 }
 
 function requestStream(url, proxy, { body, headers = {}, timeout = 12000, idle = 0, lookup } = {}) {
-  const agent = proxy ? new https.Agent({ proxyEnv: { HTTPS_PROXY: proxy } }) : undefined;
+  const agent = new https.Agent({ proxyEnv: proxy ? { HTTPS_PROXY: proxy } : {} });
   return new Promise((resolve, reject) => {
     const req = https.request(url, {
       method: body ? 'POST' : 'GET', agent, signal: AbortSignal.timeout(timeout), lookup,
@@ -124,12 +147,12 @@ async function jsonRequest(url, proxy, options, allowEmpty = false) {
   return { status: response.statusCode, data, headers: response.headers };
 }
 
-async function eapi(config, route, { body, cookie } = {}) {
-  const { status, data } = await jsonRequest(config.origin + '/eapi/' + route, config.proxy, {
-    body, headers: { Accept: 'application/json', source: 'android', ...(cookie ? { Cookie: cookie } : {}) },
+async function eapi(config, route, { body, cookie, timeout } = {}) {
+  const { status, data, headers } = await jsonRequest(config.origin + '/eapi/' + route, config.proxy, {
+    body, timeout, headers: { Accept: 'application/json', source: 'android', ...(cookie ? { Cookie: cookie } : {}) },
   }, true);
   if (status === 429) throw Error('BOOK_SITE_RATE_LIMIT');
-  if (status === 403 && !data) throw Error('BOOK_SITE_WEB_REQUIRED');
+  if (!data && (status === 403 || /text\/html/i.test(String(headers['content-type'])))) throw Error('BOOK_SITE_WEB_REQUIRED');
   if (!['1', 'true'].includes(String(data?.success)) || status >= 400) {
     const error = clip(data?.error || data?.message).toLowerCase();
     if (/incorrect email|wrong password|invalid password/.test(error)) throw Error('BOOK_SITE_WRONG_LOGIN');
@@ -166,6 +189,9 @@ function record(book, origin) {
   const language = clip(book.language, 48);
   return {
     id, hash, title, url: url.href, cover, language, author: clip(book.author), year: clip(book.year, 8),
+    alternate: clip(book.originalTitle || book.original_title || book.alternateTitle || book.alternateHeadline),
+    originalTitle: clip(book.originalTitle || book.original_title),
+    isbn: clip(book.identifier || book.isbn, 90),
     extension: clip(book.extension, 10).toLowerCase(), size: clip(book.filesizeString, 30),
     japanese: /^(?:japanese|ja|jpn|日本語|日语|日文)$/i.test(language) || (!language && kana.test(title)),
     downloadable: /^\d{1,20}$/.test(id) && /^[a-f\d]{5,32}$/i.test(hash),
@@ -191,7 +217,7 @@ function rememberCovers(config, books) {
 }
 
 async function detail(request, { root }) {
-  const config = readConfig(root);
+  const config = configForOrigin(root, request.origin);
   const { id, hash } = bookRef(request, config);
   const cookie = cookieOf(root, config.origin);
   const route = `book/${id}/${hash}`;
@@ -208,56 +234,25 @@ async function detail(request, { root }) {
   rememberCovers(config, [book]);
   const summary = decodeEntities(String(raw.description || '').slice(0, 10000)
     .replace(/<br\b[^>]*>|<\/p>/gi, '\n').replace(/<[^>]*>/g, '')).trim().slice(0, 5000);
-  return { ...book, description: summary, publisher: clip(raw.publisher), pages: Math.max(0, Math.trunc(Number(raw.pages) || 0)),
+  const metadata = { ...book, description: summary, publisher: clip(raw.publisher), pages: Math.max(0, Math.trunc(Number(raw.pages) || 0)),
     isbn: clip(raw.identifier || raw.isbn, 90) };
+  rememberEditions(root, config.origin, [metadata]);
+  return metadata;
 }
 
-async function originalTitle(query, root, db, runtime, proxy) {
-  if (!/\p{Script=Han}/u.test(query) || kana.test(query)) return '';
-  const { base, volume } = titleParts(query);
-  const exact = titleKey(base);
-  const existing = db.prepare("SELECT id, title FROM novels WHERE languages LIKE 'ja%' AND status='active'").all();
-  for (const row of existing) {
-    const provider = readOnlineInfo(root, row.id);
-    if (titleKey(provider?.alternate) === exact) {
-      return volume == null ? titleParts(row.title).base : `${titleParts(row.title).base} ${volume}`;
-    }
-  }
-  const match = await Promise.any([
-    (async () => {
-      const request = async (url, options) => {
-        const { data } = await jsonRequest(url, proxy, { ...options, timeout: 5000 });
-        return data;
-      };
-      const reviews = runtime?.reviews?.();
-      const cached = (key, ttl, load) => reviews ? reviews.cached('book-site:' + key, ttl, load) : load();
-      const candidates = await searchBangumi({ request, cached }, base, true);
-      const variants = candidates.flatMap(candidate => [
-        candidate, ...candidate.aliases.map(alternate => ({ ...candidate, alternate })),
-      ]);
-      const found = bestMatch({ title: base }, variants)?.title || (exact.length >= 5 && variants.find(candidate =>
-        normalize(candidate.alternate).split(/[\s\p{P}]/u, 1).some(first => titleKey(first) === exact)
-      )?.title);
-      if (!found || found === base) throw Error();
-      return found;
-    })(),
-    (async () => {
-      const params = new URLSearchParams({ action: 'query', prop: 'langlinks', lllang: 'ja', redirects: '1',
-        format: 'json', formatversion: '2', titles: base.replace(/[|\r\n]/g, '') });
-      const { data } = await jsonRequest('https://zh.wikipedia.org/w/api.php?' + params, proxy, { timeout: 4500 });
-      const found = clip(data.query?.pages?.[0]?.langlinks?.[0]?.title).replace(/\s*\((?:小説|ライトノベル|漫画)\)$/, '');
-      if (!found || found === base) throw Error();
-      return found;
-    })(),
-  ]).catch(() => '');
-  return match && volume != null ? `${match} ${volume}` : match;
+function titleVariants(query, { root, db, runtime }, proxy, books) {
+  const request = async (url, options) => (await jsonRequest(url, proxy, { ...options, timeout: 3200 })).data;
+  const source = runtime?.reviews?.();
+  const cached = (key, ttl, read) => source ? source.cached('novel-alias:' + key, ttl, read) : read();
+  return expand(query, { root, db, books, bangumi: key => searchBangumi({ request, cached }, key, true),
+    wiki: key => cached('wiki:' + key, 300_000, () => wikiAliases(key, request)) });
 }
 
 async function queryPage(config, query, order, page, japanese, cookie) {
   const body = new URLSearchParams({ message: query, page, limit: PAGE_SIZE });
   if (order !== 'match') body.set('order', order);
   if (japanese) body.set('languages[0]', 'japanese');
-  const data = await eapi(config, 'book/search', { body, cookie });
+  const data = await eapi(config, 'book/search', { body, cookie, timeout: 5500 });
   if (!Array.isArray(data.books)) throw Error('BOOK_SITE_RESPONSE');
   return {
     books: data.books.map(book => record(book, config.origin)).filter(Boolean),
@@ -265,8 +260,36 @@ async function queryPage(config, query, order, page, japanese, cookie) {
   };
 }
 
-async function discover(request, { root, db, runtime }) {
-  const config = readConfig(root);
+function rememberEditions(root, origin, books) {
+  for (const book of books) {
+    if (!book.downloadable) continue;
+    const ref = [root, origin, book.id, book.hash].join('\0');
+    const previous = knownEditions.get(ref);
+    knownEditions.set(ref, { ...book, originalTitle: book.originalTitle || previous?.originalTitle, aliases: [...new Set([...(previous?.aliases || []), ...(book.aliases || [])])].slice(0, 16) });
+    if (knownEditions.size > 1024) knownEditions.delete(knownEditions.keys().next().value);
+  }
+}
+
+async function discover(request, ctx) {
+  const config = readConfig(ctx.root);
+  const origins = [...new Set([config.origin, config.alternate].filter(Boolean))];
+  if (!origins.length) return { books: [], page: 1, more: false, error: 'BOOK_SITE_UNCONFIGURED' };
+  let failure;
+  for (const origin of origins) {
+    for (const proxy of connectionRoutes(config, origin)) {
+      const result = await discoverAt(request, ctx, { origin, proxy });
+      if (!result.error) {
+        if (routes.size >= 32) routes.clear();
+        routes.set(origin, proxy);
+        return { ...result, connection: proxy ? 'proxy' : 'direct' };
+      }
+      if (!failure || result.error === 'BOOK_SITE_WEB_REQUIRED') failure = result;
+    }
+  }
+  return failure;
+}
+
+async function discoverAt(request, { root, db, runtime }, config) {
   const query = clip(request.query, 160);
   const order = ORDERS.has(request.order) ? request.order : query ? 'match' : 'popular';
   const page = Math.min(500, Math.max(1, Math.trunc(Number(request.page) || 1)));
@@ -276,19 +299,18 @@ async function discover(request, { root, db, runtime }) {
   let cookie = '';
   try {
     cookie = cookieOf(root, config.origin);
-    const translated = query ? originalTitle(query, root, db, runtime, config.proxy).catch(() => '') : Promise.resolve('');
     const initial = queryPage(config, browseQuery, order, page, true, cookie).catch(error => {
       if (!cookie || error.message !== 'BOOK_SITE_AUTH') throw error;
       cookie = '';
       return queryPage(config, browseQuery, order, page, true);
     });
-    const [primary, alias] = await Promise.all([initial, translated]);
-    const additional = [];
-    if (alias) additional.push(queryPage(config, alias, order, page, true, cookie));
-    if (query) additional.push(queryPage(config, query, order, page, false, cookie));
-    const results = await Promise.allSettled(additional);
-    const lists = [...results.slice(0, alias ? 1 : 0), { status: 'fulfilled', value: primary },
-      ...results.slice(alias ? 1 : 0)].filter(result => result.status === 'fulfilled').map(result => result.value);
+    const primary = await initial;
+    const direct = query ? await queryPage(config, query, order, page, false, cookie).catch(() => null) : null;
+    const lists = [primary, direct].filter(Boolean);
+    const variants = query ? await titleVariants(query, { root, db, runtime }, config.proxy, lists.flatMap(item => item.books)).catch(() => []) : [];
+    const related = await Promise.allSettled(variants.map(title => queryPage(config, title, order, page, false, cookie)));
+    for (const item of related) if (item.status === 'fulfilled') lists.push(item.value);
+    const alias = variants.find(value => kana.test(value)) || '';
     const seen = new Set();
     const books = lists.flatMap(list => list.books).filter(book => {
       const key = book.id || book.url;
@@ -298,6 +320,7 @@ async function discover(request, { root, db, runtime }) {
     }).sort((a, b) => Number(b.japanese) - Number(a.japanese));
     // The desktop CSP permits local images and data URLs. Use the bounded cover service even on direct connections.
     rememberCovers(config, books);
+    rememberEditions(root, config.origin, attachEditionAliases(books));
     return { books, alias, page, more: lists.some(list => list.more), url, host: config.origin, proxiedCovers: true };
   } catch (error) {
     const code = /^BOOK_SITE_[A-Z_]+$/.test(error.message) ? error.message : 'BOOK_SITE_UNAVAILABLE';
@@ -307,7 +330,8 @@ async function discover(request, { root, db, runtime }) {
 
 function openSite(request, { root }) {
   const url = new URL(request.url);
-  if (url.origin !== readConfig(root).origin || url.username || url.password ||
+  configuredOrigin(readConfig(root), url.origin);
+  if (url.username || url.password ||
       !/^\/(?:$|s\/|book\/)/.test(url.pathname)) throw Error('BOOK_SITE_INVALID_ORIGIN');
   const child = spawn('explorer.exe', [url.href], { windowsHide: true, detached: true, stdio: 'ignore' });
   child.on('error', () => {});
@@ -341,8 +365,8 @@ function readSession(result, cookies = []) {
 }
 
 async function login(root, request) {
-  const config = readConfig(root);
-  if (request.origin !== config.origin) throw Error('BOOK_SITE_INVALID_ORIGIN');
+  const settings = readConfig(root);
+  const config = configForOrigin(root, request.origin);
   const email = clip(request.email, 254);
   const password = typeof request.password === 'string' ? request.password : '';
   if (!email || !password || password.length > 1024) throw Error('BOOK_SITE_AUTH');
@@ -365,15 +389,17 @@ async function login(root, request) {
   const verified = await profile(config, sessionCookie(session.id, session.key));
   if (!verified.signedIn) throw Error(verified.status === 'expired' ? 'BOOK_SITE_AUTH' : 'BOOK_SITE_VERIFY_FAILED');
   vault(root).set(config.origin, session.id + ':' + session.key);
-  return { ...config, ...verified };
+  return { ...settings, accountOrigin: config.origin, ...verified };
 }
 
 async function configuration(request, { root }) {
   if (request.operation === 'login') return login(root, request);
   const config = request.operation === 'save' ? saveConfig(root, request) : readConfig(root);
-  if (!config.origin) return { ...config, status: 'unconfigured', signedIn: false, hasSession: false };
-  if (request.operation === 'logout') vault(root).set(config.origin, '');
-  return { ...config, ...(await profile(config, cookieOf(root, config.origin))) };
+  const accountOrigin = request.accountOrigin || config.origin || config.alternate;
+  if (!accountOrigin) return { ...config, status: 'unconfigured', signedIn: false, hasSession: false };
+  const account = configForOrigin(root, accountOrigin);
+  if (request.operation === 'logout') vault(root).set(account.origin, '');
+  return { ...config, accountOrigin, ...(await profile(account, cookieOf(root, account.origin))) };
 }
 
 function safeUrl(link, origin) {
@@ -384,8 +410,7 @@ function safeUrl(link, origin) {
 }
 
 async function cover(request, { root, runtime }) {
-  const config = readConfig(root);
-  if (!config.origin) throw Error('BOOK_SITE_UNCONFIGURED');
+  const config = configForOrigin(root, request.origin);
   const url = safeUrl(request.url, config.origin);
   const offSite = url.origin !== config.origin;
   if (offSite && !recentCovers.has(config.origin + ' ' + url.href)) throw Error('BOOK_SITE_DOWNLOAD_LINK');
@@ -443,10 +468,11 @@ async function openDownload(url, config, cookie, referer) {
 }
 
 async function download(request, { root, db, openDb }, report = () => {}) {
-  const config = readConfig(root);
+  const config = configForOrigin(root, request.origin);
   const { id, hash } = bookRef(request, config);
   const cookie = cookieOf(root, config.origin);
   if (!cookie) throw Error('BOOK_SITE_AUTH');
+  const edition = knownEditions.get([root, config.origin, id, hash].join('\0'));
   const requestedExt = '.' + clip(request.extension, 10).toLowerCase();
   if (!['.pdf', '.epub'].includes(requestedExt)) throw Error('NOVEL_UNSUPPORTED');
   const result = await eapi(config, `book/${id}/${hash}/file`, { cookie });
@@ -482,7 +508,8 @@ async function download(request, { root, db, openDb }, report = () => {}) {
     const connection = db || openDb();
     try {
       return await importFiles(root, connection, [target], {
-        owned: true, onProgress: step => report({ phase: 'importing', step }),
+        owned: true, catalogue: edition ? [edition] : [], boundCatalogue: true,
+        onProgress: step => report({ phase: 'importing', step }),
       });
     } finally {
       if (!db) connection.close();
@@ -494,4 +521,4 @@ async function download(request, { root, db, openDb }, report = () => {}) {
   }
 }
 
-module.exports = { discover, search: discover, test: discover, configuration, detail, bookRef, readConfig, openSite, cover, download };
+module.exports = { discover, search: discover, test: discover, configuration, detail, titleVariants, bookRef, readConfig, configForOrigin, connectionRoutes, jsonRequest, requestStream, publicLookup, openSite, cover, download };
