@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-/* 哩哩轻小说（www.linovelib.com）：中文汉化，多为书籍版（文库本）的译文。
+/* 哔哩轻小说（www.linovelib.com）：中文汉化，多为书籍版（文库本）的译文。
    2026-11 实测（PR 正文有记录）：
      - 书页 /novel/{id}.html 的 og:novel:* meta 给书名、作者、目录地址；目录 /novel/{id}/catalog 按卷列章，
        个别章节链接是 javascript:cid(0)，要从上一章末页的「下一页」反推；
