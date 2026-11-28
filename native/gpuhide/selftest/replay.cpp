@@ -314,6 +314,12 @@ void Fixtures(const std::filesystem::path &dir, bool generate, const std::wstrin
  if (!only.empty()) return;
  CheckGroupKeys();
  CheckFormat();
+ CmvsUsertest::CheckColdAtlasGuards();
+ CmvsUsertest::CheckLateColdTail();
+ CmvsUsertest::CheckUnconfirmedColdProbe();
+ CmvsUsertest::CheckMovedColdRow();
+ CmvsUsertest::CheckVisibleColdCrop();
+ CmvsUsertest::CheckColdUnicode();
  const std::string trailingBytes = "MEGULIT_GPU_REPLAY 1\nEND complete\n\x1aO\n";
  const auto badPath = dir / L"trailing-data.replay";
  if (generate) WriteFile(badPath, trailingBytes);
