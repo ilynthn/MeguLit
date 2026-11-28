@@ -80,8 +80,7 @@ async function sync() {
   } catch (error) {
     if (error.code === 'UNAUTHORIZED') { await signOutLocal(); state.notice = t('sessionExpired'); state.syncing = false; return showLogin(); }
     state.online = error.code === 'NETWORK' ? false : state.online;
-    if (error.code === 'DAILY_QUOTA') { state.online = false; toast(errorText(lang, 'DAILY_QUOTA')); }
-    else if (error.code !== 'NETWORK') toast(t('error', { code: error.code || 'ERR' }));
+    if (error.code !== 'NETWORK') toast(t('error', { code: error.code || 'ERR' }));
   }
   state.syncing = false; await loadLocal(); render();
 }

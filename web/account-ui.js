@@ -65,10 +65,10 @@ for(const k of Object.keys(T)){const {err,...rest}=P[k];Object.assign(T[k],rest)
 Object.assign(T.zh.err,{RECORD_TOO_LARGE:'有记录超过云端大小限制，已保留在本机待同步',SYNC_RESPONSE_INVALID:'同步服务返回了无效响应，请重试'});
 Object.assign(T.ja.err,{RECORD_TOO_LARGE:'容量制限を超えた記録は、この端末に未送信のまま保存されています',SYNC_RESPONSE_INVALID:'同期サービスの応答が無効です。もう一度お試しください'});
 Object.assign(T.en.err,{RECORD_TOO_LARGE:'Some records exceed the cloud size limit and remain queued on this device',SYNC_RESPONSE_INVALID:'The sync service returned an invalid response. Try again'});
-/* 2026-11-29 the relay's free daily quota is spent (DAILY_QUOTA from services/relay-gate.cjs); it resets at 00:00 UTC */
-Object.assign(T.zh.err,{DAILY_QUOTA:'服务器今日额度已满，北京时间 8 点恢复'});
-Object.assign(T.ja.err,{DAILY_QUOTA:'サーバーの本日の利用上限に達しました。日本時間 9 時（北京時間 8 時）に回復します'});
-Object.assign(T.en.err,{DAILY_QUOTA:'The server’s daily quota is used up. It comes back at 08:00 Beijing time (00:00 UTC)'});
+/* 2026-11-29 the relay's free daily quota is spent (QUOTA_EXCEEDED from services/relay-gate.cjs); it resets at 00:00 UTC */
+Object.assign(T.zh.err,{QUOTA_EXCEEDED:'服务器今日额度已满，北京时间 8 点恢复'});
+Object.assign(T.ja.err,{QUOTA_EXCEEDED:'サーバーの本日の利用上限に達しました。日本時間 9 時（北京時間 8 時）に回復します'});
+Object.assign(T.en.err,{QUOTA_EXCEEDED:'The server’s daily quota is used up. It comes back at 08:00 Beijing time (00:00 UTC)'});
 const store={get:k=>{try{return localStorage.getItem(k)||'';}catch{return '';}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch{}}};
 const KINDS=['words','sentences','reading','settings'];
 export const accountLabel={zh:T.zh.title,ja:T.ja.title,en:T.en.title};

@@ -32,11 +32,11 @@ function retryAfterSeconds(response){
 /* 2026-11-29 (api.megulit.com answered Cloudflare "error code: 1027" twice in a day: the free Workers plan's 100k
    requests a day were used up). That 429 has no Retry-After and lasts until the quota resets at 00:00 UTC (08:00
    Beijing). It closes the gate for every relay host until then (cn-api runs the same Worker), and the pages get
-   DAILY_QUOTA instead of a plain offline or a one-minute retry that would only add more requests. */
+   QUOTA_EXCEEDED instead of a plain offline or a one-minute retry that would only add more requests. */
 const QUOTA_RE=/error code:\s*1027(?!\d)/i;
 function nextQuotaReset(t){const d=new Date(t);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()+1)+60000;}
 function isQuotaBody(text){return QUOTA_RE.test(String(text||'').slice(0,200));}
-function quotaLimited(seconds){return new Response(JSON.stringify({ok:false,error:'DAILY_QUOTA',retryAfter:seconds}),{status:429,headers:{'content-type':'application/json; charset=utf-8','retry-after':String(seconds),'x-megulit-gate':'local'}});}
+function quotaLimited(seconds){return new Response(JSON.stringify({ok:false,error:'QUOTA_EXCEEDED',retryAfter:seconds}),{status:429,headers:{'content-type':'application/json; charset=utf-8','retry-after':String(seconds),'x-megulit-gate':'local'}});}
 function limited(seconds){return new Response(JSON.stringify({ok:false,error:'RATE_LIMITED',retryAfter:seconds}),{status:429,headers:{'content-type':'application/json; charset=utf-8','retry-after':String(seconds),'x-megulit-gate':'local'}});}
 function createGate(fetcher,options={}){
  const now=options.now||(()=>Date.now()),hosts=options.hosts||(()=>DEFAULT_HOSTS);
@@ -76,7 +76,7 @@ function createGate(fetcher,options={}){
    try{r=await fetcher(input,init);}catch(error){if(error?.name!=='TimeoutError'&&error?.name!=='AbortError')recordFailure();throw error;}
    if(r.status===426){try{const body=await r.clone().json();if(body.error==='UPDATE_REQUIRED')required={latest:body.latest||'',minVersion:body.minVersion||'',message:body.message||''};}catch{}}
    if(r.status===429){
-    if(!r.headers.get('retry-after')&&isQuotaBody(await r.clone().text().catch(()=>''))){quotaUntil=nextQuotaReset(now());return key?{status:429,headers:[['content-type','application/json; charset=utf-8'],['retry-after',String(Math.ceil((quotaUntil-now())/1000))]],body:Buffer.from(JSON.stringify({ok:false,error:'DAILY_QUOTA'}))}:quotaLimited(Math.ceil((quotaUntil-now())/1000));}
+    if(!r.headers.get('retry-after')&&isQuotaBody(await r.clone().text().catch(()=>''))){quotaUntil=nextQuotaReset(now());return key?{status:429,headers:[['content-type','application/json; charset=utf-8'],['retry-after',String(Math.ceil((quotaUntil-now())/1000))]],body:Buffer.from(JSON.stringify({ok:false,error:'QUOTA_EXCEEDED'}))}:quotaLimited(Math.ceil((quotaUntil-now())/1000));}
     const s=retryAfterSeconds(r);blockedUntil=Math.max(blockedUntil,now()+s*1000);}
    if(r.status>=500)recordFailure();else failures.delete(failureKey);
    if(method!=='GET'&&r.ok)cache.clear();
