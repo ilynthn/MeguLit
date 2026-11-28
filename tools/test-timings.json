@@ -17,6 +17,7 @@
  "validation/altt-invariant.test.cjs": 11037,
  "validation/altt-menu-only.test.cjs": 465,
  "validation/altt-panel-contrast.test.cjs": 164196,
+ "validation/altt-qq-group.test.cjs": 19000,
  "validation/altt-resize.test.cjs": 9368,
  "validation/altt-save-translation.test.cjs": 3736,
  "validation/altt-sections-unboxed.test.cjs": 11454,

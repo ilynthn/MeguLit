@@ -33,7 +33,8 @@
   for(const scan of document.querySelectorAll('.tomoyo-cn-dialog details:has([name=galScanX])')){const summary=scan.querySelector(':scope>summary');if(summary){summary.dataset.noI18n='';if(summary.textContent!==text('scan'))summary.textContent=text('scan');summary.title=text('scanTip');}}
   for(const mode of document.querySelectorAll('[data-hook-mode]')){const summary=mode.closest('.tome-hook-main')?.querySelector('[data-hook-summary]');if(summary&&summary.title!==mode.textContent)summary.title=mode.textContent;}
   // The colour field's own copy button is wanted (user, 2026-11-02); other copy buttons stay removed.
-  for(const button of document.querySelectorAll('button[data-copy],button')){if(button.closest('.tome-color-field'))continue;if(button.hasAttribute('data-copy')||/^(?:复制|已复制|Copy\b|Copied\b|コピー)/i.test(button.textContent.trim()))button.remove();}
+  // So are the 关于 page's QQ group 复制 buttons (owner 2026-11-29, web/reader/modules/about.js).
+  for(const button of document.querySelectorAll('button[data-copy],button')){if(button.closest('.tome-color-field,.tome-qq,.tome-qq-pop'))continue;if(button.hasAttribute('data-copy')||/^(?:复制|已复制|Copy\b|Copied\b|コピー)/i.test(button.textContent.trim()))button.remove();}
  }
  let queued=false;const schedule=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply();});};
  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true,characterData:true});

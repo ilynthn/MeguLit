@@ -6,9 +6,9 @@
  if(!document.documentElement||!document.body){document.addEventListener('DOMContentLoaded',installAbout,{once:true});return;}
  window.__tomeAbout=true;
  const T={
-  zh:{date:'2026年10月26日',title:'MeguLit',credit:'Galgame 阅读与日语学习工具',version:'版本',tome:'MeguLit',tomeBy:'魚魚棟',tomeDesc:'Galgame 阅读层与覆盖翻译、原文隐藏、自动注音、点读查词、AI 讲解与义项归纳、Anki 制卡、语音朗读、游戏原版字体导入和多种翻译引擎',license:'均以 GPL-3.0 许可发布',bili:'bilibili',thanks:'特别鸣谢',rollLabel:'致谢名单，悬停暂停，滚轮翻看'},
-  en:{date:'Oct 26, 2026',title:'MeguLit',credit:'A visual novel reader and Japanese study tool',version:'Version',tome:'MeguLit',tomeBy:'魚魚棟',tomeDesc:'Reader overlay and translation for visual novels, original-text hiding, auto furigana, click lookups, AI explanations and sense summaries, Anki cards, text-to-speech, game font import and many translation engines',license:'All released under GPL-3.0',bili:'bilibili',thanks:'With thanks to',rollLabel:'Credits. Hover to pause, scroll to browse'},
-  ja:{date:'2026年10月26日',title:'MeguLit',credit:'ギャルゲー読書・日本語学習ツール',version:'バージョン',tome:'MeguLit',tomeBy:'魚魚棟',tomeDesc:'ギャルゲー用の読書レイヤーと翻訳オーバーレイ、原文隠し、自動ふりがな、クリック辞書、AI 解説・語義まとめ、Anki カード作成、読み上げ、ゲームフォント取り込み、多数の翻訳エンジン',license:'すべて GPL-3.0 で公開',bili:'bilibili',thanks:'スペシャルサンクス',rollLabel:'クレジット。ホバーで一時停止、ホイールでスクロール'}
+  zh:{date:'2026年10月26日',title:'MeguLit',credit:'Galgame 阅读与日语学习工具',version:'版本',tome:'MeguLit',tomeBy:'魚魚棟',tomeDesc:'Galgame 阅读层与覆盖翻译、原文隐藏、自动注音、点读查词、AI 讲解与义项归纳、Anki 制卡、语音朗读、游戏原版字体导入和多种翻译引擎',license:'均以 GPL-3.0 许可发布',bili:'bilibili',qqQR:'二维码',thanks:'特别鸣谢',rollLabel:'致谢名单，悬停暂停，滚轮翻看'},
+  en:{date:'Oct 26, 2026',title:'MeguLit',credit:'A visual novel reader and Japanese study tool',version:'Version',tome:'MeguLit',tomeBy:'魚魚棟',tomeDesc:'Reader overlay and translation for visual novels, original-text hiding, auto furigana, click lookups, AI explanations and sense summaries, Anki cards, text-to-speech, game font import and many translation engines',license:'All released under GPL-3.0',bili:'bilibili',qqQR:'QR code',thanks:'With thanks to',rollLabel:'Credits. Hover to pause, scroll to browse'},
+  ja:{date:'2026年10月26日',title:'MeguLit',credit:'ギャルゲー読書・日本語学習ツール',version:'バージョン',tome:'MeguLit',tomeBy:'魚魚棟',tomeDesc:'ギャルゲー用の読書レイヤーと翻訳オーバーレイ、原文隠し、自動ふりがな、クリック辞書、AI 解説・語義まとめ、Anki カード作成、読み上げ、ゲームフォント取り込み、多数の翻訳エンジン',license:'すべて GPL-3.0 で公開',bili:'bilibili',qqQR:'QR コード',thanks:'スペシャルサンクス',rollLabel:'クレジット。ホバーで一時停止、ホイールでスクロール'}
  };
  const open=url=>{try{const inv=window.__TAURI_INTERNALS__?.invoke;if(inv){inv('plugin:opener|open_url',{url}).catch(()=>navigator.clipboard?.writeText(url));return;}}catch{}try{navigator.clipboard.writeText(url);}catch{}};
  const style=document.createElement('style');style.textContent=`
@@ -51,6 +51,14 @@
  .tome-roll.static .tome-roll-item span{display:inline;margin:0}
  .tome-roll-label{text-align:center}
  .tome-roll-label:has(+.tome-roll.static){text-align:left}
+ .tome-qq{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-top:10px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--theme-text,#eee) 8%,transparent);font-size:12.5px}
+ .tome-qq[hidden]{display:none}
+ .tome-qq-label{color:var(--theme-textSecondary,#999)}
+ .tome-qq-no{font-size:13.5px;font-weight:600;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--theme-text,#eee)}
+ .tome-qq button{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--tome-picture-accent,var(--theme-primary,#e0495a))}
+ .tome-qq button:hover{text-decoration:underline}
+ .tome-qq button:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
+ .tome-qq-state{font-size:12px;color:var(--theme-textSecondary,#999)}.tome-qq-state:empty{display:none}
  .tome-credit-note{font-size:11px;color:var(--theme-textSecondary,#888);margin-top:2px}`;
  (document.head||document.documentElement).appendChild(style);
  function card(main,name,by,desc,links,note){const c=document.createElement('div');c.className='tome-credit'+(main?' main':'');const head=document.createElement('div');head.className='tome-credit-head';const b=document.createElement('b');b.textContent=name;const s=document.createElement('span');s.append('by ');const st=document.createElement('strong');st.textContent=by;s.append(st);head.append(b,s);const p=document.createElement('p');p.textContent=desc;const l=document.createElement('div');l.className='tome-credit-links';for(const [label,url] of links){const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.title=url;btn.onclick=()=>open(url);l.append(btn);}c.append(head,p);if(note){const n=document.createElement('small');n.className='tome-credit-based';n.textContent=note;c.append(n);}c.append(l);return c;}
@@ -100,10 +108,58 @@
    requestAnimationFrame(tick);};
   requestAnimationFrame(tick);
  }
+ /* QQ 交流群 in MeguLit's own entry (owner 2026-11-29: 在关于页的我那个介绍里面 加入个qq群群号复制和展示二维码功能 /
+    我说的是alt+t): the number with 复制, and 二维码 opening the home capsule's card (web/qq-group.js, web/qq-group.css). The
+    card leaves the panel for a fixed layer (.tome-qq-pop, a hit region like .mg-select-pop) so the panel's scrolling cannot
+    cut it, and is placed inside the game window: under the button, else above it, shrunk when the window is too small. */
+ let qqMod=null;
+ const qqLoad=()=>qqMod||(qqMod=import('/qq-group.js').then(m=>{if(!document.querySelector('link[data-tome-qq]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/qq-group.css';l.dataset.tomeQq='';document.head.append(l);}return m;}).catch(()=>{qqMod=null;return null;}));
+ const qqEsc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+ const qqApi=async(action,params)=>{const inv=window.__TAURI_INTERNALS__?.invoke;if(!inv)return {opened:false};return inv('service',{request:{action,...params}});};
+ function qqPlace(card,btn){const pop=card.parentElement,m=8,g=8,vw=innerWidth,vh=innerHeight;pop.style.transform='';
+  const w=card.offsetWidth,h=card.offsetHeight,k=Math.min(1,(vw-2*m)/w,(vh-2*m)/h),W=w*k,H=h*k,b=btn.getBoundingClientRect();
+  const clampX=x=>Math.max(m,Math.min(vw-m-W,x)),clampY=y=>Math.max(m,Math.min(vh-m-H,y));
+  /* under the button, else above it, else beside it (left, then right), else in the middle of the window */
+  let x=clampX(b.left+b.width/2-W/2),y;
+  if(b.bottom+g+H<=vh-m)y=b.bottom+g;else if(b.top-g-H>=m)y=b.top-g-H;
+  else if(b.left-g-W>=m){x=b.left-g-W;y=clampY(b.top+b.height/2-H/2);}else if(b.right+g+W<=vw-m){x=b.right+g;y=clampY(b.top+b.height/2-H/2);}
+  else{x=(vw-W)/2;y=(vh-H)/2;}
+  pop.style.left=Math.round(x)+'px';pop.style.top=Math.round(y)+'px';pop.style.transform=k<1?'scale('+k+')':'';}
+ function qqRow(t){
+  const lang=window.__tomeI18n?.get?.()||'zh',row=document.createElement('div');row.className='tome-qq';row.dataset.noI18n='';row.hidden=true;
+  /* the panel may be put on the page a little after it is built: wait for the row to be on the page (a few seconds at most) */
+  const attached=()=>new Promise(r=>{let n=0;const k=()=>{if(row.isConnected)r(true);else if(++n>300)r(false);else requestAnimationFrame(k);};k();});
+  qqLoad().then(async m=>{if(!m||!await attached())return;const w=m.qqWords(lang);
+   const label=document.createElement('span');label.className='tome-qq-label';label.textContent=w.label;
+   const no=document.createElement('span');no.className='tome-qq-no';no.textContent=m.QQ_GROUP;
+   const copy=document.createElement('button');copy.type='button';copy.dataset.tomeQqCopy='';copy.textContent=w.copy;copy.setAttribute('aria-label',w.copy+' '+m.QQ_GROUP);
+   const qr=document.createElement('button');qr.type='button';qr.dataset.tomeQqQr='';qr.textContent=t.qqQR;qr.setAttribute('aria-expanded','false');qr.setAttribute('aria-controls','tome-qq-card');
+   const state=document.createElement('span');state.className='tome-qq-state';state.setAttribute('aria-live','polite');
+   row.replaceChildren(label,no,copy,qr,state);row.hidden=false;
+   const pop=document.createElement('div');pop.className='tome-qq-pop';pop.innerHTML=m.qqCardHTML(lang,qqEsc,{id:'tome-qq-card',src:'/'+m.QQ_QR});document.body.append(pop);
+   const card=pop.firstElementChild,say=text=>{clearTimeout(say.t);state.textContent=text;say.t=setTimeout(()=>{state.textContent='';},1800);};
+   const write=text=>navigator.clipboard.writeText(text);
+   /* the card follows the button while open and closes with the menu (also while it fades out) or the tab; once the row is
+      gone (the panel is rebuilt) the card, its listeners and this check go too */
+   let ctl=null,fast=false;
+   const gone=()=>!row.isConnected,away=()=>!qr.getClientRects().length||!!qr.closest('[data-leaving]');
+   const end=()=>{clearInterval(tick);ctl?.stop();removeEventListener('keydown',esc,true);clearTimeout(say.t);pop.remove();};
+   const check=()=>{if(gone()){end();return;}if(card.hidden){if(fast){fast=false;clearInterval(tick);tick=setInterval(check,1000);}return;}
+    if(away()){ctl.show(false);return;}qqPlace(card,qr);};
+   let tick=setInterval(check,1000);
+   const place=(c,btn)=>{qqPlace(c,btn);if(!fast){fast=true;clearInterval(tick);tick=setInterval(check,100);}requestAnimationFrame(()=>{if(!c.hidden)c.querySelector('[data-qq-copy]')?.focus({preventScroll:true});});};
+   ctl=m.wireQQCard(row,{api:qqApi,locale:lang,toast:say,copy:write,trigger:'[data-tome-qq-qr]',hover:false,card,place});
+   /* as with the select lists (polish.js), Esc closes the card and not the whole menu: window capture runs before the menu's handler */
+   const esc=e=>{if(gone()){end();return;}if(e.key!=='Escape'||card.hidden)return;e.preventDefault();e.stopImmediatePropagation();ctl.show(false);qr.focus({preventScroll:true});};
+   addEventListener('keydown',esc,true);
+   copy.addEventListener('click',async()=>{try{await write(m.QQ_GROUP);say(w.copiedShort);}catch{say(w.manual);}});
+  });
+  return row;
+ }
  function credits(t){
   const lang=window.__tomeI18n?.get?.()||'zh';
   const box=document.createElement('div');box.className='tome-credits';box.dataset.noI18n='';
-  box.append(card(false,t.tome,t.tomeBy,t.tomeDesc,[['GitHub','https://github.com/ilynthn'],[t.bili,'https://space.bilibili.com/10739534']]));
+  const own=card(false,t.tome,t.tomeBy,t.tomeDesc,[['GitHub','https://github.com/ilynthn'],[t.bili,'https://space.bilibili.com/10739534']]);own.append(qqRow(t));box.append(own);
   const label=document.createElement('div');label.className='tome-roll-label';label.textContent=t.thanks;
   const roll=document.createElement('div');roll.className='tome-roll';roll.tabIndex=0;roll.setAttribute('role','region');roll.setAttribute('aria-label',t.rollLabel);
   const track=document.createElement('div');track.className='tome-roll-track';roll.append(track);

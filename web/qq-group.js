@@ -5,7 +5,8 @@
    「用电脑 QQ 加群」. That button opens the group's join page in the browser, which hands over to the desktop QQ (owner,
    2026-11-28: the new desktop QQ answers its own groupwpa protocol link with 「加群参数不合法」, so that route is gone); if the page
    cannot be opened the number is copied, with the toast 「群号已复制」. The number and link here, in the README and on the
-   website are the same (validation/qq-group.test.cjs). */
+   website are the same (validation/qq-group.test.cjs). 2026-11-29 the Alt+T 关于 page shows the same card from MeguLit's
+   own entry (owner: 在关于页的我那个介绍里面 加入个qq群群号复制和展示二维码功能 / 我说的是alt+t). */
 export const QQ_GROUP='1131267542';
 /* the group's join page, read from the QR card QQ made for the group; it opens QQ (or asks to install it) on any device */
 export const QQ_WEB='https://qm.qq.com/q/C95LXYb5Sg';
@@ -19,12 +20,18 @@ const W={
   numberTip:`グループ ${QQ_GROUP}`,title:'MeguLit の QQ グループ',scan:'スマホの QQ でスキャンして参加',number:'番号',copy:'コピー',copiedShort:'コピー済み',open:'PC の QQ で参加',qr:`QQ グループ ${QQ_GROUP} の QR コード`}
 };
 export const qqWords=locale=>W[locale]||W.zh;
+/* the card itself: the home capsule and the Alt+T 关于 page's 二维码 button show this same card. src: where the QR
+   picture is, relative to the page (the reader page lives one folder down). */
+export function qqCardHTML(locale,esc,{id='qq-card',src=QQ_QR}={}){
+ const t=qqWords(locale);
+ return `<div class="qq-card" id="${esc(id)}" role="dialog" aria-label="${esc(t.title)}" hidden><img class="qq-qr" src="${esc(src)}" width="176" height="176" alt="${esc(t.qr)}"><b class="qq-card-title">${esc(t.title)}</b><small>${esc(t.scan)}</small>`+
+  `<div class="qq-card-no"><span>${esc(t.number)}</span><code>${esc(QQ_GROUP)}</code><button type="button" data-qq-copy>${esc(t.copy)}</button></div>`+
+  `<button type="button" class="qq-card-open" data-qq-open>${esc(t.open)}</button></div>`;
+}
 export function qqPillHTML(locale,esc){
  const t=qqWords(locale);
  return `<div class="qq-anchor"><button type="button" class="qq-pill tv-cap" data-qq-join title="${esc(t.numberTip)}" aria-label="${esc(t.aria)}" aria-expanded="false" aria-controls="qq-card"><svg class="cap-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 5h13A1.5 1.5 0 0 1 20 6.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4.4 3.5V16H5.5A1.5 1.5 0 0 1 4 14.5v-8A1.5 1.5 0 0 1 5.5 5z"/><path d="M9 10.5h.01M12 10.5h.01M15 10.5h.01" stroke-width="2.2"/></svg><span class="cap-txt">${esc(t.label)}</span></button>`+
-  `<div class="qq-card" id="qq-card" role="dialog" aria-label="${esc(t.title)}" hidden><img class="qq-qr" src="${QQ_QR}" width="176" height="176" alt="${esc(t.qr)}"><b class="qq-card-title">${esc(t.title)}</b><small>${esc(t.scan)}</small>`+
-  `<div class="qq-card-no"><span>${esc(t.number)}</span><code>${esc(QQ_GROUP)}</code><button type="button" data-qq-copy>${esc(t.copy)}</button></div>`+
-  `<button type="button" class="qq-card-open" data-qq-open>${esc(t.open)}</button></div></div>`;
+  qqCardHTML(locale,esc)+`</div>`;
 }
 const clipboard=text=>navigator.clipboard.writeText(text);
 /* returns 'web' when the join page was opened, 'copied' when it could not be and the number was offered instead */
@@ -36,17 +43,18 @@ export async function joinQQGroup({api,locale,toast,copy=clipboard}){
  return 'copied';
 }
 /* the card: pointing at the pill opens it and leaving closes it shortly after, unless a click pinned it; Escape and a
-   click elsewhere close a pinned card */
-export function wireQQCard(anchor,{api,locale,toast,copy=clipboard,doc=anchor.ownerDocument}){
- const pill=anchor.querySelector('.qq-pill'),card=anchor.querySelector('.qq-card'),t=qqWords(locale);let pinned=false,timer=0;
- const show=on=>{clearTimeout(timer);if(card.hidden===!on)return;card.hidden=!on;pill.setAttribute('aria-expanded',String(on));if(on)requestAnimationFrame?.(()=>card.classList.add('qq-card-in'));else{card.classList.remove('qq-card-in');pinned=false;}};
- anchor.addEventListener('pointerenter',()=>show(true));
- anchor.addEventListener('pointerleave',()=>{if(!pinned){clearTimeout(timer);timer=setTimeout(()=>show(false),260);}});
+   click elsewhere close a pinned card. The Alt+T 关于 page passes its own trigger, hover:false (click only), the card
+   element it moved out of the panel (card) and place(card,trigger), which puts it inside the game window. */
+export function wireQQCard(anchor,{api,locale,toast,copy=clipboard,doc=anchor.ownerDocument,trigger='.qq-pill',hover=true,card=anchor.querySelector('.qq-card'),place=null}){
+ const pill=anchor.querySelector(trigger),t=qqWords(locale);let pinned=false,timer=0;
+ const show=on=>{clearTimeout(timer);if(card.hidden===!on)return;card.hidden=!on;pill.setAttribute('aria-expanded',String(on));if(on){place?.(card,pill);requestAnimationFrame?.(()=>card.classList.add('qq-card-in'));}else{card.classList.remove('qq-card-in');pinned=false;}};
+ if(hover){anchor.addEventListener('pointerenter',()=>show(true));
+  anchor.addEventListener('pointerleave',()=>{if(!pinned){clearTimeout(timer);timer=setTimeout(()=>show(false),260);}});}
  pill.addEventListener('click',()=>{if(card.hidden||!pinned){pinned=true;show(true);}else show(false);});
  const copyButton=card.querySelector('[data-qq-copy]');
  copyButton.addEventListener('click',async()=>{try{await copy(QQ_GROUP);copyButton.textContent=t.copiedShort;setTimeout(()=>{copyButton.textContent=t.copy;},1600);}catch{toast?.(t.manual);}});
  card.querySelector('[data-qq-open]').addEventListener('click',()=>joinQQGroup({api,locale,toast,copy}));
- const outside=e=>{if(pinned&&!anchor.contains(e.target))show(false);};
+ const outside=e=>{if(pinned&&!anchor.contains(e.target)&&!card.contains(e.target))show(false);};
  const key=e=>{if(e.key==='Escape'&&!card.hidden){show(false);pill.focus();}};
  doc.addEventListener('pointerdown',outside,true);doc.addEventListener('keydown',key);
  return {show,stop:()=>{doc.removeEventListener('pointerdown',outside,true);doc.removeEventListener('keydown',key);clearTimeout(timer);}};

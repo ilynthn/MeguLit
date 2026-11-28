@@ -64,7 +64,7 @@ const OPEN_ABOUT=`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));window
  window.__tomoyoChinese.toggleGalMenu();await w(1200);const d=document.querySelector('.tomoyo-cn-dialog[open]');const tab=d&&d.querySelector('.tomoyo-menu-tabs button[data-menu-key=about]');if(!tab)return 'no about tab';tab.click();
  for(let i=0;i<40&&!document.querySelector('.tomoyo-cn-dialog[open] .tome-roll-item');i++)await w(100);return 'ok';})()`;
 const STATE=`(()=>{const d=document.querySelector('.tomoyo-cn-dialog[open]'),roll=d&&d.querySelector('.tome-roll');const r=roll?roll.getBoundingClientRect():null;
- return {cards:[...d.querySelectorAll('.tome-credit')].map(c=>({name:c.querySelector('b')?.textContent,links:[...c.querySelectorAll('button')].map(b=>b.textContent)})),
+ return {cards:[...d.querySelectorAll('.tome-credit')].map(c=>({name:c.querySelector('b')?.textContent,links:[...c.querySelectorAll('.tome-credit-links button')].map(b=>b.textContent)})),
   names:[...d.querySelectorAll('.tome-roll-item b')].map(b=>b.textContent),heads:[...d.querySelectorAll('.tome-roll-head')].map(h=>h.textContent),
   rollButtons:roll?roll.querySelectorAll('button,a').length:-1,note:d.querySelector('.tome-credit-note')?.textContent||'',
   top:roll?roll.scrollTop:-1,max:roll?roll.scrollHeight-roll.clientHeight:-1,height:r?Math.round(r.height):0,static:!!roll&&roll.classList.contains('static'),

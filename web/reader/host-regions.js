@@ -4,11 +4,12 @@ export function hostRegionMessage(message,env=window){
  if(message.type!=='galHitRegions'||env.document.body?.classList.contains('tomoyo-ui-translation')||!message.menuOpen||message.regions?.length)return message;
  const scale=Number(env.devicePixelRatio)||1,regions=[];
  if(env.document.querySelector?.('.tome-menu-dragging,.tomoyo-menu-resizing'))return {...message,regions:[{x:0,y:0,width:Math.ceil(env.innerWidth*scale),height:Math.ceil(env.innerHeight*scale),menu:true}]};
- const panels=env.document.querySelectorAll('.tomoyo-cn-dialog[open],.tomoyo-cn-dialog[data-leaving],.tome-backlog[data-open],.tome-backlog[data-leaving],.mg-select-pop,.tome-color-panel,.tomoyo-selection-card,.tome-crop');
+ const panels=env.document.querySelectorAll('.tomoyo-cn-dialog[open],.tomoyo-cn-dialog[data-leaving],.tome-backlog[data-open],.tome-backlog[data-leaving],.mg-select-pop,.tome-qq-pop,.tome-color-panel,.tomoyo-selection-card,.tome-crop');
  for(const panel of panels){
   const style=env.getComputedStyle(panel);if(style.display==='none'||style.visibility==='hidden'||panel.closest('[hidden]')||!panel.getClientRects().length)continue;
   // As in the original interaction module, preserve untransformed fixed-panel bounds during animation.
-  const fixed=panel.offsetParent===null&&style.position==='fixed',r=fixed?{left:panel.offsetLeft,top:panel.offsetTop,right:panel.offsetLeft+panel.offsetWidth,bottom:panel.offsetTop+panel.offsetHeight}:panel.getBoundingClientRect();
+  // The QQ card layer (关于) is scaled down in a small window: its painted box is the region, transform included.
+  const fixed=panel.offsetParent===null&&style.position==='fixed'&&!panel.classList?.contains('tome-qq-pop'),r=fixed?{left:panel.offsetLeft,top:panel.offsetTop,right:panel.offsetLeft+panel.offsetWidth,bottom:panel.offsetTop+panel.offsetHeight}:panel.getBoundingClientRect();
   const x=Math.max(0,r.left),y=Math.max(0,r.top),right=Math.min(env.innerWidth,r.right),bottom=Math.min(env.innerHeight,r.bottom);
   if(right>x&&bottom>y)regions.push({x:Math.floor(x*scale),y:Math.floor(y*scale),width:Math.ceil((right-x)*scale),height:Math.ceil((bottom-y)*scale),menu:true});
  }
