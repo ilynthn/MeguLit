@@ -41,6 +41,9 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
+| 魚魚棟 · Claude | 1.4.26 设置「运行组件」中文残缺（注→汪、语缺顶）、简繁字体混排；disc-mount 补中文名和说明 | — | claude/runtime-list-cjk | 11-28 | 等 CI |
+| 魚魚棟 · Claude | 语音「已就绪」却读不出声音（1.4.26 群反馈）：引擎启动卡在连 huggingface.co，改离线启动；已就绪按引擎实际响应；读取失败写明原因和下一步 | — | fix/aivis-ready-voices | 11-28 | 在做 |
+| RRFZ · Claude | アオイトリ（青鸟）开场选流：只有两个假名的第一句没选流、先选到缺字的上下文 | — | rrfz/cmvs-startup-stream | 11-28 | 在做：等实测 |
 | 魚魚棟 · Claude | megulit-engine：Rust 直读引擎剧本（设计文档 + KiriKiri 原型） | — | claude/megulit-engine | 11-28 | 等 CI（PR #1365） |
 | 魚魚棟 · Claude | 批量骨架 seed 生成器：一批目录离线认引擎、算 key、写 skeleton seed，出可信度清单（基于 #1362） | — | claude/seed-skeleton-batch | 11-28 | 等 CI（PR #1366） |
 | 魚魚棟 · Claude | 台词按说话人上色：取游戏原色不再发灰（アイキス3 sexy アヤメ），颜色页新增「分角色」按作品改色 | — | feat/speaker-colors | 11-28 | 等合并（PR #1359，CI 全绿） |
@@ -54,6 +57,7 @@
 | 魚魚棟 · Claude | 点过按钮后按 Shift 等键冒出黄色焦点框：只在键盘导航时显示，焦点框统一重做 | — | fix/focus-ring | 11-27 | 在做 |
 | 魚魚棟 · Claude | 游戏内新手引导：前 5 次进游戏分步高亮胶囊、Alt+T 菜单、个性化文本、点读、校准，可跳过；顶栏「教程」和 Alt+T 可重看，教程页配图 | — | feat/onboarding-tour | 11-27 | 等 CI，待测试员实测（PR #1324） |
 | 魚魚棟 · Claude | 游戏库标题停在文件夹名（Ozmafia-ozmafia-joki）：改成显示作品名（seed/VNDB），用户改过的名字不覆盖，老数据迁移，原名留作别名 | — | fix/library-title-from-work | 11-27 | 等 CI，待测试员实测（PR #1326） |
+| 魚魚棟 · Claude | 作品和游戏社介绍加来源 Bangumi（Bangumi 优先 / 只用 Bangumi；自动在中文界面先取 Bangumi 的中文简介） | — | feat/bangumi-intro-source | 11-28 | 等 CI（PR #1405） |
 | 魚魚棟 · Claude | 启动画面只留进度条，结尾不再变圆出小脸，改成进度条变形成半透明 MeguLit logo | — | feat/splash-logo | 11-27 | CI 全绿，待测试员实测（PR #1319） |
 | 魚魚棟 · Claude | 启动画面 logo 发灰、卡顿：改实色、由暗到亮入场，绘制移到独立线程 | — | fix/splash-logo-solid | 11-28 | CI 全绿，待测试员实测（PR #1357） |
 | 魚魚棟 · Claude | 首页大卡牌按住往下压时，单击/双击提示框压在卡牌上：提示框挪到卡牌下方，按住、拖动、抽卡时不出现 | — | fix/home-card-press | 11-27 | 等 CI，待测试员实测（PR #1320） |
