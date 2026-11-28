@@ -116,6 +116,7 @@ case 'library_scan':{this.libraryScans??=new(require('./library-scan.cjs').Libra
    case 'runtime_cancel':return this.local().cancel();
    case 'speakers':await this.services().ensureSpeech(config.aivisUrl,config.aivisGpu);{const list=await this.speech().speakers(config);this.services().rememberSpeakers(list);return list;}
    case 'speakers_cached':return this.services().cachedSpeakers();
+   case 'speech_status':return this.services().status(config.aivisUrl);
    /* E450 a sentence read aloud anywhere in the app: the game's own voice (CV) when MeguLit knows it, else synthesis. */
    /* 2026-11-15 (user: a CV line of 沙耶の唄 played an AI voice) a saved line (id) plays the voice kept when it was saved, any
       text its voice from the line index (saved-line-voice.cjs); synthesis only when the game gave the line no voice */

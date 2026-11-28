@@ -424,6 +424,8 @@ dialog.zero-source-dialog .exe-bilingual-actions button{max-width:100%;height:au
 .guide-act{background:var(--accent);border-color:transparent;color:#fff;font-weight:600}
 .guide-act:hover{filter:brightness(1.12);background:var(--accent)}
 .guide-ready{color:var(--t-text-2,inherit);border-color:var(--t-line-2,currentColor);cursor:default}
+.guide-state{color:var(--t-text-2,inherit);border-color:var(--t-line-2,currentColor);cursor:default;white-space:normal}
+.guide-state[data-state="failed"]{color:var(--t-red,#c0392b);border-color:currentColor}
 .guide-chip:disabled{opacity:.6;cursor:progress}
 @media (prefers-reduced-motion:reduce){.guide-body,.guide-caret{transition:none}}
 
