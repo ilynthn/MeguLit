@@ -61,7 +61,8 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   landing.innerHTML='<div class="eyebrow">'+text.loading+'</div><h2>'+text.ankiReview+'</h2><p class="muted">'+text.ankiStartHint+'</p><div class="review-controls"><span class="spinner"></span></div>';
  }
  landing.classList.add('panel','review-card');
- let status=await api('anki_status');if(!isCurrent())return;
+ /* a status read that fails (service busy, AnkiConnect refused) still draws the deck view as 未连接 with its retry, never an empty tab */
+ let status=await api('anki_status').catch(error=>({connected:false,reason:String(error?.message||error||'')}));if(!isCurrent())return;
  const reason=error=>({ANKI_CARD_CHANGED:text.ankiChanged,ANKI_ANSWER_REQUIRED:text.ankiRequiresAnswer,ANKI_UNSUPPORTED:text.ankiUnsupported,ANKI_AUTH:text.ankiAuth,
   ANKI_PORT_TAKEN:({zh:'AnkiConnect 端口被其他程序占用，请关闭占用 8765 端口的程序后重启 Anki',ja:'AnkiConnect のポートが他のプログラムに使われています',en:'Another program is using the AnkiConnect port'})[document.documentElement.lang.slice(0,
   2)]||'AnkiConnect port is taken',ANKI_OFFLINE:text.ankiOfflineHint,ANKI_RATING_UNCERTAIN:text.ankiChanged,ANKI_ACTION_PENDING:text.ankiChanged,...ankiReasons[document.documentElement.lang.slice(0,2)]||ankiReasons.zh})[typeof error==='string'?error:error?.message]||

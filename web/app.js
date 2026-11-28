@@ -1209,7 +1209,9 @@ function dictionary(target){
    if(button.dataset.reviewSource==='anki')renderAnkiReview({target:content,api,text,esc,isCurrent,
    toast,cover:ankiCover,windowAction:ankiWindow}).catch(error=>toast(errorMessage(error)));else localReview(token,content,isCurrent);});
   const ankiTicket=++sourceTicket;
-  await renderAnkiReview({target:content,api,text,esc,isCurrent:()=>token===pageToken&&ankiTicket===sourceTicket&&!!target.querySelector('[data-review-source="anki"]')?.classList.contains('active')&&content.isConnected,
+  /* 1.4.26 P0 (复习 tab blank): this first render runs before learning() commits target into the page, so content is not
+     connected yet and must not be required to be; the page token and the source ticket already drop a stale render */
+  await renderAnkiReview({target:content,api,text,esc,isCurrent:()=>token===pageToken&&ankiTicket===sourceTicket&&!!target.querySelector('[data-review-source="anki"]')?.classList.contains('active'),
    toast,quiet:true,cover:ankiCover,windowAction:ankiWindow});
 }
 async function localReview(token,target,isCurrent=()=>token===pageToken&&target.isConnected){
