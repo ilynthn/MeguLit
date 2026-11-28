@@ -16,11 +16,12 @@ import {cardify} from './home-tv.js';
 /* #117 交流 tab */
 import {mountForum,forumWords,forumSubRow} from './forum-view.js';
 /* 2026-11-28 作品榜: Galgame / 轻小说 / 乙游 rankings from VNDB, Bangumi and AniList */
-import {CHART_BOARDS,chartWords,chartsHTML,sourceSwitch} from './charts-view.js';
-export const leaderboardLabel={zh:'排行榜',ja:'ランキング',en:'Leaderboard'};
+import {CHART_BOARDS,chartWords,chartsHTML,sourceSwitch,rankRow,workName} from './charts-view.js';
+/* 2026-11-28 (user: 排行榜可以改名成社区相关的名词了) shown as 广场; the route id and keys stay `leaderboard` */
+export const leaderboardLabel={zh:'广场',ja:'広場',en:'Plaza'};
 const W={
- zh:{title:'排行榜',week:'本周',month:'本月',all:'全部',characters:'阅读字数',seconds:'阅读时长',words:'新收录单词',reviews:'复习次数',kana:'假名练习',study:'学习',streak:'连续天数',games:'按游戏',
-  notReady:'联网服务还在准备中',notReadyText:'排行榜上线后会显示在这里。下面是只在本机计算的个人数据，不会上传',
+ zh:{title:'广场',week:'本周',month:'本月',all:'全部',characters:'阅读字数',seconds:'阅读时长',words:'新收录单词',reviews:'复习次数',kana:'假名练习',study:'学习',streak:'连续天数',games:'按游戏',
+  notReady:'联网服务还在准备中',notReadyText:'广场上线后，排行会显示在这里。下面是只在本机计算的个人数据，不会上传',
   mine:'我的数据',currentStreak:'当前连续',days:'天',unitChars:'字',unitWords:'个',unitReviews:'次',unitKana:'题',totalWords:'共收录单词',hours:'小时',minutes:'分钟',
   joinTitle:'参加排行榜',joinText:'参加后只会上传阅读字数、时长、收录单词数、复习次数、学习题数（假名、语法、Anki 和其他练习分项）与学习时长、连续天数的汇总，以及本周查词的词条和次数（不含原句和游戏进度），不读取硬件信息。参加要先用邮箱登录 MeguLit 账号，几台电脑会合并成一行；邮箱只用来登录，不会出现在榜上。随时可以在 设置 › 个人主页 退出，退出时会删除服务器上的记录',loginStep:'第 1 步：用邮箱登录',loginText:'输入邮箱，收到 6 位验证码后填进来就登录好了，不用设密码。已经在 设置 › 账号 登录过的话会直接跳到下一步',joinStep:'第 2 步：起个昵称',ACCOUNT_REQUIRED:'请先用邮箱登录',
   nickname:'昵称',nicknameHint:'2–16 个字',shareGames:'同时公开我读过的游戏（用于“按游戏”排行）',consent:'我同意上传上述汇总数据',join:'参加',
@@ -31,8 +32,8 @@ const W={
   hotPending:'本周热词会在周一 00:00（北京时间）揭晓',hotEmpty:'这一周还没有达到上榜门槛的词',hotEmptyOf:'这一周还没有足够的{cat}',hotRule:'至少 3 位读者查过才会上榜，只统计参加排行榜的读者',
   lookedUp:'{users} 人查过 · {n} 次',times:'{n} 次',aiGuess:'AI 推测',participants:'{n} 位读者参与',
   NAME_REQUIRED:'请填写昵称',NAME_LENGTH:'昵称需要 2–16 个字',NAME_INVALID:'昵称不能包含网址、引号或特殊字符',NAME_BLOCKED:'这个昵称不能使用，换一个吧',NAME_TAKEN:'这个昵称已经有人在用了，换一个吧',CONSENT_REQUIRED:'请先勾选同意',BIO_LENGTH:'签名最多 60 字',BIO_INVALID:'签名不能包含网址或特殊字符',BIO_BLOCKED:'签名里有不能使用的内容',NOT_JOINED:'请先参加排行榜',INVALID_FAVORITES:'最喜欢的游戏有误'},
- ja:{title:'ランキング',week:'今週',month:'今月',all:'全期間',characters:'読んだ文字数',seconds:'読書時間',words:'新しく登録した単語',reviews:'復習回数',kana:'かな練習',study:'学習',streak:'連続日数',games:'ゲーム別',
-  notReady:'オンラインサービスは準備中です',notReadyText:'公開後、ランキングはここに表示されます。下はこの PC だけで計算した個人の記録で、送信されません',
+ ja:{title:'広場',week:'今週',month:'今月',all:'全期間',characters:'読んだ文字数',seconds:'読書時間',words:'新しく登録した単語',reviews:'復習回数',kana:'かな練習',study:'学習',streak:'連続日数',games:'ゲーム別',
+  notReady:'オンラインサービスは準備中です',notReadyText:'広場の公開後、ランキングはここに表示されます。下はこの PC だけで計算した個人の記録で、送信されません',
   mine:'自分の記録',currentStreak:'現在の連続',days:'日',unitChars:'字',unitWords:'語',unitReviews:'回',unitKana:'問',totalWords:'登録単語の合計',hours:'時間',minutes:'分',
   joinTitle:'ランキングに参加',joinText:'参加すると、読んだ文字数・時間・登録単語数・復習回数・学習の問題数（かな・文法・Anki・その他の内訳）と学習時間・連続日数の合計と、今週調べた語とその回数（原文やゲームの進行状況は含みません）だけを送ります。ハードウェア情報は読みません。参加にはメールアドレスで MeguLit アカウントにログインする必要があり、複数の PC が 1 行にまとまります。メールアドレスはログインにのみ使い、ランキングには表示されません。設定 › プロフィール でいつでも退出でき、そのときサーバーの記録も削除します',loginStep:'ステップ 1：メールアドレスでログイン',loginText:'メールアドレスを入力し、届いた 6 桁の確認コードを入れるだけでログインできます。パスワードは不要です。設定 › アカウント でログイン済みなら次のステップから始まります',joinStep:'ステップ 2：ニックネームを決める',ACCOUNT_REQUIRED:'先にメールアドレスでログインしてください',
   nickname:'ニックネーム',nicknameHint:'2〜16 文字',shareGames:'読んだゲームも公開する（ゲーム別ランキング用）',consent:'上記の合計データの送信に同意します',join:'参加する',
@@ -43,8 +44,8 @@ const W={
   hotPending:'今週の注目語は月曜 0:00（UTC+8）に発表されます',hotEmpty:'この週は掲載基準に達した語がありません',hotEmptyOf:'この週は掲載基準に達した{cat}がありません',hotRule:'3 人以上が調べた語だけを掲載します。ランキング参加者のみ集計',
   lookedUp:'{users} 人が {n} 回調べました',times:'{n} 回',aiGuess:'AI の推測',participants:'{n} 人が参加',
   NAME_REQUIRED:'ニックネームを入力してください',NAME_LENGTH:'ニックネームは 2〜16 文字です',NAME_INVALID:'URL・引用符・特殊文字は使えません',NAME_BLOCKED:'このニックネームは使えません',NAME_TAKEN:'このニックネームはすでに使われています。別の名前にしてください',CONSENT_REQUIRED:'同意にチェックしてください',BIO_LENGTH:'ひとことは 60 文字までです',BIO_INVALID:'URL や特殊文字は使えません',BIO_BLOCKED:'使えない内容が含まれています',NOT_JOINED:'先にランキングに参加してください',INVALID_FAVORITES:'好きなゲームの指定が正しくありません'},
- en:{title:'Leaderboard',week:'This week',month:'This month',all:'All time',characters:'Characters read',seconds:'Reading time',words:'New words saved',reviews:'Reviews',kana:'Kana practice',study:'Study',streak:'Streak days',games:'By game',
-  notReady:'Online services are still being set up',notReadyText:'The leaderboard will appear here once it is live. Below are your own numbers, computed on this PC and not uploaded',
+ en:{title:'Plaza',week:'This week',month:'This month',all:'All time',characters:'Characters read',seconds:'Reading time',words:'New words saved',reviews:'Reviews',kana:'Kana practice',study:'Study',streak:'Streak days',games:'By game',
+  notReady:'Online services are still being set up',notReadyText:'Rankings in the Plaza will appear here once it is live. Below are your own numbers, computed on this PC and not uploaded',
   mine:'My numbers',currentStreak:'Current streak',days:'days',unitChars:'chars',unitWords:'words',unitReviews:'reviews',unitKana:'questions',totalWords:'Words saved in all',hours:'h',minutes:'min',
   joinTitle:'Join the leaderboard',joinText:'Only totals are uploaded: characters read, reading time, words saved, reviews, study questions answered (kana, grammar, Anki and other practice, each counted) with study time, streak days, and this week\'s looked-up words with their counts (no sentences, no game progress, no hardware ids). Joining needs a MeguLit account signed in with your email, so your PCs share one row; the email is only used to sign in and never shows on the board. Leave any time in Settings › Profile, which also deletes your entry on the server',loginStep:'Step 1: sign in with your email',loginText:'Enter your email, then type the 6-digit code we send you. No password. If you already signed in under Settings › Account, you start at step 2',joinStep:'Step 2: pick a nickname',ACCOUNT_REQUIRED:'Sign in with your email first',
   nickname:'Nickname',nicknameHint:'2–16 characters',shareGames:'Also show the games I read (for the per-game boards)',consent:'I agree to upload these totals',join:'Join',
@@ -137,12 +138,20 @@ export function boardHTML(data,w,locale,esc){
  w={...words(locale),...w};
  const board=data.board||{},images=data.avatars||{};
  if(board.state==='error')return `<div class="leaderboard-offline"${isRateLimited(board)?` data-rate-wait="${retrySeconds(board)}"`:''}><p>${busyText(board,locale)||w.offline}</p><button type="button" class="secondary" data-lb-retry>${w.retry}</button></div>`;
- if(view.metric==='games'&&!view.game){const games=board.games||[];if(!games.length)return `<p class="lb-empty">${w.empty}</p>`;
-  return `<ol class="leaderboard-list leaderboard-games lb-rows">${games.map(g=>`<li><button type="button" data-lb-game="${esc(g.title)}"><span class="leaderboard-name">${esc(g.title)}</span><small>${esc(fill(w.readers,{n:g.readers}))}${g.top?` · ${w.top} ${esc(g.top.name)}`:''}</small></button></li>`).join('')}</ol>`;}
+ if(view.metric==='games'&&!view.game){const games=board.games||[];if(!games.length)return `<p class="lb-empty">${w.empty}</p>`;return gamesHTML(games,w,locale,esc,images);}
  const metric=view.metric==='games'?'characters':view.metric,entries=board.entries||[];
  if(!entries.length)return (view.game?`<button type="button" class="leaderboard-back" data-lb-back>‹ ${w.back}</button>`:'')+`<p class="lb-empty">${w.empty}</p>`;
  const top=entries.slice(0,3),rest=entries.slice(3);
  return (view.game?`<button type="button" class="leaderboard-back" data-lb-back>‹ ${w.back}</button><h3 class="leaderboard-game-title">${esc(view.game)}</h3>`:'')+circleHTML(entries,metric,w,locale,esc,images,board);
+}
+/* 2026-11-28 (user: 按游戏也要同步一下排版 不要纯文字 给游戏排名就行了) the same ranked rows as the 作品榜: rank, cover,
+   原名（中文名）, readers, and the top reader's picture and name. A game in the library opens its detail page; any other
+   opens its readers' board. */
+export function gamesHTML(games,w,locale,esc,images={}){
+ const cw=chartWords(locale);
+ return `<ol class="leaderboard-list lb-rows lb-charts lb-games" role="list">${games.map((g,i)=>{const name=workName(g),readers=esc(fill(w.readers,{n:nf(locale).format(g.readers||0)}));
+  const top=g.top?`<span class="lb-game-top">${avatarHTML(g.top,images,esc)}<span><small>${w.top}</small>${esc(g.top.name)}</span></span>`:'';
+  return rankRow({rank:i+1,cover:g.cover,title:g.title,name,owned:!!g.gameId,hint:g.gameId?cw.inLibrary:'',attrs:g.gameId?`data-lb-game-id="${esc(g.gameId)}"`:`data-lb-game="${esc(g.title)}"`,sub:readers+(g.gameId?' · '+esc(cw.inLibrary):''),value:top,side:''},esc);}).join('')}</ol>`;
 }
 /* ---- 每周热词 ------------------------------------------------------------------------------------------------- */
 /* Pure split used by the page and the tests: podium 1–3, cards 4–10, list 11–50. */
@@ -216,7 +225,9 @@ export function leaderboardHTML(data,locale,esc){
    the page blinked). The cache now outlives the page, so coming back paints at once; after a paint the other tabs, the
    other metrics and the other periods are fetched quietly one by one; a repaint keeps the top row and, when it did not
    change, the sub row in place and crossfades only the body. */
-const viewCache=new Map(),inflight=new Map(),FRESH_MS=60000;
+/* 2026-11-28 (user: 切时长/字数/次数一直跳「请求太频繁」) views stay fresh 3 minutes; the service also keeps every metric of a
+   period from one relay request, so switching tabs asks the relay nothing */
+const viewCache=new Map(),inflight=new Map(),FRESH_MS=180000;
 export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>true,openSettings=()=>{},lookup=null,openGame=null}){
  const w=leaderboardWords(locale);
  let last=null;
@@ -256,7 +267,10 @@ export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>
   bodyNew.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:240,delay:60,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
   return true;
  };
- const paint=data=>{last=data;const y=main.scrollTop,html=leaderboardHTML(data,locale,esc);
+ let quiet=0;
+ const paint=data=>{last=data;
+  /* a stale board (the relay refused or failed; the last answer is shown) is fetched again quietly, once */
+  clearTimeout(quiet);if(data?.board?.stale&&data.board.retry>0){const k=keyOf();quiet=setTimeout(()=>{if(isCurrent()&&keyOf()===k){viewCache.delete(k);render();}},data.board.retry*1000);}const y=main.scrollTop,html=leaderboardHTML(data,locale,esc);
   if(!soft(html))main.innerHTML=html;
   main.dataset.lbTab=view.tab;main.classList.toggle('lb-instant',painted);painted=true;main.scrollTop=y;bind();main.querySelectorAll('.lb-cover.tv-holo').forEach(cardify);};
  /* quiet prefetch, two requests at a time: the other tabs first, then the other metrics, then the other periods */

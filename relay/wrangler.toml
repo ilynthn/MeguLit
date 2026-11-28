@@ -85,7 +85,9 @@ simple = { limit = 120, period = 60 }
 name = "RL_LB_GET"
 type = "ratelimit"
 namespace_id = "1002"
-simple = { limit = 60, period = 60 }
+# 2026-11-28 120 (was 60): readers behind one shared IP (campus / CGNAT) switching tabs were refused; the app now
+# asks once per period through /api/leaderboard/boards and caches, so this only stops real abuse
+simple = { limit = 120, period = 60 }
 
 [[unsafe.bindings]]
 name = "RL_AVATAR_GET"

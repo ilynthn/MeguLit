@@ -26,10 +26,16 @@ export function workName(x){const t=String(x?.title||''),z=String(x?.zh||'');ret
 export function sourceSwitch(board,current,esc){const list=CHART_SOURCES[board]||[];return `<div class="lb-seg" role="group" data-lb-group="source">${list.map(id=>`<button type="button" data-lb-source="${id}" aria-pressed="${id===current}">${esc(SOURCE_LINKS[id].name)}</button>`).join('')}</div>`;}
 /* the credit line, its source a link that opens in the browser through the app */
 export function creditHTML(source,locale,esc){const w=chartWords(locale),s=SOURCE_LINKS[source]||SOURCE_LINKS.vndb;const parts=w.credit.split('{src}');return `<p class="lb-charts-credit" data-lb-credit="${esc(source)}">${esc(parts[0])}<button type="button" class="lb-charts-link" data-lb-open="${esc(s.url)}">${esc(s.name)}</button>${esc(parts[1]||'')}</p>`;}
+/* one ranked work as a row: rank, cover, 原名（中文名） with a small line under it, a value and a side note. Shared by the
+   作品榜 and 阅读榜 · 按游戏; ranks 1–3 carry the podium's gold / silver / bronze. `attrs` is the button's data-* (escaped). */
+export function rankRow({rank,cover,title,name,sub,value,side,attrs,owned,hint},esc){
+ const img=cover&&/^data:image\/(png|jpeg|webp|gif);base64,/.test(cover)?`<img src="${esc(cover)}" alt="" loading="lazy" decoding="async">`:`<span class="lb-chart-blank" aria-hidden="true">${esc([...String(title||'?')][0]||'?')}</span>`;
+ const cls=[owned?'is-owned':'',rank<=3?'is-top is-top-'+rank:''].filter(Boolean).join(' ');
+ return `<li${cls?` class="${cls}"`:''}><button type="button" class="lb-chart-row" ${attrs} title="${esc(name+(hint?' · '+hint:''))}"><span class="leaderboard-rank">${rank}</span><span class="lb-chart-cover">${img}</span><span class="lb-chart-name"><span class="lb-chart-title" lang="ja">${esc(name)}</span><small>${sub}</small></span><strong class="lb-chart-score">${value}</strong><span class="lb-chart-votes">${side}</span></button></li>`;
+}
 function row(x,source,w,locale,esc){
  const name=workName(x),src=SOURCE_LINKS[source]?.name||'',hint=x.gameId?w.inLibrary:fill(w.openSource,{src});
- const cover=x.cover&&/^data:image\/(png|jpeg|webp|gif);base64,/.test(x.cover)?`<img src="${esc(x.cover)}" alt="" loading="lazy" decoding="async">`:`<span class="lb-chart-blank" aria-hidden="true">${esc([...String(x.title||'?')][0]||'?')}</span>`;
- return `<li${x.gameId?' class="is-owned"':''}><button type="button" class="lb-chart-row" ${x.gameId?`data-lb-game-id="${esc(x.gameId)}"`:`data-lb-open="${esc(x.url)}"`} title="${esc(name+' · '+hint)}"><span class="leaderboard-rank">${x.rank}</span><span class="lb-chart-cover">${cover}</span><span class="lb-chart-name"><span class="lb-chart-title" lang="ja">${esc(name)}</span><small>${x.year?esc(String(x.year))+' · ':''}${esc(hint)}</small></span><strong class="lb-chart-score">${esc(Number(x.score||0).toFixed(source==='vndb'?2:1))}</strong><span class="lb-chart-votes">${esc(fill(w.votes,{n:nf(locale).format(x.votes||0)}))}</span></button></li>`;
+ return rankRow({rank:x.rank,cover:x.cover,title:x.title,name,hint,owned:!!x.gameId,attrs:x.gameId?`data-lb-game-id="${esc(x.gameId)}"`:`data-lb-open="${esc(x.url)}"`,sub:`${x.year?esc(String(x.year))+' · ':''}${esc(hint)}`,value:esc(Number(x.score||0).toFixed(source==='vndb'?2:1)),side:esc(fill(w.votes,{n:nf(locale).format(x.votes||0)}))},esc);
 }
 /* the body of one chart tab: card with heading and status, the list, then the credit line */
 export function chartsHTML(data,locale,esc){

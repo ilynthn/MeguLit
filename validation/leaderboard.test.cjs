@@ -80,7 +80,8 @@ test('opt-in needs consent and a clean nickname; only totals are uploaded; games
  assert.deepEqual(Object.keys(post.body).sort(),['hot','id','keys','level','name','stats','version']);assert.equal(typeof post.body.level,'number');assert.deepEqual(post.body.hot,{week:'2026-W46',terms:[]},'no lookups recorded');
  assert.deepEqual(post.body.stats.week,{characters:1510,seconds:910,words:1,streak:2,reviews:0,kana:0,grammar:0,anki:0,practice:0,studySeconds:0});
  assert.equal(post.body.name,'めぐみん');assert.ok(!JSON.stringify(post.body).includes(os.hostname()),'no machine names');
- const get=sent.find(r=>r.method==='GET');assert.match(get.url,/period=week&metric=characters&key=2026-W46&me=[0-9a-f]{64}$/);
+ /* 2026-11-28 every metric of the week in one request; a relay without /api/leaderboard/boards gets the single-board request */
+ const gets=sent.filter(r=>r.method==='GET').map(r=>r.url);assert.match(gets[0],/\/api\/leaderboard\/boards\?period=week&key=2026-W46&me=[0-9a-f]{64}$/);assert.ok(gets.some(u=>/\/api\/leaderboard\?period=week&metric=characters&key=2026-W46&me=[0-9a-f]{64}$/.test(u)));
  /* within 10 minutes the page does not post again */
  await lb.view(root,db,{},{env:BASE_ENV,fetch,now:new Date(NOW.getTime()+60000)});assert.equal(sent.filter(r=>r.method==='POST').length,1);
  lb.join(root,{name:'めぐみん',consent:true,shareGames:true});
@@ -129,7 +130,7 @@ test('top tab 排行榜 sits between 学习 and 工具 and the page renders the 
  const app=fs.readFileSync(path.join(__dirname,'..','web','app.js'),'utf8');
  assert.ok(app.includes("['home','library','novel','history','learning'].map(tabButton)"));assert.ok(app.includes("['leaderboard','daily','torch'].map(tabButton)"));assert.ok(app.includes("['tools','settings','about'].map("));assert.ok(app.includes('data-top-me'));
  const view=await import(pathToFileURL(path.join(__dirname,'..','web','leaderboard-view.js')).href);
- assert.deepEqual(view.leaderboardLabel,{zh:'排行榜',ja:'ランキング',en:'Leaderboard'});
+ assert.deepEqual(view.leaderboardLabel,{zh:'广场',ja:'広場',en:'Plaza'});
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
  const local={stats:{week:{characters:1510,seconds:910,words:1,streak:2}},currentStreak:4};
  const zh=view.leaderboardHTML({configured:false,local,board:{state:'not-configured'}},'zh',esc);
@@ -343,5 +344,5 @@ test('E420 the board head: most-read work with cover for time / characters, a lo
  const word=html('words',{word:{term:'憧憬',users:4}});
  assert.match(word,/data-lb-lookup="憧憬"/);assert.doesNotMatch(word,/lb-sigil/);
  assert.match(html('reviews',{}),/lb-sigil/);
- const worker=fs.readFileSync(path.join(__dirname,'..','relay','src','worker.js'),'utf8');assert.match(worker,/return json\(\{entries,total,me:mine,feature\}\)/);
+ const worker=fs.readFileSync(path.join(__dirname,'..','relay','src','worker.js'),'utf8');assert.match(worker,/return \{entries,total,me:mine,feature\};/);assert.match(worker,/return json\(await boardData\(q,env\)\)/);
 });

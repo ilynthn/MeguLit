@@ -63,6 +63,20 @@ function matchLibrary(items,db,board){
  for(const x of items){const id=(x.vndb&&byVndb.get(x.vndb))||byTitle.get(norm(x.title))||(x.zh&&byTitle.get(norm(x.zh)))||'';if(id)x.gameId=id;}
  return items;
 }
+/* 2026-11-28 按游戏 cards: what the app knows about a title without asking anyone — the library game (detail page and
+   its cover) and, from the saved 作品榜 lists, the Chinese name and the cover already downloaded through the relay */
+function readLocalImage(root,ref){try{const raw=fs.readFileSync(path.join(imgDir(root),String(ref).slice(16)));const cut=raw.indexOf(10);return cut>0?'data:'+raw.subarray(0,cut).toString()+';base64,'+raw.subarray(cut+1).toString('base64'):'';}catch{return '';}}
+function titleInfo(root,db,titles){
+ const known=new Map();
+ for(const [board,list] of Object.entries(BOARDS))for(const source of list)for(const x of readCache(root,board,source)?.items||[]){const k=norm(x.title);if(k&&!known.has(k))known.set(k,x);if(x.zh&&!known.has(norm(x.zh)))known.set(norm(x.zh),x);}
+ const {byVndb,byTitle}=libraryIndex(db);let covers=new Map();
+ try{covers=new Map(db.prepare("SELECT id,cover FROM games WHERE removed_at IS NULL AND cover!=''").all().map(r=>[r.id,r.cover]));}catch{}
+ return titles.map(title=>{const k=norm(title),chart=known.get(k)||null,gameId=byTitle.get(k)||(chart?.vndb&&byVndb.get(chart.vndb))||(chart&&byTitle.get(norm(chart.title)))||'';
+  let cover='';if(gameId&&covers.get(gameId))try{cover=require('./store.cjs').imageData(root,'covers',covers.get(gameId))||'';}catch{}
+  if(!cover&&chart?.cover)cover=readLocalImage(root,chart.cover);
+  const zh=chart&&chart.zh&&norm(chart.zh)!==k?chart.zh:'';
+  return {gameId,zh,cover};});
+}
 /* ---- the page -------------------------------------------------------------------------------------------------- */
 async function view(root,db,request={},options={}){
  const {board,source}=pick(String(request.board||''),String(request.source||''));
@@ -79,4 +93,4 @@ async function view(root,db,request={},options={}){
 }
 /* rows link only to their own source site */
 function canOpen(url){try{const u=new URL(String(url||''));return u.protocol==='https:'&&Object.values(HOSTS).includes(u.hostname);}catch{return false;}}
-module.exports={BOARDS,SOURCES,HOSTS,view,clean,canOpen,matchLibrary,readCache,cacheFile};
+module.exports={titleInfo,BOARDS,SOURCES,HOSTS,view,clean,canOpen,matchLibrary,readCache,cacheFile};
