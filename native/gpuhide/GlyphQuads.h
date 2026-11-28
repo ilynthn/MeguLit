@@ -13,7 +13,8 @@
 //  - a row cluster whose count equals n learns the text area (its bounding box, grown by one glyph height) and the
 //    atlas sizes that drew there. Learning hides nothing.
 //  - after that, while armed (a LINE in the last 60 s, no OFF), glyph-like quads from the learned atlases whose centre
-//    lies in the text area are left out. The first one per line is a "hit".
+//    lies in the text area are left out. The first hidden draw per line is a "hit". The CMVS startup strategy
+//    verifies and masks the cells of a traced body row before publishing the first hit and placement.
 #pragma once
 #include <string>
 #include <vector>
@@ -23,6 +24,7 @@
 #include <functional>
 #include <utility>
 #include <cmath>
+#include "CmvsBodyStrategy.h"
 #include <stdio.h>
 
 struct Quad { float x0, y0, x1, y1, u0, v0, u1, v1; unsigned first; unsigned col = 0xffffffffu; bool hasCol = false; unsigned glyph = 0; }; // col: vertex colour 0xAARRGGBB of the quad's first vertex
@@ -47,13 +49,19 @@ struct NativeGroupOrder {
 template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
  explicit OrderedGlyphLearner(GroupOrder order = {}) : GroupOrder(std::move(order)) {}
  struct Rect { float x0, y0, x1, y1; bool traced = false; };
- struct Seen { Rect r; unsigned firstAt, lastFrame, glyph, tracedAt; };
- struct Group { void *rt, *tex; unsigned tw, th, rtW, rtH; std::map<long long, Seen> keys; std::vector<Rect> frame, prev; unsigned prevFrame; bool bodyGrid = false; };
+ struct Seen { Rect r; unsigned firstAt, lastFrame, glyph, tracedAt; bool fixedCell = false; };
+ struct Group { void *rt, *tex; unsigned tw, th, rtW, rtH; std::map<long long, Seen> keys; std::vector<Rect> frame, prev; unsigned prevFrame; CmvsBodyAtlas<Rect> cmvs; };
  std::function<void(const std::string &)> emit; void (*log)(const char *, ...) = nullptr;
  bool readOnly = false;
  bool bodyRecheck = false;
- static const unsigned BodyHookGraceMs = 250;
- unsigned bodyReportAt = 0;
+ using BodyStrategy = CmvsBodyStrategy<OrderedGlyphLearner>;
+ BodyStrategy cmvs;
+
+ typename BodyStrategy::Frame CmvsFrame() const {
+  return {bodyRecheck && !readOnly, learned, areaTraced, hitSent, hiddenSent, reported,
+          frameNo, bbW, bbH, seq, n, lineAt, prevLineAt, cmvs.bodyReportAt,
+          areaRt, areaW, areaH, glyphH, area, blankAt, lastRects, earlierRects};
+ }
  // line
  std::vector<bool> blankAt; unsigned nb = 0; // the line with its interior blanks (engines that draw a blank glyph for a space)
  /* 2026-11-20 (CHAOS;CHILD: a page keeps its earlier lines while the next one types out): the places the earlier lines of the page
@@ -70,6 +78,7 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
 
  // one group per (render target, texture): two atlases of the same size (glyph sheet and UI sheet) never mix
  long long GroupKey(void *rt, void *tex) const { return GroupOrder::operator()(rt, tex); }
+ bool LearnedAtlas(void *tex) const { return atlases.count(GroupKey(nullptr, tex)) > 0; }
  // a glyph sheet made for one line is sized to that line (e.g. 76 x 88), unlike UI / font atlases (powers of two)
  static bool LineSized(unsigned w, unsigned h) { auto p2 = [](unsigned v) { return v && !(v & (v - 1)); }; return !(p2(w) && p2(h)) && w * h <= 1024u * 256u; }
  bool Armed(unsigned now) const { return n > 0 && (int)(armedUntil - now) > 0; }
@@ -295,6 +304,7 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
  std::vector<int> Draw(void *tex, unsigned tw, unsigned th, void *rt, unsigned rtW, unsigned rtH, unsigned backW, unsigned backH, const std::vector<Quad> &q, unsigned now) {
   std::vector<int> drop; bbW = backW; bbH = backH;
   long long gk = GroupKey(rt, tex); Group *g = nullptr; bool armed = Armed(now);
+  bool startupDrop = false;
   // a texture first used for this line (per-line glyph sheets); UI sheets in use before the line never count as sheets
   bool freshTex = false; { auto ft = texFirst.find(tex); if (ft == texFirst.end()) { if (texFirst.size() > 8192) texFirst.clear(); texFirst[tex] = now; ft = texFirst.find(tex); } freshTex = (int)(ft->second - (lineAt - 3000)) >= 0; }
   for (size_t i = 0; i < q.size(); i++) {
@@ -305,32 +315,54 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
    if (g->prevFrame != frameNo) { g->prev.swap(g->frame); g->frame.clear(); g->prevFrame = frameNo; }
    if (g->frame.size() < 4096) g->frame.push_back(r);
    long long k = ((long long)(int)(x.x0 * 0.5f) << 44) ^ ((long long)(int)(x.y0 * 0.5f) << 30) ^ ((long long)(int)(x.u0 * 4096) << 15) ^ (long long)(int)(x.v0 * 4096);
+   const bool cmvsAtlas = BodyStrategy::UsesBodyAtlas(bodyRecheck, *g);
+   const bool startup = cmvsAtlas && armed && !texRt && BodyStrategy::StartupAtlas(*g, seq, frameNo, backW, backH);
+   const bool fixedCell = cmvsAtlas && !texRt && (!learned || startup) && BodyStrategy::FixedCell(x, k);
    auto it = g->keys.find(k);
    if (it == g->keys.end()) {
     if (g->keys.size() > 20000) g->keys.clear();
-    g->keys[k] = Seen{ r, now, frameNo, x.glyph, now };
+    g->keys[k] = Seen{ r, now, frameNo, x.glyph, now, fixedCell };
    } else {
     Seen &seen = it->second;
     seen.lastFrame = frameNo;
-    if (bodyRecheck && !readOnly && !rt && tw == 1024 && th == 2048) seen.r = r;
+    if (cmvsAtlas && !readOnly) seen.r = r;
     else seen.r.traced = r.traced;
+    seen.fixedCell = fixedCell;
     // A texture cell can be rewritten at the same UV, on the same screen position.
     if (x.glyph && x.glyph != seen.glyph) { seen.glyph = x.glyph; seen.tracedAt = now; }
    }
    // learned atlas on the learned target; or, for engines that build a small glyph sheet per line (a new texture every
    // line), any glyph quad of the learned glyph height on a target of the learned size (effect buffers drawn twice)
-   bool sameAtlas = rtW == areaW && rtH == areaH && atlases.count(GroupKey(nullptr, tex)), sheet = freshTex && LineSized(tw, th) && rtW == areaW && rtH == areaH && std::fabs((x.y1 - x.y0) - glyphH) <= glyphH * 0.25f;
+   bool sameAtlas = rtW == areaW && rtH == areaH && LearnedAtlas(tex), sheet = freshTex && LineSized(tw, th) && rtW == areaW && rtH == areaH && std::fabs((x.y1 - x.y0) - glyphH) <= glyphH * 0.25f;
    // glyph height only: a wait cursor or icon drawn from the same sheet inside the area stays
    bool glyphSize = BodyHeight(r);
    if (!glyphSize && RubySized(x.y1 - x.y0) && RubyOver(Rect{ x.x0, x.y0, x.x1, x.y1 })) glyphSize = true; /* the line's ruby goes with it */
    bool redraw = (int)(redrawUntil - now) > 0 && rtW == areaW && rtH == areaH;
-   if (learned && armed && !readOnly && glyphSize && (sameAtlas || sheet || redraw)) {
-    float cx = (x.x0 + x.x1) / 2, cy = (x.y0 + x.y1) / 2;
-    if (cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1) { drop.push_back((int)i); if (sameAtlas && rt == areaRt && r.traced) areaTraced = true; hiddenQuads++; if (log && hiddenQuads < 60) log("drop %s tex=%p %ux%u [%.0f,%.0f %.0fx%.0f uv %.3f,%.3f %.3fx%.3f]", sameAtlas ? "atlas" : sheet ? "sheet" : "redraw", tex, tw, th, x.x0, x.y0, x.x1 - x.x0, x.y1 - x.y0, x.u0, x.v0, x.u1 - x.u0, x.v1 - x.v0); }
+   const float cx = (x.x0 + x.x1) / 2, cy = (x.y0 + x.y1) / 2;
+   const bool hide = startup ? BodyStrategy::MaskStartup(*g, frameNo, k, r, fixedCell, !readOnly) :
+    learned && armed && !readOnly && glyphSize && (sameAtlas || sheet || redraw) &&
+    cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1;
+   if (hide) {
+    drop.push_back((int)i);
+    startupDrop = startupDrop || startup;
+    if (sameAtlas && rt == areaRt && r.traced) areaTraced = true;
+    hiddenQuads++;
+    if (log && hiddenQuads < 60) log("drop %s tex=%p %ux%u [%.0f,%.0f %.0fx%.0f uv %.3f,%.3f %.3fx%.3f]",
+     startup ? "cmvs" : sameAtlas ? "atlas" : sheet ? "sheet" : "redraw",
+     tex, tw, th, x.x0, x.y0, x.x1 - x.x0, x.y1 - x.y0, x.u0, x.v0, x.u1 - x.u0, x.v1 - x.v0);
    }
   }
-  if (!drop.empty() && !hitSent) { hitSent = true; char b[128]; snprintf(b, sizeof b, "ToMe_GPUHIDE hit seq=%u quads=%u chars=%u", seq, (unsigned)drop.size(), n); if (emit) emit(b); }
+  if (!drop.empty() && !startupDrop) Hit(drop.size());
   return drop;
+ }
+
+ void Hit(size_t count) {
+  if (hitSent) return;
+  hitSent = true;
+  if (!emit) return;
+  char b[128];
+  snprintf(b, sizeof b, "ToMe_GPUHIDE hit seq=%u quads=%u chars=%u", seq, (unsigned)count, n);
+  emit(b);
  }
 
  // Merge offset copies (shadow / outline) and sort in reading order.
@@ -379,210 +411,30 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
   return std::fabs(a.x0 - b.x0) < 0.4f * w && std::fabs(a.y0 - b.y0) < 0.4f * h;
  }
  // Use the earlier glyph's height so a smaller late shadow or outline still counts as its copy.
- bool Earlier(const Rect &r) const {
+ static bool Earlier(const Rect &r, const std::vector<Rect> &earlierRects) {
   for (const auto &e : earlierRects) {
    const float w = (std::min)(e.x1 - e.x0, r.x1 - r.x0), h = e.y1 - e.y0;
    if (std::fabs(e.x0 - r.x0) < 0.4f * w && std::fabs(e.y0 - r.y0) < 0.4f * h) return true;
   }
   return false;
  }
+ bool Earlier(const Rect &r) const { return Earlier(r, earlierRects); }
  /* a glyph of an earlier line of the page (the same glyph on the same place) is never the new line's */
  bool EarlierGlyph(long long gk, long long k) const { return earlierKeys.count({ gk, k }) > 0; }
- bool BodyHeight(const Rect &r) const { return std::fabs((r.y1 - r.y0) - glyphH) <= glyphH * 0.2f; }
- bool BodyInBand(const Rect &r) const {
+ static bool BodyHeight(const Rect &r, float height) { return std::fabs((r.y1 - r.y0) - height) <= height * 0.2f; }
+ bool BodyHeight(const Rect &r) const { return BodyHeight(r, glyphH); }
+ static bool BodyInBand(const Rect &r, const Rect &area, float height) {
   const float cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
-  return cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1 && BodyHeight(r);
+  return cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1 && BodyHeight(r, height);
  }
- // Draw packs the quantized atlas origin into the low 30 bits of the key.
- static int BodyAtlasCell(long long key) {
-  const unsigned long long uv = key;
-  const unsigned u = (uv >> 15) & 0x7fff, v = uv & 0x7fff;
-  constexpr unsigned columns = 14, uStep = 72 * 4096 / 1024, vStep = 72 * 4096 / 2048;
-  if (u % uStep || v % vStep || u / uStep >= columns) return -1;
-  return (v / vStep) * columns + u / uStep;
- }
- // This CMVS atlas packs the line in order in a 72-pixel grid, after the spacer at cell zero.
- bool BodyAtlasRun(const Group &g, const std::vector<Rect> &body) const {
-  if (g.tw != 1024 || g.th != 2048 || (learned && !atlases.count(GroupKey(nullptr, g.tex)))) return false;
-  std::vector<bool> matched(body.size());
-  size_t count = 0;
-  for (const auto &key : g.keys) {
-   const auto &seen = key.second;
-   if (seen.lastFrame != frameNo - 1) continue;
-   if (!learned && ((int)(seen.firstAt - (lineAt - BodyHookGraceMs)) < 0 ||
-       (prevLineAt && (int)(seen.firstAt - prevLineAt) <= 0))) continue;
-   const int ordinal = BodyAtlasCell(key.first);
-   if (ordinal <= 0 || size_t(ordinal) > body.size() || matched[ordinal - 1] ||
-       !SamePlace(body[ordinal - 1], seen.r)) continue;
-   matched[ordinal - 1] = true;
-   if (++count == body.size()) return true;
-  }
-  return false;
- }
- // Only this frame's ordered atlas cells can describe the line. Counting the
- // box and font atlases together can fill a partial line with pieces of its box.
- std::vector<Rect> CurrentBodyGrid(Group &g) const {
-  if (g.prevFrame != frameNo - 1) return {};
-  std::vector<const Seen *> cells(blankAt.size());
-  const Rect *spacer = nullptr;
-  bool conflict = false;
-  for (const auto &entry : g.keys) {
-   const Seen &seen = entry.second;
-   if (seen.lastFrame != frameNo - 1) continue;
-   const Rect &r = seen.r;
-   const int slot = BodyAtlasCell(entry.first);
-   if (slot == 0 && !r.traced && r.x1 - r.x0 <= 8 && r.y1 - r.y0 <= 8) spacer = &r;
-   if (slot <= 0 || r.x1 - r.x0 < 12 || r.y1 - r.y0 < 12) continue;
-   if (size_t(slot) > cells.size()) { conflict = true; continue; }
-   const Seen *&cell = cells[slot - 1];
-   if (cell && !SamePlace(cell->r, r)) conflict = true;
-   if (!cell || (!cell->r.traced && r.traced)) cell = &seen;
-  }
-  if (spacer && !cells.empty() && cells[0] && cells[0]->r.x0 > spacer->x0 && cells[0]->r.y0 > spacer->y0)
-   g.bodyGrid = true;
-  if (!g.bodyGrid || conflict || cells.empty() || std::find(cells.begin(), cells.end(), nullptr) != cells.end()) return {};
-
-  const Rect &first = cells.front()->r;
-  const float width = first.x1 - first.x0, height = first.y1 - first.y0;
-  float pitch = 0;
-  const auto recent = [&](unsigned at) {
-   return (int)(at - (lineAt - BodyHookGraceMs)) >= 0 && (!prevLineAt || (int)(at - prevLineAt) > 0) &&
-    (!bodyReportAt || (int)(at - bodyReportAt) > 0);
-  };
-  std::vector<Rect> body;
-  unsigned fresh = 0;
-  bool traced = false;
-  for (size_t i = 0; i < cells.size(); ++i) {
-   const Seen &seen = *cells[i];
-   const Rect &r = seen.r;
-   if (std::fabs(r.x1 - r.x0 - width) > width * .2f || std::fabs(r.y1 - r.y0 - height) > height * .2f) return {};
-   if (i) {
-    const Rect &prior = cells[i - 1]->r;
-    const float dx = r.x0 - prior.x0, dy = r.y0 - prior.y0;
-    if (std::fabs(dy) <= 1) {
-     if (dx <= 0 || dx > height + 1 || (pitch && std::fabs(dx - pitch) > 1)) return {};
-     pitch = dx;
-    } else if (dy < height * .7f || dy > height * 2 || std::fabs(r.x0 - first.x0) > 1) return {};
-   }
-   if (blankAt[i]) continue;
-   body.push_back(r);
-   traced = traced || r.traced;
-   if (recent(seen.firstAt) || (r.traced && recent(seen.tracedAt))) ++fresh;
-  }
-  // The same coordinates and UVs can be reused. Old cells alone cannot claim
-  // a new line, while a second report of an already matched line can reuse them.
-  const bool repeat = reported && std::equal(body.begin(), body.end(), lastRects.begin(), lastRects.end(), SamePlace);
-  if (!traced || body.size() != n || (!repeat && fresh < (std::min)(n, 2u))) return {};
-  return body;
- }
- bool ReportBodyGrid() {
-  Group *match = nullptr;
-  std::vector<Rect> body;
-  bool foundGrid = false;
-  for (auto &entry : groups) {
-   Group &g = entry.second;
-   if (g.rt || g.tw != 1024 || g.th != 2048 || g.rtW != bbW || g.rtH != bbH) continue;
-   auto current = CurrentBodyGrid(g);
-   foundGrid = foundGrid || g.bodyGrid;
-   if (current.empty()) continue;
-   if (match) return true;
-   match = &g;
-   body = std::move(current);
-  }
-  if (match) {
-   const bool moved = learned && (match->rt != areaRt || match->rtW != areaW || match->rtH != areaH ||
-    !atlases.count(GroupKey(nullptr, match->tex)) ||
-    std::any_of(body.begin(), body.end(), [&](const Rect &r) { return !BodyInBand(r); }));
-   Report(*match, body, moved);
-  }
-  return foundGrid;
- }
- bool FixedPitchBody(const std::vector<Rect> &body, const Group *atlas = nullptr) const {
-  if (body.size() < 5 || !body[0].traced) return false;
-  const float height = learned ? glyphH : body[0].y1 - body[0].y0;
-  const float pitch = body[1].x0 - body[0].x0;
-  if (pitch <= 0 || pitch > height) return false;
-  bool tracedPrefix = body[1].traced;
-  unsigned untraced = 0;
-  for (size_t i = 0; i < body.size(); i++) {
-   const auto &r = body[i];
-   const bool bodySize = learned ? BodyInBand(r) : std::fabs((r.y1 - r.y0) - height) <= height * 0.2f;
-   if (!bodySize || std::fabs(r.y0 - body[0].y0) > 1 ||
-       (i > 0 && std::fabs(r.x0 - body[i - 1].x0 - pitch) > 1)) return false;
-   if (!r.traced) untraced++;
-   else if (untraced) tracedPrefix = false;
-  }
-  // Initial calibration and missing interior traces both require a confirmed atlas run.
-  return (learned && tracedPrefix && untraced <= 2) ||
-   (atlas && untraced <= body.size() / 3 && BodyAtlasRun(*atlas, body));
- }
- // The bubble spacer can also keep the first complete row from matching during calibration.
- std::vector<Rect> InitialBody(const Group &g) const {
-  if (n < 6 || g.rt || g.tw != 1024 || g.th != 2048 || g.frame.size() < n) return {};
-  const auto first = std::find_if(g.frame.begin(), g.frame.end(), [](const Rect &r) { return r.traced; });
-  if (first == g.frame.end()) return {};
-  std::vector<Rect> row;
-  for (const auto &r : g.frame) if (std::fabs(r.y0 - first->y0) <= 1) row.push_back(r);
-  auto body = Chars(std::move(row));
-  if (body.size() != n || !FixedPitchBody(body, &g)) return {};
-  return body;
- }
- // A spacer or a column of box tiles to the left can make a partial row count as complete.
- bool PartialBodyWithBoxTrim(const Group &g, const std::vector<Rect> &rects) const {
-  const auto &trim = rects.front();
-  if (trim.traced) return false;
-  const auto first = std::find_if(rects.begin() + 1, rects.end(), [](const Rect &r) { return r.traced; });
-  if (first == rects.end() || trim.x0 >= first->x0 || trim.y1 >= first->y0) return false;
-  // A cross-atlas match can be mostly box tiles. These tiles straddle the top of the glyph row.
-  const size_t tiles = std::count_if(rects.begin(), rects.end(), [&](const Rect &r) {
-   return !r.traced && !BodyHeight(r) && r.y0 < first->y0 && r.y1 > first->y0;
-  });
-  if (tiles >= 4 && tiles * 4 >= rects.size()) return true;
-  std::vector<Rect> row;
-  for (const auto &r : rects) {
-   if (!r.traced && std::fabs(r.x0 - trim.x0) <= 1 && std::fabs(r.y0 - first->y0) > 1) continue;
-   row.push_back(r);
-  }
-  return rects.size() - row.size() <= 3 && FixedPitchBody(row, &g);
- }
- std::vector<Rect> BodyRects(std::vector<Rect> rects, const std::vector<Rect> &retained, const Group *atlas = nullptr) const {
-  rects.erase(std::remove_if(rects.begin(), rects.end(), [&](const Rect &r) {
-   // Bubble tiles can keep an earlier rectangle alive after its glyph has gone.
-   const bool outsideBody = atlas ? !BodyInBand(r) : !r.traced || !BodyHeight(r);
-   return outsideBody || (Earlier(r) && std::any_of(retained.begin(), retained.end(),
-    [&](const Rect &e) { return SamePlace(e, r); }));
-  }), rects.end());
-  if (rects.size() < n) return {};
-  auto body = Chars(Cluster(Chars(std::move(rects))));
-  if (atlas && (body.size() != n || !FixedPitchBody(body, atlas))) return {};
-  return body;
- }
- // CMVS can reuse both the position and UV of an older glyph. Require changes at two
- // distinct places in a complete row before accepting the reused keys as the new line.
- bool RewrittenBody(const Group &g, const std::vector<Rect> &row) const {
-  if (row.size() != n || !FixedPitchBody(row)) return false;
-  // The game can draw the first updated cells before LINE reaches the GPU thread.
-  const Rect *first = nullptr;
-  for (const auto &key : g.keys) {
-   const auto &seen = key.second;
-   if (seen.lastFrame != frameNo - 1 || !seen.r.traced || (int)(seen.tracedAt - seen.firstAt) <= 0 ||
-       (int)(seen.tracedAt - (lineAt - BodyHookGraceMs)) < 0 ||
-       (prevLineAt && (int)(seen.tracedAt - prevLineAt) <= 0) ||
-       (bodyReportAt && (int)(seen.tracedAt - bodyReportAt) <= 0)) continue;
-   const auto place = std::find_if(row.begin(), row.end(), [&](const Rect &r) { return SamePlace(r, seen.r); });
-   if (place == row.end()) continue;
-   if (first && first != &*place) return true;
-   first = &*place;
-  }
-  return false;
- }
+ bool BodyInBand(const Rect &r) const { return BodyInBand(r, area, glyphH); }
  // Same-atlas spacers and decorations have no traced glyph cell.
  static std::vector<Rect> TracedChars(std::vector<Rect> rects) {
   rects.erase(std::remove_if(rects.begin(), rects.end(), [](const Rect &r) { return !r.traced; }), rects.end());
   return Chars(Cluster(Chars(std::move(rects))));
  }
  // A relocated dialogue line can use a different atlas. Both the current frame and the new glyphs must agree before moving the band.
- bool Relocated(const std::vector<Rect> &live, const std::vector<Rect> &fresh) const {
+ static bool Relocated(const std::vector<Rect> &live, const std::vector<Rect> &fresh, unsigned n, const Rect &area, float glyphH) {
   if (n < 3 || live.size() != n || fresh.size() != n) return false;
   bool above = true, below = true;
   for (size_t i = 0; i < live.size(); i++) {
@@ -593,31 +445,43 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
   }
   return above || below;
  }
+ bool Relocated(const std::vector<Rect> &live, const std::vector<Rect> &fresh) const {
+  return Relocated(live, fresh, n, area, glyphH);
+ }
  void Frame(unsigned now, unsigned backW, unsigned backH) {
   bbW = backW; bbH = backH; frameNow = now; PageFrame(now); frameNo++; if (pageOn) return; if (!Armed(now)) return;
   /* the earlier lines are on screen while most of their glyphs are still drawn: a text box that replaces its line (most ADV
      games) drops them at once, and its new glyphs on the old places are the new line's again */
   if (!earlierKeys.empty()) { size_t on = 0; for (auto &e : earlierKeys) { auto g = groups.find(e.first); if (g == groups.end()) continue; auto it = g->second.keys.find(e.second); if (it != g->second.keys.end() && frameNo - it->second.lastFrame <= 2) on++; } if (on * 2 < earlierKeys.size()) { earlierKeys.clear(); earlierRects.clear(); } }
   const bool settled = reported && hiddenSent == (hitSent && !readOnly);
-  const bool recheck = bodyRecheck && !readOnly;
-  const bool firstHidden = recheck && areaTraced && hitSent && !hiddenSent;
-  const bool mixed = recheck && reported && areaTraced && std::any_of(lastRects.begin(), lastRects.end(),
-   [&](const Rect &r) { return !r.traced && !BodyHeight(r); });
+  const auto policy = CmvsFrame();
+  const bool mixed = policy.NeedsCorrection();
+  if (bodyRecheck && reported && learnedSeq == seq) {
+   const auto repaint = policy.FollowStartup(groups, readOnly);
+   if (repaint.ownsFrame) {
+    if (repaint.group) Report(*repaint.group, repaint.body, false, true);
+    return;
+   }
+  }
   if (settled && !mixed) return;
-  // An identified CMVS atlas owns placement even while the line is incomplete.
-  if (recheck && ReportBodyGrid()) return;
+  const auto grid = policy.SelectGrid(groups, [&](void *tex) { return LearnedAtlas(tex); });
+  if (grid.ownsFrame) {
+   if (grid.group) {
+    if (grid.startup) Hit(grid.body.size());
+    Report(*grid.group, grid.body, grid.moved, grid.startup);
+   }
+   return;
+  }
   unsigned since = prevLineAt && now - prevLineAt < 120000 ? (std::max)(prevLineAt + 200, lineAt - 3000) : lineAt - 3000;
   Group *movedGroup = nullptr; std::vector<Rect> movedRects, bandDrawn; bool ambiguousMove = false, freshBand = false;
   const bool recoverBand = learned && hitSent && !areaTraced && !readOnly && !reported;
   for (auto &kv : groups) {
    Group &g = kv.second; std::vector<Rect> fresh, live, freshTraced, retainedBody;
    if (learned && (g.rtW != areaW || g.rtH != areaH)) continue;
-   const bool currentFrame = g.prevFrame == frameNo - 1, fromAtlas = atlases.count(GroupKey(nullptr, g.tex)) > 0;
-   if (recheck && !learned && currentFrame) {
-    const auto body = InitialBody(g);
-    if (!body.empty()) { Report(g, body); return; }
-   }
-   const bool checkBody = recheck && (!reported || mixed || firstHidden) && currentFrame && fromAtlas && g.rt == areaRt;
+   const bool currentFrame = g.prevFrame == frameNo - 1, fromAtlas = LearnedAtlas(g.tex);
+   const auto initial = policy.InitialBody(g, currentFrame);
+   if (!initial.empty()) { Report(g, initial); return; }
+   const bool checkBody = policy.ReviewsGroup(g, currentFrame, fromAtlas, mixed);
    if (settled && !checkBody) continue;
    Rect screen{};
    const bool canMove = learned && !readOnly && !reported && currentFrame && g.rt == areaRt &&
@@ -626,7 +490,7 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
    const bool checkBand = recoverBand && currentFrame && fromAtlas && g.rt == areaRt;
    for (auto &s : g.keys) {
     const Seen &seen = s.second;
-    if (checkBody && seen.lastFrame == frameNo - 1 && seen.r.traced && EarlierGlyph(kv.first, s.first))
+    if (checkBody && policy.Retains(seen) && EarlierGlyph(kv.first, s.first))
      retainedBody.push_back(seen.r);
     const bool isFresh = (int)(seen.firstAt - since) >= 0;
     const bool isFreshTrace = recover && seen.lastFrame == frameNo - 1 && seen.r.traced && (int)(seen.tracedAt - since) >= 0;
@@ -638,26 +502,8 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
     if (checkBand && isFresh && seen.lastFrame == frameNo - 1 && BodyInBand(seen.r)) freshBand = true;
    }
    if (checkBody) {
-    // A centred line can overlap the previous line and share its atlas with a spacer.
-    // Confirm the whole row against fresh keys before counting those positions again.
-    auto body = BodyRects(g.frame, retainedBody), newBody = BodyRects(fresh, retainedBody);
-    if (hitSent && areaTraced && (body.size() != n || newBody.size() != n)) {
-     body = BodyRects(g.frame, retainedBody, &g);
-     newBody = BodyRects(fresh, retainedBody, &g);
-    }
-    const bool moved = canMove && !hitSent && Relocated(body, newBody);
-    if ((hitSent || moved) && body.size() == n && newBody.size() == n &&
-        std::equal(body.begin(), body.end(), newBody.begin(), SamePlace)) {
-     // A partial row can already have been reported with decorations in its count.
-     const size_t shared = std::count_if(lastRects.begin(), lastRects.end(), [&](const Rect &r) {
-      return std::any_of(body.begin(), body.end(), [&](const Rect &b) { return SamePlace(r, b); });
-     });
-     if (!reported || shared > n / 2) { Report(g, body, moved); return; }
-    }
-    if (firstHidden) {
-     const auto row = BodyRects(g.frame, {});
-     if (RewrittenBody(g, row)) { Report(g, row); return; }
-    }
+    const auto choice = policy.Review(g, fresh, retainedBody, canMove);
+    if (choice.group) { Report(*choice.group, choice.body, choice.moved); return; }
    }
    if (settled) continue;
    if (checkBand && !freshBand) for (const Rect &r : g.frame) if (BodyInBand(r)) bandDrawn.push_back(r);
@@ -716,10 +562,8 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
    return;
   }
  }
- void Report(Group &g, const std::vector<Rect> &cs, bool moved = false) {
-  // Wait for the row: even a later correction can leave the reader pinned to its first position.
-  if (bodyRecheck && !readOnly && hitSent && areaTraced && !hiddenSent && cs.size() == n && cs.size() >= 6 &&
-      g.rt == areaRt && PartialBodyWithBoxTrim(g, cs)) return;
+ void Report(Group &g, const std::vector<Rect> &cs, bool moved = false, bool startup = false) {
+  if (bodyRecheck && CmvsFrame().WaitForBody(g, cs, [&](void *tex) { return LearnedAtlas(tex); })) return;
   if (moved) { learned = false; atlases.clear(); hitSent = false; }
   float h = 0; Rect box{ 1e30f, 1e30f, -1e30f, -1e30f }; for (auto &r : cs) { h += r.y1 - r.y0; box.x0 = (std::min)(box.x0, r.x0); box.y0 = (std::min)(box.y0, r.y0); box.x1 = (std::max)(box.x1, r.x1); box.y1 = (std::max)(box.y1, r.y1); } h /= cs.size();
   char b[256];
@@ -732,7 +576,10 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
    auto aligned = [&](const Rect &r) { for (auto &c : cs) if (std::fabs(r.x0 - c.x0) <= 3 && std::fabs(r.y0 - c.y0) <= 3) return true; return false; };
    auto inArea = [&](const Rect &r) { float cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2; return cx >= area.x0 && cx <= area.x1 && cy >= area.y0 && cy <= area.y1; };
    // every target of the learned size counts: engines draw the same page into a shadow / effect buffer too (Saya)
-   for (auto &kv : groups) { if (kv.second.rt != g.rt && (kv.second.rtW != g.rtW || kv.second.rtH != g.rtH)) continue; int in = 0, on = 0; for (const std::vector<Rect> *v : { &kv.second.frame, &kv.second.prev }) for (auto &r : *v) if (inArea(r)) { in++; if (aligned(r)) on++; }
+   for (auto &kv : groups) {
+    if (startup && &kv.second != &g) continue;
+    if (kv.second.rt != g.rt && (kv.second.rtW != g.rtW || kv.second.rtH != g.rtH)) continue;
+    int in = 0, on = 0; for (const std::vector<Rect> *v : { &kv.second.frame, &kv.second.prev }) for (auto &r : *v) if (inArea(r)) { in++; if (aligned(r)) on++; }
     if (&kv.second == &g || (on >= 1 && on * 10 >= in * 6)) atlases.insert(GroupKey(nullptr, kv.second.tex)); }
    snprintf(b, sizeof b, "ToMe_GPUHIDE learn seq=%u area=%.0f,%.0f,%.0f,%.0f atlas=%ux%u glyphs=%u chars=%u atlases=%u", seq, area.x0, area.y0, area.x1 - area.x0, area.y1 - area.y0, g.tw, g.th, (unsigned)cs.size(), n, (unsigned)atlases.size()); if (emit) emit(b);
   } else {
@@ -740,14 +587,18 @@ template <class GroupOrder> struct OrderedGlyphLearner : private GroupOrder {
    area.x0 = 0; /* centred rows (CHAOS;CHILD) start further left than the learned line: the band spans the whole target so a new row's first glyphs never leak */ area.x1 = (std::max)(area.x1, (float)g.rtW); area.y0 = (std::min)(area.y0, box.y0 - h * 0.5f); area.x1 = (std::max)(area.x1, box.x1 + h * 0.5f); area.y1 = (std::max)(area.y1, box.y1 + h * 0.5f);
   }
   bool hidden = hitSent && !readOnly; std::string rects; bool mapped = true;
-  for (auto r : cs) { if (!ToScreen(g.rt, g.rtW, g.rtH, r)) { mapped = false; break; } char x[64]; snprintf(x, sizeof x, "%s%.0f,%.0f,%.0f,%.0f", rects.empty() ? "" : ";", r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0); rects += x; }
+  // The wire protocol counts Unicode code points, while LINE uses UTF-16.
+  const size_t count = startup ? std::count_if(text.begin(), text.end(), [](wchar_t c) { return c < 0xdc00 || c > 0xdfff; }) : cs.size();
+  const auto projected = cs.size() > count ? BodyStrategy::StartupPlacement(box, count) : std::vector<Rect>{};
+  const auto &placement = projected.empty() ? cs : projected;
+  for (auto r : placement) { if (!ToScreen(g.rt, g.rtW, g.rtH, r)) { mapped = false; break; } char x[64]; snprintf(x, sizeof x, "%s%.0f,%.0f,%.0f,%.0f", rects.empty() ? "" : ";", r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0); rects += x; }
   if (!mapped) { if (log && frameNo % 60 == 0) log("rects not mapped yet: render target %p not composited", g.rt); return; } // try again next frame
   reported = true; hiddenSent = hidden; lastRects = cs; lastKeys.clear();
-  if (bodyRecheck && hidden) bodyReportAt = frameNow;
+  if (bodyRecheck && hidden) cmvs.bodyReportAt = frameNow;
   for (auto &kv : groups) { if (kv.second.rt != g.rt) continue; for (auto &s : kv.second.keys) { if (frameNo - s.second.lastFrame > 2) continue; for (auto &c : cs) { float w = (std::min)(c.x1 - c.x0, s.second.r.x1 - s.second.r.x0), h = c.y1 - c.y0; if (std::fabs(c.x0 - s.second.r.x0) < 0.4f * w && std::fabs(c.y0 - s.second.r.y0) < 0.4f * h) { lastKeys.insert({ kv.first, s.first }); break; } } } }
   std::string t;
   { std::string u; for (size_t i = 0; i < text.size(); i++) { unsigned c = text[i]; if (c >= 0xD800 && c < 0xDC00 && i + 1 < text.size()) { c = 0x10000 + ((c - 0xD800) << 10) + (text[++i] - 0xDC00); u += (char)(0xF0 | (c >> 18)); u += (char)(0x80 | ((c >> 12) & 63)); u += (char)(0x80 | ((c >> 6) & 63)); u += (char)(0x80 | (c & 63)); } else if (c < 0x80) u += (char)c; else if (c < 0x800) { u += (char)(0xC0 | (c >> 6)); u += (char)(0x80 | (c & 63)); } else { u += (char)(0xE0 | (c >> 12)); u += (char)(0x80 | ((c >> 6) & 63)); u += (char)(0x80 | (c & 63)); } } t = u; }
-  std::string line = "ToMe_CHARS engine=gpu line=" + std::to_string(seq) + " hidden=" + (hidden ? "1" : "0") + " sw=" + std::to_string(bbW) + " sh=" + std::to_string(bbH) + " vx=0 vy=0 vw=" + std::to_string(bbW) + " vh=" + std::to_string(bbH) + " n=" + std::to_string(cs.size()) + " rects=" + rects + " text=" + t;
+  std::string line = "ToMe_CHARS engine=gpu line=" + std::to_string(seq) + " hidden=" + (hidden ? "1" : "0") + " sw=" + std::to_string(bbW) + " sh=" + std::to_string(bbH) + " vx=0 vy=0 vw=" + std::to_string(bbW) + " vh=" + std::to_string(bbH) + " n=" + std::to_string(placement.size()) + " rects=" + rects + " text=" + t;
   if (emit) emit(line);
  }
 };
