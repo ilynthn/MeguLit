@@ -431,6 +431,10 @@ const seriesUI=createSeriesLibrary({model:()=>model,locale:()=>locale,text:()=>t
  toast,bindGames:attachGameActions,onLibraryRendered:showLibraryResults,refresh:async()=>{model=await api('home');},libraryView:()=>libraryView(),openSeries:id=>{selectedSeriesId=id;navigate('series');},back:()=>navigate('library'),reload:async()=>{
  model=await api('home');const main=document.querySelector('#main'),scroll=main.scrollTop;if(route==='library')renderGames();else if(route==='series')seriesUI.renderDetail(main,
  selectedSeriesId);main.scrollTop=scroll;}});
+/* The view switch and the library entrance live in library-switch-motion.js. Once it has loaded, opening the library starts
+   its entrance in the same task as the render, so the first painted frame is already the entrance's start pose. */
+let libraryMotion=null;
+const loadLibraryMotion=()=>import('./library-switch-motion.js').then(m=>libraryMotion=m).catch(()=>null);
 function library(){
   const main=document.querySelector('#main');
   main.innerHTML=heading(text.library,`<span class="lib-left"></span><input id="game-search" type="search" placeholder="${text.searchGames}" aria-label="${text.searchGames}" value="${esc(search)}"><button class="icon-button" id="refresh-library" aria-label="${libraryCopy().refresh}" title="${libraryCopy().refresh}" aria-busy="${libraryBusy}" ${libraryBusy?'disabled':''}>${icon('refresh')}</button><button class="icon-button" id="library-settings" aria-label="${libraryCopy().settings}" title="${libraryCopy().settings}">${icon('settings')}</button><button class="icon-button" id="adaptation-overview" aria-label="${esc(overviewLabel(locale))}" title="${esc(overviewLabel(locale))}">${icon('stats')}</button><button class="icon-button" id="select-games" aria-label="${text.series.select}" title="${text.series.select}">${icon('multiselect')}</button><button class="icon-button" id="add-game" aria-label="${text.addGame}">${icon('plus')}</button>`)+`<div id="library-results"></div>`;
@@ -440,7 +444,7 @@ function library(){
   /* 2026-11-13 (user): the switch is three LEDs; each click lights one more (1 tracks, 2 infinite wall, 3 simple grid), all three lit -> back to one */
   const viewOrder=['tracks','wall','list'];
   const showView=view=>{const label=viewLabels[view][locale]||viewLabels[view].zh,lit=viewOrder.indexOf(view)+1;wallToggle.dataset.view=view;wallToggle.dataset.lit=String(lit);wallToggle.setAttribute('aria-checked',String(view!=='list'));wallToggle.setAttribute('aria-label',label);wallToggle.title=label;};
-  wallToggle.type='button';wallToggle.className='library-wall-toggle library-view-leds';wallToggle.innerHTML='<i></i><i></i><i></i>';import('./library-switch-motion.js').catch(()=>{});
+  wallToggle.type='button';wallToggle.className='library-wall-toggle library-view-leds';wallToggle.innerHTML='<i></i><i></i><i></i>';loadLibraryMotion();
   wallToggle.setAttribute('role','switch');showView(libraryView());
   wallToggle.onclick=async()=>{
     // E275: ignore clicks while a switch is running, otherwise the stored state and the shown layout drift apart
@@ -482,10 +486,14 @@ function library(){
   main.querySelector('#adaptation-overview').onclick=()=>openAdaptationOverview({api,locale,esc,toast,relativeTime,onOpenGame:id=>{gameOrigin='library';selectedGameId=id;
    navigate('game');}}).catch(()=>{});renderGames();
   /* v1.1.6 (user): opening the library straight into the wall plays the same outside-in gathering as switching to it */
-  /* hidden from the first paint (cards start at opacity 0) and revealed only once each card holds its start frame, so the laid-out wall never flashes */
-  if(libraryView()==='wall'&&!search.trim()&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const h0=document.querySelector('#library-results');
+  /* 2026-11-29 (owner: coming to the library from another page did not feel natural): every view now has its entrance
+     (libraryIn: the wall gathers, the list and the tracks arrive like the end of a view switch), and covers that are still
+     loading fade in once decoded */
+  /* hidden from the first paint (cards start at opacity 0) and revealed only once each card holds its start frame, so the laid-out view never flashes */
+  if(!search.trim()&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&libraryMotion){const h=document.querySelector('#library-results');if(h)libraryMotion.libraryIn(h,libraryView());}
+  else if(!search.trim()&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const h0=document.querySelector('#library-results'),view=libraryView();
    h0?.classList.add('lib-entering');const reveal=()=>document.querySelector('#library-results')?.classList.remove('lib-entering');setTimeout(reveal,900);requestAnimationFrame(()=>requestAnimationFrame(async()=>{
-   try{const m=await import('./library-switch-motion.js');const h=document.querySelector('#library-results');if(h&&route==='library')m.wallIn(h);}catch{}finally{
+   try{const m=await import('./library-switch-motion.js');const h=document.querySelector('#library-results');if(h&&route==='library'&&libraryView()===view)m.libraryIn(h,view);}catch{}finally{
    reveal();}}));}
 }
 // E245.5 (user): entering a search, the wall fades out in place as dominoes from the centre outwards, then the matches
@@ -1444,7 +1452,7 @@ async function start(){
     const recovered={};for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(/^(tome|tomoyo)-/.test(key)&&!/key|token|secret|password/i.test(key))recovered[key]=localStorage.getItem(key);
      }
     await api('preserve_ui',{values:recovered});
-    model=await api('home');setAppearance();document.documentElement.classList.add('app-boot-pre');shell();
+    model=await api('home');setAppearance();document.documentElement.classList.add('app-boot-pre');shell();loadLibraryMotion();
     /* 2026-11-27 a side-by-side test build says what it is (「测试版 · main＠abc1234 + PR #1312」, MEGULIT_TEST_BUILD; its updater is off) */
     api('test_build').then(r=>{if(!r?.label||document.querySelector('.test-build-label'))return;const el=document.createElement('div');el.className='test-build-label';el.setAttribute('role','status');el.textContent=r.label;
      el.style.cssText='position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:2147483000;pointer-events:none;font:12px/1.7 system-ui,sans-serif;padding:1px 12px;border-radius:10px;background:rgba(173,21,57,.88);color:#fff;white-space:nowrap';document.body.append(el);}).catch(()=>{});
