@@ -394,9 +394,15 @@ class Account{
   catch(error){if(error.code==='USERNAME_LOCKED')await this.me().catch(()=>{});throw error;}
   return this.status();
  }
- async setPassword(password,current){
+ /* 2026-11-29: a first password, or a reset of a forgotten one, is confirmed with a code mailed to the account's own address */
+ async requestPasswordCode(){
+  const email=normalizeEmail(this.profile().email);if(!email||!this.token())throw Object.assign(Error('UNAUTHORIZED'),{code:'UNAUTHORIZED'});
+  await this.call('POST','/api/auth/code',{email},{auth:false});return {sent:true,email,expiresIn:600};
+ }
+ async setPassword(password,current,code){
   const secret=String(password||'');if(secret.length<8||secret.length>128)throw Object.assign(Error('PASSWORD_LENGTH'),{code:'PASSWORD_LENGTH'});
-  await this.call('POST','/api/me/password',{password:secret,...(current?{current:String(current)}:{})});
+  const digits=String(code||'').replace(/\s+/g,'');
+  await this.call('POST','/api/me/password',{password:secret,...(digits?{code:digits}:current?{current:String(current)}:{})});
   this.saveProfile({hasPassword:true});return this.status();
  }
  /* 「同步到网页」: the master switch, on by default. Off = nothing is uploaded or pulled at all. */
@@ -481,7 +487,7 @@ function cleanKinds(choice){const out={};for(const k of KINDS)out[k]=typeof choi
 const accounts=new Map();
 function accountFor(root,options){const key=path.resolve(root);if(options)return new Account(key,options);if(!accounts.has(key))accounts.set(key,new Account(key));return accounts.get(key);}
 /* bridge entry: account_status / account_code / account_verify / account_password_login / account_username /
-   account_password / account_sync / account_kinds / account_me /
+   account_password / account_password_code / account_sync / account_kinds / account_me /
    account_logout / account_delete. A stale sync (>15 min) starts in the background when the page asks for status. */
 async function handle(root,request,options){
  const a=accountFor(root,options),action=String(request.action);
@@ -491,7 +497,8 @@ async function handle(root,request,options){
   case 'account_verify':{const s=await a.verify(String(request.email||''),String(request.code||''),request.kinds&&typeof request.kinds==='object'?request.kinds:null);a.sync().catch(()=>{});return s;}
   case 'account_password_login':{const s=await a.passwordLogin(String(request.login||''),String(request.password||''),request.kinds&&typeof request.kinds==='object'?request.kinds:null);a.sync().catch(()=>{});return s;}
   case 'account_username':return a.setUsername(String(request.username||''));
-  case 'account_password':return a.setPassword(String(request.password||''),typeof request.current==='string'?request.current:'');
+  case 'account_password':return a.setPassword(String(request.password||''),typeof request.current==='string'?request.current:'',typeof request.code==='string'?request.code:'');
+  case 'account_password_code':return a.requestPasswordCode();
   case 'account_sync':return a.sync();
   case 'account_web_sync':{const s=a.setWebSync(request.enabled!==false);if(s.webSync&&s.loggedIn&&s.configured)a.sync().catch(()=>{});return s;}
   case 'account_wipe_cloud':return a.wipeCloud();

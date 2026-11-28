@@ -10,6 +10,7 @@ import {fxPref} from './fx-prefs.js';
 import {mountSupportToy} from './about-toy.js';
 import {seedAboutHTML,fillSeedCount} from './the-seed.js';
 import {bindSeedCatalog} from './seed-catalog.js';
+import {loadCredits,pickText,rollCredits} from './credits-roll.js';
 export const VERSION='1.4.26';
 const REPO='https://github.com/ilynthn/MeguLit';
 const SPONSOR='https://github.com/sponsors/ilynthn';
@@ -18,21 +19,21 @@ const w={
  zh:{reel:'MeguLit 封面短片',tag:'在 Galgame 里读日语的小魔导书',about:'关于',author:'作者',fVer:'版本',fAuthor:'作者',fLicense:'许可',fLicenseSub:'开源',fSystem:'系统',fData:'数据',fDataVal:'游戏库和学习记录存在这台电脑',links:'链接',linksSub:'都会在浏览器里打开',
   site:'官网',faq:'常见问题',releases:'更新日志',source:'源码',report:'反馈问题',reportSub:'在本机打包日志后上传',
   journey:'一起走过',journeySub:'只算这台电脑',jMin:'分钟',jHours:['小时','在游戏里读日语'],jChars:['字','读过的日文'],jLook:['次','查词'],jEmpty:'还没一起冒险过，去游戏库打开一部游戏吧',
-  thanks:'致谢',credits:[['LunaHook','从游戏里取出文本'],['JMdict / EDRDG','日语词典'],['SudachiDict · UniDic','分词与注音'],['Tauri','桌面外壳'],['Anki · AnkiConnect','制卡'],['AivisSpeech','语音合成'],['Tomoyo','最早让我想做这个']],
+  thanks:'致谢',rollLabel:'致谢名单，悬停暂停，滚轮翻看，点名字打开项目主页',
   support:'支持开发',eris:'和 Bug 魔王军的战斗还在继续，冒险经费倒是快见底了…… (´･ω･`)\n如果 MeguLit 帮你在日语上往前走了一点，欢迎赞助几枚厄里斯',
   ways:'赞助方式',alipay:'支付宝',wechat:'微信赞赏',sponsorAria:'GitHub Sponsors（在浏览器打开）',scanAli:'打开支付宝扫一扫',scanWx:'打开微信扫一扫',aliAlt:'支付宝收款码',wxAlt:'微信赞赏码',
   coinIdle:'点一下，投一枚厄里斯',coinCount:n=>`厄里斯 ×${n}`},
  ja:{reel:'MeguLit カバー映像',tag:'ギャルゲーで日本語を読む、小さな魔導書',about:'アプリ情報',check:'更新を確認',author:'作者',fVer:'バージョン',fAuthor:'作者',fLicense:'ライセンス',fLicenseSub:'オープンソース',fSystem:'動作環境',fData:'データ',fDataVal:'ライブラリと学習記録はこのPCに保存',links:'リンク',linksSub:'ブラウザで開きます',
   site:'公式サイト',faq:'よくある質問',releases:'更新履歴',source:'ソースコード',report:'不具合を報告',reportSub:'ログをまとめて送信',
   journey:'冒険の記録',journeySub:'このPCの分だけ',jMin:'分',jHours:['時間','ゲームで日本語を読んだ'],jChars:['字','読んだ日本語'],jLook:['回','辞書を引いた'],jEmpty:'まだ一緒に冒険していません。ライブラリからゲームを開いてみてください',
-  thanks:'謝辞',credits:[['LunaHook','ゲームからテキストを取り出す'],['JMdict / EDRDG','日本語辞書'],['SudachiDict · UniDic','形態素解析と読み'],['Tauri','デスクトップの外枠'],['Anki · AnkiConnect','カード作成'],['AivisSpeech','音声合成'],['Tomoyo','作るきっかけ']],
+  thanks:'謝辞',rollLabel:'謝辞。ホバーで一時停止、ホイールでスクロール、名前を押すとプロジェクトページを開きます',
   support:'応援する',eris:'Bug 魔王軍との戦いは続くのに、資金はもう底が見えてきた…… (´･ω･`)\nMeguLit が役に立ったら、エリスを何枚か投げてもらえると嬉しいです',
   ways:'支援の方法',alipay:'Alipay',wechat:'WeChat',sponsorAria:'GitHub Sponsors（ブラウザで開く）',scanAli:'Alipay でスキャン',scanWx:'WeChat でスキャン',aliAlt:'Alipay の受取コード',wxAlt:'WeChat の投げ銭コード',
   coinIdle:'押してエリスを一枚',coinCount:n=>`エリス ×${n}`},
  en:{reel:'MeguLit cover reel',tag:'a tiny grimoire for reading Japanese in visual novels',about:'About',author:'by',fVer:'Version',fAuthor:'Author',fLicense:'Licence',fLicenseSub:'open source',fSystem:'System',fData:'Data',fDataVal:'Library and study records stay on this PC',links:'Links',linksSub:'Open in your browser',
   site:'Website',faq:'FAQ',releases:'Release notes',source:'Source code',report:'Report a problem',reportSub:'Sends the logs from this PC',
   journey:'The journey',journeySub:'on this PC only',jMin:'min',jHours:['h','reading Japanese in games'],jChars:['chars','of Japanese read'],jLook:['×','dictionary lookups'],jEmpty:'No adventures yet: open a game from your library',
-  thanks:'Thanks',credits:[['LunaHook','pulls the text out of games'],['JMdict / EDRDG','Japanese dictionary'],['SudachiDict · UniDic','word splitting & readings'],['Tauri','desktop shell'],['Anki · AnkiConnect','card making'],['AivisSpeech','speech synthesis'],['Tomoyo','where the idea started']],
+  thanks:'Thanks',rollLabel:'Credits. Hover to pause, scroll to browse, click a name to open its page',
   support:'Support',eris:'The Bug Demon King\'s army fights on, and the funds run dry… (´･ω･`)\nIf MeguLit helped your Japanese, a few Eris keep it going',
   ways:'Ways to support',alipay:'Alipay',wechat:'WeChat',sponsorAria:'GitHub Sponsors (opens in your browser)',scanAli:'Scan with Alipay',scanWx:'Scan with WeChat',aliAlt:'Alipay payment code',wxAlt:'WeChat tip code',
   coinIdle:'click to toss an Eris',coinCount:n=>`Eris ×${n}`}
@@ -58,7 +59,7 @@ export function aboutHTML(locale,esc){
     <ul class="ab-links">${link('https://megulit.com',t.site,'megulit.com')}${link(REPO+'#faq',t.faq,'GitHub · FAQ')}${link(REPO+'/releases',t.releases,'GitHub · Releases')}${link(REPO,t.source,'github.com/ilynthn/MeguLit')}<li><button type="button" data-feedback><span>${esc(t.report)}</span><small>${esc(t.reportSub)}<i aria-hidden="true">…</i></small></button></li></ul>
   </section>
   <section class="ab-sec ab-thanks"><h2>${esc(t.thanks)}</h2>
-   <dl class="ab-cred">${t.credits.map(([n,d])=>`<div><dt>${esc(n)}</dt><dd>${esc(d)}</dd></div>`).join('')}</dl>
+   <div class="ab-cred" data-credits tabindex="0" role="region" aria-label="${esc(t.rollLabel)}"><div class="ab-cred-track"></div></div>
   </section>
   </div>
   <div class="ab-col">
@@ -137,6 +138,7 @@ export function mountAbout(main,api,toast,model){
  /* E394 feedback and logs go through MeguLit's relay, not a GitHub page many users cannot open */
  const escHTML=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
  bindSeedCatalog(main,{api,locale,esc:escHTML,toast});
+ mountCredits(main,api,toast,locale);
  main.querySelector('[data-uninstall]')?.addEventListener('click',async e=>{const u=UN[locale],b=e.currentTarget;b.disabled=true;try{await api('uninstall_open',{});toast&&toast(u.opened);}catch(err){toast&&toast(u.failed+(err?.message||err));b.disabled=false;}});
  main.querySelector('[data-feedback]')?.addEventListener('click',()=>openFeedback({api,locale,esc:escHTML,toast,version:VERSION}));
  if(!page)return;
@@ -156,6 +158,21 @@ export function mountAbout(main,api,toast,model){
  mountToy();
  mountJourney(page,model,reduce,words);
  mountReel(page,reduce);
+}
+/* 致谢 (owner 2026-11-28: 关于这边致谢弄一个小的电影结尾式感谢名单滚动 太多了现在): web/credits.json, the same list as the Alt+T
+   关于 page, in a small window that rolls like the end of a film (web/credits-roll.js). Each entry is its use in small
+   type over its name; a name with a project page opens it in the browser. */
+function mountCredits(main,api,toast,locale){
+ const roll=main.querySelector('[data-credits]');if(!roll)return;const track=roll.firstElementChild,sec=roll.closest('.ab-thanks');
+ sec.hidden=true;
+ roll.addEventListener('click',e=>{const b=e.target.closest('button[data-url]');if(b)api('open_source',{url:b.dataset.url}).catch(()=>toast&&toast('…'));});
+ loadCredits().then(data=>{
+  if(!data||!roll.isConnected)return;const frag=document.createDocumentFragment();
+  for(const g of data.groups||[])for(const i of g.items||[]){const name=pickText(i.name,locale);if(!name)continue;
+   const row=document.createElement('div');row.className='ab-cr';const use=document.createElement('small');use.textContent=pickText(i.note,locale)||pickText(g.title,locale);
+   const n=document.createElement(i.url?'button':'span');n.className='ab-cr-name';n.textContent=name;if(i.url){n.type='button';n.dataset.url=i.url;n.title=i.url;}
+   row.append(use,n);frag.append(row);}
+  track.replaceChildren(frag);sec.hidden=false;rollCredits(roll,{stillClass:'ab-still'});});
 }
 /* 一起走过: the totals this PC already keeps (the home page's model); numbers count up once */
 export function mountJourney(page,model,reduce,words={}){

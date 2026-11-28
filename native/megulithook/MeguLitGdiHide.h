@@ -5,6 +5,12 @@
 // (Luna_UseEmbed) even when the hook is not EMBED_ABLE; every text that stream delivers is kept here as the current
 // and previous line, and any TextOut/ExtTextOut/DrawText call whose string is part of those lines is not drawn.
 // Short kana-only strings in a clearly smaller font right after a hidden line (ruby) are dropped with it.
+// Names (2026-11-29, a Ciel game drawing one character per TextOutA call; 群友: 人名也会被隐藏, 很多游戏都这样): the
+// name box is drawn through the same GDI calls, and a name the line mentions (美咲ちゃんの…) or a single character of it is
+// "part of the line". The dialogue font height is learned (a hidden string of four or more characters, or three
+// characters drawn one per call in line order under one height); once known, a string shorter than four characters is
+// hidden only under that height, so the name plate (its own font) keeps the game's name. Same rule as the glyph hide
+// (native/fontprobe/GlyphMatch.h: "a short string in another font: a menu item or a name that happens to be in the line").
 // The first hidden string of each line is reported as "MeguLit_GDIHIDE" so the host can mark the stream hide-only.
 #pragma once
 void attachFunction(uintptr_t _hook_font_flag);
@@ -15,6 +21,12 @@ namespace MeguLitGdiHide
   inline ThreadParam Tp{};
   inline DWORD LastFeed = 0, LastHide = 0;
   inline long Line = 0, Reported = -1, HiddenHeight = 0;
+  // The dialogue font height (tmHeight) of the selected stream, 0 = not known yet; Runs: per height, the in-order walk of
+  // single characters through the current line that teaches it.
+  inline long DialogueHeight = 0;
+  struct Run { long height = 0, line = -1, pos = -1; int len = 0; };
+  inline Run Runs[4];
+  constexpr int LearnRun = 3, RelearnRun = 8;
   inline std::atomic<bool> Attached = false;
   // Set by solvefont: an EMBED_ABLE hook asked for the font hijack, so the GDI functions also switch fonts.
   inline bool FontWanted = false;
@@ -60,6 +72,12 @@ namespace MeguLitGdiHide
       return;
     DWORD now = GetTickCount();
     AcquireSRWLockExclusive(&Lock);
+    if (!(Tp == tp))
+    {
+      DialogueHeight = 0; // another stream, maybe another text window and font
+      for (auto &r : Runs)
+        r = Run{};
+    }
     if (!(Tp == tp) || now - LastFeed > NewLineGap)
     {
       Previous = Current;
@@ -117,6 +135,46 @@ namespace MeguLitGdiHide
     return false;
   }
 
+  inline bool NearHeight(long a, long b) { return a > 0 && b > 0 && a - b <= 1 && b - a <= 1; }
+  // One character drawn on its own under `height` (Lock held exclusive): walks the current line in order for that height;
+  // three in a row teach the dialogue height (eight correct a height a name plate taught first).
+  inline void Walk(wchar_t c, long height, long line)
+  {
+    if (height <= 0 || Current.empty())
+      return;
+    Run *r = nullptr;
+    for (auto &x : Runs)
+      if (x.height == height)
+        r = &x;
+    if (!r)
+    {
+      r = &Runs[0];
+      for (auto &x : Runs)
+        if (x.len < r->len)
+          r = &x;
+      *r = Run{height};
+    }
+    size_t next = std::wstring::npos;
+    if (r->line == line && r->pos >= 0)
+      for (size_t k = (size_t)r->pos + 1, skipped = 0; k < Current.size() && skipped <= 3; k++, skipped++)
+        if (Current[k] == c)
+        {
+          next = k;
+          break;
+        }
+    if (next != std::wstring::npos)
+      r->len++;
+    else
+    {
+      next = Current.find(c);
+      r->len = next == std::wstring::npos ? 0 : 1;
+    }
+    r->line = line;
+    r->pos = next == std::wstring::npos ? -1 : (long)next;
+    if (DialogueHeight == 0 ? r->len >= LearnRun : (!NearHeight(height, DialogueHeight) && r->len >= RelearnRun))
+      DialogueHeight = height;
+  }
+
   // True when the string drawn now belongs to the selected dialogue line and must not be drawn.
   inline bool Skip(HDC hdc, const wchar_t *s, int n, const char *fn)
   {
@@ -134,7 +192,10 @@ namespace MeguLitGdiHide
     ThreadParam tp;
     bool hit = false, ruby = false;
     long line, height = 0;
-    AcquireSRWLockShared(&Lock);
+    TEXTMETRICW tm;
+    if (hdc && GetTextMetricsW(hdc, &tm))
+      height = tm.tmHeight;
+    AcquireSRWLockExclusive(&Lock);
     tp = Tp;
     line = Line;
     bool armed = now - LastFeed < ArmedFor;
@@ -142,11 +203,17 @@ namespace MeguLitGdiHide
     {
       hit = (drawn.size() > 1 || now - LastFeed < SingleCharWindow) &&
             (PartOf(Current, drawn) || PartOf(Previous, drawn));
+      if (drawn.size() == 1 && check_embed_able(tp))
+        Walk(drawn[0], height, line);
+      if (hit && drawn.size() >= 4 && DialogueHeight == 0 && height > 0)
+        DialogueHeight = height;
+      if (hit && drawn.size() < 4 && DialogueHeight > 0 && height > 0 && !NearHeight(height, DialogueHeight))
+        hit = false; // a short string in another font: the name plate (or a menu item) naming someone the line mentions
       if (!hit && drawn.size() <= 10 && now - LastHide < RubyWindow && HiddenHeight > 0 &&
           std::all_of(drawn.begin(), drawn.end(), Kana))
         ruby = true;
     }
-    ReleaseSRWLockShared(&Lock);
+    ReleaseSRWLockExclusive(&Lock);
     if (Seen < 12 && now - LastFeed < ArmedFor)
     {
       Seen++;
@@ -154,9 +221,6 @@ namespace MeguLitGdiHide
     }
     if (!armed || !(hit || ruby) || !check_embed_able(tp))
       return false;
-    TEXTMETRICW tm;
-    if (hdc && GetTextMetricsW(hdc, &tm))
-      height = tm.tmHeight;
     if (ruby && !(height > 0 && height * 10 < HiddenHeight * 7))
       return false;
     bool report = false;

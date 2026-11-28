@@ -36,8 +36,10 @@ const P={
   usernameSet:'设置用户名',usernameFixed:'用户名设置后不能更改',usernameWarn:'注意：用户名只能设置一次，设置后永远不能更改',usernameConfirmTitle:'确定使用这个用户名？',usernameConfirmBody:'用户名设置后永远不能更改，也不能换成别的名字。之后可以用它和密码登录',
   usernameDone:'用户名已设置',passwordNone:'还没有设置密码',passwordOn:'已设置',setPassword:'设置密码',changePassword:'修改密码',currentPassword:'当前密码',newPassword:'新密码',newPasswordPh:'至少 8 位',
   repeatPassword:'再输入一次新密码',save:'保存',passwordDone:'密码已保存，下次可以用密码登录',mismatch:'两次输入的密码不一样',suggest:'设置一个密码，下次就能用邮箱或用户名直接登录，不用再等验证码',suggestToast:'登录成功。可以在 设置 → 账号 里设置密码，下次不用再等验证码',
+  forgotCurrent:'忘记当前密码？用邮箱验证码重设',useCurrent:'改用当前密码',pwCode:'邮箱验证码',pwCodeHelp:'为了确认是你本人，先给 {email} 发一个验证码',
+  otherDevices:'改密码后，其他已登录的设备不会被退出；需要的话可以在下面「已登录的设备」里逐个移除',
   freshHint:'刚用验证码登录：10 分钟内修改密码不需要当前密码（忘记密码时就这样重设）',
-  err:{WRONG_PASSWORD:'账号或密码不对',PASSWORD_LENGTH:'密码需要 8–128 位',PASSWORD_WEAK:'密码太简单了，换一个吧',USERNAME_INVALID:'用户名需要 3–20 位，字母开头，只能用字母、数字和 _（部分名字被保留）',USERNAME_TAKEN:'这个用户名已经被别人用了',
+  err:{CODE_REQUIRED:'请先发送邮箱验证码并填写',WRONG_PASSWORD:'账号或密码不对',PASSWORD_LENGTH:'密码需要 8–128 位',PASSWORD_WEAK:'密码太简单了，换一个吧',USERNAME_INVALID:'用户名需要 3–20 位，字母开头，只能用字母、数字和 _（部分名字被保留）',USERNAME_TAKEN:'这个用户名已经被别人用了',
    USERNAME_LOCKED:'用户名已经设置过，不能更改',LOGIN_INVALID:'请输入邮箱或用户名',NO_CODE:'请先发送验证码；如果一直没收到邮件，请重新发送'}},
  ja:{modeCode:'確認コードでログイン',modePassword:'パスワードでログイン',loginId:'メールアドレスまたはユーザー名',loginIdPh:'メールアドレスまたはユーザー名',password:'パスワード',passwordPh:'パスワード',sending:'確認コードを送信中…メールは数秒〜1 分ほどで届きます',
   resendIn:'{n} 秒後に再送信できます',forgot:'パスワードを忘れた場合は、確認コードでログインしてから再設定できます',methods:'ログイン方法',methodsHelp:'ユーザー名とパスワードを設定すると、メールアドレスかユーザー名とパスワードですぐにログインできます',username:'ユーザー名',
@@ -45,8 +47,10 @@ const P={
   usernameConfirmTitle:'このユーザー名にしますか？',usernameConfirmBody:'設定したユーザー名はあとから変更できません。以後、このユーザー名とパスワードでログインできます',usernameDone:'ユーザー名を設定しました',passwordNone:'パスワード未設定',
   passwordOn:'設定済み',setPassword:'パスワードを設定',changePassword:'パスワードを変更',currentPassword:'現在のパスワード',newPassword:'新しいパスワード',newPasswordPh:'8 文字以上',repeatPassword:'新しいパスワード（確認）',
   save:'保存',passwordDone:'パスワードを保存しました。次回からパスワードでログインできます',mismatch:'パスワードが一致しません',suggest:'パスワードを設定すると、次回から確認コードを待たずにメールアドレスかユーザー名でログインできます',suggestToast:'ログインしました。設定 → アカウントでパスワードを設定すると、次回は確認コードが不要です',
+  forgotCurrent:'現在のパスワードを忘れた場合は、メールの確認コードで再設定',useCurrent:'現在のパスワードを使う',pwCode:'メールの確認コード',pwCodeHelp:'本人確認のため、{email} に確認コードを送ります',
+  otherDevices:'パスワードを変更しても、ほかのデバイスはログアウトされません。必要なら下の「ログイン中のデバイス」から個別に解除できます',
   freshHint:'確認コードでログインした直後の 10 分間は、現在のパスワードなしで変更できます（忘れたときの再設定）',
-  err:{WRONG_PASSWORD:'アカウントまたはパスワードが違います',PASSWORD_LENGTH:'パスワードは 8〜128 文字にしてください',PASSWORD_WEAK:'パスワードが単純すぎます',USERNAME_INVALID:'ユーザー名は 3〜20 文字、英字で始まり、英数字と _ のみ使えます（一部の名前は予約済み）',
+  err:{CODE_REQUIRED:'先にメールの確認コードを送信して入力してください',WRONG_PASSWORD:'アカウントまたはパスワードが違います',PASSWORD_LENGTH:'パスワードは 8〜128 文字にしてください',PASSWORD_WEAK:'パスワードが単純すぎます',USERNAME_INVALID:'ユーザー名は 3〜20 文字、英字で始まり、英数字と _ のみ使えます（一部の名前は予約済み）',
    USERNAME_TAKEN:'このユーザー名はすでに使われています',USERNAME_LOCKED:'ユーザー名は設定済みのため変更できません',LOGIN_INVALID:'メールアドレスかユーザー名を入力してください',NO_CODE:'先に確認コードを送信してください。メールが届かない場合は再送信してください'}},
  en:{modeCode:'Sign in with a code',modePassword:'Sign in with a password',loginId:'Email or user name',loginIdPh:'Email or user name',password:'Password',passwordPh:'Password',
   sending:'Sending the code… the email usually arrives within a few seconds to a minute',resendIn:'Resend in {n}s',forgot:'Forgot your password? Sign in with a code, then set a new one',
@@ -56,8 +60,10 @@ const P={
   usernameDone:'User name set',passwordNone:'No password yet',passwordOn:'Set',setPassword:'Set password',changePassword:'Change password',currentPassword:'Current password',
   newPassword:'New password',newPasswordPh:'At least 8 characters',repeatPassword:'Repeat the new password',save:'Save',passwordDone:'Password saved, you can sign in with it next time',
   mismatch:'The two passwords do not match',suggest:'Set a password to sign in with your email or user name next time, without waiting for a code',suggestToast:'Signed in. Set a password in Settings → Account to skip the code next time',
+  forgotCurrent:'Forgot your current password? Reset it with an email code',useCurrent:'Use the current password instead',pwCode:'Email code',pwCodeHelp:'To confirm it is you, we send a code to {email} first',
+  otherDevices:'Changing the password does not sign out your other devices; you can remove them one by one under Signed-in devices below',
   freshHint:'You just signed in with a code: for 10 minutes you can change the password without the current one (how a forgotten password is reset)',
-  err:{WRONG_PASSWORD:'Wrong account or password',PASSWORD_LENGTH:'Passwords need 8–128 characters',PASSWORD_WEAK:'That password is too simple',USERNAME_INVALID:'User names need 3–20 characters, start with a letter and use only letters, digits and _ (some names are reserved)',
+  err:{CODE_REQUIRED:'Send the email code first and enter it',WRONG_PASSWORD:'Wrong account or password',PASSWORD_LENGTH:'Passwords need 8–128 characters',PASSWORD_WEAK:'That password is too simple',USERNAME_INVALID:'User names need 3–20 characters, start with a letter and use only letters, digits and _ (some names are reserved)',
    USERNAME_TAKEN:'That user name is already taken',USERNAME_LOCKED:'Your user name is already set and cannot be changed',LOGIN_INVALID:'Enter your email or user name',
    NO_CODE:'Send a code first; if the email never arrives, send a new one'}}
 };
@@ -131,30 +137,50 @@ export function mountEmailLogin(box,{api,locale,esc,toast,kinds=()=>null,onDone=
 /* 登录方式: the user name (chosen once, with a confirmation) and the password (set, or change with the current one;
    a code sign-in in the last 10 minutes resets it without). me = the relay's /api/me answer when known. */
 export function mountSignInMethods(box,{api,locale,esc,toast,status,me=null,onChange=()=>{}}){
- const t=T[locale]||T.zh,username=me?(me.username||''):status.username||'',hasPassword=me?!!me.hasPassword:!!status.hasPassword,known=!!me||status.passwordKnown;
- const fresh=!!status.codeFresh,needCurrent=hasPassword&&!fresh;
+ const t=T[locale]||T.zh,fill=(x,v)=>x.replace(/\{(\w+)\}/g,(_,k)=>String(v[k]??'')),username=me?(me.username||''):status.username||'',hasPassword=me?!!me.hasPassword:!!status.hasPassword,known=!!me||status.passwordKnown;
+ const fresh=!!status.codeFresh,email=me?.email||status.email||'';
  box.innerHTML=`<h3 class="settings-label" style="margin:22px 0 4px">${t.methods}</h3><p class="settings-help">${t.methodsHelp}</p>
   ${known&&!hasPassword?`<p class="settings-help u-status account-suggest" data-state="busy">${t.suggest}</p>`:''}
   <div class="settings-row"><span><span class="settings-label">${t.username}</span><p class="settings-help">${username?esc(username)+' · '+t.usernameFixed:t.usernameNone}</p></span></div>
   ${username?'':`<div class="account-username"><div class="input-group"><input class="form-input" data-username maxlength="20" spellcheck="false" autocomplete="off" placeholder="${t.usernamePh}" aria-label="${t.username}"><button type="button" class="secondary" data-username-set>${t.usernameSet}</button></div><p class="settings-help u-status" data-state="error">${t.usernameWarn}</p></div>`}
   <div class="settings-row"><span><span class="settings-label">${t.password}</span><p class="settings-help">${known?(hasPassword?t.passwordOn:t.passwordNone):'…'}</p></span><button type="button" class="secondary" data-password-open>${hasPassword?t.changePassword:t.setPassword}</button></div>
   <form class="account-password" data-password-form hidden autocomplete="off" onsubmit="return false">
-   ${needCurrent?`<label class="form-label">${t.currentPassword}</label><input class="form-input" type="password" data-current autocomplete="current-password" maxlength="128" aria-label="${t.currentPassword}">`:''}
+   <div data-proof="current"><label class="form-label">${t.currentPassword}</label><input class="form-input" type="password" data-current autocomplete="current-password" maxlength="128" aria-label="${t.currentPassword}">
+    <button type="button" class="link-button" data-use="code">${t.forgotCurrent}</button></div>
+   <div data-proof="code"><label class="form-label">${t.pwCode}</label><p class="settings-help">${fill(t.pwCodeHelp,{email:esc(email)})}</p>
+    <div class="input-group"><input class="form-input" data-pw-code inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="${t.codePh}" aria-label="${t.pwCode}"><button type="button" class="secondary" data-pw-send>${t.send}</button></div>
+    <p class="settings-help u-status" data-pw-sent hidden></p>${hasPassword?`<button type="button" class="link-button" data-use="current">${t.useCurrent}</button>`:''}</div>
    ${hasPassword&&fresh?`<p class="settings-help">${t.freshHint}</p>`:''}
    <label class="form-label">${t.newPassword}</label><input class="form-input" type="password" data-new autocomplete="new-password" maxlength="128" placeholder="${t.newPasswordPh}" aria-label="${t.newPassword}">
    <label class="form-label">${t.repeatPassword}</label><input class="form-input" type="password" data-repeat autocomplete="new-password" maxlength="128" aria-label="${t.repeatPassword}">
+   <p class="settings-help">${t.otherDevices}</p>
    <div class="review-controls" style="justify-content:flex-start;margin-top:14px"><button type="submit" class="primary" data-password-save>${t.save}</button></div></form>`;
  const form=box.querySelector('[data-password-form]');
- box.querySelector('[data-password-open]').onclick=()=>{form.hidden=!form.hidden;if(!form.hidden)(form.querySelector('[data-current]')||form.querySelector('[data-new]')).focus();
+ /* proof: nothing right after a code sign-in (relay: 10 minutes), the current password when one is set, else a mailed code */
+ let proof=fresh?'':hasPassword?'current':'code';
+ const showProof=()=>{form.querySelectorAll('[data-proof]').forEach(el=>el.hidden=el.dataset.proof!==proof);};showProof();
+ form.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>{proof=b.dataset.use;showProof();(form.querySelector(proof==='code'?'[data-pw-send]':'[data-current]')).focus();});
+ box.querySelector('[data-password-open]').onclick=()=>{form.hidden=!form.hidden;if(!form.hidden)(form.querySelector(proof==='current'?'[data-current]':proof==='code'?'[data-pw-send]':'[data-new]')).focus();
   };
+ const sendCode=form.querySelector('[data-pw-send]'),sentLine=form.querySelector('[data-pw-sent]'),codeInput=form.querySelector('[data-pw-code]');let timer=0;
+ const countdown=seconds=>{clearInterval(timer);let left=seconds;const tick=()=>{if(!box.isConnected||left<=0){clearInterval(timer);sendCode.disabled=false;sendCode.textContent=t.resend;return;}
+  sendCode.disabled=true;sendCode.textContent=fill(t.resendIn,{n:left});left--;};tick();timer=setInterval(tick,1000);};
+ codeInput.oninput=()=>{codeInput.value=codeInput.value.replace(/\D/g,'').slice(0,6);};
+ sendCode.onclick=async()=>{
+  sendCode.disabled=true;sentLine.hidden=false;sentLine.dataset.state='busy';sentLine.textContent=t.sending;
+  try{const r=await api('account_password_code',{});sentLine.dataset.state='';sentLine.innerHTML=fill(t.sentTo,{email:esc(r.email)});countdown(60);codeInput.focus();}
+  catch(error){sentLine.dataset.state='error';sentLine.textContent=errorText(t,error);const retry=Number(error?.detail?.retryAfter)||0;if(retry)countdown(retry);else sendCode.disabled=false;}
+ };
  const save=form.querySelector('[data-password-save]');
  save.onclick=async()=>{
-  const next=form.querySelector('[data-new]').value,again=form.querySelector('[data-repeat]').value,current=form.querySelector('[data-current]')?.value||'';
+  const next=form.querySelector('[data-new]').value,again=form.querySelector('[data-repeat]').value,current=proof==='current'?form.querySelector('[data-current]').value:'',code=proof==='code'?codeInput.value:'';
+  if(proof==='current'&&!current){toast(t.err.WRONG_PASSWORD);form.querySelector('[data-current]').focus();return;}
+  if(proof==='code'&&!/^\d{6}$/.test(code)){toast(t.err.CODE_REQUIRED);(sendCode.disabled?codeInput:sendCode).focus();return;}
   if(next.length<8||next.length>128){toast(t.err.PASSWORD_LENGTH);return;}
   if(next!==again){toast(t.mismatch);return;}
   form.querySelectorAll('input,button').forEach(el=>el.disabled=true);
-  try{await api('account_password',{password:next,current});form.reset();toast(t.passwordDone);await onChange();}
-  catch(error){toast(errorText(t,error));form.querySelectorAll('input,button').forEach(el=>el.disabled=false);}
+  try{await api('account_password',{password:next,current,code});clearInterval(timer);form.reset();toast(t.passwordDone);await onChange();}
+  catch(error){toast(errorText(t,error));form.querySelectorAll('input,button').forEach(el=>el.disabled=false);const raw=String(error?.code||error?.message||'');if(raw.includes('CODE_REQUIRED')){proof='code';showProof();}else if(!proof&&raw.includes('WRONG_PASSWORD')){proof=hasPassword?'current':'code';showProof();}}
  };
  const setName=box.querySelector('[data-username-set]');
  if(setName){

@@ -38,7 +38,8 @@ test('website sign-in opens a read-only, 30-day session; the desktop one stays f
  assert.equal(me.scope,'read');
  const device=me.devices.find(d=>d.current).device;assert.match(device,/^网页 · Chrome$/);
  /* password sign-in with client:web is read-only too */
- assert.equal((await handleAccounts(req('POST','/api/me/password',{password:'correct horse'},bearer(pc.token)),r.env,T0)).status,200);
+ assert.equal((await handleAccounts(req('POST','/api/auth/code',{email:'megumin@example.com'},{'cf-connecting-ip':'198.51.100.9'}),r.env,T0)).status,200);
+ assert.equal((await handleAccounts(req('POST','/api/me/password',{password:'correct horse',code:r.lastCode()},bearer(pc.token)),r.env,T0)).status,200);
  const pw=await (await handleAccounts(req('POST','/api/auth/password',{login:'megumin@example.com',password:'correct horse',device:'Safari',client:'web'}),r.env,T0)).json();
  assert.equal(pw.scope,'read');
 });
@@ -49,7 +50,7 @@ test('a read-only session can read and sign itself out, nothing else',async()=>{
  assert.equal((await handleAccounts(req('PUT','/api/sync/words',{records:[word('猫',1)]},bearer(pc.token)),r.env,T0)).status,200);
  const pull=await (await handleAccounts(req('GET','/api/sync/words?since=0',undefined,bearer(web.token)),r.env,T0)).json();
  assert.deepEqual(pull.records.map(x=>x.key),['猫']);
- for(const [method,url,body] of [['PUT','/api/sync/words',{records:[word('犬',1)]}],['DELETE','/api/sync'],['DELETE','/api/me'],['POST','/api/me/username',{username:'megumin'}],['POST','/api/me/password',{password:'another pass'}],['POST','/api/auth/logout',{sessionId:pc.sessionId}]]){
+ for(const [method,url,body] of [['PUT','/api/sync/words',{records:[word('犬',1)]}],['DELETE','/api/sync'],['DELETE','/api/me'],['POST','/api/me/username',{username:'megumin'}],['POST','/api/auth/logout',{sessionId:pc.sessionId}]]){
   const res=await handleAccounts(req(method,url,body,bearer(web.token)),r.env,T0);
   assert.equal(res.status,403,method+' '+url);assert.equal((await res.json()).error,'READ_ONLY_SESSION');
  }

@@ -201,3 +201,50 @@ test('the three languages have the same text keys',async()=>{
  assert.equal(fill('{n} 天',{n:3}),'3 天');assert.equal(pickLang('ja',['en']),'ja');assert.equal(pickLang(null,['en-US']),'en');assert.equal(pickLang(null,['fr']),'zh');
  assert.equal(errorText('en','WRONG_CODE'),'Wrong code');assert.equal(errorText('zh','NOPE'),STRINGS.zh.errors.other);
 });
+
+/* ---- 2026-11-29 (owner: 网站这边文字看不清; api.megulit.com hit Cloudflare's daily limit, error 1027) ------------------------- */
+async function apiWith(fetcher){
+ const saved=globalThis.fetch;globalThis.fetch=fetcher;
+ const mod=await import(pathToFileURL(path.join(js,'me-api.mjs')).href+'?t='+Math.random());
+ return {mod,restore:()=>{globalThis.fetch=saved;}};
+}
+const json=(status,body)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});
+test('relay client: Cloudflare 1027/429 reads as the daily quota, a dead network as NETWORK, the relay\'s own RATE_LIMITED stays itself; nothing retries on its own',async()=>{
+ const run=async(answer)=>{
+  const calls=[];const {mod,restore}=await apiWith(async(url,init={})=>{calls.push((init.mode||'cors')+' '+(init.method||'GET')+' '+new URL(url).host+new URL(url).pathname);return answer(url,init);});
+  try{await mod.requestCode('you@example.com');return {code:'OK',calls};}catch(error){return {code:error.code,calls};}finally{restore();}
+ };
+ /* 1027: Cloudflare's page has no CORS headers, so cors fetches fail while a no-cors probe gets an (opaque) answer */
+ let r=await run((url,init)=>{if(init.mode==='no-cors')return new Response('',{status:200});throw new TypeError('Failed to fetch');});
+ assert.equal(r.code,'QUOTA_EXCEEDED');
+ assert.equal(r.calls.filter(c=>c.startsWith('cors POST')).length,2,'one try per node, no loop: '+r.calls.join(' | '));
+ /* a readable 429 that is not the relay's JSON */
+ r=await run(url=>new URL(url).pathname==='/api/health'?json(200,{ok:true}):new Response('<html>error code: 1027</html>',{status:429}));assert.equal(r.code,'QUOTA_EXCEEDED');
+ /* the network is down: no-cors fails too */
+ r=await run(()=>{throw new TypeError('Failed to fetch');});assert.equal(r.code,'NETWORK');
+ /* a timeout on a slow link is NETWORK even though the node answers a probe */
+ r=await run((url,init)=>{if(init.mode==='no-cors')return new Response('',{status:200});throw new DOMException('timed out','TimeoutError');});assert.equal(r.code,'NETWORK');
+ /* the relay's own per-user limit keeps its message */
+ r=await run(url=>new URL(url).pathname==='/api/health'?json(200,{ok:true}):json(429,{ok:false,error:'RATE_LIMITED',retryAfter:60}));assert.equal(r.code,'RATE_LIMITED');
+ r=await run(url=>json(200,{ok:true,expiresIn:600}));assert.equal(r.code,'OK');
+ const {STRINGS}=await import(pathToFileURL(path.join(js,'me-i18n.mjs')).href);
+ assert.equal(STRINGS.zh.errors.QUOTA_EXCEEDED,'服务器今日额度已满，北京时间 8 点恢复');
+ for(const l of ['zh','ja','en'])assert.doesNotMatch(STRINGS[l].errors.QUOTA_EXCEEDED,/网络|ネットワーク|connection/);
+});
+test('readability: what people read on /me/ is the body font at 14px or more, with AA contrast in both themes',()=>{
+ const css=fs.readFileSync(path.join(pub,'assets','css','me.css'),'utf8');
+ const esc=x=>[...x].map(c=>'.*+?^${}()|[]'.includes(c)?'\\'+c:c).join('');
+ const rule=sel=>{const m=new RegExp('(^|\\n|\\} )'+esc(sel)+' \\{([^}]*)\\}').exec(css);assert.ok(m,'no rule for '+sel);return m[2];};
+ for(const sel of ['.hint','.msg','.help','.offline','.src','.src b','.me-foot','.flabel','.linkish','.btn-red','.btn-mini','.acct','.k','.mtag','.mchip','.lk-pos','.mrows em','.study span','.lk-from, .lk-load, .lk-none','.mn-mail, .mn-sync']){
+  const body=rule(sel),font=/font: (\d+) ([\d.]+)rem/.exec(body);assert.ok(font,sel+' sets its font');
+  assert.ok(Number(font[2])>=.875,sel+' is at least 14px ('+font[2]+'rem)');assert.match(body,/var\(--sans\)/,sel+' uses the body font');assert.doesNotMatch(body,/MeguLit Mono/,sel);
+ }
+ assert.match(rule('.btn-red'),/font: 600 1rem/,'buttons are bigger and bold');
+ assert.match(rule('.msg.bad'),/border-left: 4px solid var\(--m-hot\)/,'errors stand out');
+ const lum=hex=>{const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:((v+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2];};
+ const ratio=(a,b)=>{const [x,y]=[lum(a),lum(b)].sort((p,q)=>q-p);return (x+.05)/(y+.05);};
+ for(const block of [/^:root \{([^}]*)\}/m.exec(css)[1],/^:root\[data-theme="light"\] \{([^}]*)\}/m.exec(css)[1]]){
+  const v=name=>new RegExp('--m-'+name+': (#[0-9a-f]{6})').exec(block)[1];
+  for(const fg of ['paper','soft','dim'])assert.ok(ratio(v(fg),v('bg'))>=4.5,`--m-${fg} on --m-bg: ${ratio(v(fg),v('bg')).toFixed(2)}`);
+ }
+});
