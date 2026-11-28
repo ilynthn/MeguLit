@@ -50,7 +50,7 @@ test('forum page: three languages share the keys, text is escaped, wiring is in 
  assert.equal(view.errorText(Error('FORUM_MODERATION_ADULT'),'zh'),'审核未通过：疑似成人内容');assert.equal(view.errorText(Error('FORUM_WHATEVER'),'en'),'Cannot reach the online service right now');
  for(const code of ['UNAUTHORIZED','RATE_LIMITED','TITLE_LENGTH','BODY_LENGTH','TEXT_LINK','TEXT_BLOCKED','TEXT_INVALID','MODERATION_ABUSE','MODERATION_SPAM','THREAD_FULL','FORBIDDEN'])assert.ok(view.forumWords('ja')[code],code);
  const web=f=>fs.readFileSync(path.join(__dirname,'..','web',f),'utf8');
- assert.match(web('leaderboard-view.js'),/\['board','hot','follow','forum'\]/);
+ assert.match(web('leaderboard-view.js'),/\['board','hot',\.\.\.CHART_BOARDS,'follow','forum'\]/);
  assert.match(web('game-detail.js'),/这部作品的讨论/);assert.match(web('app.js'),/setForumFilter\(\{game:/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','services','bridge.cjs'),'utf8'),/case 'forum_post':/);
 });

@@ -21,6 +21,8 @@ import {avatarUpload,avatarDelete,avatarGet,avatarReport,avatarsFor,avatarStatus
 /* #117 交流 board */
 import {forumRoute,forumDeletes,cleanupForumImages} from './forum.js';
 import {newsGet,hotWordsDailyGet,refreshDaily,imageGet,articleGet} from './daily.js';
+/* 2026-11-28 排行榜 · 作品榜 (Galgame / light novel / otome rankings from VNDB, Bangumi, AniList) */
+import {chartsGet,chartImageGet,dailyCharts,mirrorChartImages} from './charts.js';
 /* E562 adapter packs, before/after reports, desensitized probe uploads */
 import {adaptersRoute} from './adapters.js';
 import {probeIssueWebhook,probeIssueMarkdown,repoOf,resolveRegisteredGameRequests} from './probe-issues.js';
@@ -307,6 +309,8 @@ export async function handle(request,env,now=new Date(),ctx=null){
   else if(path==='/api/news'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await newsGet(env,{json},now,url):fail('RATE_LIMITED',429);
   else if(/^\/api\/news\/img\/[0-9a-f]{32}$/.test(path)&&request.method==='GET')response=await hit(env,'daily-img',ip,now.getTime())?await imageGet(env,path.slice(14)):fail('RATE_LIMITED',429);
   else if(path==='/api/news/article'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await articleGet(env,url,{json,fail},now):fail('RATE_LIMITED',429);
+  else if(path==='/api/charts'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await chartsGet(env,url,{json,fail}):fail('RATE_LIMITED',429);
+  else if(/^\/api\/charts\/img\/[0-9a-f]{32}$/.test(path)&&request.method==='GET')response=await hit(env,'daily-img',ip,now.getTime())?await chartImageGet(env,path.slice(16)):fail('RATE_LIMITED',429);
   else if(path==='/api/hotwords/daily'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await hotWordsDailyGet(env,url,{json,fail},now):fail('RATE_LIMITED',429);
   else if(path==='/api/hotwords'&&request.method==='GET')response=await hit(env,'hot',ip,now.getTime())?await hotWordsGet(url,env):fail('RATE_LIMITED',429);
   else if(path==='/api/me'&&request.method==='DELETE'){const auth=await authenticate(request,env,now).catch(()=>null);response=await handleAccounts(request,env,now);if(auth&&response.ok)await removeSubjects(env,[await sha256('account:'+auth.account.id)]);}
@@ -351,8 +355,10 @@ export async function handle(request,env,now=new Date(),ctx=null){
 export async function scheduled(event,env,ctx){
  if(event?.cron==='*/30 * * * *'&&env.ORDINARY_SCAN_URL){const retry=retryJobs(env,new Date(event.scheduledTime||Date.now()));if(ctx?.waitUntil)ctx.waitUntil(retry);else await retry;}
  /* every 30 minutes: website feedback still waiting for its GitHub issue; the weekly cron settles hot words */
+ /* 2026-11-28 once a day at 05:40 Japan time: the 作品榜 lists (src/charts.js); their covers follow on the half-hourly runs */
+ if(event?.cron==='40 20 * * *'){const job=dailyCharts(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
  if(event?.cron==='20 21 * * *'){const job=refreshDaily(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
- if(event?.cron==='*/30 * * * *'){const job=Promise.all([syncYui(env).catch(()=>0),syncPendingFeedback(env).catch(()=>0),syncTrackers(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshRelease(env,'latest').catch(()=>null),cleanupForumImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupContrib(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeFull(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeStats(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshSeedStatsSafe(env,new Date(event?.scheduledTime||Date.now()))]);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
+ if(event?.cron==='*/30 * * * *'){const job=Promise.all([syncYui(env).catch(()=>0),syncPendingFeedback(env).catch(()=>0),syncTrackers(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshRelease(env,'latest').catch(()=>null),cleanupForumImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupContrib(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeFull(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeStats(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshSeedStatsSafe(env,new Date(event?.scheduledTime||Date.now())),mirrorChartImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0)]);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
  const when=new Date(event?.scheduledTime||Date.now());const job=settleDue(env,when).then(async done=>{await cleanupAvatars(env,when).catch(()=>0);return done;});if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
 /* a token rotated while answering any request goes back on that answer, whichever endpoint it was */
 export default {fetch:async(request,env,ctx)=>{const response=await handle(request,env,new Date(),ctx);const token=ROTATED.get(request);if(!token||response.headers.get('x-megulit-token'))return response;const copy=new Response(response.body,response);copy.headers.set('x-megulit-token',token);return copy;},scheduled};

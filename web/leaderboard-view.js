@@ -15,6 +15,8 @@ const rankTag=(e,esc)=>{if(!(e?.level>0))return '';const l=String(document.docum
 import {cardify} from './home-tv.js';
 /* #117 交流 tab */
 import {mountForum,forumWords,forumSubRow} from './forum-view.js';
+/* 2026-11-28 作品榜: Galgame / 轻小说 / 乙游 rankings from VNDB, Bangumi and AniList */
+import {CHART_BOARDS,chartWords,chartsHTML,sourceSwitch} from './charts-view.js';
 export const leaderboardLabel={zh:'排行榜',ja:'ランキング',en:'Leaderboard'};
 const W={
  zh:{title:'排行榜',week:'本周',month:'本月',all:'全部',characters:'阅读字数',seconds:'阅读时长',words:'新收录单词',reviews:'复习次数',kana:'假名练习',study:'学习',streak:'连续天数',games:'按游戏',
@@ -56,7 +58,7 @@ const W={
 };
 /* 2026-11-15 (user) 假名练习 became 学习练习, renamed 学习 (Study): every study practice in one board, ranked by questions */
 const PERIODS=['week','month','all'],METRICS=['seconds','characters','words','reviews','study','streak','games'],CATS=['word','phrase','sentence'];
-let view={tab:'board',period:'week',metric:'seconds',game:'',category:'word',week:''};
+let view={tab:'board',period:'week',metric:'seconds',game:'',category:'word',week:'',sources:{gal:'vndb',ln:'bangumi',otome:'vndb'}};
 export const setView=patch=>{view={...view,...patch};};
 export function leaderboardWords(locale){return W[locale]||W.zh;}
 function fill(template,values){return template.replace(/\{(\w+)\}/g,(_,k)=>values[k]??'');}
@@ -82,7 +84,7 @@ const EXTRA={
  ja:{eyebrow:'読者 · 毎週更新',colRank:'順位',colReader:'読者',colTerm:'語',colWhy:'なぜこの語？',honours:'4 – 10 位',rest:'11 – 50 位',myRank:'自分の順位',myPage:'マイページ',circleTitle:'みんなで集めた魔力',circleSub:'{n} 人の読者が共鳴中',featureTitle:'いちばん読まれた作品',featureSub:'{n} 人の読者が読みました · 累計',wordTitle:'今週いちばん調べられた語',wordSub:'{n} 人が調べました · クリックで辞書へ',meTag:'我',dAnki:'Anki で覚えた単語',dGrammar:'文法練習',dKana:'かな練習',dPractice:'その他の練習',dTime:'学習時間',dTotal:'合計',signIn:'登録 / ログイン',follow:'フォロー',vacant:'空席',followSub:'フォロー中の人と同好',changeAvatar:'アイコンを変更',editProfile:'プロフィールを編集',uploading:'アップロードして審査中…'},
  en:{eyebrow:'Readers · updated weekly',colRank:'Rank',colReader:'Reader',colTerm:'Term',colWhy:'Why this one',honours:'Ranks 4 – 10',rest:'Ranks 11 – 50',myRank:'My rank',myPage:'My profile',circleTitle:'Mana gathered together',circleSub:'{n} readers in resonance',featureTitle:'The most-read work',featureSub:'Read by {n} readers · all time',wordTitle:'Most looked-up word this week',wordSub:'Looked up by {n} readers · click to look it up',meTag:'You',dAnki:'Anki words',dGrammar:'Grammar practice',dKana:'Kana practice',dPractice:'Other practice',dTime:'Study time',dTotal:'Total',signIn:'Sign up / sign in',follow:'Following',vacant:'Open spot',followSub:'People you follow and kindred readers',changeAvatar:'Change picture',editProfile:'Edit profile',uploading:'Uploading and checking…'}
 };
-const words=locale=>({...leaderboardWords(locale),...(EXTRA[locale]||EXTRA.zh),forum:forumWords(locale).forum});
+const words=locale=>{const c=chartWords(locale);return {...leaderboardWords(locale),...(EXTRA[locale]||EXTRA.zh),forum:forumWords(locale).forum,gal:c.gal,ln:c.ln,otome:c.otome};};
 function segmented(name,items,current,w){return `<div class="lb-seg" role="group" data-lb-group="${name}">${items.map(item=>`<button type="button" data-lb-${name}="${item}" aria-pressed="${item===current}">${w[item]}</button>`).join('')}</div>`;}
 function underline(name,items,current,w){return `<div class="lb-tabs" role="group" data-lb-group="${name}">${items.map(item=>`<button type="button" data-lb-${name}="${item}" aria-pressed="${item===current}">${w[item]}</button>`).join('')}</div>`;}
 /* E417 the place number on the block: a plain serif numeral with a short rule under it, no wreath (the old SVG wreath
@@ -177,7 +179,7 @@ function joinHTML(data,w,esc){
    2. sub row: 阅读榜 = metric tabs + period, 每周热词 = category + past weeks, 关注 = a caption
    The body below fades in. */
 function hero(){return '';}
-function topRow(w,tab,chip=''){return `<div class="lb-toprow">${segmented('tab',['board','hot','follow','forum'],tab,w)}<div class="lb-toprow-end">${chip}</div></div>`;}
+function topRow(w,tab,chip=''){return `<div class="lb-toprow">${segmented('tab',['board','hot',...CHART_BOARDS,'follow','forum'],tab,w)}<div class="lb-toprow-end">${chip}</div></div>`;}
 function subRow(inner){return `<div class="lb-subrow">${inner}</div>`;}
 function hotControls(hot,w,esc){const weeks=hot?.weeks||[];const picker=weeks.length>1?`<label class="lb-week"><span>${w.pastWeeks}</span><select data-lb-week>${weeks.map(k=>`<option value="${esc(k)}" ${k===hot.week?'selected':''}>${esc(fill(w.weekOf,{week:k}))}</option>`).join('')}</select></label>`:'';return `${segmented('category',CATS,view.category,w)}${picker}`;}
 function boardControls(w){return `${underline('metric',METRICS,view.metric,w)}${segmented('period',PERIODS,view.period,w)}`;}
@@ -197,6 +199,8 @@ function myChip(data,w,locale,esc){
 }
 export function leaderboardHTML(data,locale,esc){
  const w=words(locale);
+ /* 作品榜: own sub row (the source switch) and body; no account needed */
+ if(CHART_BOARDS.includes(view.tab)){const board=view.tab,source=view.sources[board];return page(topRow(w,board),sourceSwitch(board,source,esc),data?chartsHTML({...data,board,source},locale,esc):'<div class="lb-loading"><span class="spinner"></span></div>');}
  /* E393/E402 loading: the same rows as the tab being loaded, with a spinner in the body */
  if(!data){const tab=view.tab||'board';return page(topRow(w,tab),tab==='board'?boardControls(w):tab==='hot'?hotControls(null,w,esc):tab==='forum'?forumSubRow(locale,esc):`<p class="lb-subrow-caption">${w.followSub}</p>`,'<div class="lb-loading"><span class="spinner"></span></div>');}
  if(!data.configured)return page(topRow(w,'board',myChip(data,w,locale,esc)),segmented('period',PERIODS,view.period,w),`<section class="lb-card leaderboard-notice"><h2 class="lb-h2">${w.notReady}</h2><p class="lb-note">${w.notReadyText}</p></section>${localHTML(data,w,locale,esc)}`);
@@ -213,7 +217,7 @@ export function leaderboardHTML(data,locale,esc){
    other metrics and the other periods are fetched quietly one by one; a repaint keeps the top row and, when it did not
    change, the sub row in place and crossfades only the body. */
 const viewCache=new Map(),inflight=new Map(),FRESH_MS=60000;
-export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>true,openSettings=()=>{},lookup=null}){
+export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>true,openSettings=()=>{},lookup=null,openGame=null}){
  const w=leaderboardWords(locale);
  let last=null;
  /* E457 switching was slow: every click waited for the relay (and the local stats, avatars, cover) before
@@ -222,7 +226,7 @@ export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>
     the first paint the other metrics of the same period are fetched quietly so the next switches are instant. */
  const cache={get:key=>viewCache.get(key)?.json,set:(key,json)=>viewCache.set(key,{json,at:Date.now()}),has:key=>Date.now()-(viewCache.get(key)?.at||0)<FRESH_MS,clear:()=>viewCache.clear()};
  /* 每周热词 does not depend on the period or metric, 关注 on nothing: one cache entry each */
- const keyOf=(v=view)=>(v.tab==='hot'?[v.tab,v.category,v.week]:v.tab==='follow'?[v.tab]:[v.tab,v.period,v.metric,v.game]).join('|');
+ const keyOf=(v=view)=>(CHART_BOARDS.includes(v.tab)?['charts',v.tab,v.sources[v.tab]]:v.tab==='hot'?[v.tab,v.category,v.week]:v.tab==='follow'?[v.tab]:[v.tab,v.period,v.metric,v.game]).join('|');
  const args=(v=view)=>({tab:v.tab,period:v.period,metric:v.metric,game:v.game,category:v.category,week:v.week});
  let seq=0,painted=false;
  const calm=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -257,10 +261,10 @@ export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>
   main.dataset.lbTab=view.tab;main.classList.toggle('lb-instant',painted);painted=true;main.scrollTop=y;bind();main.querySelectorAll('.lb-cover.tv-holo').forEach(cardify);};
  /* quiet prefetch, two requests at a time: the other tabs first, then the other metrics, then the other periods */
  /* one request per view at a time: a click on a view that is being prefetched waits for that request */
- const load=(v=view)=>{const k=keyOf(v);let p=inflight.get(k);if(!p){p=api('leaderboard_view',args(v)).finally(()=>inflight.delete(k));inflight.set(k,p);}return p;};
+ const load=(v=view)=>{const k=keyOf(v);let p=inflight.get(k);if(!p){p=(CHART_BOARDS.includes(v.tab)?api('charts_view',{board:v.tab,source:v.sources[v.tab]}):api('leaderboard_view',args(v))).finally(()=>inflight.delete(k));inflight.set(k,p);}return p;};
  let prefetching=0;
  const prefetch=()=>{if(view.game)return;const base={...view,game:''},token=++prefetching;
-  const views=[{...base,tab:'board'},{...base,tab:'hot'},{...base,tab:'follow'},...METRICS.map(m=>({...base,tab:'board',metric:m})),...PERIODS.map(p=>({...base,tab:'board',period:p}))];
+  const views=[{...base,tab:'board'},{...base,tab:'hot'},{...base,tab:'follow'},...CHART_BOARDS.map(b=>({...base,tab:b})),...METRICS.map(m=>({...base,tab:'board',metric:m})),...PERIODS.map(p=>({...base,tab:'board',period:p}))];
   const seen=new Set([keyOf()]),queue=views.filter(v=>{const k=keyOf(v);if(seen.has(k)||cache.has(k))return false;seen.add(k);return true;});
   const next=()=>{const v=queue.shift();if(!v||token!==prefetching||!isCurrent())return;load(v).then(d=>{if(!cache.has(keyOf(v)))cache.set(keyOf(v),JSON.stringify(d));}).catch(()=>{}).finally(()=>setTimeout(next,120));};
   setTimeout(next,300);setTimeout(next,450);};
@@ -288,6 +292,10 @@ export async function mountLeaderboard(main,{api,locale,esc,toast,isCurrent=()=>
   main.querySelectorAll('[data-lb-tab]').forEach(b=>b.onclick=()=>{view.tab=b.dataset.lbTab;press('tab',view.tab);render();});
   main.querySelectorAll('[data-lb-period]').forEach(b=>b.onclick=()=>{view.period=b.dataset.lbPeriod;press('period',view.period);render();});
   main.querySelectorAll('[data-lb-metric]').forEach(b=>b.onclick=()=>{view.metric=b.dataset.lbMetric;view.game='';press('metric',view.metric);render();});
+  main.querySelectorAll('[data-lb-source]').forEach(b=>b.onclick=()=>{if(!CHART_BOARDS.includes(view.tab))return;view.sources={...view.sources,[view.tab]:b.dataset.lbSource};press('source',b.dataset.lbSource);render();});
+  /* a ranked work: its MeguLit detail page when it is in the library, otherwise the source site in the browser */
+  main.querySelectorAll('[data-lb-game-id]').forEach(b=>b.onclick=()=>openGame?.(b.dataset.lbGameId));
+  main.querySelectorAll('[data-lb-open]').forEach(b=>b.onclick=event=>{event.preventDefault();api('charts_open',{url:b.dataset.lbOpen}).catch(()=>toast(chartWords(locale).offline));});
   main.querySelectorAll('[data-lb-category]').forEach(b=>b.onclick=()=>{view.category=b.dataset.lbCategory;press('category',view.category);render();});
   {const week=main.querySelector('[data-lb-week]');if(week)week.onchange=event=>{view.week=event.currentTarget.value;render();};}
   main.querySelectorAll('[data-lb-game]').forEach(b=>b.onclick=()=>{view.game=b.dataset.lbGame;render();});

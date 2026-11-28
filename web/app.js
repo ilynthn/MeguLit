@@ -1399,7 +1399,7 @@ async function renderRouteNow({navigation=false}={}){
      onBack:()=>navigate(gameOrigin),onLaunch:startGame,onEdit:editGame,onJapaneseRestore:only=>japaneseRestore(only),onRemove:removeGame,onForum:game=>{setForumFilter({game:String(game?.title||''),engine:'',
      tag:'',mine:false});setLeaderboardView({tab:'forum'});navigate('leaderboard');},onLookup:word=>{pendingLookup=word;navigate('learning','dictionary');},onOriginalChanged:async()=>{model=await api('home');if(token===pageToken)renderRoute();
      },toast});if(typeof detailCleanup==='function'){if(token===pageToken)stopDetailPage=detailCleanup;else detailCleanup();}}else if(route==='history')await history(token);else if(route==='learning')await learning(token);else if(route==='settings')await settings(token);
-     else if(route==='leaderboard')await mountLeaderboard(main,{api,locale,esc,toast,isCurrent:()=>token===pageToken,lookup:word=>{pendingLookup=word;navigate('learning',
+     else if(route==='leaderboard')await mountLeaderboard(main,{api,locale,esc,toast,isCurrent:()=>token===pageToken,openGame:id=>{gameOrigin='library';selectedGameId=id;gameTab='';navigate('game');},lookup:word=>{pendingLookup=word;navigate('learning',
      'dictionary');},openSettings:section=>{settingsSection=section;settingsProfile='';try{localStorage.setItem('megulit-settings-section',section);}catch{}navigate('settings');
      }});else if(route==='daily')await mountDaily(main,{api,locale,esc,toast,isCurrent:()=>token===pageToken,lookup:word=>{pendingLookup=word;navigate('learning',
      'dictionary');},openSettings:section=>{settingsSection=section;settingsProfile='';try{localStorage.setItem('megulit-settings-section',section);}catch{}navigate('settings');
