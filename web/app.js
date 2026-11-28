@@ -134,6 +134,7 @@ import {launchCopy,launchReason} from './launch-feedback.js';
 import {pageNav} from './page-nav.js';
 import {stageFor,applyVeil,veilSettingsHTML,veilsFromForm} from './page-veils.js';
 import {installExampleRuby,exAttr} from './example-ruby.js';
+import {QUOTA_WORDS} from './rate-limit.js';
 const quickActions=new Set(['settings_get','vocabulary','unknown_words','home','preferences','ui_state','history','dialogue','sentences','word_trash','statistics',
  'game_detail','study_words','reader_status']);
 /* E459: the learning pages' heavier reads get a longer limit, so a page never waits on them for good */
@@ -1393,7 +1394,7 @@ async function renderRouteNow({navigation=false}={}){
      reusedTorch=torchMonument.hasTorchMonument(locale);
      if(reusedTorch)main.classList.remove('g-enter');
      main.replaceChildren();
-     stopDetailPage=torchMonument.leaveTorchMonument;
+     stopDetailPage=torchMonument.suspendTorchMonument;
      const hall=await torchMonument.openTorchMonument({api,locale,esc,toast,mount:main,onContextLost:()=>showFailure(Error('Torch WebGL context lost'))});
      if(!hall||token!==pageToken)return;
     }else if(route==='home')home();else if(route==='library')library();else if(route==='novel'){const novelCleanup=await mountNovel(main,{api,invoke,locale,text,esc,toast,isCurrent:()=>token===pageToken,navigate,openSettings:section=>{settingsSection=section;settingsProfile='';navigate('settings');}});if(token===pageToken)stopDetailPage=novelCleanup;else novelCleanup();}else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();
@@ -1458,6 +1459,12 @@ async function start(){
      const timer=setInterval(async()=>{if(showingRequired||updateIsRequired())return;try{const policy=await api('update_required_status');if(!policy)return;showingRequired=true;
       await checkForUpdates({api,invoke,version:VERSION,toast,requiredPolicy:policy});
      }catch{}finally{showingRequired=false;}},3000);window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+     /* 2026-11-29 the relay's free daily quota is spent (Cloudflare 1027): one line at the top until 08:00 Beijing time;
+        the service process (services/relay-gate.cjs) already holds every relay call until then */
+     const quotaTimer=setInterval(async()=>{let q=null;try{q=await api('relay_quota_status');}catch{}let el=document.getElementById('relay-quota-note');
+      if(!q){el?.remove();return;}if(el)return;el=document.createElement('div');el.id='relay-quota-note';el.setAttribute('role','status');el.textContent=QUOTA_WORDS[locale]||QUOTA_WORDS.zh;
+      el.style.cssText='position:fixed;left:50%;top:8px;transform:translateX(-50%);z-index:2147483000;pointer-events:none;font:12px/1.7 system-ui,sans-serif;padding:2px 12px;border-radius:10px;background:rgba(173,21,57,.92);color:#fff;white-space:nowrap';document.body.append(el);},5000);
+     window.addEventListener('pagehide',()=>clearInterval(quotaTimer),{once:true});
     }
     await renderRoute();bootEntrance();
     const callback=window.__TAURI_INTERNALS__?.transformCallback(response=>{playHomeMotion(response.payload);if(response.payload==='hidden'&&pendingHomeGame){const id=pendingHomeGame;

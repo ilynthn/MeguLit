@@ -29,11 +29,19 @@ function retryAfterSeconds(response){
  const n=Number(raw);if(Number.isFinite(n))return Math.max(1,Math.min(3600,Math.ceil(n)));
  const at=Date.parse(raw);return Number.isFinite(at)?Math.max(1,Math.min(3600,Math.ceil((at-Date.now())/1000))):60;
 }
+/* 2026-11-29 (api.megulit.com answered Cloudflare "error code: 1027" twice in a day: the free Workers plan's 100k
+   requests a day were used up). That 429 has no Retry-After and lasts until the quota resets at 00:00 UTC (08:00
+   Beijing). It closes the gate for every relay host until then (cn-api runs the same Worker), and the pages get
+   QUOTA_EXCEEDED instead of a plain offline or a one-minute retry that would only add more requests. */
+const QUOTA_RE=/error code:\s*1027(?!\d)/i;
+function nextQuotaReset(t){const d=new Date(t);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()+1)+60000;}
+function isQuotaBody(text){return QUOTA_RE.test(String(text||'').slice(0,200));}
+function quotaLimited(seconds){return new Response(JSON.stringify({ok:false,error:'QUOTA_EXCEEDED',retryAfter:seconds}),{status:429,headers:{'content-type':'application/json; charset=utf-8','retry-after':String(seconds),'x-megulit-gate':'local'}});}
 function limited(seconds){return new Response(JSON.stringify({ok:false,error:'RATE_LIMITED',retryAfter:seconds}),{status:429,headers:{'content-type':'application/json; charset=utf-8','retry-after':String(seconds),'x-megulit-gate':'local'}});}
 function createGate(fetcher,options={}){
  const now=options.now||(()=>Date.now()),hosts=options.hosts||(()=>DEFAULT_HOSTS);
  const cache=new Map(),inflight=new Map(),failures=new Map(),sent=[];
- let blockedUntil=0;
+ let blockedUntil=0,quotaUntil=0;
  const isRelay=url=>{try{const u=new URL(url);return u.pathname.startsWith('/api/')&&hosts().includes(u.host);}catch{return false;}};
  const count=()=>{const t=now();sent.push(t);while(sent.length&&t-sent[0]>60000)sent.shift();};
  const store=(key,ttl,status,headers,body)=>{cache.delete(key);cache.set(key,{until:now()+ttl*1000,status,headers,body});if(cache.size>MAX_ENTRIES)cache.delete(cache.keys().next().value);};
@@ -50,7 +58,8 @@ function createGate(fetcher,options={}){
      RATE_LIMITED; the relay still rate-limits it itself */
   const {host,pathname:path}=new URL(url),method=String(init.method||input?.method||'GET').toUpperCase();
   const userSend=method==='POST'&&/^\/api\/(diagnostics|feedback)$/.test(path);
-  const t=now();if(!userSend&&t<blockedUntil)return limited(Math.ceil((blockedUntil-t)/1000));
+  const t=now();if(t<quotaUntil)return quotaLimited(Math.ceil((quotaUntil-t)/1000));
+  if(!userSend&&t<blockedUntil)return limited(Math.ceil((blockedUntil-t)/1000));
   const failureKey=host+' '+method+' '+path;
   const recordFailure=()=>{
    const count=(failures.get(failureKey)?.count||0)+1;
@@ -66,7 +75,9 @@ function createGate(fetcher,options={}){
    count();let r;
    try{r=await fetcher(input,init);}catch(error){if(error?.name!=='TimeoutError'&&error?.name!=='AbortError')recordFailure();throw error;}
    if(r.status===426){try{const body=await r.clone().json();if(body.error==='UPDATE_REQUIRED')required={latest:body.latest||'',minVersion:body.minVersion||'',message:body.message||''};}catch{}}
-   if(r.status===429){const s=retryAfterSeconds(r);blockedUntil=Math.max(blockedUntil,now()+s*1000);}
+   if(r.status===429){
+    if(!r.headers.get('retry-after')&&isQuotaBody(await r.clone().text().catch(()=>''))){quotaUntil=nextQuotaReset(now());return key?{status:429,headers:[['content-type','application/json; charset=utf-8'],['retry-after',String(Math.ceil((quotaUntil-now())/1000))]],body:Buffer.from(JSON.stringify({ok:false,error:'QUOTA_EXCEEDED'}))}:quotaLimited(Math.ceil((quotaUntil-now())/1000));}
+    const s=retryAfterSeconds(r);blockedUntil=Math.max(blockedUntil,now()+s*1000);}
    if(r.status>=500)recordFailure();else failures.delete(failureKey);
    if(method!=='GET'&&r.ok)cache.clear();
    if(!key)return r;
@@ -77,8 +88,8 @@ function createGate(fetcher,options={}){
   if(!key)return run;
   inflight.set(key,run);try{return replay(await run);}finally{inflight.delete(key);}
  }
- gated.stats=()=>{const t=now();while(sent.length&&t-sent[0]>60000)sent.shift();return {perMinute:sent.length,blockedFor:Math.max(0,Math.ceil((blockedUntil-t)/1000)),cached:cache.size};};
- gated.reset=()=>{cache.clear();inflight.clear();failures.clear();sent.length=0;blockedUntil=0;};
+ gated.stats=()=>{const t=now();while(sent.length&&t-sent[0]>60000)sent.shift();return {perMinute:sent.length,blockedFor:Math.max(0,Math.ceil((Math.max(blockedUntil,quotaUntil)-t)/1000)),quota:t<quotaUntil,quotaUntil:t<quotaUntil?quotaUntil:0,cached:cache.size};};
+ gated.reset=()=>{cache.clear();inflight.clear();failures.clear();sent.length=0;blockedUntil=0;quotaUntil=0;};
  return gated;
 }
 /* hosts: the two built-in relays plus the address saved in Settings, read when a call is made */
@@ -88,5 +99,8 @@ function install(){
  if(installed)return installed;if(process.env.NODE_TEST_CONTEXT||typeof globalThis.fetch!=='function')return null;
  const inner=globalThis.fetch.bind(globalThis);installed=createGate(inner,{hosts:currentHosts,version:()=>{try{return require('./shared-adaptation.cjs').appVersion(process.env.MEGULIT_ROOT||process.env.TOME_FINAL_ROOT||require('node:path').resolve(__dirname,'..'));}catch{return '';}}});globalThis.fetch=installed;return installed;
 }
-function stats(){return installed?installed.stats():{perMinute:0,blockedFor:0,cached:0};}
-module.exports={createGate,install,stats,ttlFor,retryAfterSeconds,DEFAULT_HOSTS,requiredStatus};
+function stats(){return installed?installed.stats():{perMinute:0,blockedFor:0,quota:false,cached:0};}
+/* true while the relay's daily quota is spent: background loops (Seed live sync) wait instead of retrying */
+function quotaSpent(){return !!installed?.stats().quota;}
+function quotaStatus(){const s=stats();return s.quota?{until:s.quotaUntil}:null;}
+module.exports={createGate,install,stats,quotaSpent,quotaStatus,isQuotaBody,nextQuotaReset,ttlFor,retryAfterSeconds,DEFAULT_HOSTS,requiredStatus};
