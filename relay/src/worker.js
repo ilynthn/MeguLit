@@ -7,7 +7,7 @@ import {cleanupProbeFull} from './probe-full.js';
 import {pulse,probeStats,cleanupProbeStats} from './probe-stats.js';
 import {DASHBOARD_HTML} from './dashboard.js';
 import {refreshSeedStatsSafe,seedStatsGet} from './seed-stats.js';
-import {LIMITS,validateLeaderboard,validateBoardQuery,validateAdaptationRecord,validateKeys,validateMeta,issueBody,validateHot,INSTALL_ID,HEX64} from './validate.js';
+import {LIMITS,validateLeaderboard,validateBoardQuery,validateAdaptationRecord,validateKeys,validateMeta,issueBody,validateHot,INSTALL_ID,HEX64,BOARD_METRICS} from './validate.js';
 /* E379 accounts (relay/ACCOUNTS.md) and community features (avatars, hot words) */
 import {handleAccounts,isAccountsPath,authenticate,ROTATED} from './accounts.js';
 /* website game-request and feedback forms → GitHub issues */
@@ -21,6 +21,8 @@ import {avatarUpload,avatarDelete,avatarGet,avatarReport,avatarsFor,avatarStatus
 /* #117 交流 board */
 import {forumRoute,forumDeletes,cleanupForumImages} from './forum.js';
 import {newsGet,hotWordsDailyGet,refreshDaily,imageGet,articleGet} from './daily.js';
+/* 2026-11-28 排行榜 · 作品榜 (Galgame / light novel / otome rankings from VNDB, Bangumi, AniList) */
+import {chartsGet,chartImageGet,dailyCharts,mirrorChartImages} from './charts.js';
 /* E562 adapter packs, before/after reports, desensitized probe uploads */
 import {adaptersRoute} from './adapters.js';
 import {probeIssueWebhook,probeIssueMarkdown,repoOf,resolveRegisteredGameRequests} from './probe-issues.js';
@@ -153,9 +155,16 @@ export async function leaderboardGet(url,env,ip,now=new Date()){
  if(q.metric==='games'&&q.game===null){
   const {results}=await env.DB.prepare(`SELECT g.game_key,MAX(g.title) title,COUNT(*) readers,
     (SELECT u.name FROM leaderboard_games t JOIN leaderboard_users u ON u.id_hash=t.id_hash WHERE t.game_key=g.game_key ORDER BY t.characters DESC LIMIT 1) top_name,
+    (SELECT t.id_hash FROM leaderboard_games t WHERE t.game_key=g.game_key ORDER BY t.characters DESC LIMIT 1) top_hash,
     MAX(g.characters) top_value FROM leaderboard_games g GROUP BY g.game_key ORDER BY readers DESC,top_value DESC LIMIT 100`).all();
-  return json({games:results.map(r=>({title:r.title,readers:r.readers,top:r.top_name?{rank:1,name:r.top_name,value:r.top_value}:null}))});
+  /* 2026-11-28 按游戏 cards show the top reader's picture */
+  const pics=await avatarsFor(env,results.map(r=>r.top_hash).filter(Boolean));
+  return json({games:results.map(r=>({title:r.title,readers:r.readers,top:r.top_name?{rank:1,name:r.top_name,value:r.top_value,avatar:pics.get(r.top_hash)||null}:null}))});
  }
+ return json(await boardData(q,env));
+}
+/* one board (period × metric, or one game's readers): entries, total, my rank, and the most-read work */
+async function boardData(q,env){
  let rows,total,mine=null;
  if(q.metric==='games'){
   ({results:rows}=await env.DB.prepare('SELECT g.id_hash,u.name,u.element,u.level,g.characters value,p.pid FROM leaderboard_games g JOIN leaderboard_users u ON u.id_hash=g.id_hash LEFT JOIN profiles p ON p.id_hash=g.id_hash AND p.public=1 AND p.hidden=0 WHERE g.game_key=? AND g.characters>0 ORDER BY g.characters DESC,g.updated_at ASC LIMIT 50').bind(q.game).all());
@@ -175,7 +184,15 @@ export async function leaderboardGet(url,env,ip,now=new Date()){
  /* E420 the most-read work (all time, from readers who share game names) for 阅读时长 / 阅读字数 */
  let feature=null;
  if(q.metric==='seconds'||q.metric==='characters'){const col=q.metric;const f=await env.DB.prepare(`SELECT MAX(title) title,SUM(${col}) value,COUNT(*) readers FROM leaderboard_games WHERE ${col}>0 GROUP BY game_key ORDER BY value DESC LIMIT 1`).first();if(f&&f.value>0)feature={title:f.title,value:f.value,readers:f.readers};}
- return json({entries,total,me:mine,feature});
+ return {entries,total,me:mine,feature};
+}
+/* 2026-11-28 (user: switching 阅读时长 / 字数 / 次数 kept showing 请求太频繁) every metric of one period in one request, counted
+   once against lb-get: the app asks once per period instead of once per tab */
+export async function leaderboardBoardsGet(url,env,ip,now=new Date()){
+ if(!await hit(env,'lb-get',ip,now.getTime()))return fail('RATE_LIMITED',429);
+ const boards={};
+ for(const metric of BOARD_METRICS){const p=new URLSearchParams(url.searchParams);p.set('metric',metric);const checked=validateBoardQuery(p,now);if(!checked.ok)return fail(checked.error);boards[metric]=await boardData(checked.value,env);}
+ return json({boards},200,{'cache-control':'private, max-age=60'});
 }
 export async function leaderboardDelete(request,url,env,ip,now=new Date()){
  if(!await hit(env,'lb-post',ip,now.getTime()))return fail('RATE_LIMITED',429);
@@ -281,6 +298,7 @@ export async function handle(request,env,now=new Date(),ctx=null){
   if(!await overall(request,env,ip,now))response=fail('RATE_LIMITED',429);
   else if(path==='/api/health'&&request.method==='GET')response=json({ok:true,service:'megulit-relay'});
   else if(path==='/api/update/policy'&&request.method==='GET'){try{response=json(await updatePolicy(env,now.getTime()));}catch{response=fail('RELEASE_UNAVAILABLE',503);}}
+  else if(path==='/api/leaderboard/boards'&&request.method==='GET')response=await leaderboardBoardsGet(url,env,ip,now);
   else if(path==='/api/leaderboard')response=request.method==='POST'?await leaderboardPost(request,env,ip,now):request.method==='GET'?await leaderboardGet(url,env,ip,now):request.method==='DELETE'?await leaderboardDelete(request,url,env,ip,now):fail('METHOD_NOT_ALLOWED',405);
   else if(path==='/api/leaderboard/avatar/appeal'&&request.method==='POST'){const who=await subjects(request,env,url.searchParams.get('id'),now);response=await hit(env,'appeal',who.primary||ip,now.getTime())?await avatarAppeal(request,env,who.primary,url,now):fail('RATE_LIMITED',429);}
   else if(/^\/api\/avatar\/[0-9a-f]{32}\/review$/.test(path)&&request.method==='GET')response=await hit(env,'diag-dl',ip,now.getTime())?await avatarReview(url,env,now):fail('RATE_LIMITED',429);
@@ -307,6 +325,8 @@ export async function handle(request,env,now=new Date(),ctx=null){
   else if(path==='/api/news'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await newsGet(env,{json},now,url):fail('RATE_LIMITED',429);
   else if(/^\/api\/news\/img\/[0-9a-f]{32}$/.test(path)&&request.method==='GET')response=await hit(env,'daily-img',ip,now.getTime())?await imageGet(env,path.slice(14)):fail('RATE_LIMITED',429);
   else if(path==='/api/news/article'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await articleGet(env,url,{json,fail},now):fail('RATE_LIMITED',429);
+  else if(path==='/api/charts'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await chartsGet(env,url,{json,fail}):fail('RATE_LIMITED',429);
+  else if(/^\/api\/charts\/img\/[0-9a-f]{32}$/.test(path)&&request.method==='GET')response=await hit(env,'daily-img',ip,now.getTime())?await chartImageGet(env,path.slice(16)):fail('RATE_LIMITED',429);
   else if(path==='/api/hotwords/daily'&&request.method==='GET')response=await hit(env,'daily',ip,now.getTime())?await hotWordsDailyGet(env,url,{json,fail},now):fail('RATE_LIMITED',429);
   else if(path==='/api/hotwords'&&request.method==='GET')response=await hit(env,'hot',ip,now.getTime())?await hotWordsGet(url,env):fail('RATE_LIMITED',429);
   else if(path==='/api/me'&&request.method==='DELETE'){const auth=await authenticate(request,env,now).catch(()=>null);response=await handleAccounts(request,env,now);if(auth&&response.ok)await removeSubjects(env,[await sha256('account:'+auth.account.id)]);}
@@ -351,8 +371,10 @@ export async function handle(request,env,now=new Date(),ctx=null){
 export async function scheduled(event,env,ctx){
  if(event?.cron==='*/30 * * * *'&&env.ORDINARY_SCAN_URL){const retry=retryJobs(env,new Date(event.scheduledTime||Date.now()));if(ctx?.waitUntil)ctx.waitUntil(retry);else await retry;}
  /* every 30 minutes: website feedback still waiting for its GitHub issue; the weekly cron settles hot words */
+ /* 2026-11-28 once a day at 05:40 Japan time: the 作品榜 lists (src/charts.js); their covers follow on the half-hourly runs */
+ if(event?.cron==='40 20 * * *'){const job=dailyCharts(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
  if(event?.cron==='20 21 * * *'){const job=refreshDaily(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
- if(event?.cron==='*/30 * * * *'){const job=Promise.all([syncYui(env).catch(()=>0),syncPendingFeedback(env).catch(()=>0),syncTrackers(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshRelease(env,'latest').catch(()=>null),cleanupForumImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupContrib(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeFull(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeStats(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshSeedStatsSafe(env,new Date(event?.scheduledTime||Date.now()))]);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
+ if(event?.cron==='*/30 * * * *'){const job=Promise.all([syncYui(env).catch(()=>0),syncPendingFeedback(env).catch(()=>0),syncTrackers(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshRelease(env,'latest').catch(()=>null),cleanupForumImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupContrib(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeFull(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),cleanupProbeStats(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0),refreshSeedStatsSafe(env,new Date(event?.scheduledTime||Date.now())),mirrorChartImages(env,new Date(event?.scheduledTime||Date.now())).catch(()=>0)]);if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
  const when=new Date(event?.scheduledTime||Date.now());const job=settleDue(env,when).then(async done=>{await cleanupAvatars(env,when).catch(()=>0);return done;});if(ctx?.waitUntil)ctx.waitUntil(job);return job;}
 /* a token rotated while answering any request goes back on that answer, whichever endpoint it was */
 export default {fetch:async(request,env,ctx)=>{const response=await handle(request,env,new Date(),ctx);const token=ROTATED.get(request);if(!token||response.headers.get('x-megulit-token'))return response;const copy=new Response(response.body,response);copy.headers.set('x-megulit-token',token);return copy;},scheduled};

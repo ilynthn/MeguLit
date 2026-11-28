@@ -9,7 +9,7 @@ import {mountEmailLogin} from './account-ui.js';
 import {trayHTML,mountTray,galleryHTML,bindGallery,pictureWords} from './forum-pictures.js';
 
 const W={
- zh:{forum:'交流',all:'全部',question:'求助',hook:'Hook 适配',guide:'教程',share:'分享',other:'闲聊',newPost:'发帖',mine:'我的帖子',
+ zh:{forum:'交流',all:'全部',question:'求助',hook:'适配请求',hookBodyHint:'请写明：游戏名、引擎，以及你遇到的问题（最多 4000 字）',guide:'教程',share:'分享',other:'闲聊',newPost:'发帖',mine:'我的帖子',
   sub:'玩家互相解答问题。所有人都能看，登录后才能发言',empty:'这里还没有帖子',emptyHint:'第一个来提问或分享吧',
   replies:'{n} 条回复',noReplies:'还没有回复',back:'返回列表',more:'加载更多',reply:'回复',replyHint:'写下你的回答…',send:'发送',sending:'发送中…',
   title:'标题',titleHint:'一句话说明问题（2–60 字）',body:'正文',bodyHint:'游戏、引擎、你试过的办法……（最多 4000 字）',tag:'分类',game:'关联作品',gameHint:'可不填',engine:'引擎',engineHint:'可不填，例如 Kirikiri',
@@ -20,7 +20,7 @@ const W={
   UNAUTHORIZED:'请先登录',RATE_LIMITED:'发得太快了，过一会儿再试',TITLE_REQUIRED:'请填写标题',TITLE_LENGTH:'标题需要 2–60 字',BODY_REQUIRED:'请填写内容',BODY_LENGTH:'内容太长了',
   TEXT_INVALID:'内容里有不可见的特殊字符',TEXT_LINK:'不能包含网址、邮箱或联系方式',TEXT_BLOCKED:'内容里有不能使用的词',INVALID_TAG:'请选择分类',INVALID_GAME:'作品名有误',INVALID_ENGINE:'引擎名只能用字母、数字和常见符号',
   MODERATION_ADULT:'审核未通过：疑似成人内容',MODERATION_ABUSE:'审核未通过：疑似辱骂或攻击他人',MODERATION_SPAM:'审核未通过：疑似广告或引流',THREAD_FULL:'这个帖子的回复已满',NOT_FOUND:'帖子不存在或已删除',FORBIDDEN:'只能删除自己发的内容'},
- ja:{forum:'交流',all:'すべて',question:'質問',hook:'Hook 対応',guide:'解説',share:'共有',other:'雑談',newPost:'投稿する',mine:'自分の投稿',
+ ja:{forum:'交流',all:'すべて',question:'質問',hook:'対応リクエスト',hookBodyHint:'ゲーム名、エンジン、困っている問題を書いてください（4000 文字まで）',guide:'解説',share:'共有',other:'雑談',newPost:'投稿する',mine:'自分の投稿',
   sub:'プレイヤー同士で助け合う場所です。誰でも読めます。書き込みにはログインが必要です',empty:'まだ投稿がありません',emptyHint:'最初の質問や共有をどうぞ',
   replies:'返信 {n} 件',noReplies:'まだ返信がありません',back:'一覧に戻る',more:'さらに読み込む',reply:'返信',replyHint:'回答を書く…',send:'送信',sending:'送信中…',
   title:'タイトル',titleHint:'問題をひとことで（2〜60 文字）',body:'本文',bodyHint:'ゲーム、エンジン、試したこと……（4000 文字まで）',tag:'カテゴリー',game:'関連作品',gameHint:'任意',engine:'エンジン',engineHint:'任意。例：Kirikiri',
@@ -31,7 +31,7 @@ const W={
   UNAUTHORIZED:'先にログインしてください',RATE_LIMITED:'投稿が速すぎます。少し待ってください',TITLE_REQUIRED:'タイトルを入力してください',TITLE_LENGTH:'タイトルは 2〜60 文字です',BODY_REQUIRED:'本文を入力してください',BODY_LENGTH:'本文が長すぎます',
   TEXT_INVALID:'見えない特殊文字が含まれています',TEXT_LINK:'URL・メールアドレス・連絡先は書けません',TEXT_BLOCKED:'使えない語が含まれています',INVALID_TAG:'カテゴリーを選んでください',INVALID_GAME:'作品名が正しくありません',INVALID_ENGINE:'エンジン名は英数字と一般的な記号だけです',
   MODERATION_ADULT:'審査で不可：成人向けの内容の疑い',MODERATION_ABUSE:'審査で不可：暴言・攻撃の疑い',MODERATION_SPAM:'審査で不可：宣伝・誘導の疑い',THREAD_FULL:'この投稿は返信の上限に達しました',NOT_FOUND:'投稿が見つからないか削除されました',FORBIDDEN:'自分の書き込みだけ削除できます'},
- en:{forum:'Community',all:'All',question:'Help',hook:'Hook support',guide:'Guides',share:'Sharing',other:'Chat',newPost:'New post',mine:'My posts',
+ en:{forum:'Community',all:'All',question:'Help',hook:'Adaptation requests',hookBodyHint:'Write the game name, the engine, and the problem you hit (up to 4000 characters)',guide:'Guides',share:'Sharing',other:'Chat',newPost:'New post',mine:'My posts',
   sub:'Players helping players. Anyone can read; sign in to post',empty:'No posts here yet',emptyHint:'Be the first to ask or share',
   replies:'{n} replies',noReplies:'No replies yet',back:'Back to the list',more:'Load more',reply:'Reply',replyHint:'Write your answer…',send:'Send',sending:'Sending…',
   title:'Title',titleHint:'The problem in one line (2–60 characters)',body:'Text',bodyHint:'Game, engine, what you tried… (up to 4000 characters)',tag:'Category',game:'Game',gameHint:'Optional',engine:'Engine',engineHint:'Optional, e.g. Kirikiri',
@@ -102,7 +102,7 @@ function composeHTML(signedIn,ctx){
  return `<button type="button" class="text-button forum-back" data-forum-back><span aria-hidden="true">←</span> ${w.back}</button><section class="lb-card forum-form"><div class="lb-card-head"><h2 class="lb-h2">${w.newPost}</h2></div>${writeBox(signedIn,`
   <div class="forum-field"><span>${w.tag}</span><div class="lb-seg" role="group">${TAGS.map((t,i)=>`<button type="button" data-forum-pick="${t}" aria-pressed="${(filter.tag||'question')===t}">${w[t]}</button>`).join('')}</div></div>
   <label class="leaderboard-field forum-field"><span>${w.title}</span><input type="text" data-forum-title maxlength="60" placeholder="${w.titleHint}" autocomplete="off"></label>
-  <label class="leaderboard-field forum-field"><span>${w.body}</span><textarea data-forum-body maxlength="4000" rows="9" placeholder="${w.bodyHint}"></textarea></label>${trayHTML(ctx.locale)}
+  <label class="leaderboard-field forum-field"><span>${w.body}</span><textarea data-forum-body maxlength="4000" rows="9" placeholder="${(filter.tag||'question')==='hook'?w.hookBodyHint:w.bodyHint}"></textarea></label>${trayHTML(ctx.locale)}
   <div class="forum-field-row"><label class="leaderboard-field forum-field"><span>${w.game}</span><input type="text" data-forum-game-input maxlength="120" value="${esc(filter.game)}" placeholder="${w.gameHint}" autocomplete="off"></label>
   <label class="leaderboard-field forum-field"><span>${w.engine}</span><input type="text" data-forum-engine-input maxlength="24" value="${esc(filter.engine)}" placeholder="${w.engineHint}" autocomplete="off" spellcheck="false"></label></div>
   <p class="leaderboard-error" data-forum-error hidden></p><div class="forum-actions"><small class="lb-note">${w.rules}</small><button type="button" class="secondary" data-forum-back>${w.cancel}</button><button type="button" class="primary" data-forum-publish>${w.publish}</button></div>`,w)}</section>`;
@@ -189,7 +189,7 @@ export async function mountForum(page,{api,locale,esc,toast,isCurrent=()=>true,a
  };
  const bindCompose=()=>{
   let tag=filter.tag||'question';
-  body.querySelectorAll('[data-forum-pick]').forEach(b=>b.onclick=()=>{tag=b.dataset.forumPick;body.querySelectorAll('[data-forum-pick]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
+  body.querySelectorAll('[data-forum-pick]').forEach(b=>b.onclick=()=>{tag=b.dataset.forumPick;const ta=body.querySelector('[data-forum-body]');if(ta)ta.placeholder=tag==='hook'?w.hookBodyHint:w.bodyHint;body.querySelectorAll('[data-forum-pick]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
   const publish=body.querySelector('[data-forum-publish]');if(!publish)return;const tray=mountTray(body.querySelector('.forum-form'),{api,locale,toast,esc});
   publish.onclick=async()=>{const val=s=>body.querySelector(s).value,box=body.querySelector('[data-forum-error]');box.hidden=true;
    const title=val('[data-forum-title]').trim(),text=val('[data-forum-body]');

@@ -6,16 +6,16 @@
 const test=require('node:test'),assert=require('node:assert'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..');const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 
-test('learner is API-independent, generic and hides only after learning, inside the area, while armed',()=>{
+test('learner is API-independent and its generic match hides only inside the learned area while armed',()=>{
  const g=read('native/gpuhide/GlyphQuads.h');
- assert.doesNotMatch(g,/#include <windows\.h>|d3d9/i,'no Windows / Direct3D in the decision core');
+ assert.doesNotMatch(g+read('native/gpuhide/CmvsBodyStrategy.h'),/#include <windows\.h>|d3d9/i,'no Windows / Direct3D in the decision core or the CMVS strategy');
  assert.doesNotMatch(g,/kirikiri|krkr|siglus|bgi|yuris|bruns|unity|renpy|leaf|clannad|dustmania/i,'no engine or game names');
  assert.match(g,/armedUntil = now \+ 60000/,'a line stays armed 60 s after the last push');
- assert.match(g,/sameAtlas = rtW == areaW && rtH == areaH && atlases\.count\(GroupKey\(nullptr, tex\)\)/,'learned atlas (by texture) on every target of the learned size (pages drawn twice into a shadow buffer)');
+ assert.match(g,/sameAtlas = rtW == areaW && rtH == areaH && LearnedAtlas\(tex\)/,'learned atlas on every target of the learned size (pages drawn twice into a shadow buffer)');
+ assert.match(g,/bool LearnedAtlas\(void \*tex\) const \{ return atlases\.count\(GroupKey\(nullptr, tex\)\) > 0;/,'atlas membership is checked by texture');
  assert.match(g,/sheet = freshTex && LineSized\(tw, th\)/,'line-sized glyph sheets: only textures first drawn with this line');
- assert.match(g,/if \(learned && armed && !readOnly && glyphSize && \(sameAtlas \|\| sheet \|\| redraw\)\)/,'hides only after learning, while armed; learned atlas at glyph height, the current line\'s own fresh sheet, or a page the game draws again');
+ assert.match(g,/const bool hide = startup \? .* :\s+learned && armed && !readOnly && glyphSize && \(sameAtlas \|\| sheet \|\| redraw\) &&\s+cx >= area\.x0 && cx <= area\.x1 && cy >= area\.y0 && cy <= area\.y1;/,'generic hiding requires an armed match inside the learned area');
  assert.match(g,/bool redraw = \(int\)\(redrawUntil - now\) > 0 && rtW == areaW && rtH == areaH;/,'a page redraw only on a target of the learned size, for RedrawMs');
- assert.match(g,/if \(cx >= area\.x0 && cx <= area\.x1 && cy >= area\.y0 && cy <= area\.y1\) \{ drop\.push_back/,'hidden only inside the text area (page sheets go through PageQuad)');
  assert.match(g,/on >= 1 && on \* 10 >= in \* 6/,'an atlas is learned only when its quads line up with the glyphs (never a UI sheet under the text)');
  assert.match(g,/if \(a\.size\(\) == n\) return &a; if \(b\.size\(\) == n\) return &b;/,'learns only when the glyph count equals the characters');
  assert.match(g,/bool Blanks\(const std::vector<Rect> &r, std::vector<Rect> &keep\) const/,'blank glyphs drawn for spaces are matched and dropped from the rects');

@@ -27,8 +27,9 @@
 .guide-more{margin:6px 0 0;font-family:var(--g-serif,serif);font-size:15px;font-weight:600;color:var(--g-t2,#cbb9ad);letter-spacing:.04em}
 @media (prefers-reduced-motion:reduce){.tour-gallery-dots button::before{transition:none}}
 
-/* 2026-11-27 top bar 教程: a small book and the word, quiet; a thin crimson outline on hover; a red dot until the tour has been seen once */
-.top-tab-tour{position:relative;display:inline-flex;align-items:center;gap:5px}
-.top-tab-tour svg{width:14px;height:14px;flex:none}
-.top-tab-tour:hover{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mgc-red,#c8323c) 70%,transparent);border-radius:6px}
-.top-tab-tour[data-new]::after{content:"";position:absolute;top:4px;right:2px;width:6px;height:6px;border-radius:50%;background:var(--mgc-red-hi,#d94550);box-shadow:0 0 8px rgba(217,69,80,.8)}
+/* 2026-11-28 top bar 教程: the word only (no icon), hover like the other items (the text brightens, no frame); until the tour has been seen once a small gold dot sits at the top right of the word */
+.top-tab-tour{display:inline-flex;align-items:center}
+.top-tab-tour span{position:relative}
+.top-tab-tour[data-new] span::after{content:"";position:absolute;top:-3px;right:-9px;width:7px;height:7px;border-radius:50%;background:var(--g-gold,#d6a434);box-shadow:0 0 0 2px color-mix(in srgb,var(--g-gold,#d6a434) 22%,transparent),0 0 9px color-mix(in srgb,var(--g-gold,#d6a434) 75%,transparent);animation:tour-dot-breathe 2.4s ease-in-out infinite}
+@keyframes tour-dot-breathe{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.22);opacity:.78}}
+@media (prefers-reduced-motion:reduce){.top-tab-tour[data-new] span::after{animation:none}}
