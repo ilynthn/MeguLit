@@ -30,6 +30,12 @@ test('hook DLL: GDI functions skip only matched dialogue and otherwise pass thro
  const e=read('native/megulithook/embed_util.cc');
  assert.match(e,/if \(hp\.embed_hook_font\)\s*\{\s*MeguLitGdiHide::FontWanted = true;\s*attachFunction\(hp\.embed_hook_font\);/,'font switching only when an embed hook asked for it, as before');
  for(const f of ['build-x86.cmd','build-x64.cmd'])assert.match(read('native/megulithook/'+f),/for %%F in \(MeguLitGdiHide\.h (MeguLitDrawSkip\.h )?(MeguLitMarks\.h )?(MeguLitEmbedWait\.h )?texthook\.cc hijackfuns\.cc embed_util\.cc( main\.cc)?( veh_hook\.cpp)?( hookfinder\.cc)?( enginecontrol\.cpp)?\) do copy \/y/,f);});
+test('hook DLL: a short string in another font (the name plate) is not hidden, whole-string and one-character engines alike',()=>{
+ const h=read('native/megulithook/MeguLitGdiHide.h');
+ assert.match(h,/if \(hit && drawn\.size\(\) < 4 && DialogueHeight > 0 && height > 0 && !NearHeight\(height, DialogueHeight\)\)\s*hit = false;/);
+ const s=read('native/megulithook/selftest/gdihide.cpp');
+ for(const name of ['whole strings: the name plate naming someone the line mentions keeps its name','one character per call: the name plate 美咲 stays although the line says 美咲','one character per call: the next line is hidden, its names included'])
+  assert.ok(s.includes(name),name);});
 test('host: probe on selection, hide-only only after the DLL reports a hidden string',()=>{
  const b=read('native/HookBridge.cs');
  assert.ok(b.includes('static bool Armed(Candidate c){return c!=null&&(c.embed||c.gdiProbe);}'));

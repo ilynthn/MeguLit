@@ -53,6 +53,28 @@ static HDC FontDC(int height)
   return dc;
 }
 static bool SkipW(HDC dc, const wchar_t *s) { return MeguLitGdiHide::Skip(dc, s, (int)wcslen(s), "TextOutW"); }
+static std::string Sjis(const wchar_t *s, int n)
+{
+  char out[256];
+  int m = WideCharToMultiByte(932, 0, s, n, out, sizeof out, nullptr, nullptr);
+  return std::string(out, m > 0 ? m : 0);
+}
+// A hook that hands over the whole line at once in Shift-JIS (LunaHook's Ciel hook).
+static void FeedSjis(const ThreadParam &tp, const wchar_t *s)
+{
+  HookParam hp{0, 932};
+  std::string a = Sjis(s, (int)wcslen(s));
+  TextBuffer b{};
+  memcpy(b.data, a.data(), a.size());
+  b.size = a.size();
+  MeguLitGdiHide::Feed(tp, hp, b);
+}
+// One character per TextOutA call, as Ciel draws its text window and its name plate.
+static bool CharA(HDC dc, wchar_t c)
+{
+  std::string a = Sjis(&c, 1);
+  return MeguLitGdiHide::SkipA(dc, a.data(), (int)a.size(), "TextOutA");
+}
 
 int main()
 {
@@ -94,6 +116,42 @@ int main()
   MeguLitGdiHide::BlankChar(L'\x3042');
   MeguLitGdiHide::BlankChar(L'\x3044');
   Check(logs == before + 1, "the first blanked character of a new line is reported once");
+
+  // 2026-11-29 名字框被一起隐藏 (群友, Ciel; 很多游戏都这样): the name plate is drawn through the same GDI calls in its own
+  // font, and the name is often in the line (美咲ちゃんの…) or a single character of the line.
+  // Whole-string engine (TextOutW per row, as BRUNS): name plate in a 20 px font, dialogue in 26 px.
+  ThreadParam whole{1, 0x7100, 0x2000, 0};
+  HDC plate = FontDC(20);
+  Sleep(450);
+  FeedChars(whole, L"「美咲も鷹也も、もう帰ろうよ」");
+  Check(SkipW(body, L"「美咲も鷹也も、もう帰ろうよ」"), "whole strings: the line is hidden");
+  Check(!SkipW(plate, L"美咲"), "whole strings: the name plate naming someone the line mentions keeps its name");
+  Check(!SkipW(plate, L"鷹也"), "whole strings: another name of the line in the name plate font stays");
+  Check(SkipW(body, L"美咲"), "whole strings: the same short piece in the dialogue font is hidden (a wrapped row)");
+  Check(SkipW(plate, L"もう帰ろうよ」"), "whole strings: four or more characters of the line are hidden in any font");
+
+  // Per-character engine (Ciel: the hook hands over the whole line in Shift-JIS, the engine draws one character per
+  // TextOutA call): name plate 40 px, dialogue 48 px. The dialogue height is learned from the line walked in order.
+  ThreadParam ciel{1, 0x43d1f7, 0, 0};
+  HDC text48 = FontDC(48), name40 = FontDC(40);
+  Sleep(450);
+  FeedSjis(ciel, L"「そうそう、美咲ちゃんの言うとおりだよ」");
+  const wchar_t *first = L"「そうそう、美咲ちゃんの言うとおりだよ」";
+  CharA(name40, L'千'); // the speaker, not in the line
+  CharA(name40, L'尋');
+  bool all = true;
+  for (const wchar_t *p = first; *p; p++)
+    all = CharA(text48, *p) && all;
+  Check(all, "one character per call: every character of the line is hidden");
+  Sleep(450);
+  FeedSjis(ciel, L"「美咲も鷹也も、もう帰ろうよ」");
+  Check(!CharA(name40, L'美') && !CharA(name40, L'咲'), "one character per call: the name plate 美咲 stays although the line says 美咲");
+  Check(!CharA(name40, L'鷹') && !CharA(name40, L'也'), "one character per call: the name plate 鷹也 stays");
+  all = true;
+  for (const wchar_t *p = L"「美咲も鷹也も、もう帰ろうよ」"; *p; p++)
+    all = CharA(text48, *p) && all;
+  Check(all, "one character per call: the next line is hidden, its names included");
+  Check(CharA(text48, L'言'), "one character per call: the previous line (still on the page) stays hidden");
   printf("%d failure(s)\n", failures);
   return failures;
 }
