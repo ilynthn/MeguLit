@@ -212,6 +212,9 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+    env:
+      # every node process in the test run refuses api / cn-api.megulit.com (tools/no-live-relay.cjs)
+      NODE_OPTIONS: --require ${{ github.workspace }}/tools/no-live-relay.cjs
     steps:
       - uses: actions/checkout@v4
 
