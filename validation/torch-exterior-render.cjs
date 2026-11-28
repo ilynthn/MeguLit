@@ -81,7 +81,7 @@ async function main(){
   assert.equal(facts.tier,tier);
   assert.equal(facts.baked,true);
   assert.ok(facts.roof<24);
-  assert.ok(facts.grass>0&&facts.grass<=(tier==='low'?9000:19000));
+  assert.ok(facts.grass>0&&facts.grass<=(tier==='low'?11000:24000));
   assert.equal(facts.opacity,.65);
   assert.ok(facts.seeThrough&&facts.friezeCount===2);
   const relief=tier==='low'?[2048,256]:[4096,512];

@@ -813,6 +813,7 @@
  "validation/torch-history.test.cjs": 377,
  "validation/torch-leave-loading.test.cjs": 60000,
  "validation/torch-monument.test.cjs": 128,
+ "validation/torch-rank-mode.test.cjs": 45000,
  "validation/torch-receive.test.cjs": 2365,
  "validation/torch-release-relay.test.cjs": 1328,
  "validation/torch-release.test.cjs": 181,

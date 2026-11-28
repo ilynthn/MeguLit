@@ -82,3 +82,22 @@ test('authenticated desktop reports bind the session only to official Seed endpo
   await torchRequest(install,url,{method:'GET'},async(_,init)=>{assert.equal(init.headers?.authorization,undefined);return new Response('{}');});
  }
 });
+
+/* 2026-11-29 user screenshot: the stele read only "cannot reach the server", not one name on it. The last page that arrived is
+   served from cache/torch-monument.json when no relay host answers, marked cached so the page retries quietly. */
+test('a page that cannot be fetched is served from the last copy that arrived, other queries and missing routes are not',async()=>{
+ const r0=root();
+ const live=async()=>res(200,{ok:true,total:2,items:[{torchNo:1,name:'惠惠',at:1763700000,game:'サクラノ詩'},{torchNo:2,name:'Aqua',at:1763800000}],next:null});
+ const down=async()=>{throw Error('down');};
+ const first=await tm.page(r0,{},{fetch:live});
+ assert.equal(first.cached,undefined);
+ const kept=await tm.page(r0,{},{fetch:down});
+ assert.equal(kept.ok,true);assert.equal(kept.cached,true);assert.ok(kept.cachedAt>0);
+ assert.deepEqual(kept.items.map(i=>i.name),['惠惠','Aqua']);assert.equal(kept.total,2);
+ /* a query never fetched before has nothing to fall back on */
+ assert.equal((await tm.page(r0,{month:'2026-11'},{fetch:down})).error,'OFFLINE');
+ /* a relay without the route is not hidden behind an old copy */
+ assert.equal((await tm.page(r0,{},{fetch:async()=>res(404,{ok:false,error:'NOT_FOUND'})})).error,'NOT_DEPLOYED');
+ /* a fresh install that never reached the relay still says it is offline */
+ assert.equal((await tm.page(root(),{},{fetch:down})).error,'OFFLINE');
+});
