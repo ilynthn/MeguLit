@@ -154,7 +154,8 @@ export function useAnkiCards(cards){
   const twin=base.find(p=>(p.hits||[]).some(h=>c.hits.includes(h))||loc(p.title,'zh').split(/\s*——\s*/)[0].split(/\s*[／/]\s*/).some(h=>h&&h===word));
   if(twin){(twin.anki||(twin.anki=[])).push(c);continue;}
   const builtin=c.examples.filter(e=>e.ja).slice(0,4).map(e=>({ja:e.ja,hl:e.hl||c.hits.find(h=>e.ja.includes(h))||'',zh:e.zh}));
-  const others=list.filter(o=>o.level===c.level&&o!==c).map(o=>o.hits[0]).filter(h=>h&&!c.hits.includes(h));
+  /* 2026-11-28 another card's word can be a Chinese gloss (「敬语助动词「れる」」): only plain Japanese forms are offered as wrong answers */
+  const others=list.filter(o=>o.level===c.level&&o!==c).map(o=>o.hits[0]).filter(h=>h&&plainJapanese(h)&&!c.hits.includes(h));
   const wrong=[0,7,19].map(k=>others[(c.order+k)%Math.max(1,others.length)]).filter((v,i,a)=>v&&a.indexOf(v)===i);
   const title=`${word} —— ${short(c.explain[0])}`,gist=c.explain[0]||'';
   const kind=kindOf(c);ANKI.push({id:c.id,level:c.level,group:kind,node:{cond:'clauses',link:'clauses',time:'clauses',perm:'auxiliary',guess:'auxiliary',voice:'auxiliary',
@@ -292,6 +293,24 @@ function formulaHTML(a,esc){return a.split(/\s*\+\s*/).map((part,i)=>`${i?'<i cl
    or three ways — the real one and the grammar swapped for a look-alike — and you pick the one a Japanese speaker would
    say; the right one lights its grammar and says why, a wrong pick says why not. N0 words add one more round: who
    would say it (the era and the crowd). */
+/* 2026-11-28 (owner: 「？这边算法啥情况」, 9-nine: 「私が手伝っ敬语助动词「れる」」 was offered as a line): a wrong line swaps the
+   grammar for a Japanese look-alike only, from these groups (てあげる → てくれる / てもらう, ている → てある …), so it takes a
+   moment's thought. A deck card's other forms (another card's word, possibly a Chinese gloss) are never used; a built-in
+   lesson's hand-picked wrong forms may fill in. Anything that is not plain Japanese is dropped; no wrong line, no round. */
+const LOOK_ALIKE=[['てあげる','てくれる','てもらう','てやる'],['てあげた','てくれた','てもらった'],['てあげて','てくれて','てもらって'],['あげる','くれる','もらう'],
+ ['ている','てある','ておく','てしまう'],['ていた','てあった','ておいた','てしまった'],['られる','させる','させられる'],['れる','せる'],['たら','れば','なら'],
+ ['ように','ために'],['そうだ','ようだ','らしい'],['なければならない','なくてもいい','てはいけない'],['ので','のに','から'],['だけ','しか','ばかり'],['ても','ては'],
+ ['は','が'],['に','で','へ'],['を','が'],['から','まで','より']];
+const LOOK_GROUPS=[...LOOK_ALIKE,...LOOK_ALIKE.filter(g=>g.every(m=>m.startsWith('て'))).map(g=>g.map(m=>'で'+m.slice(1)))];
+// Simplified Chinese characters a gloss or tag would carry that Japanese never writes
+const ZH_ONLY=/[语动词态让给为这们么吗说话请问认识谁时过进现关对应该样种还没发从书车东边见觉论设计记读练习题释义类别标签谦]/u;
+export function plainJapanese(form){const t=String(form||'');return /^[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}ー々]{1,12}$/u.test(t)&&/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(t)&&!ZH_ONLY.test(t);}
+export function lookAlikes(answer){
+ const out=[];for(const g of LOOK_GROUPS)for(const m of [...g].sort((a,b)=>b.length-a.length)){
+  if(answer!==m&&!([...m].length>=2&&answer.endsWith(m)))continue;
+  const head=answer.slice(0,answer.length-m.length);for(const x of g)if(x!==m)out.push(head+x);break;}
+ return [...new Set(out)].filter(x=>x!==answer&&plainJapanese(x));
+}
 export function judgeRounds(point,real=[]){
  const lines=[...real.filter(e=>e.end>e.start),...builtinExamples(point)].filter((e,k,a)=>e.end>e.start&&a.findIndex(x=>x.text===e.text)===k);
  const out=[],max=point.era?1:3;
@@ -301,10 +320,13 @@ export function judgeRounds(point,real=[]){
    start=h.start;end=h.end;answer=h.text;others=point.wrong||[];}
   else{const b=blankOf(point,e.text,e.start,e.end);if(!point.choices.includes(b.answer))continue;start=b.start;end=b.end;answer=b.answer;others=point.choices.filter(c=>c!==b.answer);
    }
-  const c=[...e.text],wrong=others.filter(x=>x!==answer).slice(0,24),n=[...e.text].length+out.length,pick=[wrong[n%Math.max(1,wrong.length)],wrong[(n+3)%Math.max(1,
+  others=[...lookAlikes(answer),...(point.source==='anki'?[]:others)];
+  const c=[...e.text],wrong=[...new Set(others)].filter(x=>x!==answer&&plainJapanese(x)).slice(0,24),n=[...e.text].length+out.length,pick=[wrong[n%Math.max(1,wrong.length)],wrong[(n+3)%Math.max(1,
    wrong.length)]].filter((x,i,a)=>x&&a.indexOf(x)===i);
   if(!pick.length)continue;
-  const opts=[{text:e.text,ok:true,start,end},...pick.map(x=>({text:c.slice(0,start).join('')+x+c.slice(end).join(''),ok:false,start,end:start+[...x].length,form:x}))];
+  const opts=[{text:e.text,ok:true,start,end},...pick.map(x=>({text:c.slice(0,start).join('')+x+c.slice(end).join(''),ok:false,start,end:start+[...x].length,form:x}))]
+   .filter(o=>o.ok||o.text!==e.text&&[...o.text].every(ch=>!ZH_ONLY.test(ch)||e.text.includes(ch)));
+  if(opts.length<2)continue;
   const k=n%opts.length;[opts[0],opts[k]]=[opts[k],opts[0]];
   out.push({answer,translation:e.translation||'',title:e.title||'',options:opts});}
  return out;

@@ -67,7 +67,7 @@ function start(root,{runtime=null,fetcher=fetch,install=runInstaller,china=inChi
    }
    // An existing Anki 25.x launcher can still need packages on first start.
    if(china){process.env.UV_DEFAULT_INDEX??='https://pypi.tuna.tsinghua.edu.cn/simple';process.env.UV_INDEX_URL??='https://pypi.tuna.tsinghua.edu.cn/simple';}
-   if(runner)await runner.start({hide:false});
+   if(runner)await runner.start({hide:!!runner.config?.()?.ankiHidden});
    state.phase='done';log(root,'done');
   }catch(e){state.phase='error';const message=String(e.message||e);state.error=message.startsWith('ANKI_INSTALL_TARGET_FAILED ')?message:message.slice(0,120);log(root,'error '+state.error);}finally{job=null;}})();
  return status();

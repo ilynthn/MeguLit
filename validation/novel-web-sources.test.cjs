@@ -308,6 +308,22 @@ test('the novel service and the desktop bridge route the new actions', async t =
   }
 });
 
+/* 店主 11-29：「是哔哩轻小说啊 为啥是哩哩」 */
+test('the Chinese source is called 哔哩轻小说 everywhere the reader sees it', async () => {
+  const { webMessages } = await import(require('node:url').pathToFileURL(path.join(ROOT, 'web', 'novel-web.js')).href);
+  const zh = webMessages('zh');
+  assert.equal(zh.linovelib, '哔哩轻小说（linovelib.com）');
+  assert.equal(zh.from.linovelib, '哔哩汉化');
+  assert.equal(zh.prefs.linovelib, '哔哩汉化');
+  assert.equal(zh.mark.truncated, '哔哩未提供这一段');
+  assert.equal(webMessages('ja').linovelib, '哔哩軽小説（linovelib.com）');
+  const credits = fs.readFileSync(path.join(ROOT, 'web', 'credits.json'), 'utf8');
+  for (const [name, text] of [['zh', JSON.stringify(zh)], ['ja', JSON.stringify(webMessages('ja'))], ['en', JSON.stringify(webMessages('en'))], ['credits', credits]]) {
+    assert.ok(!/(?<!哔)哩哩/.test(text), name + ': no 哩哩 without 哔');
+  }
+  assert.match(credits, /成为小说家吧 · 哔哩轻小说/);
+});
+
 /* ---------------- 致谢 ---------------- */
 
 test('credits: the projects this feature learned from are in THIRD-PARTY.md and the credits roll', () => {

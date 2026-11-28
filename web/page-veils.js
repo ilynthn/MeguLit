@@ -4,7 +4,7 @@
 export const PAGE_VEILS=[
  {key:'home',route:'home',a:.35,s:0,b:14,label:{zh:'首页',en:'Home',ja:'ホーム'}},
  {key:'detail',route:'game',a:.25,s:0,b:8,label:{zh:'作品详情',en:'Game detail',ja:'作品詳細'}},
- {key:'leaderboard',route:'leaderboard',a:.3,s:0,b:10,label:{zh:'广场',en:'Plaza',ja:'広場'}},
+ {key:'leaderboard',route:'leaderboard',a:.3,s:0,b:10,label:{zh:'社区',en:'Community',ja:'コミュニティ'}},
  {key:'history',route:'history',a:.3,s:0,b:10,label:{zh:'历史',en:'History',ja:'履歴'}}
 ];
 const PARTS=[['a',1],['s',1],['b',40]];

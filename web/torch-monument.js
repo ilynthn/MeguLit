@@ -20,7 +20,7 @@ import {ShaderPass} from './vendor/three/addons/postprocessing/ShaderPass.js';
 import {SMAAPass} from './vendor/three/addons/postprocessing/SMAAPass.js';
 import {rng,canvas2d,glowSprite} from './torch-textures.js';
 import {buildHall,buildStele,HALL} from './torch-hall.js';
-import {loadBaked,withBaked,bakedAO,computeVolumes,applyAO} from './torch-bake.js';
+import {loadBaked,withBaked,bakedAO,applyAO,bakeProgress} from './torch-bake.js';
 import {VolumetricPass} from './torch-volumetric.js';
 import {loadGsap} from './gsap-loader.js';
 import {createTorchCovers} from './torch-covers.js';
@@ -33,15 +33,15 @@ const cnParse=q=>{const D="零壹贰叁肆伍陆柒捌玖",U={"拾":10,"佰":100
 const COPY={
  zh:{title:'传火碑',sub:'这里记录玩家为各部作品分享的校准',count:n=>'已刻名 '+n+' 处',monthCount:(m,n)=>m+' · '+n+' 处',range:(a,b)=>'第 '+a+'–'+b+' 位',all:'全部',
   anon:'匿名',empty:'还没有人刻下名字',find:'找名字',findGo:'查找',me:'我的名字',meNone:'还没有查到这个账号的刻名',quality:{high:'画质 标准',low:'画质 省电'},
-  prev:'往前',next:'往后',none:'没找到这个名字',offline:'暂时连不上服务器，过一会儿再打开看看',notDeployed:'服务器尚未开放这个名单功能',loading:'正在读取…',preparing:'正在准备殿堂…',more:'只显示前 50 个',
+  prev:'往前',next:'往后',none:'没找到这个名字',offline:'暂时连不上服务器，过一会儿再打开看看',notDeployed:'服务器尚未开放这个名单功能',loading:'正在读取…',preparing:'正在准备殿堂…',simple:'用简化视图',more:'只显示前 50 个',
   ym:m=>m.replace(/^(\d{4})-(\d{2})$/,(x,y,mo)=>y+' 年 '+Number(mo)+' 月')},
  en:{title:'Monument',sub:'Calibrations shared by contributors for each game',count:n=>n+' names',monthCount:(m,n)=>m+' · '+n,range:(a,b)=>'#'+a+'–'+b,all:'All',
   anon:'Anonymous',empty:'No names carved yet',find:'Find a name',findGo:'Find',me:'My name',meNone:'No inscriptions found for this account',quality:{high:'Quality: full',low:'Quality: light'},
-  prev:'Back',next:'On',none:'No such name',offline:'Cannot reach the server right now. Try again later.',notDeployed:'This list feature is not available on the server yet.',loading:'Loading…',preparing:'Preparing the hall…',more:'First 50 only',
+  prev:'Back',next:'On',none:'No such name',offline:'Cannot reach the server right now. Try again later.',notDeployed:'This list feature is not available on the server yet.',loading:'Loading…',preparing:'Preparing the hall…',simple:'Use the simple view',more:'First 50 only',
   ym:m=>m},
  ja:{title:'継火の碑',sub:'作品ごとにキャリブレーションを共有した記録です',count:n=>n+' 件',monthCount:(m,n)=>m+' · '+n+' 件',range:(a,b)=>a+'–'+b+' 番目',all:'すべて',
   anon:'匿名',empty:'まだ誰の名前も刻まれていません',find:'名前を探す',findGo:'探す',me:'自分の名前',meNone:'このアカウントの刻名は見つかりませんでした',quality:{high:'画質 標準',low:'画質 軽量'},
-  prev:'前へ',next:'次へ',none:'見つかりませんでした',offline:'サーバーに接続できません。しばらくしてからもう一度開いてください',notDeployed:'名簿機能はサーバーでまだ公開されていません',loading:'読み込み中…',preparing:'聖堂を準備しています…',more:'最初の 50 件のみ',
+  prev:'前へ',next:'次へ',none:'見つかりませんでした',offline:'サーバーに接続できません。しばらくしてからもう一度開いてください',notDeployed:'名簿機能はサーバーでまだ公開されていません',loading:'読み込み中…',preparing:'聖堂を準備しています…',simple:'簡易表示にする',more:'最初の 50 件のみ',
   ym:m=>m.replace(/^(\d{4})-(\d{2})$/,(x,y,mo)=>y+' 年 '+Number(mo)+' 月')}};
 const QUALITY_KEY='megulit-torch-quality';
 const FONT='"Torch Serif","Noto Serif SC","Source Han Serif SC","Noto Serif JP","Songti SC","SimSun","Yu Mincho",serif';
@@ -53,6 +53,16 @@ const NAME_PX=40,NAME_ADV=42,SIDE_PX=15,SIDE_ADV=16,DATE_PX=14,GAP=30;
 let current=null;
 export function closeTorchMonument(){current?.close();}
 export function suspendTorchMonument(){current?.suspend();}
+/* 2026-11-28 the route is left (another top-bar page): a hall still loading is given up at once and its WebGL context released;
+   a ready one is kept for the next visit */
+export function leaveTorchMonument(){current?.leave();}
+/* the simple list was needed in this session (the bake could not be read, or the hall took too long and the simple view was
+   picked): later visits go straight to it until MeguLit restarts */
+let preferSimple=false;
+const SIMPLE_AFTER=10000;
+/* hand the main thread back between slices of the build, so clicks (the top bar) are handled while the hall is put together */
+const yieldMain=()=>new Promise(resolve=>setTimeout(resolve,0));
+const CANCELLED=Symbol('torch-cancelled');
 export function hasTorchMonument(locale){return current?.locale===locale;}
 export function invalidateTorchMonument(locale){if(current?.locale!==locale)closeTorchMonument();}
 
@@ -75,6 +85,8 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
   <p class="tm-count" aria-live="polite"></p>
   <div class="tm-tip" role="tooltip" hidden><b class="tm-tip-name"></b><span class="tm-tip-meta"></span></div>
   <p class="tm-status" role="status" hidden></p>
+  <button type="button" class="tm-btn tm-text tm-simple-go" hidden>${esc(t.simple)}</button>
+  <ol class="tm-list" hidden></ol>
   <p class="tm-help">${controls}</p>
   <footer class="tm-bar">
    <div class="tm-pager"><button type="button" class="tm-btn tm-next" aria-label="${esc(t.next)}" title="${esc(t.next)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg></button><span class="tm-range"></span><button type="button" class="tm-btn tm-prev" aria-label="${esc(t.prev)}" title="${esc(t.prev)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg></button></div>
@@ -86,9 +98,9 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  const $=s=>host.querySelector(s);
  const state={month:'',months:[],monthsOn:false,findOn:false,mine:[],mineAt:0,items:[],off:0,next:null,atStart:true,total:0,loading:false,pageError:'',focusNo:null,fit:0,layout:null,
   bandWindow:0,hover:null,hoverMonth:null};
- let disposed=false,mounted=false,scene=null,sceneReady=false,gsap=null,ro=null;
+ let disposed=false,mounted=false,scene=null,sceneReady=false,gsap=null,ro=null,simple=false,progress=0,slowTimer=0,assetTick=0;
  let visit=0,wakePreparation,onContextLost,firstFrame=false,faceDirty=false;
- const ctl={locale,close,suspend,resume,prepared:null};
+ const ctl={locale,close,suspend,resume,leave,prepared:null};
  const isVisit=id=>mounted&&visit===id;
  const canvas=$('.tm-canvas'),bar=$('.tm-bar'),veil=$('.tm-veil');
  canvas.inert=bar.inert=true;
@@ -133,7 +145,9 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
 
  /* ---------- UI ---------- */
  function status(msg){const el=$('.tm-status');el.textContent=msg||'';el.hidden=!msg;}
- function updateStatus(){status(!sceneReady?t.preparing:state.loading?t.loading:state.pageError);}
+ function updateStatus(){status(simple?(state.loading?t.loading:state.pageError||(initialPagePending||state.items.length?'':t.empty))
+  :!sceneReady?t.preparing+(progress>=.01?' '+Math.round(progress*100)+'%':''):state.loading?t.loading:state.pageError);}
+ function setProgress(p){if(p<=progress)return;progress=Math.min(.99,p);if(!sceneReady&&!simple)updateStatus();}
  function updateChrome(){const L=state.layout,n=state.total;
   $('.tm-count').textContent=state.month?t.monthCount(t.ym(state.month),n):n?t.count(n):'';
   const first=L?.entries[0]?.item,last=L?.entries[L.entries.length-1]?.item;
@@ -171,13 +185,28 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  function backPage(off){let n=0,o=off;const cols=Math.floor((AREA_X1-AREA_X0)/COL_W);for(let c=0;c<cols&&o>0;c++){const k=backColumn(o);o-=k;n+=k;}return Math.max(1,n);}
  function layoutNow(){state.layout=layoutFrom(state.off);state.fit=state.layout.entries.length;return state.layout;}
  function redraw(){if(disposed)return;layoutNow();updateChrome();
+  if(simple){renderList();return;}
   if(mounted)scene?.paintFace();else faceDirty=true;}
+ /* the simple view: the names of the current page as a plain list, paged by the same arrows */
+ function renderList(){const list=$('.tm-list');
+  list.innerHTML=(state.layout?.entries||[]).map(({item})=>`<li><b>${esc(item.name||item.alias||t.anon)}</b><span>${esc([dateText(item.at,true),item.game].filter(Boolean).join(' · '))}</span></li>`).join('');
+  list.hidden=false;}
+ function enterSimple(){
+  if(disposed||simple)return;
+  simple=true;preferSimple=true;clearTimeout(slowTimer);slowTimer=0;
+  /* the hall's own context is given up on purpose: that is not a lost context */
+  canvas.removeEventListener('webglcontextlost',onLost);
+  if(scene){ro?.disconnect();ro=null;scene.dispose();scene=null;}
+  host.classList.add('tm-simple');
+  canvas.hidden=veil.hidden=$('.tm-help').hidden=$('.tm-quality').hidden=$('.tm-sep').hidden=$('.tm-simple-go').hidden=true;
+  bar.inert=false;timing('simple',opened);updateStatus();redraw();
+ }
 
  /* Prepare the visible shell before the renderer, overlapping data and local assets. */
  const tier=pickTier(quality());
  const timed=async(name,work)=>{const start=performance.now();try{return await work();}finally{timing(name,start);}};
  /* controls */
- $('.tm-prev').addEventListener('click',()=>step(-1));$('.tm-next').addEventListener('click',()=>step(1));
+ $('.tm-simple-go').addEventListener('click',enterSimple);$('.tm-prev').addEventListener('click',()=>step(-1));$('.tm-next').addEventListener('click',()=>step(1));
  $('.tm-quality').addEventListener('click',()=>{const next=scene.tier==='low'?'high':'low';try{localStorage.setItem(QUALITY_KEY,next);}catch{}scene.setTier(next);updateChrome();});
  $('.tm-me').addEventListener('click',()=>{if(!state.mine.length){toast(t.meNone);return;}const it=state.mine[state.mineAt%state.mine.length];state.mineAt++;jumpTo(it);});
  const results=$('.tm-results');
@@ -239,8 +268,10 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
    syncActive();
   }
   wakePreparation?.();
+  /* still not ready after a while: offer the simple list instead of leaving the visit on the loading line */
+  if(!sceneReady&&!simple&&!slowTimer)slowTimer=setTimeout(()=>{if(!disposed&&!sceneReady&&!simple&&mounted)$('.tm-simple-go').hidden=false;},SIMPLE_AFTER);
   if(!ctl.prepared)ctl.prepared=prepare();
-  else if(sceneReady&&state.pageError){
+  else if((sceneReady||simple)&&state.pageError){
    const id=visit,valid=()=>isVisit(id);
    loadAt({},valid).then(ok=>{if(ok&&valid())redraw();});
   }
@@ -281,11 +312,24 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  addEventListener('pagehide',onPageHide);
  addEventListener('megulit-game-launch',close);
 
+ /* Side requests follow the first page request. */
+ function sideRequests(firstLoad){
+  call('torch_months').then(r=>{if(disposed||!r?.ok)return;state.monthsOn=r.available!==false;state.months=r.months||[];state.bandWindow=Math.max(0,state.months.length-12);redraw();});
+  call('torch_find',{name:'',probe:true}).then(r=>{if(disposed)return;state.findOn=!!(r?.ok&&r.available!==false);$('.tm-find').hidden=!state.findOn;});
+  call('torch_me').then(async r=>{if(disposed||!r?.ok)return;state.mine=r.items||[];$('.tm-me').hidden=!(r.available!==false&&state.mine.length);
+   if(state.mine.length){await firstLoad;redraw();}});
+ }
+ /* 2026-11-28 user: 现在点传火碑会卡住强制加载 不让切走. The hall was put together in one go on the main thread (and, when the
+    bake could not be read, every texture and the occlusion volume were worked out there too: 8 s on a fast PC), so the top bar
+    could not be clicked until it was done. Now the build and the shader compile run in slices that hand the thread back, a
+    visit that is left stops at the next slice and releases what it made, a bake that cannot be read shows the simple list
+    instead, and after SIMPLE_AFTER the visitor may pick the simple list themselves. */
  async function prepare(){
   updateStatus();redraw();
-  const fontReady=timed('font',()=>document.fonts.load('44px "Torch Serif"','传火碑人').catch(()=>{}));
-  const gsapReady=reduced?null:timed('gsap',()=>loadGsap().catch(()=>null));
-  const bakeReady=timed('bake-assets',()=>loadBaked(tier==='low'));
+  const simpleFirst=preferSimple&&!window.__TORCH_BAKE,low=tier==='low';
+  const fontReady=simpleFirst?null:timed('font',()=>document.fonts.load('44px "Torch Serif"','传火碑人').catch(()=>{}));
+  const gsapReady=simpleFirst||reduced?null:timed('gsap',()=>loadGsap().catch(()=>null));
+  const bakeReady=simpleFirst?null:timed('bake-assets',()=>loadBaked(low));
   const firstLoad=timed('first-page',()=>loadAt({})).then(()=>{
    initialPagePending=false;
    if(disposed)return;
@@ -293,49 +337,70 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
    const id=visit;
    return ahead(()=>isVisit(id));
   });
+  const simpleNow=()=>{enterSimple();sideRequests(firstLoad);return ctl;};
+  if(simpleFirst)return simpleNow();
+  assetTick=setInterval(()=>setProgress(.5*bakeProgress(low)),150);
+  const alive=()=>!disposed&&!simple;
   try{
-   const [bake,motion]=await Promise.all([bakeReady,gsapReady,fontReady]);
-   await new Promise(resolve=>setTimeout(resolve,0));
+   let bake=await bakeReady;
+   /* one more try for a file that failed to arrive or decode (a stale bake stays stale) */
+   if(!bake.ok&&bake.reason!=='stale'&&!window.__TORCH_BAKE&&alive())bake=await timed('bake-assets-retry',()=>loadBaked(low));
+   const [motion]=await Promise.all([gsapReady,fontReady]);
+   clearInterval(assetTick);
+   if(disposed)return null;
+   if(simple)return ctl;
+   if(!bake.ok&&!window.__TORCH_BAKE){console.warn('torch: bake not usable, showing the simple list',bake.reason);return simpleNow();}
+   setProgress(.5);
+   await yieldMain();
    while(!mounted&&!disposed)await waitForMount();
    if(disposed)return null;
+   if(simple)return ctl;
    gsap=motion;
    layoutNow();
    const start=performance.now();
    const {ok,reason}=bake;
-   scene=withBaked(bake,()=>buildScene({host,canvas:$('.tm-canvas'),state,t,tier,reduced,gsap,onTier:updateChrome,bakeInfo:{ok,reason},onFirstFrame}));
+   scene=await withBaked(bake,()=>buildScene({host,canvas:$('.tm-canvas'),state,t,tier,reduced,gsap,onTier:updateChrome,bakeInfo:{ok,reason},onFirstFrame,alive,
+    onProgress:p=>setProgress(.5+.3*p)}));
    timing(ok?'build-scene':'build-scene-fallback',start);
    if(!window.__TORCH_BAKE)scene.loadCovers?.(call);
-   ro=new ResizeObserver(()=>{if(mounted)scene.resize();});ro.observe(host);
+   ro=new ResizeObserver(()=>{if(mounted)scene?.resize();});ro.observe(host);
    if(typeof window.__TORCH_HOUR==='number')host.__torch=scene;
-  }catch(error){close();throw error;}
+  }catch(error){
+   clearInterval(assetTick);
+   if(error===CANCELLED)return disposed?null:ctl;
+   if(disposed)return null;
+   console.error('torch: the hall could not be built, showing the simple list',error);
+   return simpleNow();
+  }
   updateChrome();
+  sideRequests(firstLoad);
 
-  /* Side requests follow the first page request. */
-  call('torch_months').then(r=>{if(disposed||!r?.ok)return;state.monthsOn=r.available!==false;state.months=r.months||[];state.bandWindow=Math.max(0,state.months.length-12);redraw();});
-  call('torch_find',{name:'',probe:true}).then(r=>{if(disposed)return;state.findOn=!!(r?.ok&&r.available!==false);$('.tm-find').hidden=!state.findOn;});
-  call('torch_me').then(async r=>{if(disposed||!r?.ok)return;state.mine=r.items||[];$('.tm-me').hidden=!(r.available!==false&&state.mine.length);
-   if(state.mine.length){await firstLoad;redraw();}});
-
-  await new Promise(resolve=>setTimeout(resolve,0));
+  await yieldMain();
   while(!mounted&&!disposed)await waitForMount();
   if(disposed)return null;
+  if(simple)return ctl;
   const compileStart=performance.now();
-  try{
-   scene.prepare(()=>{
-    if(disposed)return;
-    sceneReady=true;canvas.inert=bar.inert=false;$('.tm-quality').disabled=false;
-    updateStatus();timing('shader-ready',compileStart);timing('ready',opened);syncActive();
-   });
-  }catch(error){close();throw error;}
+  const built=scene;
+  Promise.resolve(built.prepare(()=>{
+   if(disposed||simple||scene!==built)return;
+   sceneReady=true;clearTimeout(slowTimer);slowTimer=0;$('.tm-simple-go').hidden=true;
+   canvas.inert=bar.inert=false;$('.tm-quality').disabled=false;
+   updateStatus();timing('shader-ready',compileStart);timing('ready',opened);syncActive();
+  },{alive,onProgress:p=>setProgress(.8+.2*p)})).catch(error=>{
+   if(disposed||simple)return;
+   console.error('torch: shaders could not be prepared, showing the simple list',error);enterSimple();
+  });
   return ctl;
  }
+ function leave(){if(sceneReady||simple)suspend();else close();}
  function close(){
   if(disposed)return;
   suspend();disposed=true;if(current===ctl)current=null;
+  clearTimeout(slowTimer);slowTimer=0;clearInterval(assetTick);assetTick=0;
   wakePreparation?.();
   canvas.removeEventListener('webglcontextlost',onLost);
   removeEventListener('pagehide',onPageHide);removeEventListener('megulit-game-launch',close);
-  scene?.dispose();host.remove();
+  scene?.dispose();scene=null;host.remove();
  }
  return ctl;
 }
@@ -350,7 +415,9 @@ function pickTier(q){if(q!=='auto')return q;if(autoQuality)return autoQuality;
  return autoQuality=soft?'low':'high';}
 
 /* ================= the scene ================= */
-function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo=null,onFirstFrame}){
+/* 2026-11-28 async: the build hands the main thread back between its parts (see prepare in createMonument). A visit that ends
+   meanwhile (alive() false) stops at the next part; what was made so far is released here and CANCELLED is thrown. */
+async function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo=null,onFirstFrame,alive=()=>true,onProgress=()=>{}}){
  let aoInfo=null;
  const bag=new Set();const keep=o=>{bag.add(o);return o;};
  const tex=(c,srgb=true,rep=1)=>{const x=keep(new THREE.CanvasTexture(c));x.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;x.wrapS=x.wrapT=THREE.RepeatWrapping;x.repeat.set(rep,rep);x.anisotropy=8;return x;};
@@ -373,7 +440,18 @@ function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo=null,
   const rt=pm.fromScene(es,.02);es.traverse(o=>{o.geometry?.dispose();o.material?.dispose?.();});pm.dispose();return keep(rt);}
 
  /* ---- the hall (web/torch-hall.js) ---- */
- const tBuild=performance.now();const H=buildHall({scene,keep,tex,tier,maxAniso:8});const buildMs=performance.now()-tBuild;
+ /* before dispose() below exists: free the scene graph, the kept textures and targets, and the renderer once made */
+ function abandon(){
+  scene.traverse(o=>{if(o.geometry)o.geometry.dispose();const ms=o.material?(Array.isArray(o.material)?o.material:[o.material]):[];
+   ms.forEach(m=>{for(const k in m){const v=m[k];if(v&&v.isTexture)v.dispose();}m.dispose?.();});});
+  for(const o of bag){try{o.dispose?.();}catch{}}bag.clear();
+  if(renderer){renderer.renderLists.dispose();renderer.dispose();if(!renderer.getContext().isContextLost())renderer.forceContextLoss();}
+ }
+ let part=0;const PARTS=12;
+ async function slice(full){onProgress(++part/PARTS);await yieldMain();if(alive())return;if(full)dispose();else abandon();throw CANCELLED;}
+ await slice(false);
+ const tBuild=performance.now();const H=await buildHall({scene,keep,tex,tier,maxAniso:8,slice:()=>slice(false)});const buildMs=performance.now()-tBuild;
+ await slice(false);
  const courtyard=buildCourtyard(scene,HALL.NZ1);
  const hazeDay=new THREE.Color(0xb1c6d6),hazeNight=new THREE.Color(0x475777),haze=new THREE.Color();
  const covers=createTorchCovers(courtyard.group,{east:HALL.BACK,west:HALL.NZ1,reduced});const {skipInMirror,floorMat,FL_W,FL_L,FL_Z}=H;
@@ -433,6 +511,7 @@ function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo=null,
    void main(){float life=fract(uTime*(.05+aSeed*.05)+aSeed*9.1);vec3 p=position+vec3(sin(aSeed*50.+uTime*.4)*.15,life*1.4,.05+life*.35);
     vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;vA=sin(life*3.14159)*uI;gl_PointSize=uPx*(1.+aSeed*1.6)*(6./-mv.z);}`,
   fragmentShader:`varying float vA;void main(){vec2 c=gl_PointCoord-.5;float d=length(c);if(d>.5)discard;float a=smoothstep(.5,0.,d)*vA;gl_FragColor=vec4(vec3(.72,.55,1.)*a*1.6,a);}`})));
+ await slice(false);
  motes.frustumCulled=false;motes.renderOrder=5;stele.add(motes);
 
 
@@ -537,7 +616,9 @@ function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo=null,
    void main(){vec4 c=texture2D(tDiffuse,vUv);vec2 d=vUv-.5;c.rgb*=1.-uVig*smoothstep(.28,.9,length(d*vec2(1.05,1.)));float l=dot(c.rgb,vec3(.2126,.7152,.0722));c.rgb=mix(vec3(l),c.rgb,1.06);
     c.rgb+=(h(vUv*913.+fract(uTime))-.5)*.014*(c.rgb+.015);gl_FragColor=c;}`};
  makeRenderer();
+ await slice(false);
  let env=envMap();scene.environment=env.texture;
+ await slice(false);
  function applyTier(){const low=tier==='low';
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,low?.75:1.75));renderer.shadowMap.type=low?THREE.PCFShadowMap:THREE.PCFSoftShadowMap;H.setShadows(true,low?1024:2048);host.classList.toggle('tm-lowfx',low);
   /* floor: mirror under the translucent polished marble (and the inlaid runner), or the marble alone */
@@ -712,17 +793,28 @@ function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo=null,
   for(const k of ['map','emissive','rough','mask','t1','t2']){faces[k].width=faces[k].height=1;}
   renderer.renderLists.dispose();renderer.dispose();if(!renderer.getContext().isContextLost())renderer.forceContextLoss();}
 
- /* ambient occlusion from the baked volume (or worked out now when the bake does not match this build) */
- let aoUni=null;{ const t0=performance.now(),vols=bakedAO()||(window.__TORCH_BAKE?null:computeVolumes(scene,H.torchPoints,steleEmit));if(vols){const r=applyAO(scene,vols);r.textures.forEach(keep);aoUni=r.uniforms;}
+ /* ambient occlusion from the baked volume (without a bake the page shows the simple list; tools/torch-bake.cjs works it out offline) */
+ await slice(true);
+ let aoUni=null;{ const t0=performance.now(),vols=bakedAO();if(vols){const r=applyAO(scene,vols);r.textures.forEach(keep);aoUni=r.uniforms;}
   aoInfo={baked:!!bakedAO(),ms:Math.round(performance.now()-t0),bake:bakeInfo};}
- applyTier();paintFace();
- function prepare(onReady){
+ applyTier();
+ await slice(true);
+ ensureFaceSize();
+ await slice(true);
+ paintFace();
+ await slice(true);
+ async function prepare(onReady,{alive:live=()=>true,onProgress:step=()=>{}}={}){
   if(window.__TORCH_BAKE)return;
-  /* Use the bundled r168 program readiness check with a poll owned by this route. */
+  /* a few objects per slice (each compile of a new material links its program), the thread handed back in between;
+     the bundled r168 readiness check is then polled by this route */
+  const list=[];scene.traverse(o=>{if(o.material)list.push(o);});
+  for(let i=0;i<list.length;){const until=performance.now()+12;
+   while(i<list.length&&performance.now()<until)renderer.compile(list[i++],camera,scene);
+   step(i/list.length*.9);await yieldMain();if(disposed||!live())return;}
   renderer.compile(scene,camera);
   const programs=renderer.info.programs.slice();
   const poll=()=>{
-   if(disposed)return;
+   if(disposed||!live())return;
    if(programs.some(program=>!program.isReady())){compilePoll=setTimeout(poll,10);return;}
    ready=true;onReady();
   };

@@ -63,7 +63,7 @@ test('tail keeps the original spacing after the page',()=>{assert.equal(tail('�
 
 test('reader: game rows break the line and centre it; a continuation keeps its place; backlog grows the open entry',()=>{
  const tp=read('web/reader/modules/text-place.js');
- assert.match(tp,/function gameRows\(boxes, size, map, leftEdge = null\)/);assert.match(tp,/megulit-row-br/);assert.match(tp,/megulit-anchor-center/);
+ assert.match(tp,/function gameRows\(boxes, size, map, leftEdge = null, pending = 0, glyph = j => j\)/);assert.match(tp,/megulit-row-br/);assert.match(tp,/megulit-anchor-center/);
  assert.match(tp,/hookSourceContinues\) > 0\)\) anchorFrom/);
  assert.match(read('web/reader/modules/v4.js'),/b\.hookSourceContinues=Number\(m\.hookSourceContinues\)\|\|0/);
  assert.match(read('web/reader/modules/backlog.js'),/\[、，,\]\$\/\.test\(String\(last\.src\)\.trim\(\)\)&&norm\(text\)\.startsWith\(norm\(last\.src\)\)/);

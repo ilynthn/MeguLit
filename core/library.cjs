@@ -193,6 +193,25 @@ async function vndbSteam(appid){
  try{const r=await fetch('https://api.vndb.org/kana/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filters:['extlink','=',['steam',Number(appid)]],fields:'vns.id,vns.title,vns.alttitle,vns.image.url',results:5}),signal:AbortSignal.timeout(8000)});
   if(!r.ok)return undefined;const d=await r.json();const vn=d.results?.[0]?.vns?.[0];return vn?{id:vn.id,title:vn.alttitle||vn.title,cover:vn.image?.url||''}:null;}catch{return undefined;}
 }
+/* 2026-11-28 (owner: 1.4.26 游戏库刷新要等特别久) the VNDB answers a scan got, kept in data/config/library-lookups.json: a match
+   7 days, "no such work" 1 day, a failed ask never. A refresh asks VNDB again only for names it has not asked lately. */
+const LOOKUP_HIT=7*864e5,LOOKUP_MISS=864e5;
+class Lookups{
+ constructor(root){this.file=path.join(root,'data','config','library-lookups.json');this.dirty=false;this.running=new Map();
+  try{const v=JSON.parse(fs.readFileSync(this.file,'utf8'));this.all=v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch{this.all={};}}
+ get(key,ask){const e=this.all[key];if(e&&Date.now()-e.at<(e.v?LOOKUP_HIT:LOOKUP_MISS))return Promise.resolve(e.v);
+  if(this.running.has(key))return this.running.get(key);
+  const job=ask().then(v=>{if(v!==undefined){this.all[key]={at:Date.now(),v};this.dirty=true;}return v;}).finally(()=>this.running.delete(key));this.running.set(key,job);return job;}
+ vn(title,strict){return this.get('vn:'+(strict?1:0)+':'+title,()=>vndb(title,strict));}
+ steam(appid){return this.get('steam:'+appid,()=>vndbSteam(appid));}
+ save(){if(!this.dirty)return;try{const now=Date.now();for(const [k,e] of Object.entries(this.all))if(!e||now-e.at>LOOKUP_HIT)delete this.all[k];
+  fs.mkdirSync(path.dirname(this.file),{recursive:true});fs.writeFileSync(this.file+'.tmp',JSON.stringify(this.all));fs.renameSync(this.file+'.tmp',this.file);this.dirty=false;}catch{}}
+}
+/* runs job over the items, `limit` at a time */
+async function pool(items,limit,job){let next=0;await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{while(next<items.length){const item=items[next++];try{await job(item);}catch{}}}));}
+/* the names a folder game is looked up by on VNDB, in the order the scan asks them (it stops at the first match) */
+function lookupQueries(names){return [...new Set(names.flatMap(n=>[n,n.replace(/\s*[（(][^）)]*[）)]/g,'').trim(),...searchNames(n),...[...n.matchAll(/[（(]([^）)]+)[）)]/g)].map(m=>m[1])]).filter(Boolean))].slice(0,8);}
+const LOOKUPS_AT_ONCE=3;
 async function download(url,file){try{const r=await fetch(url,{signal:AbortSignal.timeout(15000)});if(!r.ok)return false;fs.writeFileSync(file,Buffer.from(await r.arrayBuffer()));return true;}catch{return false;}}
 
 const libraryStateFields=['autoSeries','localeAutoJapanese','localePath','setupDone','steamPath','folders','games','scanVersion','notGal'];
@@ -220,7 +239,13 @@ class Library{
  settings(v){this.state.steamPath=steamRoot(String(v.steamPath||'').trim());this.state.folders=String(v.folders||'').split(/[;\n]/).map(s=>s.trim()).filter(Boolean);this.state.setupDone=v.setupDone!==false;this.write(['steamPath','folders','setupDone']);return this.state;}
  // Scans Steam and the folders; returns games with engine, hook state, program and a cover file inside Tomoyo's
  // covers folder (Tomoyo only reads images there). Known games keep their media id and confirmed hook state.
- async scan(progress=()=>{},{incremental=false}={}){
+ /* 2026-11-28 (owner: 1.4.26 游戏库刷新要等特别久) network:false is the pass the refresh button waits for: it asks nothing on the
+    network. A game already in the library with the same program is kept as it is, a new game of a known engine is listed under its
+    folder name, and a folder only VNDB can confirm waits. this.lookups counts what was left for the network pass, which the service
+    runs right after in the background (services/runtime.cjs library_scan); that pass asks VNDB a few folders at a time and keeps
+    the answers (Lookups), so a later refresh asks again only for names it has not asked lately. */
+ async scan(progress=()=>{},{incremental=false,network=true}={}){
+  this.lookups=0;const lookups=new Lookups(this.logRoot),covers=[];
   // Folders in the user's game folders that could not be confirmed as visual novels (unknown engine and no VNDB
   // match) are reported instead of vanishing, so the library can offer to add them by hand.
   this.unconfirmed=[];this.confirmedFolderMatches=new Set();
@@ -228,6 +253,17 @@ class Library{
   const found=[],skipped=[];this.restorable=new Map();if(this.state.steamPath)found.push(...steamGames(this.state.steamPath));for(const f of this.state.folders)found.push(...folderGames(f));
   const known=new Map(this.state.games.map(g=>[String(g.dir||'').toLowerCase(),g]));if(!this.state.notGal)this.state.notGal={};const games=[],scanned=new Set();let i=0;
   try{fs.mkdirSync(this.coverDir,{recursive:true});}catch{}
+  /* the network pass asks VNDB for every folder that needs it, LOOKUPS_AT_ONCE at a time; the loop below then reads the answers */
+  if(network){const asks=[],seen=new Set();
+   for(const c of found){const rootKey=c.root.toLowerCase();if(seen.has(rootKey))continue;seen.add(rootKey);
+    let stamp=0;try{stamp=Math.round(fs.statSync(c.root).mtimeMs);}catch{}if(this.state.notGal[rootKey]===stamp&&!known.has(rootKey))continue;
+    const g=findGame(c.root);if(!g?.exe)continue;const previous=known.get(g.dir.toLowerCase());
+    if(incremental&&previous&&!previous.steamRejected&&!previous.pendingLookup&&String(previous.exe).toLowerCase()===g.exe.toLowerCase())continue;
+    const appid=c.appid||steamAppidFor(g.exe);
+    if(appid)asks.push(()=>lookups.steam(appid));
+    else if(!g.engine||g.engine.hook===null||c.source==='folder'){const names=[...new Set([c.source==='folder'&&g.dir!==c.root?label(g.dir):'',c.title].filter(Boolean))];
+     asks.push(async()=>{for(const n of lookupQueries(names))if(await lookups.vn(n,false))break;});}}
+   await pool(asks,LOOKUPS_AT_ONCE,ask=>ask());}
   for(const c of found){progress({done:i++,total:found.length,title:c.title});
    if(scanned.has(c.root.toLowerCase()))continue;
    scanned.add(c.root.toLowerCase());
@@ -247,13 +283,16 @@ class Library{
     if(appid){c.source='steam';c.appid=appid;}
     const previous=known.get(g.dir.toLowerCase());
     const steamTrusted=c.source!=='steam'||String(previous?.appid||'')===c.appid&&previous?.vndbSteamAppid===c.appid&&(previous.vndbId||g.engine&&!g.engine.generic);
-    if(incremental&&previous&&!previous.steamRejected&&steamTrusted&&String(previous.exe).toLowerCase()===g.exe.toLowerCase()){
+    if(previous&&String(previous.exe).toLowerCase()===g.exe.toLowerCase()&&(!network||incremental&&!previous.steamRejected&&steamTrusted&&!previous.pendingLookup)){
+     if(previous.pendingLookup)this.lookups++;
      games.push({...previous,missing:false,engine:g.engine?.name||previous.engine||'',hook:previous.hook==='verified'?'verified':hookState(g.engine),variants:c.source==='folder'?findVariants(c.root):c.source==='steam'?steamParts(g.dir,g.exe,c.title):previous.variants||[]});scanLog(this.logRoot,{source:c.source,appid:c.appid||'',title:c.title,dir:g.dir,exe:g.exe,result:'kept',engine:g.engine?.name||previous.engine||''});continue;
     }
    // A folder game is named after its game folder when that is deeper (E:GAL素晴日素晴らしき日々HD版 -> 素晴らしき日々).
    const names=[...new Set([c.source==='folder'&&g.dir!==c.root?label(g.dir):'',c.title].filter(Boolean))];
-   let vn=null,lookupFailed=false;const queries=[...new Set(names.flatMap(n=>[n,n.replace(/\s*[（(][^）)]*[）)]/g,'').trim(),...searchNames(n),...[...n.matchAll(/[（(]([^）)]+)[）)]/g)].map(m=>m[1])]).filter(Boolean))].slice(0,8);if(c.source==='steam'){const hit=await vndbSteam(c.appid);if(hit===undefined)lookupFailed=true;else if(hit)vn=hit;}
-   if(c.source!=='steam'&&!vn&&(!g.engine||g.engine.hook===null||c.source==='folder'))for(const n of queries){const result=await vndb(n,false);if(result===undefined)lookupFailed=true;else if(result){vn=result;break;}}
+   let vn=null,lookupFailed=false;const queries=lookupQueries(names);
+   if(!network){this.lookups++;lookupFailed=true;}
+   else{if(c.source==='steam'){const hit=await lookups.steam(c.appid);if(hit===undefined)lookupFailed=true;else if(hit)vn=hit;}
+    if(c.source!=='steam'&&!vn&&(!g.engine||g.engine.hook===null||c.source==='folder'))for(const n of queries){const result=await lookups.vn(n,false);if(result===undefined)lookupFailed=true;else if(result){vn=result;break;}}}
    if(c.source==='folder'&&vn?.id)this.confirmedFolderMatches.add(g.dir);
    if(!vn&&lookupFailed&&c.source==='steam'&&previous?.appid===c.appid&&previous.vndbSteamAppid===c.appid&&previous.vndbId)vn={id:previous.vndbId,title:previous.names?.[1]||previous.title};
    // Steam also installs software. An AppID link or a specific visual-novel engine confirms an automatic entry.
@@ -264,6 +303,9 @@ class Library{
       games.push(previous.source==='manual'?{...previous,missing:false}:{...previous,steamRejected:true,vndbId:null,vndbSteamAppid:null,missing:false});
      }
     }
+    if(!network){/* left for the network pass; a game already listed stays as it was until then */
+     if(previous)games.push({...previous,missing:false});
+     scanLog(this.logRoot,{source:c.source,appid:c.appid||'',title:c.title,dir:g.dir,exe:g.exe,result:'waiting',why:'network-pass',engine:g.engine?.name||''});continue;}
     scanLog(this.logRoot,{source:c.source,appid:c.appid||'',title:c.title,dir:g.dir,exe:g.exe,result:'skipped',why:lookupFailed?'vndb-unreachable':'not-gal',engine:g.engine?.name||''});
     if(c.source==='folder')this.unconfirmed.push({title:c.title,dir:g.dir,exe:g.exe});
     continue;
@@ -273,16 +315,19 @@ class Library{
    let cover=!identityChanged&&old.cover&&fs.existsSync(old.cover)?old.cover:'';
    if(!cover){const target=path.join(this.coverDir,'tome-'+key+'.jpg');
     if(c.cover){try{fs.copyFileSync(c.cover,target);cover=target;}catch{}}
-    else if(vn?.cover&&await download(vn.cover,target))cover=target;}
-   games.push({key,source:old.source==='manual'?'manual':c.source,appid:c.appid||null,title:c.source==='steam'?c.title:(vn?.title||names[0]),names:[...new Set([...names,vn?.title].filter(Boolean))],dir:g.dir,exe:g.exe,engine:g.engine?.name||'',
+    else if(vn?.cover){cover=target;covers.push({url:vn.cover,target,key});}}
+   games.push({key,source:old.source==='manual'?'manual':c.source,appid:c.appid||null,...(network?{}:{pendingLookup:true}),title:c.source==='steam'?c.title:(vn?.title||names[0]),names:[...new Set([...names,vn?.title].filter(Boolean))],dir:g.dir,exe:g.exe,engine:g.engine?.name||'',
     hook:old.hook==='verified'?'verified':hookState(g.engine),vndbId:vn?.id||(c.source==='steam'?null:old.vndbId)||null,cover,mediaId:old.mediaId||null,
     ...(c.source==='steam'?{vndbSteamAppid:!lookupFailed||vn?c.appid:null,steamRejected:false}:{}),
     variants:c.source==='folder'?findVariants(c.root):c.source==='steam'?steamParts(g.dir,g.exe,c.title):[],...(g.translated?{contentLanguage:g.translated}:{})});
    scanLog(this.logRoot,{source:c.source,appid:c.appid||'',title:c.title,dir:g.dir,exe:g.exe,result:'added',engine:g.engine?.name||'',vndb:vn?.id||'',parts:games[games.length-1].variants.length||undefined});}
+  /* the covers the network pass found, LOOKUPS_AT_ONCE at a time; a game whose cover did not come keeps none */
+  await pool(covers,LOOKUPS_AT_ONCE,async c=>{if(!await download(c.url,c.target)){const g=games.find(x=>x.key===c.key);if(g)g.cover='';}});
   progress({done:found.length,total:found.length,title:''});
   // Games found earlier that are now gone are kept (their media entries stay), only marked missing.
   for(const old of this.state.games)if(!games.some(g=>g.dir.toLowerCase()===String(old.dir||'').toLowerCase()))games.push({...old,missing:old.source==='manual'?!fs.existsSync(old.exe):true});
   const latest=this.read();for(const key of ['steamPath','folders','localeAutoJapanese','localePath','autoSeries'])if(latest[key]!==undefined)this.state[key]=latest[key];
+  lookups.save();
   this.state.scanVersion=5;this.state.games=games;this.write();return games.concat(skipped);
  }
  manualAdd(value){

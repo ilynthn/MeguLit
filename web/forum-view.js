@@ -31,7 +31,7 @@ const W={
   UNAUTHORIZED:'先にログインしてください',RATE_LIMITED:'投稿が速すぎます。少し待ってください',TITLE_REQUIRED:'タイトルを入力してください',TITLE_LENGTH:'タイトルは 2〜60 文字です',BODY_REQUIRED:'本文を入力してください',BODY_LENGTH:'本文が長すぎます',
   TEXT_INVALID:'見えない特殊文字が含まれています',TEXT_LINK:'URL・メールアドレス・連絡先は書けません',TEXT_BLOCKED:'使えない語が含まれています',INVALID_TAG:'カテゴリーを選んでください',INVALID_GAME:'作品名が正しくありません',INVALID_ENGINE:'エンジン名は英数字と一般的な記号だけです',
   MODERATION_ADULT:'審査で不可：成人向けの内容の疑い',MODERATION_ABUSE:'審査で不可：暴言・攻撃の疑い',MODERATION_SPAM:'審査で不可：宣伝・誘導の疑い',THREAD_FULL:'この投稿は返信の上限に達しました',NOT_FOUND:'投稿が見つからないか削除されました',FORBIDDEN:'自分の書き込みだけ削除できます'},
- en:{forum:'Community',all:'All',question:'Help',hook:'Adaptation requests',hookBodyHint:'Write the game name, the engine, and the problem you hit (up to 4000 characters)',guide:'Guides',share:'Sharing',other:'Chat',newPost:'New post',mine:'My posts',
+ en:{forum:'Forum',all:'All',question:'Help',hook:'Adaptation requests',hookBodyHint:'Write the game name, the engine, and the problem you hit (up to 4000 characters)',guide:'Guides',share:'Sharing',other:'Chat',newPost:'New post',mine:'My posts',
   sub:'Players helping players. Anyone can read; sign in to post',empty:'No posts here yet',emptyHint:'Be the first to ask or share',
   replies:'{n} replies',noReplies:'No replies yet',back:'Back to the list',more:'Load more',reply:'Reply',replyHint:'Write your answer…',send:'Send',sending:'Sending…',
   title:'Title',titleHint:'The problem in one line (2–60 characters)',body:'Text',bodyHint:'Game, engine, what you tried… (up to 4000 characters)',tag:'Category',game:'Game',gameHint:'Optional',engine:'Engine',engineHint:'Optional, e.g. Kirikiri',

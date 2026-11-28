@@ -32,6 +32,16 @@ const hudCopy={
   keys:'Space 裏返す/普通 · 1–4 評価 · F 全画面 · L レイアウト · Esc 終了',fontsFailed:'フォント一覧を読めませんでした。名前を直接入力できます'}
 };
 /* (user 2026-11-14) say why Anki could not do it, instead of the catch-all 「暂时无法完成此操作」 */
+/* 2026-11-28 owner (加个手动重新连接的按钮): 重新连接 says which of these stopped it */
+const RECONNECT={zh:{button:'重新连接 Anki',busy:'正在连接 Anki…（最多约 10 秒）',fixPort:'关闭占用端口的程序并重启 Anki',
+  ANKI_EXECUTABLE_MISSING:'没有找到 Anki：请先安装 Anki，或在 设置 → Anki 里选择 Anki 程序的位置',ANKI_CONNECT_MISSING:'Anki 里还没有装 AnkiConnect 插件，装好并重启 Anki 后再连接',
+  ANKI_RECONNECT_TIMEOUT:'等了 10 秒 AnkiConnect 还没有响应：Anki 可能还在启动、同步，或停在一个弹窗上，稍后再点一次'},
+ ja:{button:'Anki に再接続',busy:'Anki に接続しています…（最大 10 秒ほど）',fixPort:'ポートを使っているプログラムを閉じて Anki を再起動',
+  ANKI_EXECUTABLE_MISSING:'Anki が見つかりません。Anki をインストールするか、設定 → Anki で場所を指定してください',ANKI_CONNECT_MISSING:'AnkiConnect アドオンが入っていません。入れて Anki を再起動してから接続してください',
+  ANKI_RECONNECT_TIMEOUT:'10 秒待っても AnkiConnect が応答しません。Anki が起動中・同期中か、ダイアログで止まっている可能性があります。少し待ってもう一度押してください'},
+ en:{button:'Reconnect to Anki',busy:'Connecting to Anki… (up to about 10 s)',fixPort:'Close what holds the port and restart Anki',
+  ANKI_EXECUTABLE_MISSING:'Anki was not found: install Anki, or choose its program under Settings → Anki',ANKI_CONNECT_MISSING:'The AnkiConnect add-on is not installed in Anki; install it, restart Anki, then connect',
+  ANKI_RECONNECT_TIMEOUT:'AnkiConnect did not answer within 10 s: Anki may still be starting, syncing, or waiting on a dialog. Try again in a moment'}};
 const ankiReasons={
  zh:{ANKI_REVIEW_INACTIVE:'Anki 现在不在复习界面，这一步只能在 Anki 复习中进行',ANKI_MEDIA_MISSING:'这张卡没有找到音频文件（MeguLit 和 Anki 媒体库里都没有）',ANKI_TIMEOUT:'AnkiConnect 超时：Anki 可能卡在弹窗或同步中',
   ANKI_UNAVAILABLE:'连接 AnkiConnect 失败，请确认 Anki 已打开',ANKI_INVALID_RESPONSE:'AnkiConnect 返回了无法识别的结果，请更新插件',ANKI_INVALID_CARD:'卡片编号无效，请刷新',ANKI_FAILED:'Anki 拒绝了这个操作（AnkiConnect 返回错误）',ANKI_CLOSE_REQUIRED:'Anki 尚未关闭（可能正在保存、同步或等待确认），已为你显示 Anki 窗口，请关闭后再重试'},
@@ -65,7 +75,7 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
  let status=await api('anki_status').catch(error=>({connected:false,reason:String(error?.message||error||'')}));if(!isCurrent())return;
  const reason=error=>({ANKI_CARD_CHANGED:text.ankiChanged,ANKI_ANSWER_REQUIRED:text.ankiRequiresAnswer,ANKI_UNSUPPORTED:text.ankiUnsupported,ANKI_AUTH:text.ankiAuth,
   ANKI_PORT_TAKEN:({zh:'AnkiConnect 端口被其他程序占用，请关闭占用 8765 端口的程序后重启 Anki',ja:'AnkiConnect のポートが他のプログラムに使われています',en:'Another program is using the AnkiConnect port'})[document.documentElement.lang.slice(0,
-  2)]||'AnkiConnect port is taken',ANKI_OFFLINE:text.ankiOfflineHint,ANKI_RATING_UNCERTAIN:text.ankiChanged,ANKI_ACTION_PENDING:text.ankiChanged,...ankiReasons[document.documentElement.lang.slice(0,2)]||ankiReasons.zh})[typeof error==='string'?error:error?.message]||
+  2)]||'AnkiConnect port is taken',ANKI_OFFLINE:text.ankiOfflineHint,ANKI_RATING_UNCERTAIN:text.ankiChanged,ANKI_ACTION_PENDING:text.ankiChanged,...ankiReasons[document.documentElement.lang.slice(0,2)]||ankiReasons.zh,...RECONNECT[document.documentElement.lang.slice(0,2)]||RECONNECT.zh})[typeof error==='string'?error:error?.message]||
   text.ankiFailed+'（'+String((typeof error==='string'?error:error?.message)||'?').slice(0,80)+'）';
  async function reload(){try{drawCard(await api('anki_current'));}catch(error){failed(error);}}
  const locale=document.documentElement.lang.startsWith('ja')?'ja':document.documentElement.lang.startsWith('en')?'en':'zh';
@@ -461,14 +471,21 @@ export async function renderAnkiReview({target,api,text,esc,isCurrent,toast,quie
   stopReplay();currentCard=null;currentFrame=null;leaveHud();
   if(landing.parentElement!==target)target.replaceChildren(landing);
   landing.classList.remove('anki-loading');landing.removeAttribute('aria-busy');
-  if(!status.connected){landing.innerHTML='<h2>'+text.ankiOffline+'</h2><p class="muted">'+esc(reason(status.reason))+'</p><p class="muted u-status" data-state="off">AnkiConnect'+(status.url?' · '+esc(status.url):'')+'</p><div class="review-controls"><button class="primary" data-launch>'+copy.launch+'</button><button class="secondary" data-connect>'+text.reconnect+'</button></div>'+(INST?'<p class="anki-install-ask"><button type="button" class="text-button" data-install-ask>'+esc(inst().ask)+'</button></p>':'');
-   target.querySelector('[data-install-ask]')?.addEventListener('click',showInstall);/* Reconnect repairs the connection (user): closes programs holding AnkiConnect's port, cold-starts Anki, then reloads */
-   target.querySelector('[data-connect]').onclick=async event=>{const button=event.currentTarget;target.querySelectorAll('.review-controls button').forEach(b=>b.disabled=true);
+  if(!status.connected){const rc=RECONNECT[locale]||RECONNECT.zh;
+   landing.innerHTML='<h2>'+text.ankiOffline+'</h2><p class="muted" data-anki-reason>'+esc(reason(status.reason))+'</p><p class="muted u-status" data-state="off">AnkiConnect'+(status.url?' · '+esc(status.url):'')+'</p><div class="review-controls"><button class="primary" data-reconnect>'+esc(rc.button)+'</button>'+(status.reason==='ANKI_PORT_TAKEN'?'<button class="secondary" data-connect>'+esc(rc.fixPort)+'</button>':'')+'</div>'+(INST?'<p class="anki-install-ask"><button type="button" class="text-button" data-install-ask>'+esc(inst().ask)+'</button></p>':'');
+   target.querySelector('[data-install-ask]')?.addEventListener('click',showInstall);
+   /* 重新连接 (owner, 2026-11-28): starts Anki in the background when it is not running (hidden, or minimized without taking
+      the foreground), waits about 10 s for AnkiConnect, then loads the review here; on failure only this block says why */
+   target.querySelector('[data-reconnect]').onclick=async event=>{const button=event.currentTarget;target.querySelectorAll('.review-controls button').forEach(b=>b.disabled=true);
+    button.setAttribute('aria-busy','true');button.innerHTML='<span class="spinner" aria-hidden="true"></span> '+esc(rc.busy);
+    let code='';try{await api('anki_reconnect');}catch(error){code=String(error?.message||error||'ANKI_RECONNECT_TIMEOUT').replace(/^Error:\s*/,'');}
+    if(!isCurrent())return;
+    if(!code){renderAnkiReview({target,api,text,esc,isCurrent,toast,cover,windowAction});return;}
+    status={...status,connected:false,reason:code};drawDecks();};
+   /* the port fix (only offered when another program holds AnkiConnect's port) closes that program and cold-starts Anki */
+   const fix=target.querySelector('[data-connect]');if(fix)fix.onclick=async event=>{const button=event.currentTarget;target.querySelectorAll('.review-controls button').forEach(b=>b.disabled=true);
     button.setAttribute('aria-busy','true');button.textContent=copy.repairing;try{await api('anki_repair');}catch(error){failed(error);if(String(error?.message||error)==='ANKI_EXECUTABLE_MISSING'&&INST)return;}if(isCurrent())renderAnkiReview({
-    target,api,text,esc,isCurrent,toast,cover,windowAction});};
-   target.querySelector('[data-launch]').onclick=async event=>{const button=event.currentTarget;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent=copy.launching;
-    try{await api('anki_launch',{reason:status.reason});}catch(error){failed(error);if(String(error?.message||error)==='ANKI_EXECUTABLE_MISSING'&&INST)return;}status=await api('anki_status').catch(()=>status);
-    if(isCurrent())drawDecks();};return;}
+    target,api,text,esc,isCurrent,toast,cover,windowAction});};return;}
   landing.innerHTML='<div class="eyebrow">'+text.ankiConnected+'</div><h2>'+text.ankiReview+'</h2><p class="muted">'+text.ankiStartHint+'</p><div class="review-controls"><select data-deck aria-label="'+text.chooseDeck+'">'+status.decks.map(deck=>'<option'+(deck===status.defaultDeck?' selected':'')+'>'+esc(deck)+'</option>').join('')+'</select><button class="primary" data-start>'+text.startAnki+'</button></div><button class="text-button" data-current>'+text.ankiRefresh+'</button><div class="review-controls anki-tools"><button class="text-button" data-limits>'+copy.settings+'</button><button class="text-button" data-open="addons">'+copy.addons+'</button><button class="text-button" data-open="overview">'+copy.openAnki+'</button><button class="text-button" data-hide-anki>'+copy.hideAnki+'</button></div>';
   const sync=document.createElement('button');sync.className='secondary';sync.textContent=document.documentElement.lang.startsWith('ja')?'単語と復習履歴を同期':document.documentElement.lang.startsWith('en')?'Sync vocabulary and review history':'同步单词与复习记录';
    sync.onclick=async()=>{sync.disabled=true;try{const result=await api('anki_sync');toast(`${sync.textContent} · +${result.imported} / ${result.reviews}`);window.dispatchEvent(new Event('tome-word-status-changed'));

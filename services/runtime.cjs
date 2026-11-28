@@ -31,6 +31,22 @@ class Runtime {
  models(){return this.modelStore??=new(require('../core/model-store.cjs').ModelStore)(this.root);}
  packs(){return this.packStore??=require('../core/runtime-packs.cjs').RuntimePacks.shared(this.root);}
  local(){return this.localEngine??=new(require('../core/local-llm.cjs').LocalLlm)({root:this.root,models:this.models(),logs:path.join(this.root,'logs')});}
+ /* 2026-11-28 (owner: 1.4.26 游戏库刷新要等特别久) a library scan answers after its quick pass (nothing asked on the network,
+    core/library.cjs scan network:false); this is the second pass: VNDB checks, VNDB names and covers for what the quick pass
+    left, after the answer, one pass at a time (a pass already waiting covers later refreshes). When it changed the library the
+    page reloads its list (library-updated), so the refresh button only turns during the quick pass. */
+ libraryNetworkPass(options,needed){
+  if(!needed||this.stopped||this.libraryNetworkWaiting)return this.libraryNetwork;this.libraryNetworkWaiting=true;
+  const run=async()=>{this.libraryNetworkWaiting=false;if(this.stopped)return;
+   const library=new(require('../core/library.cjs').Library)(require('../core/layout.cjs'));
+   await library.scan(()=>{},{incremental:options?.incremental===true,network:true});
+   const result=require('./library.cjs').reconcile(this.root,library.load().games,{confirmedFolderMatches:library.confirmedFolderMatches});
+   if(this.libraryManager)this.libraryManager.state=this.libraryManager.read();
+   if(!result.added&&!result.updated)return;
+   const db=require('./store.cjs').openStore(this.root);try{this.metadata().enqueue(db.prepare('SELECT id FROM games WHERE removed_at IS NULL').all().map(g=>g.id),false);}finally{db.close();}
+   this.emit('library-updated',{scan:true,added:result.added,updated:result.updated});};
+  return this.libraryNetwork=(this.libraryNetwork||Promise.resolve()).then(run).catch(error=>console.warn('library network pass',error?.message||error));
+ }
  library(){return this.libraryManager??=new(require('../core/library.cjs').Library)(require('../core/layout.cjs'));}
  history(){return this.historyTranslations??=new(require('./history-view.cjs').HistoryTranslations)(this.root,async (text,game)=>{
   if(this.stopped)throw Error('RUNTIME_STOPPED');
@@ -86,7 +102,7 @@ class Runtime {
   if(this.stopped)throw Error('RUNTIME_STOPPED');const config=this.config();
   if(this.libraryOnly()&&['reader_attach','reader_message','reader_invoke'].includes(request.action))return {libraryOnly:true,attached:false,replies:[]};
   switch(request.action){
-case 'library_scan':{this.libraryScans??=new(require('./library-scan.cjs').LibraryScans)(async(options,state)=>{const library=this.library();library.state=state;await library.scan(progress=>this.emit('library-progress',progress),options);const result=require('./library.cjs').reconcile(this.root,library.load().games,{restoreRemoved:!options.incremental,confirmedFolderMatches:library.confirmedFolderMatches});const db=require('./store.cjs').openStore(this.root);try{this.metadata().enqueue(db.prepare('SELECT id FROM games WHERE removed_at IS NULL').all().map(g=>g.id),options?.incremental!==true);require('./torch-receive.cjs').enqueue(this.root,db.prepare("SELECT id FROM games WHERE removed_at IS NULL AND executable!=''").all().map(g=>g.id));
+case 'library_scan':{this.libraryScans??=new(require('./library-scan.cjs').LibraryScans)(async(options,state)=>{const library=this.library();library.state=state;await library.scan(progress=>this.emit('library-progress',progress),{...options,network:false});const result=require('./library.cjs').reconcile(this.root,library.load().games,{restoreRemoved:!options.incremental,confirmedFolderMatches:library.confirmedFolderMatches});this.libraryNetworkPass(options,library.lookups>0||!options.incremental);const db=require('./store.cjs').openStore(this.root);try{this.metadata().enqueue(db.prepare('SELECT id FROM games WHERE removed_at IS NULL').all().map(g=>g.id),options?.incremental!==true);require('./torch-receive.cjs').enqueue(this.root,db.prepare("SELECT id FROM games WHERE removed_at IS NULL AND executable!=''").all().map(g=>g.id));
      /* E297 Hxv4 KiriKiri games found: read their scripts once in the background (setting 后台准备加密剧本) */
      try{const cold=require('./kirikiri-cold.cjs');this.coldWatch??=cold.onDone(()=>this.reader?.refreshTextSource?.());cold.considerLibrary(this.root,db.prepare('SELECT id,executable FROM games WHERE removed_at IS NULL').all(),{enabled:require('../core/preferences.cjs').cleanPreferences(readJSON(path.join(this.folder,'preferences.json'))).scriptColdRun!==false});}catch{}
      /* E590 localized builds with Japanese data in the folder switch to Japanese by themselves, one game at a time */

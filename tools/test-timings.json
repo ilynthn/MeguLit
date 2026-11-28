@@ -811,6 +811,7 @@
  "validation/torch-dispatch-peer.test.cjs": 602,
  "validation/torch-founder.test.cjs": 74,
  "validation/torch-history.test.cjs": 377,
+ "validation/torch-leave-loading.test.cjs": 60000,
  "validation/torch-monument.test.cjs": 128,
  "validation/torch-receive.test.cjs": 2365,
  "validation/torch-release-relay.test.cjs": 1328,

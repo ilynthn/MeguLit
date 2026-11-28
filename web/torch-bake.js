@@ -16,7 +16,10 @@ export const BAKE_SOURCES=['torch-hall.js','torch-ground.js','torch-meadow.js','
 export const AO_BOX={min:[-14.7,-.3,-18.3],max:[14.7,40.2,41.4],res:.3};
 export const TORCH_RES=.6;
 
-let baked=null,record=null;
+let baked=null,record=null,bakeUse=0;
+/* files of the bake read so far, for the loading line (0..1) */
+const got={low:{done:0,total:0},high:{done:0,total:0}};
+export function bakeProgress(low){const g=got[low?'low':'high'];return g.total?g.done/g.total:0;}
 const hex=buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
 /* same as tools/torch-bake.cjs and the test: sha-256 over the sources with \r\n folded, first 24 hex digits */
 export async function sourceHash(){const parts=await Promise.all(BAKE_SOURCES.map(f=>fetch(new URL('./'+f,import.meta.url),{cache:'no-store'}).then(r=>r.text())));
@@ -36,24 +39,27 @@ export function loadBaked(low){
  return entry.promise;
 }
 async function readBaked(low){
+ const g=got[low?'low':'high'];g.done=0;g.total=0;
  try{const [man,hash]=await Promise.all([fetch(new URL('manifest.json',BASE),{cache:'no-store'}).then(r=>r.json()),sourceHash()]);
   if(!man||man.hash!==hash)return {ok:false,reason:'stale'};
-  const tex={};
+  const tex={};g.total=Object.values(man.textures).reduce((n,fields)=>n+Object.keys(fields).length,0)+3;
   const textures=Promise.all(Object.entries(man.textures).map(async([key,fields])=>{tex[key]={};await Promise.all(Object.entries(fields).map(async([f,file])=>{
-   const img=new Image();img.decoding='async';img.src=new URL(file,BASE).href;await img.decode();tex[key][f]=low&&img.width>=512?shrink(img):img;}));}));
+   const img=new Image();img.decoding='async';img.src=new URL(file,BASE).href;await img.decode();g.done++;tex[key][f]=low&&img.width>=512?shrink(img):img;}));}));
   const volume=async(key,channels=1)=>{const {file,dims,box}=man[key];
    const data=await inflate(await (await fetch(new URL(file,BASE))).arrayBuffer());
-   if(data.length!==dims[0]*dims[1]*dims[2]*channels)throw Error(key+'-size');
+   if(data.length!==dims[0]*dims[1]*dims[2]*channels)throw Error(key+'-size');g.done++;
    return {data,dims,box};};
   const [ao,torch,stele]=await Promise.all([volume('ao'),volume('torch'),volume('stele',4),textures]);
   return {ok:true,assets:{tex,ao,torch,stele}};}
  catch(e){return {ok:false,reason:String(e&&e.message||e)};}}
 
-/* Hall builders read these assets synchronously. A cancelled visit can never install them. */
-export function withBaked(result,build){
+/* Hall builders read these assets while the build runs (it hands the thread back between its parts). A cancelled visit can never
+   install them, and a build given up late cannot clear the assets of the build that replaced it. */
+export async function withBaked(result,build){
+ const use=++bakeUse;
  baked=result.assets||null;
  record=window.__TORCH_BAKE?new Map():null;
- try{return build();}finally{baked=null;}
+ try{return await build();}finally{if(use===bakeUse)baked=null;}
 }
 /* a set of maps by name: the baked images when there are some, else drawn now (and noted when baking) */
 export function maps(key,make){if(baked&&baked.tex[key])return baked.tex[key];const t0=performance.now();const o=make();if(record){record.set(key,o);console.log('BAKESTEP texture',key,Math.round(performance.now()-t0),'ms');}return o;}

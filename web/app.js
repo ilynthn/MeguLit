@@ -1393,7 +1393,7 @@ async function renderRouteNow({navigation=false}={}){
      reusedTorch=torchMonument.hasTorchMonument(locale);
      if(reusedTorch)main.classList.remove('g-enter');
      main.replaceChildren();
-     stopDetailPage=torchMonument.suspendTorchMonument;
+     stopDetailPage=torchMonument.leaveTorchMonument;
      const hall=await torchMonument.openTorchMonument({api,locale,esc,toast,mount:main,onContextLost:()=>showFailure(Error('Torch WebGL context lost'))});
      if(!hall||token!==pageToken)return;
     }else if(route==='home')home();else if(route==='library')library();else if(route==='novel'){const novelCleanup=await mountNovel(main,{api,invoke,locale,text,esc,toast,isCurrent:()=>token===pageToken,navigate,openSettings:section=>{settingsSection=section;settingsProfile='';navigate('settings');}});if(token===pageToken)stopDetailPage=novelCleanup;else novelCleanup();}else if(route==='series')seriesUI.renderDetail(main,selectedSeriesId);else if(route==='game'){main.innerHTML=loading();

@@ -4,7 +4,13 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {openStore}=require('./store.cjs');
 const normalize=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu,'');
 function signature(file,saved){try{const stat=fs.statSync(file);if(!stat.isFile())return null;if(saved?.size===stat.size&&saved?.mtime===stat.mtimeMs&&saved.ctime===stat.ctimeMs)return saved;const hash=crypto.createHash('sha256'),chunk=Buffer.alloc(1024*1024),fd=fs.openSync(file,'r');try{let length;while((length=fs.readSync(fd,chunk,0,chunk.length,null)))hash.update(chunk.subarray(0,length));}finally{fs.closeSync(fd);}return {size:stat.size,mtime:stat.mtimeMs,ctime:stat.ctimeMs,hash:hash.digest('hex')};}catch{return saved||null;}}
-const canonical=file=>file?require('./launch-path.cjs').canonical(file).toLowerCase():'';
+/* 2026-11-28 (owner: 1.4.26 游戏库刷新要等特别久) a reconcile resolves each path once: matchGame compares every scanned game with
+   every row, and resolving a real path walks the disk (60 new games took 7 s, nearly all of it lstat). Outside a reconcile the
+   disk is asked each time, as before. */
+let memo=null;
+const remember=(key,get)=>{if(!memo)return get();if(!memo.has(key))memo.set(key,get());return memo.get(key);};
+const canonical=file=>file?remember('c:'+file,()=>require('./launch-path.cjs').canonical(file).toLowerCase()):'';
+const exists=file=>remember('e:'+file,()=>fs.existsSync(file));
 function knownPrograms(row,lib){
  return [row.executable,lib.languageLaunch?.exe,...Object.values(lib.languageExecutables||{}),...(lib.variants||[]).map(v=>v.exe)].filter(file=>typeof file==='string'&&file);
 }
@@ -25,7 +31,7 @@ function matchGame(db,item,{manual=false}={}){
   // The scanner keys a work by its install folder; another program in that same folder (crack/original/launcher
   // swap) is the same work, never a second library entry.
   if(item.key&&lib.key===item.key&&!(item.vndbId&&lib.vndbId&&item.vndbId!==lib.vndbId)&&!(item.appid&&lib.appid&&String(item.appid)!==String(lib.appid))&&canonical(lib.dir)===canonical(item.dir||path.dirname(item.exe)))return true;
-  if(item.missing||(!row.removed_at&&fs.existsSync(row.executable)))return false;
+  if(item.missing||(!row.removed_at&&exists(row.executable)))return false;
   if(item.appid&&lib.appid)return String(item.appid)===String(lib.appid);
   if(item.vndbId&&lib.vndbId)return item.vndbId===lib.vndbId;
   if(![row.title,...lib.names||[]].some(name=>names.has(normalize(name))))return false;
@@ -50,7 +56,7 @@ function activeGameForProgram(db,exe){
  const launchers=rows.filter(row=>canonical(launchTarget(row.executable)?.executable)===target);
  return launchers.length===1?launchers[0]:null;
 }
-function reconcile(root,items,{restoreRemoved=false,confirmedFolderMatches}={}){const db=openStore(root);let added=0,updated=0,committed=false;db.exec('BEGIN IMMEDIATE');try{
+function reconcile(root,items,{restoreRemoved=false,confirmedFolderMatches}={}){const db=openStore(root);let added=0,updated=0,committed=false;memo=new Map();db.exec('BEGIN IMMEDIATE');try{
  if(restoreRemoved){const revive=db.prepare('UPDATE games SET removed_at=NULL WHERE id=?');for(const row of db.prepare('SELECT id,executable,original FROM games WHERE removed_at IS NOT NULL').all())if(!JSON.parse(row.original||'{}').mergedInto&&row.executable&&fs.statSync(row.executable,{throwIfNoEntry:false})?.isFile())revive.run(row.id);}
  for(const item of items){
  const existing=matchGame(db,item);
@@ -91,7 +97,11 @@ function reconcile(root,items,{restoreRemoved=false,confirmedFolderMatches}={}){
   original.library.patchIssue=check.issue||'';
  }
  const coverChanged=item.source==='steam'&&saved.vndbId!==item.vndbId&&!original.coverCustom&&!original.vndbManual;
- if(existing){db.prepare("UPDATE games SET title=?,executable=?,cover=CASE WHEN ? THEN ? WHEN cover='' AND ?!='' THEN ? ELSE cover END,source=?,original=? WHERE id=?").run(existing.title||item.title,executable,Number(coverChanged),cover,cover,cover,existing.source==='manual'?'manual':item.source||existing.source,JSON.stringify(original),existing.id);updated++;}
+ /* 2026-11-28 a game first listed by the quick pass under its folder name takes the VNDB name the network pass found, by the
+    library's title rule (core/library-title.cjs: a name the user typed stays) */
+ let title=existing?.title||item.title;
+ if(existing&&item.vndbId&&item.title&&item.source!=='steam'){const up=require('../core/library-title.cjs').upgrade({title,executable,original},item.title);if(up){title=up.title;Object.assign(original,up.original);}}
+ if(existing){db.prepare("UPDATE games SET title=?,executable=?,cover=CASE WHEN ? THEN ? WHEN cover='' AND ?!='' THEN ? ELSE cover END,source=?,original=? WHERE id=?").run(title,executable,Number(coverChanged),cover,cover,cover,existing.source==='manual'?'manual':item.source||existing.source,JSON.stringify(original),existing.id);updated++;}
  else if(!item.missing){
   /* E370: a newly added game picks up a matching shared adaptation record (stream memory, locale mode; the layout waits for its first launch) */
   if(executable&&fs.existsSync(executable))try{require('./shared-adaptation.cjs').importFor(root,{executable,engine:item.engine||'',library:original.library,cheap:true});}catch{}
@@ -101,5 +111,5 @@ function reconcile(root,items,{restoreRemoved=false,confirmedFolderMatches}={}){
   const title=item.title||path.win32.basename(item.exe||'');original.titleSource=require('../core/library-title.cjs').scanned(title,executable);
   db.prepare('INSERT INTO games(id,legacy_id,title,executable,cover,source,original) VALUES(?,?,?,?,?,?,?)').run(id,legacy,title,executable,cover,item.source||'scan',JSON.stringify(original));added++;
  }
- }db.exec('COMMIT');committed=true;if(added)try{require('./library-dedupe.cjs').dedupe(db,root);}catch(error){console.warn('library dedupe',error.message);}require('./series.cjs').autoGroup(db,root);return {added,updated};}catch(e){if(!committed)db.exec('ROLLBACK');throw e;}finally{db.close();}}
+ }db.exec('COMMIT');committed=true;if(added)try{require('./library-dedupe.cjs').dedupe(db,root);}catch(error){console.warn('library dedupe',error.message);}require('./series.cjs').autoGroup(db,root);return {added,updated};}catch(e){if(!committed)db.exec('ROLLBACK');throw e;}finally{memo=null;db.close();}}
 module.exports={reconcile,matchGame,activeGameForProgram,signature};

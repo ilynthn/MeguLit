@@ -17,8 +17,9 @@ function seed(db){
  s.run('g1',at(2026,11,10),null,600,1000);s.run('g1',at(2026,11,9),null,300,500);s.run('g2',at(2026,11,8),null,1200,2000);
  s.run('g2',at(2026,11,7),null,60,100);s.run('g1',at(2026,10,20),null,3600,9000);s.run('g3',at(2026,11,10),null,10,10);
  s.run('g1',at(2026,11,5),null,0,0);
- const w=db.prepare("INSERT INTO vocabulary(spelling,reading,definitions,created_at,original) VALUES('語','ご','[]',?,'{}')");
- w.run(at(2026,11,10));w.run(at(2026,11,3));w.run(at(2026,9,1));
+ /* three different words (a word saved twice is one word since 2026-11-28, validation/leaderboard-content-words.test.cjs) */
+ const w=db.prepare("INSERT INTO vocabulary(spelling,reading,definitions,created_at,original) VALUES(?,'','[]',?,'{}')");
+ w.run('語',at(2026,11,10));w.run('言葉',at(2026,11,3));w.run('単語',at(2026,9,1));
 }
 const NOW=new Date(2026,10,10,20,0,0);
 
@@ -130,7 +131,7 @@ test('top tab 排行榜 sits between 学习 and 工具 and the page renders the 
  const app=fs.readFileSync(path.join(__dirname,'..','web','app.js'),'utf8');
  assert.ok(app.includes("['home','library','novel','history','learning'].map(tabButton)"));assert.ok(app.includes("['leaderboard','daily','torch'].map(tabButton)"));assert.ok(app.includes("['tools','settings','about'].map("));assert.ok(app.includes('data-top-me'));
  const view=await import(pathToFileURL(path.join(__dirname,'..','web','leaderboard-view.js')).href);
- assert.deepEqual(view.leaderboardLabel,{zh:'广场',ja:'広場',en:'Plaza'});
+ assert.deepEqual(view.leaderboardLabel,{zh:'社区',ja:'コミュニティ',en:'Community'});
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
  const local={stats:{week:{characters:1510,seconds:910,words:1,streak:2}},currentStreak:4};
  const zh=view.leaderboardHTML({configured:false,local,board:{state:'not-configured'}},'zh',esc);

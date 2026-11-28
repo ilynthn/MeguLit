@@ -43,12 +43,11 @@
 |---|---|---|---|---|---|
 | 魚魚棟 · Claude | 1.4.26 游戏库刷新要等特别久：刷新先出列表，VNDB 查询放后台并缓存（54 部假库：刷新 35 s → 1.6 s） | — | fix/library-refresh-speed | 11-29 | 等 CI（PR #1423） |
 | 魚魚棟 · Claude | 点「原声」不发音：游戏删除或移动后仍标原声、点了读不到也不说原因；改为按能否读到标注，读不到时写明原因并改用合成朗读 | — | fix/game-voice-replay | 11-28 | 在做 |
-| 魚魚棟 · Claude | 文库内置书源：成为小说家吧（日文）+ 哩哩轻小说（中文）自动配对、日中逐段对照阅读，书源设置加说明和测试连接；relay 抓取代理只写方案等店主定 | — | claude/novel-bilingual | 11-28 | CI 全绿，待测试员实测（PR #1410） |
+| 魚魚棟 · Claude | 文库书源中文名改为「哔哩轻小说」（#1410 已合并，跟进改名） | — | claude/bilinovel-name | 11-29 | 等合并（PR #1429，CI 全绿） |
+| 魚魚棟 · Claude | 文库 webnovel 迁到 #1400 的 websites / bilingual 架构，删重复实现（跟进 #1410） | — | （未开） | 11-29 | 暂停：等 #1400 合并 |
 | 魚魚棟 · Claude | 顶栏「广场」改名「社区」（Community / コミュニティ） | — | fix/plaza-to-community | 11-28 | 等合并（PR #1421，CI 绿） |
 | 魚魚棟 · Claude | 1.4.26 设置「运行组件」中文残缺（注→汪、语缺顶）、简繁字体混排；disc-mount 补中文名和说明 | — | claude/runtime-list-cjk | 11-28 | 等 CI |
 | 魚魚棟 · Claude | 语音「已就绪」却读不出声音（1.4.26 群反馈）：引擎启动卡在连 huggingface.co，改离线启动；已就绪按引擎实际响应；读取失败写明原因和下一步 | — | fix/aivis-ready-voices | 11-28 | 在做 |
-| RRFZ · Claude | アオイトリ（青鸟）开场选流：只有两个假名的第一句没选流、先选到缺字的上下文 | #1426 | rrfz/cmvs-startup-stream | 11-28 | 在做：实测通过，PR 等 CI |
-| RRFZ · Claude | アオイトリ（青鸟）长句一闪一闪：阅读器把游戏画成一行的长句按上一句宽度折成两行，打字中途整段跳出对话框（text-place.js） | #1427 | rrfz/cmvs-one-row-wrap | 11-28 | 在做：实测通过，PR 等 CI |
 | 魚魚棟 · Claude | megulit-engine：Rust 直读引擎剧本（设计文档 + KiriKiri 原型） | — | claude/megulit-engine | 11-28 | 等 CI（PR #1365） |
 | 魚魚棟 · Claude | 批量骨架 seed 生成器：一批目录离线认引擎、算 key、写 skeleton seed，出可信度清单（基于 #1362） | — | claude/seed-skeleton-batch | 11-28 | 等 CI（PR #1366） |
 | 魚魚棟 · Claude | 台词按说话人上色：取游戏原色不再发灰（アイキス3 sexy アヤメ），颜色页新增「分角色」按作品改色 | — | feat/speaker-colors | 11-28 | 等合并（PR #1359，CI 全绿） |
@@ -73,7 +72,7 @@
 | 魚魚棟 · Claude | 关于页链接行悬停时星芒比文字低、右侧值跟着右移：星芒按标签行框居中，值列不动 | — | fix/about-hover-align | 11-27 | 等合并（PR #1322，CI 绿） |
 | 魚魚棟 · Claude | MeguLit-Adapter auto：新游戏下载完自动装、适配、开 PR、做测试版和卡片（不花 LLM token），计划任务 watch | — | feat/adapter-auto-pipeline | 11-27 | 等 CI（PR #1318） |
 | 魚魚棟 · Claude | 传火碑加载卡住修复：切走取消加载并释放 WebGL、分段不卡界面、进度、简化名单 | — | fix/torch-load-cancel | 11-29 | 等 CI（PR #1425） |
-| 魚魚棟 · Claude | 传火碑门外草地重做（好看）＋看榜 / 自由模式切换 | — | feat/torch-meadow-rank | 11-29 | 进行中 |
+| 魚魚棟 · Claude | 传火碑门外草地重做（好看）＋看榜 / 自由模式切换 | — | feat/torch-meadow-rank | 11-29 | 等 CI（PR #1430，先合 #1425） |
 | 魚魚棟 · Claude | 传火碑门外草地重做：蓝调夜色草地和萤火，西门前扩成圆形草地，删掉水面上的椅子 | — | feat/torch-meadow-c | 11-27 | CI 全绿，待测试员实测（PR #1314） |
 | 魚魚棟 · Claude | 选项实机：ファタ、千恋通过；ISLAND 选项（CatSystem2 select 记录）进不了阅读层，已修；适配器加 choice 实机步骤 | — | fix/choice-live | 11-27 | PR #1310 已开等 CI，待测试员实测（ISLAND） |
 | 魚魚棟 · Claude | 适配 OZMAFIA!!（YU-RIS）、ハミダシクリエイティブ（常轨脱离Creative，Artemis）：走 MeguLit-Adapter 实机验证，每部一个 seed PR | #1107 #1133 | claude/ozmafia-joki | 11-27 | 等测试员实测：#1303（常轨脱离）和 #1312（OZMAFIA，叠在 #1303 上）CI 全绿，清单已交 |
