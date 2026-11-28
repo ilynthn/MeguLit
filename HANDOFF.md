@@ -41,6 +41,7 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
+| 魚魚棟 · Claude | 隐藏原文时名字框的说话人名字也被藏（1.4.26 群反馈，很多游戏）：GDI 隐藏改用字形隐藏的判定，没声明保留名字框的引擎由阅读层补画名牌 | — | fix/speaker-name-hidden | 11-29 | 在做（PR #1436） |
 | 魚魚棟 · Claude | 1.4.26 游戏库刷新要等特别久：刷新先出列表，VNDB 查询放后台并缓存（54 部假库：刷新 35 s → 1.6 s） | — | fix/library-refresh-speed | 11-29 | 等 CI（PR #1423） |
 | 魚魚棟 · Claude | 点「原声」不发音：游戏删除或移动后仍标原声、点了读不到也不说原因；改为按能否读到标注，读不到时写明原因并改用合成朗读 | — | fix/game-voice-replay | 11-28 | 在做 |
 | 魚魚棟 · Claude | 文库书源中文名改为「哔哩轻小说」（#1410 已合并，跟进改名） | — | claude/bilinovel-name | 11-29 | 等合并（PR #1429，CI 全绿） |
@@ -82,4 +83,5 @@
 | 魚魚棟 · Claude | 适配 アイキス3 sexy（NeXAS，包装版 + 1.03）：选项被字形隐藏吃掉（hide.glyphAfterLine）、钩子文本带 @ 控制码（source.stripCodes）、选项 OCR 定位（choice.ocrLoose）；写回适配器（光盘安装、GIGA 更新、testbuild、测试清单等） | #1109 | adapt/aikiss3-sexy | 11-27 | PR #1304 等 CI，待测试员实测（测试清单已交测试员） |
 | 魚魚棟 · Claude | MeguLit-Adapter 加 craft 静态分析阶段（craft-anything：开游戏前核对引擎、画字 API、隐藏方式） | — | claude/amazing-aryabhata-a55dfa | 11-28 | 等 CI（PR #1362） |
 | 魚魚棟 · Claude | 主界面关于页致谢改成小窗口片尾滚动，主界面和 Alt+T 共用 web/credits.json | — | feat/about-credits-roll | 11-28 | CI 绿，等合并（PR #1412） |
+| 魚魚棟 · Claude | Alt+T 关于：MeguLit 介绍里加 QQ 交流群复制和二维码卡片 | — | feat/altt-qq-group | 11-29 | 等 CI（PR #1438） |
 

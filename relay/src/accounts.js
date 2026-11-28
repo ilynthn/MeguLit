@@ -33,10 +33,11 @@ export const PULL_LIMIT = 500;
 export const AUTH_RATE = {
   'code-email': [5, 3600], 'code-email-gap': [1, 60], 'code-ip': [20, 3600],
   'verify-ip': [30, 600], 'verify-email': [15, 3600], 'acct': [600, 3600],
-  'pw-ip': [30, 600], 'pw-login': [10, 3600], 'sync-wipe': [3, 86400]
+  'pw-ip': [30, 600], 'pw-login': [10, 3600], 'pw-set': [10, 3600], 'sync-wipe': [3, 86400]
 };
-/* Read-only (website) sessions may only read. Everything else answers 403 READ_ONLY_SESSION. */
-export const READ_ROUTES = new Set(['GET /api/me', 'GET /api/sync', 'POST /api/auth/logout']);
+/* Read-only (website) sessions may only read. Everything else answers 403 READ_ONLY_SESSION. One exception (2026-11-29):
+   POST /api/me/password, which on such a session always needs the current password or a mailed code. */
+export const READ_ROUTES = new Set(['GET /api/me', 'GET /api/sync', 'POST /api/auth/logout', 'POST /api/me/password']);
 export function readAllowed(method, path) { return READ_ROUTES.has(method + ' ' + path) || (method === 'GET' && path.startsWith('/api/sync/')); }
 /* ---- user name and password (2026-11-12) ------------------------------------------------------------------- */
 export const PBKDF2_ROUNDS = 100000;
@@ -223,12 +224,8 @@ async function requestCode(request, env, ip, now, ctx) {
   if (!early) return fail('EMAIL_SEND_FAILED', 502);
   return json({ ok: true, expiresIn: CODE_TTL });
 }
-async function verifyCode(request, env, ip, now) {
-  const body = await readJSON(request, 2048); if (body.error) return bodyError(body.error);
-  const email = normalizeEmail(body.value.email), code = String(body.value.code ?? '').replace(/\s+/g, '');
-  if (!email) return fail('EMAIL_INVALID'); if (!/^\d{6}$/.test(code)) return fail('WRONG_CODE');
-  const key = await emailKey(pepper(env), email), ms = now.getTime(), t = seconds(now);
-  if (!await hitAuth(env, 'verify-ip', ip, ms) || !await hitAuth(env, 'verify-email', key, ms)) return fail('RATE_LIMITED', 429);
+/* checks a mailed code and burns it: null when it was right, else the error answer (a wrong guess counts a try) */
+async function takeCode(env, key, email, code, t) {
   const row = await env.DB.prepare('SELECT code_hash,expires_at,tries FROM auth_codes WHERE email_hash=?').bind(key).first();
   const checked = checkCode(row, await hashCode(pepper(env), email, code), t);
   if (!checked.ok) {
@@ -237,6 +234,15 @@ async function verifyCode(request, env, ip, now) {
     return fail(checked.error, 400, checked.triesLeft !== undefined ? { triesLeft: checked.triesLeft } : {});
   }
   await env.DB.prepare('DELETE FROM auth_codes WHERE email_hash=?').bind(key).run();
+  return null;
+}
+async function verifyCode(request, env, ip, now) {
+  const body = await readJSON(request, 2048); if (body.error) return bodyError(body.error);
+  const email = normalizeEmail(body.value.email), code = String(body.value.code ?? '').replace(/\s+/g, '');
+  if (!email) return fail('EMAIL_INVALID'); if (!/^\d{6}$/.test(code)) return fail('WRONG_CODE');
+  const key = await emailKey(pepper(env), email), ms = now.getTime(), t = seconds(now);
+  if (!await hitAuth(env, 'verify-ip', ip, ms) || !await hitAuth(env, 'verify-email', key, ms)) return fail('RATE_LIMITED', 429);
+  const taken = await takeCode(env, key, email, code, t); if (taken) return taken;
   let account = await env.DB.prepare('SELECT id,email,created_at FROM accounts WHERE email=?').bind(email).first();
   if (!account) {
     account = { id: crypto.randomUUID(), email, created_at: t };
@@ -289,17 +295,29 @@ async function setUsername(request, env, auth) {
   catch { return fail('USERNAME_TAKEN', 409); }
   return withToken(json({ ok: true, username: name }), auth);
 }
-/* set or change the password: changing needs the current one, unless this session signed in with an e-mail code in the
-   last 10 minutes (that is how a forgotten password is reset) */
+/* set or change the password (2026-11-29: also from the website). Proof, one of:
+   - code: a fresh e-mail code for this account (POST /api/auth/code with the account's own address), burned on use;
+     this is how a code-only account sets its first password and how a forgotten one is reset;
+   - current: the current password, when one is set;
+   - a desktop (full) session opened in the last 10 minutes (the older desktop clients' reset path).
+   Without proof: CODE_REQUIRED when no password is set yet, else WRONG_PASSWORD. 10 attempts an hour per account.
+   Other sessions of the account are left signed in, as before; each device can be signed out from the device list. */
 async function setPassword(request, env, auth, now) {
   const body = await readJSON(request, 2048); if (body.error) return bodyError(body.error);
+  const ms = now.getTime(), t = seconds(now);
+  if (!await hitAuth(env, 'pw-set', auth.account.id, ms)) return fail('RATE_LIMITED', 429);
   const password = String(body.value.password ?? ''), bad = checkPassword(password); if (bad) return fail(bad);
-  const row = await env.DB.prepare('SELECT pass_hash,pass_salt FROM accounts WHERE id=?').bind(auth.account.id).first(), t = seconds(now);
-  const fresh = t - (auth.session.created_at || 0) <= 600;
-  if (row?.pass_hash && !fresh) {
-    const current = String(body.value.current ?? '');
-    if (!current || !sameText(await hashPassword(current, row.pass_salt), row.pass_hash)) return fail('WRONG_PASSWORD');
-  }
+  const current = String(body.value.current ?? ''), code = String(body.value.code ?? '').replace(/\s+/g, '');
+  const row = await env.DB.prepare('SELECT pass_hash,pass_salt FROM accounts WHERE id=?').bind(auth.account.id).first();
+  const fresh = auth.session.scope !== 'read' && t - (auth.session.created_at || 0) <= 600;
+  if (code) {
+    if (!/^\d{6}$/.test(code)) return fail('WRONG_CODE');
+    const key = await emailKey(pepper(env), auth.account.email);
+    if (!await hitAuth(env, 'verify-email', key, ms)) return fail('RATE_LIMITED', 429);
+    const taken = await takeCode(env, key, auth.account.email, code, t); if (taken) return taken;
+  } else if (row?.pass_hash && current) {
+    if (!sameText(await hashPassword(current, row.pass_salt), row.pass_hash)) return fail('WRONG_PASSWORD');
+  } else if (!fresh) return fail(row?.pass_hash ? 'WRONG_PASSWORD' : 'CODE_REQUIRED');
   const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
   await env.DB.prepare('UPDATE accounts SET pass_hash=?,pass_salt=?,pass_set_at=? WHERE id=?').bind(await hashPassword(password, salt), salt, t, auth.account.id).run();
   return withToken(json({ ok: true, hasPassword: true }), auth);

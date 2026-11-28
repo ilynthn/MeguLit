@@ -68,13 +68,11 @@
   modal.querySelector('.tome-credits')?.remove();
   (modal.querySelector('.about-info')||modal.querySelector('.about-body')||modal).append(credits(t));
  }
- /* Credits roll: web/credits.json is the list; the roll creeps upward like the end of a film, stops while hovered or
-    focused, follows the wheel, and is a plain list when the system asks for reduced motion. */
- const ROLL_SPEED=0.022,ROLL_REST=2600;
- let creditsData=null,creditsLoad=null;
- const loadCredits=()=>creditsLoad||(creditsLoad=fetch('/credits.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{creditsData=j&&Array.isArray(j.groups)?j:null;if(!creditsData)creditsLoad=null;return creditsData;}).catch(()=>{creditsLoad=null;return null;}));
- const pick=(v,lang)=>v==null?'':typeof v==='string'?v:String(v[lang]||v.en||v.zh||'');
- function fillRoll(track,data,lang){
+ /* Credits roll: the list (web/credits.json) and its motion come from web/credits-roll.js, shared with the main About
+    page; this page draws the rows (name, then author · note) and never links them. */
+ let roller=null;
+ const credRoll=()=>roller||(roller=import('/credits-roll.js').catch(()=>{roller=null;return null;}));
+ function fillRoll(track,data,lang,pick){
   track.replaceChildren();
   for(const g of data.groups||[]){const items=(g.items||[]).filter(i=>i&&pick(i.name,lang));if(!items.length)continue;
    const sec=document.createElement('section');sec.className='tome-roll-group';sec.dataset.group=String(g.id||'');
@@ -82,23 +80,6 @@
    for(const i of items){const row=document.createElement('div');row.className='tome-roll-item';const n=document.createElement('b');n.textContent=pick(i.name,lang);row.append(n);
     const sub=[i.by,pick(i.note,lang)].filter(Boolean).join(' · ');if(sub){const s=document.createElement('span');s.textContent=sub;row.append(s);}sec.append(row);}
    track.append(sec);}
- }
- function startRoll(roll){
-  const calm=matchMedia('(prefers-reduced-motion: reduce)');let held=false,pos=0,last=0,restUntil=0,wrapAt=0;
-  const hold=on=>{held=on;if(!on)pos=roll.scrollTop;};
-  roll.addEventListener('pointerenter',()=>hold(true));roll.addEventListener('pointerleave',()=>hold(roll.contains(document.activeElement)));
-  roll.addEventListener('focusin',()=>hold(true));roll.addEventListener('focusout',()=>hold(roll.matches(':hover')));
-  roll.addEventListener('wheel',()=>{restUntil=performance.now()+ROLL_REST;wrapAt=0;},{passive:true});
-  roll.addEventListener('scroll',()=>{if(held||Math.abs(roll.scrollTop-pos)>2)pos=roll.scrollTop;},{passive:true});
-  const tick=now=>{if(!roll.isConnected)return;
-   const still=calm.matches;roll.classList.toggle('static',still);
-   if(still||document.hidden||!roll.offsetParent){last=0;setTimeout(()=>requestAnimationFrame(tick),400);return;}
-   const dt=last?Math.min(64,now-last):0;last=now;const max=roll.scrollHeight-roll.clientHeight;
-   if(!held&&now>restUntil&&max>0){
-    if(pos>=max-1){if(!wrapAt)wrapAt=now+ROLL_REST;else if(now>wrapAt){wrapAt=0;pos=0;roll.scrollTop=0;restUntil=now+ROLL_REST/2;}}
-    else{pos=Math.min(max,pos+dt*ROLL_SPEED);roll.scrollTop=pos;}}
-   requestAnimationFrame(tick);};
-  requestAnimationFrame(tick);
  }
  function credits(t){
   const lang=window.__tomeI18n?.get?.()||'zh';
@@ -109,8 +90,8 @@
   const track=document.createElement('div');track.className='tome-roll-track';roll.append(track);
   const note=document.createElement('div');note.className='tome-credit-note';note.textContent=t.license;
   box.append(label,roll,note);
-  const show=data=>{if(!data){label.hidden=roll.hidden=true;return;}label.hidden=roll.hidden=false;fillRoll(track,data,lang);startRoll(roll);};
-  if(creditsData)show(creditsData);else{label.hidden=roll.hidden=true;loadCredits().then(show);}
+  label.hidden=roll.hidden=true;
+  credRoll().then(m=>m?m.loadCredits().then(data=>{if(!data)return;label.hidden=roll.hidden=false;fillRoll(track,data,lang,m.pickText);m.rollCredits(roll);}):null);
   return box;
  }
  // Settings page "关于" tab: title, version and the same credits.

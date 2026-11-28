@@ -29,7 +29,7 @@ const DROPPED_SOURCES=new Set(['inside']);
 const blocked=n=>DROPPED_SOURCES.has(String(n?.sourceId||''))||String(n?.source||'')==='インサイド'||REAL_PEOPLE.test([n?.title,n?.summary,...(Array.isArray(n?.tags)?n.tags:[])].map(x=>String(x||'')).join(' '))||BLOCKED.test([n?.title,n?.summary,...(Array.isArray(n?.tags)?n.tags:[])].map(x=>String(x||'')).join(' '));
 const sensitive=n=>SENSITIVE.test(String(n.title||'')+' '+String(n.summary||''));
 function cleanNews(d){
- const items=(Array.isArray(d?.items)?d.items:[]).filter(n=>!blocked(n)).slice(0,120).map(n=>({sensitive:sensitive({title:n?.title,summary:n?.summary}),fulltext:n?.fulltext===true,cat:['acg','ln'].includes(n?.cat)?n.cat:'gal',title:str(n?.title,160),link:link(n?.link),date:str(n?.date,30),source:str(n?.source,40),sourceId:str(n?.sourceId,20),summary:str(n?.summary,160),image:/^\/api\/news\/img\/[0-9a-f]{32}$/.test(String(n?.image||''))?n.image:''})).filter(n=>n.title&&n.link);
+ const items=(Array.isArray(d?.items)?d.items:[]).filter(n=>!blocked(n)).slice(0,120).map(n=>({sensitive:sensitive({title:n?.title,summary:n?.summary}),fulltext:n?.fulltext===true,cat:['acg','ln'].includes(n?.cat)?n.cat:'gal',title:str(n?.title,160),link:link(n?.link),date:str(n?.date,30),source:str(n?.source,40),sourceId:str(n?.sourceId,20),summary:str(n?.summary,160),image:/^\/api\/news\/img\/[0-9a-f]{32}$/.test(String(n?.image||''))?n.image:'',...(PUBLIC_IMG.test(String(n?.imageUrl||''))&&String(n.imageUrl).includes('/'+String(n?.image||'').slice(14)+'.')?{imageUrl:n.imageUrl}:{})})).filter(n=>n.title&&n.link);
  return {items,sources:(Array.isArray(d?.sources)?d.sources:[]).filter(s=>!DROPPED_SOURCES.has(String(s?.id||''))).slice(0,10).map(s=>({id:str(s?.id,20),name:str(s?.name,40)})),updatedAt:str(d?.updatedAt,30)||null};
 }
 /* the local dictionary is Chinese: its first line, first two senses, make the short gloss beside a hot word.
@@ -102,13 +102,21 @@ words=w.state==='ok'?cleanWords(w.data,db):null;
  for(const u of [...(news?.items||[]).map(x=>x.link),...(words?.words||[]).map(x=>x.url)])if(u&&u.startsWith('https:'))shown.add(u);
  return {state,error:state==='error'?n.error||w.error:undefined,news,words};
 }
-/* E415 thumbnails: cached in data/cache/daily-img for KEEP_DAYS, then fetched again from the relay */
-const IMG_MAX=900*1024,KEEP_DAYS=2,TYPES={'image/jpeg':1,'image/png':1,'image/webp':1,'image/gif':1,'image/avif':1};
+/* E415 thumbnails: cached in data/cache/daily-img for KEEP_DAYS, then fetched again from the relay.
+   2026-11-29 (the relay's free daily quota ran out; 72% of its requests were these thumbnails) kept 7 days instead of 2
+   (an id is the hash of the story link, so the picture does not change), and a 404 is remembered for a day as a
+   one-line "none" file instead of being asked again on every visit */
+/* 2026-11-29 the relay also names a copy on its public thumbnail host (imageUrl, img.megulit.com, no Worker call); it is
+   tried first and the Worker's /api/news/img/<id> stays the fallback */
+const PUBLIC_IMG=/^https:\/\/img\.megulit\.com\/[0-9a-f]{32}\.(jpg|png|webp|gif|avif)$/;
+const IMG_MAX=900*1024,KEEP_DAYS=7,MISS_HOURS=24,TYPES={'image/jpeg':1,'image/png':1,'image/webp':1,'image/gif':1,'image/avif':1};
 const imgDir=root=>root?path.join(root,'data','cache','daily-img'):'';
-async function thumbnail(root,base,ref,fetcher){
+async function thumbnail(root,base,ref,fetcher,publicUrl=''){
  const id=ref.slice(14),dir=imgDir(root),file=dir&&path.join(dir,id);
- if(file)try{const raw=fs.readFileSync(file);const cut=raw.indexOf(10);if(cut>0)return 'data:'+raw.subarray(0,cut).toString()+';base64,'+raw.subarray(cut+1).toString('base64');}catch{}
- try{const r=await fetcher(base+ref,{method:'GET',headers:{'user-agent':'MeguLit'},signal:AbortSignal.timeout(TIMEOUT)});const type=String(r.headers?.get?.('content-type')||'').split(';')[0].trim();
+ if(file)try{const raw=fs.readFileSync(file);const cut=raw.indexOf(10);if(cut>0&&raw.subarray(0,cut).toString()==='none'){if(Date.now()-fs.statSync(file).mtimeMs<MISS_HOURS*3600e3)return '';}else if(cut>0)return 'data:'+raw.subarray(0,cut).toString()+';base64,'+raw.subarray(cut+1).toString('base64');}catch{}
+ try{let r=null;if(publicUrl)try{r=await fetcher(publicUrl,{method:'GET',headers:{'user-agent':'MeguLit'},signal:AbortSignal.timeout(TIMEOUT)});if(!r.ok)r=null;}catch{r=null;}
+  if(!r)r=await fetcher(base+ref,{method:'GET',headers:{'user-agent':'MeguLit'},signal:AbortSignal.timeout(TIMEOUT)});const type=String(r.headers?.get?.('content-type')||'').split(';')[0].trim();
+  if(r.status===404&&file){try{fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(file,'none'+String.fromCharCode(10));}catch{}return '';}
   if(!r.ok||!TYPES[type])return '';const bytes=Buffer.from(await r.arrayBuffer());if(!bytes.length||bytes.length>IMG_MAX)return '';
   if(file)try{fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(file,Buffer.concat([Buffer.from(type+String.fromCharCode(10)),bytes]));}catch{}
   return 'data:'+type+';base64,'+bytes.toString('base64');}catch{return '';}
@@ -119,7 +127,7 @@ function pruneImages(root,now=Date.now()){const dir=imgDir(root);if(!dir)return;
    the downloads go on into the cache for the next visit */
 const THUMB_BUDGET=2500;
 async function thumbnails(root,base,items,fetcher){pruneImages(root);const want=items.map(n=>n.image);items.forEach(n=>{n.image='';});
- const jobs=items.map(async(n,i)=>{if(!want[i])return;const img=await thumbnail(root,base,want[i],fetcher).catch(()=>'');n.image=img;});
+ const jobs=items.map(async(n,i)=>{if(!want[i])return;const url=n.imageUrl;delete n.imageUrl;const img=await thumbnail(root,base,want[i],fetcher,url).catch(()=>'');n.image=img;});
  let timer;await Promise.race([Promise.all(jobs),new Promise(r=>{timer=setTimeout(r,THUMB_BUDGET);timer.unref?.();})]);clearTimeout(timer);}
 /* only links the page was just given (news articles and hot-word headlines) open in the browser */
 const shown=new Set();

@@ -24,7 +24,9 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let lang = pickLang(new URLSearchParams(location.search).get('lang') || ls.get('megulit-lang'), navigator.languages || [navigator.language]);
 let t = translator(lang);
 const state = { data: Object.fromEntries(KINDS.map(k => [k, []])), profile: null, me: null, tab: 'stats', online: navigator.onLine, syncing: false, lastSync: 0, signedIn: false, filters: { query: '', game: '', mastery: '', limit: 30 }, wordLimit: 40 };
-const TABS = [['stats', 'tabStats', 'stats'], ['lines', 'tabLines', 'lines'], ['words', 'tabWords', 'words'], ['route', 'tabRoute', 'route']];
+/* the account form is built once per visit, so a sync finishing (which re-renders) never wipes what is being typed */
+let accountView = null;
+const TABS = [['stats', 'tabStats', 'stats'], ['lines', 'tabLines', 'lines'], ['words', 'tabWords', 'words'], ['route', 'tabRoute', 'route'], ['account', 'tabAccount', 'account']];
 
 /* ---- chrome: language, theme, kana sky -------------------------------------------------------------------------- */
 function applyTheme(theme) { if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme; }
@@ -33,7 +35,7 @@ function setupChrome() {
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
   for (const b of document.querySelectorAll('[data-lang]')) {
     b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
-    b.addEventListener('click', () => { lang = b.dataset.lang; ls.set('megulit-lang', lang); t = translator(lang); document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang; for (const x of document.querySelectorAll('[data-lang]')) x.setAttribute('aria-pressed', String(x.dataset.lang === lang)); closePop(); render(); });
+    b.addEventListener('click', () => { lang = b.dataset.lang; ls.set('megulit-lang', lang); t = translator(lang); document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang; for (const x of document.querySelectorAll('[data-lang]')) x.setAttribute('aria-pressed', String(x.dataset.lang === lang)); closePop(); accountView = null; render(); });
   }
   $('#theme')?.addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : !matchMedia('(prefers-color-scheme: light)').matches;
@@ -75,17 +77,19 @@ async function sync() {
   if (state.syncing || !state.signedIn) return;
   state.syncing = true; render();
   try {
-    const info = await relay.me(); await setMeta('me', { username: info.username || '', email: info.email || '' });
-    await syncKinds({ api: relay.api, store }); await setMeta('lastSync', Date.now()); state.online = true;
+    const info = await relay.me(); await setMeta('me', { username: info.username || '', email: info.email || '', hasPassword: !!info.hasPassword });
+    await syncKinds({ api: relay.api, store }); await setMeta('lastSync', Date.now()); state.online = true; state.quota = false;
   } catch (error) {
     if (error.code === 'UNAUTHORIZED') { await signOutLocal(); state.notice = t('sessionExpired'); state.syncing = false; return showLogin(); }
     state.online = error.code === 'NETWORK' ? false : state.online;
-    if (error.code !== 'NETWORK') toast(t('error', { code: error.code || 'ERR' }));
+    /* the relay's daily quota is spent: say so once, keep showing the cached copy, and do not try again on our own */
+    state.quota = error.code === relay.QUOTA;
+    if (error.code !== 'NETWORK' && !state.quota) toast(t('error', { code: error.code || 'ERR' }));
   }
   state.syncing = false; await loadLocal(); render();
 }
 async function signOutLocal() {
-  state.signedIn = false; ls.del('megulit-me-chip'); await wipeAll();
+  state.signedIn = false; accountView = null; ls.del('megulit-me-chip'); await wipeAll();
   state.data = Object.fromEntries(KINDS.map(k => [k, []])); state.profile = null; state.me = null; state.lastSync = 0;
 }
 
@@ -208,6 +212,55 @@ function viewRoute() {
   }));
 }
 
+/* ---- account: set or change the password (2026-11-29). Proof is the current password or a code mailed to the account;
+   the relay checks it again, the page only saves a round trip. ------------------------------------------------------------ */
+function viewAccount() {
+  const has = !!state.me?.hasPassword, email = state.me?.email || '';
+  let proof = has ? 'current' : 'code', cooldown = 0, timer = 0;
+  const msg = h('p', { class: 'msg', role: 'alert' });
+  const say = (text, kind) => { msg.textContent = text; msg.className = 'msg' + (kind ? ' ' + kind : ''); };
+  const field = (id, label, input) => h('div', { class: 'field' }, h('label', { class: 'flabel', for: id }, label), input);
+  const cur = h('input', { id: 'pw-cur', type: 'password', autocomplete: 'current-password', maxlength: 128 });
+  const code = h('input', { id: 'pw-code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, placeholder: t('codePh'), oninput: e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); } });
+  const next = h('input', { id: 'pw-new', type: 'password', autocomplete: 'new-password', maxlength: 128, placeholder: t('newPasswordPh') });
+  const again = h('input', { id: 'pw-again', type: 'password', autocomplete: 'new-password', maxlength: 128 });
+  const send = h('button', { class: 'btn-red', type: 'button' }, t('sendCode')), save = h('button', { class: 'btn-red solid', type: 'submit' }, has ? t('changePassword') : t('setPassword'));
+  const tick = () => { send.disabled = cooldown > 0; send.textContent = cooldown > 0 ? `${t('sendCode')} (${cooldown})` : t('sendCode'); };
+  const switcher = (to, label) => h('button', { type: 'button', class: 'linkish', onclick: () => { proof = to; paint(); (to === 'code' ? send : cur).focus(); } }, label);
+  const curBox = h('div', { class: 'fields' }, field('pw-cur', t('currentPassword'), cur), switcher('code', t('forgotCurrent')));
+  const codeBox = h('div', { class: 'fields' }, h('label', { class: 'flabel', for: 'pw-code' }, t('pwCode')), h('p', { class: 'help' }, t('pwCodeHelp', { email })), h('div', { class: 'row' }, code, send), has ? switcher('current', t('useCurrent')) : null);
+  const paint = () => { curBox.hidden = proof !== 'current'; codeBox.hidden = proof !== 'code'; };
+  send.addEventListener('click', async () => {
+    send.disabled = true; say('');
+    try { await relay.requestCode(email); say(t('sentTo', { email }), 'ok'); cooldown = 60; tick(); clearInterval(timer); timer = setInterval(() => { cooldown--; tick(); if (cooldown <= 0 || !send.isConnected) clearInterval(timer); }, 1000); code.focus(); }
+    catch (error) { say(errorText(lang, error?.code), 'bad'); tick(); }
+  });
+  const form = h('form', { class: 'login pwform', novalidate: true, onsubmit: async e => {
+    e.preventDefault(); say('');
+    if (proof === 'current' && !cur.value) { cur.focus(); return say(errorText(lang, 'WRONG_PASSWORD'), 'bad'); }
+    if (proof === 'code' && !/^\d{6}$/.test(code.value)) { (cooldown > 0 ? code : send).focus(); return say(errorText(lang, 'CODE_REQUIRED'), 'bad'); }
+    if (next.value.length < 8 || next.value.length > 128) { next.focus(); return say(errorText(lang, 'PASSWORD_LENGTH'), 'bad'); }
+    if (next.value !== again.value) { again.focus(); return say(t('mismatch'), 'bad'); }
+    save.disabled = true;
+    try {
+      await relay.setPassword({ password: next.value, current: proof === 'current' ? cur.value : '', code: proof === 'code' ? code.value : '' });
+      state.me = { ...(state.me || {}), hasPassword: true }; await setMeta('me', state.me); clearInterval(timer);
+      state.notice = t('passwordDone'); accountView = null; render();
+    } catch (error) {
+      if (error.code === 'UNAUTHORIZED') { await signOutLocal(); state.notice = t('sessionExpired'); return showLogin(); }
+      if (error.code === 'CODE_REQUIRED') { proof = 'code'; paint(); }
+      say(errorText(lang, error?.code), 'bad'); save.disabled = false;
+    }
+  } }, curBox, codeBox, field('pw-new', t('newPassword'), next), field('pw-again', t('repeatPassword'), again), save, msg);
+  paint();
+  const done = state.notice; state.notice = '';
+  return h('div', { class: 'panel account' },
+    h('div', { class: 'acct-row' }, h('span', { class: 'flabel' }, t('accountEmail')), h('span', { class: 'acct-mail' }, email || '—')),
+    h('h2', { class: 'pw-title' }, t('pwTitle')), h('p', { class: 'lede' }, has ? t('pwHas') : t('pwNone')),
+    done ? h('p', { class: 'msg ok', role: 'status' }, done) : null,
+    form, h('p', { class: 'help' }, t('otherDevices')));
+}
+
 /* ---- shell, menu ---------------------------------------------------------------------------------------------------- */
 function openMenu(anchor) {
   const status = h('p', { class: 'mn-sync' }, state.syncing ? t('syncing') : t('lastSync', { when: when(state.lastSync) }));
@@ -231,20 +284,20 @@ function render() {
   const app = $('#app'); if (!app) return;
   document.title = `${t('title')} · MeguLit`;
   if (!state.signedIn) return;
-  const name = displayName(state.profile, state.me), views = { stats: viewStats, lines: viewLines, words: viewWords, route: viewRoute };
+  const name = displayName(state.profile, state.me), views = { stats: viewStats, lines: viewLines, words: viewWords, route: viewRoute, account: viewAccount };
   const scroll = scrollY, offline = !state.online;
   app.replaceChildren(
     h('div', { class: 'me-head' }, h('p', { class: 'typed' }, t('typed'), h('b', { class: 'caret' }, '▮')),
       h('h1', { class: 'me-title' }, t('welcome') + ' ', h('span', { class: 'ht-gal' }, name || 'MeguLit')),
       rule('02', state.syncing ? t('syncing') : t('lastSync', { when: when(state.lastSync) })),
-      offline ? h('p', { class: 'offline' }, t('offline', { when: when(state.lastSync) })) : null,
+      state.quota ? h('p', { class: 'msg bad banner', role: 'alert' }, errorText(lang, relay.QUOTA)) : offline ? h('p', { class: 'offline' }, t('offline', { when: when(state.lastSync) })) : null,
       h('nav', { class: 'mtabs', 'aria-label': t('title') }, TABS.map(([id, key, en]) => h('a', { href: '#/' + id, 'aria-current': state.tab === id ? 'page' : null }, h('b', null, t(key)), en)))),
-    h('div', { class: 'view', key: state.tab }, views[state.tab]()));
+    state.tab === 'account' ? (accountView ||= h('div', { class: 'view' }, viewAccount())) : h('div', { class: 'view', key: state.tab }, views[state.tab]()));
   $('.tabbar')?.remove();
   document.body.append(h('nav', { class: 'tabbar', 'aria-label': t('title') }, TABS.map(([id, key, en]) => h('a', { href: '#/' + id, 'aria-current': state.tab === id ? 'page' : null }, t(key), h('span', null, en)))));
   scrollTo(0, scroll);
 }
-function route() { const id = (location.hash.match(/^#\/(\w+)/) || [])[1]; const next = TABS.some(x => x[0] === id) ? id : 'stats'; if (next !== state.tab) { state.tab = next; closePop(); state.filters = { query: '', game: '', mastery: '', limit: 30 }; state.wordLimit = 40; render(); scrollTo(0, 0); } }
+function route() { const id = (location.hash.match(/^#\/(\w+)/) || [])[1]; const next = TABS.some(x => x[0] === id) ? id : 'stats'; if (next !== state.tab) { state.tab = next; accountView = null; closePop(); state.filters = { query: '', game: '', mastery: '', limit: 30 }; state.wordLimit = 40; render(); scrollTo(0, 0); } }
 addEventListener('hashchange', route);
 addEventListener('online', () => { state.online = true; sync(); });
 addEventListener('offline', () => { state.online = false; render(); });
@@ -257,7 +310,7 @@ function showLogin() {
   const codeIn = h('input', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, placeholder: t('codePh'), 'aria-label': t('code') });
   const idIn = h('input', { autocomplete: 'username', placeholder: t('loginId'), 'aria-label': t('loginId') }), pwIn = h('input', { type: 'password', autocomplete: 'current-password', placeholder: t('password'), 'aria-label': t('password') });
   const send = h('button', { class: 'btn-red', type: 'button' }, t('sendCode')), go = h('button', { class: 'btn-red solid', type: 'submit' }, t('verify'));
-  const fail = error => { msg.textContent = errorText(lang, error?.code); msg.className = 'msg bad'; };
+  const fail = error => { msg.textContent = errorText(lang, error?.code); msg.className = 'msg bad'; msg.setAttribute('role', 'alert'); };
   const finish = async data => {
     await setMeta('session', data.token); state.signedIn = true; await loadLocal(); state.tab = 'stats'; history.replaceState(null, '', '/me/#/stats'); render(); sync();
   };

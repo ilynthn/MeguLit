@@ -44,7 +44,7 @@ app calls from Node with no Origin, so no CORS change is needed.
 | POST | `/api/auth/code` | `{email}` | `{ok,expiresIn:600}`; 429 `RATE_LIMITED` (1/min and 5/h per email, 20/h per IP); `502 EMAIL_SEND_FAILED`. Waits for Resend at most 1.5 s (`SEND_WAIT`, `MAIL_WAIT_MS`), then answers `{ok,expiresIn,sending:true}` and finishes in `ctx.waitUntil`; a late failure deletes the code, so verify says `NO_CODE` |
 | POST | `/api/auth/password` | `{login,password,device}` | login = e-mail or user name; same answer as verify; `WRONG_PASSWORD` for every failure, 429 `RATE_LIMITED` |
 | POST | `/api/me/username` | `{username}` | once only: `USERNAME_INVALID`, `USERNAME_TAKEN`, `USERNAME_LOCKED` |
-| POST | `/api/me/password` | `{password,current?}` | 8–128; `current` needed unless the session is <10 min old: `WRONG_PASSWORD`, `PASSWORD_LENGTH`, `PASSWORD_WEAK` |
+| POST | `/api/me/password` | `{password,current?,code?}` | 8–128. Proof (2026-11-29): `code` = a code mailed to the account's own address (`POST /api/auth/code`), burned on use; or `current`; or a desktop session <10 min old. No proof: `CODE_REQUIRED` (no password yet) / `WRONG_PASSWORD`. Also `WRONG_CODE` (+`triesLeft`), `NO_CODE`, `CODE_EXPIRED`, `PASSWORD_LENGTH`, `PASSWORD_WEAK`; 429 after 10 tries an hour per account (`pw-set`). Other sessions stay signed in; each device can be removed from the desktop device list |
 | POST | `/api/auth/verify` | `{email,code,device}` | `{token,accountId,email,sessionId,expiresAt}`; `WRONG_CODE` (+`triesLeft`), `CODE_EXPIRED`, `TOO_MANY_TRIES`, `NO_CODE` |
 | GET | `/api/me` | Bearer | `{accountId,email,createdAt,sessionId,username,hasPassword,devices[],usage,limits}` |
 | POST | `/api/auth/logout` | `{sessionId?}` | revokes this device, or another device of the same account |
@@ -91,7 +91,8 @@ its owner in `/api/me`.
 (column added by `0042_web_sessions.sql`), 30-day sliding life, device name `网页 · <browser>`. It may call
 `GET /api/me`, `GET /api/sync`, `GET /api/sync/:kind` and sign itself out; anything else answers
 `403 READ_ONLY_SESSION`. Its reads are limited by the `RL_SYNC_GET` rate-limit binding (60/min per account, no D1 row);
-desktop sessions keep the D1 `acct` limit. CORS allows `megulit.com`, `www.megulit.com`, `cn.megulit.com` and exposes
+desktop sessions keep the D1 `acct` limit. The one write a website session may do is `POST /api/me/password` (2026-11-29), and only with `current` or `code`:
+the 10-minute shortcut is desktop only. CORS allows `megulit.com`, `www.megulit.com`, `cn.megulit.com` and exposes
 `x-megulit-token`, so the page keeps a rotated token. Without migration 0042 a website sign-in fails (never a full
 session); desktop sign-ins keep working.
 
