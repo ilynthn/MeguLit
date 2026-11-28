@@ -17,8 +17,9 @@ function seed(db){
  s.run('g1',at(2026,11,10),null,600,1000);s.run('g1',at(2026,11,9),null,300,500);s.run('g2',at(2026,11,8),null,1200,2000);
  s.run('g2',at(2026,11,7),null,60,100);s.run('g1',at(2026,10,20),null,3600,9000);s.run('g3',at(2026,11,10),null,10,10);
  s.run('g1',at(2026,11,5),null,0,0);
- const w=db.prepare("INSERT INTO vocabulary(spelling,reading,definitions,created_at,original) VALUES('語','ご','[]',?,'{}')");
- w.run(at(2026,11,10));w.run(at(2026,11,3));w.run(at(2026,9,1));
+ /* three different words (a word saved twice is one word since 2026-11-28, validation/leaderboard-content-words.test.cjs) */
+ const w=db.prepare("INSERT INTO vocabulary(spelling,reading,definitions,created_at,original) VALUES(?,'','[]',?,'{}')");
+ w.run('語',at(2026,11,10));w.run('言葉',at(2026,11,3));w.run('単語',at(2026,9,1));
 }
 const NOW=new Date(2026,10,10,20,0,0);
 
