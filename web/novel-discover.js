@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { mountWebSourceSettings, webMessages } from './novel-web.js';
 
 const messages = {
   zh: {
@@ -7,7 +8,7 @@ const messages = {
     alias: title => '日文原名 · ' + title, original: '日文', open: '打开书页', source: '打开网站',
     local: '导入已下载文件', import: '下载并导入', added: '已加入书架', viewBook: '在书架中查看',
     duplicate: '已在书架', back: '上一页', next: '下一页', settings: '书源设置',
-    unconfigured: '请先在书源设置中填写图书源网站。', lightNovels: '日文轻小说', site: '图书源网站', proxy: 'HTTP 代理（可选）', save: '保存书源', saved: '书源已保存',
+    unconfigured: '请先在书源设置中填写图书源网站。', lightNovels: '日文轻小说', site: '电子书下载站（可选）', proxy: 'HTTP 代理（可选）', save: '保存书源', saved: '书源已保存',
     signIn: '登录书源', signOut: '退出登录', email: '邮箱', password: '密码',
     signedIn: '登录已验证', signedOut: '登录后可直接下载并导入 PDF 或 EPUB',
     check: '检查登录', verifying: '正在验证书源登录…', expired: '登录已失效，请重新登录',
@@ -37,7 +38,7 @@ const messages = {
     alias: title => '日本語原題 · ' + title, original: '日本語', open: '書籍ページ', source: 'サイトを開く',
     local: 'ダウンロード済みファイルを追加', import: 'ダウンロードして追加', added: '本棚に追加しました', viewBook: '本棚で開く',
     duplicate: '本棚にあります', back: '前へ', next: '次へ', settings: '書籍ソース設定',
-    unconfigured: '書籍ソース設定でサイトを入力してください。', lightNovels: '日本語のライトノベル', site: '書籍ソースのサイト', proxy: 'HTTP プロキシ（任意）', save: '保存', saved: '設定を保存しました',
+    unconfigured: '書籍ソース設定でサイトを入力してください。', lightNovels: '日本語のライトノベル', site: '電子書籍サイト（任意）', proxy: 'HTTP プロキシ（任意）', save: '保存', saved: '設定を保存しました',
     signIn: '書籍ソースにログイン', signOut: 'ログアウト', email: 'メールアドレス', password: 'パスワード',
     signedIn: 'ログインを確認しました', signedOut: 'ログインすると PDF と EPUB を直接追加できます',
     check: 'ログイン状態を確認', verifying: '書籍ソースのログイン状態を確認しています…', expired: 'セッションが切れました。再度ログインしてください',
@@ -66,7 +67,7 @@ const messages = {
     alias: title => 'Japanese title · ' + title, original: 'Japanese', open: 'Book page', source: 'Open website',
     local: 'Import a downloaded file', import: 'Download and import', added: 'Added to your shelf', viewBook: 'View on shelf',
     duplicate: 'Already on your shelf', back: 'Previous', next: 'Next', settings: 'Book source settings',
-    unconfigured: 'Enter a website in Book source settings to get started.', lightNovels: 'Japanese light novels', site: 'Book source website', proxy: 'HTTP proxy (optional)', save: 'Save source', saved: 'Source saved',
+    unconfigured: 'Enter a website in Book source settings to get started.', lightNovels: 'Japanese light novels', site: 'E-book site (optional)', proxy: 'HTTP proxy (optional)', save: 'Save source', saved: 'Source saved',
     signIn: 'Sign in to the book source', signOut: 'Sign out', email: 'Email', password: 'Password',
     signedIn: 'Sign-in verified', signedOut: 'Sign in to download and import PDFs or EPUBs directly',
     check: 'Check sign-in', verifying: 'Verifying sign-in with the book source…', expired: 'Session expired. Sign in again.',
@@ -325,11 +326,15 @@ export function paintDiscoveryDetail(host, { selection, api, esc, w, locale, sig
 
 export async function mountNovelSourceSettings(host, { api, locale, esc, toast }) {
   const w = discoverMessages(locale);
+  const web = webMessages(locale);
   host.innerHTML = `<h2 class="settings-section-title">${esc(w.settings)}</h2>
+    <div data-web-sources-host></div>
     <form class="panel" data-source-config>
-      <label class="settings-row"><span class="settings-label">${esc(w.site)}</span>
+      <label class="settings-row"><div class="nw-field"><span class="settings-label">${esc(w.site)}</span>
+        <span class="settings-help" data-site-help>${esc(web.siteHelp)}</span></div>
         <input name="origin" type="url" autocomplete="off" spellcheck="false"></label>
-      <label class="settings-row"><span class="settings-label">${esc(w.proxy)}</span>
+      <label class="settings-row"><div class="nw-field"><span class="settings-label">${esc(w.proxy)}</span>
+        <span class="settings-help" data-proxy-help>${esc(web.proxyHelp)}</span></div>
         <input name="proxy" type="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:7890"></label>
       <button type="submit" class="secondary">${esc(w.save)}</button>
     </form>
@@ -399,5 +404,6 @@ export async function mountNovelSourceSettings(host, { api, locale, esc, toast }
   host.querySelector('[data-account-site]').onclick = () => {
     if (current?.origin) api('novel_source_open', { url: current.origin }).catch(() => toast(w.unavailable));
   };
-  await run('get', {}, w.unavailable);
+  await Promise.all([run('get', {}, w.unavailable),
+    mountWebSourceSettings(host.querySelector('[data-web-sources-host]'), { api, locale, esc, toast })]);
 }

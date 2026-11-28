@@ -15,6 +15,9 @@
     {"name": "DxWnd · Borderless Gaming", "note": {"zh": "强制无边框全屏的参考", "en": "References for forced borderless fullscreen", "ja": "強制ボーダーレス全画面の参考"}, "match": ["DxWnd", "Borderless Gaming"]},
     {"name": "GalTransl-GalGameReverse-Skill", "by": "GalTransl", "note": {"zh": "适配时的第二意见与引擎笔记", "en": "Second opinion and engine notes while adapting", "ja": "対応作業でのセカンドオピニオンとエンジンメモ"}, "match": ["GalTransl-GalGameReverse-Skill"]},
     {"name": "Craft Anything", "by": "storytold", "note": {"zh": "适配前对游戏程序做静态分析：认引擎和画字方式", "en": "Static analysis of the game program before adapting: engine and text drawing", "ja": "対応前のゲーム本体の静的解析：エンジンと文字描画の特定"}, "match": ["Craft Anything", "storytold/craft-anything"]},
+    {"name": "Novelia (auto-novel)", "by": "FishHawk", "note": {"zh": "文库网文对照：syosetu 抓取方式与阅读设置的参照", "en": "Library bilingual web novels: how syosetu is read and the reading settings", "ja": "ライブラリの日中対訳：なろうの読み取り方と表示設定の手本"}, "match": ["Novelia", "auto-novel"]},
+    {"name": "Light-Novel-Yuedu-Source", "by": "ZWolken", "note": {"zh": "核对哩哩轻小说页面结构的阅读书源", "en": "Legado book source used to check Linovelib's page layout", "ja": "哩哩軽小説のページ構造を確かめた Legado ソース"}, "match": ["Light-Novel-Yuedu-Source"]},
+    {"name": "linovelib2epub", "by": "lightnovel-center", "note": {"zh": "哩哩轻小说的分页与限速经验", "en": "What Linovelib does with paging and rate limits", "ja": "哩哩軽小説のページ分割と速度制限の知見"}, "match": ["linovelib2epub"]},
     {"name": "漢字でGO!", "by": "Micelle", "note": {"zh": "学习 → 五十音里打开的官方页面", "en": "Opened from 学习 → 五十音", "ja": "学習 → 五十音から開く公式ページ"}, "match": ["漢字でGO!"]}
    ]
   },
@@ -149,6 +152,7 @@
    "id": "data",
    "title": {"zh": "词典与数据", "en": "Dictionaries and data", "ja": "辞書・データ"},
    "items": [
+    {"name": {"zh": "成为小说家吧 · 哩哩轻小说", "en": "Syosetu · Linovelib", "ja": "小説家になろう · 哩哩軽小説"}, "note": {"zh": "文库内置书源：日文原文与中文汉化", "en": "Built-in library sources: Japanese originals and Chinese translations", "ja": "ライブラリの内蔵ソース：日本語原文と中国語訳"}, "match": ["Built-in web novel sources"]},
     {"name": "JMdict", "by": "Jim Breen · EDRDG", "note": {"zh": "点读查词的日英词典", "en": "The dictionary behind every lookup", "ja": "すべてのクリック辞書を支える辞書"}, "match": ["JMdict"]},
     {"name": "KanjiVG", "by": "Ulrich Apel", "note": {"zh": "五十音笔顺", "en": "Kana stroke order", "ja": "かなの筆順"}, "match": ["KanjiVG"]},
     {"name": "open-anki-jlpt-decks", "by": "Jamie Sinclair", "note": {"zh": "JLPT 词表", "en": "JLPT word lists", "ja": "JLPT 単語リスト"}, "match": ["open-anki-jlpt-decks"]},
