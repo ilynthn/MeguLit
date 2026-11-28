@@ -24,6 +24,8 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let lang = pickLang(new URLSearchParams(location.search).get('lang') || ls.get('megulit-lang'), navigator.languages || [navigator.language]);
 let t = translator(lang);
 const state = { data: Object.fromEntries(KINDS.map(k => [k, []])), profile: null, me: null, tab: 'stats', online: navigator.onLine, syncing: false, lastSync: 0, signedIn: false, filters: { query: '', game: '', mastery: '', limit: 30 }, wordLimit: 40 };
+/* the account form is built once per visit, so a sync finishing (which re-renders) never wipes what is being typed */
+let accountView = null;
 const TABS = [['stats', 'tabStats', 'stats'], ['lines', 'tabLines', 'lines'], ['words', 'tabWords', 'words'], ['route', 'tabRoute', 'route'], ['account', 'tabAccount', 'account']];
 
 /* ---- chrome: language, theme, kana sky -------------------------------------------------------------------------- */
@@ -33,7 +35,7 @@ function setupChrome() {
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
   for (const b of document.querySelectorAll('[data-lang]')) {
     b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
-    b.addEventListener('click', () => { lang = b.dataset.lang; ls.set('megulit-lang', lang); t = translator(lang); document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang; for (const x of document.querySelectorAll('[data-lang]')) x.setAttribute('aria-pressed', String(x.dataset.lang === lang)); closePop(); render(); });
+    b.addEventListener('click', () => { lang = b.dataset.lang; ls.set('megulit-lang', lang); t = translator(lang); document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang; for (const x of document.querySelectorAll('[data-lang]')) x.setAttribute('aria-pressed', String(x.dataset.lang === lang)); closePop(); accountView = null; render(); });
   }
   $('#theme')?.addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : !matchMedia('(prefers-color-scheme: light)').matches;
@@ -87,7 +89,7 @@ async function sync() {
   state.syncing = false; await loadLocal(); render();
 }
 async function signOutLocal() {
-  state.signedIn = false; ls.del('megulit-me-chip'); await wipeAll();
+  state.signedIn = false; accountView = null; ls.del('megulit-me-chip'); await wipeAll();
   state.data = Object.fromEntries(KINDS.map(k => [k, []])); state.profile = null; state.me = null; state.lastSync = 0;
 }
 
@@ -243,7 +245,7 @@ function viewAccount() {
     try {
       await relay.setPassword({ password: next.value, current: proof === 'current' ? cur.value : '', code: proof === 'code' ? code.value : '' });
       state.me = { ...(state.me || {}), hasPassword: true }; await setMeta('me', state.me); clearInterval(timer);
-      state.notice = t('passwordDone'); render();
+      state.notice = t('passwordDone'); accountView = null; render();
     } catch (error) {
       if (error.code === 'UNAUTHORIZED') { await signOutLocal(); state.notice = t('sessionExpired'); return showLogin(); }
       if (error.code === 'CODE_REQUIRED') { proof = 'code'; paint(); }
@@ -290,12 +292,12 @@ function render() {
       rule('02', state.syncing ? t('syncing') : t('lastSync', { when: when(state.lastSync) })),
       state.quota ? h('p', { class: 'msg bad banner', role: 'alert' }, errorText(lang, relay.QUOTA)) : offline ? h('p', { class: 'offline' }, t('offline', { when: when(state.lastSync) })) : null,
       h('nav', { class: 'mtabs', 'aria-label': t('title') }, TABS.map(([id, key, en]) => h('a', { href: '#/' + id, 'aria-current': state.tab === id ? 'page' : null }, h('b', null, t(key)), en)))),
-    h('div', { class: 'view', key: state.tab }, views[state.tab]()));
+    state.tab === 'account' ? (accountView ||= h('div', { class: 'view' }, viewAccount())) : h('div', { class: 'view', key: state.tab }, views[state.tab]()));
   $('.tabbar')?.remove();
   document.body.append(h('nav', { class: 'tabbar', 'aria-label': t('title') }, TABS.map(([id, key, en]) => h('a', { href: '#/' + id, 'aria-current': state.tab === id ? 'page' : null }, t(key), h('span', null, en)))));
   scrollTo(0, scroll);
 }
-function route() { const id = (location.hash.match(/^#\/(\w+)/) || [])[1]; const next = TABS.some(x => x[0] === id) ? id : 'stats'; if (next !== state.tab) { state.tab = next; closePop(); state.filters = { query: '', game: '', mastery: '', limit: 30 }; state.wordLimit = 40; render(); scrollTo(0, 0); } }
+function route() { const id = (location.hash.match(/^#\/(\w+)/) || [])[1]; const next = TABS.some(x => x[0] === id) ? id : 'stats'; if (next !== state.tab) { state.tab = next; accountView = null; closePop(); state.filters = { query: '', game: '', mastery: '', limit: 30 }; state.wordLimit = 40; render(); scrollTo(0, 0); } }
 addEventListener('hashchange', route);
 addEventListener('online', () => { state.online = true; sync(); });
 addEventListener('offline', () => { state.online = false; render(); });

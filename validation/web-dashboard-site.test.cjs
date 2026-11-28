@@ -222,6 +222,8 @@ test('relay client: Cloudflare 1027/429 reads as the daily quota, a dead network
  r=await run(url=>new URL(url).pathname==='/api/health'?json(200,{ok:true}):new Response('<html>error code: 1027</html>',{status:429}));assert.equal(r.code,'QUOTA_EXCEEDED');
  /* the network is down: no-cors fails too */
  r=await run(()=>{throw new TypeError('Failed to fetch');});assert.equal(r.code,'NETWORK');
+ /* a timeout on a slow link is NETWORK even though the node answers a probe */
+ r=await run((url,init)=>{if(init.mode==='no-cors')return new Response('',{status:200});throw new DOMException('timed out','TimeoutError');});assert.equal(r.code,'NETWORK');
  /* the relay's own per-user limit keeps its message */
  r=await run(url=>new URL(url).pathname==='/api/health'?json(200,{ok:true}):json(429,{ok:false,error:'RATE_LIMITED',retryAfter:60}));assert.equal(r.code,'RATE_LIMITED');
  r=await run(url=>json(200,{ok:true,expiresIn:600}));assert.equal(r.code,'OK');
@@ -233,7 +235,7 @@ test('readability: what people read on /me/ is the body font at 14px or more, wi
  const css=fs.readFileSync(path.join(pub,'assets','css','me.css'),'utf8');
  const esc=x=>[...x].map(c=>'.*+?^${}()|[]'.includes(c)?'\\'+c:c).join('');
  const rule=sel=>{const m=new RegExp('(^|\\n|\\} )'+esc(sel)+' \\{([^}]*)\\}').exec(css);assert.ok(m,'no rule for '+sel);return m[2];};
- for(const sel of ['.hint','.msg','.help','.offline','.src','.me-foot','.flabel','.linkish','.btn-red','.acct','.mrows em','.study span','.lk-from, .lk-load, .lk-none','.mn-mail, .mn-sync']){
+ for(const sel of ['.hint','.msg','.help','.offline','.src','.src b','.me-foot','.flabel','.linkish','.btn-red','.btn-mini','.acct','.k','.mtag','.mchip','.lk-pos','.mrows em','.study span','.lk-from, .lk-load, .lk-none','.mn-mail, .mn-sync']){
   const body=rule(sel),font=/font: (\d+) ([\d.]+)rem/.exec(body);assert.ok(font,sel+' sets its font');
   assert.ok(Number(font[2])>=.875,sel+' is at least 14px ('+font[2]+'rem)');assert.match(body,/var\(--sans\)/,sel+' uses the body font');assert.doesNotMatch(body,/MeguLit Mono/,sel);
  }

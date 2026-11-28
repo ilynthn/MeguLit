@@ -43,8 +43,8 @@ body.me { margin: 0; background: var(--m-bg); color: var(--m-paper); min-height:
 /* HUD grid */
 .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1px; background: var(--m-hair); border: 1px solid var(--m-hair); }
 .cell { background: var(--m-panel); padding: 1.2rem 1.3rem 1.3rem; position: relative; min-width: 0; }
-.mtag { position: absolute; top: -1px; left: -1px; background: var(--m-accent); color: #fff; font: 700 .72rem/1 var(--serif); padding: .32rem .55rem; letter-spacing: .06em; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.k { display: block; font: 300 .7rem/1.3 "MeguLit Mono", var(--mono); letter-spacing: .3em; color: var(--m-dim); text-transform: lowercase; margin: 1.2rem 0 .7rem; }
+.mtag { position: absolute; top: -1px; left: -1px; background: var(--m-accent); color: #fff; font: 700 .875rem/1 var(--sans); padding: .32rem .55rem; letter-spacing: .06em; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k { display: block; font: 400 .875rem/1.4 var(--sans); letter-spacing: .04em; color: var(--m-dim); text-transform: lowercase; margin: 1.2rem 0 .7rem; }
 .v { font: italic 500 clamp(2.3rem, 4.4vw, 3.6rem)/1 "MeguLit Cormorant", var(--serif); text-shadow: 0 0 .3em color-mix(in srgb, var(--m-paper) 14%, transparent); font-variant-numeric: lining-nums tabular-nums; }
 .v b { font-weight: 500; } .v small { font: 300 .8rem/1 "MeguLit Mono", var(--mono); letter-spacing: .25em; color: var(--m-dim); margin-left: .35em; font-style: normal; }
 .v.red { color: var(--m-hot); text-shadow: 0 0 .4em rgba(200, 50, 60, .5); }
@@ -81,13 +81,13 @@ body.me { margin: 0; background: var(--m-bg); color: var(--m-paper); min-height:
 .ja .ch.hit { background: rgba(200, 50, 60, .28); box-shadow: inset 0 -2px 0 var(--m-accent); }
 .zh { color: var(--m-soft); font-size: .92rem; margin: .2rem 0 .45rem; }
 .src { margin: 0; font: 400 .875rem/1.6 var(--sans); color: var(--m-dim); }
-.src b { color: var(--m-paper); font: 500 .76rem/1 var(--sans); letter-spacing: .08em; }
+.src b { color: var(--m-paper); font: 600 .875rem/1.4 var(--sans); }
 .mmore { margin: .8rem 0 0; background: none; border: 1px dashed var(--m-hair); color: var(--m-soft); padding: .8rem; width: 100%; font: 300 .8rem "MeguLit Mono", var(--mono); letter-spacing: .3em; cursor: pointer; min-height: 2.75rem; transition: border-color .15s, transform .12s; }
 .mmore:hover { border-color: var(--m-accent); } .mmore:active, .btn-mini:active, .btn-red:active, .mchip:active, .mtabs a:active { transform: scale(.96); }
 
 /* word book */
 .mchips { display: flex; flex-wrap: wrap; gap: .5rem; }
-.mchip { display: inline-block; border: 1px solid var(--m-hair); color: var(--m-soft); background: none; padding: .35rem .8rem; font: 300 .7rem/1.4 "MeguLit Mono", var(--mono); letter-spacing: .2em; cursor: pointer; transition: color .15s, background-color .15s, border-color .15s, transform .12s; }
+.mchip { display: inline-block; border: 1px solid var(--m-hair); color: var(--m-soft); background: none; padding: .35rem .8rem; font: 500 .875rem/1.4 var(--sans); cursor: pointer; transition: color .15s, background-color .15s, border-color .15s, transform .12s; }
 .mchips .mchip { min-height: 2.5rem; } span.mchip { cursor: default; }
 .mchip.on { background: var(--m-accent); border-color: var(--m-accent); color: #fff; }
 .mchip.lv-new { color: var(--m-paper); } .mchip.lv-learning { border-color: rgba(200, 50, 60, .6); } .mchip.lv-known { color: var(--m-hot); border-color: var(--m-hot); }
@@ -114,12 +114,12 @@ body.me { margin: 0; background: var(--m-bg); color: var(--m-paper); min-height:
 .lk-head { display: flex; align-items: baseline; gap: .8rem; padding-right: 2.4rem; flex-wrap: wrap; } .lk-w { font: 600 1.9rem/1.2 "MeguLit Han", var(--serif-ja); } .lk-r { font: 300 .8rem/1 "MeguLit Mono", var(--mono); letter-spacing: .3em; color: var(--m-dim); }
 .lk-from, .lk-load, .lk-none { margin: .3rem 0; font: 400 .875rem/1.6 var(--sans); color: var(--m-soft); }
 .lk-entry { margin-top: .7rem; } .lk-entry + .lk-entry { border-top: 1px dashed var(--m-hair); padding-top: .6rem; }
-.lk-pos { display: block; font: 300 .62rem/1 "MeguLit Mono", var(--mono); letter-spacing: .3em; color: var(--m-hot); margin-bottom: .3rem; } .lk-alt { font: 600 1rem var(--serif-ja); }
+.lk-pos { display: block; font: 500 .875rem/1.3 var(--sans); color: var(--m-hot); margin-bottom: .3rem; } .lk-alt { font: 600 1rem var(--serif-ja); }
 .lk-entry ol { margin: .2rem 0 0; padding-left: 1.2rem; line-height: 1.65; font-size: .95rem; }
 .lk-foot { display: flex; justify-content: space-between; align-items: center; gap: .8rem; border-top: 1px dashed var(--m-hair); margin-top: .9rem; padding-top: .7rem; }
 .mchip.on { white-space: nowrap; }
 .mn { display: grid; gap: .55rem; min-width: 14rem; } .mn p { margin: 0; } .mn-name { font: italic 500 1.6rem/1.1 "MeguLit Cormorant", var(--serif); } .mn-mail, .mn-sync { font: 400 .875rem/1.5 var(--sans); color: var(--m-soft); overflow-wrap: anywhere; }
-.btn-mini { background: none; border: 1px solid var(--m-hair); color: var(--m-paper); padding: .7rem .9rem; font: 400 .85rem var(--sans); cursor: pointer; text-align: left; min-height: 2.75rem; transition: border-color .15s, background-color .15s, transform .12s; }
+.btn-mini { background: none; border: 1px solid var(--m-hair); color: var(--m-paper); padding: .7rem .9rem; font: 600 .9375rem/1.3 var(--sans); cursor: pointer; text-align: left; min-height: 2.75rem; transition: border-color .15s, background-color .15s, transform .12s; }
 .btn-mini:hover:not(:disabled) { border-color: var(--m-accent); background: rgba(200, 50, 60, .08); } .btn-mini:disabled { opacity: .6; cursor: default; } .btn-mini.danger { color: var(--m-hot); }
 
 /* header account button */

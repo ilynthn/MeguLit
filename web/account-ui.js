@@ -180,7 +180,7 @@ export function mountSignInMethods(box,{api,locale,esc,toast,status,me=null,onCh
   if(next!==again){toast(t.mismatch);return;}
   form.querySelectorAll('input,button').forEach(el=>el.disabled=true);
   try{await api('account_password',{password:next,current,code});clearInterval(timer);form.reset();toast(t.passwordDone);await onChange();}
-  catch(error){toast(errorText(t,error));form.querySelectorAll('input,button').forEach(el=>el.disabled=false);if(String(error?.code||error?.message||'').includes('CODE_REQUIRED')){proof='code';showProof();}}
+  catch(error){toast(errorText(t,error));form.querySelectorAll('input,button').forEach(el=>el.disabled=false);const raw=String(error?.code||error?.message||'');if(raw.includes('CODE_REQUIRED')){proof='code';showProof();}else if(!proof&&raw.includes('WRONG_PASSWORD')){proof=hasPassword?'current':'code';showProof();}}
  };
  const setName=box.querySelector('[data-username-set]');
  if(setName){

@@ -35,7 +35,11 @@ export async function request(method, path, body, { auth = true } = {}) {
     if (auth) { const token = await getMeta('session'); if (!token) throw err('NOT_LOGGED_IN', 401); headers.authorization = 'Bearer ' + token; }
     let response;
     try { response = await fetch(root + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT) }); }
-    catch { chosen = null; if (await reachable(root)) quota = true; last = err(quota ? QUOTA : 'NETWORK', quota ? 429 : 0); continue; }
+    catch (error) {
+      /* a timeout is a slow network, never the quota; only a refused (CORS-less) answer from a node that is up is */
+      chosen = null; if (error?.name !== 'TimeoutError' && error?.name !== 'AbortError' && await reachable(root)) quota = true;
+      last = err(quota ? QUOTA : 'NETWORK', quota ? 429 : 0); continue;
+    }
     const rotated = response.headers.get('x-megulit-token');
     if (auth && rotated && /^mgl_[A-Za-z0-9_-]{43}$/.test(rotated)) await setMeta('session', rotated);
     let data = {}; try { data = await response.json(); } catch { /* no body */ }
