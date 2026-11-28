@@ -113,8 +113,12 @@ test('Alt+T: a colour changed in the menu is marked as the user\'s; an automatic
  assert.match(sync,/if\(m\.gameStyleAutomatic===true&&b\.galPreferences\(\)\.colorSource==='user'\)\{for\(const k of \['textColor','readTextColor',[^\]]*\]\)delete out\[k\];\}\s*else if\(m\.gameStyleAutomatic!==true\)out\.colorSource='';/);
 });
 
-test('隐藏原文: the 整块底板颜色 row that changed nothing is gone (maskMode "full" never survives clean)',()=>{
- for(const file of ['web/reader/modules/game-style.js','core/game-style.js'])assert.equal(require('../'+file).clean({maskMode:'full'}).maskMode,'hook');
+test('隐藏原文: the 整块底板颜色 row that changed nothing is gone with its setting (maskMode "full" never survives clean)',()=>{
+ for(const file of ['web/reader/modules/game-style.js','core/game-style.js']){const style=require('../'+file);
+  assert.equal(style.clean({maskMode:'full'}).maskMode,'hook');
+  assert.equal('maskColor' in style.defaults,false);
+  assert.equal('maskColor' in style.clean({maskColor:'#3ae899'}),false,'an old saved colour is ignored on read');}
+ for(const file of ['web/reader/modules/game-profile.js','core/game-profile.js'])assert.equal('maskColor' in require('../'+file).pick({maskColor:'#3ae899',maskStyle:'blend'}),false);
  const gal=read('web/reader/modules/gal.js');
  assert.doesNotMatch(gal,/整块底板颜色|galMaskColor|data-gal-full-color|tomoyo-gal-mask\b/);
  assert.doesNotMatch(read('web/reader/modules/menu-layout.js'),/data-gal-full-color/);

@@ -13,7 +13,7 @@
     translationSize: 30, rubyScale: .55, rubyOffsetX:0, rubyOffsetY:3, rubyRowOffsets:'',rubyRowOffsetsX:'', lineHeight: 0, lineHeightMode:'offset', translationLineHeight:0, japaneseSpacing:0, japaneseSpacingPx:0,chineseSpacingPx:0, gap: -2, translationWidth: 75,
     paddingX: 20, paddingY: 10, textColor: '#fffaf2', colorSource: '', readTextColor: '', speechTextColor: '', narrationTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
     bindEnabled: false, interfaceMode:'normal', gameProcess: '', x: 4, y: 70, width: 92, height: 27, anchorDX: 0, anchorDY: 0,
-    autoGameStyle:true, livePosition:false, hookProfile:'read', embedTranslation:false, hookAutoStart:true, hookHide:true, hookFast:true, mask: false, maskMode: 'hook', maskColor: '#171923',
+    autoGameStyle:true, livePosition:false, hookProfile:'read', embedTranslation:false, hookAutoStart:true, hookHide:true, hookFast:true, mask: false, maskMode: 'hook',
     scanAuto: true, scanX: 2, scanY: 60, scanWidth: 96, scanHeight: 38, blurRadius: 13, maskPadding: 6, fastMask:true,
     maskVersion:26, maskStyle:'blend', japaneseBold:false, chineseBold:false, translationBlur:false,
     hideWaitMarker:false,relocateWaitMarker:false,waitCoverStyle:'frame',
@@ -93,7 +93,7 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     /* 2026-11-20 (user: 假名注音默认往下调一点、译文和日文间距默认也小点): a saved settings blob from before moves once, ruby 3 px lower and the gap 8 px smaller (old default 6 = new default -2); typed values are saved with the mark and never move */
     if (value.spacingDefaults !== 1 && value.layoutVersion !== undefined) { const n = v => Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : null; result.gap = Math.max(-28, Math.min(40, (n(value.gap) ?? 6) - 8)); result.rubyOffsetY = Math.max(-100, Math.min(100, Math.round(((n(value.rubyOffsetY) ?? 0) + 3) * 10) / 10)); }
     result.spacingDefaults = 1; /* written by this version: core/gal-native.cjs moves only older saved spacing, once */
-    for (const key of ['textColor','maskColor']) if (/^#[0-9a-f]{6}$/i.test(value[key])) result[key] = value[key];
+    for (const key of ['textColor']) if (/^#[0-9a-f]{6}$/i.test(value[key])) result[key] = value[key];
     // Colour of lines the game marks as already read; empty = same as textColor.
     if (value.readTextColor === '' || /^#[0-9a-f]{6}$/i.test(value.readTextColor)) result.readTextColor = value.readTextColor;
     for (const key of ['speechTextColor','narrationTextColor']) if (value[key] === '' || /^#[0-9a-f]{6}$/i.test(value[key])) result[key] = value[key];
