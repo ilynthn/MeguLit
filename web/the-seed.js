@@ -53,7 +53,7 @@ const heroHTML=()=>`<div class="seed-hero"><img src="assets/the-seed-banner.webp
 /* the home entry: a small pill under the top bar, the egg, the name, one line and an arrow; the whole pill is one button */
 export function seedBannerHTML(locale,esc){
  const t=seedWords(locale);
- return `<button type="button" class="seed-banner tv-cap" data-seed-open aria-label="${esc(t.openAria)}"><svg class="cap-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-9"/><path d="M12 12c0-3.6-2.8-5.6-7-5.6 0 3.8 2.8 5.6 7 5.6z"/><path d="M12 12c0-3 2.2-5 6.6-5 0 3.2-2.2 5-6.6 5z"/></svg><span class="cap-txt">The Seed</span></button>`;
+ return `<button type="button" class="seed-banner tv-cap" data-seed-open aria-label="${esc(t.openAria)}"><img class="cap-ico cap-egg" src="${ASSET}" alt=""><span class="cap-txt">The Seed</span></button>`;
 }
 /* the intro parts shared by the About section, the dialog and the start flow; the nod to Sword Art Online and Textractor lives only at the bottom of About */
 const seedParts=(locale,esc)=>{

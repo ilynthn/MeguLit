@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* QQ 交流群 pill on the home page (web/qq-group.js): the same dark plate, gold hairline and cream type as The Seed's pill, sitting
-   just right of it under the top bar. The number is set small in gold, so the pill reads 「QQ 群」 first. Its card is the
+/* QQ 交流群 capsule on the home page (web/qq-group.js): the capsule itself shares The Seed's look (.tv-cap in web/the-seed.css). Its card is the
    reader's tip look (web/reader/modules/tip.js): dark, rounded, soft shadow, a short fade and rise. */
 .tv-home .qq-anchor{position:relative}
 /* the card hangs under the pill, centred on it; a transparent band above it keeps the pointer inside while it moves down */

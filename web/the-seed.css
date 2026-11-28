@@ -1,16 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The Seed: home banner (a plaque on the right), About section, intro dialog.
+/* The Seed: home capsule (shared with the QQ group, below), About section, intro dialog.
    The plate is always dark so it reads the same in both themes; the picture's glow is the only colour. */
-.seed-pic{display:block;align-self:stretch;overflow:hidden;position:relative}
-.seed-pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:35% 50%}
-.seed-pic::after{content:"";position:absolute;inset:0 0 0 40%;background:linear-gradient(90deg,transparent,#0c0809)}
-.seed-txt{display:grid;gap:2px;min-width:0}
-.seed-txt b{font-family:var(--g-serif);font-weight:400;font-size:20px;letter-spacing:.02em;line-height:1.1;color:var(--sd-cream);text-shadow:0 0 14px color-mix(in srgb,var(--sd-gold) 45%,transparent)}
-.seed-txt em{font-style:normal;font-size:11px;letter-spacing:.3em;color:color-mix(in srgb,var(--sd-gold) 85%,transparent)}
-.seed-txt small{font-size:12px;line-height:1.5;color:color-mix(in srgb,var(--sd-cream) 68%,transparent);text-wrap:pretty}
-.seed-go{font-style:normal;font-size:14px;color:var(--sd-gold);transition:transform .25s cubic-bezier(.16,1,.3,1)}
 /* 2026-11-28 (owner: 首页这俩胶囊位置和外观好好美化) the two home entries, The Seed and the QQ group, share one capsule: same height, radius, hairline,
-   icon size and glow. Dark plate with a gold hairline; a line icon in gold; hovering warms the edge and the glow. */
+   icon size and glow. Dark plate with a gold hairline, a small icon (the gold egg for The Seed, a line bubble for QQ); hovering warms the edge and the glow. */
 .tv-home .tv-caps{--cap-gold:#f0c987;--cap-cream:#f7e6bf;position:absolute;z-index:8;display:flex;align-items:center;gap:10px}
 .tv-home .tv-cap{height:36px;box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;padding:0 16px 0 12px;border-radius:999px;color:var(--cap-cream);background:rgba(12,8,9,.86);
  border:1px solid color-mix(in srgb,var(--cap-gold) 30%,transparent);cursor:pointer;white-space:nowrap;font:400 14px/1 var(--g-serif);letter-spacing:.03em;
@@ -21,15 +13,9 @@
 .tv-home .tv-cap:focus-visible{outline:2px solid var(--cap-gold);outline-offset:2px}
 .tv-home .cap-ico{flex:none;width:18px;height:18px;fill:none;stroke:var(--cap-gold);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .tv-home .cap-txt{min-width:0}
-/* placement A: on the greeting's line, to the right of it; the date keeps the line above, and the row wraps under the greeting when it would reach the lines */
-.tv-clock:has(.tv-caps){display:flex;flex-wrap:wrap;align-items:center;column-gap:22px;max-width:36vw}
-.tv-clock:has(.tv-caps)>span{flex:0 0 100%}
-.tv-clock .tv-caps{position:relative;z-index:3;margin-top:6px}
-/* placement B: a row right under the top bar, right-aligned with the page margin; its QR card opens towards the page, aligned to the right edge */
-.tv-home>.tv-caps{right:5vw;top:8px}
-.tv-home>.tv-caps .qq-card{left:auto;right:0;transform:translate(0,-4px)}
-.tv-home>.tv-caps .qq-card.qq-card-in{transform:translate(0,0)}
-@media (max-width:1100px){.tv-home>.tv-caps{right:calc(5vw + 76px)}}
+/* the row sits centred right under the top bar, above the cover card and clear of the figures on the right */
+.tv-home>.tv-caps{left:50%;top:8px;transform:translateX(-50%)}
+.tv-home .cap-egg{width:22px;height:22px;margin:0 -2px 0 -4px;border-radius:50%;object-fit:cover;stroke:none}
 @media (prefers-reduced-motion:reduce){.tv-home .tv-cap{transition:none}}
 /* About section and dialog */
 .seed-hero{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,#f0c987 22%,transparent);background:#0c0809}

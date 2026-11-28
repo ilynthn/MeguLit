@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/* 2026-11-28 QQ 交流群 entry on the home page: a pill beside The Seed with the group number. Pointing at it or clicking it
+/* 2026-11-28 QQ 交流群 entry on the home page: a capsule beside The Seed; the group number is in the hover tip and on the QR card. Pointing at it or clicking it
    opens a small card (the reader's tip look: dark, rounded, soft shadow, fades in): the group's QR code
    (assets/qq-group-qr.svg, made by tools/build-qq-qr.py from the group's join link), the number with a copy button, and
    「用电脑 QQ 加群」. That button opens the group's join page in the browser, which hands over to the desktop QQ (owner,
