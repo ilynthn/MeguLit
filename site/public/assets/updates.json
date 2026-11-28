@@ -1,5 +1,11 @@
 [
  {
+  "date": "2026-11-28",
+  "text": "1.4.26：新程序图标；游戏内新手引导；热键可自定义；胶囊可拖出游戏窗口；点读查词支持口语缩约和方言；台词按说话人上色、可分角色改色；选项译文和注音可调；新增文库和电子书阅读器；收藏和进度可同步到网页个人中心；零延迟翻译自动认出游戏目录里的汉化和官方多语言版；The Seed 新增 OZMAFIA!!、制服カノジョ3（制服女友3）、アイキス3 sexy、うみねこのなく頃に（海猫鸣泣之时）等；ISLAND 等台词折行和选项修复。仅在开发者本地测试过，如还有问题请在「关于 → 一键上传问题反馈」告诉我们，会持续跟进修复",
+  "text_en": "1.4.26: new app icon; in-game first-run tour; custom hotkeys; the capsule can leave the game window; look-up understands colloquial contractions and dialect; lines coloured by speaker with per-character colours; adjustable option translations and furigana; new library and e-book reader; favourites and progress sync to the web profile; zero-latency translation finds Chinese patches and official multi-language folders; The Seed adds OZMAFIA!!, Seifuku Kanojo 3, Aikiss 3 sexy, Umineko and more; line-wrap and option fixes for ISLAND and others. Tested only on the developer's machine; if anything goes wrong, tell us via About → Report a problem",
+  "text_ja": "1.4.26：新しいアプリアイコン、ゲーム内チュートリアル、ホットキーのカスタマイズ、カプセルをゲーム外へ、口語・方言の辞書引き、話者ごとの文字色、選択肢の訳文とルビの調整、ライブラリと電子書籍リーダー、Web プロフィールへの同期、ゲームフォルダ内の中国語パッチと公式多言語版の自動検出、The Seed に OZMAFIA!!・制服カノジョ3・アイキス3 sexy・うみねこのなく頃に などを追加、ISLAND などの改行と選択肢を修正"
+ },
+ {
   "date": "2026-11-21",
   "text": "1.4.22：The Seed 上线，内置一批游戏的适配数据，认出游戏就用调好的设置，大家的校准自动共享、热更新推送；阅读模式改为只能手动开；新增闲时冷测试（默认开，可关）；新首页、关于页、三步首次引导和教程面板；千恋＊万花（千恋万花）、CHAOS;CHILD（混沌之子）等闪退和卡死修复，千恋＊万花和官方中文逐句配对；ファタモルガーナの館（海市蜃楼之馆）多处修复（部分场景仍可能缺日文行或选项，修好后热更新）；感谢 RRFZ 的 47 个 PR。仅在开发者本地测试过，如还有问题请在「关于 → 一键上传问题反馈」告诉我们，会持续跟进修复",
   "text_en": "1.4.22: The Seed is live: built-in adaptation data for a set of games, applied as soon as a game is recognised, with everyone's calibration shared automatically and delivered by hot updates; read mode is now turned on by hand only; new idle-time cold test (on by default, can be turned off); new home page, About page, three-step first run and tutorial panel; crash and freeze fixes for 千恋＊万花 (Senren＊Banka), CHAOS;CHILD and more, with line-by-line pairing against the official Chinese for 千恋＊万花; several fixes for ファタモルガーナの館 (The House in Fata Morgana) (some scenes can still miss Japanese lines or choices; the fix will come as a hot update); thanks to RRFZ for 47 pull requests. Tested only on the developer's machine so far; if anything still goes wrong, tell us via About → Report a problem and we will keep fixing it",

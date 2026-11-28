@@ -26,8 +26,12 @@ function Invoke-TaskTests([switch]$Changed) {
  $taskConcurrency = 2; if ($env:MEGULIT_TEST_CONCURRENCY -match '^\d+$' -and [int]$env:MEGULIT_TEST_CONCURRENCY -ge 1 -and [int]$env:MEGULIT_TEST_CONCURRENCY -le 32) { $taskConcurrency = [int]$env:MEGULIT_TEST_CONCURRENCY }
  # Paths relative to the repository root: 544 absolute paths passed 32767 characters and Windows refused to start node ("filename or extension is too long").
  # TAP named explicitly: Node 23+ prints spec by default even when piped, and test-resume.cjs record and the "not ok" summary below read TAP only.
+ # 2026-11-28 (1.4.26): 993 relative paths passed 32767 characters too (a glob is not expanded through run-isolated); the files go in batches of at most 20000 characters, outputs joined, the worst exit kept
+ $taskBatches = @(); $taskCur = @(); $taskLen = 0
+ foreach ($f in @($taskRun | ForEach-Object { $_.Replace('/','\') })) { if ($taskLen + $f.Length + 3 -gt 20000 -and $taskCur.Count) { $taskBatches += ,$taskCur; $taskCur = @(); $taskLen = 0 }; $taskCur += $f; $taskLen += $f.Length + 3 }
+ if ($taskCur.Count) { $taskBatches += ,$taskCur }
  Push-Location -LiteralPath $taskRoot
- try { $taskTestOutput = & $taskNode (Join-Path $taskRoot 'tools/run-isolated.cjs') $taskNode --test --test-reporter=tap --test-force-exit "--test-concurrency=$taskConcurrency" @($taskRun | ForEach-Object { $_.Replace('/','\') }) 2>&1 } finally { Pop-Location }
+ try { $taskTestOutput = @(); $taskWorst = 0; foreach ($b in $taskBatches) { $taskTestOutput += & $taskNode (Join-Path $taskRoot 'tools/run-isolated.cjs') $taskNode --test --test-reporter=tap --test-force-exit "--test-concurrency=$taskConcurrency" @b 2>&1; if ($LASTEXITCODE -ne 0) { $taskWorst = $LASTEXITCODE } }; $global:LASTEXITCODE = $taskWorst } finally { Pop-Location}
  $taskTestExit = $LASTEXITCODE
  $taskTestOutput | Set-Content -LiteralPath (Join-Path $taskRoot 'validation/automated-results.txt') -Encoding utf8
  & $taskNode (Join-Path $taskRoot 'tools/test-resume.cjs') record $taskState $taskRoot $taskList (Join-Path $taskRoot 'validation/automated-results.txt') $taskTestExit
