@@ -9,10 +9,14 @@
    past REPORT_THRESHOLD hide an approved avatar and put it in moderation_queue for a human.
 
    Hot words: each joined user's submit carries this week's lookup counts (term + count, nothing else). Weekly cron
-   (Monday 00:00 UTC+8) settles finished weeks: terms looked up by at least HOT_MIN_USERS different people, split into
-   词汇 / 短语 / 短句, ranked by people then lookups, top 50 kept; the top 10 of each get a one-line AI guess at why.
+   (Monday 00:00 UTC+8) settles finished weeks: terms looked up by at least HOT_MIN_USERS different people (2 in a week of
+   fewer than HOT.smallWeek readers), split into 词汇 / 短语 / 短句, ranked by people then lookups, top 50 kept; a list
+   shorter than 10 is filled with the most looked-up of the rest, marked candidate (本周候选). 词汇 holds content words
+   only (core/content-word.cjs, the rule the app uses: never は, です, する, 。 or a single kana). The top 10 of each get a
+   one-line AI guess at why.
    Results are frozen in hot_awards and the raw per-user rows of settled weeks are deleted. */
 import {validateAvatar,HOT,CATEGORIES,classifyTerm,blockedTerm,hotWeekKey,BLOCKED} from './validate.js';
+import Content from '../../core/content-word.cjs';
 
 export const AVATAR_MODEL='@cf/meta/llama-3.2-11b-vision-instruct';
 /* E415: llama-3.1-8b-instruct was retired on 2026-05-30, so the weekly reasons use Qwen 3 */
@@ -154,10 +158,16 @@ export function hotStatements(env,subject,hot,now=new Date()){
 
 /* ---- hot words: weekly settlement ------------------------------------------------------------------------------ */
 /* Pure ranking of aggregated rows {term,users,lookups} → {word:[...],phrase:[...],sentence:[...]} with ranks. */
-export function rankHot(rows,min=HOT.minUsers){
- const out=Object.fromEntries(CATEGORIES.map(c=>[c,[]]));
- for(const r of rows){if(r.users<min||blockedTerm(r.term))continue;out[classifyTerm(r.term)].push({term:r.term,users:r.users,lookups:r.lookups});}
- for(const c of CATEGORIES){out[c].sort((a,b)=>b.users-a.users||b.lookups-a.lookups||(a.term<b.term?-1:a.term>b.term?1:0));out[c]=out[c].slice(0,HOT.top).map((x,i)=>({rank:i+1,...x}));}
+/* participants: readers this week; fewer than HOT.smallWeek and the bar drops to 2. A list still shorter than HOT.cards is
+   filled with the rest by lookups (candidate: true), so a quiet week shows its words instead of an empty board. */
+export function rankHot(rows,min=HOT.minUsers,participants=Infinity){
+ const need=participants<HOT.smallWeek?Math.min(min,2):min,out=Object.fromEntries(CATEGORIES.map(c=>[c,[]])),rest=Object.fromEntries(CATEGORIES.map(c=>[c,[]]));
+ for(const r of rows){if(blockedTerm(r.term)||!/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(r.term))continue;const c=classifyTerm(r.term);if(c==='word'&&!Content.lookupLemma(r.term,null))continue;
+  (r.users>=need?out:rest)[c].push({term:r.term,users:r.users,lookups:r.lookups});}
+ const byName=(a,b)=>a.term<b.term?-1:a.term>b.term?1:0;
+ for(const c of CATEGORIES){out[c].sort((a,b)=>b.users-a.users||b.lookups-a.lookups||byName(a,b));
+  if(out[c].length<HOT.cards)out[c].push(...rest[c].sort((a,b)=>b.lookups-a.lookups||b.users-a.users||byName(a,b)).slice(0,HOT.cards-out[c].length).map(x=>({...x,candidate:true})));
+  out[c]=out[c].slice(0,HOT.top).map((x,i)=>({rank:i+1,...x}));}
  return out;
 }
 const REASON_SYSTEM='你是日语学习社区“MeguLit”的周报编辑。读者在玩日本视觉小说（galgame）时会查词。给你本周被最多读者查询的日语词条，请为每一条写一句不超过40个汉字的中文推测，说明为什么本周很多人在查它（比如是某部作品的口头禅、常见但难懂的说法、读音特殊、语法难点）。只用“可能”“也许”“大概”这类推测语气，不要编造确定的事实；提供了游戏名时可以参考。只输出 JSON 数组，每项形如 {"term":"词条","reason":"推测"}，不要输出其他内容。';
@@ -194,11 +204,11 @@ export async function settleWeek(env,week,now=new Date()){
  if(await env.DB.prepare('SELECT week_key FROM hot_weeks WHERE week_key=?').bind(week).first())return {week,settled:false,reason:'ALREADY_SETTLED'};
  const {results}=await env.DB.prepare('SELECT term,COUNT(DISTINCT id_hash) users,SUM(count) lookups FROM hot_lookups WHERE week_key=? GROUP BY term').bind(week).all();
  const participants=(await env.DB.prepare('SELECT COUNT(DISTINCT id_hash) n FROM hot_lookups WHERE week_key=?').bind(week).first())?.n||0;
- const ranked=rankHot(results,minUsers(env)),t=sec(now),statements=[];
+ const ranked=rankHot(results,minUsers(env),participants),t=sec(now),statements=[];
  for(const category of CATEGORIES){
   const list=ranked[category],top=list.slice(0,HOT.cards);
   const reasons=await aiReasons(env,category,top,await gamesForTerms(env,week,top.map(x=>x.term)));
-  for(const item of list){const r=reasons.get(item.term);statements.push(env.DB.prepare('INSERT INTO hot_awards(week_key,category,rank,term,users,lookups,reason,reason_ai) VALUES(?,?,?,?,?,?,?,?)').bind(week,category,item.rank,item.term,item.users,item.lookups,r?.reason||'',r?.ai?1:0));}
+  for(const item of list){const r=reasons.get(item.term);statements.push(env.DB.prepare('INSERT INTO hot_awards(week_key,category,rank,term,users,lookups,reason,reason_ai,candidate) VALUES(?,?,?,?,?,?,?,?,?)').bind(week,category,item.rank,item.term,item.users,item.lookups,r?.reason||'',r?.ai?1:0,item.candidate?1:0));}
  }
  statements.push(env.DB.prepare('INSERT INTO hot_weeks(week_key,settled_at,participants) VALUES(?,?,?)').bind(week,t,participants));
  /* raw per-user counts are only needed until the week is settled */
@@ -218,6 +228,6 @@ export async function hotWordsGet(url,env){
  const {results:weeks}=await env.DB.prepare('SELECT week_key,participants FROM hot_weeks ORDER BY week_key DESC LIMIT 26').all();
  const week=asked||weeks[0]?.week_key||'';
  if(!week||!weeks.some(w=>w.week_key===week))return json({week:week||null,weeks:weeks.map(w=>w.week_key),settled:false,awards:[]});
- const {results}=await env.DB.prepare('SELECT rank,term,users,lookups,reason,reason_ai FROM hot_awards WHERE week_key=? AND category=? ORDER BY rank LIMIT ?').bind(week,category,HOT.top).all();
- return json({week,weeks:weeks.map(w=>w.week_key),settled:true,participants:weeks.find(w=>w.week_key===week)?.participants||0,awards:results.map(r=>({rank:r.rank,term:r.term,users:r.users,lookups:r.lookups,reason:r.rank<=HOT.cards?r.reason:'',ai:r.rank<=HOT.cards&&r.reason_ai===1}))},200,{'cache-control':'public, max-age=600'});
+ const {results}=await env.DB.prepare('SELECT rank,term,users,lookups,reason,reason_ai,candidate FROM hot_awards WHERE week_key=? AND category=? ORDER BY rank LIMIT ?').bind(week,category,HOT.top).all();
+ return json({week,weeks:weeks.map(w=>w.week_key),settled:true,participants:weeks.find(w=>w.week_key===week)?.participants||0,awards:results.map(r=>({rank:r.rank,term:r.term,users:r.users,lookups:r.lookups,reason:r.rank<=HOT.cards?r.reason:'',ai:r.rank<=HOT.cards&&r.reason_ai===1,...(r.candidate===1?{candidate:true}:{})}))},200,{'cache-control':'public, max-age=600'});
 }

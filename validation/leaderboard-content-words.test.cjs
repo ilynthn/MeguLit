@@ -60,11 +60,11 @@ test('a saved word counts once by its spelling; a row with no JMdict part of spe
 
 test('the week\'s lookups go out by dictionary form: 食べた, 食べて, 食べました and 食べる are one word; は, です, する, 。 are not sent', async t=>{
  const {root,db}=fixture(t);const ins=db.prepare("INSERT INTO lookup_events(surface,occurred_at,original) VALUES(?,?,'{}')");
- for(const s of ['は','は','は','は','が','です','ます','する','した','こと','ああ','ねえ','三','。','3','食べた','食べて','食べました','食べる','静かな','猫','美しかった','気をつけて'])ins.run(s,IN_WEEK);
+ for(const s of ['は','は','は','は','が','です','ます','する','した','こと','ああ','ねえ','三','。','3','食べた','食べて','食べました','食べる','静かな','猫','美しかった','気をつけて','よろしくお願いします、先輩','先輩、待って！'])ins.run(s,IN_WEEK);
  const learning=tokenizer(),content=await lb.contentIndex(db,NOW,learning);
  const hot=lb.collectLookups(db,NOW,content),terms=new Map(hot.terms.map(x=>[x.term,x.count]));
  assert.equal(terms.get('食べる'),4,'four forms of one verb');
- assert.deepEqual([...terms.keys()].sort(),['猫','美しい','気をつけて','静か','食べる'].sort());
+ assert.deepEqual([...terms.keys()].sort(),['猫','美しい','気をつけて','静か','食べる','よろしくお願いします、先輩','先輩、待って!'].sort(),'短语 / 短句 go as written');
  assert.equal(learning.asked.length,1,'one tokenizer request for the whole week');
  // what reaches the relay is the same list
  lb.join(root,{name:'Kazuma',consent:true});const sent=[];

@@ -70,6 +70,9 @@
 .is-terms .lb-who{gap:8px}
 .lb-term{font-family:var(--g-serif-ja,serif);font-size:24px;font-weight:600;color:var(--lb-ink);line-height:1.25;overflow-wrap:anywhere}
 .is-terms .lb-place[data-rank="1"] .lb-term{font-size:32px;color:var(--lb-gold-a)}
+/* 2026-11-28 每周热词: an entry under the readers bar, filled in by lookups */
+.lb-candidate{display:inline-block;margin:4px auto 0;padding:1px 8px;border:1px dashed var(--lb-rule-strong,var(--lb-rule));border-radius:999px;color:var(--lb-ink-2);font-size:12px;line-height:1.6;white-space:nowrap}
+.lb-honour-term .lb-candidate{margin:2px 0 0;align-self:flex-start}
 .is-terms .leaderboard-reason{max-width:24ch;margin:0}
 @keyframes lb-rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.lb-place{animation:none}}

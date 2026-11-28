@@ -160,7 +160,8 @@ function weekSurfaces(db,now=new Date()){return db.prepare('SELECT surface,COUNT
 /* 2026-11-28 a looked-up word goes to the hot-word board by its dictionary form and only when it is a content word (は, です, 。 never) */
 function collectLookups(db,now=new Date(),content=null){
  const rows=weekSurfaces(db,now);
- const counts=new Map();for(const r of rows){const clean=cleanTerm(r.surface),term=clean&&cleanTerm(Content.lookupLemma(clean,content?.lookup?.get(clean)));if(term)counts.set(term,(counts.get(term)||0)+r.n);}
+ /* 短语 and 短句 (a drag over several words) go as written: only 词汇 is read as one word */
+ const counts=new Map();for(const r of rows){const clean=cleanTerm(r.surface),term=clean&&(Content.hotCategory(clean)==='word'?cleanTerm(Content.lookupLemma(clean,content?.lookup?.get(clean))):clean);if(term)counts.set(term,(counts.get(term)||0)+r.n);}
  return {week:hotWeekKey(now),terms:[...counts].sort((a,b)=>b[1]-a[1]).slice(0,HOT_TERMS).map(([term,count])=>({term,count:Math.min(1000,count)}))};
 }
 
@@ -359,7 +360,7 @@ async function hotWords(root,{week='',category='word'}={},options={}){
  const q=new URLSearchParams({category});if(week)q.set('week',week);
  const res=await call(c.base+'/api/hotwords?'+q,{method:'GET'},options.fetch||fetch);if(res.state!=='ok')return res;
  const d=res.data,weeks=(Array.isArray(d.weeks)?d.weeks:[]).filter(w=>/^\d{4}-W\d{2}$/.test(String(w))).slice(0,26);
- const awards=(Array.isArray(d.awards)?d.awards:[]).slice(0,50).map(a=>({rank:int(a?.rank),term:String(a?.term||'').slice(0,40),users:int(a?.users),lookups:int(a?.lookups),reason:String(a?.reason||'').slice(0,120),ai:a?.ai===true})).filter(a=>a.term&&a.rank>=1);
+ const awards=(Array.isArray(d.awards)?d.awards:[]).slice(0,50).map(a=>({rank:int(a?.rank),term:String(a?.term||'').slice(0,40),users:int(a?.users),lookups:int(a?.lookups),reason:String(a?.reason||'').slice(0,120),ai:a?.ai===true,candidate:a?.candidate===true})).filter(a=>a.term&&a.rank>=1);
  return {state:'ok',week:/^\d{4}-W\d{2}$/.test(String(d.week||''))?d.week:null,weeks,settled:d.settled===true,participants:int(d.participants),category,awards};
 }
 
@@ -388,7 +389,7 @@ async function tokenizeTerms(learning,terms){
 /* {lookup, saved}: tokens for this week's looked-up surfaces and for saved words without a JMdict part of speech */
 async function contentIndex(db,now,learning){
  if(!learning)return null;
- const surfaces=weekSurfaces(db,now).map(r=>cleanTerm(r.surface)).filter(Boolean);
+ const surfaces=weekSurfaces(db,now).map(r=>cleanTerm(r.surface)).filter(t=>t&&Content.hotCategory(t)==='word');
  const saved=db.prepare('SELECT spelling,original FROM vocabulary').all().filter(r=>savedPos(r.original)===null).map(r=>String(r.spelling||'').normalize('NFKC').trim()).filter(Boolean).slice(0,3000);
  return {lookup:await tokenizeTerms(learning,surfaces),saved:await tokenizeTerms(learning,saved)};
 }

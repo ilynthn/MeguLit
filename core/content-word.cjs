@@ -74,4 +74,13 @@ function savedLemma(spelling, pos, tokens) {
   return text;
 }
 
-module.exports = { lookupLemma, savedLemma, jmdictContent, unusable, STOPWORDS, FUNCTION_WORDS, CONTENT_POS };
+/* 每周热词's three lists (the relay files every term with this; the app reads only 词汇 as words): 短句 has sentence punctuation or
+   runs past 12 characters, 短语 is 4+ characters with a pause or a particle between words, the rest is 词汇. */
+function hotCategory(term) {
+  const text = String(term || ''), length = [...text].length;
+  if (/[。！？!?…]/.test(text) || length > 12) return 'sentence';
+  if (length >= 4 && (/[、 ]/.test(text) || /[㐀-鿿゠-ヿ][をにがはでとのもへ][぀-ヿ㐀-鿿]/.test(text))) return 'phrase';
+  return 'word';
+}
+
+module.exports = { hotCategory, lookupLemma, savedLemma, jmdictContent, unusable, STOPWORDS, FUNCTION_WORDS, CONTENT_POS };
