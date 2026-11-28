@@ -167,7 +167,9 @@ export async function renderSettings({main,api,invoke,text,locale,esc,toast,head
  {const started={zh:'已开始下载，进度见本页下方「运行组件」',en:'Download started; progress is under Runtime components below',ja:'ダウンロードを開始しました。進行状況は下の「実行コンポーネント」に表示されます'}[locale]||'',
    ready={zh:'已经安装好了，不用再下载',en:'Already installed; nothing to download',ja:'インストール済みです。ダウンロードは不要です'}[locale]||'';
   /* 2026-11-13 the guide's download buttons read the real pack state: an installed pack shows ✓ 已就绪 and a click never re-downloads */
-  const installed={};if(['speech','dictionary'].includes(section)){try{for(const p of (await api('pack_status')).packs||[])installed[p.id]=!!p.installed;}catch{}}
+  const installed={};if(['speech','dictionary'].includes(section)){try{for(const p of (await api('pack_status')).packs||[])installed[p.id]=!!p.installed;}catch{}
+   /* 已就绪 for the voice pack only when the engine answers; files alone are not enough (2026-11-28) */
+   if(installed.voice)try{const speech=await api('speech_status');if(!speech.running)installed.voice=speech.error?'failed':'idle';}catch{installed.voice='idle';}}
   const pack=id=>async()=>{try{const now=(await api('pack_status')).packs?.find(p=>p.id===id);if(now?.installed){toast(ready);return;}await api('pack_download',{ids:[id]});toast(started);content.querySelector('.runtime-packs,[data-runtime-packs]')?.scrollIntoView({
   behavior:'smooth',block:'center'});}catch{toast(text.serviceFailed);}};
   mountGuide({content,section,locale,esc,api,toast,installed,actions:{voice:pack('voice'),reading:pack('reading'),ankiCheck:async()=>{try{const status=await api('anki_status');

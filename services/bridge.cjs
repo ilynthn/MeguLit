@@ -432,10 +432,10 @@ async function dispatch(request,runtime=null) {
       }
       case 'set_word_status':{const id=Number(request.id),status=Number(request.status);if(!Number.isSafeInteger(id)||!Number.isInteger(status)||status<0||status>4)throw Error('INVALID_WORD_STATUS');if(!db.prepare('UPDATE vocabulary SET status=? WHERE id=?').run(status,id).changes)throw Error('WORD_NOT_FOUND');runtime?.emit('reader-event',{type:'word-status-changed'});return {id,status};}
       case 'library_scan':case 'library_find_steam':case 'reader_bootstrap':if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return runtime.call(request);
-      case 'reader_status':case 'reader_health':case 'reader_detach':case 'reader_attach':case 'reader_message':case 'reader_invoke':case 'model_status':case 'model_download':case 'model_cancel':case 'pack_status':case 'pack_download':case 'pack_cancel':case 'local_start':case 'local_stop':case 'runtime_download':case 'runtime_cancel':case 'speakers':case 'speakers_cached':case 'speech_preview':case 'sentence_voice':case 'sentence_voice_has':case 'kana_speak':case 'tokenize':case 'translate_preview':
+      case 'reader_status':case 'reader_health':case 'reader_detach':case 'reader_attach':case 'reader_message':case 'reader_invoke':case 'model_status':case 'model_download':case 'model_cancel':case 'pack_status':case 'pack_download':case 'pack_cancel':case 'local_start':case 'local_stop':case 'runtime_download':case 'runtime_cancel':case 'speakers':case 'speakers_cached':case 'speech_status':case 'speech_preview':case 'sentence_voice':case 'sentence_voice_has':case 'kana_speak':case 'tokenize':case 'translate_preview':
         if(!runtime)throw Error('PERSISTENT_RUNTIME_REQUIRED');return await runtime.call(request);
       case 'home': try{require('./import-source.cjs').backfill(db);}catch{}return store.home(db,root);
-      case 'novel_shelf':case 'novel_scan':case 'novel_import':case 'novel_detail':case 'novel_chapter':case 'novel_find':case 'novel_online_search':case 'novel_online_save':case 'novel_online_clear':case 'novel_online_reviews':case 'novel_image':case 'novel_remove':case 'novel_progress':case 'novel_progress_save':case 'novel_bookmarks':case 'novel_bookmark_add':case 'novel_bookmark_remove':case 'novel_event':case 'novel_excerpts':case 'novel_excerpt_add':case 'novel_excerpt_remove':case 'novel_excerpt_translate':case 'novel_annotate':case 'novel_lookup':case 'novel_save_word':case 'novel_pdf':case 'novel_source_config':case 'novel_source_cover':case 'novel_source_open':case 'novel_source_detail':case 'novel_source_download_start':case 'novel_source_download_status':case 'novel_source_import':case 'novel_source_test':case 'novel_discover':case 'novel_search':return await require('./novel/index.cjs').dispatch(request,{db,root,runtime});
+      case 'novel_shelf':case 'novel_scan':case 'novel_import':case 'novel_detail':case 'novel_chapter':case 'novel_find':case 'novel_online_search':case 'novel_online_save':case 'novel_online_clear':case 'novel_online_reviews':case 'novel_image':case 'novel_remove':case 'novel_progress':case 'novel_progress_save':case 'novel_bookmarks':case 'novel_bookmark_add':case 'novel_bookmark_remove':case 'novel_event':case 'novel_excerpts':case 'novel_excerpt_add':case 'novel_excerpt_remove':case 'novel_excerpt_translate':case 'novel_annotate':case 'novel_lookup':case 'novel_save_word':case 'novel_pdf':case 'novel_source_config':case 'novel_source_cover':case 'novel_source_open':case 'novel_source_detail':case 'novel_source_download_start':case 'novel_source_download_status':case 'novel_source_import':case 'novel_web_config':case 'novel_web_test':case 'novel_web_search':case 'novel_web_work':case 'novel_web_pair':case 'novel_web_chapter':case 'novel_web_open':case 'novel_source_test':case 'novel_discover':case 'novel_search':return await require('./novel/index.cjs').dispatch(request,{db,root,runtime});
       case 'game_shots':case 'game_shot':{const game=db.prepare('SELECT executable FROM games WHERE id=? AND removed_at IS NULL').get(String(request.id));if(!game)throw Error('GAME_NOT_FOUND');const shots=require('./scene-shots.cjs');
         return request.action==='game_shots'?{items:shots.list(root,game.executable)}:shots.read(root,game.executable,String(request.file||''));}
       case 'game_cgs':case 'game_cg':{const game=db.prepare('SELECT executable FROM games WHERE id=? AND removed_at IS NULL').get(String(request.id));if(!game)throw Error('GAME_NOT_FOUND');const cg=require('./game-cg.cjs');
@@ -598,7 +598,7 @@ async function dispatch(request,runtime=null) {
       case 'seed_catalog_engines':return await require('./seed-catalog.cjs').engineCounts(root);
       case 'seed_catalog_engine':return await require('./seed-catalog.cjs').enginePage(root,request.engine,request.page);
       case 'seed_logo':return await require('./seed-logo.cjs').logo(root,String(request.pid||''));
-      case 'seed_producer':return await require('./seed-producer.cjs').producer(root,String(request.pid||''),{moegirl:require('./info-source.cjs').forRoot(root,String(request.locale||''))});
+      case 'seed_producer':return await require('./seed-producer.cjs').producer(root,String(request.pid||''),{order:require('./info-source.cjs').forRoot(root,String(request.locale||''))});
       case 'seed_producer_open':return require('./seed-producer.cjs').open(root,String(request.pid||''),String(request.kind||''));
       case 'seed_cover':return await require('./seed-catalog.cjs').cover(root,String(request.vndb||''),{nsfw:request.nsfw===true,resolveMissing:request.resolveMissing===true});
       case 'yui_consent':return {enabled:require('./yui.cjs').enabled(root)};
@@ -621,6 +621,9 @@ async function dispatch(request,runtime=null) {
       case 'settings_get':return new(require('./settings.cjs').Settings)(root).get(String(request.profile||''));
       case 'settings_save':{const libraryOnlyBefore=request.scope==='library'?runtime?.libraryOnly?.():undefined;const leaving=request.scope==='online'&&request.values?.leaderboardEnabled===false&&require('./leaderboard.cjs').config(root).enabled;const settings=new(require('./settings.cjs').Settings)(root),/* issue 800: the page sends every field; the running work drops its sizes only when the global ones changed */sizesBefore=request.scope==='text'&&!request.profile?settings.read('text'):undefined;const result=settings.save({scope:request.scope,values:request.values,appendFolders:request.appendFolders===true,profile:String(request.profile||'')});await runtime?.settingsSaved({...request,sizesBefore,libraryOnlyBefore});if(leaving)await require('./leaderboard.cjs').leave(root).catch(()=>{});return leaving?new(require('./settings.cjs').Settings)(root).get(String(request.profile||'')):result;}
       /* E415 每日 page: Galgame news and hot words from the relay (services/daily.cjs) */
+      /* 2026-11-28 排行榜 · 作品榜: Galgame / light novel / otome rankings from the relay (services/charts.cjs) */
+      case 'charts_view':return await require('./charts.cjs').view(root,db,{board:String(request.board||''),source:String(request.source||'')});
+      case 'charts_open':{const url=String(request.url||'');if(!require('./charts.cjs').canOpen(url))throw Error('URL_NOT_ALLOWED');const child=spawn('explorer.exe',[new URL(url).href],{windowsHide:true,detached:true,stdio:'ignore'});child.on('error',()=>{});child.unref();return {opened:true};}
       case 'daily_view':return await require('./daily.cjs').view(root,db,{runtime,force:request.force===true});
       case 'daily_article':return await require('./daily.cjs').article(root,String(request.link||''),{runtime});
       case 'daily_translate':return await require('./daily.cjs').translate(root,runtime,request.texts,String(request.target||'zh'),{withEngine:true});
@@ -634,7 +637,7 @@ async function dispatch(request,runtime=null) {
       case 'torch_months':return await require('./torch-monument.cjs').months(root);
       case 'torch_find':return await require('./torch-monument.cjs').find(root,String(request.name||''));
       case 'torch_me':return await require('./torch-monument.cjs').me(root);
-      case 'leaderboard_view':return await require('./leaderboard.cjs').view(root,db,{period:String(request.period||''),metric:String(request.metric||''),game:typeof request.game==='string'?request.game:'',submit:request.submit===true,tab:String(request.tab||''),week:String(request.week||''),category:String(request.category||'')});
+      case 'leaderboard_view':return await require('./leaderboard.cjs').view(root,db,{period:String(request.period||''),metric:String(request.metric||''),game:typeof request.game==='string'?request.game:'',submit:request.submit===true,tab:String(request.tab||''),week:String(request.week||''),category:String(request.category||'')},{learning:runtime?.learning?.()});
       /* E379 avatars (moderated on the relay) and reports */
       case 'leaderboard_avatar_set':return await require('./leaderboard.cjs').setAvatar(root,String(request.data||''));
       case 'leaderboard_avatar_remove':return await require('./leaderboard.cjs').removeAvatar(root);
@@ -676,6 +679,7 @@ async function dispatch(request,runtime=null) {
       case 'anki_connect_status':return {installed:require('../core/anki-process.cjs').ankiConnectInstalled()};
       case 'anki_launch':{const runner=runtime.ankiProcess(),hide=!!runtime.config().ankiHidden;if(String(request.reason||'')==='ANKI_PORT_TAKEN')return await runner.repair({hide});return await runner.start({hide});}
       case 'anki_repair':return await runtime.ankiProcess().repair({hide:!!runtime.config().ankiHidden});
+      case 'anki_reconnect':return await runtime.ankiProcess().reconnect({hide:!!runtime.config().ankiHidden});
       case 'anki_hide':return {hidden:(await runtime.ankiProcess().hide())>0};
       case 'anki_open':return await runtime.ankiProcess().open(String(request.target||''),String(request.deck||''));
       case 'anki_status':case 'anki_current':case 'anki_start':case 'anki_show_answer':case 'anki_grade':case 'anki_play_audio':case 'anki_stop':case 'anki_practice':case 'anki_deck_config':case 'anki_deck_limits':{
@@ -687,7 +691,8 @@ async function dispatch(request,runtime=null) {
         if(request.action==='anki_practice')return request.end===true?reviewer.endPractice():await reviewer.practice(String(request.deck||''),request.advance===true,request.resume===true);
         if(request.action==='anki_deck_config')return await reviewer.deckConfig(String(request.deck||''));
         if(request.action==='anki_deck_limits')return await reviewer.saveDeckLimits(String(request.deck||''),{newPerDay:request.newPerDay,revPerDay:request.revPerDay});
-        if(request.action==='anki_start')return await reviewer.start(String(request.deck||''));
+        /* AnkiConnect's review actions can bring a hidden Anki's main window back: MeguLit's own hidden Anki is hidden again */
+        if(request.action==='anki_start'){const r=await reviewer.start(String(request.deck||''));runtime.ankiProcess().rehide();return r;}
         if(request.action==='anki_show_answer')return await reviewer.showAnswer(Number(request.cardId));
         if(request.action==='anki_play_audio')return await reviewer.playAudio(Number(request.cardId));
         return await reviewer.grade({cardId:Number(request.cardId),ease:Number(request.ease),operationId:request.operationId});

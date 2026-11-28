@@ -71,7 +71,7 @@ test('the grammar page is kept between visits instead of loading again',async()=
 
 test('the 平假名熟悉度 chart on the learning home can be clicked, heard and set',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','web','kana','views','index.js'),'utf8');
- assert.match(src,/<button type="button" class="m\$\{lv\(c\)\}" data-mk=/);assert.match(src,/ctx\.speech\.say\(k\)/);assert.match(src,/data-mk-lv/);assert.match(src,/S\.put\(KEY\.m,m\)/);
+ assert.match(src,/<button type="button" class="m\$\{lv\(c\)\}[^"]*" data-mk=/);assert.match(src,/ctx\.speech\.say\(k\)/);assert.match(src,/data-mk-lv/);assert.match(src,/S\.put\(KEY\.m,m\)/);
  assert.match(src,/\['未学','见过','熟悉','掌握'\]/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','web','kana','kana.css'),'utf8'),/\.mk-card\{/);
 });

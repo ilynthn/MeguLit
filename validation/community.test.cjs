@@ -130,12 +130,13 @@ test('hot lookups: validation, privacy threshold, categories, ranking, frozen re
  assert.deepEqual(done.map(d=>[d.week,d.settled,d.participants]),[['2026-W46',true,5]]);
  assert.equal(e.DB.raw.prepare('SELECT COUNT(*) n FROM hot_lookups').get().n,0,'raw per-user rows are gone after settling');
  const words=await (await handle(req('GET','/api/hotwords?category=word&week=2026-W46'),e,monday)).json();
- assert.deepEqual(words.awards.map(a=>[a.rank,a.term,a.users,a.lookups,a.ai]),[[1,'仕方ない',4,9,true]]);
+ /* 2026-11-28 five readers is a quiet week: two readers are enough, so 先輩 (2 readers) ranks too */
+ assert.deepEqual(words.awards.map(a=>[a.rank,a.term,a.users,a.lookups,a.ai,!!a.candidate]),[[1,'仕方ない',4,9,true,false],[2,'先輩',2,18,true,false]]);
  assert.equal(words.awards[0].reason,'可能是本周热门作品里的口头禅');
- const phrases=await (await handle(req('GET','/api/hotwords?category=phrase'),e,monday)).json();assert.deepEqual(phrases.awards.map(a=>a.term),['気をつけて']);
+ const phrases=await (await handle(req('GET','/api/hotwords?category=phrase'),e,monday)).json();assert.deepEqual(phrases.awards.map(a=>[a.term,!!a.candidate]),[['気をつけて',false],['別の言葉',true]],'one reader only: filled in as 本周候选');
  const sentences=await (await handle(req('GET','/api/hotwords?category=sentence'),e,monday)).json();assert.deepEqual(sentences.awards.map(a=>a.term),['よろしくお願いします、先輩']);
  assert.deepEqual(words.weeks,['2026-W46']);
- assert.ok(![words,phrases,sentences].flatMap(x=>x.awards).some(a=>a.term==='先輩'||a.term==='ヘンタイ'),'under the threshold or blocked never shows');
+ assert.ok(![words,phrases,sentences].flatMap(x=>x.awards).some(a=>a.term==='ヘンタイ'),'blocked never shows');
  assert.equal(AIcalls[0].model,'@cf/qwen/qwen3-30b-a3b-fp8');
  /* settling again is a no-op; results stay frozen */
  const {settleWeek}=await load('community.js');assert.equal((await settleWeek(e,'2026-W46',monday)).reason,'ALREADY_SETTLED');
@@ -144,7 +145,7 @@ test('hot lookups: validation, privacy threshold, categories, ranking, frozen re
 
 test('settlement ranking: people first, then lookups, top 50; AI failure keeps a plain, unlabelled reason',async()=>{
  const {rankHot,aiReasons,fallbackReason,cleanReason}=await load('community.js');
- const rows=Array.from({length:60},(_,i)=>({term:'語'+String(i).padStart(2,'0'),users:3+(i%5),lookups:100-i}));rows.push({term:'少ない',users:2,lookups:999});
+ const rows=Array.from({length:60},(_,i)=>({term:'語'+String.fromCodePoint(0x4e00+i*3),users:3+(i%5),lookups:100-i}));rows.push({term:'少ない',users:2,lookups:999});
  const ranked=rankHot(rows,3);
  assert.equal(ranked.word.length,50);assert.ok(!ranked.word.some(x=>x.term==='少ない'));
  assert.deepEqual(ranked.word.slice(0,3).map(x=>[x.rank,x.users,x.lookups]),[[1,7,96],[2,7,91],[3,7,86]]);
@@ -172,8 +173,9 @@ test('page: podium 1–3 (shown 2·1·3), cards 4–10 with the AI label, 11–5
  /* E402 the week picker and categories sit in the shared sub row above the card */
  const page=view.leaderboardHTML({configured:true,joined:true,tab:'hot',hot:{state:'ok',week:'2026-W46',weeks:['2026-W46','2026-W45'],settled:true,participants:12,awards},local:{stats:{}}},'zh',esc);
  const sub=page.slice(page.indexOf('lb-subrow'),page.indexOf('lb-body'));assert.match(sub,/data-lb-week/);assert.match(sub,/2026-W45/);assert.match(sub,/data-lb-category/);
- /* fewer than three awards: the empty places keep their stand */
- assert.equal((view.hotHTML({state:'ok',week:'2026-W46',weeks:[],settled:true,participants:3,awards:awards.slice(0,1)},view.leaderboardWords('zh'),'zh',esc).match(/is-vacant" role="listitem"/g)||[]).length,2);
+ /* 2026-11-28 fewer than three awards: only the places there are, no empty "虚位以待" stands; an entry under the bar says 本周候选 */
+ const one=view.hotHTML({state:'ok',week:'2026-W46',weeks:[],settled:true,participants:3,awards:[{...awards[0],candidate:true}]},view.leaderboardWords('zh'),'zh',esc);
+ assert.equal((one.match(/role="listitem"/g)||[]).length,1);assert.doesNotMatch(one,/is-vacant|虚位以待/);assert.match(one,/lb-candidate">本周候选/);
  assert.match(view.hotHTML({state:'ok',weeks:[],settled:false,awards:[]},view.leaderboardWords('ja'),'ja',esc),/月曜 0:00/);
  const d=view.defaultAvatar('めぐみん');assert.equal(d.initial,'め');assert.match(d.color,/^#[0-9a-f]{6}$/);
  assert.match(view.avatarHTML({name:'x',avatar:'a'.repeat(32)},{['a'.repeat(32)]:'javascript:alert(1)'},esc),/is-default/,'only webp data URLs are used as images');

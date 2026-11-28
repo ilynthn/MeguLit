@@ -11,6 +11,30 @@ const words={zh:{voice:'语音角色',style:'情感与说话风格',refresh:'读
  ja:{voice:'音声キャラクター',style:'感情・話し方',refresh:'導入済みの声を読み込む',preview:'試聴',stop:'試聴を停止',loading:'音声を合成中…',text:'試聴する文章',reset:'めぐみんの詠唱に戻す',empty:'声を読み込むと名前が表示されます。保存済みの選択は保持します',
  unknown:'保存済みの声が見つかりません。選び直してください',recommended:'おすすめの声',male:'男性',female:'女性',download:'ダウンロード',cancel:'取得を中止',installed:'導入済み',failed:'操作を再試行してください',hint:'キャラクターと感情を選ぶと ID は自動で設定されます。試聴文は変更できます',
  size:'各約250 MB。クリックした声だけ取得します'}};
+/* 2026-11-28 (1.4.26 QQ group report: 读取已安装声音 only said 操作失败，请重试). A failed engine start comes back as its reason
+   (core/services.cjs speechError); each one names what happened and what to do next. */
+const reasons={zh:{SPEECH_HUB_UNREACHABLE:'语音引擎启动时连不上 huggingface.co，卡在加载断句模型。请检查网络或代理，再点「读取已安装声音」重试',
+ SPEECH_PORT_BUSY:'端口 10101 被其他程序占用，语音引擎起不来。请关闭占用它的程序（或另开的 AivisSpeech），再点「读取已安装声音」',
+ SPEECH_START_TIMEOUT:'语音引擎没能启动（显卡和 CPU 都试过）。再点「读取已安装声音」会重新启动；仍不行请在「关于」页一键上传问题反馈',
+ SPEECH_ENGINE_MISSING:'缺少语音引擎文件，请在下方「运行组件」重新安装语音组件',SPEECH_REMOTE_UNREACHABLE:'连不上设置里填写的 AivisSpeech 地址，请先启动那台引擎',
+ SPEECH_VOICE_RATE_LIMITED:'AivisHub 默认声音下载被限流（HTTP 429），请过几分钟再点「读取已安装声音」',
+ other:'读取声音失败。再点「读取已安装声音」会重新启动语音引擎；仍不行请在「关于」页一键上传问题反馈',
+ cpu:'显卡启动语音引擎失败，已改用 CPU（合成会慢一些）'},
+ en:{SPEECH_HUB_UNREACHABLE:'The speech engine could not reach huggingface.co while loading its text model. Check your network or proxy, then click “Load installed voices” again',
+ SPEECH_PORT_BUSY:'Port 10101 is used by another program, so the speech engine cannot start. Close it (or another AivisSpeech), then click “Load installed voices”',
+ SPEECH_START_TIMEOUT:'The speech engine did not start (tried the GPU and the CPU). Clicking “Load installed voices” restarts it; if it still fails, send feedback from the About page',
+ SPEECH_ENGINE_MISSING:'Speech engine files are missing; reinstall the voice component under Runtime components below',SPEECH_REMOTE_UNREACHABLE:'Cannot reach the AivisSpeech address in settings; start that engine first',
+ SPEECH_VOICE_RATE_LIMITED:'AivisHub rate-limited the default voice download (HTTP 429); wait a few minutes, then click “Load installed voices”',
+ other:'Could not load voices. Clicking “Load installed voices” restarts the speech engine; if it still fails, send feedback from the About page',
+ cpu:'The speech engine could not start on the GPU and now runs on the CPU (synthesis is slower)'},
+ ja:{SPEECH_HUB_UNREACHABLE:'音声エンジンの起動中に huggingface.co へ接続できず、文章モデルの読み込みで止まりました。ネットワークやプロキシを確認し、もう一度「導入済みの声を読み込む」を押してください',
+ SPEECH_PORT_BUSY:'ポート 10101 が別のプログラムに使われているため、音声エンジンを起動できません。そのプログラム（または別の AivisSpeech）を閉じてから読み込み直してください',
+ SPEECH_START_TIMEOUT:'音声エンジンを起動できませんでした（GPU と CPU の両方を試しました）。読み込み直すと再起動します。直らない場合は「情報」ページから問題を報告してください',
+ SPEECH_ENGINE_MISSING:'音声エンジンのファイルが見つかりません。下の「実行コンポーネント」で音声コンポーネントを入れ直してください',SPEECH_REMOTE_UNREACHABLE:'設定の AivisSpeech アドレスに接続できません。先にそのエンジンを起動してください',
+ SPEECH_VOICE_RATE_LIMITED:'AivisHub の既定音声ダウンロードが制限されました（HTTP 429）。数分待ってから読み込み直してください',
+ other:'声を読み込めませんでした。読み込み直すと音声エンジンを再起動します。直らない場合は「情報」ページから問題を報告してください',
+ cpu:'GPU で音声エンジンを起動できなかったため、CPU で動作しています（合成は少し遅くなります）'}};
+export function speechFailure(error,locale){const r=reasons[locale]||reasons.zh,code=String((typeof error==='string'?error:error?.message)||'');return r[code]||r.other;}
 export function configureSpeech({content,form,api,locale,esc,toast}){
  const w={...words[locale],...voiceRemovalWords[locale]},id=form.elements.namedItem('aivisSpeaker'),volume=form.elements.namedItem('aivisVolume');id.closest('.settings-row').hidden=true;let speakers=[],audio=null,
   url='',timer,stopped=false,requestId=0,previousRunning=false;const removing=new Set();
@@ -32,8 +56,12 @@ export function configureSpeech({content,form,api,locale,esc,toast}){
   }finally{syncing=false;}}
  voice.onchange=()=>styles(true);emotion.onchange=()=>{if(syncing||!emotion.value||id.value===emotion.value)return;
   id.value=emotion.value;feedback.textContent='';delete feedback.dataset.state;id.dispatchEvent(new Event('change',{bubbles:true}));};
- async function load(){const button=panel.querySelector('[data-refresh]');button.disabled=true;try{const list=await api('speakers');if(!Array.isArray(list))throw Error();fill(list);
-  }catch{feedback.textContent=w.failed;feedback.dataset.state='error';}finally{button.disabled=false;}}
+ /* 读取已安装声音 starts the engine first when it is not running (services/runtime.cjs speakers → ensureSpeech) */
+ async function load(){const button=panel.querySelector('[data-refresh]'),r=reasons[locale]||reasons.zh;button.disabled=true;try{const list=await api('speakers');if(!Array.isArray(list))throw Error();fill(list);
+  if(stopped||!panel.isConnected)return;const notes=[];
+  try{const status=await api('speech_status');if(status?.mode==='--no-use_gpu'&&form.elements.namedItem('aivisGpu')?.checked)notes.push(r.cpu);}catch{}
+  if(notes.length){feedback.textContent=[feedback.textContent,...notes].filter(Boolean).join(' ');feedback.dataset.state='info';}
+  }catch(error){feedback.textContent=speechFailure(error,locale);feedback.dataset.state='error';}finally{button.disabled=false;}}
  panel.querySelector('[data-refresh]').onclick=load;api('speakers_cached').then(fill).catch(()=>{});
  const readVolume=()=>{const v=Number(volume?.value);return Number.isFinite(v)?Math.max(0,Math.min(1,v)):0.9;};
  const syncVolume=()=>{if(audio)audio.volume=readVolume();};
@@ -42,7 +70,7 @@ export function configureSpeech({content,form,api,locale,esc,toast}){
  preview.onclick=async()=>{if(audio){stop();return;}preview.disabled=true;preview.textContent=w.loading;try{localStorage.setItem('tome-voice-preview-text',input.value);
   const result=await api('speech_preview',{speaker:Number(id.value),speed:Number(form.elements.namedItem('aivisSpeed').value),text:input.value}),bytes=Uint8Array.from(atob(result.data),
   c=>c.charCodeAt(0));if(stopped)return;url=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'}));const current=audio=new Audio(url);audio.volume=readVolume();
-  audio.onended=stop;audio.onerror=stop;await current.play();if(stopped||audio!==current)return;preview.textContent=w.stop;}catch{stop();if(!stopped)toast(w.failed);}finally{preview.disabled=false;if(!audio)preview.textContent=w.preview;
+  audio.onended=stop;audio.onerror=stop;await current.play();if(stopped||audio!==current)return;preview.textContent=w.stop;}catch(error){stop();if(!stopped)toast(speechFailure(error,locale));}finally{preview.disabled=false;if(!audio)preview.textContent=w.preview;
   }};
  input.oninput=()=>localStorage.setItem('tome-voice-preview-text',input.value);panel.querySelector('[data-reset]').onclick=()=>{input.value=defaultPreview;input.dispatchEvent(new Event('input'));
   };

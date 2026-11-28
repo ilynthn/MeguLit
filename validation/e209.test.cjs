@@ -129,7 +129,7 @@ test('all free consumers share cooldown, fallback and success-only caching',asyn
 });
 test('synopsis retries its missing target and never caches untranslated source as a Chinese success',async t=>{
  const {root}=fixture(t),{Synopses}=require('../core/library.cjs');let available=false;
- const s=new Synopses({config:root},{lookup:async()=>({text:'Original synopsis'}),translate:async(text,target)=>available&&target==='zh'?'这是作品简介':text});
+ const s=new Synopses({config:root},{lookup:async()=>({text:'Original synopsis'}),bangumi:async()=>null,translate:async(text,target)=>available&&target==='zh'?'这是作品简介':text});
  assert.equal((await s.get({mediaId:1,lang:'zh'})).lang,'en');assert.equal(s.read()['1'].zh,undefined);
  available=true;const entry=s.read()['1'];entry.at-=601000;s.write('1',entry);
  assert.equal((await s.get({mediaId:1,lang:'zh'})).text,'这是作品简介');

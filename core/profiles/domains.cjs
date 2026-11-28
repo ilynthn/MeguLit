@@ -13,6 +13,7 @@ const DOMAINS={
  'source.keepStream':{regexList:{max:8,chars:100},layer:'game'},
  'source.stripCodes':{regexList:{max:16,chars:100}},
  'source.embedGlyphPieces':{regexList:{max:8,chars:100},layer:'game'},
+ 'source.firstGlyphSiblings':{bool:true},
  'source.siglusDbsNameColumn':{number:[0,2147483647],nullable:true,int:true,layer:'version'},
  'source.versionMatch':{enum:['exe','prints']},
  'placement.firstLineAnchor':{enum:[null,'glyph','box','page']},

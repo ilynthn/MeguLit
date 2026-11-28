@@ -163,7 +163,7 @@ export async function mountSentences(target,{api,locale,esc,toast,errorMessage,e
  /* 2026-11-14: while the voice is being fetched (the speech engine may need a cold start) the button shows it is working
     instead of turning grey like a dead control; a second click is ignored until it finishes */
  async function play(b){const id=b.dataset.sentencePlay,item=byId.get(String(id));if(!item||b.getAttribute('aria-busy')==='true')return;b.setAttribute('aria-busy','true');b.classList.add('is-busy');
-  try{await playSentence(api,item.text,b,{id:item.id});}catch(error){toast(errorMessage(error));}finally{b.removeAttribute('aria-busy');b.classList.remove('is-busy');}}
+  try{await playSentence(api,item.text,b,{id:item.id});}catch(error){toast(error?.userMessage||errorMessage(error));}finally{b.removeAttribute('aria-busy');b.classList.remove('is-busy');}}
  async function remove(b){b.disabled=true;try{await api('sentence_delete',{id:Number(b.dataset.sentenceDelete)});rerender();}catch(error){b.disabled=false;toast(errorMessage(error));}}
 
  /* ---------- strip: drag with inertia, shift-wheel, arrows ---------- */

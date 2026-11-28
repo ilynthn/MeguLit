@@ -81,7 +81,7 @@ public static class MeguLitAnkiWindows{
  [DllImport("user32.dll")]static extern bool EnumWindows(Proc p,IntPtr l);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern int GetWindowText(IntPtr h,StringBuilder s,int n);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern int GetClassName(IntPtr h,StringBuilder s,int n);
- [DllImport("user32.dll")]static extern bool IsWindowVisible(IntPtr h);
+ [DllImport("user32.dll")]static extern bool IsWindowVisible(IntPtr h);[DllImport("user32.dll")]static extern bool IsIconic(IntPtr h);
  [DllImport("user32.dll")]static extern bool ShowWindow(IntPtr h,int c);
  [DllImport("user32.dll")]static extern IntPtr GetWindow(IntPtr h,uint c);
  [DllImport("user32.dll")]static extern bool PostMessage(IntPtr h,uint m,IntPtr w,IntPtr l);
@@ -112,7 +112,7 @@ public static class MeguLitAnkiWindows{
    if(n==before&&!IsWindowEnabled(m))EnumWindows((h,l)=>{if(GetWindow(h,4)!=m||IsWindowVisible(h)||!IsWindowEnabled(h))return true;SetWindowPos(h,IntPtr.Zero,0,0,0,0,0x0001|0x0002|0x0040);n++;return true;},IntPtr.Zero);}
   return n;}
  public static int HidePids(int[] ids){var set=new System.Collections.Generic.HashSet<uint>();foreach(var i in ids)set.Add((uint)i);int k=0;var hid=new System.Collections.Generic.List<IntPtr>();EnumWindows((h,l)=>{if(!IsWindowVisible(h))return true;uint p;GetWindowThreadProcessId(h,out p);if(set.Contains(p)){ShowWindow(h,0);hid.Add(h);k++;}return true;},IntPtr.Zero);Save(hid);return k;}
- public static int Apply(string mode){if(mode=="hideall"){var pids=new System.Collections.Generic.HashSet<uint>();EnumWindows((h,l)=>{var t=new StringBuilder(256);GetWindowText(h,t,256);var c=new StringBuilder(128);GetClassName(h,c,128);string title=t.ToString();if(c.ToString().StartsWith("Qt")&&(title=="Anki"||title.EndsWith(" - Anki"))){uint p;GetWindowThreadProcessId(h,out p);pids.Add(p);}return true;},IntPtr.Zero);int k=0;var hid=new System.Collections.Generic.List<IntPtr>();EnumWindows((h,l)=>{if(!IsWindowVisible(h))return true;uint p;GetWindowThreadProcessId(h,out p);if(pids.Contains(p)){ShowWindow(h,0);hid.Add(h);k++;}return true;},IntPtr.Zero);Save(hid);return k;}bool show=mode=="show",close=mode=="close";if(!show&&!close&&mode!="hide")return 0;int n=0;EnumWindows((h,l)=>{if(GetWindow(h,4)!=IntPtr.Zero)return true;if(!close&&IsWindowVisible(h)==show)return true;var t=new StringBuilder(256);GetWindowText(h,t,256);var c=new StringBuilder(128);GetClassName(h,c,128);string title=t.ToString();if(!c.ToString().StartsWith("Qt"))return true;if(title!="Anki"&&!title.EndsWith(" - Anki"))return true;if(close)PostMessage(h,0x0010,IntPtr.Zero,IntPtr.Zero);else if(show)SetWindowPos(h,IntPtr.Zero,0,0,0,0,0x0001|0x0002|0x0004|0x0010|0x0040);else ShowWindow(h,0);n++;return true;},IntPtr.Zero);if(show)RestoreBlocked();return n;}
+ public static int Apply(string mode){if(mode=="hideall"){var pids=new System.Collections.Generic.HashSet<uint>();EnumWindows((h,l)=>{var t=new StringBuilder(256);GetWindowText(h,t,256);var c=new StringBuilder(128);GetClassName(h,c,128);string title=t.ToString();if(c.ToString().StartsWith("Qt")&&(title=="Anki"||title.EndsWith(" - Anki"))){uint p;GetWindowThreadProcessId(h,out p);pids.Add(p);}return true;},IntPtr.Zero);int k=0;var hid=new System.Collections.Generic.List<IntPtr>();EnumWindows((h,l)=>{if(!IsWindowVisible(h))return true;uint p;GetWindowThreadProcessId(h,out p);if(pids.Contains(p)){ShowWindow(h,0);hid.Add(h);k++;}return true;},IntPtr.Zero);Save(hid);return k;}bool mini=mode=="mini",show=mode=="show"||mini,close=mode=="close";if(!show&&!close&&mode!="hide")return 0;int n=0;EnumWindows((h,l)=>{if(GetWindow(h,4)!=IntPtr.Zero)return true;if(!close&&IsWindowVisible(h)==show)return true;var t=new StringBuilder(256);GetWindowText(h,t,256);var c=new StringBuilder(128);GetClassName(h,c,128);string title=t.ToString();if(!c.ToString().StartsWith("Qt"))return true;if(title!="Anki"&&!title.EndsWith(" - Anki"))return true;if(close)PostMessage(h,0x0010,IntPtr.Zero,IntPtr.Zero);else if(mini){ShowWindow(h,7);if(!IsIconic(h))ShowWindow(h,7);}else if(show)SetWindowPos(h,IntPtr.Zero,0,0,0,0,0x0001|0x0002|0x0004|0x0010|0x0040);else ShowWindow(h,0);n++;return true;},IntPtr.Zero);if(show)RestoreBlocked();return n;}
 }
 '@
 $mode=[string]($args[0]);if($mode -like 'watch:*'){$until=[DateTime]::Now.AddMilliseconds([int]$mode.Substring(6));$ids=@();$n=0;while([DateTime]::Now -lt $until){if($n%10 -eq 0){$ids=@(Get-Process -ErrorAction SilentlyContinue|Where-Object{$_.Path -and $_.Path -like '*Anki*'}|ForEach-Object{$_.Id})};if($ids.Count){[void][MeguLitAnkiWindows]::HidePids([int[]]$ids)};[void][MeguLitAnkiWindows]::Apply('hideall');Start-Sleep -Milliseconds 30;$n++};0}elseif($mode -like 'keys:*'){[void][MeguLitAnkiWindows]::Apply('show');if([MeguLitAnkiWindows]::Focus()){Start-Sleep -Milliseconds 350;Add-Type -AssemblyName System.Windows.Forms;$k=$mode.Substring(5);if($k){[System.Windows.Forms.SendKeys]::SendWait($k)};1}else{0}}else{[MeguLitAnkiWindows]::Apply($mode)}`;
@@ -137,30 +137,29 @@ class AnkiProcess{
  stopWatch(){this.watcher?.kill?.();this.watcher=null;}
  async start({hide=false}={}){
   if(!hide)this.hideRequested=false;
+  /* 2026-11-28 owner (现在 anki 软件老是显示出来): a start never shows, raises or hides an Anki that MeguLit did not start
+     itself; one MeguLit starts is kept hidden while it loads and then stays hidden, or sits minimized without taking the
+     foreground when 隐藏 Anki 窗口 is off. A second request while one is starting waits for it and never spawns again. */
   const pending=this.starting;
-  if(pending){
-   if(!hide&&(this.hidden||this.watcher))await this.show();
-   return pending;
-  }
+  if(pending)return pending;
   const gen=++this.startGen;
   this.hideRequested=!!hide;
   let hideStarted=false;
   const task=(async()=>{
-   if(!this.hideRequested&&(this.hidden||this.watcher))await this.show();
    const isOnline=await this.online();
    if(gen!==this.startGen)throw Error('ANKI_OFFLINE');
    if(isOnline){
-    if(this.hideRequested)await this.hide();
+    if(this.hideRequested&&this.started&&this.hidden)await this.hide();
     return {running:true,started:false};
    }
    const alreadyRunning=!!this.running();
    const exe=alreadyRunning?'':this.find();
    if(!alreadyRunning&&!exe)throw Error('ANKI_EXECUTABLE_MISSING');
-   if(this.hideRequested&&!alreadyRunning){hideStarted=true;this.hidden=true;this.watch(30000);}
+   if(!alreadyRunning){hideStarted=true;this.hidden=true;this.watch(30000);}
    if(!alreadyRunning){
     await new Promise((resolve,reject)=>{
      let child;
-     try{child=this.spawner(exe,[],{cwd:path.dirname(exe),detached:true,stdio:'ignore',windowsHide:this.hideRequested});}catch(err){reject(err);return;}
+     try{child=this.spawner(exe,[],{cwd:path.dirname(exe),detached:true,stdio:'ignore',windowsHide:true});}catch(err){reject(err);return;}
      let settled=false;
      const done=fn=>v=>{if(settled)return;settled=true;fn(v);};
      if(typeof child?.once==='function'){
@@ -169,23 +168,19 @@ class AnkiProcess{
      }else{child?.unref?.();done(resolve)();}
     }).catch(err=>{if(gen===this.startGen){this.stopWatch();this.hideRequested=false;this.hidden=false;}throw err;});
     this.started=true;this.log('[MeguLit] started Anki '+exe+(this.hideRequested?' (hidden)':''));
-   }else{
-    if(!this.hideRequested)await this.show();
-    this.log('[MeguLit] Anki already running; waiting for AnkiConnect');
-   }
+   }else this.log('[MeguLit] Anki already running; waiting for AnkiConnect (its window is left alone)');
    /* v1.1.5: a cold Anki syncs and loads add-ons before AnkiConnect answers; 45 s was often too short, so wait up to 90 s */
    for(let i=0;i<120;i++){
     await this.wait(750);
     const up=await this.online();
     if(gen!==this.startGen)throw Error('ANKI_OFFLINE');
     if(up){
-     if(this.hideRequested)await this.hide();
-     else if(hideStarted||this.hidden||this.watcher)await this.show();
+     if(hideStarted)await this.settle();
      return {running:true,started:!alreadyRunning};
     }
-    if(this.hideRequested&&!alreadyRunning&&i%2===0)await this.hide();
+    if(hideStarted&&i%2===0)await this.hide();
    }
-   if(gen===this.startGen){this.hideRequested=false;if(this.hidden||this.watcher)await this.show();}
+   if(gen===this.startGen){this.hideRequested=false;if(hideStarted)await this.minimize();}
    throw Error('ANKI_OFFLINE');
   })().finally(()=>{if(this.starting===task)this.starting=null;});
   this.starting=task;
@@ -215,6 +210,25 @@ class AnkiProcess{
   const result=await this.start({hide});return {...result,repaired:true,killed,restarted:anki};
  }
  async hide(){const n=await this.windows('hideall');if(n)this.hidden=true;return n;}
+ /* an Anki MeguLit started, once AnkiConnect answers: hidden mode keeps hiding it a while longer (a cold Anki still opens its
+    main window or a sync dialog after the add-on is up); otherwise it is put in the taskbar minimized, never activated */
+ async settle(){if(this.hideRequested){await this.hide();this.watch(60000);return;}await this.minimize();}
+ async minimize(){this.stopWatch();this.hidden=false;return this.windows('mini');}
+ /* AnkiConnect's review actions can bring a hidden Anki's main window back; MeguLit's own hidden Anki is hidden again */
+ rehide(){if(!this.started||!this.hidden)return Promise.resolve(0);return this.windows('hideall').catch(()=>0);}
+ /* 重新连接 (owner, 2026-11-28): start Anki in the background when it is not running, wait about 10 s for AnkiConnect and
+    say exactly why when it does not come: no Anki, no AnkiConnect, its port held by another program, or a timeout */
+ async reconnect({hide=false,timeout=10000,installed=ankiConnectInstalled}={}){
+  if(await this.online())return {connected:true,started:false};
+  const deadline=this.now()+timeout,running=!!this.running();
+  if(!running&&!this.find())throw Error('ANKI_EXECUTABLE_MISSING');
+  if(installed()===false)throw Error('ANKI_CONNECT_MISSING');
+  const port=portOf(this.config().ankiUrl),owners=await Promise.resolve(this.portOwners(port)).catch(()=>[]);
+  if((owners||[]).some(p=>p.pid!==process.pid&&!isAnki(p)))throw Error('ANKI_PORT_TAKEN');
+  if(!running)this.start({hide}).catch(error=>this.log('[MeguLit] Anki reconnect start failed '+error.message));
+  while(this.now()<deadline){await this.wait(500);if(await this.online())return {connected:true,started:!running};}
+  throw Error('ANKI_RECONNECT_TIMEOUT');
+ }
  // E259: Anki's sync progress dialog and its 'collection synced' tooltip are separate windows of the same process
  // E265: one long-lived helper (compiled once) hides Anki's windows every ~30ms, so none is ever painted
  watch(ms){this.stopWatch();this.watcher=this.watcherFactory?this.watcherFactory(ms):execFile('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command','& {'+WINDOWS+'} '+"'watch:"+Math.round(ms)+"'"],{windowsHide:true,timeout:ms+15000},()=>{});}

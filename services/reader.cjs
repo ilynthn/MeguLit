@@ -688,10 +688,11 @@ class Reader{
   if(action==='localeInstall')return this.runtime.library().locale.install();
   if(action==='ankiStatus')return new(require('../core/anki.cjs').Anki)().status(config);
   if(action==='ankiFind')return {path:this.findAnki()};
+  /* 2026-11-28 owner (anki 软件老是显示出来): the in-game 启动 Anki goes through AnkiProcess like every other start: it
+     never brings a running Anki forward, and an Anki it starts stays hidden or minimized without taking the foreground */
   if(action==='ankiLaunch'){
-   const anki=new(require('../core/anki.cjs').Anki)();try{const status=await anki.status(config);await this.runtime.ankiProcess().show();return {running:true,...status};}catch{}
-   const exe=this.findAnki();if(!exe)throw Error('ANKI_EXECUTABLE_MISSING');const child=require('node:child_process').spawn(exe,[],{cwd:path.dirname(exe),detached:true,stdio:'ignore',windowsHide:false});child.on('error',()=>{});child.unref();
-   for(let i=0;i<40;i++){await new Promise(resolve=>setTimeout(resolve,750));try{return {launched:true,...await anki.status(config)};}catch{}}throw Error('ANKI_OFFLINE');
+   const anki=new(require('../core/anki.cjs').Anki)(),runner=this.runtime.ankiProcess();
+   const r=await runner.start({hide:!!this.runtime.config?.()?.ankiHidden});return {...(r.started?{launched:true}:{running:true}),...await anki.status(config)};
   }
   if(['word','speak','prefetch','anki'].includes(action)){
    const captured=action==='anki'&&typeof args.screenshotId==='string'&&this.cardScreenshots?.get(args.screenshotId);

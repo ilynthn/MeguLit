@@ -7,7 +7,8 @@
 const SITES=[
  {host:/(^|\.)4gamer\.net$/,start:/↓本文↓/,end:/↑本文↑/},
  {host:/(^|\.)denfaminicogamer\.jp$/,start:/id="articleBody"/,end:/class="(?:inner-related-article|contentbtn-box|dfj-share)|id="articleFooter"|<footer/},
- {host:/(^|\.)moepedia\.net$/,start:/class="post-body"/,end:/class="post-share"/}
+ {host:/(^|\.)moepedia\.net$/,start:/class="post-body"/,end:/class="post-share"/},
+ {host:/(^|\.)ln-news\.com$/,start:/class="mce-content-body"/,end:/class="(?:share-actions|article-tags)/}
 ];
 const MAX_PARAS=120,MAX_CHARS=20000;
 const ENT={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',mdash:'—',ndash:'–',hellip:'…',lsquo:'‘',rsquo:'’',ldquo:'“',rdquo:'”',middot:'·',times:'×',yen:'¥',copy:'©',reg:'®',trade:'™'};

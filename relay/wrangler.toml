@@ -55,7 +55,8 @@ binding = "AI"
 [triggers]
 # and every 30 minutes: website feedback still waiting for its GitHub issue (src/feedback.js)
 # E415 once a day at 06:20 Japan time: Galgame / ACG news and today's hot words for the 日报 page (src/daily.js)
-crons = ["0 16 * * SUN", "*/30 * * * *", "20 21 * * *"]
+# 2026-11-28 once a day at 05:40 Japan time: 作品榜 rankings from VNDB / Bangumi / AniList (src/charts.js)
+crons = ["0 16 * * SUN", "*/30 * * * *", "20 21 * * *", "40 20 * * *"]
 
 # Filled in from `wrangler d1 create megulit-relay` (copy the database_id it prints).
 [[d1_databases]]
@@ -84,7 +85,9 @@ simple = { limit = 120, period = 60 }
 name = "RL_LB_GET"
 type = "ratelimit"
 namespace_id = "1002"
-simple = { limit = 60, period = 60 }
+# 2026-11-28 120 (was 60): readers behind one shared IP (campus / CGNAT) switching tabs were refused; the app now
+# asks once per period through /api/leaderboard/boards and caches, so this only stops real abuse
+simple = { limit = 120, period = 60 }
 
 [[unsafe.bindings]]
 name = "RL_AVATAR_GET"

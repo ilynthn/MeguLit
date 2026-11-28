@@ -198,7 +198,16 @@ const staleRuns=new Map();
 function refreshStale(root){if(staleRuns.has(root))return staleRuns.get(root);const games=Object.values(lines(root).games).filter(g=>stale(g)&&g.dir&&fs.existsSync(g.dir)).sort((a,b)=>(a.lines||0)-(b.lines||0));
  const run=Promise.all(games.map(g=>new Promise(resolve=>scanInWorker(root,g.dir,()=>resolve(),true)))).then(()=>games.length);staleRuns.set(root,run);return run;}
 function recordingExists(file){try{const s=fs.statSync(file);return s.isFile()&&s.size>=12;}catch{return false;}}
-function has(root,text){const hit=entry(root,text);if(!hit)return false;
- if(hit.ref==='runtime')return !quiet(root).has(hit.key)&&recordingExists(runtimeFile(root,hit.key,hit.ext));
- return true;}
-module.exports={refreshStale,verdict,recordedFits,recordingExists,seconds,pieceKeys,QUIET_REV,flush,hashedPaths,scanLater,norm,keyOf,kind,catalog,arcList,ovkList,scan,gameDir,remember,find,has,gameKey,clip,entry,runtimeFile,gameFor,ensureScanned,stale,ENGINE_REV,_reset(){memo=null;quietMemo=null;catalogs.clear();}};
+/* 2026-11-28 (owner: 点原声还是不发音) a button said 「原声」 for every line the index names a clip for, but the clip is read
+   only when played: for a game uninstalled or moved since its scan (the folder gone, or left with a launcher and a log) it
+   was not there, the line fell back to synthesis, and with the speech engine down nothing played. A scanned clip counts
+   only when it is cached or the game's folder still holds it; otherwise the reason. Names only, no audio is read. */
+function clipState(root,g,ref){const dir=path.join(cacheDir(root),String(g));for(const e of ['.ogg','.wav','.mp3','.m4a'])if(recordingExists(path.join(dir,sha1(ref)+e)))return 'ok';
+ const game=lines(root).games[g];if(!game?.dir||!fs.existsSync(game.dir))return 'GAME_VOICE_GONE';if(game.v!==SCAN_VERSION)return 'GAME_VOICE_STALE';
+ let read=null;try{read=catalogFor(game.dir).get(ref);}catch{}return read?'ok':'GAME_VOICE_GONE';}
+/* What playing this text's game voice would give: 'ok', null (no game voice known) or why the known one cannot play */
+function voiceState(root,text){const hit=entry(root,text);if(!hit)return null;
+ if(hit.ref==='runtime')return !quiet(root).has(hit.key)&&recordingExists(runtimeFile(root,hit.key,hit.ext))?'ok':null;
+ return clipState(root,hit.game,hit.ref);}
+function has(root,text){return voiceState(root,text)==='ok';}
+module.exports={clipState,voiceState,refreshStale,verdict,recordedFits,recordingExists,seconds,pieceKeys,QUIET_REV,flush,hashedPaths,scanLater,norm,keyOf,kind,catalog,arcList,ovkList,scan,gameDir,remember,find,has,gameKey,clip,entry,runtimeFile,gameFor,ensureScanned,stale,ENGINE_REV,_reset(){memo=null;quietMemo=null;catalogs.clear();}};
