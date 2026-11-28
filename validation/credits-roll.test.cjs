@@ -38,6 +38,9 @@ test('web/credits.json: groups with three-language titles, named items, notes in
  for(const id of ['inspiration','hook','contributors','libraries','data','fonts','feedback'])assert.ok(ids.has(id),'group '+id);
  for(const n of ['tomoyo','LunaTranslator / LunaHook','RRFZ','sugar787878','JMdict','GARbro','AivisSpeech','Anki','Tauri · Wry'])assert.ok(names.has(n),n+' is credited');
  assert.ok(!names.has('MeguLit'),'MeguLit keeps its own card above the roll');
+ /* owner 2026-11-29 (把tomoyo移动到中间 → 整份名单的中间): tomoyo is not the first name but sits in the middle of the roll */
+ const all=data.groups.flatMap(g=>g.items.map(nameOf)),at=all.indexOf('tomoyo')/(all.length-1);
+ assert.ok(at>=0.35&&at<=0.65,'tomoyo is in the middle of the roll, not at '+(all.indexOf('tomoyo')+1)+' / '+all.length);
 });
 
 test('web/credits.json credits every THIRD-PARTY.md entry (or names why it is not a credit)',()=>{
@@ -150,8 +153,7 @@ test('main About page: credits are a small rolling window from web/credits.json;
   assert.ok(s.rows.some(r=>r[3]==='sugar787878')&&s.rows.some(r=>r[3]==='AivisSpeech'),'new names are in');
   assert.ok(s.centred,'use and name are centred, use above name');
   assert.deepEqual(s.weights,['400'],'names keep the regular weight of the old list');
-  /* owner 2026-11-29 (把tomoyo移动到中间): tomoyo sat alone at the left of the old two-column list; it is a roll entry
-     like the rest, its use and name on the roll's middle axis */
+  /* tomoyo is a roll entry like the rest, on the roll's middle axis */
   const tomoyo=await cdp.evaluate(`(()=>{const roll=document.querySelector('[data-credits]'),rr=roll.getBoundingClientRect(),row=[...roll.querySelectorAll('.ab-cr')].find(r=>r.lastElementChild.textContent==='tomoyo');if(!row)return null;
    const n=row.lastElementChild.getBoundingClientRect(),u=row.firstElementChild.getBoundingClientRect(),axis=rr.left+rr.width/2;return {inRoll:roll.contains(row),name:Math.abs((n.left+n.right)/2-axis),use:Math.abs((u.left+u.right)/2-axis),weight:getComputedStyle(row.lastElementChild).fontWeight,outside:[...document.querySelectorAll('.ab-thanks *')].some(e=>!roll.contains(e)&&e!==roll&&/tomoyo/i.test(e.textContent)&&!e.contains(roll))};})()`);
   assert.ok(tomoyo&&tomoyo.inRoll&&!tomoyo.outside,'tomoyo is in the roll, not on its own beside it');

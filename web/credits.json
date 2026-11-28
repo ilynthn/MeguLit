@@ -3,22 +3,6 @@
  "about": "Credits roll for the About page (Alt+T → 关于). One group = one heading; each item is a name, an optional author, an optional one-line note and an optional project page 'url' (https, a host that open_source in services/bridge.cjs allows). To thank someone new, add an item here; nothing else has to change. 'match' ties an item to the THIRD-PARTY.md bullets it covers (validation/credits-roll.test.cjs checks that every bullet is covered by an item or listed in 'exempt').",
  "groups": [
   {
-   "id": "inspiration",
-   "title": {"zh": "参考与灵感", "en": "Inspiration", "ja": "参考・着想"},
-   "items": [
-    {"name": "tomoyo", "by": "46dai", "note": {"zh": "日语阅读与学习工具，MeguLit 最早的参考与灵感来源", "en": "Japanese reading and study tool, where MeguLit started", "ja": "日本語の読書・学習ツール。MeguLit の最初の参考と着想元"}, "match": ["Tomoyo"], "url": "https://github.com/46daishi/tomoyo"},
-    {"name": "Visual Novel Reader (VNR)", "note": {"zh": "Galgame 读书器的前辈", "en": "The visual novel reader before all of us", "ja": "ギャルゲー読書ツールの先輩"}, "match": ["VNR"]},
-    {"name": "UniversalInjectorFramework", "by": "AtomCrafty", "note": {"zh": "在 MultiByteToWideChar 改写对白的思路", "en": "Rewriting dialogue at MultiByteToWideChar", "ja": "MultiByteToWideChar で台詞を書き換える発想"}, "match": ["UniversalInjectorFramework"], "url": "https://github.com/AtomCrafty/UniversalInjectorFramework"},
-    {"name": "VNTranslationTools", "by": "arcusmaximus", "note": {"zh": "VNTextProxy、脚本格式与比例字体", "en": "VNTextProxy, script formats, proportional fonts", "ja": "VNTextProxy、スクリプト形式、プロポーショナルフォント"}, "match": ["VNTranslationTools", "VNTextPatch"], "url": "https://github.com/arcusmaximus/VNTranslationTools"},
-    {"name": "KirikiriTools", "by": "arcusmaximus", "note": {"zh": "version.dll 代理与 unencrypted 覆盖", "en": "version.dll proxy and unencrypted override", "ja": "version.dll プロキシと unencrypted 上書き"}, "match": ["KirikiriTools"], "url": "https://github.com/arcusmaximus/KirikiriTools"},
-    {"name": "MacType", "by": "snowie2000", "note": {"zh": "D2D 设备上下文的挂钩方式", "en": "Hooking the D2D device context", "ja": "D2D デバイスコンテキストのフック方法"}, "match": ["MacType"], "url": "https://github.com/snowie2000/mactype"},
-    {"name": "DxWnd · Borderless Gaming", "note": {"zh": "强制无边框全屏的参考", "en": "References for forced borderless fullscreen", "ja": "強制ボーダーレス全画面の参考"}, "match": ["DxWnd", "Borderless Gaming"]},
-    {"name": "GalTransl-GalGameReverse-Skill", "by": "GalTransl", "note": {"zh": "适配时的第二意见与引擎笔记", "en": "Second opinion and engine notes while adapting", "ja": "対応作業でのセカンドオピニオンとエンジンメモ"}, "match": ["GalTransl-GalGameReverse-Skill"], "url": "https://github.com/GalTransl/GalTransl-GalGameReverse-Skill"},
-    {"name": "Craft Anything", "by": "storytold", "note": {"zh": "适配前对游戏程序做静态分析：认引擎和画字方式", "en": "Static analysis of the game program before adapting: engine and text drawing", "ja": "対応前のゲーム本体の静的解析：エンジンと文字描画の特定"}, "match": ["Craft Anything", "storytold/craft-anything"], "url": "https://github.com/storytold/craft-anything"},
-    {"name": "漢字でGO!", "by": "Micelle", "note": {"zh": "学习 → 五十音里打开的官方页面", "en": "Opened from 学习 → 五十音", "ja": "学習 → 五十音から開く公式ページ"}, "match": ["漢字でGO!"], "url": "https://plicy.net/GamePlay/155561"}
-   ]
-  },
-  {
    "id": "hook",
    "title": {"zh": "Hook 引擎", "en": "Text hooks", "ja": "テキストフック"},
    "items": [
@@ -36,6 +20,78 @@
     {"name": "UnityDoorstop · HarmonyX · MonoMod · Mono.Cecil", "note": {"zh": "随 BepInEx 一起使用", "en": "Shipped with BepInEx", "ja": "BepInEx と一緒に使用"}, "match": ["UnityDoorstop", "HarmonyX"]},
     {"name": "Il2CppInterop · Cpp2IL", "note": {"zh": "IL2CPP 游戏的 Unity 文本", "en": "Unity text for IL2CPP games", "ja": "IL2CPP ゲームの Unity テキスト"}, "url": "https://github.com/BepInEx/Il2CppInterop"},
     {"name": "Il2CppDumper", "by": "Perfare", "note": {"zh": "IL2CPP 方法偏移表", "en": "IL2CPP method offsets", "ja": "IL2CPP メソッドオフセット"}, "url": "https://github.com/Perfare/Il2CppDumper"}
+   ]
+  },
+  {
+   "id": "libraries",
+   "title": {"zh": "开源库与运行时", "en": "Libraries and runtimes", "ja": "ライブラリ・ランタイム"},
+   "items": [
+    {"name": "Tauri · Wry", "note": {"zh": "桌面外壳", "en": "Desktop shell", "ja": "デスクトップシェル"}, "match": ["Tauri"], "url": "https://github.com/tauri-apps/tauri"},
+    {"name": "Serde", "match": ["Serde"], "url": "https://github.com/serde-rs/serde"},
+    {"name": "PDF.js", "by": "Mozilla", "note": {"zh": "文库里的 PDF 阅读器", "en": "The PDF reader in the library", "ja": "ライブラリの PDF リーダー"}, "match": ["PDF.js"], "url": "https://github.com/mozilla/pdf.js"},
+    {"name": "webview2-com", "note": {"zh": "WebView2 的 Rust 绑定", "en": "Rust bindings for WebView2", "ja": "WebView2 の Rust バインディング"}, "match": ["WebView2 bindings"], "url": "https://github.com/wravery/webview2-rs"},
+    {"name": "Microsoft WebView2", "by": "Microsoft", "match": ["WebView2"]},
+    {"name": "Node.js", "note": {"zh": "随附的运行时", "en": "Bundled runtime", "ja": "同梱ランタイム"}, "match": ["Node.js"], "url": "https://github.com/nodejs/node"},
+    {"name": "three.js", "note": {"zh": "传火碑与安装界面", "en": "传火碑 and the setup window", "ja": "传火碑とセットアップ画面"}, "match": ["three.js"], "url": "https://github.com/mrdoob/three.js"},
+    {"name": "GSAP", "by": "GreenSock", "match": ["GSAP"], "url": "https://github.com/greensock/GSAP"},
+    {"name": "Python · pip", "match": ["pip 26.3"]},
+    {"name": "SudachiPy · SudachiDict", "by": "Works Applications", "note": {"zh": "日语分词", "en": "Japanese tokenizer", "ja": "日本語形態素解析"}, "url": "https://github.com/WorksApplications/SudachiDict"},
+    {"name": "fugashi · MeCab · UniDic", "note": {"zh": "读音与音调", "en": "Readings and pitch accent", "ja": "読みとアクセント"}, "url": "https://github.com/polm/fugashi"},
+    {"name": "numpy", "match": ["numpy"], "url": "https://github.com/numpy/numpy"},
+    {"name": "ONNX Runtime", "by": "Microsoft", "match": ["ONNX Runtime"], "url": "https://github.com/microsoft/onnxruntime"},
+    {"name": "llama.cpp", "by": "ggml-org", "note": {"zh": "本地翻译模型", "en": "Local translation models", "ja": "ローカル翻訳モデル"}, "url": "https://github.com/ggml-org/llama.cpp"},
+    {"name": "Sakura-GalTransl", "by": "SakuraLLM", "note": {"zh": "Galgame 本地翻译模型", "en": "Local galgame translation models", "ja": "ギャルゲー向けローカル翻訳モデル"}, "url": "https://github.com/SakuraLLM/SakuraLLM"},
+    {"name": "FFmpeg", "note": {"zh": "语音处理", "en": "Voice processing", "ja": "音声処理"}, "url": "https://github.com/FFmpeg/FFmpeg"},
+    {"name": "zstd", "note": {"zh": "解包压缩数据", "en": "Compressed archive data", "ja": "アーカイブの圧縮データ"}, "match": ["zstd"], "url": "https://github.com/facebook/zstd"},
+    {"name": "WinCDEmu", "by": "Sysprogs", "note": {"zh": "光盘镜像挂载", "en": "Disc image mounting", "ja": "ディスクイメージのマウント"}, "match": ["WinCDEmu"], "url": "https://github.com/sysprogs/WinCDEmu"},
+    {"name": "Anki", "by": "Ankitects", "note": {"zh": "间隔重复与制卡", "en": "Spaced repetition and cards", "ja": "間隔反復とカード"}, "url": "https://apps.ankiweb.net"},
+    {"name": "AnkiConnect", "note": {"zh": "Anki 制卡", "en": "Anki cards", "ja": "Anki カード作成"}, "url": "https://github.com/FooSoft/anki-connect"},
+    {"name": "Yomitan", "note": {"zh": "词典导入格式", "en": "Dictionary import format", "ja": "辞書の取り込み形式"}, "url": "https://github.com/yomidevs/yomitan"},
+    {"name": "AivisSpeech", "by": "Aivis Project", "note": {"zh": "语音合成", "en": "Speech synthesis", "ja": "音声合成"}, "url": "https://github.com/Aivis-Project/AivisSpeech"}
+   ]
+  },
+  {
+   "id": "data",
+   "title": {"zh": "词典与数据", "en": "Dictionaries and data", "ja": "辞書・データ"},
+   "items": [
+    {"name": "JMdict", "by": "Jim Breen · EDRDG", "note": {"zh": "点读查词的日英词典", "en": "The dictionary behind every lookup", "ja": "すべてのクリック辞書を支える辞書"}, "match": ["JMdict"]},
+    {"name": "KanjiVG", "by": "Ulrich Apel", "note": {"zh": "五十音笔顺", "en": "Kana stroke order", "ja": "かなの筆順"}, "match": ["KanjiVG"], "url": "https://github.com/KanjiVG/kanjivg"},
+    {"name": "open-anki-jlpt-decks", "by": "Jamie Sinclair", "note": {"zh": "JLPT 词表", "en": "JLPT word lists", "ja": "JLPT 単語リスト"}, "match": ["open-anki-jlpt-decks"], "url": "https://github.com/jamsinclair/open-anki-jlpt-decks"},
+    {"name": "JLPT Resources", "by": "Jonathan Waller", "match": ["JLPT Resources"]},
+    {"name": "Weblio · Jisho", "note": {"zh": "在线词典", "en": "Online dictionaries", "ja": "オンライン辞書"}}
+   ]
+  },
+  {
+   "id": "fonts",
+   "title": {"zh": "字体", "en": "Fonts", "ja": "フォント"},
+   "items": [
+    {"name": "Noto Sans JP · Noto Serif JP", "by": "Google Fonts · Adobe", "note": {"zh": "注音默认字体，随 MeguLit 自带 · SIL Open Font License 1.1", "en": "Default furigana font, bundled with MeguLit · SIL Open Font License 1.1", "ja": "ふりがなの標準フォント（MeguLit 同梱）· SIL Open Font License 1.1"}, "match": ["Noto Sans JP"], "url": "https://github.com/notofonts/noto-cjk"}
+   ]
+  },
+  {
+   "id": "contributors",
+   "title": {"zh": "贡献者", "en": "Contributors", "ja": "コントリビューター"},
+   "items": [
+    {"name": "RRFZ", "by": "Plastic-time", "note": {"zh": "几百个提交，适配、阅读层和发布", "en": "Hundreds of commits: adaptation, reader and releases", "ja": "数百のコミット：対応、読書レイヤー、リリース"}, "url": "https://github.com/Plastic-time"},
+    {"name": "sugar787878", "note": {"zh": "代码贡献", "en": "Code contributions", "ja": "コード貢献"}, "url": "https://github.com/sugar787878"},
+    {"name": "Sorihiko", "note": {"zh": "代码贡献", "en": "Code contributions", "ja": "コード貢献"}, "url": "https://github.com/Sorihiko"},
+    {"name": "chibarie", "by": "ChibaRie", "note": {"zh": "代码贡献", "en": "Code contributions", "ja": "コード貢献"}, "url": "https://github.com/ChibaRie"}
+   ]
+  },
+  {
+   "id": "inspiration",
+   "title": {"zh": "参考与灵感", "en": "Inspiration", "ja": "参考・着想"},
+   "items": [
+    {"name": "Visual Novel Reader (VNR)", "note": {"zh": "Galgame 读书器的前辈", "en": "The visual novel reader before all of us", "ja": "ギャルゲー読書ツールの先輩"}, "match": ["VNR"]},
+    {"name": "UniversalInjectorFramework", "by": "AtomCrafty", "note": {"zh": "在 MultiByteToWideChar 改写对白的思路", "en": "Rewriting dialogue at MultiByteToWideChar", "ja": "MultiByteToWideChar で台詞を書き換える発想"}, "match": ["UniversalInjectorFramework"], "url": "https://github.com/AtomCrafty/UniversalInjectorFramework"},
+    {"name": "VNTranslationTools", "by": "arcusmaximus", "note": {"zh": "VNTextProxy、脚本格式与比例字体", "en": "VNTextProxy, script formats, proportional fonts", "ja": "VNTextProxy、スクリプト形式、プロポーショナルフォント"}, "match": ["VNTranslationTools", "VNTextPatch"], "url": "https://github.com/arcusmaximus/VNTranslationTools"},
+    {"name": "KirikiriTools", "by": "arcusmaximus", "note": {"zh": "version.dll 代理与 unencrypted 覆盖", "en": "version.dll proxy and unencrypted override", "ja": "version.dll プロキシと unencrypted 上書き"}, "match": ["KirikiriTools"], "url": "https://github.com/arcusmaximus/KirikiriTools"},
+    {"name": "MacType", "by": "snowie2000", "note": {"zh": "D2D 设备上下文的挂钩方式", "en": "Hooking the D2D device context", "ja": "D2D デバイスコンテキストのフック方法"}, "match": ["MacType"], "url": "https://github.com/snowie2000/mactype"},
+    {"name": "DxWnd · Borderless Gaming", "note": {"zh": "强制无边框全屏的参考", "en": "References for forced borderless fullscreen", "ja": "強制ボーダーレス全画面の参考"}, "match": ["DxWnd", "Borderless Gaming"]},
+    {"name": "GalTransl-GalGameReverse-Skill", "by": "GalTransl", "note": {"zh": "适配时的第二意见与引擎笔记", "en": "Second opinion and engine notes while adapting", "ja": "対応作業でのセカンドオピニオンとエンジンメモ"}, "match": ["GalTransl-GalGameReverse-Skill"], "url": "https://github.com/GalTransl/GalTransl-GalGameReverse-Skill"},
+    {"name": "Craft Anything", "by": "storytold", "note": {"zh": "适配前对游戏程序做静态分析：认引擎和画字方式", "en": "Static analysis of the game program before adapting: engine and text drawing", "ja": "対応前のゲーム本体の静的解析：エンジンと文字描画の特定"}, "match": ["Craft Anything", "storytold/craft-anything"], "url": "https://github.com/storytold/craft-anything"},
+    {"name": "漢字でGO!", "by": "Micelle", "note": {"zh": "学习 → 五十音里打开的官方页面", "en": "Opened from 学习 → 五十音", "ja": "学習 → 五十音から開く公式ページ"}, "match": ["漢字でGO!"], "url": "https://plicy.net/GamePlay/155561"},
+    {"name": "tomoyo", "by": "46dai", "note": {"zh": "日语阅读与学习工具，MeguLit 最早的参考与灵感来源", "en": "Japanese reading and study tool, where MeguLit started", "ja": "日本語の読書・学習ツール。MeguLit の最初の参考と着想元"}, "match": ["Tomoyo"], "url": "https://github.com/46daishi/tomoyo"}
    ]
   },
   {
@@ -107,62 +163,6 @@
     {"name": "Diabolik-Lovers-STCM2L-Editor", "by": "kubo25", "match": ["Diabolik-Lovers-STCM2L-Editor"]},
     {"name": "pjadv_dump", "by": "BlackDragonHunt", "match": ["pjadv_dump"]},
     {"name": "rugptools", "by": "osmium76", "match": ["rugptools"]}
-   ]
-  },
-  {
-   "id": "contributors",
-   "title": {"zh": "贡献者", "en": "Contributors", "ja": "コントリビューター"},
-   "items": [
-    {"name": "RRFZ", "by": "Plastic-time", "note": {"zh": "几百个提交，适配、阅读层和发布", "en": "Hundreds of commits: adaptation, reader and releases", "ja": "数百のコミット：対応、読書レイヤー、リリース"}, "url": "https://github.com/Plastic-time"},
-    {"name": "sugar787878", "note": {"zh": "代码贡献", "en": "Code contributions", "ja": "コード貢献"}, "url": "https://github.com/sugar787878"},
-    {"name": "Sorihiko", "note": {"zh": "代码贡献", "en": "Code contributions", "ja": "コード貢献"}, "url": "https://github.com/Sorihiko"},
-    {"name": "chibarie", "by": "ChibaRie", "note": {"zh": "代码贡献", "en": "Code contributions", "ja": "コード貢献"}, "url": "https://github.com/ChibaRie"}
-   ]
-  },
-  {
-   "id": "libraries",
-   "title": {"zh": "开源库与运行时", "en": "Libraries and runtimes", "ja": "ライブラリ・ランタイム"},
-   "items": [
-    {"name": "Tauri · Wry", "note": {"zh": "桌面外壳", "en": "Desktop shell", "ja": "デスクトップシェル"}, "match": ["Tauri"], "url": "https://github.com/tauri-apps/tauri"},
-    {"name": "Serde", "match": ["Serde"], "url": "https://github.com/serde-rs/serde"},
-    {"name": "PDF.js", "by": "Mozilla", "note": {"zh": "文库里的 PDF 阅读器", "en": "The PDF reader in the library", "ja": "ライブラリの PDF リーダー"}, "match": ["PDF.js"], "url": "https://github.com/mozilla/pdf.js"},
-    {"name": "webview2-com", "note": {"zh": "WebView2 的 Rust 绑定", "en": "Rust bindings for WebView2", "ja": "WebView2 の Rust バインディング"}, "match": ["WebView2 bindings"], "url": "https://github.com/wravery/webview2-rs"},
-    {"name": "Microsoft WebView2", "by": "Microsoft", "match": ["WebView2"]},
-    {"name": "Node.js", "note": {"zh": "随附的运行时", "en": "Bundled runtime", "ja": "同梱ランタイム"}, "match": ["Node.js"], "url": "https://github.com/nodejs/node"},
-    {"name": "three.js", "note": {"zh": "传火碑与安装界面", "en": "传火碑 and the setup window", "ja": "传火碑とセットアップ画面"}, "match": ["three.js"], "url": "https://github.com/mrdoob/three.js"},
-    {"name": "GSAP", "by": "GreenSock", "match": ["GSAP"], "url": "https://github.com/greensock/GSAP"},
-    {"name": "Python · pip", "match": ["pip 26.3"]},
-    {"name": "SudachiPy · SudachiDict", "by": "Works Applications", "note": {"zh": "日语分词", "en": "Japanese tokenizer", "ja": "日本語形態素解析"}, "url": "https://github.com/WorksApplications/SudachiDict"},
-    {"name": "fugashi · MeCab · UniDic", "note": {"zh": "读音与音调", "en": "Readings and pitch accent", "ja": "読みとアクセント"}, "url": "https://github.com/polm/fugashi"},
-    {"name": "numpy", "match": ["numpy"], "url": "https://github.com/numpy/numpy"},
-    {"name": "ONNX Runtime", "by": "Microsoft", "match": ["ONNX Runtime"], "url": "https://github.com/microsoft/onnxruntime"},
-    {"name": "llama.cpp", "by": "ggml-org", "note": {"zh": "本地翻译模型", "en": "Local translation models", "ja": "ローカル翻訳モデル"}, "url": "https://github.com/ggml-org/llama.cpp"},
-    {"name": "Sakura-GalTransl", "by": "SakuraLLM", "note": {"zh": "Galgame 本地翻译模型", "en": "Local galgame translation models", "ja": "ギャルゲー向けローカル翻訳モデル"}, "url": "https://github.com/SakuraLLM/SakuraLLM"},
-    {"name": "FFmpeg", "note": {"zh": "语音处理", "en": "Voice processing", "ja": "音声処理"}, "url": "https://github.com/FFmpeg/FFmpeg"},
-    {"name": "zstd", "note": {"zh": "解包压缩数据", "en": "Compressed archive data", "ja": "アーカイブの圧縮データ"}, "match": ["zstd"], "url": "https://github.com/facebook/zstd"},
-    {"name": "WinCDEmu", "by": "Sysprogs", "note": {"zh": "光盘镜像挂载", "en": "Disc image mounting", "ja": "ディスクイメージのマウント"}, "match": ["WinCDEmu"], "url": "https://github.com/sysprogs/WinCDEmu"},
-    {"name": "Anki", "by": "Ankitects", "note": {"zh": "间隔重复与制卡", "en": "Spaced repetition and cards", "ja": "間隔反復とカード"}, "url": "https://apps.ankiweb.net"},
-    {"name": "AnkiConnect", "note": {"zh": "Anki 制卡", "en": "Anki cards", "ja": "Anki カード作成"}, "url": "https://github.com/FooSoft/anki-connect"},
-    {"name": "Yomitan", "note": {"zh": "词典导入格式", "en": "Dictionary import format", "ja": "辞書の取り込み形式"}, "url": "https://github.com/yomidevs/yomitan"},
-    {"name": "AivisSpeech", "by": "Aivis Project", "note": {"zh": "语音合成", "en": "Speech synthesis", "ja": "音声合成"}, "url": "https://github.com/Aivis-Project/AivisSpeech"}
-   ]
-  },
-  {
-   "id": "data",
-   "title": {"zh": "词典与数据", "en": "Dictionaries and data", "ja": "辞書・データ"},
-   "items": [
-    {"name": "JMdict", "by": "Jim Breen · EDRDG", "note": {"zh": "点读查词的日英词典", "en": "The dictionary behind every lookup", "ja": "すべてのクリック辞書を支える辞書"}, "match": ["JMdict"]},
-    {"name": "KanjiVG", "by": "Ulrich Apel", "note": {"zh": "五十音笔顺", "en": "Kana stroke order", "ja": "かなの筆順"}, "match": ["KanjiVG"], "url": "https://github.com/KanjiVG/kanjivg"},
-    {"name": "open-anki-jlpt-decks", "by": "Jamie Sinclair", "note": {"zh": "JLPT 词表", "en": "JLPT word lists", "ja": "JLPT 単語リスト"}, "match": ["open-anki-jlpt-decks"], "url": "https://github.com/jamsinclair/open-anki-jlpt-decks"},
-    {"name": "JLPT Resources", "by": "Jonathan Waller", "match": ["JLPT Resources"]},
-    {"name": "Weblio · Jisho", "note": {"zh": "在线词典", "en": "Online dictionaries", "ja": "オンライン辞書"}}
-   ]
-  },
-  {
-   "id": "fonts",
-   "title": {"zh": "字体", "en": "Fonts", "ja": "フォント"},
-   "items": [
-    {"name": "Noto Sans JP · Noto Serif JP", "by": "Google Fonts · Adobe", "note": {"zh": "注音默认字体，随 MeguLit 自带 · SIL Open Font License 1.1", "en": "Default furigana font, bundled with MeguLit · SIL Open Font License 1.1", "ja": "ふりがなの標準フォント（MeguLit 同梱）· SIL Open Font License 1.1"}, "match": ["Noto Sans JP"], "url": "https://github.com/notofonts/noto-cjk"}
    ]
   },
   {
