@@ -13,7 +13,7 @@ const source=fs.readFileSync(path.join(web,'torch-monument.js'),'utf8')
  .replace(/^import .*\r?\n/gm,'').replaceAll('export ','');
 const deferred=()=>Promise.withResolvers();
 
-function fixture({holdBuild=false,simpleAfter=0}={}){
+function fixture({holdBuild=false,simpleAfter=0,retryMs=0,pages=null}={}){
  const gate=deferred();
  const calls=[],globalEvents=new EventTarget(),documentEvents=new EventTarget(),bake=deferred(),font=deferred(),page=deferred();
  const mounts=[],scenes=[],search=deferred(),jump=deferred();
@@ -52,10 +52,12 @@ function fixture({holdBuild=false,simpleAfter=0}={}){
    scenes.push(scene);return scene;
   }
  };
- const code=simpleAfter?source.replace('SIMPLE_AFTER=10000','SIMPLE_AFTER='+simpleAfter):source;
+ let code=simpleAfter?source.replace('SIMPLE_AFTER=10000','SIMPLE_AFTER='+simpleAfter):source;
+ if(retryMs)code=code.replace('RETRY_MS=30000','RETRY_MS='+retryMs);
  const hall=vm.runInNewContext(code+'\n({openTorchMonument,closeTorchMonument,suspendTorchMonument,leaveTorchMonument,hasTorchMonument,invalidateTorchMonument,CANCELLED})',context);
  const api=(name,params)=>{
   calls.push(name);
+  if(name==='torch_page'&&pages&&!params.cursor)return Promise.resolve(pages.length>1?pages.shift():pages[0]);
   if(name==='torch_page')return params.cursor?jump.promise:page.promise;
   if(name==='torch_find'&&!params.probe)return search.promise;
   return Promise.resolve({ok:false});
@@ -289,4 +291,28 @@ test('a hall that is not ready after the wait offers the simple list; picking it
  await new Promise(resolve=>setTimeout(resolve,60));
  assert.notEqual(g.nodes.get('.tm-simple-go').hidden,false);
  g.close();
+});
+
+/* 2026-11-29 the stele said only "cannot reach the server", no names on it. A roster served from the last copy is shown as it is
+   (marked in the count, no error line), and asked for again in the background without a loading line until the relay answers. */
+test('a cached roster is shown at once and replaced quietly once the relay answers again',async()=>{
+ const cached={ok:true,cached:true,total:1,items:[{torchNo:1,name:'Kept'}]},fresh={ok:true,total:2,items:[{torchNo:1,name:'Kept'},{torchNo:2,name:'New'}]};
+ const f=fixture({retryMs:150,pages:[cached,cached,fresh]});
+ const opening=f.open();
+ resolveAssets(f);await opening;f.ready();
+ for(let i=0;i<6;i++)await flush();
+ assert.equal(f.nodes.get('.tm-status').hidden,true);
+ assert.match(f.nodes.get('.tm-count').textContent,/Offline/);
+ const statuses=[];const status=f.nodes.get('.tm-status');
+ const seen=setInterval(()=>statuses.push(status.textContent),2);
+ await new Promise(resolve=>setTimeout(resolve,500));
+ clearInterval(seen);
+ assert.equal(f.calls.filter(call=>call==='torch_page').length,3);
+ assert.doesNotMatch(f.nodes.get('.tm-count').textContent,/Offline/);
+ assert.match(f.nodes.get('.tm-count').textContent,/2/);
+ assert.equal(statuses.some(text=>/Loading/.test(text)),false);
+ /* nothing more is asked once the relay answered */
+ await new Promise(resolve=>setTimeout(resolve,400));
+ assert.equal(f.calls.filter(call=>call==='torch_page').length,3);
+ f.close();
 });

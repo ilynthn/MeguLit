@@ -11,6 +11,7 @@
    Owner-test installs may read the three public routes from the official hosts. Account tokens are excluded in owner-test mode.
    A route the relay does not have yet (404 NOT_FOUND) answers available:false so the page hides its button.
    `at` is unix seconds as the relay stores it. Names are cut to 30 characters (the relay's own limit). */
+const fs=require('fs'),path=require('path');
 const relay=require('./relay-config.cjs'),owner=require('../core/owner-tests.cjs');
 const TIMEOUT=12000,NAME_MAX=30,GAME_MAX=120;
 const MONTH=/^\d{4}-(0[1-9]|1[0-2])$/;
@@ -43,13 +44,35 @@ async function get(root,route,{fetch:fetcher=globalThis.fetch,env=process.env}={
    if(r.status===404){let j=null;try{j=await r.json();}catch{}if(!j||j.error==='NOT_FOUND'){missing=true;continue;}}
    if(!r.ok)continue;const text=await r.text();if(text.length>2*1024*1024)continue;const j=JSON.parse(text);if(j&&j.ok===true)return {status:'ok',json:j};}catch{}}
  return {status:missing?'missing':'failed'};}
+/* 2026-11-29 the stele showed only "cannot reach the server" when the relay was down. Each page that arrives is kept in
+   cache/torch-monument.json (the last CACHE_KEEP pages by query); when no host answers, the same query is served from there
+   with cached:true and the page keeps retrying quietly. A route that is not deployed is not served from the cache. */
+const CACHE_KEEP=24;
+const cacheFile=root=>path.join(root,'cache','torch-monument.json');
+function readCache(root){try{const c=JSON.parse(fs.readFileSync(cacheFile(root),'utf8'));return c&&typeof c==='object'&&!Array.isArray(c)?c:{};}catch{return {};}}
+function keepPage(root,key,value){
+ try{
+  const c=readCache(root);delete c[key];c[key]={...value,cachedAt:Math.floor(Date.now()/1000)};
+  const keys=Object.keys(c);for(const k of keys.slice(0,Math.max(0,keys.length-CACHE_KEEP)))delete c[k];
+  const file=cacheFile(root),tmp=file+'.'+process.pid+'.tmp';fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(tmp,JSON.stringify(c));fs.renameSync(tmp,file);
+ }catch{}
+}
+function cachedPage(root,key){
+ const c=readCache(root)[key];if(!c||!Array.isArray(c.items))return null;
+ return {ok:true,cached:true,cachedAt:Math.max(0,Number(c.cachedAt)|0),total:Math.max(0,Number(c.total)|0),month:MONTH.test(String(c.month||''))?c.month:null,
+  items:c.items.map(cleanItem).filter(Boolean).slice(0,500),...(typeof c.hasPrevious==='boolean'?{hasPrevious:c.hasPrevious}:{}),next:/^d{1,12}$/.test(String(c.next??''))?String(c.next):null};
+}
 async function page(root,{month='',cursor='',before='',limit=300}={},opts={}){
  const q=new URLSearchParams();if(MONTH.test(String(month||'')))q.set('month',month);if(/^\d{1,12}$/.test(String(cursor??'')))q.set('cursor',String(cursor));
  if(/^\d{1,12}$/.test(String(before)))q.set('before',String(before));
  q.set('limit',String(Math.max(1,Math.min(500,Math.trunc(Number(limit)||300)))));
- const r=await get(root,'/api/torch/monument?'+q.toString(),opts);if(r.status!=='ok')return {ok:false,error:r.status==='missing'?'NOT_DEPLOYED':'OFFLINE'};
+ const key=q.toString(),r=await get(root,'/api/torch/monument?'+key,opts);
+ if(r.status==='failed'){const kept=cachedPage(root,key);if(kept)return kept;}
+ if(r.status!=='ok')return {ok:false,error:r.status==='missing'?'NOT_DEPLOYED':'OFFLINE'};
  const items=(Array.isArray(r.json.items)?r.json.items:[]).map(cleanItem).filter(Boolean).slice(0,500);
- return {ok:true,total:Math.max(0,Number(r.json.total)|0),month:MONTH.test(String(r.json.month||''))?r.json.month:null,items,...(typeof r.json.hasPrevious==='boolean'?{hasPrevious:r.json.hasPrevious}:{}),next:/^\d{1,12}$/.test(String(r.json.next??''))?String(r.json.next):null};}
+ const out={ok:true,total:Math.max(0,Number(r.json.total)|0),month:MONTH.test(String(r.json.month||''))?r.json.month:null,items,...(typeof r.json.hasPrevious==='boolean'?{hasPrevious:r.json.hasPrevious}:{}),next:/^\d{1,12}$/.test(String(r.json.next??''))?String(r.json.next):null};
+ keepPage(root,key,out);
+ return out;}
 async function months(root,opts={}){const r=await get(root,'/api/torch/months',opts);if(r.status==='missing')return {ok:true,available:false,months:[]};if(r.status!=='ok')return {ok:false,error:'OFFLINE',available:true,months:[]};
  const list=(Array.isArray(r.json.months)?r.json.months:[]).filter(m=>m&&MONTH.test(String(m.month))&&Number(m.n)>0).map(m=>({month:m.month,n:Number(m.n)|0})).sort((a,b)=>a.month<b.month?-1:1);
  return {ok:true,available:true,total:Math.max(0,Number(r.json.total)|0),months:list};}

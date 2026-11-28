@@ -65,7 +65,9 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
    assert.ok(facts.baked&&facts.noLeak&&facts.singleCap&&facts.continuous,JSON.stringify(facts));
    assert.ok(await ev(`document.querySelector('.tm-help').textContent.startsWith('WASD')&&canvas.getAttribute('aria-label').includes('WASD')`));
    assert.ok(Math.abs(facts.cover[0])<.7&&facts.cover[1]>.15&&facts.cover[1]<.75&&facts.opacity===.65,JSON.stringify(facts));
-   assert.deepEqual(facts.terrain,[0,0,0,-4,-4]);
+   /* 2026-11-29 the terrace and the doorstep are level, the meadow rolls gently, and past the cliff the ground is below the water */
+   assert.deepEqual(facts.terrain.slice(0,2),[0,0]);assert.ok(Math.abs(facts.terrain[2])<.6,JSON.stringify(facts.terrain));
+   assert.ok(facts.terrain[3]<-4&&facts.terrain[4]<-4,JSON.stringify(facts.terrain));
   }
   async function cap(name,pose){await ev('window.pose='+JSON.stringify(pose));await delay(105);const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));}
   for(let i=0;i<15;i++)await cap('night-track-'+String(i).padStart(2,'0'),[[94+i*.65,2.4,133+i*.81],[8,10,11]]);

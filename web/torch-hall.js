@@ -12,7 +12,7 @@
 import * as THREE from './vendor/three/three.module.min.js';
 import {mergeGeometries} from './vendor/three/addons/utils/BufferGeometryUtils.js';
 import {ashlar,relief,coffers,rose,lancet,quarries,marble,marbleHQ,floorHQ,inlay,glowSprite,basalt,basketRelief} from './torch-textures.js';
-import {MIRROR_LEVEL,TERRACE,GROUND_BOUNDS,torchGroundHeight} from './torch-ground.js';
+import {MIRROR_LEVEL,TERRACE,GROUND_BOUNDS,torchGroundHeight,islandEdge,trailDistance} from './torch-ground.js';
 import {maps,isBakedTorchCanvas} from './torch-bake.js';
 import {buildMeadow,MEADOW_TURF,meadowPatch} from './torch-meadow.js';
 
@@ -150,6 +150,8 @@ export function buildStele({scene,keep,tier}){const low=tier==='low',T=textureMa
 /* ---------- the hall ---------- */
 /* 2026-11-28 async: slice() hands the main thread back between the big parts (see buildScene in torch-monument.js) */
 export async function buildHall({scene,keep,tex,tier,maxAniso=8,slice=async()=>{}}){
+ /* long loops hand the thread back every ~40 ms of work */
+ let mark=performance.now();const tick=async()=>{if(performance.now()-mark<40)return;await slice();mark=performance.now();};
  const {HX,BACK,FRONT,SPRING,NZ1,AX}=HALL,R=HX,low=tier==='low',Q=low?.5:1,BAYZ=(BACK+FRONT)/2;
  const hall=new THREE.Group();scene.add(hall);
  const skipInMirror=[],noAO=[],castAll=[];
@@ -475,23 +477,27 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
    add(new THREE.TorusGeometry(wr+.045,.105,8,64),exteriorTrim,[0,wy,NZ1+.62]);
    add(new THREE.TorusGeometry(wr+.1,.18,10,64),smooth,[0,wy,NZ1-.5]);windows.west={pos:new THREE.Vector3(0,wy,NZ1-.5),normal:new THREE.Vector3(0,0,1),r:wr};}
 
- /* The plateau and the meadow before the door share their height function with the camera. Their sloped body continues below water. */
- const {back}=TERRACE,{x:edge,z0,z1}=GROUND_BOUNDS,cell=low?1.7:1.05;
+ /* The plateau and the meadow before the door share their height function with the camera. The cliff round them goes on below
+    the water; a finer grid than before so the cliff face has rows enough for its strata. */
+ const {back}=TERRACE,{x:edge,z0,z1}=GROUND_BOUNDS,cell=low?1:.55;
  const island=new THREE.PlaneGeometry(edge*2,z1-z0,Math.round(edge*2/cell),Math.round((z1-z0)/cell)).rotateX(-Math.PI/2).translate(0,0,(z0+z1)/2);
  const pts=island.attributes.position,colors=[];
  const dark=new THREE.Color(MEADOW_TURF.dark),green=new THREE.Color(MEADOW_TURF.green),soil=new THREE.Color(MEADOW_TURF.soil),path=new THREE.Color(MEADOW_TURF.path);
  for(let i=0;i<pts.count;i++){
+  if((i&1023)===0)await tick();
   const x=pts.getX(i),z=pts.getZ(i),height=torchGroundHeight(x,z);
   const hallInset=(1-THREE.MathUtils.smoothstep(Math.abs(x),12.8,13.45))
    *THREE.MathUtils.smoothstep(z,back+1,back+2)*(1-THREE.MathUtils.smoothstep(z,39,40));
   pts.setY(i,Math.min(-.012,height)-.14*hallInset-.20*THREE.MathUtils.smoothstep(-height,3.75,4));
   const wave=.25+.5*meadowPatch(x,z)+.06*Math.sin(x*1.53-z*.96);
-  const color=dark.clone().lerp(green,wave).lerp(soil,THREE.MathUtils.smoothstep(-height,3.4,4)*.6);
+  /* the last metre before the cliff is thin turf over earth */
+  const color=dark.clone().lerp(green,wave).lerp(soil,THREE.MathUtils.smoothstep(islandEdge(x,z),-1.6,0)*.55);
   const foot=Math.max(Math.abs(x)-13.9,back+1-z,z-41.2);
   color.multiplyScalar(.58+.42*THREE.MathUtils.smoothstep(foot,0,3));
-  const trailX=.85*Math.sin(Math.max(0,z-42.6)*.24);
-  const entry=(1-THREE.MathUtils.smoothstep(Math.abs(x-trailX),.85,2.2))*THREE.MathUtils.smoothstep(z,40,43)*(1-THREE.MathUtils.smoothstep(z,49,53));
-  color.lerp(path,entry*.50);
+  /* the walked trail: bare in the middle, worn grass at its edges, a little uneven */
+  const td=trailDistance(x,z),worn=.5+.5*Math.sin(x*2.1+z*1.3)*Math.sin(z*.7-x*.9);
+  const entry=(1-THREE.MathUtils.smoothstep(td,.55+.25*worn,1.9))*THREE.MathUtils.smoothstep(z,40,43);
+  color.lerp(path,entry*(.55+.15*worn));
   color.toArray(colors,colors.length);
  }
  island.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));island.computeVertexNormals();
@@ -499,12 +505,28 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
   clippingPlanes:[new THREE.Plane(new THREE.Vector3(0,1,0),-MIRROR_LEVEL+.005)]
  }));
  skyFill(turf,0x34472f,.23);
+ /* the cliff: where the ground is steep it shows earth over banded rock, in world height so the bands run level all round */
+ turf.onBeforeCompile=sh=>{
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vGroundW;varying float vGroundUp;')
+   .replace('#include <begin_vertex>','#include <begin_vertex>\nvGroundW=(modelMatrix*vec4(transformed,1.)).xyz;vGroundUp=normalize(mat3(modelMatrix)*objectNormal).y;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vGroundW;varying float vGroundUp;')
+   .replace('#include <color_fragment>',`#include <color_fragment>
+    float steep=1.-smoothstep(.5,.78,vGroundUp);
+    float wob=sin(vGroundW.x*.7+vGroundW.z*.5)*.5+sin(vGroundW.x*2.3-vGroundW.z*1.7)*.22;
+    float band=fract((vGroundW.y+wob*.3)*1.2);
+    vec3 rock=mix(vec3(.30,.30,.33),vec3(.19,.19,.23),smoothstep(.25,.75,band));
+    rock=mix(rock,vec3(.36,.27,.17),smoothstep(.82,.95,band)*.55);
+    vec3 strata=mix(rock,vec3(.22,.16,.10),smoothstep(-1.5,-.45,vGroundW.y));
+    strata*=.82+.36*fract(sin(dot(floor(vGroundW.xz*2.5+vGroundW.y*1.7),vec2(12.9898,78.233)))*43758.5453);
+    diffuseColor.rgb=mix(diffuseColor.rgb,strata,steep);`);
+ };
+ turf.customProgramCacheKey=()=>'torch-turf-cliff';
  add(island,turf,null,null,{cast:false}).name='Church ground';
 
  await slice();
- /* the meadow lives in torch-meadow.js; it keeps off the hall, its doorstep and the short trail that leaves the west door and fades into the meadow */
- const meadow=buildMeadow({hall,keep,low,skyFill,reduced:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,
-  blocked:(x,z)=>(Math.abs(x)<14.3&&z>BACK&&z<NZ1+1.5)||(z>NZ1&&z<52&&Math.abs(x-.85*Math.sin(Math.max(0,z-42.6)*.24))<1.15)});
+ /* the meadow lives in torch-meadow.js; it keeps off the hall, its doorstep and the trail from the west door to the clearing */
+ const meadow=await buildMeadow({hall,keep,low,skyFill,tick,reduced:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,
+  blocked:(x,z)=>(Math.abs(x)<14.3&&z>BACK&&z<NZ1+1.5)||(z>NZ1&&trailDistance(x,z)<.75)});
  /* the water only shows the shore below the meadow, so blades stay out of the mirror pass */
  skipInMirror.push(...meadow.mirrorSkip);
  await slice();
@@ -583,8 +605,8 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
 
  /* ---- sky, sun and moon ---- */
  const hemi=new THREE.HemisphereLight(0xb8b0e8,0x3a3238,.4);scene.add(hemi);
- const sun=new THREE.DirectionalLight(0xffffff,1);sun.target.position.set(0,0,10);scene.add(sun);scene.add(sun.target);
- { const sc=sun.shadow.camera;sc.left=-34;sc.right=34;sc.top=34;sc.bottom=-34;sc.near=1;sc.far=140;sun.shadow.bias=-.0003;sun.shadow.normalBias=.03;}
+ const sun=new THREE.DirectionalLight(0xffffff,1);sun.target.position.set(0,0,18);scene.add(sun);scene.add(sun.target);
+ { /* the box reaches past the west door, so the hall shades the trail and the near meadow */const sc=sun.shadow.camera;sc.left=-42;sc.right=42;sc.top=42;sc.bottom=-42;sc.near=1;sc.far=140;sun.shadow.bias=-.0003;sun.shadow.normalBias=.03;}
  /* shafts: one bundle per window side; they turn with the sun and fade with how squarely the sun faces that side */
  const beamMat=keep(new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false,
   uniforms:{uTime:{value:0},uColor:{value:new THREE.Color(0xd2caf8)},uStrength:{value:0}},

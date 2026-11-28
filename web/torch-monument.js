@@ -33,15 +33,18 @@ const cnParse=q=>{const D="零壹贰叁肆伍陆柒捌玖",U={"拾":10,"佰":100
 const COPY={
  zh:{title:'传火碑',sub:'这里记录玩家为各部作品分享的校准',count:n=>'已刻名 '+n+' 处',monthCount:(m,n)=>m+' · '+n+' 处',range:(a,b)=>'第 '+a+'–'+b+' 位',all:'全部',
   anon:'匿名',empty:'还没有人刻下名字',find:'找名字',findGo:'查找',me:'我的名字',meNone:'还没有查到这个账号的刻名',quality:{high:'画质 标准',low:'画质 省电'},
-  prev:'往前',next:'往后',none:'没找到这个名字',offline:'暂时连不上服务器，过一会儿再打开看看',notDeployed:'服务器尚未开放这个名单功能',loading:'正在读取…',preparing:'正在准备殿堂…',simple:'用简化视图',more:'只显示前 50 个',
+  prev:'往前',next:'往后',none:'没找到这个名字',offline:'暂时连不上服务器，过一会儿再打开看看',notDeployed:'服务器尚未开放这个名单功能',loading:'正在读取…',preparing:'正在准备殿堂…',simple:'用简化视图',mode:'浏览方式',modeFree:'自由',modeRank:'看榜',rankTitle:'传火人排行',rankFind:'搜索名字或位次',rankNo:n=>'第 '+n+' 位',rankCount:n=>'刻名 '+n+' 处',
+  cardGame:'作品',cardAt:'刻名于',cardCount:'刻名',cardN:n=>n+' 处',prevOne:'上一个',nextOne:'下一个',closePanel:'关闭',cachedNote:'离线 · 上次的名单',more:'只显示前 50 个',
   ym:m=>m.replace(/^(\d{4})-(\d{2})$/,(x,y,mo)=>y+' 年 '+Number(mo)+' 月')},
  en:{title:'Monument',sub:'Calibrations shared by contributors for each game',count:n=>n+' names',monthCount:(m,n)=>m+' · '+n,range:(a,b)=>'#'+a+'–'+b,all:'All',
   anon:'Anonymous',empty:'No names carved yet',find:'Find a name',findGo:'Find',me:'My name',meNone:'No inscriptions found for this account',quality:{high:'Quality: full',low:'Quality: light'},
-  prev:'Back',next:'On',none:'No such name',offline:'Cannot reach the server right now. Try again later.',notDeployed:'This list feature is not available on the server yet.',loading:'Loading…',preparing:'Preparing the hall…',simple:'Use the simple view',more:'First 50 only',
+  prev:'Back',next:'On',none:'No such name',offline:'Cannot reach the server right now. Try again later.',notDeployed:'This list feature is not available on the server yet.',loading:'Loading…',preparing:'Preparing the hall…',simple:'Use the simple view',mode:'View',modeFree:'Free',modeRank:'Ranking',rankTitle:'Torch bearers',rankFind:'Search a name or #',rankNo:n=>'#'+n,rankCount:n=>n===1?'1 inscription':n+' inscriptions',
+  cardGame:'Game',cardAt:'Carved',cardCount:'Inscriptions',cardN:n=>String(n),prevOne:'Previous',nextOne:'Next',closePanel:'Close',cachedNote:'Offline · last list',more:'First 50 only',
   ym:m=>m},
  ja:{title:'継火の碑',sub:'作品ごとにキャリブレーションを共有した記録です',count:n=>n+' 件',monthCount:(m,n)=>m+' · '+n+' 件',range:(a,b)=>a+'–'+b+' 番目',all:'すべて',
   anon:'匿名',empty:'まだ誰の名前も刻まれていません',find:'名前を探す',findGo:'探す',me:'自分の名前',meNone:'このアカウントの刻名は見つかりませんでした',quality:{high:'画質 標準',low:'画質 軽量'},
-  prev:'前へ',next:'次へ',none:'見つかりませんでした',offline:'サーバーに接続できません。しばらくしてからもう一度開いてください',notDeployed:'名簿機能はサーバーでまだ公開されていません',loading:'読み込み中…',preparing:'聖堂を準備しています…',simple:'簡易表示にする',more:'最初の 50 件のみ',
+  prev:'前へ',next:'次へ',none:'見つかりませんでした',offline:'サーバーに接続できません。しばらくしてからもう一度開いてください',notDeployed:'名簿機能はサーバーでまだ公開されていません',loading:'読み込み中…',preparing:'聖堂を準備しています…',simple:'簡易表示にする',mode:'表示',modeFree:'自由',modeRank:'ランキング',rankTitle:'継火者ランキング',rankFind:'名前や番号で検索',rankNo:n=>n+' 番目',rankCount:n=>'刻名 '+n+' 件',
+  cardGame:'作品',cardAt:'刻名日',cardCount:'刻名',cardN:n=>n+' 件',prevOne:'前へ',nextOne:'次へ',closePanel:'閉じる',cachedNote:'オフライン · 前回の名簿',more:'最初の 50 件のみ',
   ym:m=>m.replace(/^(\d{4})-(\d{2})$/,(x,y,mo)=>y+' 年 '+Number(mo)+' 月')}};
 const QUALITY_KEY='megulit-torch-quality';
 const FONT='"Torch Serif","Noto Serif SC","Source Han Serif SC","Noto Serif JP","Songti SC","SimSun","Yu Mincho",serif';
@@ -59,7 +62,7 @@ export function leaveTorchMonument(){current?.leave();}
 /* the simple list was needed in this session (the bake could not be read, or the hall took too long and the simple view was
    picked): later visits go straight to it until MeguLit restarts */
 let preferSimple=false;
-const SIMPLE_AFTER=10000;
+const SIMPLE_AFTER=10000,RETRY_MS=30000;
 /* hand the main thread back between slices of the build, so clicks (the top bar) are handled while the hall is put together */
 const yieldMain=()=>new Promise(resolve=>setTimeout(resolve,0));
 const CANCELLED=Symbol('torch-cancelled');
@@ -93,8 +96,22 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
    <form class="tm-find" hidden><input type="search" maxlength="30" autocomplete="off" spellcheck="false" placeholder="${esc(t.find)}" aria-label="${esc(t.find)}"><button type="submit" class="tm-btn tm-text">${esc(t.findGo)}</button><ul class="tm-results" hidden></ul></form>
    <button type="button" class="tm-btn tm-text tm-me" hidden>${esc(t.me)}</button>
    <span class="tm-sep" aria-hidden="true"></span>
+   <div class="tm-modes" role="group" aria-label="${esc(t.mode)}"><button type="button" class="tm-btn tm-text tm-mode-free" aria-pressed="true">${esc(t.modeFree)}</button><button type="button" class="tm-btn tm-text tm-mode-rank" aria-pressed="false">${esc(t.modeRank)}</button></div>
+   <span class="tm-sep tm-sep-modes" aria-hidden="true"></span>
    <button type="button" class="tm-btn tm-text tm-quality" aria-pressed="false" disabled></button>
-  </footer>`;
+  </footer>
+  <aside class="tm-rank" hidden aria-label="${esc(t.rankTitle)}">
+   <header class="tm-rank-head"><h3>${esc(t.rankTitle)}</h3><button type="button" class="tm-btn tm-rank-close" aria-label="${esc(t.closePanel)}" title="${esc(t.closePanel)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></button></header>
+   <input type="search" class="tm-rank-find" maxlength="30" autocomplete="off" spellcheck="false" placeholder="${esc(t.rankFind)}" aria-label="${esc(t.rankFind)}">
+   <ol class="tm-rank-list"></ol>
+   <footer class="tm-rank-pager"><button type="button" class="tm-btn tm-rank-prev" aria-label="${esc(t.prev)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg></button><span class="tm-rank-range"></span><button type="button" class="tm-btn tm-rank-next" aria-label="${esc(t.next)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg></button></footer>
+  </aside>
+  <section class="tm-card" hidden aria-live="polite">
+   <button type="button" class="tm-btn tm-card-close" aria-label="${esc(t.closePanel)}" title="${esc(t.closePanel)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></button>
+   <p class="tm-card-no"></p><h3 class="tm-card-name"></h3>
+   <dl><dt>${esc(t.cardGame)}</dt><dd class="tm-card-game"></dd><dt>${esc(t.cardAt)}</dt><dd class="tm-card-at"></dd><dt>${esc(t.cardCount)}</dt><dd class="tm-card-n"></dd></dl>
+   <div class="tm-card-nav"><button type="button" class="tm-btn tm-text tm-card-prev">${esc(t.prevOne)}</button><button type="button" class="tm-btn tm-text tm-card-next">${esc(t.nextOne)}</button></div>
+  </section>`;
  const $=s=>host.querySelector(s);
  const state={month:'',months:[],monthsOn:false,findOn:false,mine:[],mineAt:0,items:[],off:0,next:null,atStart:true,total:0,loading:false,pageError:'',focusNo:null,fit:0,layout:null,
   bandWindow:0,hover:null,hoverMonth:null};
@@ -111,11 +128,22 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  /* ---------- data ---------- */
  const call=async(a,p)=>{try{return await api(a,p);}catch{return {ok:false};}};
  let pageRequest=0,initialPagePending=true;
- async function loadAt({month=state.month,cursor=''}={},valid=()=>!disposed){
-  const request=++pageRequest;state.loading=true;updateStatus();
+ let retryTimer=0;
+ /* 2026-11-29 a page served from the last copy (the relay could not be reached) is shown as it is, and asked for again
+    every RETRY_MS without any loading line until the relay answers */
+ function retryLater(){
+  if(retryTimer||disposed)return;
+  retryTimer=setTimeout(async()=>{retryTimer=0;if(disposed)return;if(state.loading){retryLater();return;}
+   const id=visit,ok=await loadAt({month:state.month,cursor:'',quiet:true},()=>!disposed);
+   if(ok){if(id===visit)state.focusNo=null;redraw();}},RETRY_MS);
+ }
+ async function loadAt({month=state.month,cursor='',quiet=false}={},valid=()=>!disposed){
+  const request=++pageRequest;if(!quiet){state.loading=true;updateStatus();}
   const r=await call('torch_page',{month,cursor,limit:PAGE});if(!valid()||request!==pageRequest)return false;
   state.loading=false;
-  if(!r||!r.ok){state.pageError=r?.error==='NOT_DEPLOYED'?t.notDeployed:t.offline;state.items=[];state.next=null;state.total=0;updateStatus();redraw();return false;}
+  if(r?.ok&&r.cached&&quiet){retryLater();return false;}
+  if(!r||!r.ok){const again=r?.error!=='NOT_DEPLOYED';if(quiet){if(again)retryLater();return false;}if(again)retryLater();state.pageError=r?.error==='NOT_DEPLOYED'?t.notDeployed:t.offline;state.items=[];state.next=null;state.total=0;updateStatus();redraw();return false;}
+  state.stale=!!r.cached;if(r.cached)retryLater();
   state.pageError='';updateStatus();state.month=r.month||month||'';state.items=r.items||[];state.next=r.next;state.total=r.total|0;state.off=0;
   state.atStart=!cursor||!state.items.length;return true;}
  async function ahead(valid){if(!valid()||state.loading||!state.next||state.off+state.fit+60<state.items.length)return;
@@ -149,7 +177,7 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
   :!sceneReady?t.preparing+(progress>=.01?' '+Math.round(progress*100)+'%':''):state.loading?t.loading:state.pageError);}
  function setProgress(p){if(p<=progress)return;progress=Math.min(.99,p);if(!sceneReady&&!simple)updateStatus();}
  function updateChrome(){const L=state.layout,n=state.total;
-  $('.tm-count').textContent=state.month?t.monthCount(t.ym(state.month),n):n?t.count(n):'';
+  $('.tm-count').textContent=(state.month?t.monthCount(t.ym(state.month),n):n?t.count(n):'')+(state.stale?(n?' · ':'')+t.cachedNote:'');
   const first=L?.entries[0]?.item,last=L?.entries[L.entries.length-1]?.item;
   $('.tm-range').textContent=first?t.range(first.torchNo,last.torchNo):'';
   $('.tm-pager').hidden=!first;
@@ -186,6 +214,7 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  function layoutNow(){state.layout=layoutFrom(state.off);state.fit=state.layout.entries.length;return state.layout;}
  function redraw(){if(disposed)return;layoutNow();updateChrome();
   if(simple){renderList();return;}
+  renderRank();
   if(mounted)scene?.paintFace();else faceDirty=true;}
  /* the simple view: the names of the current page as a plain list, paged by the same arrows */
  function renderList(){const list=$('.tm-list');
@@ -198,7 +227,8 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
   canvas.removeEventListener('webglcontextlost',onLost);
   if(scene){ro?.disconnect();ro=null;scene.dispose();scene=null;}
   host.classList.add('tm-simple');
-  canvas.hidden=veil.hidden=$('.tm-help').hidden=$('.tm-quality').hidden=$('.tm-sep').hidden=$('.tm-simple-go').hidden=true;
+  canvas.hidden=veil.hidden=$('.tm-help').hidden=$('.tm-quality').hidden=$('.tm-sep').hidden=$('.tm-modes').hidden=$('.tm-sep-modes').hidden=$('.tm-simple-go').hidden=true;
+  setMode('free');
   bar.inert=false;timing('simple',opened);updateStatus();redraw();
  }
 
@@ -206,6 +236,64 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  const tier=pickTier(quality());
  const timed=async(name,work)=>{const start=performance.now();try{return await work();}finally{timing(name,start);}};
  /* controls */
+ /* 2026-11-29 user: 现在这个整体不错就是不好去看排行 最好加个自由模式切换啥的 进来的时候运镜不用改. Two ways to look, switched
+    beside 画质: free (walk and drag as before; the default, and the only one that shows the controls line) and ranking (a panel
+    over the scene with the bearers in order, a page at a time, searchable; picking one flies the camera to their name and opens
+    a card with previous and next; closing the panel goes back to the view from before). */
+ const RANK_PAGE=12;
+ const rank={on:false,page:0,query:'',found:null};
+ const rankPanel=$('.tm-rank'),rankList=$('.tm-rank-list'),card=$('.tm-card');
+ const nameOf=it=>it.name||it.alias||t.anon;
+ function rankRows(){
+  const q=rank.query.trim().toLowerCase().replace(/^#/,'');
+  const rows=(q&&rank.found?rank.found:state.items).slice().sort((a,b)=>a.torchNo-b.torchNo);
+  return q&&!rank.found?rows.filter(it=>nameOf(it).toLowerCase().includes(q)||String(it.torchNo)===q):rows;
+ }
+ function carvedBy(){const m=new Map();for(const it of state.items){const k=nameOf(it);m.set(k,(m.get(k)||0)+1);}return m;}
+ function renderRank(){
+  if(!rank.on)return;
+  const rows=rankRows(),pages=Math.max(1,Math.ceil(rows.length/RANK_PAGE));rank.page=Math.max(0,Math.min(rank.page,pages-1));
+  const n=carvedBy(),shown=rows.slice(rank.page*RANK_PAGE,(rank.page+1)*RANK_PAGE);
+  rankList.innerHTML=shown.length?shown.map(it=>`<li><button type="button" class="tm-rank-row" data-no="${it.torchNo}"${it.torchNo===state.focusNo?' aria-current="true"':''}><span class="tm-rank-no">${esc(t.rankNo(it.torchNo))}</span><b>${esc(nameOf(it))}</b><span class="tm-rank-game">${esc(it.game||'')}</span><span class="tm-rank-n">${esc(t.rankCount(n.get(nameOf(it))||1))}</span></button></li>`).join('')
+   :`<li class="tm-rank-empty">${esc(state.pageError||(rank.query?t.none:t.empty))}</li>`;
+  $('.tm-rank-range').textContent=(rank.page+1)+' / '+pages;
+  $('.tm-rank-prev').disabled=rank.page<=0;$('.tm-rank-next').disabled=rank.page>=pages-1;
+ }
+ function closeCard(){if(card.hidden)return;card.hidden=true;state.focusNo=null;redraw();if(scene?.reading())scene.resetView();}
+ function setMode(mode){
+  const on=mode==='rank';if(on===rank.on)return;rank.on=on;
+  $('.tm-mode-free').setAttribute('aria-pressed',String(!on));$('.tm-mode-rank').setAttribute('aria-pressed',String(on));
+  rankPanel.hidden=!on;$('.tm-help').hidden=on||simple;host.classList.toggle('tm-ranking',on);
+  if(on){rank.page=0;renderRank();}else{results.hidden=true;closeCard();}
+ }
+ async function showCard(item){
+  if(!item)return;
+  card.querySelector('.tm-card-no').textContent=t.rankNo(item.torchNo);card.querySelector('.tm-card-name').textContent=nameOf(item);
+  card.querySelector('.tm-card-game').textContent=item.game||'—';card.querySelector('.tm-card-at').textContent=dateText(item.at,true)||'—';
+  card.querySelector('.tm-card-n').textContent=t.cardN(carvedBy().get(nameOf(item))||1);
+  card.dataset.no=String(item.torchNo);card.hidden=false;
+  if(state.layout?.entries.some(e=>e.item.torchNo===item.torchNo)){state.focusNo=item.torchNo;redraw();scene?.lookAtFocus();}
+  else await jumpTo(item);
+  renderRank();
+ }
+ function stepCard(dir){
+  const rows=rankRows(),i=rows.findIndex(it=>String(it.torchNo)===card.dataset.no),next=rows[i+dir];
+  if(i<0||!next)return;rank.page=Math.floor((i+dir)/RANK_PAGE);showCard(next);
+ }
+ $('.tm-mode-free').addEventListener('click',()=>setMode('free'));$('.tm-mode-rank').addEventListener('click',()=>setMode('rank'));
+ $('.tm-rank-close').addEventListener('click',()=>setMode('free'));
+ $('.tm-card-close').addEventListener('click',()=>{closeCard();renderRank();});
+ $('.tm-card-prev').addEventListener('click',()=>stepCard(-1));$('.tm-card-next').addEventListener('click',()=>stepCard(1));
+ $('.tm-rank-prev').addEventListener('click',()=>{rank.page--;renderRank();});$('.tm-rank-next').addEventListener('click',()=>{rank.page++;renderRank();});
+ $('.tm-rank-find').addEventListener('input',e=>{rank.query=e.target.value;rank.found=null;rank.page=0;renderRank();});
+ /* Enter looks further than the loaded pages, through the same search the 找名字 box uses */
+ $('.tm-rank-find').addEventListener('keydown',async e=>{
+  if(e.key!=='Enter'||e.isComposing)return;e.preventDefault();const q=rank.query.trim();if(!q||!state.findOn||rankRows().length)return;
+  const id=visit,r=await call('torch_find',{name:q});if(!isVisit(id)||rank.query.trim()!==q)return;
+  rank.found=r?.ok?r.items||[]:[];rank.page=0;renderRank();
+ });
+ rankList.addEventListener('click',e=>{const b=e.target.closest?.('.tm-rank-row');if(!b)return;
+  const no=b.dataset.no;showCard(state.items.find(it=>String(it.torchNo)===no)||rank.found?.find(it=>String(it.torchNo)===no));});
  $('.tm-simple-go').addEventListener('click',enterSimple);$('.tm-prev').addEventListener('click',()=>step(-1));$('.tm-next').addEventListener('click',()=>step(1));
  $('.tm-quality').addEventListener('click',()=>{const next=scene.tier==='low'?'high':'low';try{localStorage.setItem(QUALITY_KEY,next);}catch{}scene.setTier(next);updateChrome();});
  $('.tm-me').addEventListener('click',()=>{if(!state.mine.length){toast(t.meNone);return;}const it=state.mine[state.mineAt%state.mine.length];state.mineAt++;jumpTo(it);});
@@ -228,6 +316,8 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
    e.preventDefault();return;
   }
   if(!host.contains(e.target))return;
+  if(e.key==='Escape'&&!card.hidden){e.preventDefault();closeCard();renderRank();return;}
+  if(e.key==='Escape'&&rank.on&&results.hidden&&!scene.reading()){e.preventDefault();setMode('free');return;}
   if(e.key==='Escape'){if(!results.hidden){e.preventDefault();results.hidden=true;}else if(scene.reading()){e.preventDefault();scene.resetView();}return;}
   if(e.target.closest?.('input,textarea'))return;
   if(e.key==='+'||e.key==='='){e.preventDefault();scene.walkBy(-120,0);return;}if(e.key==='-'){e.preventDefault();scene.walkBy(120,0);return;}if(e.key==='0'){e.preventDefault();scene.resetView();return;}
@@ -396,7 +486,7 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
  function close(){
   if(disposed)return;
   suspend();disposed=true;if(current===ctl)current=null;
-  clearTimeout(slowTimer);slowTimer=0;clearInterval(assetTick);assetTick=0;
+  clearTimeout(slowTimer);slowTimer=0;clearInterval(assetTick);assetTick=0;clearTimeout(retryTimer);retryTimer=0;
   wakePreparation?.();
   canvas.removeEventListener('webglcontextlost',onLost);
   removeEventListener('pagehide',onPageHide);removeEventListener('megulit-game-launch',close);
@@ -448,7 +538,7 @@ async function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo
   if(renderer){renderer.renderLists.dispose();renderer.dispose();if(!renderer.getContext().isContextLost())renderer.forceContextLoss();}
  }
  let part=0;const PARTS=12;
- async function slice(full){onProgress(++part/PARTS);await yieldMain();if(alive())return;if(full)dispose();else abandon();throw CANCELLED;}
+ async function slice(full){onProgress(Math.min(1,++part/PARTS));await yieldMain();if(alive())return;if(full)dispose();else abandon();throw CANCELLED;}
  await slice(false);
  const tBuild=performance.now();const H=await buildHall({scene,keep,tex,tier,maxAniso:8,slice:()=>slice(false)});const buildMs=performance.now()-tBuild;
  await slice(false);
@@ -760,7 +850,7 @@ async function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo
   const outdoor=THREE.MathUtils.smoothstep(outside,-.6,14);
   const night=1-THREE.MathUtils.smoothstep(H.state.el,-13,1);
   scene.fog.color.lerp(haze.copy(hazeDay).lerp(hazeNight,night),outdoor);
-  scene.fog.density=THREE.MathUtils.lerp(scene.fog.density,.00135,outdoor);
+  /* outdoors at night a little more haze, so the far meadow and the water melt into the blue hour */scene.fog.density=THREE.MathUtils.lerp(scene.fog.density,.00135+.0006*night,outdoor);
   courtyard.update(camera,H.state);covers.update(time,dt);draw();
   if(onFirstFrame&&!renderer.getContext().isContextLost()){onFirstFrame();onFirstFrame=null;}
   /* slow frames on the full tier for ~3 s after the intro: switch to the light tier (only in auto mode) */
