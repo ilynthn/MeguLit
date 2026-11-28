@@ -81,9 +81,19 @@
 .ab-jempty{margin:0;font:14px/1.7 var(--ab-serif);color:var(--ab-t3)}
 
 /* ── 致谢 + the quiet uninstall line ── */
-.ab-cred{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px}
-.ab-cred div{display:grid;gap:2px}
-.ab-cred dt{font:15.5px/1.35 var(--ab-serif);color:var(--ab-text)}.ab-cred dd{margin:0;font:13px/1.45 var(--ab-serif);color:var(--ab-t3)}
+/* a small film-credits window (web/credits-roll.js moves it); ab-still = reduced motion: the same window, scrolled by hand */
+.ab-cred{position:relative;height:184px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;outline:0;text-align:center;
+ -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 24%,#000 76%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 24%,#000 76%,transparent 100%)}
+.ab-cred::-webkit-scrollbar{display:none}
+.ab-cred:focus-visible{box-shadow:0 0 0 1px var(--ab-rule)}
+.ab-cred-track{padding:92px 0 100px}
+.ab-cr{display:grid;justify-items:center;gap:1px;margin:0 0 14px}
+.ab-cr small{font:12.5px/1.4 var(--ab-serif);color:var(--ab-t3)}
+.ab .ab-cr .ab-cr-name{font:15.5px/1.35 var(--ab-serif);color:var(--ab-text);font-weight:400;overflow-wrap:anywhere}
+.ab-cr button{border:0;background:none;padding:0 0 1px;border-bottom:1px solid transparent;cursor:pointer;transition:color .15s,border-color .15s}
+.ab-cr button:is(:hover,:focus-visible){color:var(--ab-gold);border-color:var(--ab-rule);outline:0}
+.ab-cred.ab-still{-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 86%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0,#000 86%,transparent 100%)}
+.ab-cred.ab-still .ab-cred-track{padding:2px 0 24px}
 .ab-end{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding-top:12px;border-top:1px solid var(--ab-rule2);font:13.5px var(--ab-serif);color:var(--ab-t3)}
 .ab-danger{flex:none;border:0;background:none;padding:0 0 1px;border-bottom:1px solid var(--ab-rule2);color:var(--ab-t2);font:13.5px var(--ab-serif);transition:color .15s,border-color .15s}
 .ab-danger:is(:hover,:focus-visible){color:#e06a74;border-color:var(--ab-red);outline:0}
@@ -129,3 +139,4 @@
 }
 @media (prefers-reduced-motion:reduce){.ab-typed::after{animation:none}}
 
+.ab-thanks[hidden]{display:none}
