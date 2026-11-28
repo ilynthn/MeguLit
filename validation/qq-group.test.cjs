@@ -33,7 +33,8 @@ test('「用电脑 QQ 加群」 opens the group\'s join page; when it cannot, th
  r=await run(Error('down'),{locale:'ja'});assert.deepEqual(r.toasts,[qqWords('ja').copied]);
  r=await run(Error('down'),{locale:'en'});assert.deepEqual(r.toasts,['Group number copied: '+QQ_GROUP]);
  const html=qqPillHTML('zh',s=>String(s));
- for(const part of ['class="qq-pill"','QQ 群',QQ_GROUP,'src="assets/qq-group-qr.svg"','data-qq-copy','data-qq-open','用电脑 QQ 加群'])assert.ok(html.includes(part),'pill and card: '+part);
+ for(const part of ['class="qq-pill tv-cap"','<span class="cap-txt">QQ 交流群</span>',`title="群号 ${QQ_GROUP}"`,'<code>'+QQ_GROUP+'</code>','src="assets/qq-group-qr.svg"','data-qq-copy','data-qq-open','用电脑 QQ 加群'])assert.ok(html.includes(part),'pill and card: '+part);
+ assert.ok(!html.includes('<em>'),'the number is not printed on the capsule, only in its hover tip and the card');
  assert.ok(read('services/bridge.cjs').includes(`'${new URL(QQ_WEB).hostname}'`),'the join page is in open_source\'s list');
 });
 

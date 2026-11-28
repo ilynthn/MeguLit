@@ -29,7 +29,7 @@ const DROPPED_SOURCES=new Set(['inside']);
 const blocked=n=>DROPPED_SOURCES.has(String(n?.sourceId||''))||String(n?.source||'')==='インサイド'||REAL_PEOPLE.test([n?.title,n?.summary,...(Array.isArray(n?.tags)?n.tags:[])].map(x=>String(x||'')).join(' '))||BLOCKED.test([n?.title,n?.summary,...(Array.isArray(n?.tags)?n.tags:[])].map(x=>String(x||'')).join(' '));
 const sensitive=n=>SENSITIVE.test(String(n.title||'')+' '+String(n.summary||''));
 function cleanNews(d){
- const items=(Array.isArray(d?.items)?d.items:[]).filter(n=>!blocked(n)).slice(0,120).map(n=>({sensitive:sensitive({title:n?.title,summary:n?.summary}),fulltext:n?.fulltext===true,cat:n?.cat==='acg'?'acg':'gal',title:str(n?.title,160),link:link(n?.link),date:str(n?.date,30),source:str(n?.source,40),sourceId:str(n?.sourceId,20),summary:str(n?.summary,160),image:/^\/api\/news\/img\/[0-9a-f]{32}$/.test(String(n?.image||''))?n.image:''})).filter(n=>n.title&&n.link);
+ const items=(Array.isArray(d?.items)?d.items:[]).filter(n=>!blocked(n)).slice(0,120).map(n=>({sensitive:sensitive({title:n?.title,summary:n?.summary}),fulltext:n?.fulltext===true,cat:['acg','ln'].includes(n?.cat)?n.cat:'gal',title:str(n?.title,160),link:link(n?.link),date:str(n?.date,30),source:str(n?.source,40),sourceId:str(n?.sourceId,20),summary:str(n?.summary,160),image:/^\/api\/news\/img\/[0-9a-f]{32}$/.test(String(n?.image||''))?n.image:''})).filter(n=>n.title&&n.link);
  return {items,sources:(Array.isArray(d?.sources)?d.sources:[]).filter(s=>!DROPPED_SOURCES.has(String(s?.id||''))).slice(0,10).map(s=>({id:str(s?.id,20),name:str(s?.name,40)})),updatedAt:str(d?.updatedAt,30)||null};
 }
 /* the local dictionary is Chinese: its first line, first two senses, make the short gloss beside a hot word.

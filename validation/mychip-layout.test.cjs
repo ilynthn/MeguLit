@@ -11,7 +11,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {startService,startWeb,startEdge}=require('./library-views-perf.cjs');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const hasEdge=[process.env.MEGULIT_EDGE,'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].some(p=>p&&fs.existsSync(p));
-const OPEN=`(()=>{const b=document.querySelector('[data-route="leaderboard"]')||[...document.querySelectorAll('button,a,[role=tab]')].find(e=>/排行榜/.test(e.textContent));if(!b)return false;b.click();return true;})()`;
+const OPEN=`(()=>{const b=document.querySelector('[data-route="leaderboard"]')||[...document.querySelectorAll('button,a,[role=tab]')].find(e=>/广场/.test(e.textContent));if(!b)return false;b.click();return true;})()`;
 const DIAG=`({href:location.href,readyState:document.readyState,ready:!!window.__TOME_READY__,hasRetry:!!document.querySelector('#startup-retry'),body:(document.body?.innerText||'').slice(0,160)})`;
 const PROBE=`(()=>{const c=document.querySelector('.lb-mychip');if(!c)return null;const a=c.querySelector('.leaderboard-avatar'),s=c.querySelector('small'),t=c.querySelector('strong');
  const r=document.createRange();r.selectNodeContents(a);const g=r.getBoundingClientRect(),ab=a.getBoundingClientRect();
