@@ -13,19 +13,21 @@ const source=fs.readFileSync(path.join(web,'torch-monument.js'),'utf8')
  .replace(/^import .*\r?\n/gm,'').replaceAll('export ','');
 const deferred=()=>Promise.withResolvers();
 
-function fixture(){
+function fixture({holdBuild=false,simpleAfter=0}={}){
+ const gate=deferred();
  const calls=[],globalEvents=new EventTarget(),documentEvents=new EventTarget(),bake=deferred(),font=deferred(),page=deferred();
  const mounts=[],scenes=[],search=deferred(),jump=deferred();
  let builds=0,disposals=0,lookups=0,intros=0,active=false,paints=0;
  function node(){
-  return Object.assign(new EventTarget(),{style:{},setAttribute(){},remove(){
+  const classes=new Set();
+  return Object.assign(new EventTarget(),{style:{},classes,classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),contains:c=>classes.has(c)},setAttribute(){},remove(){
    if(this.parent?.child===this)this.parent.child=null;
    this.removed=true;
   }});
  }
  const nodes=new Map();
  const context={
-  performance,setTimeout,window:{},localStorage:{getItem:()=> 'high'},matchMedia:()=>({matches:false}),
+  performance,setTimeout,clearTimeout,setInterval,clearInterval,console,window:{},localStorage:{getItem:()=> 'high'},matchMedia:()=>({matches:false}),
   document:{fonts:{load(){calls.push('font');return font.promise;}},hasFocus:()=>true,
    createElement(tag){
     if(tag==='canvas')return {getContext:()=>({measureText:()=>({width:10})})};
@@ -39,16 +41,19 @@ function fixture(){
   ResizeObserver:class{observe(){this.observing=true;} disconnect(){this.observing=false;}},
   loadGsap(){calls.push('gsap');return Promise.resolve(null);},
   loadBaked(){calls.push('bake');return bake.promise;},
+  bakeProgress:()=>0,
   withBaked:(result,build)=>build(),
-  buildScene({onFirstFrame}){
+  async buildScene({onFirstFrame,alive}){
    builds++;
+   if(holdBuild){await gate.promise;if(!alive()){disposals++;throw hall.CANCELLED;}}
    const scene={tier:'high',firstFrame:onFirstFrame,prepare(fn){this.ready=fn;},intro(){intros++;},resize(){},
     setActive(on){active=on;},suspend(){active=false;},reading(){lookups++;return false;},
     paintFace(){paints++;},dispose(){disposals++;}};
    scenes.push(scene);return scene;
   }
  };
- const hall=vm.runInNewContext(source+'\n({openTorchMonument,closeTorchMonument,suspendTorchMonument,invalidateTorchMonument})',context);
+ const code=simpleAfter?source.replace('SIMPLE_AFTER=10000','SIMPLE_AFTER='+simpleAfter):source;
+ const hall=vm.runInNewContext(code+'\n({openTorchMonument,closeTorchMonument,suspendTorchMonument,leaveTorchMonument,hasTorchMonument,invalidateTorchMonument,CANCELLED})',context);
  const api=(name,params)=>{
   calls.push(name);
   if(name==='torch_page')return params.cursor?jump.promise:page.promise;
@@ -62,7 +67,8 @@ function fixture(){
   return hall.openTorchMonument({locale,mount,api,toast:note=>notes.push(note),onContextLost});
  };
  const emit=(type,props={})=>globalEvents.dispatchEvent(Object.assign(new Event(type),props));
- return {open,close:hall.closeTorchMonument,suspend:hall.suspendTorchMonument,invalidate:hall.invalidateTorchMonument,emit,
+ return {open,close:hall.closeTorchMonument,suspend:hall.suspendTorchMonument,leave:hall.leaveTorchMonument,has:hall.hasTorchMonument,invalidate:hall.invalidateTorchMonument,emit,
+  finishBuild:()=>gate.resolve(),
   get host(){return [...nodes.keys()].at(-1);},get nodes(){return nodes.get(this.host);},
   mounts,calls,bake,font,page,search,jump,notes,ready:()=>scenes.at(-1).ready(),firstFrame:()=>scenes.at(-1).firstFrame(),
   get active(){return active;},get builds(){return builds;},get disposals(){return disposals;},
@@ -216,4 +222,71 @@ test('context loss calls only the current route recovery handler',async()=>{
  assert.equal(recoveries,1);
  assert.equal(f.disposals,1);
  assert.equal(f.mounts.at(-1).child,null);
+});
+
+/* 2026-11-28 user: 现在点传火碑会卡住强制加载 不让切走. Leaving the route (another top-bar page) while the hall is still being built gives
+   the visit up at once: the build stops at its next slice and releases what it made, nothing of it is kept for the next visit. */
+test('leaving while the hall is still being built gives it up and releases it, a ready hall is kept',async()=>{
+ const f=fixture({holdBuild:true});
+ const opening=f.open();
+ resolveAssets(f);f.page.resolve({ok:true,items:[{torchNo:0,name:'First'}],total:1});
+ for(let i=0;i<6&&!f.builds;i++)await flush();
+ assert.equal(f.builds,1);
+ f.leave();
+ assert.equal(f.has('en'),false);
+ assert.equal(f.host.removed,true);
+ f.finishBuild();
+ assert.equal(await opening,null);
+ assert.equal(f.disposals,1);
+ /* the next visit builds afresh, and once ready leaving keeps it */
+ const again=fixture();await prepared(again);
+ again.leave();
+ assert.equal(again.has('en'),true);
+ assert.equal(again.disposals,0);
+ again.close();
+});
+
+test('a bake that cannot be read shows the names as a simple list instead of working the hall out on the page',async()=>{
+ for(const [reason,reads] of [['stale',1],['ashlar.map.webp: decode failed',2]]){
+  const f=fixture();
+  const opening=f.open();
+  f.bake.resolve({ok:false,reason});f.font.resolve();f.page.resolve({ok:true,items:[{torchNo:0,name:'First',game:'Some game'}],total:1});
+  assert.equal(await opening!==null,true);
+  await flush();
+  assert.equal(f.builds,0);
+  assert.equal(f.calls.filter(call=>call==='bake').length,reads);
+  assert.equal(f.host.classes.has('tm-simple'),true);
+  assert.match(f.nodes.get('.tm-list').innerHTML,/First.*Some game/);
+  assert.equal(f.nodes.get('.tm-status').hidden,true);
+  /* the rest of this session goes straight to the list */
+  f.close();
+  const before=f.calls.filter(call=>call==='bake').length;
+  await f.open();
+  assert.equal(f.calls.filter(call=>call==='bake').length,before);
+  assert.equal(f.builds,0);
+  f.close();
+ }
+});
+
+test('a hall that is not ready after the wait offers the simple list; picking it releases the hall',async()=>{
+ const f=fixture({simpleAfter:30});
+ const opening=f.open();
+ resolveAssets(f);f.page.resolve({ok:true,items:[{torchNo:0,name:'First'}],total:1});
+ await opening;
+ const go=f.nodes.get('.tm-simple-go');
+ assert.equal(go.hidden,undefined);
+ await new Promise(resolve=>setTimeout(resolve,60));
+ assert.equal(go.hidden,false);
+ go.dispatchEvent(new Event('click'));
+ assert.equal(f.disposals,1);
+ assert.equal(f.host.classes.has('tm-simple'),true);
+ assert.match(f.nodes.get('.tm-list').innerHTML,/First/);
+ f.ready();
+ assert.equal(f.active,false);
+ f.close();
+ /* a hall that gets ready in time never shows the offer */
+ const g=fixture({simpleAfter:30});await prepared(g);
+ await new Promise(resolve=>setTimeout(resolve,60));
+ assert.notEqual(g.nodes.get('.tm-simple-go').hidden,false);
+ g.close();
 });

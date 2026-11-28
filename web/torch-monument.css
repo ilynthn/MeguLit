@@ -54,3 +54,12 @@
 @media (prefers-reduced-motion:reduce){.torch-monument .tm-btn{transition:none}}
 /* light tier: the vignette is CSS (no post-processing there) */
 .torch-monument.tm-lowfx::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;background:radial-gradient(120% 90% at 50% 46%,transparent 55%,rgba(6,4,10,.5) 100%)}
+/* 2026-11-28 loading too long: the way out to the simple list sits under the loading line */
+.torch-monument .tm-simple-go{position:absolute;left:50%;top:calc(46% + 2.6em);transform:translateX(-50%);z-index:3;padding:0 14px;border-bottom:1px solid var(--tm-line)}
+.torch-monument .tm-simple-go:active:not(:disabled){transform:translateX(-50%) scale(.96)}
+/* the simple view: the names of the page in plain columns, read top to bottom */
+.torch-monument.tm-simple{background:radial-gradient(120% 90% at 50% 30%,#1a1826 0%,#0e0c14 70%)}
+.torch-monument .tm-list{position:absolute;left:clamp(20px,3.2vw,44px);right:clamp(20px,3.2vw,44px);top:clamp(96px,14vh,132px);bottom:clamp(70px,10vh,92px);z-index:2;margin:0;padding:0;list-style:none;overflow:auto;columns:15em;column-gap:28px;scrollbar-width:thin}
+.torch-monument .tm-list li{break-inside:avoid;display:grid;gap:2px;padding:8px 0 9px;border-bottom:1px solid var(--tm-line)}
+.torch-monument .tm-list b{font-family:"Torch Serif","Noto Serif SC","Source Han Serif SC","Noto Serif JP","Yu Mincho",serif;font-weight:600;font-size:16px;letter-spacing:.06em;color:var(--tm-ink);overflow-wrap:anywhere}
+.torch-monument .tm-list span{font-size:12px;letter-spacing:.04em;color:var(--tm-dim);font-variant-numeric:tabular-nums}
