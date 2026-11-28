@@ -15,6 +15,8 @@
    endpoint(root,'/api/diagnostics') joins them, '' when not configured. */
 const fs=require('node:fs'),path=require('node:path');
 const DEFAULT_RELAY_BASE='https://api.megulit.com';
+/* tests never reach the live relays (tools/no-live-relay.cjs) */
+if(process.env.NODE_TEST_CONTEXT)require('../tools/no-live-relay.cjs');
 const LOCAL=['127.0.0.1','localhost','[::1]'];
 function readJSON(file){try{const v=JSON.parse(fs.readFileSync(file,'utf8'));return v&&typeof v==='object'?v:{};}catch{return {};}}
 const onlineFile=root=>path.join(root,'data','config','online.json');
