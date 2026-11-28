@@ -19,7 +19,7 @@ test('XOR 0x28 language bundles',()=>{
  assert.equal(vgp._internal.decrypt(enc).toString('latin1',0,7),'UnityFS');assert.equal(vgp._internal.decrypt(plain),plain);
 });
 const game='e:/steam/steamapps/common/Doki Doki Literature Club Plus';
-test('Doki Doki Literature Club Plus! (Steam): Japanese scenario with the release Chinese',{skip:!fs.existsSync(game)&&'no local copy'},()=>{
+test('Doki Doki Literature Club Plus! (Steam): Japanese scenario with the release Chinese',{skip:!require('./helpers/installed.cjs').installed(game)&&'no local copy'},()=>{
  assert.equal(scenes.detect(game),'vgprompter');
  const list=scenes.read('vgprompter',game);assert.ok(list.length>200);
  const ch1=list.find(s=>s.name==='ch1_main');assert.equal(ch1.lines[1],'「やっほー、[player]君！」');assert.equal(ch1.zh[1],'又见面了，[player]！');
