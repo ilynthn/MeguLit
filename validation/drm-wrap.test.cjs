@@ -181,7 +181,7 @@ test('launch: corrected once and recorded, started through the launcher, engine 
  const feedback=fs.readFileSync(path.join(__dirname,'..','web','launch-feedback.js'),'utf8');
  assert.match(feedback,/GAME_DRM_WRAPPED:\[/);assert.match(feedback,/GAME_DRM_LAUNCHER_FAILED:\[/);
 });
-test('real folder (read only): 死に逝く君、館に芽吹く憎悪 starts through 打开游戏.exe',{skip:!fs.existsSync('E:/GAL/死に逝く君、館に芽吹く憎悪')},()=>{
+test('real folder (read only): 死に逝く君、館に芽吹く憎悪 starts through 打开游戏.exe',{skip:!require('./helpers/installed.cjs').installed('E:/GAL/死に逝く君、館に芽吹く憎悪')},()=>{
  const dir='E:/GAL/死に逝く君、館に芽吹く憎悪/[160729][バグシステム]死に逝く君、館に芽吹く憎悪 [汉化硬盘版]';
  const p=drm.plan(path.join(dir,'打开游戏.exe'));assert.equal(base(p.executable),'bug02_yakata.exe');assert.equal(base(p.launchVia),'打开游戏.exe');
 });

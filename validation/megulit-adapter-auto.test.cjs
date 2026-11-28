@@ -196,9 +196,9 @@ test('combined test build: cards not done and green are taken in PR order; a fea
  const ls=out=>refs=>({status:0,stdout:out});
  assert.equal(All.moved(dir,{lsRemote:ls('m1\trefs/heads/main\np1\trefs/pull/1303/head\n'),cards:d}).due,true,'cards 1304 / 1320 / 1326 are new');
  fs.rmSync(d+'/c1304.json');fs.rmSync(d+'/c1320.json');fs.rmSync(d+'/c1326.json');
- assert.equal(All.moved(dir,{lsRemote:ls('m1\trefs/heads/main\np1\trefs/pull/1303/head\n')}).due,false);
- assert.match(All.moved(dir,{lsRemote:ls('m2\trefs/heads/main\np1\trefs/pull/1303/head\n')}).why,/main/);
- assert.match(All.moved(dir,{lsRemote:ls('m1\trefs/heads/main\np2\trefs/pull/1303/head\n')}).why,/#1303/);
+ assert.equal(All.moved(dir,{lsRemote:ls('m1\trefs/heads/main\np1\trefs/pull/1303/head\n'),cards:d}).due,false);
+ assert.match(All.moved(dir,{lsRemote:ls('m2\trefs/heads/main\np1\trefs/pull/1303/head\n'),cards:d}).why,/main/);
+ assert.match(All.moved(dir,{lsRemote:ls('m1\trefs/heads/main\np2\trefs/pull/1303/head\n'),cards:d}).why,/#1303/);
  assert.equal(All.moved(dir,{lsRemote:()=>({status:1,stdout:''})}).due,false,'offline: the current build starts');});
 
 test('test start: the installed MeguLit is asked to exit through its own command file (Alt+T freed), nothing killed',t=>{const d=tmp();t.after(()=>fs.rmSync(d,{recursive:true,force:true}));

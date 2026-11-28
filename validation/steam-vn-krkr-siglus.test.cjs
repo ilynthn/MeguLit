@@ -47,7 +47,7 @@ test('C: Steam Siglus folder: SiglusEngine_Steam.exe, not a larger exe of the ot
  finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 
-const steam='e:/steam/steamapps/common/',have=n=>fs.existsSync(steam+n)&&(n!=='Summer Pockets'||fs.existsSync(steam+n+'/SiglusEngine_Steam.exe'));/* a partial install (only the folder) counts as no copy */
+const steam='e:/steam/steamapps/common/',have=n=>require('./helpers/installed.cjs').installed(steam+n)&&(n!=='Summer Pockets'||fs.existsSync(steam+n+'/SiglusEngine_Steam.exe'));/* a partial install (only the folder) counts as no copy */
 const sc=()=>require('../services/original-engines/scenes.cjs');
 function cxPairs(dir){const e=sc().ENGINES['kirikiri-cx'];let total=0,paired=0;for(const s of e.scenes(dir)){const r=e.parse(s.read());r.lines.forEach((l,i)=>{if(!l.trim())return;total++;if((r.zh[i]||'').trim())paired++;});}return {total,paired};}
 for(const [name,min] of [['9-nine-Episode 4',11690],['ATRI -My Dear Moments-',11201]])

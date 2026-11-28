@@ -191,7 +191,7 @@ test('Unity AudioClips named by text id are found in a serialized file with thei
 });
 
 const STEAM='E:/Steam/steamapps/common';
-const has=g=>fs.existsSync(path.join(STEAM,g));
+const has=g=>require('./helpers/installed.cjs').installed(path.join(STEAM,g));
 test('real: 魔法少女ノ魔女裁判 (Naninovel, IL2CPP) reads Japanese with Simplified Chinese on every line and plays its voices',{skip:!has('manosaba_game')},()=>{
  const scenes=require('../services/original-engines/scenes.cjs'),dir=path.join(STEAM,'manosaba_game');assert.strictEqual(scenes.detect(dir),'naninovel');
  const list=scenes.read('naninovel',dir);let n=0,paired=0,voiced=0;for(const s of list){s.lines.forEach((t,i)=>{n++;if((s.zh||[])[i])paired++;});voiced+=(s.voices||[]).filter(Boolean).length;}

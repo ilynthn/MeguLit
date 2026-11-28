@@ -12,7 +12,7 @@ test('multilingual Artemis text tables',()=>{
  const p=sc.ENGINES.artemis.patchLines([{name:'a.ast',lines:r.lines,zh:r.zh}]);assert.equal(p[0].lines[0],'礼堂。');
 });
 const shell='e:/steam/steamapps/common/The Shell Part I';
-test('The Shell (Steam) reads as a Japanese script with its own Chinese',{skip:!fs.existsSync(shell)&&'no local copy'},()=>{
+test('The Shell (Steam) reads as a Japanese script with its own Chinese',{skip:!require('./helpers/installed.cjs').installed(shell)&&'no local copy'},()=>{
  const e=sc.ENGINES.artemis,s=e.scenes(shell).find(x=>x.name==='00a_0114_0100.ast'),r=e.parse(s.read());
  assert.equal(r.lines[0],'しんと静まりかえった講堂。');assert.equal(r.zh[0],'寂静无声的礼堂。');
 });

@@ -90,7 +90,7 @@ message_control(block, true)
 `;
 function luaOf(list,name){const e=list.files.find(f=>f.name.toLowerCase()===name.toLowerCase());return e?e:null;}
 
-test('THE SHELL Part I: the game\'s own Lua with the block: sub font from adv01 in Chinese, Japanese with ruby on adv, Chinese on adv_sub',{skip:(!LUA&&'no Lua 5.1 interpreter')||(!fs.existsSync(SHELL)&&'THE SHELL Part I not on this PC')},()=>{
+test('THE SHELL Part I: the game\'s own Lua with the block: sub font from adv01 in Chinese, Japanese with ruby on adv, Chinese on adv_sub',{skip:(!LUA&&'no Lua 5.1 interpreter')||(!require('./helpers/installed.cjs').installed(SHELL)&&'THE SHELL Part I not on this PC')},()=>{
  const sc=require('../services/original-engines/scenes.cjs');
  const sets=A._internal.archives(SHELL),set=sets.find(s=>s.base==='TheShell.pfs');assert.ok(set);
  /* the game's own archives: those holding a MeguLit mark are left out */
