@@ -57,15 +57,42 @@ let trCache=null;
 function trLoad(root){if(trCache)return trCache;trCache=new Map();try{for(const [k,v] of Object.entries(JSON.parse(fs.readFileSync(trFile(root),'utf8'))))trCache.set(k,v);}catch{}return trCache;}
 function trSave(root){const f=trFile(root);if(!f)return;try{const all=[...trLoad(root)].slice(-3000);fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify(Object.fromEntries(all)));}catch{}}
 async function translateList(root,runtime,list,goal,options={}){
- const cache=trLoad(root),key=t=>goal+'|'+t,val=v=>typeof v==='string'?{t:v,e:''}:v||{t:'',e:''},out=list.map(t=>t.trim()?val(cache.get(key(t))).t:'');
+ const source=['ja','zh-CN','en','auto'].includes(options.source)?options.source:'ja';
+ if(['google','model','api'].includes(options.mode)){
+  const mode=options.mode;
+  const free=options.translateFree||require('../core/translate.cjs').translateFree;
+  const texts=[];
+  let error;
+  for(const text of list){
+   try{
+    texts.push(!text.trim()?'':mode==='google'
+      ? await free(text,{source,target:goal,preferred:'google-only',fetcher:options.fetch||fetch})
+      : await runtime.reviewTranslate(text,goal,mode));
+   }catch(e){
+    if(e?.message==='NOVEL_TRANSLATION_API_NOT_CONFIGURED')throw e;
+    error=String(e?.message||e);
+    texts.push('');
+   }
+  }
+  return {texts,engine:mode,error};
+ }
+ const namespace=options.followSoftware?'novel|'+source+'|':source==='ja'?'':source+'|';
+ const cache=trLoad(root),key=t=>namespace+goal+'|'+t,val=v=>typeof v==='string'?{t:v,e:''}:v||{t:'',e:''},out=list.map(t=>t.trim()?val(cache.get(key(t))).t:'');
  const cachedEngines=new Set(list.map(t=>val(cache.get(key(t))).e).filter(Boolean));
  const todo=list.map((t,i)=>i).filter(i=>list[i].trim()&&!out[i]);if(!todo.length)return {texts:out,engine:[...cachedEngines].join('+')||'cache'};
  let engine='',reason='';
- let reviews;try{reviews=runtime?.reviews?.({daily:true});}catch(e){reason=String(e?.message||e);}
+ let reviews;try{
+  if(options.followSoftware && source==='ja' && runtime?.reviewTranslate){
+   reviews={translate:async (batch,target)=>{
+    const texts=[];for(const text of batch)texts.push(await runtime.reviewTranslate(text,target,'follow').catch(()=>''));
+    return {texts};
+   }};
+  }else if(!options.followSoftware) reviews=runtime?.reviews?.({daily:true});
+ }catch(e){reason=String(e?.message||e);}
  if(reviews)for(let start=0;start<todo.length;start+=60){
   const batch=todo.slice(start,start+60);
   try{
-   const result=await reviews.translate(batch.map(i=>list[i]),goal,'ja');
+   const result=await reviews.translate(batch.map(i=>list[i]),goal,source);
    const texts=Array.isArray(result)?result:result?.texts;
    if(Array.isArray(texts)&&texts.some(Boolean)){
     batch.forEach((i,n)=>{out[i]=String(texts[n]||'');});
@@ -76,7 +103,7 @@ async function translateList(root,runtime,list,goal,options={}){
  }
  const left=todo.filter(i=>!out[i]);
  if(left.length){const free=options.translateFree||require('../core/translate.cjs').translateFree;let failed='';
-  for(const i of left){try{out[i]=String(await free(list[i],{source:'ja',target:goal,preferred:'microsoft',fetcher:options.fetch||fetch})||'');}catch(e){failed=String(e?.message||e);}}
+  for(const i of left){try{out[i]=String(await free(list[i],{source,target:goal,preferred:'microsoft',fetcher:options.fetch||fetch})||'');}catch(e){failed=String(e?.message||e);}}
   if(left.some(i=>out[i]))engine=engine?engine+'+microsoft':'microsoft';if(failed)reason=failed;}
  const by=new Set(left.filter(i=>out[i]));for(const i of todo)if(out[i])cache.set(key(list[i]),{t:out[i],e:by.has(i)?'microsoft':'app'});trSave(root);
  if(cachedEngines.has('microsoft')&&!engine.includes('microsoft'))engine=engine?engine+'+microsoft':'microsoft';

@@ -21,9 +21,9 @@ const glyphs = {
 export const readerIcon = name => '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' + glyphs[name] + '</svg>';
 
 export const readerLabels = {
-  zh: { menu:'阅读菜单', search:'在图书中搜索', themes:'主题与设置', notes:'摘要', full:'全屏阅读', unfull:'退出全屏', singleLang:'单语', dualLang:'双语', style:'翻页方式', color:'面板外观', auto:'跟随软件', dark:'深色', light:'浅色', custom:'自定义', less:'小', more:'大', slide:'滑动', curl:'卷页', fade:'快速淡入淡出', scroll:'滚动', spread:'页数布局', presets:['原始','安静','纸张','粗体','平静','专注'], noMatches:'书中没有匹配的内容', results:n=>`${n} 条结果`, configure:'自定义阅读设置', translation:'当前页译文', end:'退出阅读' },
-  ja: { menu:'読書メニュー', search:'本の中を検索', themes:'テーマと設定', notes:'抜粋', full:'全画面で読む', unfull:'全画面を終了', singleLang:'原文のみ', dualLang:'対訳', style:'ページの切り替え', color:'パネルの外観', auto:'アプリに合わせる', dark:'ダーク', light:'ライト', custom:'カスタム', less:'小', more:'大', slide:'スライド', curl:'ページをめくる', fade:'短いフェード', scroll:'スクロール', spread:'ページ構成', presets:['標準','静か','紙','太字','穏やか','集中'], noMatches:'一致する箇所がありません', results:n=>`${n} 件`, configure:'読書設定をカスタマイズ', translation:'現在のページの訳文', end:'読書を終了' },
-  en: { menu:'Reading menu', search:'Search this book', themes:'Theme and settings', notes:'Excerpts', full:'Full-screen reading', unfull:'Exit full screen', singleLang:'Original only', dualLang:'Bilingual', style:'Page transitions', color:'Panel appearance', auto:'Follow app', dark:'Dark', light:'Light', custom:'Customize', less:'A−', more:'A+', slide:'Slide', curl:'Page curl', fade:'Quick fade', scroll:'Scroll', spread:'Page layout', presets:['Original','Quiet','Paper','Bold','Calm','Focus'], noMatches:'No matches in this book', results:n=>`${n} results`, configure:'Custom reading settings', translation:'Translation of current page', end:'Exit reader' }
+  zh: { menu:'阅读菜单', search:'在图书中搜索', themes:'主题与设置', notes:'摘要', full:'全屏阅读', unfull:'退出全屏', singleLang:'单语', dualLang:'双语', style:'翻页方式', color:'面板外观', auto:'跟随软件', dark:'深色', light:'浅色', custom:'自定义', less:'小', more:'大', slide:'滑动', curl:'卷页', fade:'快速淡入淡出', scroll:'滚动', spread:'页数布局', presets:['原始','安静','纸张','粗体','平静','专注'], noMatches:'书中没有匹配的内容', results:n=>`${n} 条结果`, configure:'自定义阅读设置', translation:'双语翻译方式', trEdition:'零延迟翻译', trGoogle:'谷歌翻译', trModel:'本地模型', trApi:'API 翻译', noLocalTranslation:'书架中没有匹配的中文版。', apiNotConfigured:'请先在软件的翻译设置中配置 API。', translationUnavailable:'当前翻译方式暂时不可用。', end:'退出阅读' },
+  ja: { menu:'読書メニュー', search:'本の中を検索', themes:'テーマと設定', notes:'抜粋', full:'全画面で読む', unfull:'全画面を終了', singleLang:'原文のみ', dualLang:'対訳', style:'ページの切り替え', color:'パネルの外観', auto:'アプリに合わせる', dark:'ダーク', light:'ライト', custom:'カスタム', less:'小', more:'大', slide:'スライド', curl:'ページをめくる', fade:'短いフェード', scroll:'スクロール', spread:'ページ構成', presets:['標準','静か','紙','太字','穏やか','集中'], noMatches:'一致する箇所がありません', results:n=>`${n} 件`, configure:'読書設定をカスタマイズ', translation:'対訳の方式', trEdition:'遅延なしの対訳', trGoogle:'Google 翻訳', trModel:'ローカルモデル', trApi:'API 翻訳', noLocalTranslation:'本棚に対応する中国語版がありません。', apiNotConfigured:'アプリの翻訳設定で API を設定してください。', translationUnavailable:'現在の翻訳方式は利用できません。', end:'読書を終了' },
+  en: { menu:'Reading menu', search:'Search this book', themes:'Theme and settings', notes:'Excerpts', full:'Full-screen reading', unfull:'Exit full screen', singleLang:'Original only', dualLang:'Bilingual', style:'Page transitions', color:'Panel appearance', auto:'Follow app', dark:'Dark', light:'Light', custom:'Customize', less:'A−', more:'A+', slide:'Slide', curl:'Page curl', fade:'Quick fade', scroll:'Scroll', spread:'Page layout', presets:['Original','Quiet','Paper','Bold','Calm','Focus'], noMatches:'No matches in this book', results:n=>`${n} results`, configure:'Custom reading settings', translation:'Bilingual translation mode', trEdition:'Zero-latency translation', trGoogle:'Google Translate', trModel:'Local model', trApi:'API translation', noLocalTranslation:'There is no matching Chinese edition on your shelf.', apiNotConfigured:'Set up an API in the app’s translation settings.', translationUnavailable:'This translation mode is currently unavailable.', end:'Exit reader' }
 };
 
 export const themes = ['white', 'quiet', 'cream', 'bold', 'green', 'night'];
@@ -41,6 +41,21 @@ export function readerMenu(labels, w, esc) {
     </nav>
     <button type="button" class="nr-menu-trigger" data-reader-action="menu" aria-expanded="false" aria-label="${esc(labels.menu)}" title="${esc(labels.menu)}">${readerIcon('menu')}</button>
   </div>`;
+}
+
+export const translationModes = { edition: 'trEdition', google: 'trGoogle', model: 'trModel', api: 'trApi' };
+
+export function readerCustomSettings(mode, labels, esc) {
+  const buttons = Object.entries(translationModes).map(([value, label]) =>
+    `<button type="button" data-setting="translationSource" data-value="${value}" aria-pressed="${value === mode}">${esc(labels[label])}</button>`);
+  return `<div class="nr-panel-head"><b>${esc(labels.configure)}</b></div>
+    <div class="nr-settings nr-panel-body">
+      <div class="nr-translation-settings">
+        <span id="nr-translation-label">${esc(labels.translation)}</span>
+        <div class="nr-translation-choice" role="group" aria-labelledby="nr-translation-label">${buttons.join('')}</div>
+      </div>
+      <button class="nr-custom nr-custom-back" type="button">${esc(labels.themes)}</button>
+    </div>`;
 }
 
 export function readerSettings(prefs, papers, labels, w, esc) {

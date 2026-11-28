@@ -11,7 +11,7 @@ const flowSettings = require('../services/novel/flow-settings.cjs');
 const root = path.resolve(__dirname, '..');
 const previewFiles = new Set([
   'theme.css', 'novel.css', 'novel-page.js', 'novel-i18n.js', 'novel-reader.js', 'novel-reader-controls.js',
-  'novel-reader-turn.js', 'novel-reader-selection.js', 'novel-shelf.js', 'novel-flow-liquid.js', 'novel-online.js',
+  'novel-reader-turn.js', 'novel-reader-image-worker.js', 'novel-reader-selection.js', 'novel-shelf.js', 'novel-flow-liquid.js', 'novel-online.js',
   'synopsis-view.js', 'game-reception.js', 'capsule-spring.js', 'app.css', 'detail.css', 'home-layout.css', 'e255-polish.css', 'reception.css'
 ]);
 const editorFile = path.join(__dirname, 'novel-flow-editor.html');

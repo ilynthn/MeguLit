@@ -7,8 +7,11 @@ const online = require('./online.cjs');
 const local = require('./source/local.cjs');
 const wenku = require('./source/wenku.cjs');
 const bookSite = require('./source/book-site.cjs');
+const publicCatalog = require('./source/catalogs.cjs');
+const websites = require('./source/websites.cjs');
 const downloads = require('./source/downloads.cjs');
 const annotate = require('./annotate.cjs');
+const bilingual = require('./bilingual.cjs');
 
 const SOURCES = new Map([['local', local], ['wenku', wenku], ['book-site', bookSite]]);
 const source = id => SOURCES.get(String(id || 'local')) || local;
@@ -21,6 +24,7 @@ async function dispatch(request, ctx) {
     case 'novel_shelf': {
       const shelf = library.shelf(db, root);
       online.resume(root, runtime, shelf.books.map(book => book.id));
+      websites.resume(root, runtime);
       return { ...shelf, flowSettings: flowSettings.read(root) };
     }
     case 'novel_scan': {
@@ -31,30 +35,43 @@ async function dispatch(request, ctx) {
     case 'novel_import': {
       const result = await library.importFiles(root, db, request.paths);
       online.schedule(root, runtime, result.imported.map(book => book.id));
+      const incoming = new Set(result.imported.map(book => book.id));
+      if (incoming.size) for (const group of library.editionGroups(db, root)) {
+        if (group.length < 2 || !group.some(book => incoming.has(book.id))) continue;
+        const original = group.find(book => /^(?:ja|jpn)/i.test(book.languages));
+        if (original) void bilingual.prepare(db, root, original.id, group);
+      }
       return result;
     }
     case 'novel_detail': {
       const id = String(request.id || '');
       if (request.preview === true) return library.preview(db, root, id);
       if (request.onlineOnly === true) {
-        if (!db.prepare("SELECT id FROM novels WHERE id=? AND status='active'").get(id)) throw Error('NOVEL_NOT_FOUND');
-        return { book: library.onlineDetails(root, id) };
+        const row = db.prepare("SELECT id, cover FROM novels WHERE id=? AND status='active'").get(id);
+        if (!row) throw Error('NOVEL_NOT_FOUND');
+        const book = library.onlineDetails(root, id);
+        return { book: { ...book, cover: library.bookCover(root, row, book.online, book.onlineLookup) } };
       }
       const detail = library.detail(db, root, id);
       online.schedule(root, runtime, [id], true);
       detail.book.onlineLookup = library.lookupState(root, id);
+      if (detail.editions.length > 1) void bilingual.prepare(db, root, id, detail.editions);
       return detail;
     }
     case 'novel_image':
       return library.image(root, String(request.id || ''), request.name);
+    case 'novel_pdf_cover_save':
+      return library.savePdfCover(db, root, String(request.id || ''), request.data);
     case 'novel_pdf':
       return library.pdfRange(db, root, String(request.id || ''), request);
+    case 'novel_website_sources':
+      return websites.dispatch(request, ctx);
     case 'novel_source_config':
       return bookSite.configuration(request, ctx);
     case 'novel_source_open':
       return bookSite.openSite(request, ctx);
     case 'novel_source_cover':
-      return bookSite.cover(request, ctx);
+      return ['bangumi', 'openlibrary'].includes(request.source) ? publicCatalog.cover(request, ctx) : bookSite.cover(request, ctx);
     case 'novel_source_detail':
       return bookSite.detail(request, ctx);
     case 'novel_source_download_start':
@@ -64,10 +81,18 @@ async function dispatch(request, ctx) {
     case 'novel_source_import': {
       const result = await bookSite.download(request, ctx);
       online.schedule(root, runtime, result.imported.map(book => book.id));
+      const incoming = new Set(result.imported.map(book => book.id));
+      if (incoming.size) for (const group of library.editionGroups(db, root)) {
+        if (group.length < 2 || !group.some(book => incoming.has(book.id))) continue;
+        const original = group.find(book => /^(?:ja|jpn)/i.test(book.languages));
+        if (original) void bilingual.prepare(db, root, original.id, group);
+      }
       return result;
     }
     case 'novel_chapter':
       return library.chapter(db, root, String(request.id || ''), request.index);
+    case 'novel_bilingual':
+      return bilingual.chapter(db, root, String(request.id || ''), request.index);
     case 'novel_find':
       return library.findInBook(db, root, String(request.id || ''), request);
     case 'novel_online_search':
@@ -110,9 +135,21 @@ async function dispatch(request, ctx) {
     case 'novel_source_test':
       return pick().test(request, ctx);
     case 'novel_discover':
-      return pick().discover(request, ctx);
-    case 'novel_search':
-      return pick().search(request, ctx);
+    case 'novel_search': {
+      if (['bangumi', 'openlibrary'].includes(request.source)) return publicCatalog.discover(request.source, request, ctx);
+      if (request.source !== 'auto') return request.action === 'novel_search' ? pick().search(request, ctx) : pick().discover(request, ctx);
+      const targets = ['book-site', 'bangumi', 'openlibrary'];
+      const start = Math.max(0, targets.indexOf(request.preferred));
+      let first;
+      for (const provider of targets.slice(start)) {
+        const result = provider === 'book-site' ? await bookSite.discover(request, ctx) : await publicCatalog.discover(provider, request, ctx);
+        result.provider = provider;
+        if (!result.error) return first?.error && first.error !== 'BOOK_SITE_UNCONFIGURED'
+          ? { ...result, fallbackError: first.error } : result;
+        if (!first) first = result;
+      }
+      return first;
+    }
     default:
       throw Error('UNKNOWN_ACTION');
   }

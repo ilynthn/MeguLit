@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { pageTurns, readerIcon, readerLabels, readerMenu, readerSettings } from './novel-reader-controls.js';
-import { captureReaderPage, invalidateReaderTurnSnapshot, stopReaderTurn, turnReaderPage } from './novel-reader-turn.js';
+import { pageTurns, readerIcon, readerLabels, readerMenu, readerSettings, readerCustomSettings, translationModes } from './novel-reader-controls.js';
+import { stopReaderTurn, turnReaderPage } from './novel-reader-turn.js';
 import { baseRanges, baseTextHit, passageBetween, selectionBoxes } from './novel-reader-selection.js';
 
 /* 文库阅读器：CSS 多栏分页（横排 / 竖排）+ 滚动模式，排版面板、目录、书签、进度与阅读事件。
@@ -10,7 +10,7 @@ const PREFS_KEY = 'megulit-novel-reader';
 const GAP = 48;
 const DRAWER_KEYS = { t: 'toc', b: 'marks', n: 'notes', a: 'type' };
 const DEFAULTS = { size: 19, lineHeight: 1.95, pad: 6, font: 'serif', paper: 'cream', dir: 'h', spread: 'auto', ruby: 'auto',
-  turn: 'slide', chrome: 'auto', bilingual: false };
+  turn: 'slide', chrome: 'auto', bilingual: false, translationSource: 'auto' };
 const PAPERS = {
   cream: { paper: '#f6efdf', ink: '#2e2823', rule: 'rgba(80,60,40,.16)' },
   white: { paper: '#fbfaf7', ink: '#26231f', rule: 'rgba(60,50,40,.14)' },
@@ -28,6 +28,8 @@ function loadPrefs() {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
     const prefs = { ...DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+    if (prefs.translationSource === 'local') prefs.translationSource = 'edition';
+    if (prefs.translationSource === 'software') prefs.translationSource = 'api';
     if (prefs.dir === 's' || prefs.turn === 'scroll') { prefs.dir = 's'; prefs.turn = 'scroll'; }
     else if (!pageTurns.includes(prefs.turn)) prefs.turn = DEFAULTS.turn;
     return prefs;
@@ -55,7 +57,6 @@ export async function openReader(host, ctx) {
   let paras = [];
   let panel = '';
   let bookmarks = [];
-  let ruby = null;
   let bookLang = '';
   let segmenter;
   let lookupCard = null;
@@ -75,12 +76,33 @@ export async function openReader(host, ctx) {
   let chapterRequest = 0;
   let turningChapter = false;
   let prefetchTimer;
-  let snapshotIdle;
+  let turnSequence = 0;
+  const pendingTurns = [];
+  let lastTurnAt = -Infinity;
+  let rubyTimer;
+  let figureFrame;
+  let figureObserver;
+  let pictureWorker;
+  let pictureWorkerFailed = false;
+  let pictureSerial = 0;
+  let activePictures = 0;
+  let pictureWidth = 0;
+  const pictures = new Map();
+  const pictureQueue = [];
+  const workerRequests = new Map();
+  const attachedPictures = new Set();
+  let currentChapter;
+  let figuresByPage = new Map();
   const chapterCache = new Map();
   let translateTimer;
+  let translationPaintTimer;
+  const paragraphPages = new Map();
   let queryTimer;
   let panelVersion = 0;
   const translations = new Map();
+  const machinePending = new Set();
+  let reportedTranslationError;
+  let appliedLocal;
 
   host.innerHTML = `
     <div class="novel-reader" data-dir="${esc(prefs.dir)}" data-paper="${esc(prefs.paper)}">
@@ -88,9 +110,6 @@ export async function openReader(host, ctx) {
         <div class="nr-stage" data-nr-stage>
           <div class="nr-viewport" data-nr-viewport><div class="nr-body" data-nr-body></div></div>
         </div>
-        <aside class="nr-translation" hidden aria-label="${esc(labels.translation)}">
-          <h2>${esc(labels.translation)}</h2><div data-reader-translation role="status"></div>
-        </aside>
       </div>
       <div class="nr-selection-layer" aria-hidden="true"></div>
       <div class="nr-reader-ui">
@@ -106,7 +125,6 @@ export async function openReader(host, ctx) {
   const panelEl = host.querySelector('[data-nr-panel]');
   const menu = host.querySelector('[data-reader-menu]');
   const menuTrigger = host.querySelector('[data-reader-action="menu"]');
-  const translationEl = host.querySelector('[data-reader-translation]');
   const readerUI = host.querySelector('.nr-reader-ui');
   const selectionLayer = host.querySelector('.nr-selection-layer');
 
@@ -127,7 +145,7 @@ export async function openReader(host, ctx) {
     root.style.setProperty('--nr-ink', paper.ink);
     root.style.setProperty('--nr-rule', paper.rule);
     root.style.setProperty('--nr-weight', prefs.paper === 'bold' ? '700' : '400');
-    translationEl.parentElement.hidden = !prefs.bilingual;
+    root.dataset.bilingual = String(prefs.bilingual);
     syncChrome();
     /* 供 CSS 给承载层上色，接缝处不会透出背景图 */
     document.documentElement.style.setProperty('--nv-paper', paper.paper);
@@ -150,8 +168,10 @@ export async function openReader(host, ctx) {
     const mode = prefs.dir === 's' ? 'scroll' : prefs.dir === 'v' ? 'vscroll' : 'paged';
     root.dataset.mode = mode;
     stopReaderTurn(root);
-    cancelIdleCallback(snapshotIdle);
-    invalidateReaderTurnSnapshot(root);
+    paragraphPages.clear();
+    figureObserver?.disconnect();
+    figuresByPage = new Map();
+    pictureWidth = 0;
     body.style.transform = 'none';
     body.style.height = '';
     body.style.columnWidth = '';
@@ -163,6 +183,7 @@ export async function openReader(host, ctx) {
       columns = [];
       const distance = Math.max(0, stage.scrollHeight - stage.clientHeight);
       pages = Math.max(1, Math.ceil(distance / Math.max(1, stage.clientHeight)) + 1);
+      observeFigures(stage);
       return;
     }
     stage.scrollTop = 0;
@@ -189,6 +210,7 @@ export async function openReader(host, ctx) {
       stride = W;
       pages = Math.max(1, Math.round(body.scrollWidth / Math.max(1, W)));
       delete root.dataset.spread;
+      observeFigures(viewport);
       return;
     }
     /* 铺满：左右只留用户设的页边距，不再把正文压到 940px */
@@ -201,6 +223,7 @@ export async function openReader(host, ctx) {
     /* auto：窗口够宽就双页（每栏约 40 字），窄窗自动回到单页 */
     const perPage = prefs.spread === 'auto' ? (W >= 1000 ? 2 : 1) : prefs.spread === 'double' ? 2 : 1;
     const columnW = (W - GAP * (perPage - 1)) / perPage;
+    pictureWidth = columnW;
     root.dataset.spread = perPage === 2 ? 'double' : 'single';
     body.style.height = H + 'px';
     body.style.writingMode = 'horizontal-tb';
@@ -211,10 +234,11 @@ export async function openReader(host, ctx) {
     const columnCount = Math.round((content + GAP) / (columnW + GAP));
     pages = Math.max(1, Math.ceil(columnCount / perPage));
     measureParagraphs();
-    if (prefs.turn !== 'slide' && !reducedMotion()) {
-      snapshotIdle = requestIdleCallback(() => {
-        if (alive) captureReaderPage(root, viewport, body);
-      });
+    const origin = body.getBoundingClientRect().left;
+    for (const figure of body.querySelectorAll('[data-nr-img]')) {
+      const number = Math.max(0, Math.floor((figure.getBoundingClientRect().left - origin) / stride + .001));
+      if (!figuresByPage.has(number)) figuresByPage.set(number, []);
+      figuresByPage.get(number).push(figure);
     }
   }
 
@@ -235,6 +259,8 @@ export async function openReader(host, ctx) {
     page = Math.max(0, Math.min(pages - 1, next | 0));
     if (previousPage === page && !silent) return;
     if (!silent) {
+      lastTurnAt = performance.now();
+      drag = null;
       cancelAnimationFrame(hoverRaf);
       closeLookup();
       setHoveredWord(null);
@@ -247,12 +273,20 @@ export async function openReader(host, ctx) {
       /* 竖排：横向滚动容器，RTL 下 scrollLeft 为负值往左走 */
       viewport.scrollLeft = -page * stride;
     } else {
-      const animate = !silent && previousPage !== page && !reducedMotion();
+      const animate = !silent && previousPage !== page && (prefs.turn === 'fade' || !reducedMotion());
       const old = body.style.transform;
-      const snapshot = animate && prefs.turn !== 'slide' ? captureReaderPage(root, viewport, body) : null;
-      if (silent || (!animate && previousPage !== page)) stopReaderTurn(root);
+      if (silent || !animate) stopReaderTurn(root);
       body.style.transform = `translateX(${-page * stride}px)`;
-      if (animate) turnReaderPage(root, body, prefs.turn, page > previousPage, old, snapshot);
+      for (const figure of figuresByPage.get(page) || []) {
+        const ready = pictures.get(figure.dataset.nrImg);
+        if (ready?.done && !figure.firstChild) attachPicture(figure, ready.result);
+      }
+      if (animate) {
+        const outgoing = prefs.turn === 'fade' && Math.abs(page - previousPage) === 1
+          ? (figuresByPage.get(previousPage) || []).map(figure => figure.firstElementChild).filter(Boolean) : [];
+        turnReaderPage(root, viewport, body, prefs.turn, page > previousPage, old, outgoing, (page - previousPage) * stride);
+      }
+      scheduleFigures(page >= previousPage ? 1 : -1);
     }
     if (!silent) queueProgress();
     scheduleTranslation();
@@ -261,15 +295,27 @@ export async function openReader(host, ctx) {
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function stepPage(forward) {
-    if (!chapter || turningChapter) return;
+    if (!chapter) return;
+    if (turningChapter) {
+      pendingTurns.push(forward);
+      return;
+    }
     const boundary = forward ? page >= pages - 1 : page <= 0;
     if (!boundary) { goTo(page + (forward ? 1 : -1)); return; }
     const index = chapter.idx + (forward ? 1 : -1);
     if (index < 0 || index >= detail.book.chapterCount) return;
     turningChapter = true;
+    lastTurnAt = performance.now();
+    drag = null;
+    const sequence = ++turnSequence;
     closeLookup();
     setHoveredWord(null);
-    loadChapter(index, 0, undefined, { turn: true, forward }).finally(() => { turningChapter = false; });
+    void loadChapter(index, 0, undefined, { turn: true, forward }).then(advanced => {
+      if (!alive || turnSequence !== sequence) return;
+      turningChapter = false;
+      if (!advanced) pendingTurns.length = 0;
+      while (!turningChapter && pendingTurns.length) stepPage(pendingTurns.shift());
+    });
   }
 
 
@@ -376,49 +422,233 @@ export async function openReader(host, ctx) {
     return html + textHtml(cursor, characters.length);
   }
 
-  async function prepareFigures(data) {
-    const images = new Map();
-    const files = new Set((data.images || []).map(item => item.file));
-    await Promise.all([...files].map(async file => {
-      try {
-        const result = await api('novel_image', { id, name: file });
-        if (!result?.data) return;
-        const image = new Image();
-        image.alt = '';
-        image.draggable = false;
-        image.src = `data:${result.mime || 'image/jpeg'};base64,${result.data}`;
-        await image.decode();
-        images.set(file, image);
-      } catch { /* A missing illustration does not block the chapter. */ }
-    }));
-    return images;
+  function stopPictureWorker() {
+    pictureWorker?.terminate();
+    pictureWorker = null;
+    for (const done of workerRequests.values()) done(null);
+    workerRequests.clear();
   }
 
-  function renderChapter(images, toEnd) {
-    const parts = chapter.paragraphs.map((text, index) => ({ text, index })).filter(part => part.text.trim());
-    let offset = 0;
-    const spans = shouldRuby() && ruby?.available ? ruby.paragraphs : null;
-    /* 插图按 after 位置挂在对应段落后 */
+  function decodeBitmap(data, mime, box) {
+    if (pictureWorkerFailed) return Promise.resolve(null);
+    if (!pictureWorker) {
+      try {
+        pictureWorker = new Worker(new URL('./novel-reader-image-worker.js', import.meta.url));
+      } catch {
+        pictureWorkerFailed = true;
+        return Promise.resolve(null);
+      }
+      pictureWorker.onmessage = ({ data: reply }) => {
+        const done = workerRequests.get(reply.id);
+        workerRequests.delete(reply.id);
+        if (done) done(reply.bitmap ? reply : null);
+        else reply.bitmap?.close();
+      };
+      pictureWorker.onerror = () => {
+        pictureWorkerFailed = true;
+        stopPictureWorker();
+      };
+    }
+    return new Promise(resolve => {
+      const request = ++pictureSerial;
+      workerRequests.set(request, resolve);
+      pictureWorker.postMessage({ id: request, data, mime, ...box });
+    });
+  }
+
+  async function decodePicture(file, box) {
+    try {
+      const result = await api('novel_image', { id, name: file });
+      if (!alive || !result?.data) return null;
+      const mime = result.mime || 'image/jpeg';
+      const decoded = await decodeBitmap(result.data, mime, box);
+      if (decoded || !alive) return decoded;
+      // Keep animated formats animated and fall back when a platform codec cannot make a bitmap.
+      const image = new Image();
+      image.alt = '';
+      image.draggable = false;
+      image.decoding = 'async';
+      image.src = `data:${mime};base64,${result.data}`;
+      await image.decode();
+      return { image };
+    } catch { return null; }
+  }
+
+  function preparePictureSurface(result) {
+    if (!result?.bitmap?.width) return result;
+    const { bitmap, width, height } = result;
+    const surface = document.createElement('canvas');
+    surface.width = bitmap.width;
+    surface.height = bitmap.height;
+    surface.style.width = `min(100%, ${width}px, ${62 * width / height}vh)`;
+    try {
+      const renderer = surface.getContext('bitmaprenderer');
+      if (renderer) renderer.transferFromImageBitmap(bitmap);
+      else {
+        surface.getContext('2d').drawImage(bitmap, 0, 0);
+        bitmap.close();
+      }
+      return { surface };
+    } catch {
+      bitmap.close();
+      return null;
+    }
+  }
+
+  function trimPictures() {
+    let pixels = 0;
+    let entries = 0;
+    for (const [file, record] of [...pictures].reverse()) {
+      if (!record.done) continue;
+      const result = record.result;
+      const width = result?.surface?.width || result?.image?.naturalWidth || 0;
+      const height = result?.surface?.height || result?.image?.naturalHeight || 0;
+      pixels += width * height;
+      if (++entries <= 16 && pixels <= 18_000_000) continue;
+      pictures.delete(file);
+    }
+  }
+
+  function runPictureQueue() {
+    while (alive && activePictures < 2 && pictureQueue.length) {
+      const index = pictureQueue.findIndex(record => record.priority);
+      if (index < 0 && activePictures) return;
+      const [record] = pictureQueue.splice(Math.max(0, index), 1);
+      record.started = true;
+      activePictures++;
+      void decodePicture(record.file, record.box).then(result => {
+        record.done = true;
+        record.result = alive ? preparePictureSurface(result) : null;
+        if (!alive) result?.bitmap?.close();
+        record.resolve(record.result);
+        queueMicrotask(trimPictures);
+      }).finally(() => {
+        activePictures--;
+        runPictureQueue();
+      });
+    }
+  }
+
+  function readFigure(file, priority = false) {
+    let record = pictures.get(file);
+    if (record) {
+      pictures.delete(file);
+      pictures.set(file, record);
+      record.priority ||= priority;
+      if (!record.started) runPictureQueue();
+      return record.promise;
+    }
+    const box = {
+      width: Math.max(1, pictureWidth || viewport.clientWidth),
+      height: Math.max(1, innerHeight * .62),
+      density: Math.min(devicePixelRatio || 1, 2)
+    };
+    record = { file, box, priority };
+    record.promise = new Promise(resolve => { record.resolve = resolve; });
+    pictures.set(file, record);
+    pictureQueue.push(record);
+    runPictureQueue();
+    return record.promise;
+  }
+
+  async function fillFigure(figure, prepared, priority) {
+    if (figure.firstChild || figure.dataset.loading) return;
+    figure.dataset.loading = 'true';
+    const result = await readFigure(figure.dataset.nrImg, priority);
+    delete figure.dataset.loading;
+    if (!alive || currentChapter !== prepared || !body.contains(figure) || figure.firstChild) return;
+    attachPicture(figure, result);
+  }
+
+  function attachPicture(figure, result) {
+    if (!result) return;
+    const { surface, image } = result;
+    if (surface?.isConnected) {
+      const copy = surface.cloneNode();
+      copy.getContext('2d').drawImage(surface, 0, 0);
+      figure.append(copy);
+    } else {
+      const content = surface || image;
+      if (content) figure.append(content.isConnected ? content.cloneNode() : content);
+    }
+    if (figure.firstChild) attachedPictures.add(figure);
+  }
+
+  function observeFigures(container) {
+    figureObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) void fillFigure(entry.target, currentChapter, true);
+        else if (!entry.target.dataset.loading) {
+          entry.target.replaceChildren();
+          attachedPictures.delete(entry.target);
+        }
+      }
+    }, { root: container, rootMargin: '80% 80%' });
+    for (const figure of body.querySelectorAll('[data-nr-img]')) figureObserver.observe(figure);
+  }
+
+  function scheduleFigures(direction) {
+    cancelAnimationFrame(figureFrame);
+    if (!figuresByPage.size) return;
+    figureFrame = requestAnimationFrame(() => {
+      const position = page;
+      const near = [position, position + direction, position - direction, position + 2 * direction, position - 2 * direction, position + 3 * direction];
+      const wanted = new Set(near.flatMap(index => figuresByPage.get(index) || []));
+      const files = new Set([...wanted].map(figure => figure.dataset.nrImg));
+      for (let i = pictureQueue.length - 1; i >= 0; i--) {
+        const record = pictureQueue[i];
+        if (!record.priority || files.has(record.file)) continue;
+        pictureQueue.splice(i, 1);
+        pictures.delete(record.file);
+        record.resolve(null);
+      }
+      for (const figure of attachedPictures) {
+        if (wanted.has(figure)) continue;
+        figure.replaceChildren();
+        attachedPictures.delete(figure);
+      }
+      for (const figure of wanted) void fillFigure(figure, currentChapter, true);
+    });
+  }
+
+  async function chapterMarkup(data, annotations) {
+    const spans = shouldRuby() ? annotations?.paragraphs : null;
     const figures = new Map();
-    for (const img of chapter.images || []) {
-      if (!images.has(img.file)) continue;
+    for (const img of data.images || []) {
       const key = Number(img.after) || 0;
       if (!figures.has(key)) figures.set(key, []);
-      figures.get(key).push(img);
+      figures.get(key).push(`<figure class="nr-fig" data-nr-img="${esc(img.file)}"></figure>`);
     }
-    const figHtml = list => list.map(img => `<figure class="nr-fig" data-nr-img="${esc(img.file)}"></figure>`).join('');
-    const top = figHtml(figures.get(0) || []);
-    const pieces = [];
-    parts.forEach((part, i) => {
-      const html = `<p data-off="${offset}" data-i="${part.index}">${paragraphHtml(part.text, spans?.[part.index], ruby?.words?.[part.index])}</p>`;
-      offset += part.text.length;
-      pieces.push(html);
-      const after = figures.get(part.index + 1);
-      if (after) pieces.push(figHtml(after));
-    });
-    body.innerHTML = top + pieces.join('');
+
+    const pieces = figures.get(0) || [];
+    let offset = 0;
+    let start = performance.now();
+    for (const [index, text] of data.paragraphs.entries()) {
+      if (!alive) break;
+      if (text.trim()) {
+        const original = paragraphHtml(text, spans?.[index], annotations?.words?.[index]);
+        pieces.push(`<p data-off="${offset}" data-i="${index}">${original}</p>`,
+          `<div class="nr-paragraph-translation" data-nr-translation="${index}" hidden></div>`);
+        offset += text.length;
+      }
+      const after = figures.get(index + 1);
+      if (after) pieces.push(...after);
+      if (performance.now() - start > 6) {
+        if (globalThis.scheduler?.yield) await scheduler.yield();
+        else await new Promise(resolve => setTimeout(resolve, 0));
+        start = performance.now();
+      }
+    }
+    return pieces.join('');
+  }
+
+  function renderChapter(markup, toEnd) {
+    attachedPictures.clear();
+    const template = document.createElement('template');
+    template.innerHTML = markup;
+    if (prefs.bilingual) putTranslations(template.content.querySelectorAll('[data-nr-translation]'));
+    body.replaceChildren(template.content);
     body.scrollTop = 0;
-    for (const figure of body.querySelectorAll('[data-nr-img]')) figure.append(images.get(figure.dataset.nrImg).cloneNode());
     layout();
     const anchor = chapter.restoreOffset || 0;
     if (toEnd) {
@@ -433,6 +663,7 @@ export async function openReader(host, ctx) {
       goTo(start, { silent: true });
     }
     chapter.restorePage = undefined;
+    requestLocalPaint();
     queueProgress();
   }
 
@@ -449,17 +680,50 @@ export async function openReader(host, ctx) {
   }
 
   function prepareChapter(index) {
-    const cached = chapterCache.get(index);
-    if (cached) return cached;
-    const pending = api('novel_chapter', { id, index }).then(async data => {
-      const [annotations, images] = await Promise.all([loadRuby(index), prepareFigures(data)]);
-      return { data, annotations, images };
+    let entry = chapterCache.get(index);
+    if (entry) return entry.promise;
+    entry = { ready: null };
+    entry.promise = api('novel_chapter', { id, index }).then(async data => {
+      const markup = await chapterMarkup(data);
+      entry.ready = { data, markup, rich: null, aligned: null, local: null };
+      if (hasLocalEdition() && localMode()) loadLocal(entry.ready);
+      return entry.ready;
     }).catch(error => {
-      if (chapterCache.get(index) === pending) chapterCache.delete(index);
+      if (chapterCache.get(index) === entry) chapterCache.delete(index);
       throw error;
     });
-    chapterCache.set(index, pending);
-    return pending;
+    chapterCache.set(index, entry);
+    return entry.promise;
+  }
+
+  function applyRubyWhenIdle(prepared) {
+    if ((!shouldRuby() && !/^ja/i.test(bookLang)) || !prepared.data.paragraphs.some(Boolean)) return;
+    prepared.rich ??= loadRuby(prepared.data.idx).then(annotations => annotations && alive ? chapterMarkup(prepared.data, annotations) : null);
+    void prepared.rich.then(markup => {
+      if (!markup || !alive || currentChapter !== prepared || prepared.markup === markup) return;
+      function apply() {
+        if (!alive || currentChapter !== prepared) return;
+        if (turningChapter || panel || lookupCard || drag || performance.now() - lastTurnAt < 450) {
+          rubyTimer = setTimeout(apply, 450);
+          return;
+        }
+        const picture = !columns.includes(page) && figuresByPage.get(page)?.[0];
+        const file = picture?.dataset.nrImg;
+        chapter.restoreOffset = offsetOfPage();
+        prepared.markup = markup;
+        renderChapter(markup, false);
+        if (file) {
+          for (const [index, figures] of figuresByPage) {
+            if (figures.some(figure => figure.dataset.nrImg === file)) {
+              goTo(index, { silent: true });
+              break;
+            }
+          }
+        }
+      }
+      clearTimeout(rubyTimer);
+      rubyTimer = setTimeout(apply, 450);
+    }).catch(() => {});
   }
 
   function prefetchAdjacent(index, forward) {
@@ -472,23 +736,35 @@ export async function openReader(host, ctx) {
       for (const direction of directions) {
         if (!alive || chapter?.idx !== index) break;
         const next = index + direction;
-        if (next >= 0 && next < detail.book.chapterCount) await prepareChapter(next).catch(() => {});
+        if (next < 0 || next >= detail.book.chapterCount) continue;
+        const prepared = await prepareChapter(next).catch(() => null);
+        const images = prepared?.data.images || [];
+        const edge = direction > 0 ? images.slice(0, 2) : images.slice(-2).reverse();
+        if (alive && chapter?.idx === index) {
+          for (const figure of edge) void readFigure(figure.file);
+        }
       }
-    }, 120);
+    }, 0);
   }
 
   async function loadChapter(index, offset = 0, savedPage, { turn = false, forward = true } = {}) {
     const request = ++chapterRequest;
+    if (!turn) {
+      ++turnSequence;
+      turningChapter = false;
+      pendingTurns.length = 0;
+    }
     try {
-      const { data, annotations, images } = await prepareChapter(index);
+      const prepared = chapterCache.get(index)?.ready || await prepareChapter(index);
       if (!alive || request !== chapterRequest) return false;
-      const snapshot = turn && prefs.dir !== 's' && !reducedMotion() ? captureReaderPage(root, viewport, body) : null;
+      clearTimeout(rubyTimer);
       closeLookup();
-      chapter = { ...data, restoreOffset: offset || null, restorePage: Number.isInteger(savedPage) ? savedPage : undefined };
-      ruby = annotations;
-      renderChapter(images, turn && !forward);
-      if (snapshot) turnReaderPage(root, body, prefs.turn, forward, '', snapshot);
+      currentChapter = prepared;
+      chapter = { ...prepared.data, restoreOffset: offset || null, restorePage: Number.isInteger(savedPage) ? savedPage : undefined };
+      renderChapter(prepared.markup, turn && !forward);
+      if (turn && prefs.dir !== 's' && (prefs.turn === 'fade' || !reducedMotion())) turnReaderPage(root, viewport, body, prefs.turn, forward);
       prefetchAdjacent(index, forward);
+      applyRubyWhenIdle(prepared);
       return true;
     } catch (error) {
       if (alive && request === chapterRequest) toast(String(error?.message || error));
@@ -544,54 +820,179 @@ export async function openReader(host, ctx) {
       if (prefs.dir !== 's' && columns.length && page !== lastCountedPage) {
         lastCountedPage = page;
         for (let i = 0; i < columns.length; i++) {
-          if (columns[i] === page) pendingChars += (paras[i].textContent || '').length;
+          if (columns[i] === page) pendingChars += rawParagraph(paras[i]).length;
         }
       }
     }, 1000);
   }
 
+  function hasLocalEdition() {
+    return /^(?:ja|jpn)/i.test(bookLang) && detail?.editions?.some(edition =>
+      /^(?:zh|chi|zho|cmn)/i.test(edition.languages) && ['epub', 'txt'].includes(edition.format));
+  }
+
+  const translationMode = () => Object.hasOwn(translationModes, prefs.translationSource) ? prefs.translationSource
+    : hasLocalEdition() ? 'edition' : 'google';
+  const localMode = () => translationMode() === 'edition';
+  const machineTarget = () => /^(?:zh|chi|zho|cmn)/i.test(bookLang) || (locale === 'en' && !/^(?:en|eng)/i.test(bookLang)) ? 'en' : 'zh';
+  const machineKey = (mode, source, key) => [mode, source.idx, key, machineTarget()].join(':');
+
+  function loadLocal(prepared) {
+    prepared.local ??= api('novel_bilingual', { id, index: prepared.data.idx }).then(result => {
+      const groups = new Map();
+      for (const [key, text] of Object.entries(result?.sentences || {})) {
+        const [index, start] = key.split(':').map(Number);
+        if (!groups.has(index)) groups.set(index, []);
+        groups.get(index).push([start, text]);
+      }
+      prepared.aligned = new Map([...groups].map(([index, parts]) =>
+        [index, parts.sort((a, b) => a[0] - b[0]).map(([, text]) => text).join('')]));
+    }).catch(() => { prepared.aligned = new Map(); });
+    return prepared.local;
+  }
+
+  function putTranslations(nodes = body.querySelectorAll('[data-nr-translation]')) {
+    if (!prefs.bilingual || !chapter) return false;
+    const mode = translationMode();
+    const edition = mode === 'edition';
+    const aligned = currentChapter?.aligned;
+    const pendingEdition = edition && hasLocalEdition() && aligned == null;
+    const lang = edition ? 'zh' : machineTarget();
+    let dirty = false;
+    for (const out of nodes) {
+      const index = Number(out.dataset.nrTranslation);
+      const text = (edition ? aligned?.get(index) : translations.get(machineKey(mode, chapter, index))) || '';
+      // Empty machine slots already occupy a full translation line before pagination.
+      const hidden = edition && !pendingEdition && !text;
+      if (out.textContent === text && out.hidden === hidden && out.lang === lang) continue;
+      if (out.textContent !== text) out.textContent = text;
+      if (out.hidden !== hidden) out.hidden = hidden;
+      if (out.lang !== lang) out.lang = lang;
+      dirty = true;
+    }
+    appliedLocal = edition ? aligned : null;
+    return dirty;
+  }
+
+  function pageBoundary(value) {
+    let first = 0, end = columns.length;
+    while (first < end) {
+      const middle = (first + end) >>> 1;
+      if (columns[middle] < value) first = middle + 1;
+      else end = middle;
+    }
+    return first;
+  }
+
+  function visibleInReader() {
+    const view = viewport.getBoundingClientRect();
+    const frame = stage.getBoundingClientRect();
+    return rect => rect.right > view.left + 2 && rect.left < view.right - 2 &&
+      rect.bottom > frame.top + 2 && rect.top < frame.bottom - 2;
+  }
+
+  function visibleParagraphs() {
+    if (prefs.dir === 'h' && paragraphPages.has(page)) return paragraphPages.get(page);
+    const inView = visibleInReader();
+    const candidates = prefs.dir === 'h' ? paras.slice(Math.max(0, pageBoundary(page) - 1), pageBoundary(page + 1)) : paras;
+    const visible = candidates.flatMap(paragraph => {
+      const translation = paragraph.nextElementSibling;
+      const target = [...paragraph.getClientRects()].some(inView) ? paragraph :
+        !translation.hidden && [...translation.getClientRects()].some(inView) ? translation : null;
+      return target ? [{ paragraph, target }] : [];
+    });
+    if (prefs.dir === 'h') paragraphPages.set(page, visible);
+    return visible;
+  }
+
+  function withParagraphAnchor(update, force = false) {
+    if (!chapter) return;
+    const previousPage = page;
+    const visible = visibleParagraphs()[0];
+    const target = visible?.target || figuresByPage.get(page)?.[0];
+    const before = target && [...target.getClientRects()];
+    const fragment = Math.max(0, before?.findIndex(visibleInReader()) ?? 0);
+    const screenTop = before?.[fragment]?.top;
+    const offset = offsetOfPage();
+    if (!update() && !force) return;
+    layout();
+    const rectangles = target?.getClientRects();
+    const frame = rectangles?.length ? rectangles[Math.min(rectangles.length - 1, fragment)]
+      : Array.from(visible?.paragraph.getClientRects() || []).at(-1);
+    if (prefs.dir === 'h') {
+      const index = frame ? Math.floor((frame.left - body.getBoundingClientRect().left) / stride + .001)
+        : paras.length ? pageOfOffset(offset) : previousPage;
+      goTo(index, { silent: true });
+    } else if (prefs.dir === 's' && frame && screenTop != null) {
+      stage.scrollTop += frame.top - screenTop;
+    } else {
+      scrollToOffset(offset);
+    }
+    refreshSelection();
+    queueProgress();
+  }
+
+  function queueTranslationPaint(source, mode, apply) {
+    clearTimeout(translationPaintTimer);
+    function commit() {
+      if (!alive || !prefs.bilingual || chapter !== source || translationMode() !== mode) return;
+      if (performance.now() - lastTurnAt < 380 || turningChapter || drag || lookupCard || (panel && panel !== 'custom')) {
+        translationPaintTimer = setTimeout(commit, 180);
+        return;
+      }
+      withParagraphAnchor(apply);
+    }
+    translationPaintTimer = setTimeout(commit, 90);
+  }
+
+  function requestLocalPaint() {
+    if (!prefs.bilingual || !localMode() || !hasLocalEdition() || !currentChapter) return;
+    const source = chapter;
+    const prepared = currentChapter;
+    if (prepared.aligned && appliedLocal === prepared.aligned) return;
+    void loadLocal(prepared).then(() => {
+      if (!alive || !prefs.bilingual || !localMode() || currentChapter !== prepared || appliedLocal === prepared.aligned) return;
+      queueTranslationPaint(source, 'edition', () => putTranslations());
+    });
+  }
+
   function scheduleTranslation() {
     clearTimeout(translateTimer);
-    if (!prefs.bilingual || !chapter || !alive) return;
-    translateTimer = setTimeout(translateVisible, prefs.turn === 'slide' ? 335 : 110);
+    if (!prefs.bilingual || !chapter || !alive || localMode()) return;
+    translateTimer = setTimeout(translateVisible, 335);
   }
 
   async function translateVisible() {
+    const mode = translationMode();
+    if (!prefs.bilingual || !chapter || !alive || mode === 'edition' || machinePending.has(mode)) return;
     const source = chapter;
-    const bounds = viewport.getBoundingClientRect();
-    const frame = stage.getBoundingClientRect();
-    const current = paras.filter(para => [...para.getClientRects()].some(rect => rect.right > bounds.left + 3 &&
-      rect.left < bounds.right - 3 && rect.bottom > frame.top + 3 && rect.top < frame.bottom - 3));
-    const target = /^zh/i.test(bookLang) ? 'en' : locale === 'en' && !/^en/i.test(bookLang) ? 'en' : 'zh';
-    const entries = current.map(para => {
-      const index = Number(para.dataset.i);
-      const key = source.idx + ':' + index + ':' + target;
-      const text = source.paragraphs[index];
-      return { key, text };
-    });
-    const requestKey = entries.map(entry => entry.key).join(',');
-    translationEl.dataset.translationKey = requestKey;
-    const active = () => alive && prefs.bilingual && chapter === source && translationEl.dataset.translationKey === requestKey;
-    const render = () => {
-      if (!active()) return;
-      translationEl.innerHTML = entries.map(({ key }) => {
-        const value = translations.get(key);
-        return `<p>${esc(value === undefined ? w.translating : value || w.translationEmpty)}</p>`;
-      }).join('');
-    };
-    render();
-    const missing = entries.filter(entry => !translations.has(entry.key));
-    for (let index = 0; index < missing.length && active(); index += 18) {
-      const batch = missing.slice(index, index + 18);
-      try {
-        const result = await api('daily_translate', { texts: batch.map(entry => entry.text), target });
-        const texts = Array.isArray(result) ? result : result?.texts;
-        batch.forEach((entry, i) => translations.set(entry.key, String(texts?.[i] || '')));
-        render();
-      } catch {
-        if (active()) translationEl.textContent = w.translationFailed;
-        return;
+    const requestedPage = page;
+    const missing = visibleParagraphs().map(({ paragraph }) => {
+      const index = Number(paragraph.dataset.i);
+      return { key: machineKey(mode, source, index), text: source.paragraphs[index].trim() };
+    }).filter(item => item.text && !translations.has(item.key)).slice(0, 6);
+    if (!missing.length) return;
+    machinePending.add(mode);
+    const stillSelected = () => alive && prefs.bilingual && translationMode() === mode;
+    let received = false;
+    try {
+      const result = await api('daily_translate', { texts: missing.map(entry => entry.text), target: machineTarget(), reader: 'novel', mode,
+        source: /^(?:zh|chi|zho|cmn)/i.test(bookLang) ? 'zh-CN' : /^(?:en|eng)/i.test(bookLang) ? 'en' : /^(?:ja|jpn)/i.test(bookLang) ? 'ja' : 'auto' });
+      const texts = Array.isArray(result) ? result : result?.texts;
+      missing.forEach((entry, i) => translations.set(entry.key, String(texts?.[i] || '')));
+      received = true;
+      if (stillSelected() && chapter === source) {
+        queueTranslationPaint(source, mode, () => putTranslations());
       }
+    } catch (error) {
+      if (stillSelected() && chapter === source && reportedTranslationError !== mode) {
+        reportedTranslationError = mode;
+        toast(String(error?.message || error).includes('NOVEL_TRANSLATION_API_NOT_CONFIGURED')
+          ? labels.apiNotConfigured : labels.translationUnavailable);
+      }
+    } finally {
+      machinePending.delete(mode);
+      if (stillSelected() && (received || chapter !== source || page !== requestedPage)) scheduleTranslation();
     }
   }
 
@@ -796,8 +1197,27 @@ export async function openReader(host, ctx) {
         }));
       }).catch(error => toast(String(error?.message || error)));
     } else if (kind === 'custom') {
-      panelEl.innerHTML = `<div class="nr-panel-head"><b>${esc(labels.configure)}</b></div><button class="nr-custom nr-custom-back" type="button">${esc(labels.themes)}</button>`;
+      panelEl.innerHTML = readerCustomSettings(translationMode(), labels, esc);
       panelEl.querySelector('.nr-custom-back').onclick = () => drawer('type');
+      const options = panelEl.querySelectorAll('[data-setting="translationSource"]');
+      for (const option of options) {
+        option.onclick = () => {
+          const mode = option.dataset.value;
+          const changed = translationMode() !== mode;
+          prefs.translationSource = mode;
+          savePrefs(prefs);
+          reportedTranslationError = undefined;
+          for (const choice of options) choice.setAttribute('aria-pressed', String(choice === option));
+          if (!prefs.bilingual) return;
+          if (changed) {
+            clearTimeout(translationPaintTimer);
+            withParagraphAnchor(() => putTranslations());
+          }
+          if (mode === 'edition' && !hasLocalEdition()) toast(labels.noLocalTranslation);
+          requestLocalPaint();
+          scheduleTranslation();
+        };
+      }
     } else {
       panelEl.innerHTML = readerSettings(prefs, PAPERS, labels, w, esc);
       bindTypeset();
@@ -1231,11 +1651,15 @@ export async function openReader(host, ctx) {
       closeMenu();
       setFullscreen(!fullscreen);
     } else if (action === 'language') {
-      const anchor = offsetOfPage();
-      prefs.bilingual = !prefs.bilingual;
-      translationEl.replaceChildren();
-      applyPrefs();
-      relayout(anchor);
+      withParagraphAnchor(() => {
+        prefs.bilingual = !prefs.bilingual;
+        applyPrefs();
+        putTranslations();
+      }, true);
+      clearTimeout(translationPaintTimer);
+      requestLocalPaint();
+      scheduleTranslation();
+      if (prefs.bilingual && localMode() && !hasLocalEdition()) toast(labels.noLocalTranslation);
       closeMenu();
     } else drawer(action);
   });
@@ -1350,6 +1774,7 @@ export async function openReader(host, ctx) {
   }, { passive: true });
   stage.addEventListener('scroll', () => {
     if (prefs.dir !== 's') return;
+    lastTurnAt = performance.now();
     const max = Math.max(1, stage.scrollHeight - stage.clientHeight);
     const next = Math.round((stage.scrollTop / max) * (pages - 1));
     if (next !== page) { page = next; queueProgress(); }
@@ -1357,6 +1782,7 @@ export async function openReader(host, ctx) {
   }, { passive: true });
   viewport.addEventListener('scroll', () => {
     if (prefs.dir !== 'v') return;
+    lastTurnAt = performance.now();
     page = Math.max(0, Math.min(pages - 1, Math.round(Math.abs(viewport.scrollLeft) / Math.max(1, stride))));
     queueProgress();
     scheduleTranslation();
@@ -1406,9 +1832,18 @@ export async function openReader(host, ctx) {
     clearTimeout(saveTimer);
     clearTimeout(queryTimer);
     clearTimeout(translateTimer);
+    clearTimeout(translationPaintTimer);
     clearTimeout(resizeTimer);
     clearTimeout(prefetchTimer);
-    cancelIdleCallback(snapshotIdle);
+    clearTimeout(rubyTimer);
+    cancelAnimationFrame(figureFrame);
+    figureObserver?.disconnect();
+    stopPictureWorker();
+    for (const record of pictureQueue) record.resolve(null);
+    pictureQueue.length = 0;
+    for (const record of pictures.values()) record.result?.bitmap?.close();
+    pictures.clear();
+    attachedPictures.clear();
     chapterCache.clear();
     clearInterval(flushTimer);
     clearInterval(tickTimer);

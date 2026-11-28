@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 'use strict';
-const { readOnlineInfo, setOnlineInfo, lookupState } = require('./library.cjs');
+const { readOnlineInfo, setOnlineInfo, lookupState, cacheOnlineCover, canFetchCover, imageExt } = require('./library.cjs');
 const { catalogs, searchMoegirl } = require('./catalogs.cjs');
 const { isbnOf, titleParts, bestMatch } = require('./identity.cjs');
 const { openStore } = require('../store.cjs');
@@ -95,15 +95,43 @@ async function searchBangumi(source, query, byTitle = false) {
   });
 }
 
-async function fetchCover(source, image) {
-  const safe = coverUrl(image);
-  if (!safe) throw Error('NOVEL_ONLINE_COVER');
-  const res = await source.fetcher(safe, {
-    redirect: 'error', headers: { 'User-Agent': 'MeguLit/1.4.25 (desktop novel library)' },
-    signal: AbortSignal.timeout(12000)
-  });
+function libraryImageUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.port || url.username || url.password) return '';
+    if (url.hostname === 'covers.openlibrary.org' && /^\/b\/(?:id|isbn|olid)\/[\dOLMX-]+-[SML]\.jpg$/.test(url.pathname)) {
+      url.search = '?default=false';
+      return url.href;
+    }
+    if (url.hostname === 'archive.org' && /^\/download\/[sml]_covers_\d+\/[\w.-]+\.zip\/\d+-[SML]\.jpg$/.test(url.pathname)) return url.href;
+    if (/^ia\d+\.us\.archive\.org$/.test(url.hostname) && url.pathname === '/view_archive.php' &&
+        /^\d+-[SML]\.jpg$/.test(url.searchParams.get('file') || '') &&
+        /^\/\d+\/items\/[sml]_covers_\d+\/[\w.-]+\.zip$/.test(url.searchParams.get('archive') || '')) return url.href;
+  } catch { /* Invalid URL. */ }
+  return '';
+}
+
+async function fetchCover(source, image, provider = 'bangumi') {
+  const allowed = provider === 'openlibrary' ? libraryImageUrl : coverUrl;
+  let url = allowed(image);
+  let res;
+  const signal = AbortSignal.timeout(7000);
+  for (let hop = 0; url && hop < 4; hop++) {
+    res = await source.fetcher(url, {
+      redirect: 'manual', headers: { 'User-Agent': 'MeguLit (desktop novel library)' }, signal
+    });
+    if (res.status < 300 || res.status >= 400) break;
+    await res.body?.cancel().catch(() => {});
+    const location = res.headers.get('location');
+    url = location && allowed(new URL(location, url));
+  }
+  if (!res) throw Error('NOVEL_ONLINE_COVER');
+  if (res.status === 404) return null;
   const size = Number(res.headers.get('content-length'));
-  if (!res.ok || size > coverLimit || !res.body) throw Error('NOVEL_ONLINE_COVER');
+  if (!res.ok || size > coverLimit || !res.body || !/^image\/(?:jpe?g|png|gif|webp)(?:;|$)/i.test(res.headers.get('content-type') || '')) {
+    await res.body?.cancel().catch(() => {});
+    throw Error('NOVEL_ONLINE_COVER');
+  }
   const chunks = [];
   let count = 0;
   for await (const part of res.body) {
@@ -111,7 +139,9 @@ async function fetchCover(source, image) {
     if (count > coverLimit) throw Error('NOVEL_ONLINE_COVER');
     chunks.push(part);
   }
-  return Buffer.concat(chunks, count);
+  const bytes = Buffer.concat(chunks, count);
+  if (!imageExt(bytes) || count < 512) throw Error('NOVEL_ONLINE_COVER');
+  return bytes;
 }
 
 async function save(db, root, runtime, id, request) {
@@ -136,7 +166,10 @@ async function save(db, root, runtime, id, request) {
   const source = network(runtime);
   const record = await getSubject(source, subjectId, refresh);
   const bytes = !refresh && request.useCover === true
-    ? await fetchCover(source, record.coverUrl).catch(() => { throw Error('NOVEL_ONLINE_COVER'); })
+    ? await fetchCover(source, record.coverUrl).then(bytes => {
+      if (!bytes) throw Error('NOVEL_ONLINE_COVER');
+      return bytes;
+    })
     : null;
   if (refresh && readOnlineInfo(root, id)?.subjectId !== subjectId) throw Error('NOVEL_ONLINE_SELECT_BOOK');
   return setOnlineInfo(db, root, id, {
@@ -194,7 +227,7 @@ function queueFor(runtime) {
 function activeBook(root, id, run) {
   const db = openStore(root);
   try {
-    const book = db.prepare("SELECT id,title,author,original FROM novels WHERE id=? AND status='active'").get(id);
+    const book = db.prepare("SELECT id,title,author,original,source,cover,local_path FROM novels WHERE id=? AND status='active'").get(id);
     return book ? run(db, book) : null;
   } finally { db.close(); }
 }
@@ -227,6 +260,20 @@ async function matchCatalog(source, provider, book, aliases = []) {
   return verified ? { ...verified, matchQuery: best.matchQuery } : null;
 }
 
+const titleKey = value => titleParts(value).title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+function coverMatches(book, record) {
+  if (!record) return false;
+  if (book.isbn) return book.isbn === isbnOf(record.isbn);
+  const title = titleKey(book.title);
+  const author = titleKey(book.author);
+  const other = titleKey(record.author);
+  return Boolean(title && (title === titleKey(record.title) || title === titleKey(record.alternate)) &&
+    (!author || !other || author.includes(other) || other.includes(author)));
+}
+
+const isbnCover = isbn => 'https://covers.openlibrary.org/b/isbn/' + isbn + '-M.jpg?default=false';
+
 async function enrich(root, runtime, id) {
   const book = activeBook(root, id, (_db, row) => row);
   if (!book || runtime.stopped) return;
@@ -236,7 +283,11 @@ async function enrich(root, runtime, id) {
   const states = {};
   const pending = [];
   const records = {};
-  const prior = lookupState(root, id)?.sources || {};
+  const last = lookupState(root, id);
+  const prior = last?.sources || {};
+  let cover = last?.cover;
+  const fetchMissingCover = canFetchCover(book) && eligible(cover) && !readOnlineInfo(root, id)?.coverFile;
+  if (fetchMissingCover) cover = { status: 'pending', at: Date.now() };
   for (const provider of providerKeys) {
     const record = readOnlineInfo(root, id, provider);
     if (record) {
@@ -251,7 +302,8 @@ async function enrich(root, runtime, id) {
       states[provider] = prior[provider];
     }
   }
-  const snapshot = () => ({ sources: states, pending: Object.values(states).some(item => item.status === 'pending') });
+  const snapshot = () => ({ sources: states, cover,
+    pending: cover?.status === 'pending' || Object.values(states).some(item => item.status === 'pending') });
   lookupState(root, id, snapshot());
 
   async function fill(provider, find) {
@@ -280,7 +332,45 @@ async function enrich(root, runtime, id) {
   const bangumi = fill('bangumi', () => matchCatalog(source, 'bangumi', book));
   const ndl = fill('ndl', () => matchCatalog(source, 'ndl', book));
   const openLibrary = fill('openlibrary', () => matchCatalog(source, 'openlibrary', book));
-  await Promise.all([bangumi, ndl, openLibrary,
+  const coverJob = fetchMissingCover && (async () => {
+    // Both routes use the existing catalog identities. A network timeout on one route must not block the other.
+    const options = [
+      bangumi.then(() => {
+        const record = records.bangumi;
+        return coverMatches(book, record) ? { provider: 'bangumi', url: record.coverUrl } : null;
+      }),
+      book.isbn ? Promise.resolve({ provider: 'openlibrary', url: isbnCover(book.isbn) }) : openLibrary.then(() => {
+        const record = records.openlibrary;
+        if (!coverMatches(book, record)) return null;
+        const isbn = isbnOf(record.isbn);
+        const url = isbn ? isbnCover(isbn) : record.edition && /^OL\d+M$/.test(record.recordId)
+          ? 'https://covers.openlibrary.org/b/olid/' + record.recordId + '-M.jpg?default=false'
+          : titleParts(book.title).volume == null ? record.coverUrl?.replace(/-S\.jpg$/, '-M.jpg') : '';
+        return url ? { provider: 'openlibrary', url } : null;
+      })
+    ];
+    let failed = false;
+    try {
+      const { bytes, provider } = await Promise.any(options.map(async option => {
+        const candidate = await option;
+        if (!candidate?.url || runtime.stopped) throw Error('NOVEL_COVER_MISSING');
+        let bytes;
+        try { bytes = await fetchCover(source, candidate.url, candidate.provider); }
+        catch (error) { failed = true; throw error; }
+        if (!bytes || runtime.stopped) throw Error('NOVEL_COVER_MISSING');
+        return { bytes, provider: candidate.provider };
+      }));
+      const file = !runtime.stopped && activeBook(root, id, (_db, current) => {
+        if (!canFetchCover(current) || readOnlineInfo(root, id)?.coverFile) return '';
+        return cacheOnlineCover(root, id, bytes);
+      });
+      cover = file ? { file, provider, status: 'matched', at: Date.now() } : { status: 'missing', at: Date.now() };
+    } catch {
+      cover = { status: failed || states.bangumi?.status === 'failed' || states.openlibrary?.status === 'failed' ? 'failed' : 'missing', at: Date.now() };
+    }
+    if (!runtime.stopped) activeBook(root, id, () => lookupState(root, id, snapshot()));
+  })();
+  await Promise.all([bangumi, ndl, openLibrary, coverJob,
     fill('shlibrary', async () => {
       if (!book.isbn) await Promise.all([bangumi, ndl]);
       const inferredIsbn = book.isbn || isbnOf(records.ndl?.isbn) || isbnOf(records.bangumi?.isbn);
@@ -305,8 +395,11 @@ function schedule(root, runtime, ids, prioritize = false) {
       continue;
     }
     const last = lookupState(root, id);
-    if (last && !providerKeys.some(key => eligible(last.sources?.[key]))) continue;
-    lookupState(root, id, { ...last, pending: true });
+    const fetchMissingCover = eligible(last?.cover) && activeBook(root, id, (_db, book) =>
+      canFetchCover(book) && !readOnlineInfo(root, id)?.coverFile);
+    if (last && !fetchMissingCover && !providerKeys.some(key => eligible(last.sources?.[key]))) continue;
+    const cover = fetchMissingCover ? { status: 'pending', at: Date.now() } : last?.cover;
+    lookupState(root, id, { ...last, cover, pending: true });
     if (prioritize) queue.pending = new Set([id, ...queue.pending]);
     else queue.pending.add(id);
   }
@@ -324,7 +417,8 @@ function schedule(root, runtime, ids, prioritize = false) {
             const last = lookupState(root, id);
             const sources = Object.fromEntries(providerKeys.map(key => [key,
               last?.sources?.[key]?.status === 'matched' ? last.sources[key] : { status: 'failed', at: Date.now() }]));
-            lookupState(root, id, { sources, pending: false });
+            const cover = last?.cover?.status === 'pending' ? { status: 'failed', at: Date.now() } : last?.cover;
+            lookupState(root, id, { sources, cover, pending: false });
           });
         } finally { queue.running = ''; }
       }
@@ -340,4 +434,4 @@ function resume(root, runtime, ids) {
   schedule(root, runtime, ids.filter(id => lookupState(root, id)?.pending));
 }
 
-module.exports = { search, searchBangumi, save, clear, reviews, schedule, resume };
+module.exports = { normalizeSubject, fetchCover, search, searchBangumi, save, clear, reviews, schedule, resume };

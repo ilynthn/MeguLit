@@ -29,12 +29,13 @@ const attr = (tag, name) => {
 const stripTags = value => decodeEntities(String(value || '').replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 
 function resolveHref(base, href) {
-  const clean = String(href || '').split('#')[0].trim();
+  const clean = String(href || '').split(/[?#]/)[0].trim().replace(/\\/g, '/');
   if (!clean) return '';
   let decoded = clean;
   try { decoded = decodeURIComponent(clean); } catch { /* 保留原样 */ }
-  const joined = path.posix.normalize(path.posix.join(base || '', decoded));
-  return joined.replace(/^\.\//, '');
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(decoded)) return '';
+  const joined = path.posix.normalize(decoded.startsWith('/') ? decoded : path.posix.join(base || '', decoded));
+  return /^\.\.(?:\/|$)/.test(joined) ? '' : joined.replace(/^(?:\.\/|\/)+/, '');
 }
 
 /* ---- 正文：<ruby> 先摘出来（EPUB 的注音比重新分词准），其余标签按块级换行 ---- */
@@ -98,6 +99,7 @@ function parseManifest(opf) {
       id: attr(tag, 'id'),
       href,
       type: attr(tag, 'media-type').toLowerCase(),
+      fallback: attr(tag, 'fallback'),
       properties: attr(tag, 'properties').toLowerCase()
     });
   }
@@ -110,8 +112,13 @@ function parseSpine(opf, items) {
   const pattern = /<itemref\b[^>]*\/?>/gi;
   let match;
   while ((match = pattern.exec(opf))) {
-    const item = byId.get(attr(match[0], 'idref'));
-    if (item && /x?html/.test(item.type || 'xhtml')) order.push(item);
+    let item = byId.get(attr(match[0], 'idref'));
+    const seen = new Set();
+    while (item && !seen.has(item.id)) {
+      if (isDocument(item)) { order.push(item); break; }
+      seen.add(item.id);
+      item = byId.get(item.fallback);
+    }
   }
   const spineTag = /<spine\b[^>]*>/i.exec(opf);
   return { order, tocId: spineTag ? attr(spineTag[0], 'toc') : '' };
@@ -152,56 +159,95 @@ function firstHeading(html) {
   return '';
 }
 
+const isDocument = item => /^(?:application\/xhtml\+xml|text\/html|text\/xml|application\/xml)(?:;|$)/i.test(item.type) ||
+  (!item.type || item.type === 'application/octet-stream') && /\.(?:x?html?|xml)(?:[?#]|$)/i.test(item.href);
+const unprefix = text => text.replace(/(<\/?)[\w.-]+:(?=(?:container|rootfiles?|package|metadata|manifest|spine|itemref|item|meta|navpoint|navlabel|text|content|html|body|head|p|div|h[1-6]|a|img)\b)/gi, '$1');
+
+function decodeDocument(bytes) {
+  const [first, second] = bytes;
+  const header = bytes.subarray(0, 512).toString('latin1');
+  const declaration = /(?:encoding|charset)\s*=\s*["']?([\w-]+)/i.exec(header)?.[1];
+  const encoding = first === 0xff && second === 0xfe || first === 60 && second === 0 ? 'utf-16le'
+    : first === 0xfe && second === 0xff || first === 0 && second === 60 ? 'utf-16be' : declaration || 'utf-8';
+  try { return new TextDecoder(encoding === 'gb2312' ? 'gb18030' : encoding).decode(bytes); }
+  catch { return new TextDecoder().decode(bytes); }
+}
+
+function seriesInfo(opf) {
+  const legacy = /<meta\b[^>]*\bname\s*=\s*["']calibre:series["'][^>]*>/i.exec(opf)?.[0] || '';
+  const legacyNumber = /<meta\b[^>]*\bname\s*=\s*["']calibre:series_index["'][^>]*>/i.exec(opf)?.[0] || '';
+  let name = attr(legacy, 'content');
+  let position = attr(legacyNumber, 'content');
+  if (!name) {
+    const meta = [...opf.matchAll(/(<meta\b[^>]*>)([^<]+)<\/meta>/gi)];
+    const collection = meta.find(([, tag]) => attr(tag, 'property') === 'belongs-to-collection');
+    if (collection) {
+      const ref = '#' + attr(collection[1], 'id');
+      const type = meta.find(([, tag]) => attr(tag, 'refines') === ref && attr(tag, 'property') === 'collection-type');
+      if (!type || type[2].trim().toLowerCase() === 'series') {
+        name = stripTags(collection[2]);
+        position = meta.find(([, tag]) => attr(tag, 'refines') === ref && attr(tag, 'property') === 'group-position')?.[2];
+      }
+    }
+  }
+  return name ? { title: name.trim().slice(0, 160), position: position?.trim() && Number.isFinite(Number(position)) ? Number(position) : null } : null;
+}
+
 async function readEpub(file) {
-  const list = await zip.entries(file, { maxIndex: MAX_BYTES, maxEntries: 20000 });
-  if (!list.length) throw Error('NOVEL_PARSE_FAILED');
-  const byName = new Map(list.map(entry => [entry.name.replace(/\\/g, '/'), entry]));
-  const find = name => {
-    if (byName.has(name)) return byName.get(name);
-    const lower = name.toLowerCase();
-    for (const [key, entry] of byName) if (key.toLowerCase() === lower) return entry;
-    return null;
-  };
+  const list = await zip.entries(file, { maxIndex: MAX_BYTES, maxEntries: 20000 }).catch(() => { throw Error('NOVEL_EPUB_DAMAGED'); });
+  if (!list.length) throw Error('NOVEL_EPUB_DAMAGED');
+  const normalize = name => resolveHref('', name).normalize('NFC');
+  const byName = new Map(list.map(entry => [normalize(entry.name), entry]));
+  const byLower = new Map([...byName].map(([name, entry]) => [name.toLowerCase(), entry]));
+  const find = name => byName.get(normalize(name)) || byLower.get(normalize(name).toLowerCase());
   const read = async name => {
     const entry = find(name);
     if (!entry) return '';
-    const bytes = await zip.readMember(file, entry, MAX_BYTES);
-    return new TextDecoder('utf-8').decode(bytes);
+    try { return unprefix(decodeDocument(await zip.readMember(file, entry, MAX_BYTES))); }
+    catch (error) { throw Error(error.message === 'IMPORT_NPA_ENCRYPTED' ? 'NOVEL_EPUB_ENCRYPTED' : 'NOVEL_EPUB_DAMAGED'); }
   };
 
   const container = await read('META-INF/container.xml');
-  const rootfile = /<rootfile\b[^>]*>/i.exec(container);
-  const opfPath = rootfile ? attr(rootfile[0], 'full-path') : '';
-  if (!opfPath) throw Error('NOVEL_PARSE_FAILED');
+  const roots = [...container.matchAll(/<rootfile\b[^>]*>/gi)].map(([tag]) => attr(tag, 'full-path')).filter(Boolean);
+  const fallback = [...byName.keys()].filter(name => /\.opf$/i.test(name));
+  const opfPath = roots.find(find) || (fallback.length === 1 ? fallback[0] : '');
+  if (!opfPath) throw Error('NOVEL_EPUB_PACKAGE');
   const opf = await read(opfPath);
-  if (!opf) throw Error('NOVEL_PARSE_FAILED');
+  if (!opf) throw Error('NOVEL_EPUB_PACKAGE');
   const base = path.posix.dirname(opfPath) === '.' ? '' : path.posix.dirname(opfPath);
 
-  const title = stripTags((/<dc:title\b[^>]*>([\s\S]*?)<\/dc:title>/i.exec(opf) || [])[1] || '');
+  const metadata = /<metadata\b[^>]*>([\s\S]*?)<\/metadata>/i.exec(opf)?.[1] || '';
+  const fields = name => [...metadata.matchAll(new RegExp('<(?:[\\w.-]+:)?' + name + '\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?' + name + '>', 'gi'))]
+    .map(([, value]) => value);
+  const title = stripTags(fields('title')[0]);
   const { isbnOf } = require('./identity.cjs');
-  const isbn = [...opf.matchAll(/<dc:identifier\b[^>]*>([\s\S]*?)<\/dc:identifier>/gi)]
-    .map(([, value]) => isbnOf(stripTags(value))).find(Boolean) || '';
-  const author = stripTags((/<dc:creator\b[^>]*>([\s\S]*?)<\/dc:creator>/i.exec(opf) || [])[1] || '');
-  const language = stripTags((/<dc:language\b[^>]*>([\s\S]*?)<\/dc:language>/i.exec(opf) || [])[1] || '');
-  const introRaw = (/<dc:description\b[^>]*>([\s\S]*?)<\/dc:description>/i.exec(opf) || [])[1] || '';
+  const isbn = fields('identifier').map(value => isbnOf(stripTags(value))).find(Boolean) || '';
+  const aliases = [...opf.matchAll(/<meta\b[^>]*\bproperty\s*=\s*["'](?:dcterms:alternative|schema:alternateName)["'][^>]*>([\s\S]*?)<\/meta>/gi)]
+    .map(([, value]) => stripTags(value)).filter(Boolean).slice(0, 8);
+  const sourceIsbn = fields('source').map(value => isbnOf(stripTags(value))).find(Boolean) || '';
+  const author = stripTags(fields('creator')[0]);
+  const language = stripTags(fields('language')[0]);
+  const introRaw = fields('description')[0] || '';
 
   const items = parseManifest(opf);
   const spine = parseSpine(opf, items);
 
   let toc = [];
   const navItem = items.find(item => item.properties.split(/\s+/).includes('nav'));
-  if (navItem) toc = parseNavDocument(await read(resolveHref(base, navItem.href)), base);
+  if (navItem) toc = parseNavDocument(await read(resolveHref(base, navItem.href)).catch(() => ''), base);
   if (!toc.length) {
     const ncx = items.find(item => item.type === 'application/x-dtbncx+xml') ||
       items.find(item => spine.tocId && item.id === spine.tocId);
-    if (ncx) toc = parseNcx(await read(resolveHref(base, ncx.href)), base);
+    if (ncx) toc = parseNcx(await read(resolveHref(base, ncx.href)).catch(() => ''), base);
   }
   const tocMap = new Map();
   for (const entry of toc) if (!tocMap.has(entry.href)) tocMap.set(entry.href, entry.title);
 
   const chapters = [];
+  const byHref = new Map(items.filter(isDocument).map(item => [resolveHref(base, item.href), item]));
+  const order = spine.order.length ? spine.order : [...new Set(toc.map(entry => byHref.get(entry.href)).filter(Boolean))];
   const squash = value => String(value || '').replace(/[\s\u3000]+/g, '');
-  for (const item of spine.order) {
+  for (const item of order) {
     const href = resolveHref(base, item.href);
     const html = await read(href);
     if (!html) continue;
@@ -220,7 +266,7 @@ async function readEpub(file) {
       images: blocks.images.map(img => ({ after: img.after, href: resolveHref(path.posix.dirname(href), img.src) }))
     });
   }
-  if (!chapters.length) throw Error('NOVEL_PARSE_FAILED');
+  if (!chapters.length) throw Error('NOVEL_EPUB_CONTENT');
 
   /* 插图实体：按 href 去重，交给导入层落盘 */
   const assets = [];
@@ -244,12 +290,18 @@ async function readEpub(file) {
     items.find(item => /^image\//.test(item.type) && /cover/i.test(item.href));
   if (coverItem) {
     const entry = find(resolveHref(base, coverItem.href));
-    if (entry) cover = { bytes: await zip.readMember(file, entry, MAX_BYTES), href: coverItem.href };
+    if (entry) {
+      try { cover = { bytes: await zip.readMember(file, entry, MAX_BYTES), href: coverItem.href }; }
+      catch { /* A broken optional cover must not prevent importing readable chapters. */ }
+    }
   }
 
   return {
     title: title || path.basename(file, path.extname(file)),
     isbn,
+    aliases,
+    sourceIsbn,
+    series: seriesInfo(opf),
     author,
     language,
     /* dc:description 里常是转义过的 HTML（&lt;p&gt;…），先解码再剥标签 */
