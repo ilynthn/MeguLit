@@ -679,6 +679,7 @@ async function dispatch(request,runtime=null) {
       case 'anki_connect_status':return {installed:require('../core/anki-process.cjs').ankiConnectInstalled()};
       case 'anki_launch':{const runner=runtime.ankiProcess(),hide=!!runtime.config().ankiHidden;if(String(request.reason||'')==='ANKI_PORT_TAKEN')return await runner.repair({hide});return await runner.start({hide});}
       case 'anki_repair':return await runtime.ankiProcess().repair({hide:!!runtime.config().ankiHidden});
+      case 'anki_reconnect':return await runtime.ankiProcess().reconnect({hide:!!runtime.config().ankiHidden});
       case 'anki_hide':return {hidden:(await runtime.ankiProcess().hide())>0};
       case 'anki_open':return await runtime.ankiProcess().open(String(request.target||''),String(request.deck||''));
       case 'anki_status':case 'anki_current':case 'anki_start':case 'anki_show_answer':case 'anki_grade':case 'anki_play_audio':case 'anki_stop':case 'anki_practice':case 'anki_deck_config':case 'anki_deck_limits':{
@@ -690,7 +691,8 @@ async function dispatch(request,runtime=null) {
         if(request.action==='anki_practice')return request.end===true?reviewer.endPractice():await reviewer.practice(String(request.deck||''),request.advance===true,request.resume===true);
         if(request.action==='anki_deck_config')return await reviewer.deckConfig(String(request.deck||''));
         if(request.action==='anki_deck_limits')return await reviewer.saveDeckLimits(String(request.deck||''),{newPerDay:request.newPerDay,revPerDay:request.revPerDay});
-        if(request.action==='anki_start')return await reviewer.start(String(request.deck||''));
+        /* AnkiConnect's review actions can bring a hidden Anki's main window back: MeguLit's own hidden Anki is hidden again */
+        if(request.action==='anki_start'){const r=await reviewer.start(String(request.deck||''));runtime.ankiProcess().rehide();return r;}
         if(request.action==='anki_show_answer')return await reviewer.showAnswer(Number(request.cardId));
         if(request.action==='anki_play_audio')return await reviewer.playAudio(Number(request.cardId));
         return await reviewer.grade({cardId:Number(request.cardId),ease:Number(request.ease),operationId:request.operationId});

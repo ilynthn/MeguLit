@@ -138,7 +138,7 @@ test('the install dialog shows the failed Anki directory and a way forward',asyn
  for(const [language,message] of Object.entries(messages)){
   document.documentElement.lang=language;
   const ask={addEventListener(_event,handler){this.onclick=handler;}},go={},line={},bar={querySelector:()=>({style:{}})};
-  const elements={'[data-install-ask]':ask,'[data-install-go]':go,'[data-install-state]':line,'.anki-install-bar':bar,'[data-connect]':{},'[data-launch]':{}};
+  const elements={'[data-install-ask]':ask,'[data-install-go]':go,'[data-install-state]':line,'.anki-install-bar':bar,'[data-connect]':{},'[data-launch]':{},'[data-reconnect]':{}};
   const querySelector=selector=>elements[selector]||null;
   const landing={matches:()=>true,classList:{add:noop,remove:noop},removeAttribute:noop,querySelector};
   const target={firstElementChild:landing,querySelector};

@@ -53,7 +53,8 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   assert.deepEqual(res,{running:true,started:false});
   assert.equal(spawned,0,'already running Anki must not be spawned again');
   assert.equal(userOwned.started,false,'already running Anki is not owned by MeguLit');
-  assert.ok(modes2.includes('show'),'start({hide:false}) shows an already running Anki');
+  /* 2026-11-28 owner (anki 软件老是显示出来): an Anki the user opened is left alone, never shown, raised or hidden */
+  assert.deepEqual(modes2,[],'start() leaves the windows of an already running Anki alone');
   modes2.length=0;
   assert.deepEqual(await userOwned.stop(),{closed:false});
   assert.ok(!modes2.includes('close'),'stop() must not close user-owned Anki');
@@ -90,14 +91,14 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   await new Promise(z=>setTimeout(z,15));
   const p2=conc.start({hide:false});
   await new Promise(z=>setTimeout(z,5));
-  assert.ok(cWatchKill>=1,'hide:false caller stops the active hide watcher before online');
-  assert.ok(cModes.includes('show'),'hide:false caller shows Anki immediately while still waiting');
+  assert.ok(!cModes.includes('show'),'a hide:false caller joining a start never shows Anki while it loads');
   cOnline=true;
   const [r1,r2]=await Promise.all([p1,p2]);
   assert.equal(cSpawn,1,'concurrent starts spawn Anki only once');
   assert.equal(conc.started,true,'MeguLit-spawned Anki is marked started');
   assert.equal(r1.running,true);assert.equal(r2.running,true);
   assert.equal(conc.hidden,false);
+  assert.ok(cModes.includes('mini')&&!cModes.includes('show'),'with hide:false it ends minimized without activation, never shown in front');
 
   // Same-tick concurrent start({hide:true}) + start({hide:false}) while online() is still in flight
   let stSpawn=0,stWatch=0,stOnline=false,stHideOpt=null;const stModes=[];
@@ -117,9 +118,9 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   setTimeout(()=>{stOnline=true;},20);
   const [sr1,sr2]=await Promise.all([sp1,sp2]);
   assert.equal(stSpawn,1);
-  assert.equal(stWatch,0,'same-tick hide:false suppresses hide watcher');
-  assert.equal(stHideOpt,false,'same-tick hide:false spawns visibly');
-  assert.ok(!stModes.includes('hideall'),'same-tick hide:false must not hide windows');
+  assert.equal(stHideOpt,true,'MeguLit always spawns Anki hidden, so it never flashes in front while loading');
+  assert.equal(stWatch,1,'its windows are kept hidden while it loads');
+  assert.ok(stModes.includes('mini')&&!stModes.includes('show'),'hide:false ends minimized without activation');
   assert.equal(sameTick.hidden,false);
   assert.equal(sameTick.hideRequested,false);
   assert.equal(sr1.running,true);assert.equal(sr2.running,true);
@@ -129,7 +130,7 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   const lateReveal=new AnkiProcess({
    config:()=>cleanV4({ankiPath:'C:\\Anki\\anki.exe'}),
    anki:{call:async()=>{if(!lateOnline)throw Error('ANKI_OFFLINE');return 6;}},
-   windowControl:async m=>{if(m==='show')lateShowStates.push(windowReady);return windowReady?1:0;},
+   windowControl:async m=>{if(m==='mini')lateShowStates.push(windowReady);return windowReady?1:0;},
    running:()=>true,
    wait:async()=>{await new Promise(z=>setTimeout(z,5));},
    watcher:()=>({kill:()=>{}}),
@@ -144,24 +145,22 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   const lp2=lateReveal.start({hide:false});
   windowReady=true;lateOnline=true;
   await Promise.all([lp1,lp2]);
-  assert.ok(lateShowStates.includes(true),'must show again once window exists and AnkiConnect comes online');
+  assert.ok(lateShowStates.includes(true),'puts Anki in the taskbar (minimized) once its window exists and AnkiConnect is up');
 
-  // start({hide:false}) when already online still stops active watcher and reveals hidden window;
-  // start({hide:true}) when already online hides it.
-  let onWatchKill=0;const onModes=[];
+  // An Anki already online that the user opened is never touched; MeguLit's own hidden Anki is hidden again
+  const onModes=[];
   const alreadyOn=new AnkiProcess({
    config:()=>cleanV4({ankiHidden:true}),
    anki:{call:async()=>6},
    windowControl:async m=>{onModes.push(m);return 1;},
-   watcher:()=>({kill:()=>{onWatchKill++;}})
+   watcher:()=>({kill:()=>{}})
   });
-  alreadyOn.hidden=true;alreadyOn.watch(30000);
   assert.deepEqual(await alreadyOn.start({hide:false}),{running:true,started:false});
-  assert.equal(onWatchKill,1,'online start({hide:false}) cancels watcher');
-  assert.deepEqual(onModes,['show']);
-  assert.equal(alreadyOn.hidden,false);
   assert.deepEqual(await alreadyOn.start({hide:true}),{running:true,started:false});
-  assert.deepEqual(onModes,['show','hideall']);
+  assert.deepEqual(onModes,[],'user-opened Anki: no show, no hide');
+  alreadyOn.started=true;alreadyOn.hidden=true;
+  assert.deepEqual(await alreadyOn.start({hide:true}),{running:true,started:false});
+  assert.deepEqual(onModes,['hideall'],'MeguLit-started hidden Anki stays hidden');
 
   // Missing executable when Anki is not running rejects with ANKI_EXECUTABLE_MISSING
   const missingExe=new AnkiProcess({
@@ -204,8 +203,8 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   });
   userHiddenWait.watch=()=>{uWatch++;};
   await userHiddenWait.start({hide:true});
-  assert.equal(uWatch,0,'do not watch-hide user-owned Anki before AnkiConnect responds');
-  assert.deepEqual(uModes,['hideall'],'hide only after AnkiConnect is actually online');
+  assert.equal(uWatch,0,'do not watch-hide user-owned Anki');
+  assert.deepEqual(uModes,[],'a user-opened Anki is never hidden or shown');
 
   // Timeout on self-started hidden Anki keeps hiding while waiting, then stops watcher, clears hideRequested, and shows window
   let toWatchKill=0;const toModes=[];
@@ -224,7 +223,7 @@ assert.equal(cleanV4({ankiPath:'C:\\x\\evil.exe'}).ankiPath,'');
   assert.equal(toWatchKill,1,'timeout stops hide watcher');
   assert.equal(timedOut.hideRequested,false);
   assert.equal(timedOut.hidden,false);
-  assert.ok(toModes.includes('show'),'timeout shows hidden Anki so blocking dialogs are visible');
+  assert.ok(toModes.includes('mini')&&!toModes.includes('show'),'timeout puts Anki in the taskbar minimized (blocking dialogs reachable) without taking the foreground');
  }
 
  // #12: stop() checks process exit independently of AnkiConnect, stops watcher, and restores surviving windows

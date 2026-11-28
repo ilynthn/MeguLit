@@ -125,14 +125,14 @@ test('review page shows localized messages for ANKI_CLOSE_REQUIRED',async t=>{
  for(const [lang,pattern] of Object.entries(messages)){
   document.documentElement.lang=lang;
   const connectBtn={setAttribute:noop};
-  const elements={'[data-connect]':connectBtn,'[data-launch]':{},'[data-install-ask]':null};
+  const elements={'[data-connect]':connectBtn,'[data-launch]':{},'[data-reconnect]':{},'[data-install-ask]':null};
   const querySelector=s=>elements[s]||null;
   const landing={matches:()=>true,classList:{add:noop,remove:noop},removeAttribute:noop,querySelector};
   const target={firstElementChild:landing,querySelector,querySelectorAll:()=>[connectBtn]};
   landing.parentElement=target;
   const toasts=[];
   const api=async action=>{
-   if(action==='anki_status')return {connected:false,reason:'ANKI_OFFLINE'};
+   if(action==='anki_status')return {connected:false,reason:'ANKI_PORT_TAKEN'};
    if(action==='anki_repair')throw Error('ANKI_CLOSE_REQUIRED');
    return {};
   };

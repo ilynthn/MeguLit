@@ -91,38 +91,42 @@ function setupDom(t){
 
 const text={loading:'加载中',ankiReview:'Anki 复习',ankiStartHint:'提示',ankiOffline:'未连接',ankiOfflineHint:'离线',reconnect:'重新连接',ankiConnected:'已连接',startAnki:'开始',chooseDeck:'牌组',ankiRefresh:'刷新',ankiFailed:'失败'};
 
-test('clicking reconnect keeps the one-click install screen when Anki is missing',async t=>{
+/* 2026-11-28 owner (加个手动重新连接的按钮): one 重新连接 Anki button (anki_reconnect) replaces 启动 / 修复; it says why it
+   could not connect, keeps the one-click install link when Anki is missing, and reloads the review in place on success */
+test('重新连接 with Anki missing says so and keeps the one-click install link',async t=>{
  const {target}=setupDom(t);
  let statusCalls=0;
  const api=async action=>{
   if(action==='anki_status'){statusCalls++;return {connected:false,reason:'ANKI_OFFLINE',url:'http://127.0.0.1:8765'};}
-  if(action==='anki_repair')throw Error('ANKI_EXECUTABLE_MISSING');
+  if(action==='anki_reconnect')throw Error('ANKI_EXECUTABLE_MISSING');
+  if(action==='anki_repair'||action==='anki_launch')throw Error('old buttons must not be used');
   return {};
  };
  const {renderAnkiReview}=await import('../web/anki-review.js');
  await renderAnkiReview({target,api,text,esc:String,isCurrent:()=>true,toast:()=>{},quiet:true});
  assert.equal(statusCalls,1);
- const btn=target.querySelector('[data-connect]');
- assert.ok(btn,'offline view shows reconnect button');
+ const btn=target.querySelector('[data-reconnect]');
+ assert.ok(btn,'offline view shows 重新连接');
+ assert.equal(target.querySelector('[data-connect]'),null,'the port fix only shows when the port is taken');
  await btn.click();
- assert.ok(target.querySelector('[data-install-go]'),'one-click install screen stays visible after ANKI_EXECUTABLE_MISSING');
- assert.equal(target.querySelector('[data-connect]'),null,'offline screen must not overwrite the install screen');
- assert.equal(statusCalls,1,'must not re-render offline status over the install screen');
+ assert.match(target.querySelector('[data-anki-reason]').textContent,/没有找到 Anki/);
+ assert.ok(target.querySelector('[data-install-ask]'),'one-click install is still offered');
+ assert.equal(statusCalls,1,'only the Anki block is redrawn, without another status round');
 });
 
-test('clicking reconnect refreshes the review view when repair succeeds or hits a non-missing error',async t=>{
+test('重新连接 reloads the review in place when AnkiConnect answers',async t=>{
  const {target}=setupDom(t);
  let connected=false,statusCalls=0;
  const api=async action=>{
   if(action==='anki_status'){statusCalls++;return connected?{connected:true,version:6,decks:['MeguLit'],defaultDeck:'MeguLit'}:{connected:false,reason:'ANKI_OFFLINE'};}
-  if(action==='anki_repair'){connected=true;return {running:true,repaired:true};}
+  if(action==='anki_reconnect'){connected=true;return {connected:true};}
   if(action==='anki_current'||action==='anki_practice')return {done:true};
   return {};
  };
  const {renderAnkiReview}=await import('../web/anki-review.js');
  await renderAnkiReview({target,api,text,esc:String,isCurrent:()=>true,toast:()=>{},quiet:true});
- await target.querySelector('[data-connect]').click();
+ await target.querySelector('[data-reconnect]').click();
  await new Promise(z=>setTimeout(z,0));
  assert.equal(statusCalls,2);
- assert.ok(target.querySelector('[data-start]'),'connected deck view renders after repair succeeds');
+ assert.ok(target.querySelector('[data-start]'),'connected deck view renders after reconnecting');
 });
