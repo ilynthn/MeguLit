@@ -7,7 +7,7 @@ const WORDS={zh:'请求太频繁，{n} 秒后自动重试',ja:'リクエスト�
 /* 2026-11-29 the relay's free daily request quota is spent (Cloudflare error 1027, services/relay-gate.cjs → QUOTA_EXCEEDED):
    it comes back at 00:00 UTC, so the page says when and does not retry by itself */
 export const QUOTA_WORDS={zh:'服务器今日额度已满，北京时间 8 点恢复',ja:'サーバーの本日の利用上限に達しました。日本時間 9 時（北京時間 8 時）に回復します',en:'The server’s daily quota is used up. It comes back at 08:00 Beijing time (00:00 UTC)'};
-export function isDailyQuota(res){return res?.error==='QUOTA_EXCEEDED'||res?.code==='QUOTA_EXCEEDED'||/(^|[^A-Z_])QUOTA_EXCEEDEDb/.test(String(res?.message||''));}
+export function isDailyQuota(res){return res?.error==='QUOTA_EXCEEDED'||res?.code==='QUOTA_EXCEEDED'||/(^|[^A-Z_])QUOTA_EXCEEDED\b/.test(String(res?.message||''));}
 export function quotaText(res,locale){return isDailyQuota(res)?QUOTA_WORDS[locale]||QUOTA_WORDS.zh:'';}
 export function isRateLimited(res){return res?.error==='RATE_LIMITED'||/RATE_LIMITED/.test(String(res?.message||''));}
 export function retrySeconds(res){const n=Math.ceil(Number(res?.retryAfter));return Number.isFinite(n)&&n>0?Math.min(3600,n):60;}
