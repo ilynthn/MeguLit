@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* E377 pure request validation for the MeguLit relay. No I/O here, so validation/relay.test.cjs can run it in Node. */
+import Content from '../../core/content-word.cjs';
 
 /* Nickname rules — keep in step with services/leaderboard.cjs cleanName (validation/leaderboard.test.cjs checks both). */
 export const BLOCKED=['fuck','shit','bitch','cunt','nigger','nigga','faggot','rape','porn','penis','vagina','asshole','dick','whore','slut','hitler','nazi','傻逼','煞笔','傻b','sb','操你','草你','肏','日你','你妈','尼玛','妈逼','屌','鸡巴','婊子','贱人','强奸','做爱','色情','黄片','习近平','共产党','法轮','台独','死ね','殺す','ちんこ','まんこ','うんこ','セックス','レイプ','きちがい','キチガイ','admin','管理员','官方','megulit','hentai','nsfw','sex','loli','shota','cnm','nmsl','tmd','retard','kys','r18','18禁','成人向','巨乳','爆乳','乳头','裸体','全裸','约炮','卖淫','嫖','淫','骚货','痴汉','中出','av女优','エロ','ロリ','ショタ','おっぱい','パイズリ','中出し','ヘンタイ','変態','废物','垃圾人','去死','脑残','智障','弱智','狗东西','ばか野郎','クソ野郎','消えろ'];
@@ -111,7 +112,8 @@ export function issueBody(meta,link,days){
 /* ---- E379 weekly hot lookups ----------------------------------------------------------------------------------- */
 /* Hot-word weeks run Monday 00:00 to Monday 00:00 in UTC+8 (China / Taiwan time; Japan is an hour later). */
 export function hotWeekKey(date){return isoWeek(new Date(date.getTime()+8*3600000));}
-export const HOT={terms:100,count:1000,termChars:40,minUsers:3,top:50,podium:3,cards:10};
+/* smallWeek: fewer readers than this in a week and two readers are enough to rank (2026-11-28, W47 had 8 readers and empty boards) */
+export const HOT={terms:100,count:1000,termChars:40,minUsers:3,smallWeek:20,top:50,podium:3,cards:10};
 export const CATEGORIES=['word','phrase','sentence'];
 const JAPANESE=/[぀-ヿ㐀-鿿ｦ-ﾟ]/;
 const hiddenChar=ch=>{const c=ch.codePointAt(0);return c<32||c>=0x7f&&c<=0x9f||c>=0x200b&&c<=0x200f||c>=0x2028&&c<=0x202e||c>=0x2060&&c<=0x206f||c===0xfeff;};
@@ -122,12 +124,8 @@ export function cleanTerm(value){
  return term;
 }
 /* 短句: sentence punctuation or long; 短语: a particle between content words, or a 、/space; 词汇: everything else. */
-export function classifyTerm(term){
- const length=[...term].length;
- if(/[。！？!?…]/.test(term)||length>12)return 'sentence';
- if(length>=4&&(/[、 ]/.test(term)||/[㐀-鿿゠-ヿ][をにがはでとのもへ][぀-ヿ㐀-鿿]/.test(term)))return 'phrase';
- return 'word';
-}
+// one rule for the relay and the app: core/content-word.cjs hotCategory
+export const classifyTerm=term=>Content.hotCategory(term);
 /* Term on the block list (R18 / abuse): never awarded. */
 export function blockedTerm(term){const flat=term.toLowerCase().replace(/[\s._\-*·・]/g,'');return BLOCKED.some(word=>flat.includes(word));}
 /* submit body .hot = {week:'2026-W46',terms:[{term,count}]} → {ok,value:{week,terms:Map}} ; absent → {ok,value:null} */

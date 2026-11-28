@@ -31,6 +31,22 @@ class Runtime {
  models(){return this.modelStore??=new(require('../core/model-store.cjs').ModelStore)(this.root);}
  packs(){return this.packStore??=require('../core/runtime-packs.cjs').RuntimePacks.shared(this.root);}
  local(){return this.localEngine??=new(require('../core/local-llm.cjs').LocalLlm)({root:this.root,models:this.models(),logs:path.join(this.root,'logs')});}
+ /* 2026-11-28 (owner: 1.4.26 游戏库刷新要等特别久) a library scan answers after its quick pass (nothing asked on the network,
+    core/library.cjs scan network:false); this is the second pass: VNDB checks, VNDB names and covers for what the quick pass
+    left, after the answer, one pass at a time (a pass already waiting covers later refreshes). When it changed the library the
+    page reloads its list (library-updated), so the refresh button only turns during the quick pass. */
+ libraryNetworkPass(options,needed){
+  if(!needed||this.stopped||this.libraryNetworkWaiting)return this.libraryNetwork;this.libraryNetworkWaiting=true;
+  const run=async()=>{this.libraryNetworkWaiting=false;if(this.stopped)return;
+   const library=new(require('../core/library.cjs').Library)(require('../core/layout.cjs'));
+   await library.scan(()=>{},{incremental:options?.incremental===true,network:true});
+   const result=require('./library.cjs').reconcile(this.root,library.load().games,{confirmedFolderMatches:library.confirmedFolderMatches});
+   if(this.libraryManager)this.libraryManager.state=this.libraryManager.read();
+   if(!result.added&&!result.updated)return;
+   const db=require('./store.cjs').openStore(this.root);try{this.metadata().enqueue(db.prepare('SELECT id FROM games WHERE removed_at IS NULL').all().map(g=>g.id),false);}finally{db.close();}
+   this.emit('library-updated',{scan:true,added:result.added,updated:result.updated});};
+  return this.libraryNetwork=(this.libraryNetwork||Promise.resolve()).then(run).catch(error=>console.warn('library network pass',error?.message||error));
+ }
  library(){return this.libraryManager??=new(require('../core/library.cjs').Library)(require('../core/layout.cjs'));}
  history(){return this.historyTranslations??=new(require('./history-view.cjs').HistoryTranslations)(this.root,async (text,game)=>{
   if(this.stopped)throw Error('RUNTIME_STOPPED');
@@ -86,7 +102,7 @@ class Runtime {
   if(this.stopped)throw Error('RUNTIME_STOPPED');const config=this.config();
   if(this.libraryOnly()&&['reader_attach','reader_message','reader_invoke'].includes(request.action))return {libraryOnly:true,attached:false,replies:[]};
   switch(request.action){
-case 'library_scan':{this.libraryScans??=new(require('./library-scan.cjs').LibraryScans)(async(options,state)=>{const library=this.library();library.state=state;await library.scan(progress=>this.emit('library-progress',progress),options);const result=require('./library.cjs').reconcile(this.root,library.load().games,{restoreRemoved:!options.incremental,confirmedFolderMatches:library.confirmedFolderMatches});const db=require('./store.cjs').openStore(this.root);try{this.metadata().enqueue(db.prepare('SELECT id FROM games WHERE removed_at IS NULL').all().map(g=>g.id),options?.incremental!==true);require('./torch-receive.cjs').enqueue(this.root,db.prepare("SELECT id FROM games WHERE removed_at IS NULL AND executable!=''").all().map(g=>g.id));
+case 'library_scan':{this.libraryScans??=new(require('./library-scan.cjs').LibraryScans)(async(options,state)=>{const library=this.library();library.state=state;await library.scan(progress=>this.emit('library-progress',progress),{...options,network:false});const result=require('./library.cjs').reconcile(this.root,library.load().games,{restoreRemoved:!options.incremental,confirmedFolderMatches:library.confirmedFolderMatches});this.libraryNetworkPass(options,library.lookups>0||!options.incremental);const db=require('./store.cjs').openStore(this.root);try{this.metadata().enqueue(db.prepare('SELECT id FROM games WHERE removed_at IS NULL').all().map(g=>g.id),options?.incremental!==true);require('./torch-receive.cjs').enqueue(this.root,db.prepare("SELECT id FROM games WHERE removed_at IS NULL AND executable!=''").all().map(g=>g.id));
      /* E297 Hxv4 KiriKiri games found: read their scripts once in the background (setting 后台准备加密剧本) */
      try{const cold=require('./kirikiri-cold.cjs');this.coldWatch??=cold.onDone(()=>this.reader?.refreshTextSource?.());cold.considerLibrary(this.root,db.prepare('SELECT id,executable FROM games WHERE removed_at IS NULL').all(),{enabled:require('../core/preferences.cjs').cleanPreferences(readJSON(path.join(this.folder,'preferences.json'))).scriptColdRun!==false});}catch{}
      /* E590 localized builds with Japanese data in the folder switch to Japanese by themselves, one game at a time */
@@ -116,11 +132,15 @@ case 'library_scan':{this.libraryScans??=new(require('./library-scan.cjs').Libra
    case 'runtime_cancel':return this.local().cancel();
    case 'speakers':await this.services().ensureSpeech(config.aivisUrl,config.aivisGpu);{const list=await this.speech().speakers(config);this.services().rememberSpeakers(list);return list;}
    case 'speakers_cached':return this.services().cachedSpeakers();
+   case 'speech_status':return this.services().status(config.aivisUrl);
    /* E450 a sentence read aloud anywhere in the app: the game's own voice (CV) when MeguLit knows it, else synthesis. */
    /* 2026-11-15 (user: a CV line of 沙耶の唄 played an AI voice) a saved line (id) plays the voice kept when it was saved, any
       text its voice from the line index (saved-line-voice.cjs); synthesis only when the game gave the line no voice */
-   case 'sentence_voice_has':return {has:require('./saved-line-voice.cjs').has(this.root,request.items)};
-   case 'sentence_voice':{const text=String(request.text||'').trim();if(!text||text.length>400)throw Error('INVALID_PREVIEW_TEXT');try{const gv=require('./game-voice.cjs');await Promise.race([gv.refreshStale(this.root),new Promise(r=>setTimeout(r,8000).unref?.())]);}catch{}const v=await require('./saved-line-voice.cjs').play(this.root,{id:request.id,text});if(v)return {data:v.data.toString('base64'),mime:v.mime,source:'game',origin:v.origin||'',estimated:!!v.estimated};if(text.length>200)throw Error('INVALID_PREVIEW_TEXT');const options=require('../core/v4-config.cjs').cleanV4(config),word={surface:text,reading:'',pitch:[]};/* 2026-11-14: a cached clip plays at once, without cold-starting AivisSpeech */const hit=this.speech().cachedClip(word,options,this.services().cachedSpeakers());if(hit)return {...hit,mime:'audio/wav',source:'synthesized',volume:config.aivisVolume};const r=await require('../core/speech-deadline.cjs').speakWithin(()=>this.services().ensureSpeech(options.aivisUrl,options.aivisGpu),()=>this.speech().synthesize(word,options));return {...r,mime:'audio/wav',source:'synthesized',volume:config.aivisVolume};}
+   /* has: the 「原声」 label per item; why: the reason a game voice the line has cannot play (null otherwise, 2026-11-28) */
+   case 'sentence_voice_has':{const states=require('./saved-line-voice.cjs').states(this.root,request.items);return {has:states.map(s=>s==='ok'),why:states.map(s=>s&&s!=='ok'?s:null)};}
+   /* 2026-11-28 (owner: 点原声还是不发音) a line whose game voice cannot play says why (gameVoice), and is read aloud instead;
+      when that fails too the reason is the game voice's, so the button never just stays silent */
+   case 'sentence_voice':{const text=String(request.text||'').trim();if(!text||text.length>400)throw Error('INVALID_PREVIEW_TEXT');try{const gv=require('./game-voice.cjs');await Promise.race([gv.refreshStale(this.root),new Promise(r=>setTimeout(r,8000).unref?.())]);}catch{}const v=await require('./saved-line-voice.cjs').play(this.root,{id:request.id,text});if(v)return {data:v.data.toString('base64'),mime:v.mime,source:'game',origin:v.origin||'',estimated:!!v.estimated};const lost=require('./saved-line-voice.cjs').why(this.root,{id:request.id,text});if(lost)try{require('node:fs').appendFileSync(require('node:path').join(this.root,'logs','speech-engine.log'),'[MeguLit] game voice unavailable: '+lost+'\n');}catch{}try{if(text.length>200)throw Error('INVALID_PREVIEW_TEXT');const options=require('../core/v4-config.cjs').cleanV4(config),word={surface:text,reading:'',pitch:[]};/* 2026-11-14: a cached clip plays at once, without cold-starting AivisSpeech */const hit=this.speech().cachedClip(word,options,this.services().cachedSpeakers());if(hit)return {...hit,mime:'audio/wav',source:'synthesized',volume:config.aivisVolume,gameVoice:lost};const r=await require('../core/speech-deadline.cjs').speakWithin(()=>this.services().ensureSpeech(options.aivisUrl,options.aivisGpu),()=>this.speech().synthesize(word,options));return {...r,mime:'audio/wav',source:'synthesized',volume:config.aivisVolume,gameVoice:lost};}catch(error){if(lost)throw Error(lost);throw error;}}
    case 'speech_preview':{const text=String(request.text||'').trim();if(!text||text.length>200)throw Error('INVALID_PREVIEW_TEXT');const options=require('../core/v4-config.cjs').cleanV4({...config,...(Number.isSafeInteger(Number(request.speaker))?{aivisSpeaker:Number(request.speaker)}:{}),...(Number.isFinite(Number(request.speed))?{aivisSpeed:Number(request.speed)}:{})});return require('../core/speech-deadline.cjs').speakWithin(()=>this.services().ensureSpeech(options.aivisUrl,options.aivisGpu),()=>this.speech().synthesize({surface:text,reading:'',pitch:[]},options));}
    case 'kana_speak':{
     /* Kana module: speak a kana or a study word through the same dictionary reading and UniDic pitch path the reader uses. */

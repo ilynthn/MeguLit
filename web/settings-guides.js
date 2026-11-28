@@ -169,8 +169,16 @@ export function guideText(section, locale = 'zh') {
 /* 2026-11-13 (user: the dictionary guide offered 「一键下载注音词典」 while the dictionary was already installed and the click
    faked a re-download). A download CTA reads the real install state: installed → a quiet ✓ 已就绪 mark, never a button. */
 const READY = T('已就绪', 'Ready', '準備完了');
+/* 2026-11-28 (1.4.26 QQ group report: ✓ 已就绪 while the engine could not start and no voice loaded). For the voice pack the settings
+   page asks the engine itself (speech_status): installed but not answering is not ready. */
+const PACK_STATES = {
+  idle: T('已安装，用到时自动启动', 'Installed; starts when needed', 'インストール済み（使うときに起動）'),
+  failed: T('已安装，但语音引擎上次没能启动，原因见下方「语音」', 'Installed, but the speech engine failed to start; see Voice below', 'インストール済みですが音声エンジンを起動できませんでした。下の「音声」をご確認ください'),
+};
 export function guideActionMarkup(id, { installed = {}, locale = 'zh', esc = s => String(s) } = {}) {
   const pick = v => v[locale] || v.zh;
+  const state = PACK_STATES[installed[id]];
+  if (state) return `<span class="guide-chip guide-state" data-state="${esc(installed[id])}" data-guide-ready="${esc(id)}">${esc(pick(state))}</span>`;
   if (installed[id]) return `<span class="guide-chip guide-ready" data-guide-ready="${esc(id)}">${esc(pick(READY))}</span>`;
   return `<button type="button" class="guide-chip guide-act" data-guide-act="${esc(id)}">${esc(pick(ACTIONS[id] || T(id, id, id)))}</button>`;
 }

@@ -98,6 +98,10 @@ for a glyph, so layer 3 sees nothing.
 - **Rectangles for the compositor.** Whenever the glyph count of the current line matches its characters, the DLL sends
   one `ToMe_CHARS engine=gpu` record (`docs/text-architecture.md`, ③ record): one rectangle per non-blank character in
   reading order, in back-buffer pixels, `hidden=1` once the line's glyphs are being left out.
+- **CMVS startup.** With `OPT bodyRecheck 1`, the fixed atlas can identify the first drawn row. The learner confirms
+  that the whole row was masked before sending `hidden=1`. If the hook text has fewer characters than the game drew,
+  the report divides the full row into one box per hook-text code point. A later repaint can extend or move that row
+  after another complete mask has been verified.
 
 ### Font dots at the source (`native/gpuhide/FontDots.h`)
 

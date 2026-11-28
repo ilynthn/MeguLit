@@ -21,6 +21,7 @@
    The relay stores only sha256(id); `me` is that hash so the page can mark the user's own row. */
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const relay=require('./relay-config.cjs');
+const Content=require('../core/content-word.cjs');
 /* 2026-11-15 学习练习: the study parts are sent too (grammar, anki, practice, studySeconds); the relay adds kana+grammar+anki+practice
    into `study`, the metric the board ranks by. QUERY_METRICS is what the page may ask for. */
 const PERIODS=['week','month','all'],METRICS=['characters','seconds','words','streak','reviews','kana','grammar','anki','practice','studySeconds'],QUERY_METRICS=['characters','seconds','words','streak','reviews','kana','study'],STUDY_PARTS=['kana','grammar','anki','practice'],TIMEOUT=8000,SUBMIT_EVERY=10*60*1000,RESEND_ANYWAY=24*60*60*1000,MAX_GAMES=30;
@@ -110,17 +111,25 @@ function studySeconds(times,from,until){
  for(const r of times.kanaRuns)if(r.t>=from&&r.t<until)secs+=r.secs;
  return int(secs);
 }
-function collectStats(db,now=new Date(),root=''){
+/* 2026-11-28 新收录单词 counts content words only, each once by its dictionary form (core/content-word.cjs); a saved word goes by
+   the JMdict entry it was saved from, else by the tokenizer (content.saved), else it counts. Nothing is deleted. */
+const savedPos=original=>{try{const e=JSON.parse(original||'{}')?.entry;return Array.isArray(e?.pos)?e.pos:Array.isArray(e?.senses)?e.senses.flatMap(x=>x?.pos||[]):null;}catch{return null;}};
+function savedWords(db,until,content=null){
+ return db.prepare('SELECT spelling,created_at,original FROM vocabulary WHERE created_at<?').all(until)
+  .map(r=>({t:Number(r.created_at)||0,lemma:Content.savedLemma(r.spelling,savedPos(r.original),content?.saved?.get(String(r.spelling||'').normalize('NFKC').trim()))})).filter(w=>w.lemma);
+}
+const distinctIn=(words,from,until)=>new Set(words.filter(w=>w.t>=from&&w.t<until).map(w=>w.lemma)).size;
+function collectStats(db,now=new Date(),root='',content=null){
  const w=windows(now),out={keys:periodKeys(now),stats:{},games:[]};
  const sessions=db.prepare('SELECT game_id,started_at,active_seconds,characters FROM reading_sessions WHERE started_at<?').all(w.all.until);
- const words=db.prepare('SELECT created_at FROM vocabulary WHERE created_at<?').all(w.all.until).map(r=>Number(r.created_at)||0);
+ const words=savedWords(db,w.all.until,content);
  const readDay=s=>dayKey(new Date(s.started_at*1000)),reading=s=>s.characters>0||s.active_seconds>0;
  const reviews=reviewTimes(db,w.all.until),kana=kanaTimes(root,w.all.until),study=studyTimes(db,root,w.all.until);
  /* E401 the period numbers count what happened in that week or month ("新收录"); the all-time word total is separate */
  out.totals={words:int(db.prepare('SELECT COUNT(*) n FROM vocabulary').get().n)};
  for(const period of PERIODS){
   const {from,until}=w[period],inside=sessions.filter(s=>s.started_at>=from&&s.started_at<until);
-  out.stats[period]={characters:int(inside.reduce((n,s)=>n+(s.characters||0),0)),seconds:int(inside.reduce((n,s)=>n+(s.active_seconds||0),0)),words:words.filter(t=>t>=from&&t<until).length,streak:longestRun(new Set(inside.filter(reading).map(readDay))),reviews:reviews.filter(t=>t>=from&&t<until).length,kana:kana.filter(t=>t>=from&&t<until).length};
+  out.stats[period]={characters:int(inside.reduce((n,s)=>n+(s.characters||0),0)),seconds:int(inside.reduce((n,s)=>n+(s.active_seconds||0),0)),words:distinctIn(words,from,until),streak:longestRun(new Set(inside.filter(reading).map(readDay))),reviews:reviews.filter(t=>t>=from&&t<until).length,kana:kana.filter(t=>t>=from&&t<until).length};
   const count=list=>list.filter(t=>t>=from&&t<until).length,p=out.stats[period];
   Object.assign(p,{grammar:count(study.grammar),anki:count(study.anki),practice:count(study.practice),studySeconds:studySeconds(study,from,until)});p.study=STUDY_PARTS.reduce((n,k)=>n+p[k],0);
  }
@@ -128,8 +137,16 @@ function collectStats(db,now=new Date(),root=''){
  const titles=new Map(db.prepare('SELECT id,title FROM games WHERE removed_at IS NULL AND hidden_at IS NULL').all().map(g=>[g.id,String(g.title||'').trim()]));
  const perGame=new Map();for(const s of sessions){const title=titles.get(s.game_id);if(!title)continue;const g=perGame.get(title)||{title,characters:0,seconds:0,last:0};g.characters+=s.characters||0;g.seconds+=s.active_seconds||0;g.last=Math.max(g.last,int(s.started_at));perGame.set(title,g);}
  out.games=[...perGame.values()].filter(g=>g.characters>0).sort((a,b)=>b.characters-a.characters).slice(0,MAX_GAMES).map(g=>({title:g.title.slice(0,120),characters:int(g.characters),seconds:int(g.seconds),last:int(g.last)}));
- out.hot=collectLookups(db,now);
+ out.hot=collectLookups(db,now,content);
  return out;
+}
+
+/* The About page's 「一起走过」 totals: the same all-time sums collectStats() puts in stats.all (reading_sessions seconds and
+   characters, every session, none of today-only), plus every lookup_events row; one function so the page, the board's
+   local numbers and the upload cannot drift apart. Read-only; no migration needed because both tables already hold it all. */
+function journeyTotals(db,now=new Date()){
+ const until=windows(now).all.until,r=db.prepare('SELECT COALESCE(SUM(active_seconds),0) s,COALESCE(SUM(characters),0) c FROM reading_sessions WHERE started_at<?').get(until);
+ return {seconds:int(r.s),characters:int(r.c),lookups:int(db.prepare('SELECT COUNT(*) n FROM lookup_events WHERE occurred_at<?').get(until).n)};
 }
 
 /* ---- E379 this week's lookups for the hot-word awards (term + count only; no sentence, game or time) -------------- */
@@ -146,9 +163,13 @@ function cleanTerm(value){
  if(!chars.length||chars.length>40||chars.some(hidden)||!chars.some(japanese)||/https?:|www\.|[<>@\\`]/i.test(term))return '';
  return term;
 }
-function collectLookups(db,now=new Date()){
- const from=hotWeekStart(now),rows=db.prepare('SELECT surface,COUNT(*) n FROM lookup_events WHERE occurred_at>=? AND occurred_at<=? GROUP BY surface ORDER BY n DESC LIMIT 300').all(from,Math.floor(now.getTime()/1000));
- const counts=new Map();for(const r of rows){const term=cleanTerm(r.surface);if(term)counts.set(term,(counts.get(term)||0)+r.n);}
+/* the week's looked-up surfaces, before they are read as words (contentIndex tokenizes these) */
+function weekSurfaces(db,now=new Date()){return db.prepare('SELECT surface,COUNT(*) n FROM lookup_events WHERE occurred_at>=? AND occurred_at<=? GROUP BY surface ORDER BY n DESC LIMIT 300').all(hotWeekStart(now),Math.floor(now.getTime()/1000));}
+/* 2026-11-28 a looked-up word goes to the hot-word board by its dictionary form and only when it is a content word (は, です, 。 never) */
+function collectLookups(db,now=new Date(),content=null){
+ const rows=weekSurfaces(db,now);
+ /* 短语 and 短句 (a drag over several words) go as written: only 词汇 is read as one word */
+ const counts=new Map();for(const r of rows){const clean=cleanTerm(r.surface),term=clean&&(Content.hotCategory(clean)==='word'?cleanTerm(Content.lookupLemma(clean,content?.lookup?.get(clean))):clean);if(term)counts.set(term,(counts.get(term)||0)+r.n);}
  return {week:hotWeekKey(now),terms:[...counts].sort((a,b)=>b[1]-a[1]).slice(0,HOT_TERMS).map(([term,count])=>({term,count:Math.min(1000,count)}))};
 }
 
@@ -236,12 +257,31 @@ async function fetchBoard(period,metric,options={}){
  const isGames=metric==='games';if(!isGames&&(!PERIODS.includes(period)||!QUERY_METRICS.includes(metric)))throw Error('LEADERBOARD_INVALID_QUERY');
  const q=new URLSearchParams(isGames?{metric}:{period,metric});if(!isGames&&period!=='all')q.set('key',periodKeys(options.now)[period]);
  if(isGames&&options.game)q.set('game',String(options.game).slice(0,120));if(c.me)q.set('me',c.me);
- let res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);
+ /* 2026-11-28 (user: switching 阅读时长 / 字数 / 次数 kept showing 请求太频繁) answers are kept BOARD_FRESH_MS; one request
+    to /api/leaderboard/boards brings every metric of the period at once; a refused or failed request shows the last
+    answer (stale, with a quiet retry) instead of an error */
+ const key=[options.root||'',c.base,isGames?'games':period,isGames?'':q.get('key')||'all',isGames?String(options.game||''):metric,c.me||''].join('|'),now=Date.now(),hit=boardCache.get(key);
+ if(hit&&now-hit.at<BOARD_FRESH_MS&&!options.fresh)return hit.value;
+ let res=null;
+ if(!isGames&&boardsSupported.get(c.base)!==false){
+  const m=new URLSearchParams(q);m.delete('metric');const all=await call(c.base+'/api/leaderboard/boards?'+m,{method:'GET'},options.fetch||fetch);
+  if(all.state==='ok'&&all.data?.boards&&typeof all.data.boards==='object'){boardsSupported.set(c.base,true);
+   for(const [name,data] of Object.entries(all.data.boards))if(QUERY_METRICS.includes(name)&&data&&typeof data==='object'){const k=[options.root||'',c.base,period,q.get('key')||'all',name,c.me||''].join('|');boardCache.set(k,{at:now,value:shapeBoard(data,false,options)});}
+   const got=boardCache.get(key);if(got&&got.at===now)return got.value;}
+  else if(all.state==='ok'||/^HTTP_40[45]$|^NOT_FOUND$/.test(String(all.error||'')))boardsSupported.set(c.base,false); /* an older relay: one request per board, as before */
+  else res=all;
+ }
+ if(!res)res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);
  /* a relay not yet updated for 学习练习 refuses metric=study: the kana board stands in until it is */
- if(res.state!=='ok'&&metric==='study'){q.set('metric','kana');res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);if(res.state==='ok'&&Array.isArray(res.data?.entries))res.data.entries=res.data.entries.map(e=>({...e,detail:{kana:e?.value}}));}
- if(res.state!=='ok')return res;
+ if(res.state!=='ok'&&metric==='study'&&res.error!=='RATE_LIMITED'){q.set('metric','kana');res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);if(res.state==='ok'&&Array.isArray(res.data?.entries))res.data.entries=res.data.entries.map(e=>({...e,detail:{kana:e?.value}}));}
+ if(res.state!=='ok')return hit?{...hit.value,stale:true,retry:Math.max(5,Math.min(60,int(res.retryAfter)||10))}:res;
+ const value=shapeBoard(res.data,isGames&&!options.game,options);if(boardCache.size>200)boardCache.clear();boardCache.set(key,{at:now,value});return value;
+}
+const BOARD_FRESH_MS=3*60*1000,boardCache=new Map(),boardsSupported=new Map();
+function shapeBoard(data,gamesList,options={}){
+ const res={data};
  const clean=e=>({rank:int(e?.rank),name:String(e?.name||'').slice(0,32),value:int(e?.value),me:e?.me===true,avatar:AVATAR_ID.test(String(e?.avatar||''))?e.avatar:null,pid:/^[0-9a-f]{16}$/.test(String(e?.pid||''))?e.pid:null,element:require('./reader-class.cjs').ELEMENTS.includes(e?.element)?e.element:'',level:Math.min(10000,int(e?.level)),...(e?.detail&&typeof e.detail==='object'?{detail:{kana:int(e.detail.kana),grammar:int(e.detail.grammar),anki:int(e.detail.anki),practice:int(e.detail.practice),studySeconds:int(e.detail.studySeconds)}}:{})});
- if(isGames&&!options.game)return {state:'ok',games:(Array.isArray(res.data.games)?res.data.games:[]).slice(0,100).map(g=>({title:String(g?.title||'').slice(0,120),readers:int(g?.readers),top:g?.top?clean(g.top):null}))};
+ if(gamesList)return {state:'ok',games:(Array.isArray(res.data.games)?res.data.games:[]).slice(0,100).map(g=>({title:String(g?.title||'').slice(0,120),readers:int(g?.readers),top:g?.top?clean(g.top):null}))};
  const f=res.data.feature,feature=f&&String(f.title||'').trim()?{title:String(f.title).slice(0,120),value:int(f.value),readers:int(f.readers)}:null;
  return {state:'ok',entries:(Array.isArray(res.data.entries)?res.data.entries:[]).slice(0,100).map(clean),total:int(res.data.total),me:res.data.me?{rank:int(res.data.me.rank),value:int(res.data.me.value)}:null,feature};
 }
@@ -347,7 +387,7 @@ async function hotWords(root,{week='',category='word'}={},options={}){
  const q=new URLSearchParams({category});if(week)q.set('week',week);
  const res=await call(c.base+'/api/hotwords?'+q,{method:'GET'},options.fetch||fetch);if(res.state!=='ok')return res;
  const d=res.data,weeks=(Array.isArray(d.weeks)?d.weeks:[]).filter(w=>/^\d{4}-W\d{2}$/.test(String(w))).slice(0,26);
- const awards=(Array.isArray(d.awards)?d.awards:[]).slice(0,50).map(a=>({rank:int(a?.rank),term:String(a?.term||'').slice(0,40),users:int(a?.users),lookups:int(a?.lookups),reason:String(a?.reason||'').slice(0,120),ai:a?.ai===true})).filter(a=>a.term&&a.rank>=1);
+ const awards=(Array.isArray(d.awards)?d.awards:[]).slice(0,50).map(a=>({rank:int(a?.rank),term:String(a?.term||'').slice(0,40),users:int(a?.users),lookups:int(a?.lookups),reason:String(a?.reason||'').slice(0,120),ai:a?.ai===true,candidate:a?.candidate===true})).filter(a=>a.term&&a.rank>=1);
  return {state:'ok',week:/^\d{4}-W\d{2}$/.test(String(d.week||''))?d.week:null,weeks,settled:d.settled===true,participants:int(d.participants),category,awards};
 }
 
@@ -359,10 +399,47 @@ function chip(root){
  return {name:online(root).name,self:{avatar},avatars};
 }
 
+/* ---- 2026-11-28 parts of speech from the reader's tokenizer (SudachiDict Full, core/learning-native.cjs) -------------- */
+/* terms → Map(term → tokens of that term alone). Many terms go in one request, joined by 。 (a sentence break the tokenizer never
+   reads a word across); a term whose tokens cannot be told apart is left out (it falls back to core/content-word.cjs's checks). */
+const TOKENS=new Map(),TOKENS_MAX=5000,BATCH=200;
+async function tokenizeTerms(learning,terms){
+ const out=new Map(),todo=[];for(const t of new Set(terms)){if(TOKENS.has(t))out.set(t,TOKENS.get(t));else if(t&&!t.includes('。'))todo.push(t);}
+ if(!learning||!todo.length)return out;
+ for(let i=0;i<todo.length;i+=BATCH){const part=todo.slice(i,i+BATCH),text=part.join('。');let tokens;try{tokens=await learning.request('tokenize_text',{text});}catch{return out;}
+  if(!Array.isArray(tokens))return out;let at=0;
+  for(const term of part){const end=at+[...term].length,own=tokens.filter(k=>k.start>=at&&k.end<=end),cut=tokens.some(k=>k.start<end&&k.end>end||k.start<at&&k.end>at);
+   if(!cut&&own.length){const slim=own.map(k=>({surface:k.surface,pos:k.pos,grammar:k.grammar,base_form:k.base_form,normalized:k.normalized}));if(TOKENS.size>=TOKENS_MAX)TOKENS.clear();TOKENS.set(term,slim);out.set(term,slim);}
+   at=end+1;}}
+ return out;
+}
+/* {lookup, saved}: tokens for this week's looked-up surfaces and for saved words without a JMdict part of speech */
+async function contentIndex(db,now,learning){
+ if(!learning)return null;
+ const surfaces=weekSurfaces(db,now).map(r=>cleanTerm(r.surface)).filter(t=>t&&Content.hotCategory(t)==='word');
+ const saved=db.prepare('SELECT spelling,original FROM vocabulary').all().filter(r=>savedPos(r.original)===null).map(r=>String(r.spelling||'').normalize('NFKC').trim()).filter(Boolean).slice(0,3000);
+ return {lookup:await tokenizeTerms(learning,surfaces),saved:await tokenizeTerms(learning,saved)};
+}
+/* 新收录单词's big word: of the ten words most players looked up this week that are content words, the hardest by JLPT level
+   (N1 first); a word outside the JLPT lists only when none of the ten is listed. Rank (more players) breaks ties. */
+const JLPT_ORDER={N1:5,N2:4,N3:3,N4:2,N5:1};
+async function featuredWord(awards,learning,jlpt=null){
+ const list=(awards||[]).filter(a=>a&&a.term).sort((a,b)=>a.rank-b.rank),tokens=await inTime(tokenizeTerms(learning,list.map(a=>a.term)),new Map());
+ const words=list.map(a=>({...a,term:Content.lookupLemma(a.term,tokens.get(a.term))})).filter(a=>a.term).slice(0,10);
+ if(!words.length)return null;
+ let index=jlpt;if(!index)try{index=require('./learning-insights.cjs').loadJlpt();}catch{index=null;}
+ const level=a=>{const w=index?.byForm?.get(a.term);return w?JLPT_ORDER[w.level]||0:0;};
+ return [...words].sort((a,b)=>level(b)-level(a)||a.rank-b.rank)[0];
+}
+/* the tokenizer may still be starting (a cold SudachiDict worker): the page never waits on it longer than this */
+const TOKENIZE_WAIT=4000;
+const inTime=(promise,fallback,ms=TOKENIZE_WAIT)=>{let timer;return Promise.race([Promise.resolve(promise).catch(()=>fallback),new Promise(r=>{timer=setTimeout(()=>r(fallback),ms);timer.unref?.();})]).finally(()=>clearTimeout(timer));};
+const learningOf=options=>{const l=options.learning;try{return l&&(typeof l.installed!=='function'||l.installed())?l:null;}catch{return null;}};
+
 /* Everything the 排行榜 page needs in one call; refreshes the user's own entry at most every 10 minutes. */
 async function view(root,db,request={},options={}){
  const now=options.now||new Date(),period=PERIODS.includes(request.period)?request.period:'week',metric=[...QUERY_METRICS,'games'].includes(request.metric)?request.metric:'seconds';
- const local=collectStats(db,now,root),c=config(root,options.env,options),tab=request.tab==='hot'?'hot':'board';
+ const learning=learningOf(options),content=await inTime(contentIndex(db,now,learning),null),local=collectStats(db,now,root,content),c=config(root,options.env,options),tab=request.tab==='hot'?'hot':'board';
  const result={configured:c.configured,joined:c.joined,enabled:c.enabled,name:c.name,shareGames:c.shareGames,account:c.account,tab,period,metric,local,board:null,hot:null,avatars:{}};
  /* E404 your own approved picture, for the 我的主页 chip on every tab */
  const selfAvatar=AVATAR_ID.test(String(relay.readJSON(stateFile(root)).avatar?.id||''))?relay.readJSON(stateFile(root)).avatar.id:null;result.self={avatar:selfAvatar};
@@ -373,9 +450,11 @@ async function view(root,db,request={},options={}){
  if(request.tab==='follow'){result.tab='follow';result.social=await social(root,options);return result;}
  if(tab==='hot'){result.hot=await hotWords(root,{week:request.week||'',category:CATEGORIES.includes(request.category)?request.category:'word'},options);return result;}
  result.board=await fetchBoard(period,metric,{...options,root,now,game:request.game});
+ /* 2026-11-28 按游戏 cards: library game, cover and Chinese name for each title, from what is already on this PC */
+ if(result.board.state==='ok'&&Array.isArray(result.board.games)){const info=require('./charts.cjs').titleInfo(root,db,result.board.games.map(g=>g.title));result.board={...result.board,games:result.board.games.map((g,i)=>({...g,...info[i]}))};}
  if(result.board.state==='ok'&&result.board.feature)result.board.feature.cover=await featureCover(root,db,result.board.feature.title,options);
  /* E420 新收录单词: the week's top hot word, shown as a word you can look up */
- if(result.board.state==='ok'&&metric==='words'){try{const h=await hotWords(root,{category:'word'},options);const top=h.state==='ok'?h.awards.find(a=>a.rank===1):null;if(top)result.board.word={term:top.term,users:top.users};}catch{}}
+ if(result.board.state==='ok'&&metric==='words'){try{const h=await hotWords(root,{category:'word'},options);const top=h.state==='ok'?await featuredWord(h.awards,learning):null;if(top)result.board.word={term:top.term,users:top.users};}catch{}}
  if(result.board.state==='ok'){const ids=[...(result.board.entries||[]),...(result.board.games||[]).map(g=>g.top).filter(Boolean)].map(e=>e.avatar);result.avatars={...result.avatars,...await avatarImages(root,ids,options)};}
  return result;
 }
@@ -450,4 +529,4 @@ function libraryTitles(db){
  const seen=new Set();return rows.map(r=>String(r.title||'').trim().slice(0,120)).filter(t=>t&&!seen.has(t)&&seen.add(t)).slice(0,500);
 }
 /* forum pictures (forum.cjs) send raw WebP bytes */
-module.exports={chip,saveProfileName,relayCall:(...a)=>call(...a),socialCall,appealProfile,cleanBio,profileGet,profileSave,profileCard,followSet,reportProfile,social,libraryTitles,REPORT_KINDS,PERIODS,METRICS,CATEGORIES,BLOCKED,cleanName,cleanTerm,collectStats,collectLookups,hotWeekKey,periodKeys,windows,longestRun,currentRun,config,join,leave,submit,fetch:fetchBoard,view,publicHash,stateFile,identity,setAvatar,removeAvatar,avatarStatus,appealAvatar,avatarImages,report,hotWords};
+module.exports={chip,saveProfileName,relayCall:(...a)=>call(...a),socialCall,appealProfile,cleanBio,profileGet,profileSave,profileCard,followSet,reportProfile,social,libraryTitles,REPORT_KINDS,PERIODS,METRICS,CATEGORIES,BLOCKED,cleanName,cleanTerm,collectStats,journeyTotals,collectLookups,featuredWord,tokenizeTerms,contentIndex,hotWeekKey,periodKeys,windows,longestRun,currentRun,config,join,leave,submit,fetch:fetchBoard,view,publicHash,stateFile,identity,setAvatar,removeAvatar,avatarStatus,appealAvatar,avatarImages,report,hotWords};

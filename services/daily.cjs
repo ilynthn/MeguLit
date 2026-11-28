@@ -29,7 +29,7 @@ const DROPPED_SOURCES=new Set(['inside']);
 const blocked=n=>DROPPED_SOURCES.has(String(n?.sourceId||''))||String(n?.source||'')==='インサイド'||REAL_PEOPLE.test([n?.title,n?.summary,...(Array.isArray(n?.tags)?n.tags:[])].map(x=>String(x||'')).join(' '))||BLOCKED.test([n?.title,n?.summary,...(Array.isArray(n?.tags)?n.tags:[])].map(x=>String(x||'')).join(' '));
 const sensitive=n=>SENSITIVE.test(String(n.title||'')+' '+String(n.summary||''));
 function cleanNews(d){
- const items=(Array.isArray(d?.items)?d.items:[]).filter(n=>!blocked(n)).slice(0,120).map(n=>({sensitive:sensitive({title:n?.title,summary:n?.summary}),fulltext:n?.fulltext===true,cat:n?.cat==='acg'?'acg':'gal',title:str(n?.title,160),link:link(n?.link),date:str(n?.date,30),source:str(n?.source,40),sourceId:str(n?.sourceId,20),summary:str(n?.summary,160),image:/^\/api\/news\/img\/[0-9a-f]{32}$/.test(String(n?.image||''))?n.image:''})).filter(n=>n.title&&n.link);
+ const items=(Array.isArray(d?.items)?d.items:[]).filter(n=>!blocked(n)).slice(0,120).map(n=>({sensitive:sensitive({title:n?.title,summary:n?.summary}),fulltext:n?.fulltext===true,cat:['acg','ln'].includes(n?.cat)?n.cat:'gal',title:str(n?.title,160),link:link(n?.link),date:str(n?.date,30),source:str(n?.source,40),sourceId:str(n?.sourceId,20),summary:str(n?.summary,160),image:/^\/api\/news\/img\/[0-9a-f]{32}$/.test(String(n?.image||''))?n.image:''})).filter(n=>n.title&&n.link);
  return {items,sources:(Array.isArray(d?.sources)?d.sources:[]).filter(s=>!DROPPED_SOURCES.has(String(s?.id||''))).slice(0,10).map(s=>({id:str(s?.id,20),name:str(s?.name,40)})),updatedAt:str(d?.updatedAt,30)||null};
 }
 /* the local dictionary is Chinese: its first line, first two senses, make the short gloss beside a hot word.
@@ -152,6 +152,11 @@ async function tokens(text,learning){
   return list.map(t=>({s:String(t.surface||''),b:String(t.base_form&&t.base_form!=='*'?t.base_form:t.surface||''),r:require('../core/reading.cjs').settled(t)?String(t.reading||''):''})).filter(t=>t.s);
  }catch{return null;}
 }
+/* 分词 + 注音：日报文章和文库的日中对照阅读（services/novel/webnovel）共用。没装学习组件时 tokens 为 null，页面只显示原文 */
+async function paragraphTokens(runtime,texts){
+ let learning=null;try{const l=runtime?.learning?.();if(l?.installed?.())learning=l;}catch{}
+ const out=[];for(const text of texts)out.push({text,tokens:await tokens(text,learning)});return out;
+}
 async function article(root,link,options={}){
  if(!canOpen(link))throw Error('URL_NOT_ALLOWED');
  const dir=artDir(root),file=dir&&path.join(dir,hash(link)+'.json');
@@ -163,8 +168,7 @@ async function article(root,link,options={}){
   if(!body)return {state:'error',link};
   if(file)try{fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(file,JSON.stringify(body));for(const n of fs.readdirSync(dir)){const f=path.join(dir,n);if(Date.now()-fs.statSync(f).mtimeMs>KEEP_DAYS*864e5)fs.rmSync(f,{force:true});}}catch{}
  }
- let learning=null;try{const l=options.runtime?.learning?.();if(l?.installed?.())learning=l;}catch{}
- const paragraphs=[];for(const text of body.paragraphs)paragraphs.push({text,tokens:await tokens(text,learning)});
+ const paragraphs=await paragraphTokens(options.runtime,body.paragraphs);
  return {state:'ok',link,title:body.title,via:body.via,paragraphs};
 }
 function splitParagraph(text,limit){
@@ -202,4 +206,4 @@ async function anki(root,runtime,{term,reading,meaning,sentence,link,title}={}){
  const at=word.sentence.indexOf(term),html=at<0?h(word.sentence):h(word.sentence.slice(0,at))+'<b class="tm-hl">'+h(term)+'</b>'+h(word.sentence.slice(at+term.length));
  return await new(require('../core/anki.cjs').Anki)().sync(word,config,null,{sentenceHtml:html,gameTitle:str(title,200)});
 }
-module.exports={sensitive,view,canOpen,article,translate,translateList,dictFor,anki,NEWS_DECK,cleanNews,cleanWords,readingFor};
+module.exports={sensitive,view,canOpen,article,paragraphTokens,translate,translateList,dictFor,anki,NEWS_DECK,cleanNews,cleanWords,readingFor};

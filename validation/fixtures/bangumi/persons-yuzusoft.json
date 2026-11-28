@@ -1,0 +1,70 @@
+{
+ "total": 20,
+ "limit": 5,
+ "offset": 0,
+ "data": [
+  {
+   "id": 7175,
+   "name": "ゆずソフト",
+   "type": 2,
+   "career": [
+    "producer"
+   ],
+   "summary": "ゆずソフト（Yuzu-Soft）は、アダルトゲームを製作しているゲームメーカー。開発室を大阪府大阪市に置いている。\r\n\r\n創業スタッフはFamishin、こぶいち、むりりん、天宮リツ、煎路、ろど、の6名。この全員がかつてはスタジオメビウスに所属しており、『SNOW』といった作品の開発に携わっている。\r\n会社とのトラブル",
+   "images": {
+    "large": "https://lain.bgm.tv/pic/crt/l/1c/fd/7175_prsn_k7z6x.jpg?r=1553269010"
+   }
+  },
+  {
+   "id": 9051,
+   "name": "ゆず",
+   "type": 3,
+   "career": [
+    "artist"
+   ],
+   "summary": "ゆずは、日本のフォークデュオ。セーニャ・アンド・カンパニー所属。公式ファンクラブ名は「ゆずの輪」。",
+   "images": {
+    "large": "https://lain.bgm.tv/pic/crt/l/d9/23/9051_prsn_dDZ4Z.jpg?r=1712894741"
+   }
+  },
+  {
+   "id": 18546,
+   "name": "ゆずはらとしゆき",
+   "type": 1,
+   "career": [
+    "writer",
+    "producer",
+    "mangaka"
+   ],
+   "summary": "東京都出身。小池一夫に師事している。以前は柚原 季之名義で活動もしていた。また、パノラマ観光公社名義で企画者、編集者としても活動している。",
+   "images": {
+    "large": ""
+   }
+  },
+  {
+   "id": 15776,
+   "name": "柚子乃",
+   "type": 1,
+   "career": [
+    "artist"
+   ],
+   "summary": "ボーカルはI'veSoundの新歌姫「柚子乃」（ゆずの）さんです！\r\n作曲の中泽さんも「仕事だけどこれはもう趣味全开で作りますよ！」というI've✕WHITESOFTならではのこだわりの曲です。\r\n何度もリピートして闻いてくださいね",
+   "images": {
+    "large": "https://lain.bgm.tv/pic/crt/l/56/7f/15776_prsn_xDQef.jpg"
+   }
+  },
+  {
+   "id": 15222,
+   "name": "つたえゆず",
+   "type": 1,
+   "career": [
+    "mangaka",
+    "illustrator"
+   ],
+   "summary": "日本の漫画家。\r\n主にボーイズラブ作品を手掛けており、沢城利穂との共同作品がほとんどである。代表作「好きなものは好きだからしょうがない!!」はテレビアニメ化もされた。",
+   "images": {
+    "large": ""
+   }
+  }
+ ]
+}

@@ -82,4 +82,4 @@ function bestMatch(book, candidates, aliases = []) {
   return winner;
 }
 
-module.exports = { isbnOf, titleParts, bestMatch };
+module.exports = { isbnOf, titleParts, bestMatch, similarity };

@@ -6,6 +6,7 @@ import { bindNovelOnline, novelOnlineLabels } from './novel-online.js';
 import { openReader } from './novel-reader.js';
 import { openPdfReader } from './novel-pdf-reader.js';
 import { discoverMessages, paintDiscovery, paintDiscoveryDetail } from './novel-discover.js';
+import { mountWebNovel, webMessages } from './novel-web.js';
 import { capsuleSpringFrames } from './capsule-spring.js';
 import { applyShelfFlowSettings, bindShelfFlow, createCoverPreview, liftCoverForDetail } from './novel-shelf.js';
 
@@ -33,6 +34,7 @@ const icons = {
   flow: '<path d="M4 5h4v14H4zm6 0h4v14h-4zm6 1 3-1 4 13-3 1z"/>',
   search: '<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/>',
   discover: '<path d="m18.5 5.5-4 13-3-6-6-3z"/><path d="m11.5 12.5 7-7"/>',
+  bilingual: '<path d="M4 6h8M8 4v2c0 4-2 7-4 8m2-5c1 2 3 4 6 5"/><path d="m13 20 4-9 4 9m-6.5-3h5"/>',
   back: '<path d="m14 6-6 6 6 6"/>',
   clear: '<path d="m7 7 10 10M17 7 7 17"/>'
 };
@@ -78,6 +80,8 @@ export async function mountNovel(main, ctx) {
   const w = novelMessages[locale] || novelMessages.zh;
   const sourceText = discoverMessages(locale);
   const onlineLabels = novelOnlineLabels(locale);
+  const webText = webMessages(locale);
+  let webView;
 
   /* 上一次进阅读器可能留下布局类，这里先清一次 */
   main.classList.remove('nv-reading');
@@ -133,6 +137,7 @@ export async function mountNovel(main, ctx) {
           </div>
         </div>
         <button type="button" class="nv-tool nv-discover" data-nv-discover aria-label="${esc(w.discover)}" title="${esc(w.discover)}">${icon('discover')}</button>
+        <button type="button" class="nv-tool" data-nv-web aria-label="${esc(webText.title)}" title="${esc(webText.title)}">${icon('bilingual')}</button>
       </div>
       <fieldset id="nv-sort-options" class="nv-sort-options" popover aria-label="${esc(w.sortBooks)}">
         ${options('sort', sortKeys, w.sort, sort)}
@@ -189,6 +194,7 @@ export async function mountNovel(main, ctx) {
 
   addButton.onclick = () => navigateShelf('local');
   discoverButton.onclick = () => navigateShelf(tab === 'discover' ? 'shelf' : 'discover');
+  toolbar.querySelector('[data-nv-web]').onclick = () => navigateShelf('web');
   function filterShelf() {
     if (tab !== 'shelf') return;
     query = search.value;
@@ -816,12 +822,19 @@ export async function mountNovel(main, ctx) {
     preview.close();
     if (entry && bookId) { paintDetail(bookId, entry); return; }
     if (reading || bookId || tab !== 'shelf') releaseShelfFlow();
-    toolbar.hidden = Boolean(reading || bookId || tab === 'local' || discoveredBook);
+    if (tab !== 'web') { webView?.destroy(); webView = null; }
+    toolbar.hidden = Boolean(reading || bookId || tab === 'local' || tab === 'web' || discoveredBook);
     if (reading) { openReading(); return; }
     if (bookId) { paintDetail(bookId); return; }
     if (discoveredBook) { showDiscoveryDetail(); return; }
     if (tab === 'local') { paintLocal(); return; }
     if (tab === 'discover') { fetchDiscovery(discoverState.page); return; }
+    if (tab === 'web') {
+      /* 网文对照：内置 syosetu + linovelib（web/novel-web.js） */
+      if (!webView) webView = mountWebNovel(bodyEl, { api, locale, esc, toast, onBack: () => navigateShelf('shelf'),
+        lookup: word => { try { window.__megulitOpenLookup?.(word); } catch { /* 没挂上就算了 */ } } });
+      return;
+    }
     paintShelf();
   }
 
@@ -890,6 +903,7 @@ export async function mountNovel(main, ctx) {
   function dispose() {
     if (!alive) return;
     alive = false;
+    webView?.destroy();
     if (readerOpen) {
       window.__megulitCloseNovelReader?.();
       readerHost?.remove();

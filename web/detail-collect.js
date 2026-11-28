@@ -614,7 +614,7 @@ export function mountSentences(target,{sentences=[],locale='zh',esc,state,animat
  del.addEventListener('keydown',e=>{if(e.key==='Escape'&&del.classList.contains('armed')){e.preventDefault();e.stopPropagation();resetDelete();}});
  del.addEventListener('blur',()=>{if(del.classList.contains('armed'))setTimeout(()=>{if(document.activeElement!==del)resetDelete();},150);});
  life.off(()=>clearTimeout(armTimer));
- root.querySelector('[data-play]').addEventListener('click',async e=>{const b=e.currentTarget;b.disabled=true;try{await (await import('./sentence-voice.js')).playSentence(api,cur().text,b,{id:cur().id});}catch{toast?.(t.playFail);}finally{b.disabled=false;}});
+ root.querySelector('[data-play]').addEventListener('click',async e=>{const b=e.currentTarget;b.disabled=true;try{await (await import('./sentence-voice.js')).playSentence(api,cur().text,b,{id:cur().id});}catch(error){toast?.(error?.userMessage||t.playFail);}finally{b.disabled=false;}});
  root.querySelector('[data-copy]').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(cur().text);toast?.(t.copied);}catch{toast?.(t.copyFail);}});
  shuffleBtn?.addEventListener('click',shuffle);
  who.addEventListener('click',e=>{const b=e.target.closest('[data-scene]');if(b)openGroup(b.dataset.scene,{scroll:true});});

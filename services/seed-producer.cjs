@@ -37,20 +37,38 @@ async function moegirlIntro(fetcher,info,timeout){const names=[...new Set([info.
   if(!r.ok)return null;const j=await r.json();const pages=Object.values(j?.query?.pages||{}).filter(p=>plain(p)&&p.ns===0&&typeof p.extract==='string'&&p.extract.trim().length>=20&&!/消歧义|可以指|可能指/.test(p.extract.slice(0,200)));
   const order=t=>{const k=names.findIndex(n=>n.toLowerCase()===String(t).toLowerCase());return k<0?99:k;};pages.sort((a,b)=>order(a.title)-order(b.title));
   const page=pages[0];if(!page)return null;const text=intro(page.extract);return text?{title:String(page.title).slice(0,120),intro:text,url:'https://zh.moegirl.org.cn/'+encodeURIComponent(String(page.title).replace(/ /g,'_'))}:null;}catch{return null;}}
-/* what the page gets: the VNDB answer, with Moegirlpedia's introduction and page link in the Chinese UI when it has one */
-function view(info,moegirl){if(!info)return null;if(!moegirl||!info.zh)return info;
- return {...info,intro:info.zh.intro,source:'moegirl',links:info.links.map(l=>l.kind==='moegirl'?{kind:'moegirl',url:info.zh.url}:l)};}
+/* 2026-11-28 Bangumi's own introduction of the developer (a Bangumi company entry whose name equals the VNDB name or original name,
+   core/bangumi.cjs), 2-3 sentences, its page linked. {id,url,intro}, null when Bangumi has no such entry, undefined when it could not be asked (asked again next time) */
+async function bangumiIntro(fetcher,info,timeout){let hit;try{hit=await require('../core/bangumi.cjs').company([info.original,info.name,...(info.aliases||[])],{fetcher,timeout,raise:true});}catch{return undefined;}
+ const text=hit&&intro(hit.summary);return text?{id:hit.id,url:hit.url,intro:text}:null;}
+const ORDER=o=>Array.isArray(o)?o:o?['moegirl','vndb']:['vndb'];
+const wantsBangumi=list=>list.some(s=>s==='bangumi'||s==='bangumi-zh');
+/* the introductions the order needs and the cache lacks (undefined = never asked; null = asked, none) */
+async function fill(fetcher,info,list,timeout){let changed=false;
+ if(list.includes('moegirl')&&info.zh===undefined&&fetcher){info.zh=await moegirlIntro(fetcher,info,timeout);changed=true;}
+ if(wantsBangumi(list)&&info.bgm===undefined&&fetcher){const bgm=await bangumiIntro(fetcher,info,timeout);if(bgm!==undefined){info.bgm=bgm;changed=true;}}
+ return changed;}
+/* what the page gets: the first introduction of the order (services/info-source.cjs order); Moegirlpedia's comes with its page link,
+   Bangumi's adds a link to its page. An order without VNDB and no other introduction gives no introduction, the links stay. */
+function view(info,order){if(!info)return null;const list=ORDER(order),chinese=t=>require('../core/bangumi.cjs').language(t)==='zh';
+ const links=info.bgm?[...info.links.filter(l=>l.kind!=='bangumi'),{kind:'bangumi',url:info.bgm.url}]:info.links;
+ for(const s of list){
+  if(s==='moegirl'&&info.zh)return {...info,intro:info.zh.intro,source:'moegirl',links:links.map(l=>l.kind==='moegirl'?{kind:'moegirl',url:info.zh.url}:l)};
+  if((s==='bangumi'||s==='bangumi-zh'&&chinese(info.bgm?.intro))&&info.bgm)return {...info,links,intro:info.bgm.intro,source:'bangumi'};
+  if(s==='vndb'&&info.intro)return {...info,links};
+ }
+ return list.includes('vndb')?{...info,links}:{...info,links,intro:'',source:''};}
 /* -> {pid,name,original,intro,source,links:[{kind,url}]} or null; a stale answer is returned when the ask fails */
-async function producer(root,pid,{fetch:fetcher=globalThis.fetch,now=Date.now(),timeout=TIMEOUT,locale='',moegirl=locale==='zh'}={}){
+async function producer(root,pid,{fetch:fetcher=globalThis.fetch,now=Date.now(),timeout=TIMEOUT,locale='',moegirl=locale==='zh',order=ORDER(moegirl)}={}){
  if(!PID.test(String(pid||'')))return null;const c=readCache(root),e=c.p[pid];
- if(e&&now-e.at<(e.miss?MISS:FRESH)){if(e.miss)return null;if(moegirl&&e.info.zh===undefined&&fetcher){e.info.zh=await moegirlIntro(fetcher,e.info,timeout);writeCache(root,c);}return view(e.info,moegirl);}
- if(!fetcher||now-c.failedAt<RETRY)return e&&!e.miss?view(e.info,moegirl):null;
+ if(e&&now-e.at<(e.miss?MISS:FRESH)){if(e.miss)return null;if(await fill(fetcher,e.info,order,timeout))writeCache(root,c);return view(e.info,order);}
+ if(!fetcher||now-c.failedAt<RETRY)return e&&!e.miss?view(e.info,order):null;
  try{const r=await fetcher('https://api.vndb.org/kana/producer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filters:['id','=',pid],fields:'name,original,aliases,description,extlinks.url,extlinks.name',results:1}),signal:AbortSignal.timeout(timeout)});
   if(!r.ok)throw Error('VNDB_HTTP_'+r.status);const j=await r.json();if(!Array.isArray(j?.results))throw Error('VNDB_BAD_ANSWER');
-  const x=j.results[0];c.failedAt=0;c.p[pid]=plain(x)?{at:now,info:build(pid,x)}:{at:now,miss:true};if(!c.p[pid].miss&&moegirl)c.p[pid].info.zh=await moegirlIntro(fetcher,c.p[pid].info,timeout);writeCache(root,c);return c.p[pid].miss?null:view(c.p[pid].info,moegirl);}
- catch{c.failedAt=now;try{writeCache(root,c);}catch{}return e&&!e.miss?view(e.info,moegirl):null;}}
+  const x=j.results[0];c.failedAt=0;c.p[pid]=plain(x)?{at:now,info:build(pid,x)}:{at:now,miss:true};if(!c.p[pid].miss)await fill(fetcher,c.p[pid].info,order,timeout);writeCache(root,c);return c.p[pid].miss?null:view(c.p[pid].info,order);}
+ catch{c.failedAt=now;try{writeCache(root,c);}catch{}return e&&!e.miss?view(e.info,order):null;}}
 /* open one link of the cached answer in the system browser (never in the app) */
-function open(root,pid,kind,{spawnFn=spawn}={}){const e=PID.test(String(pid||''))&&readCache(root).p[pid];const link=e&&!e.miss&&e.info.links.find(l=>l.kind===kind);if(!link)throw Error('INVALID_LINK');
+function open(root,pid,kind,{spawnFn=spawn}={}){const e=PID.test(String(pid||''))&&readCache(root).p[pid];const link=e&&!e.miss&&(kind==='bangumi'&&e.info.bgm?{url:e.info.bgm.url}:e.info.links.find(l=>l.kind===kind));if(!link)throw Error('INVALID_LINK');
  const u=new URL(link.url);if(!/^https?:$/.test(u.protocol)||u.username||u.password)throw Error('INVALID_LINK');
  const child=spawnFn('explorer.exe',[u.href],{windowsHide:true,detached:true,stdio:'ignore'});child.on?.('error',()=>{});child.unref?.();return {opened:true};}
 module.exports={producer,open,intro,build,moegirl,view};

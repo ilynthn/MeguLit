@@ -16,7 +16,7 @@ function anchored({ center = false, grows = false, y = 560, jpHeight = 40 } = {}
   const source = fs.readFileSync(path.join(root, 'web/reader/modules/text-place.js'), 'utf8');
   const pin = source.slice(source.indexOf('  function pin('), source.indexOf('  function release('));
   const setters = source.slice(source.indexOf('  function closeRows('), source.indexOf('\n', source.indexOf('  function set(')));
-  const classes = { add() {} };
+  const classes = { add() {}, contains: () => false };
   let height = 20;
   const rect = (top, h, left = 100, width = 600) => ({ top, bottom: top + h, left, right: left + width, width, height: h });
   const win = { style: style(), classList: classes, getBoundingClientRect: () => rect(Number.parseFloat(win.style.top) || 0, jpHeight + height), querySelector: q => q === '.tomoyo-cn-row' ? row : null };

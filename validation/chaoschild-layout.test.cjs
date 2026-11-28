@@ -10,7 +10,7 @@ test('box line: Japanese-only fitting is separate from translation overflow, wit
   assert.match(src, /available >= oneLine/);
   assert.match(src, /!anchor\.center && tr && tr\.height/);
 });
-test('centred line keeps only its top while typing', () => { assert.match(src, /anchor\.center && Number\.isFinite\(center\) && anchorLine === lineKey[^\n]*a = \[center, anchor\[1\]\]/); });
+test('centred line keeps only its top while typing', () => { assert.match(src, /anchor\.center && Number\.isFinite\(center\) && anchorLine === lineKey[^\n]*a = \[projected && Math\.abs\(center - anchor\[0\]\) <= Math\.max\(6, size \* \.6\) \? anchor\[0\] : center, anchor\[1\]\]/); });
 test('page redrawn as plain text on clear hides the placed line', () => {
   assert.match(src, /vis\.length > cur\.length && vis\.endsWith\(cur\)\) \{ document\.body\.classList\.add\('megulit-place-gone'\)/);
   assert.match(src, /body\.megulit-place-gone \.sentence-window\.tomoyo-hook-reader \*\{opacity:0!important;visibility:hidden!important\}/);

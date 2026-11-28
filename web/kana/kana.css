@@ -1310,3 +1310,28 @@ button.m0,button.m1,button.m2,button.m3{border:0;padding:0;font:inherit;cursor:p
 @keyframes ap-shake{0%,100%{transform:none}20%{transform:translate(3px,2px)}40%{transform:translate(-3px,-1px)}60%{transform:translate(2px,-2px)}80%{transform:translate(-1px,1px)}}
 @container kana (max-width:600px){.v-results .ap-stamp{width:104px;height:104px;right:12px;top:10px}}
 @media (prefers-reduced-motion:reduce){.v-results .ap-stamp,.v-results .hero.ap-hit{animation:none}.v-results .ap-ink{display:none}}
+/* 2026-11-28 拗音 / 特殊音 boards and the 平假名 · 片假名 switch above the category tabs */
+.v-index.mg .mastery.y{grid-template-columns:repeat(11,minmax(0,1fr));grid-template-rows:repeat(3,auto)}
+.v-index.mg .mastery.s{grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(5,auto);max-width:520px}
+.v-index.mg .mastery.sh{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto;max-width:150px}
+.v-index.mg .mastery button.w2{font-size:clamp(13px,1.6vh,19px);letter-spacing:-.04em}
+.v-index.mg .mastery.y button.w2{font-size:clamp(14px,1.8vh,20px)}
+.v-index.mg .mg-script-seg{margin-right:10px}
+.v-index.mg .mg-board-note{margin:12px 0 0;font:400 12px/1.6 var(--sans);color:var(--t3)}
+/* 2026-11-28 拗音 / 外来音: one stroke box per character, side by side; 促音・长音 lessons show the word against its contrast word */
+.grid-box.multi{width:300px;display:flex}
+.grid-box.multi svg{position:relative;inset:auto;width:50%;height:auto;align-self:center}
+.pair-box{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:6px 14px;padding:18px 20px;border:1px solid var(--mg-line,rgba(255,255,255,.14));min-width:200px}
+.pair-box .ja{font-family:"MJP Serif",serif;font-size:34px;line-height:1.1;color:var(--paper-ink)}
+.pair-box small{font:400 15px/1 var(--serif);color:var(--paper-3)}
+.pair-box i{grid-column:1/-1;font-style:normal;color:var(--ink-accent);font-size:18px}
+.pair-box .pill{grid-column:1/-1;justify-self:start}
+.kana-line.long .ja{font-size:48px}
+.prompt .big.word{font-size:72px}
+.mini-grid.multi{display:flex;width:auto;gap:4px}
+.mini-grid.multi svg{width:50%;height:auto}
+.v-lesson .dots{flex-wrap:wrap}
+.v-lesson .dots button{flex:none;white-space:nowrap;min-width:34px;width:auto;padding:0 6px;letter-spacing:-.06em}
+.d-stroke:has(.mini-grid.multi){flex-direction:column;align-items:flex-start}
+.mini-grid.multi{width:220px;height:110px}
+.d-stroke .d-text b{display:inline;font-size:18px}

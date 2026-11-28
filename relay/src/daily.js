@@ -7,6 +7,7 @@
      Moepedia 美少女ゲームカレンダー  https://moepedia.net/feed/                      (all items: it is a galgame site)
      4Gamer.net                     https://www.4gamer.net/rss/index.xml            (only items matching GAL_WORDS)
      電ファミニコゲーマー             https://news.denfaminicogamer.jp/feed           (only items matching GAL_WORDS)
+     ln-news.com ラノベニュース      https://ln-news.com/feed                        (Atom, all items, the 轻小说 tab)
      Google トレンド (JP daily)      https://trends.google.com/trending/rss?geo=JP   (hot words, with one related headline)
      NHK ニュース                    https://www3.nhk.or.jp/rss/news/cat0.xml        (fallback hot words when Trends fails:
                                                                                      「」-quoted terms in the headlines) */
@@ -25,9 +26,12 @@ export const NEWS_FEEDS=[
  {id:'gamewatch',name:'GAME Watch',url:'https://game.watch.impress.co.jp/data/rss/1.0/gmw/feed.rdf'},
  /* ACG tab: anime, manga and other 二次元 news, unfiltered */
  {id:'animeanime',name:'アニメ!アニメ!',url:'https://animeanime.jp/rss/index.rdf',all:true,cat:'acg'},
- {id:'natalie',name:'コミックナタリー',url:'https://natalie.mu/comic/feed/news',all:true,cat:'acg'}
+ {id:'natalie',name:'コミックナタリー',url:'https://natalie.mu/comic/feed/news',all:true,cat:'acg'},
+ /* 轻小说 tab: ラノベニュースオンライン, Atom feed at /feed (robots.txt allows everything); titles and links only, the
+    app reads the article on the user's PC (the feed carries no summary) */
+ {id:'lnnews',name:'ln-news.com',url:'https://ln-news.com/feed',all:true,cat:'ln'}
 ];
-export const CATEGORIES=['gal','acg'];
+export const CATEGORIES=['gal','acg','ln'];
 export const TRENDS_URL='https://trends.google.com/trending/rss?geo=JP',NHK_URL='https://www3.nhk.or.jp/rss/news/cat0.xml';
 export const GAL_WORDS=/ノベル|ADV|成人向け|18禁|R18|FANZA|DLsite|同人ゲーム|萌え|美少女|ギャルゲ|エロゲ|恋愛|乙女ゲ|Key|ゆずソフト|サガプラネッツ|ぱれっと|オーガスト|TYPE-MOON|ニトロプラス|アリスソフト|Navel|まどそふと|ういんどみる|クロシェット|SMEE|HOOKSOFT|あざらしそふと|ensemble|feng|minori|CIRCUS|ねこねこ|Frontwing|フロントウイング|MAGES|ヒロイン|Galgame|galgame/;
 /* stories stay KEEP_NEWS_DAYS after they first appear, so the page keeps a full front page between quiet days */
@@ -43,12 +47,14 @@ const safeUrl=v=>{try{const u=new URL(decode(v).trim());return u.protocol==='htt
 export function summary(s){const t=text(s).replace(/\s*\[…\]$|\s*\[&#8230;\]$/,'');const parts=t.match(/[^。！？!?]+[。！？!?]?/g)||[];let out='';for(const p of parts.slice(0,2)){if((out+p).length>120)break;out+=p;}return (out||t.slice(0,118)+(t.length>118?'…':'')).trim();}
 /* RSS <item> and Atom <entry> */
 export function items(xml){return [...String(xml||'').matchAll(/<(item|entry)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/g)].map(m=>m[2]);}
+/* Atom: the story link is the <link> that is not an enclosure (ln-news.com lists its picture as rel="enclosure" first) */
+const atomLinks=it=>[...it.matchAll(/<link\s[^>]*>/g)].map(m=>({rel:(m[0].match(/\srel=["']([^"']+)["']/)||[])[1]||'alternate',href:(m[0].match(/\shref=["']([^"']+)["']/)||[])[1]||''})).filter(l=>l.href);
 export function parseNews(xml,feed){
  return items(xml).map(it=>{
-  const title=text(tag(it,'title')).slice(0,160),link=safeUrl(tag(it,'link')||(it.match(/<link[^>]*href="([^"]+)"/)||[])[1]||(it.match(/rdf:about="([^"]+)"/)||[])[1]||'');
+  const links=atomLinks(it),title=text(tag(it,'title')).slice(0,160),link=safeUrl(tag(it,'link')||links.find(l=>l.rel==='alternate')?.href||(it.match(/rdf:about="([^"]+)"/)||[])[1]||'');
   const when=Date.parse(text(tag(it,'pubDate')||tag(it,'dc:date')||tag(it,'updated')||tag(it,'published')));
   const body=tag(it,'content:encoded');
-  const image=safeUrl((it.match(/<enclosure[^>]*url="([^"]+)"[^>]*type="image/)||it.match(/<media:(?:content|thumbnail)[^>]*url="([^"]+)"/)||decode(body).match(/<img[^>]*src="([^"]+)"/)||[])[1]||'');
+  const image=safeUrl((it.match(/<enclosure[^>]*url="([^"]+)"[^>]*type="image/)||(links.find(l=>l.rel==='enclosure')&&it.match(/<link[^>]*rel="enclosure"[^>]*type="image[^>]*href="([^"]+)"/))||it.match(/<media:(?:content|thumbnail)[^>]*url="([^"]+)"/)||decode(body).match(/<img[^>]*src="([^"]+)"/)||[])[1]||'');
   return {title,link,date:Number.isFinite(when)?new Date(when).toISOString():'',source:feed.name,sourceId:feed.id,cat:feed.cat||'gal',summary:summary(tag(it,'description')||tag(it,'summary')||body),image};
  }).filter(n=>n.title&&n.link&&(feed.all||GAL_WORDS.test(n.title+' '+n.summary)));
 }

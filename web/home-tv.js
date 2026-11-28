@@ -474,10 +474,10 @@ export function renderHomeTV(main,ctx){
   <div class="tv-dialog"><span class="tv-who"></span><span class="tv-line"></span><div class="tv-act"></div></div></div>`;
  const root=main.querySelector('.tv-home'),$=s=>root.querySelector(s);
  /* The Seed banner: a plaque on the right, above the recent-games rail */
- {root.insertAdjacentHTML('beforeend',seedBannerHTML(locale,esc));
+ {root.insertAdjacentHTML('beforeend','<div class="tv-caps"></div>');const caps=root.querySelector('.tv-caps');caps.insertAdjacentHTML('beforeend',seedBannerHTML(locale,esc));
   const b=root.querySelector('.seed-banner');b.addEventListener('click',()=>openSeedDialog({api,locale,esc}));}
  /* 2026-11-28 QQ 交流群: a pill of the same kind beside The Seed (web/qq-group.js) */
- root.insertAdjacentHTML('beforeend',qqPillHTML(locale,esc));const qqCard=wireQQCard(root.querySelector('.qq-anchor'),{api,locale,toast});
+ root.querySelector('.tv-caps').insertAdjacentHTML('beforeend',qqPillHTML(locale,esc));const qqCard=wireQQCard(root.querySelector('.qq-anchor'),{api,locale,toast});
  live={root,timer:0,beat:0,typer:0,depth:null,qq:qqCard};loadGsap().catch(()=>{});
  const art=(g,p)=>g.cover?`url("${String(g.cover).replace(/"/g,'%22')}") center/cover`:`linear-gradient(160deg,${p[0]},${p[2]} 70%)`;
  root.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{const to=b.dataset.go;if(to==='detail'){if(shown)onDetail(shown.id);return;}if(to==='words')navigate('learning',

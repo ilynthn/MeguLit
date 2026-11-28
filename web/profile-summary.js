@@ -13,6 +13,7 @@ const settingNames = {
  'source.keepStream':'选中后不再换走的台词文本流',
  'source.stripCodes':'先从台词里去掉的引擎控制码',
  'source.embedGlyphPieces':'逐字排版、隐藏时整段清空的文本流',
+ 'source.firstGlyphSiblings':'同一钩子只发首次绘制字形的上下文改用整句兄弟流',
  'page.skipMergedTail':'快进合并文本只留最后几句（字数）',
  'source.siglusDbsNameColumn':'Siglus DBS 人名列编号',
  'source.versionMatch':'版本层怎么认',
