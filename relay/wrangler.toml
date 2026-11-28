@@ -44,6 +44,8 @@ CARDINAL_MIN_LINES = "30"
 # E415 日报 sources whose full article text the relay may cache (only with the site's permission), comma separated
 # source ids: moepedia, 4gamer, denfami. Empty = the app fetches articles on the user's PC.
 NEWS_FULLTEXT_SOURCES = ""
+# 2026-11-29 public host of the IMG bucket; items gain imageUrl only when this is set (empty = Worker only)
+NEWS_IMG_BASE = ""
 # E415 one-line Chinese notes for the daily hot words
 # DAILY_GLOSS_MODEL = "…" would be tried before the built-in chain (src/daily.js GLOSS_CHAIN). DeepSeek V4 needs the paid Workers plan.
 
@@ -68,6 +70,12 @@ migrations_dir = "migrations"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "megulit-diagnostics"
+
+# 2026-11-29 日报 thumbnails only, public at img.megulit.com (R2 custom domain) so the app reads them without a Worker
+# call (src/daily.js publicCopy). Never put anything private here: the whole bucket is public.
+[[r2_buckets]]
+binding = "IMG"
+bucket_name = "megulit-news-img"
 
 [observability]
 enabled = true

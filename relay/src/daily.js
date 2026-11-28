@@ -125,13 +125,25 @@ export async function hotWordsDailyGet(env,url,{json,fail},now=new Date()){
    KEEP_DAYS are deleted by the same cron. */
 export const MIRROR=120,NEW_IMAGES=16,IMG_MAX=900*1024,KEEP_DAYS=2;
 const IMG_TYPES=/^image\/(jpeg|png|webp|gif|avif)$/;
+/* 2026-11-29 (the free Workers quota of 100k requests a day ran out; 72% of the requests were these thumbnails) a
+   second copy goes to a public bucket of thumbnails only (binding IMG, served at NEWS_IMG_BASE, e.g.
+   https://img.megulit.com), so the app reads them without a Worker call. The key carries the extension (<id>.jpg) so
+   Cloudflare's default cache keeps it; the object says immutable. Items keep image:'/api/news/img/<id>' for older
+   apps and the fallback, and gain imageUrl. Without IMG or NEWS_IMG_BASE nothing changes. */
+const EXT={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'};
+const IMG_CACHE='public, max-age=604800, immutable';
+const publicBase=env=>env.IMG&&/^https:\/\/[a-z0-9.-]+$/i.test(String(env.NEWS_IMG_BASE||''))?String(env.NEWS_IMG_BASE):'';
+async function publicCopy(env,id,type,body,now){const ext=EXT[type];if(!ext||!env.IMG)return '';const key=id+'.'+ext;
+ if(!(await env.IMG.head?.(key))){if(!body)return '';await env.IMG.put(key,body,{httpMetadata:{contentType:type,cacheControl:IMG_CACHE},customMetadata:{at:String(now.getTime())}});}
+ return key;}
 async function hex(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,32);}
 async function ogImage(link,fetcher){try{const r=await fetcher(link,{headers:{'user-agent':UA,accept:'text/html'},signal:AbortSignal.timeout(8000)});if(!r.ok)return '';const html=(await r.text()).slice(0,200000);const m=html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)||html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);return m?safeUrl(new URL(decode(m[1]),link).href):'';}catch{return '';}}
 async function copyImage(env,key,url,fetcher,now){
  try{const r=await fetcher(url,{headers:{'user-agent':UA,accept:'image/*'},signal:AbortSignal.timeout(10000)});const type=(r.headers?.get?.('content-type')||'').split(';')[0].trim().toLowerCase();
   if(!r.ok||!IMG_TYPES.test(type)||Number(r.headers?.get?.('content-length')||0)>IMG_MAX)return false;
   const bytes=new Uint8Array(await r.arrayBuffer());if(!bytes.length||bytes.length>IMG_MAX)return false;
-  await env.BUCKET.put(key,bytes,{httpMetadata:{contentType:type},customMetadata:{at:String(now.getTime())}});return true;}catch{return false;}
+  await env.BUCKET.put(key,bytes,{httpMetadata:{contentType:type},customMetadata:{at:String(now.getTime())}});
+  if(env.IMG)await publicCopy(env,key.slice(9),type,bytes,now).catch(()=>'');return true;}catch{return false;}
 }
 export async function mirrorImages(env,items,now=new Date(),fetcher=fetch){
  let done=0,fetched=0;
@@ -142,17 +154,24 @@ export async function mirrorImages(env,items,now=new Date(),fetcher=fetch){
   /* at most NEW_IMAGES downloads per run keeps the cron under the Worker's subrequest limit; the rest follow next run */
   if(!have&&fetched<NEW_IMAGES){fetched++;const src=/^\/api\//.test(n.image||'')?'':n.image||await ogImage(n.link,fetcher);have=!!src&&await copyImage(env,key,src,fetcher,now);}
   n.image=have?'/api/news/img/'+id:'';if(have)done++;
+  const base=have?publicBase(env):'';
+  if(base){try{const head=await env.BUCKET.head(key),type=head?.httpMetadata?.contentType||'';let pub='';
+   if(EXT[type])pub=await env.IMG.head(id+'.'+EXT[type])?id+'.'+EXT[type]:await publicCopy(env,id,type,await (await env.BUCKET.get(key))?.arrayBuffer(),now);
+   if(pub)n.imageUrl=base+'/'+pub;}catch{}}
  }
  return done;
 }
 export async function imageGet(env,id){
- const obj=await env.BUCKET.get('daily-img/'+id);if(!obj)return new Response('',{status:404});
- return new Response(obj.body,{headers:{'content-type':obj.httpMetadata?.contentType||'image/jpeg','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'}});
+ const obj=await env.BUCKET.get('daily-img/'+id);if(!obj)return new Response('',{status:404,headers:{'cache-control':'public, max-age=86400'}});
+ return new Response(obj.body,{headers:{'content-type':obj.httpMetadata?.contentType||'image/jpeg','cache-control':'public, max-age=604800, immutable','x-content-type-options':'nosniff'}});
 }
 export async function cleanupImages(env,now=new Date()){
  let removed=0,cursor;
  for(const prefix of ['daily-img/','daily-article/']){cursor=undefined;do{const page=await env.BUCKET.list({prefix,cursor,include:['customMetadata']});
   for(const o of page.objects||[]){const at=Number(o.customMetadata?.at)||new Date(o.uploaded||0).getTime();if(now.getTime()-at>KEEP_DAYS*864e5){await env.BUCKET.delete(o.key);removed++;}}
+  cursor=page.truncated?page.cursor:undefined;}while(cursor);}
+ if(env.IMG){cursor=undefined;do{const page=await env.IMG.list({cursor,include:['customMetadata']});
+  for(const o of page.objects||[]){const at=Number(o.customMetadata?.at)||new Date(o.uploaded||0).getTime();if(now.getTime()-at>KEEP_DAYS*864e5){await env.IMG.delete(o.key);removed++;}}
   cursor=page.truncated?page.cursor:undefined;}while(cursor);}
  return removed;
 }
