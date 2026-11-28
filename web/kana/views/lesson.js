@@ -12,12 +12,13 @@ export function exampleHTML(example,word,esc){
 export function view(el,ctx){
 const go=ctx.go,params=ctx.params,D=ctx.data,S=ctx.store;
 const lesson=D.LESSONS.find(l=>l.id===params.id)||D.LESSONS[0],li=D.LESSONS.indexOf(lesson),nextLesson=D.LESSONS[li+1];
-const isK=lesson.script==='k',scriptName=isK?'片假名':lesson.id.startsWith('d')?'浊音':'平假名';
+const isK=lesson.script==='k',cat=lesson.cat||(lesson.id.startsWith('d')?'daku':'seion'),
+ scriptName=(isK?'片假名':'平假名')+({seion:'',daku:' · 浊音',yoon:' · 拗音',special:' · 特殊音'}[cat]||''),pairs=lesson.pairs||null;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 el.className='v-lesson';
 el.innerHTML=`<div class="wrap">
   <div class="lesson-head">
-    <div><a class="back" href="index.html">← 学习</a><h1>第 ${li+1} 课 · ${esc(lesson.title)}<small>${scriptName} · ${lesson.kana.length} 个</small></h1></div>
+    <div><a class="back" href="index.html">← 学习</a><h1>第 ${li+1} 课 · ${esc(lesson.title)}<small>${scriptName} · ${pairs?pairs.length+' 个词':lesson.kana.length+' 个'}</small></h1></div>
     <div class="head-right">${ctx.volumeHTML()}<nav class="steps" id="steps"></nav></div>
   </div>
   <section class="sheet" id="sheet"><div class="ribbon" aria-hidden="true"></div><div id="stage"></div></section>
@@ -25,7 +26,11 @@ el.innerHTML=`<div class="wrap">
 </div>`;
 
 /* ---------- 课程数据（来自 data.js） ---------- */
-const K=lesson.kana.map(k=>{const h=D.toHira(k),w=D.wordOf(k);return {k,kata:isK?h:D.toKata(k),r:D.romaOf(k),src:(isK?D.ORIGIN_K:D.ORIGIN_H)[k]||'',hint:D.hintOf(k),words:w?[w]:[],game:null};});
+/* 2026-11-28 促音・长音 lessons drill minimal pairs (きって / きて): each item is a word, its contrast word and their romaji */
+const markOf=w=>[...lesson.kana].find(c=>w.includes(c))||[...w].find((c,i)=>i&&'あいうえおアイウエオ'.includes(c)&&D.toRomaji(w[i-1]).endsWith(D.toRomaji(c)))||'';
+const K=pairs?pairs.map(([w,p,zh])=>{const mk=markOf(w);return {k:w,kata:p,r:D.toRomaji(w),partner:p,pr:D.toRomaji(p),src:'',pair:true,
+  hint:(mk?D.hintOf(mk==='ー'||mk==='っ'||mk==='ッ'?mk:'ー'):'')+`。「${w}」${D.toRomaji(w)}，和「${p}」${D.toRomaji(p)} 只差这一拍`,words:[[w,w,zh]],game:null};}):
+ lesson.kana.map(k=>{const h=D.toHira(k),w=D.wordOf(k);return {k,kata:isK?h:D.toKata(k),r:D.romaOf(k),src:(isK?D.ORIGIN_K:D.ORIGIN_H)[k]||'',hint:D.hintOf(k),words:w?[w]:[],game:null};});
 let gameHits={};
 const STEPS=[["一","认识"],["二","辨认"],["三","回忆"],["四","混合"]];
 const confuseR=k=>{const c=D.confusables(k);return c?c.g.filter(x=>x!==k).map(D.romaOf):[];};
@@ -41,38 +46,34 @@ function renderSteps(){$("#steps").innerHTML=STEPS.map(([n,l],i)=>`<span class="
 /* ---------- 第一步：认识 ---------- */
 let animToken=0,left=false,speakTimer=0,nextTimer=0,strokeTimer=0;
 ctx.onLeave?.(()=>{left=true;animToken++;clearTimeout(speakTimer);clearTimeout(nextTimer);clearTimeout(strokeTimer);});
-const kvgCache={};
-async function kvg(ch){
-  if(kvgCache[ch])return kvgCache[ch];
-  const hex=ch.codePointAt(0).toString(16).padStart(5,"0");
-  const txt=await fetch(ctx.base+`kanjivg/${hex}.svg`).then(r=>r.text());
-  const doc=new DOMParser().parseFromString(txt,"image/svg+xml");
-  const ds=[...doc.querySelectorAll("path[id*='-s']")].sort((a,b)=>+a.id.split("-s")[1]-+b.id.split("-s")[1]).map(p=>p.getAttribute("d"));
-  return kvgCache[ch]=ds;
-}
 async function drawStrokes(x){
-  /* KanjiVG 笔顺数据（CC BY-SA 3.0），viewBox 109×109 */
-  const tok=++animToken,ds=await kvg(x.k);if(left||tok!==animToken)return;
-  const box=$("#strokes");$("#scount").textContent=ds.length+" 画";
-  box.innerHTML=ds.map(d=>`<path d="${d}" class="gh"/>`).join("")+ds.map((d,i)=>`<path d="${d}" class="st" id="s${i}"/>`).join("")+
-    ds.map((d,i)=>{const m=d.match(/M\s*([\d.]+)[ ,]([\d.]+)/);return `<text x="${+m[1]-7}" y="${+m[2]-2}" class="sn" id="n${i}" opacity="0">${i+1}</text>`}).join("");
-  const paths=[...box.querySelectorAll(".st")];
+  /* KanjiVG 笔顺数据（CC BY-SA 3.0），viewBox 109×109；拗音、外来音没有单独的笔顺，两个字各画一格，按书写顺序连着画 */
+  if(x.pair)return;
+  const tok=++animToken,chars=[...x.k],all=await Promise.all(chars.map(c=>D.strokesOf(c,ctx.base)));if(left||tok!==animToken)return;
+  const boxes=[...stage.querySelectorAll(".strokes")];if(!boxes.length)return;
+  $("#scount").textContent=all.map(ds=>ds.length).join(" + ")+" 画";
+  const paths=[],nums=[];
+  boxes.forEach((box,b)=>{const ds=all[b]||[];
+    box.innerHTML=ds.map(d=>`<path d="${d}" class="gh"/>`).join("")+ds.map(d=>`<path d="${d}" class="st"/>`).join("")+
+      ds.map((d,i)=>{const m=d.match(/M\s*([\d.]+)[ ,]([\d.]+)/);return `<text x="${+m[1]-7}" y="${+m[2]-2}" class="sn" opacity="0">${i+1}</text>`}).join("");
+    paths.push(...box.querySelectorAll(".st"));nums.push(...box.querySelectorAll(".sn"));});
   paths.forEach(p=>{const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L;});
-  if(matchMedia("(prefers-reduced-motion:reduce)").matches){paths.forEach((p,i)=>{p.style.strokeDashoffset=0;$("#n"+i)?.setAttribute("opacity","1")});return}
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches){paths.forEach((p,i)=>{p.style.strokeDashoffset=0;nums[i]?.setAttribute("opacity","1")});return}
   let i=0;(function next(){if(left||tok!==animToken||i>=paths.length){paths.forEach(p=>p.classList.remove("cur"));return}
-    const p=paths[i],L=p.getTotalLength(),t0=performance.now(),dur=Math.max(420,L*8);p.classList.add("cur");$("#n"+i)?.setAttribute("opacity","1");
+    const p=paths[i],L=p.getTotalLength(),t0=performance.now(),dur=Math.max(420,L*8);p.classList.add("cur");nums[i]?.setAttribute("opacity","1");
     (function f(now){if(left||tok!==animToken)return;const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,2);p.style.strokeDashoffset=L*(1-e);if(k<1)requestAnimationFrame(f);else{p.classList.remove("cur");i++;clearTimeout(strokeTimer);strokeTimer=setTimeout(next,200)}})(t0);})();
 }
 function renderLearn(){
   const x=K[idx],last=idx===K.length-1;
   stage.innerHTML=`<div class="learn">
    <div class="stroke-col">
-     <div class="grid-box"><svg viewBox="0 0 109 109" id="strokes"></svg></div>
-     <div class="stroke-ctl"><button class="pill" id="replay">重播笔顺</button><span id="scount"></span></div>
+     ${x.pair?`<div class="pair-box"><span class="ja">${esc(x.k)}</span><small>${esc(x.r)}</small><i>≠</i><span class="ja">${esc(x.partner)}</span><small>${esc(x.pr)}</small><button class="pill" data-say="${esc(x.partner)}">♪ ${esc(x.partner)}</button></div>`:
+     `<div class="grid-box${[...x.k].length>1?' multi':''}">${[...x.k].map(()=>'<svg viewBox="0 0 109 109" class="strokes"></svg>').join('')}</div>
+     <div class="stroke-ctl"><button class="pill" id="replay">重播笔顺</button><span id="scount"></span></div>`}
      ${x.src?`<div class="origin"><b>${x.src}</b>字源 · 「${x.src}」→ <span>${x.k}</span></div>`:""}
    </div>
    <div class="info-col">
-     <div class="kana-line"><span class="ja">${x.k}</span><span class="ja kata">${x.kata}</span><span class="romaji">${x.r}</span>
+     <div class="kana-line${x.pair||[...x.k].length>2?' long':''}"><span class="ja">${x.k}</span>${x.pair?'':`<span class="ja kata">${x.kata}</span>`}<span class="romaji">${x.r}</span>
        <button class="sound" id="snd" aria-label="播放发音" title="播放发音 (空格)">${speaker}</button></div>
      <p class="hint">${x.hint}</p>
      ${x.words.length?`<div class="label">例词</div>
@@ -85,7 +86,7 @@ function renderLearn(){
      </div>
    </div></div>`;
   drawStrokes(x);
-  $("#replay").onclick=()=>drawStrokes(x);
+  const replay=$("#replay");if(replay)replay.onclick=()=>drawStrokes(x);
   $("#snd").onclick=()=>say(x.k);
   stage.querySelectorAll("[data-say]").forEach(b=>b.onclick=()=>say(b.dataset.say));
   stage.querySelectorAll("[data-idx]").forEach(b=>b.onclick=()=>{idx=+b.dataset.idx;seen.add(idx);renderLearn()});
@@ -105,13 +106,16 @@ ctx.gameWords().then(r=>{if(left)return;gameHits=r||{};gameLoaded=true;const slo
 function nextLearn(){if(idx<K.length-1){idx++;seen.add(idx);renderLearn()}else{goStep(1)}}
 
 /* ---------- 第二～四步：测验 ---------- */
-const POOLK=(lesson.id.startsWith("d")?D.DAKU_LIST:D.SEION_LIST).map(k=>isK?D.toKata(k):k),ALLR=[...new Set(POOLK.map(D.romaOf))],EXTRA_K=POOLK;
+const POOLK=pairs?K.flatMap(x=>[x.k,x.partner]):cat==='special'?D.GAIRAI_LIST:({daku:D.DAKU_LIST,yoon:D.YOON_LIST}[cat]||D.SEION_LIST).map(k=>isK?D.toKata(k):k),
+ ALLR=[...new Set(pairs?K.flatMap(x=>[x.r,x.pr]):POOLK.map(D.romaOf))],EXTRA_K=POOLK;
 function buildQueue(){
   if(step===1)return shuffle(K.map(x=>({x,mode:"k2r"})));
   if(step===2)return shuffle(K.map(x=>({x,mode:Math.random()<.5?"snd2k":"r2k"})));
   return shuffle([...K.map(x=>({x,mode:"k2r"})),...K.map(x=>({x,mode:"snd2k"}))]).slice(0,8);
 }
 function options(q){
+  /* 促音・长音: the contrast word is always one of the choices */
+  if(q.x.pair){const own=q.mode==="k2r"?[q.x.r,q.x.pr]:[q.x.k,q.x.partner],pool=(q.mode==="k2r"?ALLR:POOLK).filter(o=>!own.includes(o));return shuffle([...own,...shuffle(pool).slice(0,2)]);}
   if(q.mode==="k2r"){const pool=shuffle(ALLR.filter(r=>r!==q.x.r)),c=confuseR(q.x.k).filter(r=>pool.includes(r));const pick=[...new Set([...c,...pool])].slice(0,3);return shuffle([q.x.r,...pick])}
   const near=(D.confusables(q.x.k)?.g||[]).filter(k=>k!==q.x.k);const pool=[...new Set([...shuffle(near),...shuffle([...K.map(y=>y.k),...EXTRA_K])])].filter(k=>k!==q.x.k&&D.romaOf(k)!==q.x.r);return shuffle([q.x.k,...pool.slice(0,3)]);
 }
@@ -119,7 +123,7 @@ let locked=false,cur=null,opts=[],total=0;
 function renderQuiz(){
   cur=queue[qi];opts=options(cur);locked=false;
   const ask={k2r:"这个假名读作？",r2k:"哪个假名读作这个音？",snd2k:"听发音，选出假名"}[cur.mode];
-  let big=cur.mode==="k2r"?`<div class="big">${cur.x.k}</div>`:cur.mode==="r2k"?`<div class="big latin">${cur.x.r}</div>`:`<button class="sound" id="qs" aria-label="再听一次">${speaker}</button><div class="ask" style="margin-top:8px"><kbd>空格</kbd> 再听一次</div>`;
+  let big=cur.mode==="k2r"?`<div class="big${[...cur.x.k].length>2?' word':''}">${cur.x.k}</div>`:cur.mode==="r2k"?`<div class="big latin">${cur.x.r}</div>`:`<button class="sound" id="qs" aria-label="再听一次">${speaker}</button><div class="ask" style="margin-top:8px"><kbd>空格</kbd> 再听一次</div>`;
   stage.innerHTML=`<div class="quiz">
     <div class="q-meta"><span>${STEPS[step][1]} · ${step===3?'本课 + 已学假名混合，答错的稍后会再出现':step===1?'看假名选读音':'看罗马音或听音选假名'}</span><span class="num">${qi+1} / ${queue.length}</span></div>
     <div class="q-bar"><i style="width:${qi/queue.length*100}%"></i></div>
@@ -150,12 +154,14 @@ function renderDone(){
   /* 写入学习记录：本课假名至少「见过」，全对的「熟悉」，并放进复习盒 1 */
   const m=S.get(S.KEY.m,{}),b=S.get(S.KEY.b,{}),now=Date.now();
   K.forEach(x=>{const s=stats[x.k],l=s.bad===0?2:1;m[x.k]=Math.max(m[x.k]||0,l);if(!b[x.k])b[x.k]={box:1,due:now+S.DAY};});
+  /* a 促音・长音 lesson also marks っ / ー themselves on the 特殊音 board */
+  if(pairs){const l=K.every(x=>!stats[x.k].bad)?2:1;lesson.kana.forEach(k=>{m[k]=Math.max(m[k]||0,l);});}
   S.put(S.KEY.m,m);S.put(S.KEY.b,b);S.lessonDone(lesson.id);
   const learned=new Set(Object.entries(m).filter(([,v])=>v>=1).map(([k])=>D.toHira(k)));
   const mine=new Set(K.map(x=>D.toHira(x.k)));
   const readable=Object.entries(gameHits).filter(([w])=>[...w].every(c=>learned.has(c))&&[...w].some(c=>mine.has(c))).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
   stage.innerHTML=`<div class="finish">
-   <div><h2>${esc(lesson.title)} · 学完了</h2><p>${K.length} 个假名都已「见过」，答题全对的升为「熟悉」。明天复习一次全对就会成为「掌握」</p>
+   <div><h2>${esc(lesson.title)} · 学完了</h2><p>${K.length} 个${pairs?'词':'假名'}都已「见过」，答题全对的升为「熟悉」。明天复习一次全对就会成为「掌握」</p>
     <div class="mastery-change">${K.map(x=>{const s=stats[x.k],l=s.bad===0?2:1;return `<div class="mc"><b>${x.k}</b><div class="lv">${[0,1,2].map(j=>`<i class="${j<l?'f':''}"></i>`).join("")}</div><small>${l===2?'熟悉':'见过'} · 错 ${s.bad} 次</small></div>`}).join("")}</div>
     <p class="next-review">下次复习：<b>明天</b>（复习间隔 1 天，之后 3 天 → 7 天 → 21 天）</p></div>
    <div class="game-words"><h3>你的游戏里，现在能读出来的词</h3>

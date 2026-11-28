@@ -16,7 +16,7 @@ function rig(t,answer=()=>{},ready=false){
  const dir=path.join(root,'AivisSpeech-Engine','Models'),exe=path.join(root,'aivis-engine.exe');
  const calls=[],starts=[];
  fs.mkdirSync(dir,{recursive:true});fs.mkdirSync(path.join(root,'logs'));fs.writeFileSync(exe,'');
- const services=new Services(root,{exe,prepare:async()=>{},killTree:async()=>{},
+ const services=new Services(root,{exe,prepare:async()=>{},killTree:async()=>{},portOpen:async()=>false,
   fetch:async(url,opts)=>{
    if(url.endsWith('/version'))return {ok:ready||starts.length>0};
    const [,id,download]=/^https:\/\/api\.aivis-project\.com\/v1\/aivm-models\/([a-f\d-]+)(\/download\?model_type=AIVMX)?$/.exec(url)||[];

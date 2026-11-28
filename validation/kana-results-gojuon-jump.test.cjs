@@ -71,7 +71,7 @@ test('kana results wrong-kana links target gojuon?k=... and gojuon jump handles 
   };
   const yoonKata=openGojuon('キャ');
   const yoonHira=openGojuon('しゃ');
-  const unknown=openGojuon('ヴ');
+  const unknown=openGojuon('ゑ');
 
   return {hrefs,yoonKata,yoonHira,unknown};
  })()`);

@@ -1,4 +1,4 @@
-/* 2026-11-27 (user: 换卡像卷帘门往下拉 → 要溶解; 快速切换会卡) the home cover changes by dissolving: the old picture breaks up into grains that glow
+/* 2026-11-27 (user: 换卡像卷帘门往下拉 → 要溶解; 快速切换会卡) the home cover changes by dissolving: the old picture breaks up through a smooth noise mask
    and vanish while the new one shows through the holes. Each change is one canvas layer laid over the art. A change that comes while another is
    still running slides its layer in under the running ones, so what is on screen never jumps: the older grains keep falling on their own clock and
    the newer picture shows through them. Nothing queues and nothing is reset. Reduced motion: a plain cross-fade. */
@@ -16,15 +16,21 @@ export function readyImage(url){if(!url)return null;let img=images.get(url);
  if(!img){img=new Image();img.decoding='async';img.src=url;img.decode?.().catch(()=>{});images.set(url,img);if(images.size>40)images.delete(images.keys().next().value);}
  return img.complete&&img.naturalWidth>0?img:null;}
 
-/* grain field: low-frequency value noise (clumps) mixed with per-grain randomness (grit), normalised to 0..1; cached per size */
+/* mask field: smooth fractal noise (4 octaves of value noise, each turned a little so the grid never shows), no per-pixel grit, equalised to an even 0..1 so
+   the threshold sweeps the picture at a steady pace; cached per size. The result is what After Effects calls a noise dissolve: soft blotches that open and merge. */
 function noiseField(w,h){const key=w+'x'+h;let n=noises.get(key);if(n)return n;
  const rand=(x,y,s)=>{let t=(x*374761393+y*668265263+s*982451653)|0;t=(t^(t>>>13))*1274126177|0;return ((t^(t>>>16))>>>0)/4294967295;};
- const smooth=(x,y,cell,s)=>{const gx=x/cell,gy=y/cell,x0=Math.floor(gx),y0=Math.floor(gy),fx=gx-x0,fy=gy-y0,ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);
-  const a=rand(x0,y0,s),b=rand(x0+1,y0,s),c=rand(x0,y0+1,s),d=rand(x0+1,y0+1,s);return a+(b-a)*ux+(c-a)*uy+(a-b-c+d)*ux*uy;};
- n=new Float32Array(w*h);let lo=Infinity,hi=-Infinity;
- for(let y=0;y<h;y++)for(let x=0;x<w;x++){const v=smooth(x,y,26,1)*.5+smooth(x,y,9,2)*.22+rand(x,y,3)*.28;n[y*w+x]=v;if(v<lo)lo=v;if(v>hi)hi=v;}
- for(let i=0;i<n.length;i++)n[i]=(n[i]-lo)/(hi-lo||1);
+ const smooth=(x,y,cell,s,ang)=>{const c=Math.cos(ang),sn=Math.sin(ang),gx=(x*c-y*sn)/cell+s*17.3,gy=(x*sn+y*c)/cell+s*9.1,x0=Math.floor(gx),y0=Math.floor(gy),fx=gx-x0,fy=gy-y0,ux=fx*fx*fx*(fx*(fx*6-15)+10),uy=fy*fy*fy*(fy*(fy*6-15)+10);
+  const a=rand(x0,y0,s),b=rand(x0+1,y0,s),c2=rand(x0,y0+1,s),d=rand(x0+1,y0+1,s);return a+(b-a)*ux+(c2-a)*uy+(a-b-c2+d)*ux*uy;};
+ const raw=new Float32Array(w*h),OCT=[[44,1,.3,.5],[22,2,.9,.28],[11,3,1.7,.15],[6,4,2.5,.07]];
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(const [cell,seed,ang,wt] of OCT)v+=smooth(x,y,cell,seed,ang)*wt;raw[y*w+x]=v;}
+ /* histogram equalisation: each value becomes its rank, so half the picture is gone at the half-way point */
+ const BINS=1024;let lo=Infinity,hi=-Infinity;for(let i=0;i<raw.length;i++){const v=raw[i];if(v<lo)lo=v;if(v>hi)hi=v;}
+ const hist=new Uint32Array(BINS),span=hi-lo||1;for(let i=0;i<raw.length;i++)hist[Math.min(BINS-1,((raw[i]-lo)/span*BINS)|0)]++;
+ const cdf=new Float32Array(BINS);let run=0;for(let k=0;k<BINS;k++){run+=hist[k];cdf[k]=run/raw.length;}
+ n=new Float32Array(w*h);for(let i=0;i<raw.length;i++){const p=(raw[i]-lo)/span*BINS,k=Math.min(BINS-1,p|0),k0=k?cdf[k-1]:0;n[i]=k0+(cdf[k]-k0)*(p-k);}
  noises.set(key,n);if(noises.size>6)noises.delete(noises.keys().next().value);return n;}
+
 
 function ms(face){const v=parseFloat(getComputedStyle(face).getPropertyValue('--tv-dissolve-ms'));return v>0?v:720;}
 const calm=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -48,18 +54,15 @@ export function dissolveOut(face,background){
  const ctx=el.getContext('2d');cover(ctx,img,cw,ch);place(face,el);
  const pic=document.createElement('canvas');pic.width=cw;pic.height=ch;cover(pic.getContext('2d'),img,cw,ch);
  const mask=document.createElement('canvas');mask.width=gw;mask.height=gh;const mx=mask.getContext('2d'),md=mx.createImageData(gw,gh),m32=new Uint32Array(md.data.buffer);
- const glow=document.createElement('canvas');glow.width=gw;glow.height=gh;const gx=glow.getContext('2d'),gd=gx.createImageData(gw,gh),g32=new Uint32Array(gd.data.buffer);
- const noise=noiseField(gw,gh),EDGE=.07,HALO=.06;
+ const noise=noiseField(gw,gh),EDGE=.22;
  const layer={el,t0:performance.now(),dur,draw(t){
-  /* t runs a little past both ends so the first frame is the whole picture and the last one is empty */
-  const cut=-EDGE+t*(1+EDGE+HALO);
-  for(let i=0;i<noise.length;i++){const d=noise[i]-cut;
-   m32[i]=d>=EDGE?0xff000000:d>0?((d/EDGE*255)|0)<<24:0;
-   if(d<=0&&d>-HALO){const k=1+d/HALO,a=(k*k*200)|0;g32[i]=(a<<24)|0xa0d6ff;}else g32[i]=0;}
-  mx.putImageData(md,0,0);gx.putImageData(gd,0,0);
+  /* the threshold runs from one feather-width below 0 to 1, so the first frame is the whole picture and the last one is empty; between them a pixel fades
+     over the 0.22 of the noise range around the threshold (a wide, soft edge) */
+  const cut=-EDGE+t*(1+EDGE);
+  for(let i=0;i<noise.length;i++){const k=(noise[i]-cut)/EDGE,a=k>=1?255:k<=0?0:((k*k*(3-2*k))*255+.5)|0;m32[i]=(a<<24)|0;}
+  mx.putImageData(md,0,0);
   ctx.globalCompositeOperation='copy';ctx.drawImage(pic,0,0);
-  ctx.imageSmoothingEnabled=false;ctx.globalCompositeOperation='destination-in';ctx.drawImage(mask,0,0,cw,ch);
-  ctx.globalCompositeOperation='lighter';ctx.drawImage(glow,0,0,cw,ch);ctx.imageSmoothingEnabled=true;ctx.globalCompositeOperation='source-over';}};
+  ctx.globalCompositeOperation='destination-in';ctx.drawImage(mask,0,0,cw,ch);ctx.globalCompositeOperation='source-over';}};
  el.__stop=()=>{layers.delete(layer);el.remove();};
  layers.add(layer);
  /* more than three running: the oldest ones finish quickly instead of piling up */

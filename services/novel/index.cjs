@@ -9,6 +9,7 @@ const wenku = require('./source/wenku.cjs');
 const bookSite = require('./source/book-site.cjs');
 const downloads = require('./source/downloads.cjs');
 const annotate = require('./annotate.cjs');
+const webnovel = require('./webnovel/index.cjs');
 
 const SOURCES = new Map([['local', local], ['wenku', wenku], ['book-site', bookSite]]);
 const source = id => SOURCES.get(String(id || 'local')) || local;
@@ -107,6 +108,21 @@ async function dispatch(request, ctx) {
       return annotate.lookup(root, db, ctx.runtime, request);
     case 'novel_save_word':
       return annotate.save(root, db, ctx.runtime, request);
+    /* 内置网文书源与日中对照（services/novel/webnovel/） */
+    case 'novel_web_config':
+      return webnovel.config(root, request);
+    case 'novel_web_test':
+      return webnovel.test(root, request);
+    case 'novel_web_search':
+      return webnovel.search(root, request);
+    case 'novel_web_work':
+      return webnovel.work(root, request);
+    case 'novel_web_pair':
+      return webnovel.pair(root, request);
+    case 'novel_web_chapter':
+      return webnovel.chapter(root, request, { runtime });
+    case 'novel_web_open':
+      return webnovel.open(request);
     case 'novel_source_test':
       return pick().test(request, ctx);
     case 'novel_discover':

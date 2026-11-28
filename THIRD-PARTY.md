@@ -2,6 +2,11 @@
 
 - [PDF.js 6.5.438](https://github.com/mozilla/pdf.js) (Mozilla, Apache-2.0), from the published `pdfjs-dist` package. The novel PDF reader ships the browser build, worker, and support files under `web/vendor/pdfjs` with their upstream licenses.
 
+- Novelia（[auto-novel/auto-novel](https://github.com/auto-novel/auto-novel), formerly FishHawk/auto-novel, FishHawk and contributors, GPL-3.0, commit `54bad223081bad2ac4053e71688b285eed50df4a`): its syosetu crawler (`packages/crawler/src/web/syosetu.ts`: `.p-eplist` contents with `.c-pager__item--last` paging, the short-story fallback, `.p-novel__body` paragraphs with blank lines kept) is ported and rewritten in `services/novel/webnovel/syosetu.cjs` (ruby kept instead of removed); its reader settings (`web/src/stores/useSettingStore.ts` ReaderSetting, `web/src/pages/reader/components/BuildParagraphs.ts`: 日/中/日中/中日, 优先/并列, folded illustrations, indent fix, arrow keys and number keys) are the model for `web/novel-web.js`. Rewritten in MeguLit's own code, nothing copied verbatim. Its server API is not used
+- Light-Novel-Yuedu-Source (ZWolken, MIT): the 哔哩轻小说 Legado book source (`#TextContent`, `li.col-4`, 下一页 paging) was used to cross-check the selectors in `services/novel/webnovel/linovelib.cjs`; facts only, no rule file bundled
+- linovelib2epub (lightnovel-center, AGPL-3.0): read for linovelib's paging, broken `javascript:cid(0)` catalog links and rate limits; no code taken (AGPL), its text de-obfuscation is not reproduced
+- Built-in web novel sources in 文库: 小説家になろう (syosetu.com, official novel API plus pages) and 哩哩轻小说 (linovelib.com). Text is fetched on demand for the reader and cached locally under `cache/novel-web`; nothing is redistributed
+
 This is an inventory, not a claim that the complete project's license audit is finished.
 
 - Legacy RPG Maker/NW single-container identity: existing GPL EVB reader reused with project-authored bounded metadata-only parsing; original evbunpack/aPLib credits retained, no unpacker or new upstream implementation imported. Fixed source/reference and scope: [RPGMV container provenance](docs/third-party-rpgmv-container-20261122.md)

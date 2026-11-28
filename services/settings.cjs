@@ -55,7 +55,7 @@ class Settings{
     for(const panel of ['menu','log','card'])value.panels[panel]={...panelDefaults,...Object.fromEntries(Object.keys(panelDefaults).map(k=>[k,value[k]??panelDefaults[k]])),...value.panels[panel]};return value;
   }
   if(scope==='online')return {relayUrl:'',leaderboardEnabled:false,leaderboardName:'',leaderboardShareGames:false,...readJSON(path.join(this.folder,'online.json'))};
-  if(scope==='library'){const library=libraryConfig??readJSON(this.file('library.json'));return {libraryOnly:library.libraryOnly===true,autoSeries:library.autoSeries!==false,sharedAdaptation:library.sharedAdaptation!==false,nsfw:library.nsfw===true,infoSource:['moegirl','vndb'].includes(library.infoSource)?library.infoSource:'auto',sceneShots:library.sceneShots!==false,runtimeHarvest:library.runtimeHarvest!==false,probeUpload:library.probeUpload!==false,coldTest:library.coldTest!==false,coldTestShots:library.coldTestShots!==false,adapterContrib:require('./adapter-contrib.cjs').enabled(this.root),steamPath:library.steamPath||'',folders:(library.folders||[]).join('\n')};}
+  if(scope==='library'){const library=libraryConfig??readJSON(this.file('library.json'));return {libraryOnly:library.libraryOnly===true,autoSeries:library.autoSeries!==false,sharedAdaptation:library.sharedAdaptation!==false,nsfw:library.nsfw===true,infoSource:require('./info-source.cjs').VALUES.includes(library.infoSource)?library.infoSource:'auto',sceneShots:library.sceneShots!==false,runtimeHarvest:library.runtimeHarvest!==false,probeUpload:library.probeUpload!==false,coldTest:library.coldTest!==false,coldTestShots:library.coldTestShots!==false,adapterContrib:require('./adapter-contrib.cjs').enabled(this.root),steamPath:library.steamPath||'',folders:(library.folders||[]).join('\n')};}
   throw Error('SETTINGS_SCOPE_INVALID');
  }
  get(profile=''){
@@ -125,7 +125,7 @@ class Settings{
      folders=[...new Set([...(library.folders||[]),...folders])];
      next.steamPath=current.steamPath||next.steamPath;
     }
-    atomic(this.file('library.json'),{...library,libraryOnly:next.libraryOnly===true,steamPath:next.steamPath,folders,autoSeries:next.autoSeries,sharedAdaptation:next.sharedAdaptation!==false,nsfw:next.nsfw===true,infoSource:['moegirl','vndb'].includes(next.infoSource)?next.infoSource:'auto',sceneShots:next.sceneShots!==false,runtimeHarvest:next.runtimeHarvest!==false,probeUpload:next.probeUpload!==false,coldTest:next.coldTest!==false,coldTestShots:next.coldTestShots!==false});
+    atomic(this.file('library.json'),{...library,libraryOnly:next.libraryOnly===true,steamPath:next.steamPath,folders,autoSeries:next.autoSeries,sharedAdaptation:next.sharedAdaptation!==false,nsfw:next.nsfw===true,infoSource:require('./info-source.cjs').VALUES.includes(next.infoSource)?next.infoSource:'auto',sceneShots:next.sceneShots!==false,runtimeHarvest:next.runtimeHarvest!==false,probeUpload:next.probeUpload!==false,coldTest:next.coldTest!==false,coldTestShots:next.coldTestShots!==false});
   }
   /* the contribution switch is the player's decision: written only when it was changed here (an untouched switch must not decide for them) */
   if(scope==='library'&&Object.hasOwn(values,'adapterContrib')&&(c=>c.decided||(next.adapterContrib===true)!==c.enabled)(require('./adapter-contrib.cjs').consentState(this.root)))require('./adapter-contrib.cjs').setConsent(this.root,next.adapterContrib===true,{source:'settings'});

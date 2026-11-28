@@ -73,7 +73,7 @@ export async function renderGamePage({main,id,tab:startTab='',api,locale,text,es
  const target=main.querySelector('.game-detail-content'),row=(title,value)=>`<div class="detail-info-row"><span>${title}</span><span>${esc(Array.isArray(value)?value.join(' / '):value||'—')}</span></div>`;
  const sourceKey='megulit-synopsis-source:'+locale+':'+id;
  let sourceOverride='';
- try{const saved=localStorage.getItem(sourceKey);if(saved==='moegirl'||saved==='vndb')sourceOverride=saved;}catch{}
+ try{const saved=localStorage.getItem(sourceKey);if(saved==='bangumi'||saved==='moegirl'||saved==='vndb')sourceOverride=saved;}catch{}
  const preferredSource=()=>sourceOverride||data.synopsisChoices?.preferred||(locale==='zh'?'moegirl':'vndb');
  function mountSynopsis(){
   const panel=target.querySelector('.synopsis-panel'),content=panel.querySelector('.synopsis-content');

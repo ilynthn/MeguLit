@@ -221,7 +221,7 @@ test('verified metadata and synopsis remain available during an offline refresh'
 });
 
 test('a Steam synopsis without a VNDB identity cannot resolve a work by name',async t=>{
- const f=fixture(t);const synopsis=new Synopses({config:f.config},{lookup:async(id,titles)=>id||titles.length?{text:'Wrong novel.'}:null,translate:async()=>''});
+ const f=fixture(t);const synopsis=new Synopses({config:f.config},{lookup:async(id,titles)=>id||titles.length?{text:'Wrong novel.'}:null,bangumi:async()=>null,translate:async()=>''});
  const result=await synopsis.get({mediaId:'echo',appid:APPID,titles:['ECHO'],vndbId:'',lang:'en'});
  assert.equal(result.text,'');
 });

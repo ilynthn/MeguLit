@@ -44,7 +44,7 @@ function layoutFromTags(tags){
  return 'unknown';
 }
 class GameEnrichment{
- constructor(root,emit=()=>{},fetcher=fetch,translate=null){this.root=root;this.emit=emit;this.abort=new AbortController();this.fetch=(url,options={})=>fetcher(url,{...options,signal:AbortSignal.any([this.abort.signal,...(options.signal?[options.signal]:[])])});this.running=new Map();this.byGame=new Map();this.queue=[];this.file=path.join(root,'data/config/game-reception.json');this.synopses=new(require('../core/library.cjs').Synopses)({config:path.join(root,'data/config')},translate?{translate}:{});}
+ constructor(root,emit=()=>{},fetcher=fetch,translate=null){this.root=root;this.emit=emit;this.abort=new AbortController();this.fetch=(url,options={})=>fetcher(url,{...options,signal:AbortSignal.any([this.abort.signal,...(options.signal?[options.signal]:[])])});this.running=new Map();this.byGame=new Map();this.queue=[];this.file=path.join(root,'data/config/game-reception.json');this.synopses=new(require('../core/library.cjs').Synopses)({config:path.join(root,'data/config')},{...(translate?{translate}:{}),bangumi:titles=>require('../core/bangumi.cjs').work(titles,{fetcher:this.fetch})});}
  stop(){this.closed=true;this.queue.length=0;this.abort.abort();}
  enqueue(ids,refresh=false){if(this.closed)return;this.refreshIds??=new Set();for(const id of ids){if(refresh)this.refreshIds.add(id);if(!this.queue.includes(id))this.queue.push(id);}if(!this.pumping)this.pump();}
  async pump(){this.pumping=true;try{while(!this.closed&&this.queue.length){const id=this.queue.shift();const refresh=!!this.refreshIds?.delete(id);try{await this.ensure(id,require('./store.cjs').publicPreferences(this.root).language,refresh);}catch{}}}finally{this.pumping=false;}}

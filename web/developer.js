@@ -5,9 +5,9 @@
    (seed_logo, seed_producer: services/seed-logo.cjs, services/seed-producer.cjs), links are opened by the service in the system
    browser (seed_producer_open) from its own answer, never from an address the page passes. */
 const W={
- zh:{devNone:'暂时读不到这个游戏社的介绍',devSource:'简介来自 VNDB',devSourceMoegirl:'简介来自 萌娘百科（CC BY-NC-SA 3.0）',devOpen:'在浏览器中打开',loading:'正在读取…',failed:'读取失败，稍后再试',dev:'游戏社',links:{vndb:'VNDB 游戏社页',site:'官网',moegirl:'萌娘百科',jawiki:'日文维基'}},
- en:{devNone:'No introduction could be loaded for this developer for now',devSource:'Introduction from VNDB',devSourceMoegirl:'Introduction from Moegirlpedia (CC BY-NC-SA 3.0)',devOpen:'Open in the browser',loading:'Loading…',failed:'Could not load, try again later',dev:'Developer',links:{vndb:'VNDB developer page',site:'Official site',moegirl:'Moegirlpedia',jawiki:'Japanese Wikipedia'}},
- ja:{devNone:'このブランドの紹介は今は読み込めません',devSource:'紹介文の出典：VNDB',devSourceMoegirl:'紹介文の出典：萌娘百科（CC BY-NC-SA 3.0）',devOpen:'ブラウザで開く',loading:'読み込み中…',failed:'読み込めませんでした。あとでもう一度',dev:'ブランド',links:{vndb:'VNDB のブランドページ',site:'公式サイト',moegirl:'萌娘百科（中国語）',jawiki:'日本語版ウィキペディア'}}};
+ zh:{devNone:'暂时读不到这个游戏社的介绍',devSource:'简介来自 VNDB',devSourceMoegirl:'简介来自 萌娘百科（CC BY-NC-SA 3.0）',devSourceBangumi:'简介来自 Bangumi',devOpen:'在浏览器中打开',loading:'正在读取…',failed:'读取失败，稍后再试',dev:'游戏社',links:{vndb:'VNDB 游戏社页',site:'官网',moegirl:'萌娘百科',bangumi:'Bangumi',jawiki:'日文维基'}},
+ en:{devNone:'No introduction could be loaded for this developer for now',devSource:'Introduction from VNDB',devSourceMoegirl:'Introduction from Moegirlpedia (CC BY-NC-SA 3.0)',devSourceBangumi:'Introduction from Bangumi',devOpen:'Open in the browser',loading:'Loading…',failed:'Could not load, try again later',dev:'Developer',links:{vndb:'VNDB developer page',site:'Official site',moegirl:'Moegirlpedia',bangumi:'Bangumi',jawiki:'Japanese Wikipedia'}},
+ ja:{devNone:'このブランドの紹介は今は読み込めません',devSource:'紹介文の出典：VNDB',devSourceMoegirl:'紹介文の出典：萌娘百科（CC BY-NC-SA 3.0）',devSourceBangumi:'紹介文の出典：Bangumi',devOpen:'ブラウザで開く',loading:'読み込み中…',failed:'読み込めませんでした。あとでもう一度',dev:'ブランド',links:{vndb:'VNDB のブランドページ',site:'公式サイト',moegirl:'萌娘百科（中国語）',bangumi:'Bangumi',jawiki:'日本語版ウィキペディア'}}};
 export const devWords=locale=>W[locale]||W.zh;
 export const isImg=u=>typeof u==='string'&&u.startsWith('data:image/');
 const logos=new Map();
@@ -22,8 +22,8 @@ export const logoChip=(name,pid,esc)=>`<i class="dev-logo" aria-hidden="true" da
 /* the panel: the introduction is text (escaped); the links are buttons the service opens */
 export function devPanelHTML(info,t,esc){
  if(!info||!Array.isArray(info.links))return `<p class="sc-panel-note">${esc(t.devNone)}</p>`;
- const ok=new Set(['vndb','site','moegirl','jawiki']);
- return `${info.intro?`<p class="sc-intro">${esc(info.intro)}<small>${esc(info.source==='moegirl'?t.devSourceMoegirl||t.devSource:t.devSource)}</small></p>`:''}<ul class="sc-links">${info.links.filter(l=>ok.has(l.kind)).map(l=>`<li><button type="button" class="sc-link" data-link="${esc(l.kind)}" title="${esc(t.devOpen)}">${esc(t.links[l.kind]||l.kind)}<span aria-hidden="true"> ↗</span></button></li>`).join('')}</ul>`;
+ const ok=new Set(['vndb','site','moegirl','bangumi','jawiki']),from={moegirl:t.devSourceMoegirl,bangumi:t.devSourceBangumi}[info.source]||t.devSource;
+ return `${info.intro?`<p class="sc-intro">${esc(info.intro)}<small>${esc(from)}</small></p>`:''}<ul class="sc-links">${info.links.filter(l=>ok.has(l.kind)).map(l=>`<li><button type="button" class="sc-link" data-link="${esc(l.kind)}" title="${esc(t.devOpen)}">${esc(t.links[l.kind]||l.kind)}<span aria-hidden="true"> ↗</span></button></li>`).join('')}</ul>`;
 }
 /* loads the panel into `panel` once and wires its link buttons */
 export async function openPanel({panel,pid,api,t,esc,toast,locale=''}){

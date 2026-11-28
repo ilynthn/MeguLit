@@ -324,7 +324,7 @@ class Library{
   if(!g||g.hook==='verified')return false;g.hook='verified';this.write();return true;
  }
 }
-// Fetch synopses from VNDB and Moegirlpedia and cache them in config/synopsis.json.
+// Fetch synopses from VNDB, Moegirlpedia and Bangumi and cache them in config/synopsis.json.
 const clean=s=>String(s||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|h\d|li|div)>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
  .replace(/\[url=[^\]]*\]([^[]*)\[\/url\]/gi,'$1').replace(/\[\/?(b|i|u|s|spoiler|quote|raw|code)\]/gi,'').replace(/\[From [^\]]+\]\s*$/i,'').replace(/\r/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
 async function vndbText(id,titles){
@@ -351,7 +351,7 @@ async function moegirlText(titles,{fetcher=globalThis.fetch,timeout=8000}={}){
 }
 class Synopses{
  constructor(layout,options={}){
-  this.lookup=options.lookup||vndbText;this.moegirl=options.moegirl||moegirlText;this.translate=options.translate||machine;
+  this.lookup=options.lookup||vndbText;this.moegirl=options.moegirl||moegirlText;this.bangumi=options.bangumi||(titles=>require('./bangumi.cjs').work(titles));this.translate=options.translate||machine;
   this.file=path.join(layout.config,'synopsis.json');this.running=new Map();
  }
  read(){try{return JSON.parse(fs.readFileSync(this.file,'utf8'))||{};}catch{return {};}}
@@ -370,23 +370,26 @@ class Synopses{
   let entry=policy.forWork(this.read()[id],a);
   // Retry a missing translation after ten minutes. A choice between providers never invalidates the shared entry.
   const age=Date.now()-(entry?.at||0);
-  if(a.refresh||!entry||(!entry[lang]&&age>600000)||entry.policy!==policy.POLICY||entry.mg!==1||age>86400000){
+  if(a.refresh||!entry||(!entry[lang]&&age>600000)||entry.policy!==policy.POLICY||entry.mg!==1||entry.bg!==1||age>86400000){
    const job=this.fetch(a,entry).finally(()=>this.running.delete(id));this.running.set(id,job);
    entry=await job;
   }
-  return policy.views(entry,lang,a.moegirl).synopsis;
+  return policy.views(entry,lang,a.sources||a.moegirl).synopsis;
  }
  async fetch(a,previous){
   const {approved,POLICY}=require('./synopsis-policy.cjs'),old=previous||{};
   const titles=[...new Set((a.titles||[]).map(String).filter(Boolean))];
-  const out={at:Date.now(),policy:POLICY,mg:1,src:{},vndbId:String(a.vndbId||'')};
+  const out={at:Date.now(),policy:POLICY,mg:1,bg:1,src:{},vndbId:String(a.vndbId||'')};
   if(a.appid)out.steamIdentity=a.appid+':'+out.vndbId;
   const put=(lang,text,source)=>{if(text&&!out[lang]){out[lang]=text;out.src[lang]=source;}};
   const vn=a.appid&&!a.vndbId?null:await this.lookup(a.vndbId,a.appid?[]:titles);
   if(vn?.text)put('en',vn.text.slice(0,20000),'VNDB');
   if(vn?.alttitle)titles.push(vn.alttitle);
   if(vn?.names)titles.push(...vn.names);
-  const mg=await this.moegirl(titles);
+  /* Bangumi is matched by the names VNDB gives first (its original name), then the library's; see core/bangumi.cjs */
+  const [mg,bg]=await Promise.all([this.moegirl(titles),this.bangumi([vn?.alttitle,...(vn?.names||[]),...titles].filter(Boolean))]);
+  if(bg?.text)out.bangumi={text:bg.text,src:bg.source,lang:bg.lang,id:bg.id,url:bg.url,name:bg.name,nameCn:bg.nameCn,cover:bg.cover,score:bg.score,votes:bg.votes,developer:bg.developer};
+  else if(old.bangumi?.text)out.bangumi=old.bangumi;
   if(mg?.text)out.moegirl={text:mg.text,src:MOEGIRL_SOURCE,title:mg.title};
   else if(old.moegirl?.text)out.moegirl=old.moegirl;
   const changed=out.en&&old.en&&out.en!==old.en;
