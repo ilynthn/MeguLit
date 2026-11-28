@@ -3,7 +3,7 @@
    IndexedDB (assets/js/me-store.mjs) and the dictionary shards in their own cache (assets/js/me-dict.mjs, never touched here).
    API calls go to api.megulit.com / cn-api.megulit.com, other origins, so they are never intercepted.
    Bump VERSION with every change to a precached file: the new worker precaches the new set and the old cache is dropped. */
-const VERSION = 'me-v1';
+const VERSION = 'me-v2';
 const PRECACHE = [
   '/me/', '/me/manifest.webmanifest',
   '/assets/css/site.css', '/assets/css/me.css',

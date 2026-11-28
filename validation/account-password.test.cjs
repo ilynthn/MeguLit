@@ -5,7 +5,7 @@ process.env.MEGULIT_RELAY_BASE??='off';/* tests never reach the real relay */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{pathToFileURL}=require('node:url'),{DatabaseSync}=require('node:sqlite');
 const relayDir=path.join(__dirname,'..','relay');
 const load=()=>import(pathToFileURL(path.join(relayDir,'src','accounts.js')).href);
-const MIGRATIONS=['0005_accounts.sql','0015_password_login.sql'].map(f=>fs.readFileSync(path.join(relayDir,'migrations',f),'utf8'));
+const MIGRATIONS=['0005_accounts.sql','0015_password_login.sql','0042_web_sessions.sql'].map(f=>fs.readFileSync(path.join(relayDir,'migrations',f),'utf8'));
 function d1(){
  const db=new DatabaseSync(':memory:');for(const m of MIGRATIONS)db.exec(m);
  const stmt=(sql,args=[])=>({bind:(...a)=>stmt(sql,a),first:async()=>db.prepare(sql).get(...args)??null,all:async()=>({results:db.prepare(sql).all(...args)}),run:async()=>{const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}});
@@ -58,6 +58,45 @@ test('relay: user name once, password set/change rules, sign-in by e-mail or use
  assert.deepEqual([wrong.body.error,ghost.body.error,noPass.body.error],['WRONG_PASSWORD','WRONG_PASSWORD','WRONG_PASSWORD'],'nobody can tell which names exist');
  /* rate limit per login */
  let last;for(let i=0;i<12;i++)last=await post('/api/auth/password',{login:'Megumin_1',password:'guess '+i},{},at(900+i));
+ assert.equal(last.status,429);assert.equal(last.body.error,'RATE_LIMITED');
+});
+
+/* 2026-11-29 (owner: 个人主页要能够改密码和设置密码啊 megulit和官网都是): a first password needs a mailed code, a change needs
+   the current password or a code (the forgotten-password path), and the website's read-only session may do both, never without proof */
+test('relay: first password needs a mailed code; change needs the current one or a code; the website may do it, never without proof',async()=>{
+ const {handleAccounts:h}=await load(),r=relay(),a=await codeLogin(h,r,'megumin@example.com',T0);
+ const post=(route,body,token,now)=>h(req('POST',route,body,token?bearer(token):{}),r.env,now).then(async x=>({status:x.status,body:await x.json()}));
+ const hasPassword=()=>!!r.env.DB.raw.prepare('SELECT pass_hash FROM accounts WHERE email=?').get('megumin@example.com').pass_hash;
+ /* a session older than 10 minutes on a code-only account: no password without a code */
+ let res=await post('/api/me/password',{password:PW},a.token,at(700));
+ assert.equal(res.status,400);assert.equal(res.body.error,'CODE_REQUIRED');assert.equal(hasPassword(),false);
+ assert.equal((await post('/api/me/password',{password:PW,current:'anything at all'},a.token,at(701))).body.error,'CODE_REQUIRED','a made-up current password is no proof');
+ assert.equal((await post('/api/auth/code',{email:'megumin@example.com'},null,at(710))).status,200);
+ const code=r.lastCode(),wrong=code==='000000'?'111111':'000000';
+ res=await post('/api/me/password',{password:PW,code:wrong},a.token,at(720));assert.equal(res.body.error,'WRONG_CODE');assert.equal(res.body.triesLeft,4);
+ assert.equal((await post('/api/me/password',{password:PW,code:'12a'},a.token,at(721))).body.error,'WRONG_CODE');
+ res=await post('/api/me/password',{password:PW,code},a.token,at(730));assert.equal(res.status,200);assert.equal(res.body.hasPassword,true);
+ assert.equal((await post('/api/me/password',{password:PW+'x',code},a.token,at(731))).body.error,'NO_CODE','a code works once');
+ assert.equal((await post('/api/auth/password',{login:'megumin@example.com',password:PW},null,at(740))).status,200,'signs in with the new password');
+ /* the website: a read-only session, fresh or not, needs the current password or a code */
+ const w=(await post('/api/auth/password',{login:'megumin@example.com',password:PW,client:'web'},null,at(3700))).body;assert.equal(w.scope,'read');
+ assert.equal((await post('/api/me/password',{password:'brand new pass'},w.token,at(3701))).body.error,'WRONG_PASSWORD','no fresh-session shortcut on the website');
+ assert.equal((await post('/api/me/password',{password:'brand new pass',current:'not it at all'},w.token,at(3702))).body.error,'WRONG_PASSWORD');
+ res=await post('/api/me/password',{password:'brand new pass',current:PW},w.token,at(3703));assert.equal(res.status,200);
+ assert.equal((await post('/api/auth/password',{login:'megumin@example.com',password:PW},null,at(3710))).body.error,'WRONG_PASSWORD','the old password stops working');
+ assert.equal((await post('/api/auth/password',{login:'megumin@example.com',password:'brand new pass'},null,at(3711))).status,200);
+ /* forgotten on the website: a mailed code resets it */
+ await post('/api/auth/code',{email:'megumin@example.com'},null,at(3800));
+ assert.equal((await post('/api/me/password',{password:'forgot and reset',code:r.lastCode()},w.token,at(3810))).status,200);
+ assert.equal((await post('/api/auth/password',{login:'megumin@example.com',password:'forgot and reset'},null,at(3820))).status,200);
+ assert.equal((await post('/api/me/password',{password:'short'},w.token,at(3821))).body.error,'PASSWORD_LENGTH','the same rules as the desktop');
+ /* the website still cannot write anything else */
+ assert.equal((await h(req('DELETE','/api/me',undefined,bearer(w.token)),r.env,at(3830))).status,403);
+ /* other devices stay signed in after a change (existing behaviour; each can be signed out from the device list) */
+ const me=await (await h(req('GET','/api/me',undefined,bearer(a.token)),r.env,at(3840))).json();
+ assert.equal(me.hasPassword,true);assert.ok(me.devices.length>=3);
+ /* guessing is capped: 10 tries an hour per account */
+ let last;for(let i=0;i<12;i++)last=await post('/api/me/password',{password:'guess guess '+i,current:'guess '+i},w.token,at(7300+i));
  assert.equal(last.status,429);assert.equal(last.body.error,'RATE_LIMITED');
 });
 
@@ -135,10 +174,24 @@ test('client: password sign-in stores the token like a code sign-in; user name a
  assert.doesNotMatch(fs.readFileSync(path.join(pc2.root,'data','config','account','profile.json'),'utf8'),/Megumin_1/);
 });
 
+test('client: a code-only account sets its first password with a code mailed to its own address; a forgotten one is reset the same way',async t=>{
+ const r=relay(),clock={now:T0.getTime()},pc=device(t,r,clock),handle=request=>account.handle(pc.root,request,pc.options);
+ await pc.a.requestCode('megumin@example.com');await pc.a.verify('megumin@example.com',r.lastCode());
+ clock.now+=11*60e3;
+ await assert.rejects(()=>handle({action:'account_password',password:PW}),/CODE_REQUIRED/);
+ const sent=await handle({action:'account_password_code'});assert.equal(sent.email,'megumin@example.com');assert.equal(r.mails.at(-1).body.to[0],'megumin@example.com');
+ await assert.rejects(()=>handle({action:'account_password',password:PW,code:'12 34'}),/WRONG_CODE/);
+ let s=await handle({action:'account_password',password:PW,code:r.lastCode()});assert.equal(s.hasPassword,true);
+ clock.now+=61e3;await handle({action:'account_password_code'});
+ s=await handle({action:'account_password',password:PW+'3',code:r.lastCode(),current:'ignored when a code is given'});assert.equal(s.hasPassword,true);
+ assert.equal((await r.env.DB.prepare('SELECT COUNT(*) n FROM account_sessions').first()).n,1,'still signed in');
+ await pc.a.logout();await assert.rejects(()=>handle({action:'account_password_code'}),/UNAUTHORIZED/);
+});
+
 test('UI: two sign-in modes, the user name warning, the password section, the suggestion after a code sign-in',()=>{
  const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8'),ui=read('web/account-ui.js');
- for(const s of ['验证码登录','密码登录','邮箱或用户名','用户名只能设置一次，设置后永远不能更改','设置密码','修改密码','当前密码','正在发送验证码','パスワードでログイン','Sign in with a password','can never be changed'])assert.ok(ui.includes(s),s);
- for(const action of ['account_password_login','account_username','account_password'])assert.ok(ui.includes(`'${action}'`),action);
+ for(const s of ['验证码登录','密码登录','邮箱或用户名','用户名只能设置一次，设置后永远不能更改','设置密码','修改密码','当前密码','正在发送验证码','忘记当前密码？用邮箱验证码重设','改密码后，其他已登录的设备不会被退出','パスワードでログイン','Sign in with a password','can never be changed'])assert.ok(ui.includes(s),s);
+ for(const action of ['account_password_login','account_username','account_password','account_password_code'])assert.ok(ui.includes(`'${action}'`),action);
  assert.match(ui,/suggestPassword/);assert.match(ui,/autocomplete="current-password"/);assert.match(ui,/autocomplete="new-password"/);
  assert.doesNotMatch(ui,/store\.set\([^)]*password\.value/,'the password is never kept in localStorage');
  assert.match(read('web/unify.css'),/\.login-modes\{/);
