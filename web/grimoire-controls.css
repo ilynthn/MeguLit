@@ -151,6 +151,11 @@ input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 1.5px var
 @media (prefers-reduced-motion:reduce){.synopsis-footer [data-synopsis-toggle] span{transition:none}}
 /* E236 魔导书字体：中文改用思源宋体，数字统一等高等宽 */
 :root{--g-zh:"Sitka Text","Noto Serif SC","Source Han Serif SC","Noto Serif JP","Yu Mincho",STSong,SimSun,serif}
+/* 1.4.26 (settings 运行组件 garbled): with no Noto Serif SC on the PC the stack above reached Noto Serif JP / Yu Mincho, which hold
+   no simplified forms, so one word mixed a Japanese Mincho and STSong (组, 词, 语 from one, the rest from the other). The Chinese
+   interface goes straight to Chinese fonts; Japanese fonts stay for the Japanese interface and for Japanese text marked lang=ja. */
+:root:lang(zh-CN){--g-zh:"Sitka Text","Noto Serif SC","Source Han Serif SC",STSong,SimSun,serif;--t-serif:"Sitka Display","Noto Serif SC","Source Han Serif SC",STSong,SimSun,serif}
+:root:lang(zh-CN) [lang|=ja]{--g-zh:"Sitka Text","Noto Serif JP","Yu Mincho","Noto Serif SC",STSong,SimSun,serif;--t-serif:"Sitka Display","Noto Serif JP","Yu Mincho","Noto Serif SC",SimSun,serif}
 body,body :is(div,span,p,a,button,input,textarea,select,label,small,strong,b,li,td,th,summary,h1,h2,h3,h4,dt,dd){font-family:var(--g-zh)!important;font-variant-numeric:lining-nums tabular-nums}
 body :is(h1,h2,h3,.panel-title,strong,b){font-weight:600}
 .detail-statistics :is(strong,b,.stat-value),.stat-card strong{font-variant-numeric:lining-nums tabular-nums!important;font-feature-settings:"lnum" 1,"tnum" 1!important}
