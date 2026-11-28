@@ -534,7 +534,7 @@ export async function mountGrammar(target,{api,locale,esc,toast,isCurrent=()=>tr
  }
  /* 2026-11-15 原声 or 朗读 on every read-aloud button of a lesson */
  function labelSpeak(scope){import('./sentence-voice.js').then(m=>m.labelVoices(api,[...scope.querySelectorAll('[data-speak]')].map(b=>({button:b,text:b.dataset.speak})))).catch(()=>{});}
- async function speak(text,button){button.disabled=true;try{audio?.pause();await (await import('./sentence-voice.js')).playSentence(api,text,button);}catch{toast?.(w.speakFail);
+ async function speak(text,button){button.disabled=true;try{audio?.pause();await (await import('./sentence-voice.js')).playSentence(api,text,button);}catch(error){toast?.(error?.userMessage||w.speakFail);
   }finally{button.disabled=false;}}
  function bindConj(){const box=root.querySelector('[data-conj]');if(!box)return;let wordIndex=0,form=CONJ_FORM[point.id]||'masu';
   const redraw=(animate)=>{const box=root.querySelector('[data-conj]');if(!box)return;const old=box.querySelector('.gm-ending')?.textContent;box.outerHTML=conjHTML(point.id,

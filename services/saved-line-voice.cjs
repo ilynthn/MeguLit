@@ -67,7 +67,10 @@ async function play(root,{id,text,db:open}={}){
  return v;}
 /* Which texts have a game voice (button labels, no audio read): saved rows by their record, any text by the index; a
    recorded clip of a quiet line does not count. */
-function has(root,items,{db:open}={}){
+function has(root,items,options){return states(root,items,options).map(s=>s==='ok');}
+/* Per item: 'ok' (the game voice plays), null (none known) or why the known voice cannot play (game-voice clipState:
+   GAME_VOICE_GONE, GAME_VOICE_STALE). 2026-11-28: a kept scan record of an uninstalled game is not a voice. */
+function states(root,items,{db:open}={}){
  const list=Array.isArray(items)?items.slice(0,500):[],rows=new Map();
  const ids=[...new Set(list.map(x=>savedId(x?.id)).filter(Number.isSafeInteger))];
  if(ids.length){const db=(open||(()=>require('./store.cjs').openStore(root)))();try{
@@ -75,10 +78,13 @@ function has(root,items,{db:open}={}){
  }finally{db.close();}}
  return list.map(item=>{
   const row=rows.get(savedId(item?.id)),voice=voiceOf(row?.original),text=String(item?.text||row?.text||'').trim();
-  if(voice?.kind==='scan'&&voice.g&&voice.ref)return true;
-  if(voice?.kind==='file'&&typeof voice.file==='string'&&FILE.test(voice.file)&&gv().recordingExists(path.join(DIR(root),voice.file))&&(!text||gv().verdict(root,text)==='unknown'))return true;
-  return !!text&&gv().has(root,text);
+  if(voice?.kind==='scan'&&voice.g&&voice.ref){const s=gv().clipState(root,String(voice.g),String(voice.ref));if(s==='ok'||!text)return s;const t=gv().voiceState(root,text);return t==='ok'?t:s;}
+  if(voice?.kind==='file'&&typeof voice.file==='string'&&FILE.test(voice.file)&&gv().recordingExists(path.join(DIR(root),voice.file))&&(!text||gv().verdict(root,text)==='unknown'))return 'ok';
+  return text?gv().voiceState(root,text):null;
  });}
+/* After play() gave nothing: why the game voice this line has could not play, or null when it has none. A clip the index
+   says is there but whose bytes are no audio a browser plays is GAME_VOICE_UNREADABLE. */
+function why(root,{id,text,db}={}){const s=states(root,[{id:id??null,text:String(text||'')}],{db})[0];return s==='ok'?'GAME_VOICE_UNREADABLE':s;}
 // A removed saved line takes its kept clip with it.
 function release(root,original){const v=voiceOf(original);if(v?.kind==='file'&&FILE.test(String(v.file||'')))try{fs.unlinkSync(path.join(DIR(root),v.file));}catch{}}
-module.exports={attach,play,has,read,release,voiceOf};
+module.exports={attach,play,has,states,why,read,release,voiceOf};
