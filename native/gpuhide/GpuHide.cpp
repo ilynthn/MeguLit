@@ -12,15 +12,15 @@
 //  - Lines: HookBridge pushes the dialogue line its text hook read (LINE <text>) over \\.\pipe\MeguLitGpuCtl-<pid>.
 //    The DLL learns where the line is drawn (the text area: a row cluster of glyph quads from one atlas whose count
 //    matches the line's characters) without hiding anything; only after that it hides glyph quads of the learned atlas
-//    inside the learned text area while a line is armed (60 s after the last LINE, until OFF). Menus, names and
-//    anything outside the text area are never touched. Unsure (no match yet, shaders, unknown vertex layout) = no hide.
+//    inside the learned text area while a line is armed (60 s after the last LINE, until OFF). CMVS can also confirm
+//    its fixed startup row over successive frames and mask that row. Uncertain matches stay visible.
 //  - Reports over \\.\pipe\MeguLitGpu-<pid> (UTF-8 lines):
 //      ToMe_GPUHIDE ready version=1 apis=d3d9,d3d11,opengl,gdi
 //      ToMe_GPUHIDE learn seq=N area=x,y,w,h atlas=WxH glyphs=K chars=C        (text area learned, read-only)
 //      ToMe_GPUHIDE hit seq=N quads=Q chars=C                                   (first hidden draw of a line)
 //      ToMe_CHARS engine=gpu line=N hidden=0|1 sw=W sh=H vx=0 vy=0 vw=W vh=H n=K rects=x,y,w,h;... text=<line>
-//    Rectangles are in back-buffer pixels, one per non-blank character of the line in reading order (rows top to bottom,
-//    left to right), only when the number of glyph positions equals the number of characters.
+//    Rectangles are in back-buffer pixels, one per non-blank character of the line in reading order. A confirmed CMVS
+//    startup row with a different glyph count divides the full row into one box per hook-text code point.
 //  - Control lines: LINE <text>, OFF, MODE hide|read (read = learn and report rectangles, never hide), QUIT.
 //  - Diagnostics: a file MeguLitGpu.diag next to the DLL whose first line is a log path turns on a draw log.
 #include <windows.h>
