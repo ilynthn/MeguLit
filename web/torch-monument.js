@@ -198,7 +198,7 @@ function createMonument({api,locale,esc=s=>String(s??''),toast=()=>{}}){
   canvas.removeEventListener('webglcontextlost',onLost);
   if(scene){ro?.disconnect();ro=null;scene.dispose();scene=null;}
   host.classList.add('tm-simple');
-  canvas.hidden=veil.hidden=$('.tm-help').hidden=$('.tm-quality').hidden=$('.tm-simple-go').hidden=true;
+  canvas.hidden=veil.hidden=$('.tm-help').hidden=$('.tm-quality').hidden=$('.tm-sep').hidden=$('.tm-simple-go').hidden=true;
   bar.inert=false;timing('simple',opened);updateStatus();redraw();
  }
 
@@ -447,10 +447,10 @@ async function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo
   for(const o of bag){try{o.dispose?.();}catch{}}bag.clear();
   if(renderer){renderer.renderLists.dispose();renderer.dispose();if(!renderer.getContext().isContextLost())renderer.forceContextLoss();}
  }
- let part=0;const PARTS=5;
+ let part=0;const PARTS=12;
  async function slice(full){onProgress(++part/PARTS);await yieldMain();if(alive())return;if(full)dispose();else abandon();throw CANCELLED;}
  await slice(false);
- const tBuild=performance.now();const H=buildHall({scene,keep,tex,tier,maxAniso:8});const buildMs=performance.now()-tBuild;
+ const tBuild=performance.now();const H=await buildHall({scene,keep,tex,tier,maxAniso:8,slice:()=>slice(false)});const buildMs=performance.now()-tBuild;
  await slice(false);
  const courtyard=buildCourtyard(scene,HALL.NZ1);
  const hazeDay=new THREE.Color(0xb1c6d6),hazeNight=new THREE.Color(0x475777),haze=new THREE.Color();
@@ -616,6 +616,7 @@ async function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo
    void main(){vec4 c=texture2D(tDiffuse,vUv);vec2 d=vUv-.5;c.rgb*=1.-uVig*smoothstep(.28,.9,length(d*vec2(1.05,1.)));float l=dot(c.rgb,vec3(.2126,.7152,.0722));c.rgb=mix(vec3(l),c.rgb,1.06);
     c.rgb+=(h(vUv*913.+fract(uTime))-.5)*.014*(c.rgb+.015);gl_FragColor=c;}`};
  makeRenderer();
+ await slice(false);
  let env=envMap();scene.environment=env.texture;
  await slice(false);
  function applyTier(){const low=tier==='low';
@@ -796,7 +797,12 @@ async function buildScene({host,canvas,state,t,tier,reduced,gsap,onTier,bakeInfo
  await slice(true);
  let aoUni=null;{ const t0=performance.now(),vols=bakedAO();if(vols){const r=applyAO(scene,vols);r.textures.forEach(keep);aoUni=r.uniforms;}
   aoInfo={baked:!!bakedAO(),ms:Math.round(performance.now()-t0),bake:bakeInfo};}
- applyTier();paintFace();
+ applyTier();
+ await slice(true);
+ ensureFaceSize();
+ await slice(true);
+ paintFace();
+ await slice(true);
  async function prepare(onReady,{alive:live=()=>true,onProgress:step=()=>{}}={}){
   if(window.__TORCH_BAKE)return;
   /* a few objects per slice (each compile of a new material links its program), the thread handed back in between;

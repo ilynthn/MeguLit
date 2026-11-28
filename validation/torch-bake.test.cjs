@@ -46,6 +46,6 @@ test('bake volumes start during image decode and repeat visits reuse the same CP
  assert.equal(await loadBaked(false),result);
  assert.equal(requests.length,warmCount);
  assert.equal(bakedAO(),null);
- assert.equal(withBaked(result,()=>bakedAO().stele),result.assets.stele);
+ assert.equal(await withBaked(result,()=>bakedAO().stele),result.assets.stele);
  assert.equal(bakedAO(),null);
 });

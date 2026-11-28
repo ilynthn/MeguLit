@@ -148,7 +148,8 @@ export function buildStele({scene,keep,tier}){const low=tier==='low',T=textureMa
  return {stele,slab,SW,SH,SD,basaltBody,bas,emit};}
 
 /* ---------- the hall ---------- */
-export function buildHall({scene,keep,tex,tier,maxAniso=8}){
+/* 2026-11-28 async: slice() hands the main thread back between the big parts (see buildScene in torch-monument.js) */
+export async function buildHall({scene,keep,tex,tier,maxAniso=8,slice=async()=>{}}){
  const {HX,BACK,FRONT,SPRING,NZ1,AX}=HALL,R=HX,low=tier==='low',Q=low?.5:1,BAYZ=(BACK+FRONT)/2;
  const hall=new THREE.Group();scene.add(hall);
  const skipInMirror=[],noAO=[],castAll=[];
@@ -265,6 +266,7 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
  }
  skyFill(facadeStone,0x6f829b,.65);skyFill(exteriorTrim,0x8b7966,.42);skyFill(roofStone,0x536788,.52);
 
+ await slice();
  /* ---- column kit ---- */
  const COL_R=.27,COL_H=5.0;
  const shaftG=flutedShaft(COL_R,COL_H),baseG=atticBase(COL_R),capG=basketCapital(COL_R),plinthG=(()=>{const w=COL_R*2.9,r=.025,sh=new THREE.Shape(),x=w/2-r;sh.moveTo(-x,-x);sh.lineTo(x,-x);sh.lineTo(x,x);sh.lineTo(-x,x);sh.closePath();
@@ -342,6 +344,7 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
   add(box(AX-HX+.8,.4,aisleLength),stoneDark,[sx*(HX+AX)/2,ENT-.1,aisleCenter]);
  }
 
+ await slice();
  /* ---- four great arches with stepped archivolts; lunettes with rose windows on the sides ---- */
  const archBand=(r0,r1,d)=>{const s=new THREE.Shape();s.moveTo(r1,0);s.absarc(0,0,r1,0,Math.PI,false);s.lineTo(-r0,0);s.absarc(0,0,r0,Math.PI,0,true);s.closePath();
   const g=new THREE.ExtrudeGeometry(s,{depth:d,bevelEnabled:false,curveSegments:64});g.translate(0,0,-d/2);return worldUV(g,4);};
@@ -498,11 +501,13 @@ attribute vec3 aPat;`).replace('#include <uv_vertex>',`#include <uv_vertex>
  skyFill(turf,0x34472f,.23);
  add(island,turf,null,null,{cast:false}).name='Church ground';
 
+ await slice();
  /* the meadow lives in torch-meadow.js; it keeps off the hall, its doorstep and the short trail that leaves the west door and fades into the meadow */
  const meadow=buildMeadow({hall,keep,low,skyFill,reduced:typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches,
   blocked:(x,z)=>(Math.abs(x)<14.3&&z>BACK&&z<NZ1+1.5)||(z>NZ1&&z<52&&Math.abs(x-.85*Math.sin(Math.max(0,z-42.6)*.24))<1.15)});
  /* the water only shows the shore below the meadow, so blades stay out of the mirror pass */
  skipInMirror.push(...meadow.mirrorSkip);
+ await slice();
 
  /* ---- floor: mirror under polished marble; an inlaid runner up the nave and a porphyry rota before the stair ---- */
  const FL_W=2*AX+1,FL_Z0=BACK,FL_L=NZ1-FL_Z0,FL_Z=(FL_Z0+NZ1)/2;
