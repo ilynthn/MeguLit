@@ -152,6 +152,11 @@ async function tokens(text,learning){
   return list.map(t=>({s:String(t.surface||''),b:String(t.base_form&&t.base_form!=='*'?t.base_form:t.surface||''),r:require('../core/reading.cjs').settled(t)?String(t.reading||''):''})).filter(t=>t.s);
  }catch{return null;}
 }
+/* 分词 + 注音：日报文章和文库的日中对照阅读（services/novel/webnovel）共用。没装学习组件时 tokens 为 null，页面只显示原文 */
+async function paragraphTokens(runtime,texts){
+ let learning=null;try{const l=runtime?.learning?.();if(l?.installed?.())learning=l;}catch{}
+ const out=[];for(const text of texts)out.push({text,tokens:await tokens(text,learning)});return out;
+}
 async function article(root,link,options={}){
  if(!canOpen(link))throw Error('URL_NOT_ALLOWED');
  const dir=artDir(root),file=dir&&path.join(dir,hash(link)+'.json');
@@ -163,8 +168,7 @@ async function article(root,link,options={}){
   if(!body)return {state:'error',link};
   if(file)try{fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(file,JSON.stringify(body));for(const n of fs.readdirSync(dir)){const f=path.join(dir,n);if(Date.now()-fs.statSync(f).mtimeMs>KEEP_DAYS*864e5)fs.rmSync(f,{force:true});}}catch{}
  }
- let learning=null;try{const l=options.runtime?.learning?.();if(l?.installed?.())learning=l;}catch{}
- const paragraphs=[];for(const text of body.paragraphs)paragraphs.push({text,tokens:await tokens(text,learning)});
+ const paragraphs=await paragraphTokens(options.runtime,body.paragraphs);
  return {state:'ok',link,title:body.title,via:body.via,paragraphs};
 }
 function splitParagraph(text,limit){
@@ -202,4 +206,4 @@ async function anki(root,runtime,{term,reading,meaning,sentence,link,title}={}){
  const at=word.sentence.indexOf(term),html=at<0?h(word.sentence):h(word.sentence.slice(0,at))+'<b class="tm-hl">'+h(term)+'</b>'+h(word.sentence.slice(at+term.length));
  return await new(require('../core/anki.cjs').Anki)().sync(word,config,null,{sentenceHtml:html,gameTitle:str(title,200)});
 }
-module.exports={sensitive,view,canOpen,article,translate,translateList,dictFor,anki,NEWS_DECK,cleanNews,cleanWords,readingFor};
+module.exports={sensitive,view,canOpen,article,paragraphTokens,translate,translateList,dictFor,anki,NEWS_DECK,cleanNews,cleanWords,readingFor};

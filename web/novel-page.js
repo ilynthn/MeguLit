@@ -831,7 +831,8 @@ export async function mountNovel(main, ctx) {
     if (tab === 'discover') { fetchDiscovery(discoverState.page); return; }
     if (tab === 'web') {
       /* 网文对照：内置 syosetu + linovelib（web/novel-web.js） */
-      if (!webView) webView = mountWebNovel(bodyEl, { api, locale, esc, toast, onBack: () => navigateShelf('shelf') });
+      if (!webView) webView = mountWebNovel(bodyEl, { api, locale, esc, toast, onBack: () => navigateShelf('shelf'),
+        lookup: word => { try { window.__megulitOpenLookup?.(word); } catch { /* 没挂上就算了 */ } } });
       return;
     }
     paintShelf();

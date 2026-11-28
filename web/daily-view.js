@@ -122,6 +122,33 @@ export function selectionText(sel){
  frag.querySelectorAll?.('rt,rp').forEach(n=>n.remove());
  return (frag.textContent||'').trim();
 }
+/* 点读与拖选查词：点 .rd-t 词或拖选一段（40 字以内）弹出 .rd-pop 词典卡，可加进 Anki、跳到完整查词。
+   日报阅读器和文库的日中对照阅读（web/novel-web.js）共用这一份。sheet 是 pop 的定位容器（position:relative 或滚动容器），
+   sentenceOf(node) 给出这个词所在的整句，source 是 Anki 卡片上记的出处 {link,title}。 */
+export function bindLookup({text,sheet,pop,api,locale,esc,toast,lookup,sentenceOf,source,onMore}){
+ const w=W[locale]||W.zh;let popTicket=0;
+  const show=async(query,rect,sentence)=>{
+  query=query.trim().slice(0,40);if(!query)return;const ticket=++popTicket,box=sheet.getBoundingClientRect();
+  pop.hidden=false;pop.style.left=Math.max(12,Math.min(rect.left-box.left,box.width-344))+'px';pop.style.top=(rect.bottom-box.top+sheet.scrollTop+10)+'px';
+  pop.innerHTML=`<div class="rd-pop-head"><strong>${esc(query)}</strong></div><p class="rd-wait">…</p>`;pop.classList.remove('rd-pop-in');void pop.offsetWidth;pop.classList.add('rd-pop-in');
+  /* 2026-11-12 (user: clicking ソロデベロッパー showed ロディー朝): the online dictionary answers an unknown loanword with near
+     spellings of other words. Only entries whose spelling or reading is the clicked word, or part of it (2+ characters),
+     are shown; with none, the word itself and a machine translation. */
+  const flat=v=>String(v||'').replace(/[\s・ー\-]/g,''),q=flat(query),fits=e=>{const sp=flat(e?.spelling),rd=flat(String(e?.pron||e?.reading||'').split(/\s/)[0]);return !!sp&&(sp===q||rd===q||[...sp].length>=2&&(q.includes(sp)||sp.includes(q))||[...rd].length>=2&&(q.includes(rd)||rd.includes(q)));};
+  let items=[];try{items=(await api('dictionary',{query,source:'moji',operationId:crypto.randomUUID()})||[]).filter(fits);}catch{}if(!items?.length)try{items=(await api('dictionary',{query,source:'local',operationId:crypto.randomUUID()})||[]).filter(fits);}catch{}
+  let gloss='';if(!items?.length){try{const r=await api('daily_translate',{texts:[query],target:locale==='en'?'en':'zh'}),o=Array.isArray(r)?r:r?.texts;gloss=String(o?.[0]||'').trim();}catch{}}
+  if(ticket!==popTicket)return;const top=(items||[]).slice(0,3),first=top[0],reading=first?String(first.pron||first.reading||'').split(/\s/)[0]:'';
+  pop.innerHTML=`<div class="rd-pop-head"><strong>${esc(first?.spelling||query)}</strong>${reading?`<span>${esc(reading)}</span>`:''}</div>${top.length?`<ol>${top.map(e=>`<li><b>${esc(e.spelling||'')}</b> <small>${esc(String(e.pron||e.reading||''))}</small><p>${esc(defs(e.definition).slice(0,220))}</p></li>`).join('')}</ol>`:(gloss?`<p class="rd-gloss">${esc(gloss)}</p><p class="rd-wait">${w.rdNone}</p>`:`<p class="rd-wait">${w.rdNone}</p>`)}<div class="rd-pop-actions"><button type="button" class="dl-btn" data-rd-anki ${first?'':'disabled'}>${w.rdAnki}</button><button type="button" class="rd-link" data-rd-more>${w.rdMore}</button></div>`;
+  pop.querySelector('[data-rd-more]').onclick=()=>{onMore?.();lookup?.(query);};
+  const add=pop.querySelector('[data-rd-anki]');if(first)add.onclick=async()=>{add.disabled=true;try{await api('daily_anki',{term:first.spelling||query,reading,meaning:defs(first.definition).slice(0,2000),sentence,link:source?.link||'',title:source?.title||''});toast?.(w.rdAnkiOk);add.textContent='✓ megulit_news';}catch(e){add.disabled=false;toast?.(w.rdAnkiFail+String(e?.message||e).replace(/^Error:\s*/,''));}};
+ };
+
+ text.addEventListener('mouseup',e=>{const sel=getSelection(),picked=selectionText(sel);
+  if(picked&&picked.length<=40&&text.contains(sel.anchorNode)){show(picked,sel.getRangeAt(0).getBoundingClientRect(),sentenceOf(sel.anchorNode.parentElement));return;}
+  const t=e.target.closest('.rd-t');if(t){text.querySelectorAll('.rd-t.on').forEach(x=>x.classList.remove('on'));t.classList.add('on');show(t.dataset.b||t.textContent,t.getBoundingClientRect(),sentenceOf(t));}});
+ sheet.addEventListener('mousedown',e=>{if(!pop.contains(e.target)&&!text.contains(e.target))pop.hidden=true;});
+ return {hide:()=>{pop.hidden=true;}};
+}
 export function openReader(item,{api,locale,esc,toast,lookup,openSettings}){
  const w=W[locale]||W.zh,host=document.createElement('div');host.innerHTML=readerShell(item,w,esc);const root=host.firstElementChild;document.body.appendChild(root);
  requestAnimationFrame(()=>root.classList.add('rd-on'));
@@ -146,26 +173,8 @@ export function openReader(item,{api,locale,esc,toast,lookup,openSettings}){
  };
  text.addEventListener('click',e=>{if(e.target.closest('[data-rd-mt-x]')){mtHidden=true;e.target.closest('.rd-mt').remove();}else if(e.target.closest('[data-rd-mt-go]')){close();openSettings?.('translation');}});
  root.querySelectorAll('[data-rd-mode]').forEach(b=>b.onclick=()=>{if(b.dataset.rdMode===mode)return;setMode(b.dataset.rdMode);needTr();text.classList.add('rd-swap');setTimeout(()=>{paint();text.classList.remove('rd-swap');},140);});
- const show=async(query,rect,sentence)=>{
-  query=query.trim().slice(0,40);if(!query)return;const ticket=++popTicket,box=sheet.getBoundingClientRect();
-  pop.hidden=false;pop.style.left=Math.max(12,Math.min(rect.left-box.left,box.width-344))+'px';pop.style.top=(rect.bottom-box.top+sheet.scrollTop+10)+'px';
-  pop.innerHTML=`<div class="rd-pop-head"><strong>${esc(query)}</strong></div><p class="rd-wait">…</p>`;pop.classList.remove('rd-pop-in');void pop.offsetWidth;pop.classList.add('rd-pop-in');
-  /* 2026-11-12 (user: clicking ソロデベロッパー showed ロディー朝): the online dictionary answers an unknown loanword with near
-     spellings of other words. Only entries whose spelling or reading is the clicked word, or part of it (2+ characters),
-     are shown; with none, the word itself and a machine translation. */
-  const flat=v=>String(v||'').replace(/[\s・ー\-]/g,''),q=flat(query),fits=e=>{const sp=flat(e?.spelling),rd=flat(String(e?.pron||e?.reading||'').split(/\s/)[0]);return !!sp&&(sp===q||rd===q||[...sp].length>=2&&(q.includes(sp)||sp.includes(q))||[...rd].length>=2&&(q.includes(rd)||rd.includes(q)));};
-  let items=[];try{items=(await api('dictionary',{query,source:'moji',operationId:crypto.randomUUID()})||[]).filter(fits);}catch{}if(!items?.length)try{items=(await api('dictionary',{query,source:'local',operationId:crypto.randomUUID()})||[]).filter(fits);}catch{}
-  let gloss='';if(!items?.length){try{const r=await api('daily_translate',{texts:[query],target:locale==='en'?'en':'zh'}),o=Array.isArray(r)?r:r?.texts;gloss=String(o?.[0]||'').trim();}catch{}}
-  if(ticket!==popTicket)return;const top=(items||[]).slice(0,3),first=top[0],reading=first?String(first.pron||first.reading||'').split(/\s/)[0]:'';
-  pop.innerHTML=`<div class="rd-pop-head"><strong>${esc(first?.spelling||query)}</strong>${reading?`<span>${esc(reading)}</span>`:''}</div>${top.length?`<ol>${top.map(e=>`<li><b>${esc(e.spelling||'')}</b> <small>${esc(String(e.pron||e.reading||''))}</small><p>${esc(defs(e.definition).slice(0,220))}</p></li>`).join('')}</ol>`:(gloss?`<p class="rd-gloss">${esc(gloss)}</p><p class="rd-wait">${w.rdNone}</p>`:`<p class="rd-wait">${w.rdNone}</p>`)}<div class="rd-pop-actions"><button type="button" class="dl-btn" data-rd-anki ${first?'':'disabled'}>${w.rdAnki}</button><button type="button" class="rd-link" data-rd-more>${w.rdMore}</button></div>`;
-  pop.querySelector('[data-rd-more]').onclick=()=>{close();lookup?.(query);};
-  const add=pop.querySelector('[data-rd-anki]');if(first)add.onclick=async()=>{add.disabled=true;try{await api('daily_anki',{term:first.spelling||query,reading,meaning:defs(first.definition).slice(0,2000),sentence,link:item.link,title:item.title});toast?.(w.rdAnkiOk);add.textContent='✓ megulit_news';}catch(e){add.disabled=false;toast?.(w.rdAnkiFail+String(e?.message||e).replace(/^Error:\s*/,''));}};
- };
  const sentenceOf=node=>{const i=Number(node?.closest?.('.rd-p')?.dataset.i);return data?.paragraphs[i]?.text||'';};
- text.addEventListener('mouseup',e=>{const sel=getSelection(),picked=selectionText(sel);
-  if(picked&&picked.length<=40&&text.contains(sel.anchorNode)){show(picked,sel.getRangeAt(0).getBoundingClientRect(),sentenceOf(sel.anchorNode.parentElement));return;}
-  const t=e.target.closest('.rd-t');if(t){text.querySelectorAll('.rd-t.on').forEach(x=>x.classList.remove('on'));t.classList.add('on');show(t.dataset.b||t.textContent,t.getBoundingClientRect(),sentenceOf(t));}});
- sheet.addEventListener('mousedown',e=>{if(!pop.contains(e.target)&&!e.target.closest('.rd-text'))pop.hidden=true;});
+ bindLookup({text,sheet,pop,api,locale,esc,toast,lookup,sentenceOf,source:item,onMore:close});
  const failed=()=>{text.innerHTML=`<p class="rd-wait">${w.rdFail}</p><button type="button" class="dl-btn" data-rd-orig2>${w.rdOrig}</button>`;text.querySelector('[data-rd-orig2]').onclick=()=>api('daily_open',{url:item.link}).catch(()=>{});};
  api('daily_article',{link:item.link}).then(r=>{if(!root.isConnected)return;if(r?.state!=='ok'||!r.paragraphs?.length)return failed();data=r;root.querySelector('.rd-via').textContent=' · '+(w.rdVia[r.via]||'');paint();needTr();}).catch(()=>{if(root.isConnected)failed();});
  return {close};

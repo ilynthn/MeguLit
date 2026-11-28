@@ -120,7 +120,7 @@ async function dispatch(request, ctx) {
     case 'novel_web_pair':
       return webnovel.pair(root, request);
     case 'novel_web_chapter':
-      return webnovel.chapter(root, request);
+      return webnovel.chapter(root, request, { runtime });
     case 'novel_web_open':
       return webnovel.open(request);
     case 'novel_source_test':

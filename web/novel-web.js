@@ -3,6 +3,8 @@
    服务端在 services/novel/webnovel/。阅读设置参考 Novelia（auto-novel，GPL-3.0）的 ReaderSetting / BuildParagraphs：
    语言 日 / 中 / 日中 / 中日，译文 优先 / 并列，翻页 章节 / 滚动，折叠插图，缩进修正，方向键切章、数字键切译文。 */
 
+import { bindLookup, paragraphHTML } from './daily-view.js';
+
 const PREFS_KEY = 'megulit-novel-web';
 const RECENT_KEY = 'megulit-novel-web-recent';
 const DEFAULTS = { lang: 'jazh', mode: 'priority', translators: ['linovelib', 'megulit'], page: 'chapter', foldImages: false,
@@ -121,7 +123,7 @@ const STYLE = `
 .nw-pair-row input{flex:1;min-width:200px}.nw-tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid #c9a24a66;color:#d8bd78}
 .nw-toc{display:grid;gap:2px;margin:0;padding:0;list-style:none}.nw-toc li>button{display:flex;gap:12px;width:100%;text-align:left;padding:9px 12px;border-radius:10px;color:var(--text);align-items:baseline}
 .nw-toc li>button:hover{background:var(--surface)}.nw-toc .nw-vol{margin:14px 0 4px;color:#d8bd78;font-size:12px}.nw-toc span{flex:1;min-width:0}.nw-toc em{font-style:normal;color:var(--muted);font-size:12px;max-width:45%;text-align:right}
-.nw-reader{--nw-size:18px}.nw-bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0 10px;background:var(--bg)}
+.nw-reader{--nw-size:18px;position:relative;--dl-gold:var(--g-gold,#edb56e);--dl-rule:var(--g-rule-strong,rgba(237,181,110,.24));--dl-hair:var(--g-rule,rgba(237,181,110,.11));--dl-ease:var(--g-ease,cubic-bezier(.2,.7,.2,1))}.nw-bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0 10px;background:var(--bg)}
 .nw-bar h1{flex:1;font-size:16px;margin:0;font-weight:600;min-width:160px}.nw-bar select{max-width:260px}
 .nw-prefs{flex-basis:100%;background:var(--surface);border-radius:16px;padding:14px 18px;margin:4px 0 0;box-shadow:0 10px 30px #0006;display:grid;gap:10px;font-size:13px}.nw-prefs[hidden]{display:none}
 .nw-prefs fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}.nw-prefs legend{float:left;width:96px;color:var(--muted)}
@@ -220,7 +222,7 @@ export async function mountWebSourceSettings(host, { api, locale, esc, toast }) 
 
 /* ---------------- 网文页 ---------------- */
 
-export function mountWebNovel(host, { api, locale = 'zh', esc, toast, onBack }) {
+export function mountWebNovel(host, { api, locale = 'zh', esc, toast, onBack, lookup }) {
   ensureStyle();
   const w = webMessages(locale);
   const prefs = loadPrefs();
@@ -330,6 +332,7 @@ export function mountWebNovel(host, { api, locale = 'zh', esc, toast, onBack }) 
       reading = { index, parts: [] };
       host.innerHTML = readerShell(chapter);
       bindPrefs();
+      bindReaderLookup();
     }
     const body = host.querySelector('[data-nw-text]');
     const loading = document.createElement('p');
@@ -373,10 +376,24 @@ export function mountWebNovel(host, { api, locale = 'zh', esc, toast, onBack }) 
         <p class="nw-muted">${esc(w.prefs.keys)}</p>
       </form></div>
       <div class="nw-text" data-nw-text></div>
+      <div class="rd-pop" hidden></div>
       <div class="nw-foot" data-nw-foot><button type="button" class="secondary" data-nw-prev>‹ ${esc(w.prev)}</button>
         <span><button type="button" class="text-button" data-nw-open="ja">${esc(w.openJa)}</button>${work.zh ? ` <button type="button" class="text-button" data-nw-open="zh">${esc(w.openZh)}</button>` : ''}</span>
         <button type="button" class="secondary" data-nw-next>${esc(w.next)} ›</button></div>
     </div>`;
+  }
+
+  /* 点读、拖选查词、加 Anki：直接用日报阅读器的那一份（web/daily-view.js bindLookup） */
+  function bindReaderLookup() {
+    const sheet = host.querySelector('.nw-reader');
+    bindLookup({
+      text: host.querySelector('[data-nw-text]'), sheet, pop: sheet.querySelector('.rd-pop'), api, locale, esc, toast, lookup,
+      sentenceOf: node => {
+        const [part, index] = String(node?.closest?.('[data-key]')?.dataset.key || '').split(':').map(Number);
+        return reading?.parts.find(entry => entry.index === part)?.result.align.rows[index]?.ja?.text || '';
+      },
+      source: { get link() { return reading?.parts.at(-1)?.result.ja?.url || ''; }, get title() { return work?.ja.title || ''; } },
+    });
   }
 
   function syncBar() {
@@ -409,7 +426,19 @@ export function mountWebNovel(host, { api, locale = 'zh', esc, toast, onBack }) 
   }
 
   const lead = /^[\s　]+/;
+  /* 有分词结果（服务端走日报的 paragraphTokens）时用日报的 paragraphHTML：注音 + 可点的 .rd-t 词 */
   const jaHtml = block => {
+    if (block.tokens?.length) {
+      let tokens = block.tokens;
+      if (prefs.indent) {
+        const first = tokens.findIndex(token => token.s.replace(lead, ''));
+        tokens = first < 0 ? [] : [{ ...tokens[first], s: tokens[first].s.replace(lead, '') }, ...tokens.slice(first + 1)];
+      }
+      return paragraphHTML({ text: block.text, tokens }, esc);
+    }
+    return plainJaHtml(block);
+  };
+  const plainJaHtml = block => {
     const plain = prefs.indent ? block.text.replace(lead, '') : block.text;
     if (!block.ruby) return esc(plain);
     let trimmed = !prefs.indent;

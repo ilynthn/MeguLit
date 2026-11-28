@@ -166,6 +166,15 @@ async function chapter(root, request, options) {
       result.zh = await src.linovelib.chapter(request.zh, request.zhChapter || '', { chapters: toc, index: request.zhIndex });
     } catch (error) { result.zhError = failure(error); }
   }
+  /* 日文段落的分词和注音走日报同一套（services/daily.cjs paragraphTokens），点读卡片也复用日报的 */
+  const runtime = options?.runtime;
+  if (runtime) {
+    const paragraphs = ja.blocks.filter(block => block.t === 'p');
+    try {
+      const tokenized = await require('../../daily.cjs').paragraphTokens(runtime, paragraphs.map(block => block.text));
+      paragraphs.forEach((block, index) => { if (tokenized[index]?.tokens?.length) block.tokens = tokenized[index].tokens; });
+    } catch { /* 没有分词也能读 */ }
+  }
   result.align = alignChapter(ja.blocks, result.zh?.blocks || []);
   return result;
 }

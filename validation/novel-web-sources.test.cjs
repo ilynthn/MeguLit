@@ -193,6 +193,27 @@ test('alignment: a faithful 1:1 translation stays 1:1, and unrelated text is nev
   assert.ok(empty.rows.every(row => row.state === 'missing'));
 });
 
+/* 店主 11-28：「注音和点读拖动之类的查询依旧用我们读新闻的接口就可以了」 */
+test('Japanese paragraphs get the same tokens and settled readings as the 日报 reader', async t => {
+  const root = tempRoot(t);
+  /* 学习组件的替身：按「本須」「麗乃」切词，词典给出读音 */
+  const learning = {
+    installed: () => true,
+    tokenize: async text => text.split(/(本須|麗乃)/).filter(Boolean).map(surface => ({ surface, base_form: surface,
+      reading: surface === '本須' ? 'もとす' : surface === '麗乃' ? 'うらの' : '', readingSource: /本須|麗乃/.test(surface) ? 'dictionary' : 'guess' })),
+    readings: { resolve: list => list },
+  };
+  const runtime = { learning: () => learning };
+  const result = await webnovel.chapter(root, { id: 'n4830bu', chapter: '1' }, { ...offline([]), runtime });
+  const first = result.align.rows.find(row => row.ja).ja;
+  assert.deepEqual(first.tokens.filter(token => token.r), [{ s: '本須', b: '本須', r: 'もとす' }, { s: '麗乃', b: '麗乃', r: 'うらの' }]);
+  const daily = require('../services/daily.cjs');
+  assert.deepEqual((await daily.paragraphTokens(runtime, [first.text]))[0].tokens, first.tokens, 'one tokenizer for both readers');
+  /* 没装学习组件：照常能读，只是没有分词 */
+  const plain = await webnovel.chapter(root, { id: 'n4830bu', chapter: '1' }, offline([]));
+  assert.equal(plain.align.rows.find(row => row.ja).ja.tokens, undefined);
+});
+
 /* ---------------- 网络回退 ---------------- */
 
 test('fetch routes: proxy → direct → relay → mirror, every attempt reported, clear failure when none works', async () => {
