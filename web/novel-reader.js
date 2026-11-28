@@ -277,6 +277,10 @@ export async function openReader(host, ctx) {
       const old = body.style.transform;
       if (silent || !animate) stopReaderTurn(root);
       body.style.transform = `translateX(${-page * stride}px)`;
+      for (const figure of figuresByPage.get(page) || []) {
+        const ready = pictures.get(figure.dataset.nrImg);
+        if (ready?.done && !figure.firstChild) attachPicture(figure, ready.result);
+      }
       if (animate) {
         const outgoing = prefs.turn === 'fade' && Math.abs(page - previousPage) === 1
           ? (figuresByPage.get(previousPage) || []).map(figure => figure.firstElementChild).filter(Boolean) : [];
@@ -470,17 +474,37 @@ export async function openReader(host, ctx) {
     } catch { return null; }
   }
 
+  function preparePictureSurface(result) {
+    if (!result?.bitmap?.width) return result;
+    const { bitmap, width, height } = result;
+    const surface = document.createElement('canvas');
+    surface.width = bitmap.width;
+    surface.height = bitmap.height;
+    surface.style.width = `min(100%, ${width}px, ${62 * width / height}vh)`;
+    try {
+      const renderer = surface.getContext('bitmaprenderer');
+      if (renderer) renderer.transferFromImageBitmap(bitmap);
+      else {
+        surface.getContext('2d').drawImage(bitmap, 0, 0);
+        bitmap.close();
+      }
+      return { surface };
+    } catch {
+      bitmap.close();
+      return null;
+    }
+  }
+
   function trimPictures() {
     let pixels = 0;
     let entries = 0;
     for (const [file, record] of [...pictures].reverse()) {
       if (!record.done) continue;
       const result = record.result;
-      const width = result?.bitmap?.width || result?.image?.naturalWidth || 0;
-      const height = result?.bitmap?.height || result?.image?.naturalHeight || 0;
+      const width = result?.surface?.width || result?.image?.naturalWidth || 0;
+      const height = result?.surface?.height || result?.image?.naturalHeight || 0;
       pixels += width * height;
       if (++entries <= 16 && pixels <= 18_000_000) continue;
-      result?.bitmap?.close();
       pictures.delete(file);
     }
   }
@@ -494,7 +518,7 @@ export async function openReader(host, ctx) {
       activePictures++;
       void decodePicture(record.file, record.box).then(result => {
         record.done = true;
-        record.result = alive ? result : null;
+        record.result = alive ? preparePictureSurface(result) : null;
         if (!alive) result?.bitmap?.close();
         record.resolve(record.result);
         queueMicrotask(trimPictures);
@@ -532,17 +556,20 @@ export async function openReader(host, ctx) {
     figure.dataset.loading = 'true';
     const result = await readFigure(figure.dataset.nrImg, priority);
     delete figure.dataset.loading;
-    if (!alive || currentChapter !== prepared || !body.contains(figure) || !result) return;
-    const { bitmap, image, width, height } = result;
-    if (bitmap?.width) {
-      const surface = document.createElement('canvas');
-      surface.width = bitmap.width;
-      surface.height = bitmap.height;
-      surface.style.width = `min(100%, ${width}px, ${62 * width / height}vh)`;
-      surface.getContext('2d').drawImage(bitmap, 0, 0);
-      figure.append(surface);
-    } else if (image) {
-      figure.append(image.isConnected ? image.cloneNode() : image);
+    if (!alive || currentChapter !== prepared || !body.contains(figure) || figure.firstChild) return;
+    attachPicture(figure, result);
+  }
+
+  function attachPicture(figure, result) {
+    if (!result) return;
+    const { surface, image } = result;
+    if (surface?.isConnected) {
+      const copy = surface.cloneNode();
+      copy.getContext('2d').drawImage(surface, 0, 0);
+      figure.append(copy);
+    } else {
+      const content = surface || image;
+      if (content) figure.append(content.isConnected ? content.cloneNode() : content);
     }
     if (figure.firstChild) attachedPictures.add(figure);
   }
@@ -565,7 +592,7 @@ export async function openReader(host, ctx) {
     if (!figuresByPage.size) return;
     figureFrame = requestAnimationFrame(() => {
       const position = page;
-      const near = [position, position + direction, position - direction, position + 2 * direction, position - 2 * direction];
+      const near = [position, position + direction, position - direction, position + 2 * direction, position - 2 * direction, position + 3 * direction];
       const wanted = new Set(near.flatMap(index => figuresByPage.get(index) || []));
       const files = new Set([...wanted].map(figure => figure.dataset.nrImg));
       for (let i = pictureQueue.length - 1; i >= 0; i--) {

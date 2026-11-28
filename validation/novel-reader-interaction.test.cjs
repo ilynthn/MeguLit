@@ -35,9 +35,10 @@ const js = [
  "window.unhandled=[];window.addEventListener('unhandledrejection',event=>window.unhandled.push(event.reason?.message));",
  "window.versionFixture=()=>{window.reader?.exit();const editions=[{id:'1',hash:'aaa111',title:'Clock 2',language:'Japanese',extension:'epub',downloadable:true},{id:'2',hash:'bbb222',title:'时钟 第二卷',language:'Chinese',extension:'epub',downloadable:true}];let controller;window.chosenDownload=null;const run=book=>{controller?.abort();controller=new AbortController();const service=async(action,args)=>{if(action==='novel_source_editions')return {books:editions};if(action==='novel_source_download_start'){window.chosenDownload=args;return {phase:'done',bookId:'fixture'};}if(action==='novel_source_download_status')return {phase:'idle'};return {};};paintDiscoveryDetail(h,{selection:{origin:'https://books.example.org',provider:'book-site',book,editions},signal:controller.signal,api:service,esc,w:discoverMessages('zh'),locale:'zh',backButton:()=>'<button data-nv-back>Back</button>',onImported:()=>{},onEdition:run});};run(editions[0]);};",
  "window.mountShelfFixture=async view=>{window.disposeShelf?.();localStorage.setItem('megulit-novel-view',view);const rows=[{id:'v1',title:'夢のシリーズ 1'},{id:'v2',title:'夢のシリーズ 2'}].map(book=>({...book,author:'作家',format:'epub',chapterCount:1,chars:30}));const api=async action=>action==='novel_shelf'?{books:rows,collections:[{id:'collection-test',title:'夢のシリーズ',books:['v1','v2']}]}:{};window.disposeShelf=await mountNovel(document.querySelector('#main'),{api,invoke:async()=>{},esc,locale:'zh',toast:()=>{}});};",
+ "window.dragFixture=async (view,newVolume=false)=>{window.disposeShelf?.();h.replaceChildren();h.hidden=true;const main=document.querySelector('#main');main.style.cssText='height:100vh;overflow:auto';localStorage.setItem('megulit-novel-view',view);const titles=['Alpha','Bravo','Charlie','Delta','Series 1','Series 2'];if(newVolume)titles.push('Series 3','Echo');const rows=titles.map((title,index)=>({id:'drag-'+index,title,author:'Writer',format:'epub',chapterCount:2,chars:500}));const series=['drag-4','drag-5'];if(newVolume)series.push('drag-6');const api=async action=>action==='novel_shelf'?{books:rows,collections:[{id:'drag-series',title:'Series',books:series}]}:{};window.disposeShelf=await mountNovel(main,{api,invoke:async()=>{},esc,locale:'zh',toast:()=>{}});};",
  "window.ready=true;",
 ].join('\n');
-const files=new Set(['novel.css','novel-reader.js','novel-reader-controls.js','novel-reader-turn.js','novel-reader-image-worker.js','novel-reader-selection.js','novel-discover.js','novel-i18n.js','novel-page.js','novel-online.js','novel-shelf.js','novel-flow-liquid.js','novel-pdf-reader.js','capsule-spring.js','game-reception.js','synopsis-view.js']);
+const files=new Set(['novel.css','novel-reader.js','novel-reader-controls.js','novel-reader-turn.js','novel-reader-image-worker.js','novel-reader-selection.js','novel-discover.js','novel-i18n.js','novel-page.js','novel-online.js','novel-shelf.js','novel-shelf-drag.js','novel-flow-liquid.js','novel-pdf-reader.js','capsule-spring.js','game-reception.js','synopsis-view.js']);
 const server = http.createServer((req,res) => {
  if(req.url==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'}).end(html);return;}
  if(req.url==='/test.mjs'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8'}).end(js);return;}
@@ -132,6 +133,7 @@ test('文库点读、选句、Escape 和三种翻页模式', { skip: !edgeInstal
   for (let i=0;i<35&&(await browser.evaluate('document.querySelectorAll(".nr-viewport figure canvas").length'))<2;i++) await sleep(20);
   assert.equal(await browser.evaluate('document.querySelectorAll(".nr-viewport figure canvas").length'),2,
     'both illustration surfaces were prepared before turning');
+  assert.equal(await browser.evaluate('getComputedStyle(picture()).boxShadow'),'none','illustrations have no simulated drop shadow');
   await browser.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   const visible = await browser.evaluate(`(()=>{
     const viewport=document.querySelector('.nr-viewport');
@@ -238,6 +240,161 @@ test('文库点读、选句、Escape 和三种翻页模式', { skip: !edgeInstal
         'collection-test', 'returning to the shelf restores the collection card as the selection');
     }
   }
+  const ordered = 'Array.from(document.querySelector("[data-nv-layout]")?.children||[],card=>card.dataset.nvBook)';
+  const mountDrag = async (mode, newVolume = false) => {
+    await browser.evaluate(`(async()=>{await dragFixture("${mode}",${newVolume});return true})()`);
+    for(let i=0;i<35&&!(await browser.evaluate(ordered)).length;i++) await sleep(20);
+  };
+  const pointOn = (id, u, v, inner = '.nv-cover') => browser.evaluate(`(()=>{
+    const card=document.querySelector('[data-nv-book="${id}"]');
+    const rect=("${inner}" ? card.querySelector("${inner}") : card).getBoundingClientRect();
+    return {x:Math.round(rect.x+${u}*rect.width),y:Math.round(rect.y+${v}*rect.height)};
+  })()`);
+  const dragTo = async (from, to) => {
+    await mouse('mousePressed',from,'left',1);
+    await mouse('mouseMoved',to,'none',1);
+    await sleep(95);
+    assert(await browser.evaluate('Boolean(document.querySelector("[data-nv-sorting]"))'),'dragging creates an insertion slot');
+  };
+  await mountDrag('cover');
+  assert.deepEqual(await browser.evaluate(ordered),['drag-series','drag-0','drag-1','drag-2','drag-3']);
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-collection-card]").innerText'),'');
+  const firstCover = await pointOn('drag-0',.13,.5);
+  await dragTo(await pointOn('drag-1',.5,.5),firstCover);
+  assert.deepEqual((await browser.evaluate(ordered)).slice(0,3),['drag-series','drag-1','drag-0'],'cards move before the drop');
+  await mouse('mouseReleased',firstCover,'left');
+  await mountDrag('list');
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-collection-card] .nv-list-copy").textContent.replace(/\\s+/g," ").trim()'),
+    'Series Writer 2 册', 'the list shows the collection title, shared author and number of volumes');
+  assert.deepEqual((await browser.evaluate(ordered)).slice(0,3),['drag-series','drag-1','drag-0'],'manual order survives switching views');
+  await browser.evaluate('document.querySelector("input[name=nv-sort][value=title]").click()');
+  assert.deepEqual((await browser.evaluate(ordered)).slice(0,3),['drag-series','drag-1','drag-0'],'manual placement takes precedence over the selected automatic sort');
+  const beforeFirstRow = await pointOn('drag-1',.6,.12,'');
+  await dragTo(await pointOn('drag-0',.5,.5),beforeFirstRow);
+  await mouse('mouseReleased',beforeFirstRow,'left');
+  assert.deepEqual((await browser.evaluate(ordered)).slice(0,3),['drag-series','drag-0','drag-1']);
+  await mountDrag('cover');
+  const groupTarget = await pointOn('drag-2',.5,.5);
+  await dragTo(await pointOn('drag-3',.5,.5),groupTarget);
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-group-drop]")?.dataset.nvBook'),'drag-2');
+  await mouse('mouseReleased',groupTarget,'left');
+  assert.equal(await browser.evaluate('document.querySelector(".nv-collection-dialog button[type=submit]").disabled'),true);
+  await browser.evaluate(`(()=>{
+    const form=document.querySelector('.nv-collection-dialog form');
+    const input=form.elements.title;
+    input.value='自定义合集';
+    input.dispatchEvent(new Event('input'));
+    form.requestSubmit();
+  })()`);
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-collection-card]").ariaLabel'),'自定义合集 · 2 册');
+  await mountDrag('flow');
+  const arrangement = await browser.evaluate(`Array.from(document.querySelectorAll('.nv-flow-book'),card=>[card.dataset.nvBook,card.querySelector('[data-nv-number]').textContent])`);
+  assert.deepEqual(arrangement.map(([,number])=>number),['01','02','03','04']);
+  assert(arrangement[0][0].startsWith('custom-'));
+  assert.equal(await browser.evaluate('document.querySelector(".nv-flow-title").textContent'),'');
+  await sleep(760);
+  assert.equal(await browser.evaluate('document.querySelector(".nv-flow-feature") === null'),true,'a selected collection stays in its stack');
+  const clipped = await browser.evaluate(`(()=>{
+    const rail=document.querySelector('.nv-flow-rail');
+    const volume=rail.querySelector('[data-active] .nv-flow-volume');
+    const rear=document.createElement('span');
+    rear.style.cssText='position:absolute;inset:0;transform:'+getComputedStyle(volume,'::before').transform;
+    volume.append(rear);
+    const clipped=rear.getBoundingClientRect().top<rail.getBoundingClientRect().top;
+    rear.remove();
+    return clipped;
+  })()`);
+  assert.equal(clipped,false,'the rear book in a selected stack fits above the rail');
+  await browser.evaluate('document.querySelector("[data-nv-book=drag-0]").click()');
+  for(let i=0;i<55&&!await browser.evaluate('Boolean(document.querySelector(".nv-flow-feature[data-open]"))');i++) await sleep(20);
+  const face = await browser.evaluate(`(()=>{
+    const rect=document.querySelector('.nv-flow-feature[data-open] .nv-flow-face-info').getBoundingClientRect();
+    return {x:Math.round(rect.x+rect.width/2),y:Math.round(rect.y+rect.height/2)};
+  })()`);
+  const afterFinalSpine = await pointOn('drag-1',.85,.58,'');
+  await dragTo(face,afterFinalSpine);
+  await mouse('mouseReleased',afterFinalSpine,'left');
+  assert.deepEqual((await browser.evaluate(ordered)).slice(2),['drag-1','drag-0'],'the lifted book follows the drag and takes the final slot');
+  assert.deepEqual(await browser.evaluate(`Array.from(document.querySelectorAll('.nv-flow-book'),card=>card.querySelector('[data-nv-number]').textContent)`),
+    ['01','02','03','04'],'spine numbers follow the new order');
+
+  await browser.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+  const fading = await browser.evaluate(`(()=>{
+    document.querySelector('.nv-flow-book[data-nv-collection-card]').click();
+    return document.getAnimations().filter(animation=>animation.id==='nv-collection-exit').length;
+  })()`);
+  assert.equal(fading,3,'the three other books fade before the collection opens');
+  for(let i=0;i<40&&!await browser.evaluate('Boolean(document.querySelector("[data-nv-collection-head]"))');i++) await sleep(10);
+  assert.deepEqual(await browser.evaluate(ordered),['drag-2','drag-3']);
+  assert(await browser.evaluate('document.getAnimations().some(animation=>animation.id==="nv-collection-fan")'),'the volumes fan out from the stack');
+  await browser.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  for(let i=0;i<20&&await browser.evaluate('document.getAnimations().some(animation=>animation.id==="nv-collection-fan")');i++) await sleep(10);
+  assert.equal(await browser.evaluate('document.getAnimations().some(animation=>animation.id==="nv-collection-fan")'),false);
+  assert.equal(await browser.evaluate('getComputedStyle(document.querySelector(".nv-flow-volume")).transitionDuration'),'0s');
+  for(let i=0;i<55&&!await browser.evaluate('Boolean(document.querySelector(".nv-flow-feature[data-open]"))');i++) await sleep(20);
+  const insideFace = await browser.evaluate(`(()=>{
+    const bounds=document.querySelector('.nv-flow-feature[data-open] .nv-flow-face-info').getBoundingClientRect();
+    return {x:Math.round(bounds.x+bounds.width*.5),y:Math.round(bounds.y+bounds.height*.5)};
+  })()`);
+  const leftEdge = {x:5,y:insideFace.y};
+  await dragTo(insideFace,leftEdge);
+  assert.equal(await browser.evaluate('Boolean(document.querySelector(".nv-drag-ghost[data-nv-extract]"))'),true);
+  await mouse('mouseReleased',leftEdge,'left');
+  assert.equal(await browser.evaluate('Boolean(document.querySelector("[data-nv-collection-head]"))'),false);
+  assert((await browser.evaluate(ordered)).includes('drag-2'),'the dragged volume returns to the shelf');
+
+  await mountDrag('cover');
+  await browser.evaluate('document.querySelector("[data-nv-book=drag-series]").click()');
+  assert.deepEqual(await browser.evaluate(ordered),['drag-4','drag-5']);
+  const rightSource = await pointOn('drag-4',.5,.5);
+  const rightEdge = {x:935,y:rightSource.y};
+  await dragTo(rightSource,rightEdge);
+  await mouse('mouseReleased',rightEdge,'left');
+  await mountDrag('flow');
+  assert((await browser.evaluate(ordered)).includes('drag-4'),'an extracted automatic volume stays on the main shelf after remounting');
+  assert(!(await browser.evaluate(ordered)).includes('drag-series'),'an automatic series with one remaining volume is dissolved');
+
+  await browser.evaluate('localStorage.removeItem("megulit-novel-shelf-layout")');
+  await mountDrag('cover');
+  const seriesCenter = await pointOn('drag-series',.5,.55);
+  await dragTo(await pointOn('drag-0',.5,.5),seriesCenter);
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-group-drop]")?.dataset.nvBook'),'drag-series',
+    'a book can be dropped on the center of an existing automatic collection');
+  await mouse('mouseReleased',seriesCenter,'left');
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-book=drag-series]").ariaLabel'),'Series · 3 册');
+  assert.equal(await browser.evaluate('document.querySelector(".nv-collection-dialog") === null'),true);
+  await mountDrag('list',true);
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-book=drag-series]").ariaLabel'),'Series · 4 册',
+    'the edited automatic collection still accepts a newly discovered series volume');
+  await browser.evaluate('document.querySelector("[data-nv-book=drag-series]").click()');
+  assert.deepEqual((await browser.evaluate(ordered)).sort(),['drag-0','drag-4','drag-5','drag-6']);
+
+  await browser.evaluate(`(()=>{
+    const key='megulit-novel-shelf-layout';
+    const saved=JSON.parse(localStorage.getItem(key));
+    saved.collections.push({id:'custom-existing',title:'手选合集',books:['drag-2','drag-3']});
+    localStorage.setItem(key,JSON.stringify(saved));
+  })()`);
+  await mountDrag('list',true);
+  const handmadeCenter = await pointOn('custom-existing',.5,.5);
+  await dragTo(await pointOn('drag-1',.5,.5),handmadeCenter);
+  await mouse('mouseReleased',handmadeCenter,'left');
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-book=custom-existing]").ariaLabel'),'手选合集 · 3 册');
+
+  await mountDrag('flow',true);
+  await browser.evaluate('document.querySelector("[data-nv-book=drag-7]").click()');
+  for(let i=0;i<55&&!await browser.evaluate('Boolean(document.querySelector(".nv-flow-feature[data-open]"))');i++) await sleep(20);
+  const lifted = await browser.evaluate(`(()=>{
+    const rect=document.querySelector('.nv-flow-feature[data-open] .nv-flow-face-info').getBoundingClientRect();
+    return {x:Math.round(rect.x+rect.width/2),y:Math.round(rect.y+rect.height/2)};
+  })()`);
+  const collectionTarget = await pointOn('custom-existing',.5,.55,'');
+  await dragTo(lifted,collectionTarget);
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-group-drop]")?.dataset.nvBook'),'custom-existing');
+  await mouse('mouseReleased',collectionTarget,'left');
+  assert.equal(await browser.evaluate('document.querySelector("[data-nv-book=custom-existing]").ariaLabel'),'手选合集 · 4 册');
+  await browser.evaluate('document.querySelector("[data-nv-book=custom-existing]").click()');
+  assert.deepEqual((await browser.evaluate(ordered)).sort(),['drag-1','drag-2','drag-3','drag-7']);
  }finally{
   await browser?.stop();
   await new Promise(resolve=>server.close(resolve));

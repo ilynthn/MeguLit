@@ -7,10 +7,12 @@ import { openReader } from './novel-reader.js';
 import { createPdfCover, openPdfReader } from './novel-pdf-reader.js';
 import { discoverMessages, novelImportError, paintDiscovery, paintDiscoveryDetail } from './novel-discover.js';
 import { capsuleSpringFrames } from './capsule-spring.js';
-import { applyShelfFlowSettings, bindShelfFlow, createCoverPreview, liftCoverForDetail } from './novel-shelf.js';
+import { applyShelfFlowSettings, bindShelfFlow, createCoverPreview, liftCoverForDetail, reducedMotion, shelfMotionPreference } from './novel-shelf.js';
+import { bindShelfDrag } from './novel-shelf-drag.js';
 
 const SORT_KEY = 'megulit-novel-sort';
 const VIEW_KEY = 'megulit-novel-view';
+const SHELF_LAYOUT_KEY = 'megulit-novel-shelf-layout';
 const DISCOVER_SOURCE_KEY = 'megulit-novel-discover-source';
 const BOOK_EXT = /\.(txt|md|epub|zip|pdf)$/i;
 const fileKind = file => /\.pdf$/i.test(file) ? 'pdf' : /\.(epub|zip)$/i.test(file) ? 'epub' : 'txt';
@@ -45,6 +47,20 @@ function readChoice(storageKey, options) {
     if (options.includes(key)) return key;
   } catch { /* Storage can be unavailable. */ }
   return options[0];
+}
+
+function readShelfLayout() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SHELF_LAYOUT_KEY) || '{}');
+    return {
+      order: new Map(Object.entries(saved.order || {}).filter(([, ids]) => Array.isArray(ids))),
+      standalone: new Set(Array.isArray(saved.standalone) ? saved.standalone : []),
+      collections: Array.isArray(saved.collections) ? saved.collections.filter(group =>
+        group && typeof group.id === 'string' && typeof group.title === 'string' && Array.isArray(group.books)) : []
+    };
+  } catch {
+    return { order: new Map(), collections: [], standalone: new Set() };
+  }
 }
 
 const normalizeSearch = value => String(value ?? '').normalize('NFKC').toLowerCase();
@@ -110,6 +126,11 @@ export async function mountNovel(main, ctx) {
   let bookId = '';
   let shelf = null;
   let collectionId = '';
+  const shelfLayout = readShelfLayout();
+  let orderedShelf = [];
+  let collectionDialog;
+  let collectionMotion;
+  const motionEvents = new AbortController();
   let rootShelfQuery = '';
   let renderedBooks = new Map();
   let scanning = false;
@@ -166,8 +187,33 @@ export async function mountNovel(main, ctx) {
   toolbar.dataset.view = view;
   document.body.append(toolbar);
   let toolbarMotion;
+  const shelfDrag = bindShelfDrag(bodyEl, main, {
+    gridFor: () => tab === 'shelf' && !bookId && !reading ? bodyEl.querySelector('[data-nv-layout]') : null,
+    flowCard: () => bodyEl.querySelector('.nv-flow-rail [data-active]'),
+    originFor: (card, pressed) => pressed.closest('.nv-flow-feature :is(.nv-flow-volume, .nv-flow-art)') ||
+      card.querySelector('.nv-flow-volume, .nv-cover'),
+    canGroup: card => !card.hasAttribute('data-nv-collection-card'),
+    canExtract: () => Boolean(collectionId),
+    extractLabel: w.moveOutOfCollection,
+    onStart: () => { preview.close(); shelfFlow?.beginReorder(); },
+    onEnd: () => shelfFlow?.endReorder(),
+    onMove: moveShelfBook,
+    onGroup: groupShelfBook,
+    onExtract: extractShelfBook
+  });
+  shelfMotionPreference.addEventListener('change', () => {
+    if (!reducedMotion()) return;
+    toolbarMotion?.cancel();
+    if (collectionMotion?.pending) collectionMotion.animations.forEach(animation => animation.finish());
+    else cancelCollectionMotion();
+    for (const animation of bodyEl.getAnimations({ subtree: true })) {
+      if (animation.id === 'nv-reorder' || animation.id === 'nv-detail-enter') animation.cancel();
+    }
+  }, { signal: motionEvents.signal });
 
   function navigateShelf(next, targetId = '') {
+    shelfDrag.cancel();
+    cancelCollectionMotion();
     sortOptions.hidePopover();
     viewOptions.hidePopover();
     clearTimeout(discoverTimer);
@@ -201,6 +247,7 @@ export async function mountNovel(main, ctx) {
   discoverButton.onclick = () => navigateShelf(tab === 'discover' ? 'shelf' : 'discover');
   function filterShelf() {
     if (tab !== 'shelf') return;
+    cancelCollectionMotion();
     query = search.value;
     clear.hidden = !query;
     if (shelf) renderShelf();
@@ -285,8 +332,16 @@ export async function mountNovel(main, ctx) {
     const orders = provider === 'bangumi' ? ['match', 'popular'] : provider === 'openlibrary' ? ['match', 'popular', 'year'] : Object.keys(sourceText.order);
     sortOptions.innerHTML = onDiscovery
       ? options('sort', orders, sourceText.order, orders.includes(discoverState.order) ? discoverState.order : 'match')
-      : options('sort', sortKeys, w.sort, sort);
+      : options('sort', sortKeys, w.sort, sort) + (shelfLayout.order.has(collectionId)
+        ? `<button class="nv-reset-order" type="button" data-nv-reset-order>${esc(w.resetManualOrder)}</button>` : '');
   }
+  sortOptions.addEventListener('click', event => {
+    if (!event.target.closest('[data-nv-reset-order]')) return;
+    shelfLayout.order.delete(collectionId);
+    saveShelfLayout();
+    sortOptions.hidePopover();
+    renderShelf(true);
+  });
   updateViewButton();
   bindChoices(sortButton, sortOptions, value => {
     if (tab === 'discover') {
@@ -300,6 +355,8 @@ export async function mountNovel(main, ctx) {
   });
   bindChoices(viewButton, viewOptions, value => {
     if (view === value) return;
+    shelfDrag.cancel();
+    cancelCollectionMotion();
     persistChoice(VIEW_KEY, value);
     const before = capsule.getBoundingClientRect();
     toolbarMotion?.cancel();
@@ -307,7 +364,7 @@ export async function mountNovel(main, ctx) {
     toolbar.dataset.view = value;
     updateViewButton();
     if (shelf) renderShelf();
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (!reducedMotion()) {
       const after = capsule.getBoundingClientRect();
       toolbarMotion = capsule.animate(capsuleSpringFrames(before, after, { blur: 2.8 }), { duration: 290 });
     }
@@ -342,7 +399,7 @@ export async function mountNovel(main, ctx) {
     const cover = book.cover
       ? `<img src="${esc(book.cover)}" alt="" loading="lazy" draggable="false">`
       /* 没有封面时竖排书名当书脊，和参考图的立体书架一个意思 */
-      : `<span class="nv-spine${view === 'flow' ? ' nv-flow-blank' : ''}"><span>${esc(book.title)}</span></span>`;
+      : `<span class="nv-spine${view === 'flow' ? ' nv-flow-blank' : ''}">${book.collection ? '' : `<span>${esc(book.title)}</span>`}</span>`;
     const percent = Math.round((book.progress?.percent || 0) * 100);
     const groupLabel = book.collection ? w.volumes(book.collection.books.length) : '';
     const label = `aria-label="${esc([book.title,groupLabel].filter(Boolean).join(' · '))}" data-nv-book="${esc(book.id)}"${book.collection ? ' data-nv-collection-card' : ''}`;
@@ -361,37 +418,90 @@ export async function mountNovel(main, ctx) {
     </button>`;
     if (view === 'cover') return `<button type="button" class="nv-card" ${label}>
       <span class="nv-book-object"><span class="nv-book-block"><span class="nv-cover">${cover}</span></span></span>
-      ${book.collection ? `<span class="nv-collection-card-title">${esc(book.title)}<small>${esc(groupLabel)}</small></span>` : ''}
+    </button>`;
+    if (book.collection) return `<button type="button" class="nv-card nv-list-row" ${label}>
+      <span class="nv-collection-stack"><span class="nv-cover">${cover}</span></span>
+      <span class="nv-list-copy"><span class="nv-card-title">${esc(book.title)}</span>
+        ${book.author ? `<span class="nv-card-author">${esc(book.author)}</span>` : ''}
+        <span class="nv-card-meta">${esc(groupLabel)}</span>
+      </span>
     </button>`;
     return `<button type="button" class="nv-card nv-list-row" ${label}>
       <span class="nv-cover">${cover}</span><span class="nv-list-copy">
       <span class="nv-card-title">${esc(book.title)}</span>
       <span class="nv-card-author">${esc(book.author || w.noAuthor)}</span>
-      <span class="nv-card-meta">${book.collection ? esc(groupLabel) : book.format === 'pdf' ? 'PDF' : `${esc(w.chapters(book.chapterCount))} · ${esc(w.chars(book.chars))}`}</span>
+      <span class="nv-card-meta">${book.format === 'pdf' ? 'PDF' : `${esc(w.chapters(book.chapterCount))} · ${esc(w.chars(book.chars))}`}</span>
       </span>${percent ? `<span class="nv-card-progress">${esc(w.progress(percent / 100))}</span>` : ''}
     </button>`;
   }
 
+  function cancelCollectionMotion() {
+    const motion = collectionMotion;
+    if (!motion) return;
+    collectionMotion = null;
+    if (motion.pending) {
+      motion.rail.inert = false;
+      shelfFlow?.endReorder();
+    }
+    motion.animations.forEach(animation => animation.cancel());
+  }
+
+  async function openShelfCollection(card, group) {
+    const rail = view === 'flow' ? card.parentElement : null;
+    const origin = rail && !reducedMotion() ? card.querySelector('.nv-flow-volume').getBoundingClientRect() : null;
+    cancelCollectionMotion();
+    if (origin) {
+      rail.inert = true;
+      shelfFlow?.beginReorder();
+      const animations = [...rail.children].filter(book => book !== card).map(book =>
+        book.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'nv-collection-exit', duration: 155, fill: 'forwards' }));
+      const pending = { rail, animations, pending: true };
+      collectionMotion = pending;
+      await Promise.allSettled(animations.map(animation => animation.finished));
+      if (collectionMotion !== pending || !aliveNow()) return;
+      cancelCollectionMotion();
+    }
+
+    releaseShelfFlow();
+    collectionId = group.id;
+    rootShelfQuery = query;
+    query = search.value = '';
+    clear.hidden = true;
+    main.scrollTop = 0;
+    renderShelf(false, group.books[0]);
+    if (!origin || reducedMotion()) return;
+    const nextRail = bodyEl.querySelector('.nv-flow-rail');
+    if (!nextRail) return;
+    const bounds = nextRail.getBoundingClientRect();
+    const animations = [...nextRail.children].flatMap((book, index) => {
+      const target = book.querySelector('.nv-flow-volume').getBoundingClientRect();
+      if (target.right <= bounds.left || target.left >= bounds.right) return [];
+      const x = origin.left + (origin.width - target.width) / 2 - target.left;
+      const y = origin.top + (origin.height - target.height) / 2 - target.top;
+      return [book.animate([
+        { translate: `${x}px ${y}px`, scale: .8, opacity: index === 0 ? 1 : .36 },
+        { translate: '0 0', scale: 1, opacity: 1 }
+      ], { id: 'nv-collection-fan', duration: 300, delay: Math.min(index, 8) * 16, easing: 'cubic-bezier(.18,.76,.24,1)', fill: 'both' })];
+    });
+    const opening = { animations };
+    collectionMotion = opening;
+    await Promise.allSettled(animations.map(animation => animation.finished));
+    if (collectionMotion === opening) cancelCollectionMotion();
+  }
+
   function openBook(card) {
-    if (bookId) return;
+    if (bookId || collectionMotion?.pending) return;
     preview.close();
     const target = renderedBooks.get(card.dataset.nvBook);
     if (target?.collection) {
-      releaseShelfFlow();
-      flowBook = target.collection.books[0];
-      collectionId = target.collection.id;
-      rootShelfQuery = query;
-      query = '';
-      search.value = '';
-      clear.hidden = true;
-      main.scrollTop = 0;
-      renderShelf();
+      void openShelfCollection(card, target.collection);
       return;
     }
+    cancelCollectionMotion();
     if (view === 'flow') flowBook = card.dataset.nvBook;
     bookId = card.dataset.nvBook;
     const flow = bodyEl.querySelector('.nv-flow');
-    const entry = flow && !matchMedia('(prefers-reduced-motion: reduce)').matches
+    const entry = flow && !reducedMotion()
       ? { flow, art: shelfFlow?.artFor(card) } : null;
     paint(entry);
   }
@@ -447,20 +557,140 @@ export async function mountNovel(main, ctx) {
 
   function shelfEntries() {
     const data = new Map(shelf.books.map(book => [book.id, book]));
-    const collections = (shelf.collections || []).filter(group => group.books.every(id => data.has(id)));
+    const editionIds = new Map(shelf.books.flatMap(book => (book.editions || []).map(edition => [edition.id, book.id])));
+    const resolve = id => data.has(id) ? id : editionIds.get(id);
+    const standalone = new Set([...shelfLayout.standalone].map(resolve));
+    const assigned = new Set();
+    const collections = [];
+    const savedGroups = new Map(shelfLayout.collections.map(group => [group.id, group]));
+    const automatic = new Map((shelf.collections || []).map(group => [group.id, group]));
+    const manualMembers = new Set(shelfLayout.collections.flatMap(group => group.books.map(resolve)).filter(Boolean));
+    const eligibleAutomatic = id => !standalone.has(id) && !manualMembers.has(id);
+    const groups = [...savedGroups.values(), ...(shelf.collections || []).filter(group => !savedGroups.has(group.id))];
+    for (const group of groups) {
+      const saved = savedGroups.has(group.id);
+      const books = group.books.map(resolve).filter(id => saved || eligibleAutomatic(id));
+      if (group.followsSeries) {
+        books.push(...(automatic.get(group.id)?.books || []).map(resolve).filter(eligibleAutomatic));
+      }
+      const available = [...new Set(books)].filter(id => data.has(id) && !assigned.has(id));
+      if (available.length < 2) continue;
+      collections.push({ ...group, books: available });
+      available.forEach(id => assigned.add(id));
+    }
     const opened = collections.find(group => group.id === collectionId);
     if (opened) return { collection: opened, books: opened.books.map(id => data.get(id)) };
     collectionId = '';
-    const consumed = new Set(collections.flatMap(group => group.books));
     const grouped = collections.map(group => {
       const members = group.books.map(id => data.get(id));
       const featured = members.find(book => book.cover) || members[0];
-      return { ...featured, id: group.id, title: group.title, collection: group, progress: null,
+      const authors = new Set(members.map(book => book.author).filter(Boolean));
+      return { ...featured, id: group.id, title: group.title, author: authors.size === 1 ? authors.values().next().value : '', collection: group, progress: null,
         aliases: members.flatMap(book => [book.title, ...(book.aliases || [])]),
         lastOpenedAt: Math.max(...members.map(book => book.lastOpenedAt || book.addedAt || 0)),
         addedAt: Math.max(...members.map(book => book.addedAt || 0)) };
     });
-    return { books: [...shelf.books.filter(book => !consumed.has(book.id)), ...grouped], collection: null };
+    return { books: [...grouped, ...shelf.books.filter(book => !assigned.has(book.id))], collection: null };
+  }
+
+  function saveShelfLayout() {
+    persistChoice(SHELF_LAYOUT_KEY, JSON.stringify({
+      order: Object.fromEntries(shelfLayout.order), collections: shelfLayout.collections, standalone: [...shelfLayout.standalone]
+    }));
+  }
+
+  function extractShelfBook(card) {
+    const { collection } = shelfEntries();
+    const id = card.dataset.nvBook;
+    if (!collection?.books.includes(id)) return;
+    const remaining = collection.books.filter(book => book !== id);
+    shelfLayout.standalone.add(id);
+    shelfLayout.collections = shelfLayout.collections.flatMap(group => group.id !== collection.id ? [group]
+      : remaining.length > 1 ? [{ ...group, books: remaining }] : []);
+    if (remaining.length < 2) shelfLayout.order.delete(collection.id);
+    saveShelfLayout();
+    releaseShelfFlow();
+    collectionId = '';
+    rootShelfQuery = query = search.value = '';
+    clear.hidden = true;
+    renderShelf(false, id);
+  }
+
+  function moveShelfBook(card, target, before) {
+    const source = card.dataset.nvBook;
+    const ids = orderedShelf.filter(book => book.id !== source).map(book => book.id);
+    const index = ids.indexOf(target.dataset.nvBook);
+    if (index < 0) { renderShelf(); return; }
+    ids.splice(index + Number(!before), 0, source);
+    shelfLayout.order.set(collectionId, ids);
+    saveShelfLayout();
+    renderShelf(false, source);
+  }
+
+  function placeInCollection(group) {
+    const keys = new Set(group.books);
+    for (const book of shelf.books) {
+      if (keys.has(book.id)) for (const edition of book.editions || []) keys.add(edition.id);
+    }
+    const others = shelfLayout.collections.filter(existing => existing.id !== group.id).flatMap(existing => {
+      const books = existing.books.filter(id => !keys.has(id));
+      if (books.length > 1 || (existing.followsSeries && books.length)) return [{ ...existing, books }];
+      shelfLayout.order.delete(existing.id);
+      return [];
+    });
+    shelfLayout.collections = [group, ...others];
+    saveShelfLayout();
+  }
+
+  function groupShelfBook(card, target) {
+    const source = card.dataset.nvBook;
+    const destination = renderedBooks.get(target.dataset.nvBook);
+    if (!destination || !shelf.books.some(book => book.id === source)) return;
+    if (destination.collection) {
+      const group = destination.collection;
+      if (group.books.includes(source)) return;
+      placeInCollection({ ...group, followsSeries: (shelf.collections || []).some(item => item.id === group.id) || Boolean(group.followsSeries),
+        books: [...group.books, source] });
+      renderShelf(false, group.id);
+      toast(w.addedToCollection(group.title));
+      return;
+    }
+    createShelfCollection([destination.id, source]);
+  }
+
+  function createShelfCollection(books) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'nv-collection-dialog';
+    dialog.setAttribute('aria-labelledby', 'nv-new-collection-title');
+    dialog.innerHTML = `<form>
+      <h2 id="nv-new-collection-title">${esc(w.createCollection)}</h2>
+      <label><span>${esc(w.collectionName)}</span><input name="title" required maxlength="80" autocomplete="off"></label>
+      <div><button type="button" class="nv-ghost" data-nv-cancel-group>${esc(w.close)}</button>
+        <button type="submit" class="nv-primary" disabled>${esc(w.createCollection)}</button></div>
+    </form>`;
+    collectionDialog = dialog;
+    page.append(dialog);
+    const form = dialog.querySelector('form');
+    const input = form.elements.title;
+    const submit = form.querySelector('[type="submit"]');
+    input.addEventListener('input', () => { submit.disabled = !input.value.trim(); });
+    dialog.querySelector('[data-nv-cancel-group]').onclick = () => dialog.close();
+    dialog.addEventListener('close', () => { collectionDialog = null; dialog.remove(); }, { once: true });
+    form.onsubmit = event => {
+      event.preventDefault();
+      const title = input.value.trim();
+      if (!title || !aliveNow() || books.some(id => !shelf?.books.some(book => book.id === id))) return;
+      const group = { id: 'custom-' + crypto.randomUUID(), title, books };
+      placeInCollection(group);
+      dialog.close();
+      releaseShelfFlow();
+      collectionId = '';
+      rootShelfQuery = query = search.value = '';
+      clear.hidden = true;
+      renderShelf(false, group.id);
+    };
+    dialog.showModal();
+    input.focus();
   }
 
   function drawCollectionHeader(collection) {
@@ -472,6 +702,7 @@ export async function mountNovel(main, ctx) {
     header.innerHTML = `<button type="button" class="nv-back">‹ ${esc(w.back)}</button>
       <h2>${esc(collection.title)}</h2><span>${esc(w.volumes(collection.books.length))}</span>`;
     header.querySelector('button').onclick = () => {
+      cancelCollectionMotion();
       releaseShelfFlow();
       flowBook = collection.id;
       collectionId = '';
@@ -484,21 +715,24 @@ export async function mountNovel(main, ctx) {
     bodyEl.prepend(header);
   }
 
-  function renderShelf(animate = false) {
+  function renderShelf(animate = false, focusId) {
+    if (shelfDrag.active() || collectionMotion?.pending) return;
     preview.close();
     const { books, collection } = shelfEntries();
     renderedBooks = new Map(books.map(book => [book.id, book]));
+    updateSortOptions();
     if (!books.length) {
+      orderedShelf = [];
       releaseShelfFlow();
       bodyEl.innerHTML = emptyState(w.shelfEmpty, w.shelfEmptySub, `<button type="button" class="nv-primary" data-nv-go-local>${esc(w.addBooks)}</button>`);
       bodyEl.querySelector('[data-nv-go-local]').onclick = () => navigateShelf('local');
       return;
     }
     const terms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean);
-    const matches = books.filter(book => {
+    const filtered = book => {
       const text = normalizeSearch([book.title, book.author, ...(book.aliases || []), ...(book.editions || []).map(edition => edition.title)].join(' '));
       return terms.every(term => text.includes(term));
-    });
+    };
     const byTitle = (a, b) => collator.compare(a.title, b.title);
     const comparators = {
       recent: (a, b) => (b.lastOpenedAt ?? b.addedAt ?? 0) - (a.lastOpenedAt ?? a.addedAt ?? 0),
@@ -507,7 +741,14 @@ export async function mountNovel(main, ctx) {
       author: (a, b) => Number(!a.author) - Number(!b.author) || collator.compare(a.author || '', b.author || ''),
       progress: (a, b) => (b.progress?.percent ?? 0) - (a.progress?.percent ?? 0)
     };
-    if (!collection || sort !== 'recent') matches.sort((a, b) => comparators[sort](a, b) || byTitle(a, b) || collator.compare(a.id, b.id));
+    const order = new Map((shelfLayout.order.get(collectionId) || []).map((id, index) => [id, index]));
+    const rank = book => order.get(book.id) ?? (book.collection ? -1 : Infinity);
+    orderedShelf = [...books].sort((a, b) => {
+      const left = rank(a), right = rank(b);
+      if (left !== right) return left - right;
+      return collection && sort === 'recent' ? 0 : comparators[sort](a, b) || byTitle(a, b) || collator.compare(a.id, b.id);
+    });
+    const matches = orderedShelf.filter(filtered);
     if (!matches.length) {
       releaseShelfFlow();
       bodyEl.innerHTML = emptyState(w.noMatches, w.noMatchesHint);
@@ -515,9 +756,9 @@ export async function mountNovel(main, ctx) {
       return;
     }
 
-    const currentFlowBook = shelfFlow?.id() ?? flowBook;
+    const currentFlowBook = focusId ?? shelfFlow?.id() ?? flowBook;
     let grid = view === 'flow' && !shelfFlow ? null : bodyEl.querySelector(`[data-nv-layout="${view}"]`);
-    const move = animate && grid && view !== 'flow' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const move = animate && grid && view !== 'flow' && !reducedMotion();
     const oldCards = new Map(Array.from(grid?.children ?? [], card => [card.dataset.nvBook, card]));
     const positions = new Map();
     if (move) {
@@ -562,7 +803,7 @@ export async function mountNovel(main, ctx) {
       card.dataset.nvCount = count;
       if (view === 'cover') {
         const cover = card.querySelector('.nv-book-object');
-        cover.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch') preview.open(book, cover); });
+        cover.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch' && !shelfDrag.active()) preview.open(book, cover); });
         cover.addEventListener('pointerleave', preview.close);
         card.addEventListener('focus', () => { if (card.matches(':focus-visible')) preview.open(book, cover); });
         card.addEventListener('blur', preview.close);
@@ -572,7 +813,10 @@ export async function mountNovel(main, ctx) {
     });
     grid.replaceChildren(...cards);
     drawCollectionHeader(collection);
-    if (view === 'flow') shelfFlow.reset(currentFlowBook);
+    if (view === 'flow') {
+      grid.parentElement.toggleAttribute('data-nv-has-collections', matches.some(book => book.collection));
+      shelfFlow.reset(currentFlowBook);
+    }
     if (move) {
       const movement = cards.flatMap(card => {
         const before = positions.get(card.dataset.nvBook);
@@ -636,12 +880,14 @@ export async function mountNovel(main, ctx) {
     }
     if (cancelled || !aliveNow() || bookId !== id) return;
     if (entry) {
-      flight = liftCoverForDetail(entry.art);
-      for (const surface of [entry.flow, toolbar]) {
-        animations.push(surface.animate([{ opacity: 1 }, { opacity: 0 }],
-          { duration: 135, easing: 'ease-in', fill: 'forwards' }));
+      if (!reducedMotion()) {
+        flight = liftCoverForDetail(entry.art);
+        for (const surface of [entry.flow, toolbar]) {
+          animations.push(surface.animate([{ opacity: 1 }, { opacity: 0 }],
+            { id: 'nv-detail-enter', duration: 135, easing: 'ease-in', fill: 'forwards' }));
+        }
+        await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
       }
-      await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
       if (cancelled || !aliveNow() || bookId !== id) return;
       releaseShelfFlow();
       toolbar.hidden = true;
@@ -696,13 +942,14 @@ export async function mountNovel(main, ctx) {
       // Returning to the shelf should pick up the new image even if polling paused here.
       shelf = null;
     } });
-    if (entry) {
+    if (entry && reducedMotion()) stop();
+    else if (entry) {
       const target = bodyEl.querySelector('.nv-detail-cover img');
       const incoming = bodyEl.querySelectorAll(flight ? '.nv-detail > .nv-back, .nv-detail-meta, .nv-detail-contents, .nv-detail-side' : '.nv-detail');
       const landing = flight?.land(target);
       for (const surface of incoming) {
         animations.push(surface.animate([{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }],
-          { duration: 310, easing: 'cubic-bezier(.16,1,.3,1)' }));
+          { id: 'nv-detail-enter', duration: 310, easing: 'cubic-bezier(.16,1,.3,1)' }));
       }
       Promise.all([landing, ...animations.map(animation => animation.finished.catch(() => {}))]).then(stop);
     }
@@ -958,6 +1205,7 @@ export async function mountNovel(main, ctx) {
   function paint(entry) {
     if (!alive) return;
     stopDetailEntry?.();
+    cancelCollectionMotion();
     preview.close();
     if (entry && bookId) { paintDetail(bookId, entry); return; }
     if (reading || bookId || tab !== 'shelf') releaseShelfFlow();
@@ -1041,6 +1289,10 @@ export async function mountNovel(main, ctx) {
       document.body.classList.remove('nv-reading-body');
     }
     routeObserver.disconnect();
+    shelfDrag.destroy();
+    motionEvents.abort();
+    cancelCollectionMotion();
+    collectionDialog?.remove();
     clearTimeout(shelfCoverTimer);
     clearTimeout(discoverTimer);
     discoverView?.abort();

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { pourIntoSlot } from './novel-flow-liquid.js';
 
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const shelfMotionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+export const reducedMotion = () => shelfMotionPreference.matches;
 
 function readingDuration(seconds, locale, w) {
   if (!seconds) return w.unreadTime;
@@ -12,7 +13,6 @@ function readingDuration(seconds, locale, w) {
 }
 
 function bookExtent(book, w) {
-  if (book.collection) return w.volumes(book.collection.books.length);
   if (book.format === 'pdf') return 'PDF';
   return [w.chapters(book.chapterCount), w.chars(book.chars), book.languages?.toUpperCase()].filter(Boolean).join(' · ');
 }
@@ -47,7 +47,7 @@ export function createCoverPreview(page, { api, esc, w, locale, isCurrent }) {
   }
 
   async function open(book, anchor) {
-    if (current?.anchor === anchor || !isCurrent() || !anchor.isConnected) return;
+    if (book.collection || current?.anchor === anchor || !isCurrent() || !anchor.isConnected) return;
     close();
     const state = { anchor, events: new AbortController() };
     state.observer = new MutationObserver(() => { if (!anchor.isConnected) close(); });
@@ -61,7 +61,7 @@ export function createCoverPreview(page, { api, esc, w, locale, isCurrent }) {
       <div class="nv-preview-art">${cover ? `<img src="${esc(cover)}" alt="">` : `<span class="nv-spine"><span>${esc(book.title)}</span></span>`}</div>
       <div class="nv-preview-copy nv-preview-facts">
         <p>${esc(bookExtent(book, w))}</p>
-        ${book.collection ? '' : `<p>${esc(w.progress(book.progress?.percent ?? 0))}</p><p>${esc(w.readingTime)} <span data-nv-time>…</span></p>`}
+        <p>${esc(w.progress(book.progress?.percent ?? 0))}</p><p>${esc(w.readingTime)} <span data-nv-time>…</span></p>
       </div>`;
     page.append(panel);
     panel.showPopover();
@@ -71,8 +71,7 @@ export function createCoverPreview(page, { api, esc, w, locale, isCurrent }) {
     addEventListener('scroll', dismissOnLayout, { capture: true, passive: true, signal });
     addEventListener('resize', close, { signal });
     addEventListener('blur', close, { signal });
-
-    if (book.collection) return;
+    shelfMotionPreference.addEventListener('change', close, { signal });
     let preview;
     try { preview = await api('novel_detail', { id: book.id, preview: true }); } catch {
       if (valid()) panel.querySelector('[data-nv-time]').textContent = '—';
@@ -134,7 +133,7 @@ export function applyShelfFlowSettings(flow, settings) {
 }
 
 export function liftCoverForDetail(source) {
-  if (!source?.naturalWidth) return null;
+  if (!source?.naturalWidth || reducedMotion()) return null;
   const rect = source.getBoundingClientRect();
   if (!rect.width || !rect.height) return null;
   const matrix = new DOMMatrix(getComputedStyle(source).transform);
@@ -163,7 +162,7 @@ export function liftCoverForDetail(source) {
     target?.style.removeProperty('visibility');
   }
   async function land(destination) {
-    if (!destination) { remove(); return; }
+    if (!destination || reducedMotion()) { remove(); return; }
     target = destination;
     const end = target.getBoundingClientRect();
     target.style.visibility = 'hidden';
@@ -171,6 +170,7 @@ export function liftCoverForDetail(source) {
       { duration: 390, easing: 'cubic-bezier(.24,.78,.23,1)', fill: 'forwards' });
     addEventListener('resize', remove, { signal: events.signal });
     addEventListener('scroll', remove, { capture: true, passive: true, signal: events.signal });
+    shelfMotionPreference.addEventListener('change', remove, { signal: events.signal });
     await flight.finished.catch(() => {});
     remove();
   }
@@ -202,7 +202,7 @@ function createFlowFeature(flow, rail, { getBook, api, esc, w, locale, openBook 
 
   function open(card) {
     const book = getBook(card.dataset.nvBook);
-    if (!book || current?.card === card) return;
+    if (!book || book.collection || current?.card === card) return;
     const node = document.createElement('div');
     node.className = 'nv-flow-feature';
     const motion = document.createElement('div');
@@ -226,8 +226,8 @@ function createFlowFeature(flow, rail, { getBook, api, esc, w, locale, openBook 
     face.innerHTML = `<div class="nv-flow-facts">
       <div class="nv-flow-byline"><h3>${esc(book.title)}</h3><p>${esc(book.author || w.noAuthor)}</p></div>
       <p>${esc(bookExtent(book, w))}</p>
-      ${book.collection ? '' : `<div class="nv-flow-progress"><p>${esc(w.progress(progress))}</p><span aria-hidden="true" style="--nv-read:${progress}"></span></div>
-      <p>${esc(w.readingTime)} <span data-nv-time>…</span></p>`}
+      <div class="nv-flow-progress"><p>${esc(w.progress(progress))}</p><span aria-hidden="true" style="--nv-read:${progress}"></span></div>
+      <p>${esc(w.readingTime)} <span data-nv-time>…</span></p>
     </div>`;
 
     pose.append(volume);
@@ -300,12 +300,20 @@ function createFlowFeature(flow, rail, { getBook, api, esc, w, locale, openBook 
     if (!signal.aborted) remove(feature);
   }
 
-  function close(animate) {
+  function close(animate, forDrag = false) {
     const feature = current;
     if (!feature) return;
     current = null;
     clearTimeout(feature.idleTimer);
     delete flow.dataset.detail;
+    if (forDrag && !reducedMotion()) {
+      feature.node.dataset.returning = '';
+      returning.add(feature);
+      const fade = feature.node.animate([{ opacity: 1 }, { opacity: 0 }],
+        { duration: 145, easing: 'ease-out', fill: 'forwards' });
+      fade.finished.then(() => remove(feature), () => remove(feature));
+      return;
+    }
     if (!animate || reducedMotion()) { remove(feature); return; }
 
     const { node } = feature;
@@ -382,9 +390,10 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
   let slideLeft = 0;
   let lastSlideTime = 0;
   let drag;
+  let reordering = false;
 
   async function showTitle() {
-    const next = selected?.getAttribute('aria-label') ?? '';
+    const next = selected?.hasAttribute('data-nv-collection-card') ? '' : selected?.getAttribute('aria-label') ?? '';
     if (next === titleTarget) return;
     titleTarget = next;
     const previousOpacity = getComputedStyle(title).opacity;
@@ -428,7 +437,7 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
 
   function settle() {
     clearTimeout(scrollTimer);
-    if (slideFrame || drag?.active) return;
+    if (reordering || slideFrame || drag?.active) return;
     pending = null;
     syncScroll();
     showCurrent();
@@ -438,8 +447,9 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
     showTitle();
     clearTimeout(dwellTimer);
     const card = selected;
+    if (!card || card.hasAttribute('data-nv-collection-card')) return;
     dwellTimer = setTimeout(() => {
-      if (card === selected && card?.isConnected && !pending && !drag?.active && !flow.inert) feature.open(card);
+      if (card === selected && card?.isConnected && !pending && !drag?.active && !reordering && !flow.inert) feature.open(card);
     }, 720);
   }
 
@@ -512,6 +522,7 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
 
   rail.addEventListener('scroll', () => {
     feature.update();
+    if (reordering) return;
     if (drag?.active) {
       syncScroll();
       showTitle();
@@ -524,7 +535,7 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
     scrollTimer = setTimeout(settle, 150);
   }, { passive: true });
   rail.addEventListener('scrollend', () => {
-    if (slideFrame || drag?.active) return;
+    if (reordering || slideFrame || drag?.active) return;
     settle();
   });
   flow.addEventListener('nv-flow-layout', () => {
@@ -533,7 +544,7 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
     alignToolbar(rail.firstElementChild);
   });
   main.addEventListener('pointermove', event => {
-    if (flow.inert || drag?.active) feature.untrack();
+    if (flow.inert || drag?.active || reordering) feature.untrack();
     else feature.track(event);
   }, { passive: true, signal });
   main.addEventListener('pointerleave', feature.untrack, { signal });
@@ -549,8 +560,15 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
     alignToolbar(rail.firstElementChild);
   }, { signal });
   measureBounds();
+  shelfMotionPreference.addEventListener('change', () => {
+    if (!reducedMotion()) return;
+    titleAnimation?.cancel();
+    titleTarget = title.textContent;
+    feature.reset();
+    if (!reordering) center(pending || selected, false);
+  }, { signal });
   main.addEventListener('wheel', event => {
-    if (flow.inert || drag?.active || event.ctrlKey || event.defaultPrevented || !selected) return;
+    if (flow.inert || drag?.active || reordering || event.ctrlKey || event.defaultPrevented || !selected) return;
     const mode = event.deltaMode;
     const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY)
       * (mode === 1 ? 32 : mode === 2 ? rail.clientWidth : 1);
@@ -567,7 +585,7 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
     center(direction > 0 ? selected.nextElementSibling : selected.previousElementSibling);
   }, { passive: false, signal });
   main.addEventListener('pointerdown', event => {
-    if (flow.inert || !selected || !event.isPrimary || event.button !== 0 ||
+    if (flow.inert || reordering || !selected || !event.isPrimary || event.button !== 0 ||
         event.target.closest('button, a, input, select, textarea, .nv-flow-feature')) return;
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, active: false };
   }, { signal });
@@ -608,7 +626,7 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
   rail.onclick = event => {
     const card = event.target.closest('[data-nv-book]');
     if (!card) return;
-    if (card === selected) openBook(card);
+    if (card === selected || card.hasAttribute('data-nv-collection-card')) openBook(card);
     else center(card);
   };
   rail.onkeydown = event => {
@@ -634,5 +652,19 @@ export function bindShelfFlow(rail, { title, main, openBook, alignToolbar, getBo
     feature.reset();
   }
 
-  return { reset, destroy, artFor: feature.artFor, id: () => selected?.dataset.nvBook };
+  return {
+    reset, destroy, artFor: feature.artFor, id: () => selected?.dataset.nvBook,
+    beginReorder() {
+      reordering = true;
+      stopSlide();
+      clearTimeout(dwellTimer);
+      clearTimeout(scrollTimer);
+      feature.untrack();
+      feature.close(false, true);
+    },
+    endReorder() {
+      reordering = false;
+      showCurrent();
+    }
+  };
 }

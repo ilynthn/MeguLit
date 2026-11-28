@@ -22,6 +22,11 @@ export function editionOptions(editions, selected, locale, esc) {
 export const novelMessages = {
   zh: {
     addBooks: "新增书籍",
+    createCollection: '创建合集',
+    collectionName: '合集名称',
+    moveOutOfCollection: '移到总书架',
+    addedToCollection: title => `已加入「${title}」`,
+    resetManualOrder: '恢复自动排序',
     sortBooks: "排序",
     viewMode: "视图",
     views: {"cover":"封面","list":"列表","flow":"书架流"},
@@ -128,6 +133,11 @@ export const novelMessages = {
   },
   ja: {
     addBooks: "本を追加",
+    createCollection: 'コレクションを作成',
+    collectionName: 'コレクション名',
+    moveOutOfCollection: '本棚に戻す',
+    addedToCollection: title => `「${title}」に追加しました`,
+    resetManualOrder: '自動並べ替えに戻す',
     sortBooks: "並べ替え",
     viewMode: "表示形式",
     views: {"cover":"表紙","list":"リスト","flow":"立体本棚"},
@@ -260,6 +270,11 @@ export const novelMessages = {
   },
   en: {
     addBooks: "Add books",
+    createCollection: 'Create collection',
+    collectionName: 'Collection name',
+    moveOutOfCollection: 'Move to bookshelf',
+    addedToCollection: title => `Added to ${title}`,
+    resetManualOrder: 'Restore automatic sorting',
     sortBooks: "Sort",
     viewMode: "View",
     views: {"cover":"Covers","list":"List","flow":"Shelf flow"},
