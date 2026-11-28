@@ -266,6 +266,11 @@ test('文库点读、选句、Escape 和三种翻页模式', { skip: !edgeInstal
   await mountDrag('list');
   assert.equal(await browser.evaluate('document.querySelector("[data-nv-collection-card] .nv-list-copy").textContent.replace(/\\s+/g," ").trim()'),
     'Series Writer 2 册', 'the list shows the collection title, shared author and number of volumes');
+  assert(await browser.evaluate(`(()=>{
+    const row=document.querySelector('[data-nv-collection-card]');
+    return row.querySelector('.nv-collection-stack').getBoundingClientRect().right <
+      row.querySelector('.nv-list-copy').getBoundingClientRect().left;
+  })()`), 'the stacked books have their own space beside the collection metadata');
   assert.deepEqual((await browser.evaluate(ordered)).slice(0,3),['drag-series','drag-1','drag-0'],'manual order survives switching views');
   await browser.evaluate('document.querySelector("input[name=nv-sort][value=title]").click()');
   assert.deepEqual((await browser.evaluate(ordered)).slice(0,3),['drag-series','drag-1','drag-0'],'manual placement takes precedence over the selected automatic sort');

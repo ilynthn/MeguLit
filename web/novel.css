@@ -187,7 +187,8 @@
 }
 .nv-grid [data-nv-collection-card] .nv-book-object,
 .nv-collection-stack { position: relative; padding-inline-end: 18px; isolation: isolate; }
-.nv-collection-stack { display: block; width: 58px; padding-inline-end: 13px; }
+.nv-list-row[data-nv-collection-card] { grid-template-columns: 58px minmax(0, 1fr); }
+.nv-collection-stack { display: block; box-sizing: border-box; width: 58px; padding-inline-end: 13px; }
 .nv-grid [data-nv-collection-card] .nv-book-object::before,
 .nv-grid [data-nv-collection-card] .nv-book-object::after,
 .nv-collection-stack::before, .nv-collection-stack::after {
