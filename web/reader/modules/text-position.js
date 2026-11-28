@@ -71,13 +71,18 @@
     outline). A sentence with none takes the last reliable sample of the same engine-reported read state, never the other state's
     and never a guess; with no state or no sample the saved colours apply. Furigana reads the same variables. */
  const stateStyle=new Map();let readState='',pixelPaint=null,endAlpha=1,lineSpeaker='';
- const paintLine=(color,text,style)=>{const gs=window.TomoyoGameStyle,p=b.galPreferences?.()||{},root=document.documentElement.style;
-  let paint=gs?.linePaint?gs.linePaint(p,text||'',color,style||null):null;if(!gs?.linePaint&&gs?.lineColor){const c=gs.lineColor(p,text||'',color);paint=c?{color:c,edge:'',sampled:!!color}:null;}
+ /* Colour rule (2026-11-29, 群友 1.4.26: the line went between the user's colour and the game's while one sentence was on screen): a colour
+    the user picked (分角色 for that speaker, else colorSource 'user' from Alt+T / Settings) paints every line, whatever the game draws later;
+    only without one, and with 同步原文样式 on, a line takes the game's own colour. The game's colour is still read for 分角色 and the read
+    states either way, so it never decides what is painted while the user's colour applies. */
+ const paintLine=(color,text,style)=>{const gs=window.TomoyoGameStyle,p=b.galPreferences?.()||{},root=document.documentElement.style,mineAll=p.colorSource==='user',game=mineAll?{...p,colorSource:''}:p;
+  let paint=gs?.linePaint?gs.linePaint(game,text||'',color,style||null):null;if(!gs?.linePaint&&gs?.lineColor){const c=gs.lineColor(game,text||'',color);paint=c?{color:c,edge:'',sampled:!!color}:null;}
   if(paint?.sampled&&readState)stateStyle.set(readState,paint);
   else if(!color&&!style&&text&&readState&&p.autoGameStyle!==false&&stateStyle.has(readState))paint=stateStyle.get(readState);
+  const seen=paint;if(mineAll)paint=null;
   /* 2026-11-28 per-speaker colours (speaker-colors.js): the colour the game drew this speaker's line with is learned for the work's
      分角色 list; a colour the user picked for the speaker paints the line instead, read state and the game's outline kept */
-  {const sc=window.MeguLitSpeakerColors,who=sc&&text?String(lineSpeaker||'').trim()||sc.nameIn(text):'';if(who){if(paint?.sampled&&paint.color)b.speakerColorsLearn?.(who,paint.color);const mine=b.speakerColorsOverride?.(who);if(mine)paint={color:mine,edge:paint?.edge||'',sampled:false};}}
+  {const sc=window.MeguLitSpeakerColors,who=sc&&text?String(lineSpeaker||'').trim()||sc.nameIn(text):'';if(who){if(seen?.sampled&&seen.color)b.speakerColorsLearn?.(who,seen.color);const mine=b.speakerColorsOverride?.(who);if(mine)paint={color:mine,edge:paint?.edge||'',sampled:false};}}
   const on=!!paint?.color,edge=on&&!!paint.edge;document.body.classList.toggle('tome-line-color',on);document.body.classList.toggle('tome-line-edge',edge);
   if(on)root.setProperty('--tomoyo-gal-line-color',paint.color);else root.removeProperty('--tomoyo-gal-line-color');
   if(edge)root.setProperty('--tomoyo-gal-line-edge',paint.edge);else root.removeProperty('--tomoyo-gal-line-edge');};

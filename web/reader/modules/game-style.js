@@ -11,7 +11,7 @@
     choiceCnColor:'',choiceCnScale:100,choiceCnFont:'',choiceCnX:0,choiceCnY:0,choiceRubyScale:100,choiceRubyFont:'',choiceRubyX:0,choiceRubyY:0,
     typewriter:true,typewriterSpeed:35, layoutVersion: 22, style: 'classic', display: 'bilingual', translationInline: false, japaneseOneLine: false, furigana: true, japaneseSize: 34,
     translationSize: 30, rubyScale: .55, rubyOffsetX:0, rubyOffsetY:3, rubyRowOffsets:'',rubyRowOffsetsX:'', lineHeight: 0, lineHeightMode:'offset', translationLineHeight:0, japaneseSpacing:0, japaneseSpacingPx:0,chineseSpacingPx:0, gap: -2, translationWidth: 75,
-    paddingX: 20, paddingY: 10, textColor: '#fffaf2', readTextColor: '', speechTextColor: '', narrationTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
+    paddingX: 20, paddingY: 10, textColor: '#fffaf2', colorSource: '', readTextColor: '', speechTextColor: '', narrationTextColor: '', textGradient:false, textGradientTop:'#fffaf2', textGradientBottom:'#a8c8ff', readTextGradient:false, readTextGradientTop:'#b0e2ff', readTextGradientBottom:'#639bd1', textGradientStart:0, readTextGradientStart:0, shadow: 'outline', autoScale: true,
     bindEnabled: false, interfaceMode:'normal', gameProcess: '', x: 4, y: 70, width: 92, height: 27, anchorDX: 0, anchorDY: 0,
     autoGameStyle:true, livePosition:false, hookProfile:'read', embedTranslation:false, hookAutoStart:true, hookHide:true, hookFast:true, mask: false, maskMode: 'hook', maskColor: '#171923',
     scanAuto: true, scanX: 2, scanY: 60, scanWidth: 96, scanHeight: 38, blurRadius: 13, maskPadding: 6, fastMask:true,
@@ -81,6 +81,9 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     result.mask = false;
     // 'user' once the user set a text size by hand: automatic calibration then keeps it (issue 119).
     result.sizeSource = value.sizeSource === 'user' ? 'user' : '';
+    /* 2026-11-29 (群友, 1.4.26: 「会设置的颜色跟原文颜色变来变去」) who chose the text colours: 'user' = picked in Alt+T or Settings,
+       kept over the game's colour for every line; '' = measured or default, and with 同步原文样式 each line takes the game's colour. */
+    result.colorSource = value.colorSource === 'user' ? 'user' : '';
     if (value.layoutVersion !== 22) {
       result.japaneseSize = Math.max(34, result.japaneseSize);
       result.translationSize = Math.max(30, result.translationSize);
@@ -112,7 +115,7 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     return /^(?:[^\s　「『（(“"]{1,16}[\s　]*)?[「『（(“"]/.test(t) && /[」』）)”"][\s　。、！？!?…―ー]*$/.test(t) ? 'speech' : 'narration';
   }
   function lineColor(settings, text='', engineColor='') {
-    if (!settings || settings.autoGameStyle === false) return '';
+    if (!settings || settings.autoGameStyle === false || settings.colorSource === 'user') return '';
     const own = settings.textGradient || settings.readTextGradient || !!settings.readTextColor && String(settings.readTextColor).toLowerCase() !== String(settings.textColor).toLowerCase();
     const hex = c => /^#[0-9a-f]{6}$/i.test(String(c || ''));
     const lum = c => { const v = [1,3,5].map(i => parseInt(String(c).slice(i, i + 2), 16)); return v[0] * .2126 + v[1] * .7152 + v[2] * .0722; };
@@ -138,7 +141,7 @@ if(typeof value.rubyRowOffsetsX==='string')result.rubyRowOffsetsX=value.rubyRowO
     // An actual engine colour takes priority over a learned/manual gradient for that sentence.
     /* Saved read colours can come from calibration; they must not suppress this sentence's draw evidence. */
     /* An engine colour near black over a light text setting is a shadow/outline or an unset field, not the text (user: ISLAND sometimes came out black) */const lum=c=>{const v=[1,3,5].map(i=>parseInt(String(c).slice(i,i+2),16));return v[0]*.2126+v[1]*.7152+v[2]*.0722;};if(/^#[0-9a-f]{6}$/i.test(engineColor)&&lum(engineColor)<48&&!(/^#[0-9a-f]{6}$/i.test(settings.textColor)&&lum(settings.textColor)<96))engineColor='';
-    if(settings.autoGameStyle!==false&&/^#[0-9a-f]{6}$/i.test(engineColor))return {color:engineColor,gradient:'none',fill:'currentColor'};
+    if(settings.autoGameStyle!==false&&settings.colorSource!=='user'&&/^#[0-9a-f]{6}$/i.test(engineColor))return {color:engineColor,gradient:'none',fill:'currentColor'};
     const prefix=read?'readText':'text',on=settings[prefix+'Gradient'];
     return {color:read?(settings.readTextColor||settings.textColor):settings.textColor,
       gradient:on?'linear-gradient(to bottom, '+settings[prefix+'GradientTop']+' '+(Number(settings[prefix+'GradientStart'])||0)+'%, '+settings[prefix+'GradientBottom']+' 100%)':'none',fill:on?'transparent':'currentColor'};

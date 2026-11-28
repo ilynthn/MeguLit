@@ -291,7 +291,7 @@
   const hide=card('tome-mask-hide','原文隐藏'),wait=card('tome-mask-wait','点击等待图标');
   const put=(parent,nodes)=>{for(const n of nodes)if(n&&n.parentElement!==parent)parent.append(n);};
   const opts=q('[data-gal-hook-options]');
-  put(hide,[q('[name=galMaskMode]')?.closest('label'),opts,q('[data-gal-full-color]')]);
+  put(hide,[q('[name=galMaskMode]')?.closest('label'),opts]);
   put(wait,[q('[name=galRelocateWaitMarker]')?.closest('label'),q('[name=galHideWaitMarker]')?.closest('label'),q('[name=galWaitCoverStyle]')?.closest('label'),q('[data-gal-wait-state]')]);
   let diag=q(':scope>details.tome-mask-diag');if(!diag){diag=document.createElement('details');diag.className='tome-mask-diag';diag.innerHTML='<summary>状态与诊断</summary>';}
   put(diag,[q('.tomoyo-mask-state:not([data-gal-wait-state])'),q('.tomoyo-v4-hook')]);

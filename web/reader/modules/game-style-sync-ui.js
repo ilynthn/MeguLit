@@ -165,7 +165,11 @@
   if(m.gameStyleOwner&&m.gameStyleOwner!==owner)return;
   if(!m.gameStyleOwner&&!document.body.classList.contains('tomoyo-ui-translation'))return;
   const r=m.gameStyle,out=convert(r);if(!out)return;/* Issue 119: automatic calibration keeps a size the user set by hand; a sync the user starts measures it again */if(m.gameStyleAutomatic===true&&b.galPreferences().sizeSource==='user'){
-   for(const k of ['japaneseSize','translationSize','japaneseSpacingPx'])delete out[k];}else if(m.gameStyleAutomatic!==true)out.sizeSource='';const part=m.gameStylePurpose||'all',
+   for(const k of ['japaneseSize','translationSize','japaneseSpacingPx'])delete out[k];}else if(m.gameStyleAutomatic!==true)out.sizeSource='';
+  /* the same for colours (2026-11-29): an automatic measurement never replaces colours the user picked; 从游戏同步 started by the user hands
+     them back to the game (colorSource '': lines follow the game's colour again) */
+  if(m.gameStyleAutomatic===true&&b.galPreferences().colorSource==='user'){for(const k of ['textColor','readTextColor','speechTextColor','narrationTextColor','textGradient','textGradientTop','textGradientBottom','readTextGradient','readTextGradientTop','readTextGradientBottom'])delete out[k];}
+  else if(m.gameStyleAutomatic!==true)out.colorSource='';const part=m.gameStylePurpose||'all',
    generation=++measurementSerial,key=session.key;
   document.body.classList.remove('tome-style-probing');
   apply(pick(out,part));message=t('measured');aligning=part!=='text';
