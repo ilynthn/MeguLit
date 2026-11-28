@@ -130,7 +130,7 @@ test('top tab 排行榜 sits between 学习 and 工具 and the page renders the 
  const app=fs.readFileSync(path.join(__dirname,'..','web','app.js'),'utf8');
  assert.ok(app.includes("['home','library','novel','history','learning'].map(tabButton)"));assert.ok(app.includes("['leaderboard','daily','torch'].map(tabButton)"));assert.ok(app.includes("['tools','settings','about'].map("));assert.ok(app.includes('data-top-me'));
  const view=await import(pathToFileURL(path.join(__dirname,'..','web','leaderboard-view.js')).href);
- assert.deepEqual(view.leaderboardLabel,{zh:'广场',ja:'広場',en:'Plaza'});
+ assert.deepEqual(view.leaderboardLabel,{zh:'社区',ja:'コミュニティ',en:'Community'});
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
  const local={stats:{week:{characters:1510,seconds:910,words:1,streak:2}},currentStreak:4};
  const zh=view.leaderboardHTML({configured:false,local,board:{state:'not-configured'}},'zh',esc);
