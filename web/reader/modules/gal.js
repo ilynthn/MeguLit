@@ -675,9 +675,9 @@
   // Values applied from outside the menu (style sync, saved game style) also go into an open menu's fields and its
   // saved snapshot; otherwise the next preview would rebuild settings from the stale fields (the synced colour turned
   // back to black as soon as the outline was touched) and Cancel would undo the sync.
-  let syncingForm=false;
+  let syncingForm=false,colourTouched=false;
   const syncOpenForm = values => { const dialog = document.querySelector('.tomoyo-cn-dialog[open]'); if (!dialog) return;
-    syncingForm=true;try{for (const [key, value] of Object.entries(values)) {
+    if('colorSource' in values)colourTouched=false;syncingForm=true;try{for (const [key, value] of Object.entries(values)) {
      // The same two controls edit either the box position or the offset from the game glyph.
      // A calibration can update both pairs while the menu is open. Only display the pair the form will read.
      const name = key === 'translationSize' ? 'ChineseSize' : key[0].toUpperCase()+key.slice(1);
@@ -1082,10 +1082,13 @@
     bridge.galStatus({hookMessage:bridge.hookMessage||'选择 Hook 后会检查本地组件；尚未选择对话流时不会清空文字',hookThreads:bridge.hookThreads||[]});
     group.querySelector('[data-gal-hook-select]').onclick=()=>send({type:'hookSelect',id:f('galHookThread').value});
     dialogFields.maskState.textContent = bridge.maskMessage || '局部遮字会在绑定游戏并收到原文后启动';
-    /* a text colour changed in this menu is the user's: it paints every line from now on, over the game's (game-style.js colorSource) */
-    const colourKeys = ['textColor','textGradient','textGradientTop','textGradientBottom','textGradientStart','readTextGradient','readTextGradientTop','readTextGradientBottom','readTextGradientStart'];
-    const colourPicked = form => colourKeys.some(k => String(form[k]).toLowerCase() !== String(preferences[k]).toLowerCase()) || String(form.readTextColor||'').toLowerCase() !== String(preferences.readTextColor||'').toLowerCase();
-    const current = () => { const form = currentForm(); return colourPicked(form) ? appearance.clean({ ...form, colorSource:'user' }) : form; };
+    /* a text colour picked in this menu (an input on one of the colour controls, not a value the menu was filled with) is the user's:
+       it paints every line from now on, over the game's (game-style.js colorSource). Picking counts, not comparing values: a calibrated
+       read colour equal to the unread one reads back as '' and is no change, and the same colour picked again still marks it. */
+    const colourFields = new Set(['galTextColor','galReadTextColor','galTextGradient','galTextGradientTop','galTextGradientBottom','galTextGradientStart','galReadTextGradient','galReadTextGradientTop','galReadTextGradientBottom','galReadTextGradientStart']);
+    const touchColour = e => { if (!syncingForm && colourFields.has(e.target?.name)) colourTouched = true; };
+    group.addEventListener('input', touchColour, true); group.addEventListener('change', touchColour, true);
+    const current = () => { const form = currentForm(); return colourTouched ? appearance.clean({ ...form, colorSource:'user' }) : form; };
     const currentForm = () => appearance.clean({ ...preferences, readTextColor: f('galReadTextColor').value.toLowerCase() === f('galTextColor').value.toLowerCase() ? '' : f('galReadTextColor').value,
      furigana: f('galFurigana').checked, japaneseSize: Number(f('galJapaneseSize').value), sizeSource: Number(f('galJapaneseSize').value)!==preferences.japaneseSize||Number(f('galChineseSize')?.value??preferences.translationSize)!==preferences.translationSize?'user':preferences.sizeSource,
       ...(fieldsAreOffset ? { x: preferences.x, y: preferences.y, anchorDX: Number(f('galX').value) || 0, anchorDY: Number(f('galY').value) || 0 } : { x: Number(f('galX').value), y: Number(f('galY').value), anchorDX: Number(preferences.anchorDX) || 0, anchorDY: Number(preferences.anchorDY) || 0 }), width: Number(f('galWidth').value), height: Number(f('galHeight').value),
@@ -1094,7 +1097,7 @@
      if(event?.type==='submit'&&dialog.dataset.menuTab==='calibrate'&&bridge.saveGameProfileFromMenu){event.preventDefault();event.stopImmediatePropagation();bridge.saveGameProfileFromMenu(preferences);
      return;} if(preferences.textColor.toLowerCase()!==committed.textColor.toLowerCase()){previousColor=committed.textColor;localStorage.setItem(colorHistoryKey,
      previousColor);colorUndo.disabled=false;} committed = { ...preferences }; localStorage.setItem('tomoyo-gal-settings', JSON.stringify({...preferences,translationPrompt:undefined,anchorDX:undefined,anchorDY:undefined}));
-     send({ type: 'galConfigure', settings: preferences }); bridge.saveGameProfileFromMenu?.(preferences); apply(); };
+     send({ type: 'galConfigure', settings: preferences }); bridge.saveGameProfileFromMenu?.(preferences); colourTouched=false; apply(); };
     const updateMaskForm = () => { group.querySelector('[data-gal-hook-options]').hidden=f('galMaskMode').value!=='hook';
      };
     updateMaskForm();
@@ -1193,7 +1196,7 @@
      if (fieldsAreOffset) { const was = syncingForm; syncingForm = true; try { f('galX').value = 0; f('galY').value = 0; for (const update of sliderOutputs) update(); } finally { syncingForm = was; } }
      committed = { ...preferences }; send({ type: 'galConfigure', settings: preferences }); bridge.saveGameProfileFromMenu?.(preferences); apply(); };
     form.addEventListener('submit', save, true);
-    dialog.addEventListener('close', () => { if(previewFrame){cancelAnimationFrame(previewFrame);previewFrame=0;}/* issue 468 (寒蝉: Alt+T 里调小字号，一关设置又变大): a text size changed in the menu is the user's size, kept on close like the home settings' size (same value, sizeSource user); other unsaved edits are still dropped */{const size={japaneseSize:Number(f('galJapaneseSize')?.value),translationSize:Number(f('galChineseSize')?.value??committed.translationSize)};if(Number.isFinite(size.japaneseSize)&&Number.isFinite(size.translationSize)&&(size.japaneseSize!==committed.japaneseSize||size.translationSize!==committed.translationSize)){committed=appearance.clean({...committed,...size,sizeSource:'user'});localStorage.setItem('tomoyo-gal-settings', JSON.stringify({...committed,translationPrompt:undefined,anchorDX:undefined,anchorDY:undefined}));send({ type: 'galConfigure', settings: committed });bridge.saveGameProfileFromMenu?.(committed);}}preferences = {...committed,interfaceMode:preferences.interfaceMode};
+    dialog.addEventListener('close', () => { if(previewFrame){cancelAnimationFrame(previewFrame);previewFrame=0;}colourTouched=false;/* issue 468 (寒蝉: Alt+T 里调小字号，一关设置又变大): a text size changed in the menu is the user's size, kept on close like the home settings' size (same value, sizeSource user); other unsaved edits are still dropped */{const size={japaneseSize:Number(f('galJapaneseSize')?.value),translationSize:Number(f('galChineseSize')?.value??committed.translationSize)};if(Number.isFinite(size.japaneseSize)&&Number.isFinite(size.translationSize)&&(size.japaneseSize!==committed.japaneseSize||size.translationSize!==committed.translationSize)){committed=appearance.clean({...committed,...size,sizeSource:'user'});localStorage.setItem('tomoyo-gal-settings', JSON.stringify({...committed,translationPrompt:undefined,anchorDX:undefined,anchorDY:undefined}));send({ type: 'galConfigure', settings: committed });bridge.saveGameProfileFromMenu?.(committed);}}preferences = {...committed,interfaceMode:preferences.interfaceMode};
      dialogFields = null;commitSynchronizedStyle=null;/* 2026-11-16 Alt+T: closing only drops the menu's unsaved edits; re-sending the snapshot as a preview turned the embed off */if(bound)send({type:'galPreviewEnd'});setTimeout(()=>send({ type: 'galMenu', open: !!document.querySelector('.tomoyo-cn-dialog[open],.tome-backlog[data-open],.tomoyo-cn-dialog[data-leaving],.tome-backlog[data-leaving]') }),
      340);apply(); }, { once: true });
     send({ type: 'galWindows' }); send({ type: 'galMenu', open: true });

@@ -98,18 +98,62 @@ test('the mark travels with a work\'s settings and the home settings set it when
  s.save({scope:'text',values:{textColor:'#ff2020'}});
  assert.equal(s.read('text').colorSource,'user');assert.equal(s.read('text').textColor,'#ff2020');
  const key='b'.repeat(64);
- fs.writeFileSync(path.join(s.folder,'game-style-profiles.json'),JSON.stringify({version:3,entries:{[key]:{name:'x',savedAt:1,textSavedAt:1,prefs:{textColor:'#ffffff'}}}}));
- assert.equal(s.read('text',key).colorSource,'user','a work without its own mark follows the global one');
+ fs.writeFileSync(path.join(s.folder,'game-style-profiles.json'),JSON.stringify({version:3,entries:{[key]:{name:'x',savedAt:1,textSavedAt:1,prefs:{japaneseSize:30}}}}));
+ assert.equal(s.read('text',key).colorSource,'user','a work with no colours of its own shows the global ones, marked');
  s.save({scope:'text',profile:key,values:{readTextColor:'#a0a0ff'}});
  assert.equal(s.read('text',key).colorSource,'user');
 });
 
-test('Alt+T: a colour changed in the menu is marked as the user\'s; an automatic measurement keeps it, a sync the user starts hands it back',()=>{
- const flat=f=>require('./flat-source.cjs')(path.join(root,f));
- const gal=flat('web/reader/modules/gal.js');
- assert.match(gal,/const current = \(\) => \{ const form = currentForm\(\); return colourPicked\(form\) \? appearance\.clean\(\{ \.\.\.form, colorSource:'user' \}\) : form; \};/);
- assert.match(gal,/const colourKeys = \['textColor','textGradient',/);
- const sync=flat('web/reader/modules/game-style-sync-ui.js');
+const hasEdge=[process.env.MEGULIT_EDGE,'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].some(p=>p&&fs.existsSync(p));
+/* the real reader page in headless Edge (no game, no service): Alt+T opened, fields changed the way a user changes them */
+test('Alt+T: picking a text colour marks it as the user\'s; other edits and a calibrated read colour do not',{skip:!hasEdge&&'Edge not installed',timeout:120000},async t=>{
+ const http=require('node:http'),{startEdge}=require('./library-views-perf.cjs'),WEB=path.join(root,'web'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ const TYPES={'.js':'text/javascript','.css':'text/css','.html':'text/html; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2','.json':'application/json','.webp':'image/webp'};
+ const STUB=`<script>try{localStorage.clear();}catch{}window.__TAURI_INTERNALS__={transformCallback:()=>1,invoke:async(cmd,args)=>{const r=args&&args.request||{};
+  if(cmd==='service'){if(r.action==='home')return {preferences:{language:'zh',themeMode:'dark'},games:[]};if(r.action==='ui_state')return {};
+   if(r.action==='reader_bootstrap')return {engines:[],native:{new_game_tip:false}};if(r.action==='reader_message')return {replies:[]};return {};}return null;}};</script>`;
+ const server=http.createServer((req,res)=>{const rel=decodeURIComponent(new URL(req.url,'http://x').pathname),file=path.join(WEB,rel);
+  if(!file.startsWith(WEB)||!fs.existsSync(file)||!fs.statSync(file).isFile()){if(/^\/reader\/modules\/[a-z0-9-]+\.js$/.test(rel)){res.writeHead(200,{'content-type':'text/javascript'});return res.end('');}res.writeHead(404);return res.end();}
+  let data=fs.readFileSync(file);if(rel==='/reader/index.html')data=Buffer.from(String(data).replace('<head>','<head>'+STUB));
+  res.writeHead(200,{'content-type':TYPES[path.extname(file)]||'application/octet-stream'});res.end(data);});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-colour-altt-'));const cdp=await startEdge(path.join(temp,'edge'));
+ t.after(async()=>{await cdp.stop();server.close();await sleep(300);try{fs.rmSync(temp,{recursive:true,force:true});}catch{}});
+ await cdp.send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/reader/index.html`});
+ let ready=false;for(let i=0;i<160&&!ready;i++){await sleep(250);ready=await cdp.evaluate('!!window.__TOME_READER_READY__').catch(()=>false);}
+ assert.ok(ready,'reader loaded');
+ const source=()=>cdp.evaluate('window.__tomoyoChinese.galPreferences().colorSource');
+ const edit=(name,value)=>cdp.evaluate(`(()=>{const f=document.querySelector('.tomoyo-cn-dialog [name=${name}]');f.value=${JSON.stringify(value)};f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));return 1;})()`);
+ /* a calibration stored the same colour for read and unread lines (core/game-style-sync.cjs), then the menu is opened */
+ await cdp.evaluate(`(()=>{window.__tomoyoMode.set('translation');window.__tomoyoChinese.applyGalPreferences({textColor:'#ffffff',readTextColor:'#ffffff'},{preview:false});window.__tomoyoChinese.openSettings();return 1;})()`);
+ await sleep(800);
+ assert.equal(await source(),'','nothing picked yet');
+ await edit('galJapaneseSize','30');await sleep(100);
+ assert.equal(await source(),'','a size change does not mark the colours');
+ await edit('galTextColor','#ff2020');await sleep(100);
+ assert.equal(await source(),'user','a picked colour does');
+ assert.equal(await cdp.evaluate('window.__tomoyoChinese.galPreferences().textColor'),'#ff2020');
+});
+
+test('home Settings: saving the whole text form marks the colour only when a colour changed; a work\'s own measured colours are not locked',t=>{
+ const {Settings}=require('../services/settings.cjs');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'megulit-colour-form-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const s=new Settings(dir),form=()=>{const v=s.read('text');return {textColor:v.textColor,readTextColor:v.readTextColor||v.textColor,textGradient:v.textGradient,textGradientTop:v.textGradientTop,textGradientBottom:v.textGradientBottom,textGradientStart:v.textGradientStart,japaneseSize:v.japaneseSize};};
+ s.save({scope:'text',values:{...form(),japaneseSize:26}});
+ assert.equal(s.read('text').colorSource,'','a size change saved with the whole form, read colour shown as the unread one');
+ s.save({scope:'text',values:{...form(),textColor:'#ff2020'}});assert.equal(s.read('text').colorSource,'user');
+ const key='c'.repeat(64);
+ fs.writeFileSync(path.join(s.folder,'game-style-profiles.json'),JSON.stringify({version:3,entries:{[key]:{name:'x',savedAt:1,textSavedAt:1,prefs:{textColor:'#ffffff'}}}}));
+ assert.equal(s.read('text',key).colorSource,'','a work with its own (measured) colour keeps following the game');
+ const sa=require('../services/shared-adaptation.cjs');
+ const exe=path.join(dir,'game.exe');fs.writeFileSync(exe,'MZ sample');
+ const shared=p=>sa.build({fingerprint:sa.fingerprint(exe,'kirikiri'),stream:null,embed:'verified',profile:{textSavedAt:1,prefs:p}})?.layout?.colors||null;
+ assert.equal(shared({textColor:'#ffffff'}).textColor,'#ffffff');
+ assert.equal(shared({textColor:'#ff2020',colorSource:'user'}),null,'a colour the user picked is not shared as the game\'s');
+});
+
+test('Alt+T calibration: an automatic measurement keeps colours the user picked, a sync the user starts hands them back',()=>{
+ const sync=require('./flat-source.cjs')(path.join(root,'web/reader/modules/game-style-sync-ui.js'));
  assert.match(sync,/if\(m\.gameStyleAutomatic===true&&b\.galPreferences\(\)\.colorSource==='user'\)\{for\(const k of \['textColor','readTextColor',[^\]]*\]\)delete out\[k\];\}\s*else if\(m\.gameStyleAutomatic!==true\)out\.colorSource='';/);
 });
 

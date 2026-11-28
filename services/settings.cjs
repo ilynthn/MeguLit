@@ -94,8 +94,10 @@ class Settings{
   }
   if(scope==='dictionary'&&Object.hasOwn(values,'contextProvider')&&values.contextProvider!==current.contextProvider)next.contextProviderPicked=true; /* a context source changed on purpose (#1117, Codex #1176) */
   const written=Object.keys(values||{});if(scope==='text'&&written.some(k=>['japaneseSize','translationSize','englishSize'].includes(k))){next.sizeSource='user';written.push('sizeSource');}
-  /* a text colour set here is the user's (game-style.js colorSource): every line keeps it over the game's colour */
-  if(scope==='text'&&written.some(k=>/^(?:textColor|readTextColor|(?:read)?[tT]extGradient(?:Top|Bottom|Start)?)$/.test(k))){next.colorSource='user';written.push('colorSource');}
+  /* a text colour changed here is the user's (game-style.js colorSource): every line keeps it over the game's colour. The page saves the
+     whole text form, so only a value that differs from the stored one counts (a read colour shown as the unread one is the same as '') */
+  if(scope==='text'){const colour=(v,k)=>{const x=String(v??'').toLowerCase();return k==='readTextColor'&&x===String(current.textColor??'').toLowerCase()?'':x;};
+   if(written.some(k=>/^(?:textColor|readTextColor|(?:read)?[tT]extGradient(?:Top|Bottom|Start)?)$/.test(k)&&colour(values[k],k)!==colour(current[k],k))){next.colorSource='user';written.push('colorSource');}}
   if(gameScopes.has(scope)){
     /* a gap or ruby height typed here never takes the one-time spacing move */if(written.some(k=>k==='gap'||k==='rubyOffsetY'))next.spacingDefaults=1;
     const cleaned=gameStyle.clean(next);

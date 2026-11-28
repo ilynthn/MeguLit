@@ -76,7 +76,7 @@ function build({fingerprint:fp,stream,embed,hookProfile,flowPage,profile,zeroLat
  const prefs=profile?.prefs||{},calibratedText=!!profile?.textSavedAt,calibratedBox=!!profile?.positionSavedAt;
  const scanKeys=Object.values(SCAN).every(k=>k in prefs);
  return clean({schema:SCHEMA,version:VERSION,fingerprint:fp,hook:{stream,embed,profile:hookProfile||prefs.hookProfile},flowPage:flowPage===true,
-  layout:{box:calibratedBox?area(prefs,BOX):null,scan:scanKeys?area(prefs,SCAN):null,colors:calibratedText?Object.fromEntries([...COLOR_KEYS,...GRADIENT_KEYS].filter(k=>k in prefs).map(k=>[k,prefs[k]])):null},
+  layout:{box:calibratedBox?area(prefs,BOX):null,scan:scanKeys?area(prefs,SCAN):null,colors:calibratedText&&prefs.colorSource!=='user'/* colours the user picked are a taste, not the game's */?Object.fromEntries([...COLOR_KEYS,...GRADIENT_KEYS].filter(k=>k in prefs).map(k=>[k,prefs[k]])):null},
   zeroLatency,localeMode,appVersion});
 }
 const empty=r=>!r||!r.hook.stream&&!r.hook.embed&&!r.layout.box&&!r.layout.scan&&!r.layout.colors&&!r.zeroLatency&&!r.flowPage&&!r.localeMode;

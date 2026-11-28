@@ -17,6 +17,7 @@
     when it was chosen for it (Alt+T, a calibration, its own page in Settings): a size equal to the global one that the work did not
     already hold is left out, and the work follows Settings. sizes:1 marks entries written under this rule. */
  const sizeKeys=['japaneseSize','translationSize','englishSize'];
+ const colourKeys=['textColor','readTextColor','speechTextColor','narrationTextColor','textGradient','textGradientTop','textGradientBottom','readTextGradient','readTextGradientTop','readTextGradientBottom'];
  function ownSizes(prefs,base,owned){const out={...prefs},has=k=>!!owned&&Object.hasOwn(owned,k);let kept=false;
   for(const k of sizeKeys){if(!(k in out))continue;if(!has(k)&&Number(out[k])===Number(base?.[k]))delete out[k];else kept=true;}
   if(!kept&&'sizeSource' in out&&!has('sizeSource'))delete out.sizeSource;return out;}
@@ -30,6 +31,9 @@
   if(entry.sizes!==1){const held=sizeKeys.filter(k=>k in prefs);
    if(prefs.sizeSource!=='user'&&held.every(k=>Number(prefs[k])===legacySizes[k]))for(const k of held)delete prefs[k];
    if(!sizeKeys.some(k=>k in prefs))delete prefs.sizeSource;}
+  /* colours a work holds without the colorSource mark were measured or copied for it, not picked: they follow the game, and a mark
+     set in Settings for every work does not lock them (2026-11-29) */
+  if(!('colorSource' in prefs)&&colourKeys.some(k=>k in prefs))prefs.colorSource='';
   return {...entry,prefs,textSavedAt,positionSavedAt,history,sizes:1};}
  const copy=v=>v==null?null:JSON.parse(JSON.stringify(v));
  const canonical=v=>JSON.stringify(Object.fromEntries(Object.entries(v||{}).sort(([a],[b])=>a.localeCompare(b))));
