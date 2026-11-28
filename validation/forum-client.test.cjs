@@ -50,7 +50,15 @@ test('forum page: three languages share the keys, text is escaped, wiring is in 
  assert.equal(view.errorText(Error('FORUM_MODERATION_ADULT'),'zh'),'审核未通过：疑似成人内容');assert.equal(view.errorText(Error('FORUM_WHATEVER'),'en'),'Cannot reach the online service right now');
  for(const code of ['UNAUTHORIZED','RATE_LIMITED','TITLE_LENGTH','BODY_LENGTH','TEXT_LINK','TEXT_BLOCKED','TEXT_INVALID','MODERATION_ABUSE','MODERATION_SPAM','THREAD_FULL','FORBIDDEN'])assert.ok(view.forumWords('ja')[code],code);
  const web=f=>fs.readFileSync(path.join(__dirname,'..','web',f),'utf8');
- assert.match(web('leaderboard-view.js'),/\['board','hot','follow','forum'\]/);
+ assert.match(web('leaderboard-view.js'),/\['board','hot',\.\.\.CHART_BOARDS,'follow','forum'\]/);
  assert.match(web('game-detail.js'),/这部作品的讨论/);assert.match(web('app.js'),/setForumFilter\(\{game:/);
  assert.match(fs.readFileSync(path.join(__dirname,'..','services','bridge.cjs'),'utf8'),/case 'forum_post':/);
+});
+/* 2026-11-28 (user: Hook 适配 改成游戏针对适配请求的命名) the category keeps its id `hook`; only the name changes, and a new
+   post in it asks for the game name, engine and problem */
+test('forum: the hook category is shown as 适配请求 / 対応リクエスト / Adaptation requests with its own writing hint',async()=>{
+ const {pathToFileURL}=require('node:url');const view=await import(pathToFileURL(path.join(__dirname,'..','web','forum-view.js')).href);
+ assert.deepEqual(['zh','ja','en'].map(l=>view.forumWords(l).hook),['适配请求','対応リクエスト','Adaptation requests']);
+ for(const l of ['zh','ja','en'])assert.match(view.forumWords(l).hookBodyHint,/游戏名|ゲーム名|game name/);
+ assert.match(fs.readFileSync(path.join(__dirname,'..','web','forum-view.js'),'utf8'),/tag==='hook'\?w\.hookBodyHint:w\.bodyHint/);
 });

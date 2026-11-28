@@ -154,7 +154,7 @@ test('the 教程 button in the Alt+T menu carries a red dot until the tour has b
  await withReader(async({cdp,launch,saved})=>{
   await launch('pid1|a',{before:"localStorage.setItem('tomoyo-onboarding',JSON.stringify({shown:5}));"});
   await cdp.evaluate(`(()=>{window.__tomoyoChinese.toggleGalMenu();return 1;})()`);await sleep(1200);
-  const dot=()=>cdp.evaluate(`(()=>{const b=document.querySelector('.tomoyo-cn-dialog[open] #mg-menu-tour');if(!b)return null;const a=getComputedStyle(b,'::after');return {data:b.hasAttribute('data-new'),painted:a.content!=='none'&&parseFloat(a.width)>0,label:b.textContent.trim(),h:b.getBoundingClientRect().height};})()`);
+  const dot=()=>cdp.evaluate(`(()=>{const b=document.querySelector('.tomoyo-cn-dialog[open] #mg-menu-tour');if(!b)return null;const a=getComputedStyle(b.querySelector('span'),'::after');return {data:b.hasAttribute('data-new'),painted:a.content!=='none'&&parseFloat(a.width)>0,label:b.textContent.trim(),h:b.getBoundingClientRect().height};})()`);
   let d=await dot();assert.ok(d,'教程 button');assert.equal(d.label,'教程');assert.ok(d.data&&d.painted,'red dot before the tour was ever seen');assert.ok(d.h<=26,'a slim button, about the height of ×');
   await cdp.evaluate(`document.querySelector('#mg-menu-tour').click()`);await sleep(700);
   d=await dot();assert.equal(d.data,false,'the dot goes once the tour is on screen');await sleep(600);assert.equal(saved()?.seen,true,'remembered in ui-state.json');

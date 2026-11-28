@@ -132,6 +132,14 @@ function collectStats(db,now=new Date(),root=''){
  return out;
 }
 
+/* The About page's 「一起走过」 totals: the same all-time sums collectStats() puts in stats.all (reading_sessions seconds and
+   characters, every session, none of today-only), plus every lookup_events row; one function so the page, the board's
+   local numbers and the upload cannot drift apart. Read-only; no migration needed because both tables already hold it all. */
+function journeyTotals(db,now=new Date()){
+ const until=windows(now).all.until,r=db.prepare('SELECT COALESCE(SUM(active_seconds),0) s,COALESCE(SUM(characters),0) c FROM reading_sessions WHERE started_at<?').get(until);
+ return {seconds:int(r.s),characters:int(r.c),lookups:int(db.prepare('SELECT COUNT(*) n FROM lookup_events WHERE occurred_at<?').get(until).n)};
+}
+
 /* ---- E379 this week's lookups for the hot-word awards (term + count only; no sentence, game or time) -------------- */
 /* Hot-word weeks run Monday 00:00 to Monday 00:00 in UTC+8, the same on every PC; relay/src/validate.js hotWeekKey. */
 function hotWeekKey(now=new Date()){const d=new Date(now.getTime()+8*3600000);const u=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));const day=u.getUTCDay()||7;u.setUTCDate(u.getUTCDate()+4-day);const year=u.getUTCFullYear(),first=new Date(Date.UTC(year,0,1));return `${year}-W${String(Math.ceil(((u-first)/86400000+1)/7)).padStart(2,'0')}`;}
@@ -236,12 +244,31 @@ async function fetchBoard(period,metric,options={}){
  const isGames=metric==='games';if(!isGames&&(!PERIODS.includes(period)||!QUERY_METRICS.includes(metric)))throw Error('LEADERBOARD_INVALID_QUERY');
  const q=new URLSearchParams(isGames?{metric}:{period,metric});if(!isGames&&period!=='all')q.set('key',periodKeys(options.now)[period]);
  if(isGames&&options.game)q.set('game',String(options.game).slice(0,120));if(c.me)q.set('me',c.me);
- let res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);
+ /* 2026-11-28 (user: switching 阅读时长 / 字数 / 次数 kept showing 请求太频繁) answers are kept BOARD_FRESH_MS; one request
+    to /api/leaderboard/boards brings every metric of the period at once; a refused or failed request shows the last
+    answer (stale, with a quiet retry) instead of an error */
+ const key=[options.root||'',c.base,isGames?'games':period,isGames?'':q.get('key')||'all',isGames?String(options.game||''):metric,c.me||''].join('|'),now=Date.now(),hit=boardCache.get(key);
+ if(hit&&now-hit.at<BOARD_FRESH_MS&&!options.fresh)return hit.value;
+ let res=null;
+ if(!isGames&&boardsSupported.get(c.base)!==false){
+  const m=new URLSearchParams(q);m.delete('metric');const all=await call(c.base+'/api/leaderboard/boards?'+m,{method:'GET'},options.fetch||fetch);
+  if(all.state==='ok'&&all.data?.boards&&typeof all.data.boards==='object'){boardsSupported.set(c.base,true);
+   for(const [name,data] of Object.entries(all.data.boards))if(QUERY_METRICS.includes(name)&&data&&typeof data==='object'){const k=[options.root||'',c.base,period,q.get('key')||'all',name,c.me||''].join('|');boardCache.set(k,{at:now,value:shapeBoard(data,false,options)});}
+   const got=boardCache.get(key);if(got&&got.at===now)return got.value;}
+  else if(all.state==='ok'||/^HTTP_40[45]$|^NOT_FOUND$/.test(String(all.error||'')))boardsSupported.set(c.base,false); /* an older relay: one request per board, as before */
+  else res=all;
+ }
+ if(!res)res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);
  /* a relay not yet updated for 学习练习 refuses metric=study: the kana board stands in until it is */
- if(res.state!=='ok'&&metric==='study'){q.set('metric','kana');res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);if(res.state==='ok'&&Array.isArray(res.data?.entries))res.data.entries=res.data.entries.map(e=>({...e,detail:{kana:e?.value}}));}
- if(res.state!=='ok')return res;
+ if(res.state!=='ok'&&metric==='study'&&res.error!=='RATE_LIMITED'){q.set('metric','kana');res=await call(c.base+'/api/leaderboard?'+q,{method:'GET'},options.fetch||fetch);if(res.state==='ok'&&Array.isArray(res.data?.entries))res.data.entries=res.data.entries.map(e=>({...e,detail:{kana:e?.value}}));}
+ if(res.state!=='ok')return hit?{...hit.value,stale:true,retry:Math.max(5,Math.min(60,int(res.retryAfter)||10))}:res;
+ const value=shapeBoard(res.data,isGames&&!options.game,options);if(boardCache.size>200)boardCache.clear();boardCache.set(key,{at:now,value});return value;
+}
+const BOARD_FRESH_MS=3*60*1000,boardCache=new Map(),boardsSupported=new Map();
+function shapeBoard(data,gamesList,options={}){
+ const res={data};
  const clean=e=>({rank:int(e?.rank),name:String(e?.name||'').slice(0,32),value:int(e?.value),me:e?.me===true,avatar:AVATAR_ID.test(String(e?.avatar||''))?e.avatar:null,pid:/^[0-9a-f]{16}$/.test(String(e?.pid||''))?e.pid:null,element:require('./reader-class.cjs').ELEMENTS.includes(e?.element)?e.element:'',level:Math.min(10000,int(e?.level)),...(e?.detail&&typeof e.detail==='object'?{detail:{kana:int(e.detail.kana),grammar:int(e.detail.grammar),anki:int(e.detail.anki),practice:int(e.detail.practice),studySeconds:int(e.detail.studySeconds)}}:{})});
- if(isGames&&!options.game)return {state:'ok',games:(Array.isArray(res.data.games)?res.data.games:[]).slice(0,100).map(g=>({title:String(g?.title||'').slice(0,120),readers:int(g?.readers),top:g?.top?clean(g.top):null}))};
+ if(gamesList)return {state:'ok',games:(Array.isArray(res.data.games)?res.data.games:[]).slice(0,100).map(g=>({title:String(g?.title||'').slice(0,120),readers:int(g?.readers),top:g?.top?clean(g.top):null}))};
  const f=res.data.feature,feature=f&&String(f.title||'').trim()?{title:String(f.title).slice(0,120),value:int(f.value),readers:int(f.readers)}:null;
  return {state:'ok',entries:(Array.isArray(res.data.entries)?res.data.entries:[]).slice(0,100).map(clean),total:int(res.data.total),me:res.data.me?{rank:int(res.data.me.rank),value:int(res.data.me.value)}:null,feature};
 }
@@ -373,6 +400,8 @@ async function view(root,db,request={},options={}){
  if(request.tab==='follow'){result.tab='follow';result.social=await social(root,options);return result;}
  if(tab==='hot'){result.hot=await hotWords(root,{week:request.week||'',category:CATEGORIES.includes(request.category)?request.category:'word'},options);return result;}
  result.board=await fetchBoard(period,metric,{...options,root,now,game:request.game});
+ /* 2026-11-28 按游戏 cards: library game, cover and Chinese name for each title, from what is already on this PC */
+ if(result.board.state==='ok'&&Array.isArray(result.board.games)){const info=require('./charts.cjs').titleInfo(root,db,result.board.games.map(g=>g.title));result.board={...result.board,games:result.board.games.map((g,i)=>({...g,...info[i]}))};}
  if(result.board.state==='ok'&&result.board.feature)result.board.feature.cover=await featureCover(root,db,result.board.feature.title,options);
  /* E420 新收录单词: the week's top hot word, shown as a word you can look up */
  if(result.board.state==='ok'&&metric==='words'){try{const h=await hotWords(root,{category:'word'},options);const top=h.state==='ok'?h.awards.find(a=>a.rank===1):null;if(top)result.board.word={term:top.term,users:top.users};}catch{}}
@@ -450,4 +479,4 @@ function libraryTitles(db){
  const seen=new Set();return rows.map(r=>String(r.title||'').trim().slice(0,120)).filter(t=>t&&!seen.has(t)&&seen.add(t)).slice(0,500);
 }
 /* forum pictures (forum.cjs) send raw WebP bytes */
-module.exports={chip,saveProfileName,relayCall:(...a)=>call(...a),socialCall,appealProfile,cleanBio,profileGet,profileSave,profileCard,followSet,reportProfile,social,libraryTitles,REPORT_KINDS,PERIODS,METRICS,CATEGORIES,BLOCKED,cleanName,cleanTerm,collectStats,collectLookups,hotWeekKey,periodKeys,windows,longestRun,currentRun,config,join,leave,submit,fetch:fetchBoard,view,publicHash,stateFile,identity,setAvatar,removeAvatar,avatarStatus,appealAvatar,avatarImages,report,hotWords};
+module.exports={chip,saveProfileName,relayCall:(...a)=>call(...a),socialCall,appealProfile,cleanBio,profileGet,profileSave,profileCard,followSet,reportProfile,social,libraryTitles,REPORT_KINDS,PERIODS,METRICS,CATEGORIES,BLOCKED,cleanName,cleanTerm,collectStats,journeyTotals,collectLookups,hotWeekKey,periodKeys,windows,longestRun,currentRun,config,join,leave,submit,fetch:fetchBoard,view,publicHash,stateFile,identity,setAvatar,removeAvatar,avatarStatus,appealAvatar,avatarImages,report,hotWords};

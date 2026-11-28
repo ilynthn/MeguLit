@@ -41,22 +41,29 @@
 
 | 谁 | 做什么 | issue | 分支 | 开始 | 状态 |
 |---|---|---|---|---|---|
+| 魚魚棟 · Claude | 点「原声」不发音：游戏删除或移动后仍标原声、点了读不到也不说原因；改为按能否读到标注，读不到时写明原因并改用合成朗读 | — | fix/game-voice-replay | 11-28 | 在做 |
+| 魚魚棟 · Claude | 文库内置书源：成为小说家吧（日文）+ 哩哩轻小说（中文）自动配对、日中逐段对照阅读，书源设置加说明和测试连接；relay 抓取代理只写方案等店主定 | — | claude/novel-bilingual | 11-28 | CI 全绿，待测试员实测（PR #1410） |
+| 魚魚棟 · Claude | 顶栏「广场」改名「社区」（Community / コミュニティ） | — | fix/plaza-to-community | 11-28 | 等 CI（PR #1421） |
 | 魚魚棟 · Claude | 1.4.26 设置「运行组件」中文残缺（注→汪、语缺顶）、简繁字体混排；disc-mount 补中文名和说明 | — | claude/runtime-list-cjk | 11-28 | 等 CI |
 | 魚魚棟 · Claude | 语音「已就绪」却读不出声音（1.4.26 群反馈）：引擎启动卡在连 huggingface.co，改离线启动；已就绪按引擎实际响应；读取失败写明原因和下一步 | — | fix/aivis-ready-voices | 11-28 | 在做 |
-| RRFZ · Claude | アオイトリ（青鸟）开场选流：只有两个假名的第一句没选流、先选到缺字的上下文 | — | rrfz/cmvs-startup-stream | 11-28 | 在做：等实测 |
+| RRFZ · Claude | アオイトリ（青鸟）开场选流：只有两个假名的第一句没选流、先选到缺字的上下文 | — | rrfz/cmvs-startup-stream | 11-28 | 在做：实测通过，按评审返工 |
+| RRFZ · Claude | アオイトリ（青鸟）长句一闪一闪：阅读器把游戏画成一行的长句按上一句宽度折成两行，打字中途整段跳出对话框（text-place.js） | — | rrfz/cmvs-one-row-wrap | 11-28 | 在做：评审中 |
 | 魚魚棟 · Claude | megulit-engine：Rust 直读引擎剧本（设计文档 + KiriKiri 原型） | — | claude/megulit-engine | 11-28 | 等 CI（PR #1365） |
 | 魚魚棟 · Claude | 批量骨架 seed 生成器：一批目录离线认引擎、算 key、写 skeleton seed，出可信度清单（基于 #1362） | — | claude/seed-skeleton-batch | 11-28 | 等 CI（PR #1366） |
 | 魚魚棟 · Claude | 台词按说话人上色：取游戏原色不再发灰（アイキス3 sexy アヤメ），颜色页新增「分角色」按作品改色 | — | feat/speaker-colors | 11-28 | 等合并（PR #1359，CI 全绿） |
 | 魚魚棟 · Claude | 注音字体默认 Noto Sans JP，随 MeguLit 自带、优先用自带文件；下拉框标「自带」；旧默认 Meiryo 的老用户迁移过去 | — | claude/bundled-noto-ruby | 11-28 | 在做 |
 | 魚魚棟 · Claude | 修 main：统一提示接管 title 后 el.title 仍能读写提示（#1344 合并后校准按钮测试失败） | — | claude/fix-main-tip-title | 11-28 | 等合并（PR #1350，CI 全绿） |
 | 魚魚棟 · Claude | 选项译文与选项注音可调：译文放「翻译」页，注音放「文字 → 注音设置」，按作品保存 | — | claude/altt-choice-style | 11-28 | 等合并（PR #1363，CI 全绿） |
-| 魚魚棟 · Claude | 点读查词支持口语缩约和方言语尾（舐めんなし、わかんねえ、ええやん）：还原后再查、最长前缀兜底、可选 AI 释义 | — | feat/colloquial-lookup | 11-28 | 等 CI（PR #1339） |
+| 魚魚棟 · Claude | 点读查词支持口语缩约和方言语尾（舐めんなし、わかんねえ、ええやん）：还原后再查、最长前缀兜底、可选 AI 释义 | — | feat/colloquial-lookup | 11-28 | 等合并（PR #1339，CI 全绿） |
+| 魚魚棟 · Claude | 排行榜「新收录单词」与「每周热词」只算实词，人少时 2 人上榜并补「本周候选」 | — | fix/leaderboard-new-words | 11-28 | 等合并（PR #1406，CI 全绿；relay 部署待店主同意） |
+| 魚魚棟 · Claude | 语法动手玩「哪一句是日本人会说的」：干扰项只用形近日文形式，中文释义不进句子，出不了就跳过 | — | fix/natural-sentence-quiz | 11-28 | 等合并（PR #1409，CI 全绿） |
 | 魚魚棟 · Claude | 官网换新图标（点读台词框）：favicon、apple-touch-icon、manifest、结构化数据 logo；启动器图标和字标不动 | — | feat/site-favicon | 11-27 | 等 CI（PR #1333） |
 | 魚魚棟 · Claude | megulit.com 用户中心：网页登录看学习看板、收藏句子（点读查词）、单词本、阅读进度，PWA 离线；桌面端自动同步、「同步到网页」开关和删除云端数据 | — | feat/web-dashboard-relay · feat/web-dashboard-sync · feat/web-dashboard | 11-27 | 三个 PR 已开：服务端 #1329、桌面端 #1330（叠在 #1329 上）、网页 #1332；等 CI 和测试员，部署要等店主批准 |
 | 魚魚棟 · Claude | The Seed「已种下的游戏」太乱、滚动条隐藏：游戏社默认折叠成一行（社名、部数、小封面），只展开第一个；全部展开/收起，搜索自动展开，细滚动条 | — | fix/seed-planted-collapse | 11-27 | CI 绿，待测试员实测（PR #1323） |
 | 魚魚棟 · Claude | 点过按钮后按 Shift 等键冒出黄色焦点框：只在键盘导航时显示，焦点框统一重做 | — | fix/focus-ring | 11-27 | 在做 |
 | 魚魚棟 · Claude | 游戏内新手引导：前 5 次进游戏分步高亮胶囊、Alt+T 菜单、个性化文本、点读、校准，可跳过；顶栏「教程」和 Alt+T 可重看，教程页配图 | — | feat/onboarding-tour | 11-27 | 等 CI，待测试员实测（PR #1324） |
 | 魚魚棟 · Claude | 游戏库标题停在文件夹名（Ozmafia-ozmafia-joki）：改成显示作品名（seed/VNDB），用户改过的名字不覆盖，老数据迁移，原名留作别名 | — | fix/library-title-from-work | 11-27 | 等 CI，待测试员实测（PR #1326） |
+| 魚魚棟 · Claude | 作品和游戏社介绍加来源 Bangumi（Bangumi 优先 / 只用 Bangumi；自动在中文界面先取 Bangumi 的中文简介） | — | feat/bangumi-intro-source | 11-28 | 等 CI（PR #1405） |
 | 魚魚棟 · Claude | 启动画面只留进度条，结尾不再变圆出小脸，改成进度条变形成半透明 MeguLit logo | — | feat/splash-logo | 11-27 | CI 全绿，待测试员实测（PR #1319） |
 | 魚魚棟 · Claude | 启动画面 logo 发灰、卡顿：改实色、由暗到亮入场，绘制移到独立线程 | — | fix/splash-logo-solid | 11-28 | CI 全绿，待测试员实测（PR #1357） |
 | 魚魚棟 · Claude | 首页大卡牌按住往下压时，单击/双击提示框压在卡牌上：提示框挪到卡牌下方，按住、拖动、抽卡时不出现 | — | fix/home-card-press | 11-27 | 等 CI，待测试员实测（PR #1320） |
@@ -72,4 +79,5 @@
 | 魚魚棟 · Claude | 模拟器实验：Switch 模拟器（Eden/Ryubing）里读对话文本 + 换成等长空白隐藏原文、选项照常；样本 一部 Switch 乙游 + 海猫 Switch 版（DS 下… | — | exp/emulator-hook | 11-27 | 暂停：磁盘（E 盘剩余空间不足；adapt 下的 swit… |
 | 魚魚棟 · Claude | 适配 アイキス3 sexy（NeXAS，包装版 + 1.03）：选项被字形隐藏吃掉（hide.glyphAfterLine）、钩子文本带 @ 控制码（source.stripCodes）、选项 OCR 定位（choice.ocrLoose）；写回适配器（光盘安装、GIGA 更新、testbuild、测试清单等） | #1109 | adapt/aikiss3-sexy | 11-27 | PR #1304 等 CI，待测试员实测（测试清单已交测试员） |
 | 魚魚棟 · Claude | MeguLit-Adapter 加 craft 静态分析阶段（craft-anything：开游戏前核对引擎、画字 API、隐藏方式） | — | claude/amazing-aryabhata-a55dfa | 11-28 | 等 CI（PR #1362） |
+| 魚魚棟 · Claude | 主界面关于页致谢改成小窗口片尾滚动，主界面和 Alt+T 共用 web/credits.json | — | feat/about-credits-roll | 11-28 | 等 CI（PR #1412） |
 
