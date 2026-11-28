@@ -11,7 +11,7 @@ const words={zh:{voice:'语音角色',style:'情感与说话风格',refresh:'读
  ja:{voice:'音声キャラクター',style:'感情・話し方',refresh:'導入済みの声を読み込む',preview:'試聴',stop:'試聴を停止',loading:'音声を合成中…',text:'試聴する文章',reset:'めぐみんの詠唱に戻す',empty:'声を読み込むと名前が表示されます。保存済みの選択は保持します',
  unknown:'保存済みの声が見つかりません。選び直してください',recommended:'おすすめの声',male:'男性',female:'女性',download:'ダウンロード',cancel:'取得を中止',installed:'導入済み',failed:'操作を再試行してください',hint:'キャラクターと感情を選ぶと ID は自動で設定されます。試聴文は変更できます',
  size:'各約250 MB。クリックした声だけ取得します'}};
-/* 2026-11-28 (1.4.26 user 析木: 读取已安装声音 only said 操作失败，请重试). A failed engine start comes back as its reason
+/* 2026-11-28 (1.4.26 QQ group report: 读取已安装声音 only said 操作失败，请重试). A failed engine start comes back as its reason
    (core/services.cjs speechError); each one names what happened and what to do next. */
 const reasons={zh:{SPEECH_HUB_UNREACHABLE:'语音引擎启动时连不上 huggingface.co，卡在加载断句模型。请检查网络或代理，再点「读取已安装声音」重试',
  SPEECH_PORT_BUSY:'端口 10101 被其他程序占用，语音引擎起不来。请关闭占用它的程序（或另开的 AivisSpeech），再点「读取已安装声音」',

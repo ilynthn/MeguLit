@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/* 2026-11-28 (1.4.26 user 析木): the guide said the voice pack was ✓ 已就绪, 读取已安装声音 said only 操作失败，请重试 and the
+/* 2026-11-28 (1.4.26 QQ group report): the guide said the voice pack was ✓ 已就绪, 读取已安装声音 said only 操作失败，请重试 and the
    voice list stayed empty. Their speech-engine.log: AivisSpeech asked huggingface.co about the BERT files on every start, the
    host was blocked ("Connection to huggingface.co timed out", 5/5 retries), port 10101 never opened, MeguLit gave up after
    180 s and marked the GPU unusable on the way. These tests drive the real Services start loop with a fake engine process,

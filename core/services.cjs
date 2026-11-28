@@ -16,7 +16,7 @@ function defaultVoiceRateLimited(file,attemptStart){
  }catch{return false;}
  finally{if(fd!==undefined)fs.closeSync(fd);}
 }
-/* 2026-11-28 (1.4.26 user 析木: 语音引擎「已就绪」，读取已安装声音却「操作失败」). AivisSpeech asks huggingface.co about the BERT
+/* 2026-11-28 (1.4.26 QQ group report: 语音引擎「已就绪」，读取已安装声音却「操作失败」). AivisSpeech asks huggingface.co about the BERT
    files on every start, even with the cache complete; where that host is blocked each ask waits 10 s × 5 retries and port 10101
    never opens (speech-engine.log: "Connection to huggingface.co timed out"). The lines below name that, and the other ways a
    start ends, so the settings page can say what happened instead of 操作失败. */

@@ -169,7 +169,7 @@ export function guideText(section, locale = 'zh') {
 /* 2026-11-13 (user: the dictionary guide offered 「一键下载注音词典」 while the dictionary was already installed and the click
    faked a re-download). A download CTA reads the real install state: installed → a quiet ✓ 已就绪 mark, never a button. */
 const READY = T('已就绪', 'Ready', '準備完了');
-/* 2026-11-28 (1.4.26 user 析木: ✓ 已就绪 while the engine could not start and no voice loaded). For the voice pack the settings
+/* 2026-11-28 (1.4.26 QQ group report: ✓ 已就绪 while the engine could not start and no voice loaded). For the voice pack the settings
    page asks the engine itself (speech_status): installed but not answering is not ready. */
 const PACK_STATES = {
   idle: T('已安装，用到时自动启动', 'Installed; starts when needed', 'インストール済み（使うときに起動）'),
