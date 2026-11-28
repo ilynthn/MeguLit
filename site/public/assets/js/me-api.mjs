@@ -7,6 +7,12 @@ import { getMeta, setMeta } from './me-store.mjs';
 export const BASES = ['https://api.megulit.com', 'https://cn-api.megulit.com'];
 const TIMEOUT = 15000;
 const err = (code, status, detail) => Object.assign(new Error(code), { code, status, detail });
+/* 2026-11-29 Cloudflare "error code: 1027": the relay's free daily request quota is spent until 00:00 UTC (08:00
+   Beijing). Both nodes run the same Worker, so neither is tried again before then; the page says DAILY_QUOTA. */
+const QUOTA_KEY = 'megulit-me-quota';
+const nextReset = () => { const d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1) + 60000; };
+const quotaSpent = () => { try { return Number(localStorage.getItem(QUOTA_KEY) || 0) > Date.now(); } catch { return false; } };
+const markQuota = () => { try { localStorage.setItem(QUOTA_KEY, String(nextReset())); } catch { /* private mode */ } };
 
 async function race() {
   const probes = BASES.map(base => fetch(base + '/api/health', { cache: 'no-store', signal: AbortSignal.timeout(6000) }).then(r => { if (!r.ok) throw new Error('down'); return base; }));
@@ -21,6 +27,7 @@ async function base() {
   return chosen;
 }
 export async function request(method, path, body, { auth = true } = {}) {
+  if (quotaSpent()) throw err('DAILY_QUOTA', 429);
   const order = async () => { const first = await base(); return [first, ...BASES.filter(b => b !== first)]; };
   let last = null;
   for (const root of await order()) {
@@ -32,7 +39,9 @@ export async function request(method, path, body, { auth = true } = {}) {
     catch { last = err('NETWORK', 0); chosen = null; continue; }
     const rotated = response.headers.get('x-megulit-token');
     if (auth && rotated && /^mgl_[A-Za-z0-9_-]{43}$/.test(rotated)) await setMeta('session', rotated);
-    let data = {}; try { data = await response.json(); } catch { /* no body */ }
+    let raw = ''; try { raw = await response.text(); } catch { /* no body */ }
+    if (response.status === 429 && /error code:\s*1027(?!\d)/i.test(raw.slice(0, 200))) { markQuota(); throw err('DAILY_QUOTA', 429); }
+    let data = {}; try { data = JSON.parse(raw); } catch { /* no body */ }
     if (response.status === 401 && auth) throw err('UNAUTHORIZED', 401);
     if (!response.ok || data?.ok === false) throw err(typeof data?.error === 'string' ? data.error : 'HTTP_' + response.status, response.status, data);
     chosen = root; try { localStorage.setItem('megulit-me-base', root); } catch { /* none */ }

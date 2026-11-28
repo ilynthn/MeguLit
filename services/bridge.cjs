@@ -637,7 +637,7 @@ async function dispatch(request,runtime=null) {
       case 'torch_months':return await require('./torch-monument.cjs').months(root);
       case 'torch_find':return await require('./torch-monument.cjs').find(root,String(request.name||''));
       case 'torch_me':return await require('./torch-monument.cjs').me(root);
-      case 'leaderboard_view':return await require('./leaderboard.cjs').view(root,db,{period:String(request.period||''),metric:String(request.metric||''),game:typeof request.game==='string'?request.game:'',submit:request.submit===true,tab:String(request.tab||''),week:String(request.week||''),category:String(request.category||'')},{learning:runtime?.learning?.()});
+      case 'leaderboard_view':return await require('./leaderboard.cjs').view(root,db,{period:String(request.period||''),metric:String(request.metric||''),game:typeof request.game==='string'?request.game:'',submit:request.submit===true,tab:String(request.tab||''),week:String(request.week||''),category:String(request.category||'')});
       /* E379 avatars (moderated on the relay) and reports */
       case 'leaderboard_avatar_set':return await require('./leaderboard.cjs').setAvatar(root,String(request.data||''));
       case 'leaderboard_avatar_remove':return await require('./leaderboard.cjs').removeAvatar(root);
@@ -827,6 +827,7 @@ async function dispatch(request,runtime=null) {
       case 'dialogue':return require('./history-view.cjs').dialogue(db);
       case 'update_check':return await require('./update.cjs').check(String(request.current||''),fetch,root);
       case 'update_required_status':return require('./relay-gate.cjs').requiredStatus();
+      case 'relay_quota_status':return require('./relay-gate.cjs').quotaStatus();
       case 'update_apply':return await require('./update.cjs').apply(root,String(request.current||''));
       case 'update_start':{const u=require('./update.cjs');u.start(root,String(request.current||''),fetch,{forceLatest:request.forceLatest===true});return u.status();}
       case 'update_status':return require('./update.cjs').status();

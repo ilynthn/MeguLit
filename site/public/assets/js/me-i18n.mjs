@@ -16,7 +16,7 @@ export const STRINGS = {
     bookmarks: '书签（收藏的句子）', inWordbook: '在单词本里', notInWordbook: '不在单词本', dictOff: '词典还没下载，联网后点一下字就会自动下载并缓存', noEntry: '词典里没有找到这个词',
     menu: '菜单', signOut: '退出登录', signedOutNote: '退出会清掉这台设备上缓存的数据', downloadDict: '下载完整离线词典', dictProgress: '词典 {done} / {total}', dictDone: '词典已下载，离线也能查词', cancel: '取消',
     close: '关闭', loading: '加载中…', error: '出错了：{code}', sessionExpired: '登录已过期，请重新登录', deviceNote: '网页是只读的：想改收藏或删数据，请在桌面端操作',
-    errors: { EMAIL_INVALID: '邮箱格式不对', WRONG_CODE: '验证码不对', CODE_EXPIRED: '验证码已过期，请重新发送', TOO_MANY_TRIES: '错误次数太多，请重新发送', NO_CODE: '请先发送验证码', RATE_LIMITED: '操作太频繁，请稍后再试', WRONG_PASSWORD: '账号或密码不对', EMAIL_NOT_CONFIGURED: '邮件服务还在准备中', EMAIL_SEND_FAILED: '邮件发送失败，请稍后再试', NETWORK: '连不上服务器，请检查网络', other: '操作失败，请稍后再试' },
+    errors: { DAILY_QUOTA: '服务器今日额度已满，北京时间 8 点恢复', EMAIL_INVALID: '邮箱格式不对', WRONG_CODE: '验证码不对', CODE_EXPIRED: '验证码已过期，请重新发送', TOO_MANY_TRIES: '错误次数太多，请重新发送', NO_CODE: '请先发送验证码', RATE_LIMITED: '操作太频繁，请稍后再试', WRONG_PASSWORD: '账号或密码不对', EMAIL_NOT_CONFIGURED: '邮件服务还在准备中', EMAIL_SEND_FAILED: '邮件发送失败，请稍后再试', NETWORK: '连不上服务器，请检查网络', other: '操作失败，请稍后再试' },
     today: '今天', yesterday: '昨天'
   },
   ja: {
@@ -34,7 +34,7 @@ export const STRINGS = {
     bookmarks: 'しおり（保存した文）', inWordbook: '単語帳にあります', notInWordbook: '単語帳にありません', dictOff: '辞書はまだ入っていません。オンラインで文字をタップすると自動で取得・保存されます', noEntry: '辞書に見つかりませんでした',
     menu: 'メニュー', signOut: 'ログアウト', signedOutNote: 'ログアウトすると、この端末に保存したデータを消します', downloadDict: '辞書を全部ダウンロード', dictProgress: '辞書 {done} / {total}', dictDone: '辞書をダウンロードしました。オフラインでも引けます', cancel: 'キャンセル',
     close: '閉じる', loading: '読み込み中…', error: 'エラー: {code}', sessionExpired: 'ログインの期限が切れました。もう一度ログインしてください', deviceNote: 'Web は閲覧専用です。保存内容の変更や削除はデスクトップで行ってください',
-    errors: { EMAIL_INVALID: 'メールアドレスの形式が違います', WRONG_CODE: '確認コードが違います', CODE_EXPIRED: '確認コードの期限が切れました。再送信してください', TOO_MANY_TRIES: '入力ミスが多すぎます。再送信してください', NO_CODE: '先に確認コードを送信してください', RATE_LIMITED: '操作が多すぎます。しばらくしてからお試しください', WRONG_PASSWORD: 'アカウントまたはパスワードが違います', EMAIL_NOT_CONFIGURED: 'メールサービスは準備中です', EMAIL_SEND_FAILED: 'メールを送信できませんでした', NETWORK: 'サーバーに接続できません。ネットワークを確認してください', other: '失敗しました。しばらくしてからお試しください' },
+    errors: { DAILY_QUOTA: 'サーバーの本日の利用上限に達しました。日本時間 9 時（北京時間 8 時）に回復します', EMAIL_INVALID: 'メールアドレスの形式が違います', WRONG_CODE: '確認コードが違います', CODE_EXPIRED: '確認コードの期限が切れました。再送信してください', TOO_MANY_TRIES: '入力ミスが多すぎます。再送信してください', NO_CODE: '先に確認コードを送信してください', RATE_LIMITED: '操作が多すぎます。しばらくしてからお試しください', WRONG_PASSWORD: 'アカウントまたはパスワードが違います', EMAIL_NOT_CONFIGURED: 'メールサービスは準備中です', EMAIL_SEND_FAILED: 'メールを送信できませんでした', NETWORK: 'サーバーに接続できません。ネットワークを確認してください', other: '失敗しました。しばらくしてからお試しください' },
     today: '今日', yesterday: '昨日'
   },
   en: {
@@ -52,7 +52,7 @@ export const STRINGS = {
     bookmarks: 'Bookmarks (saved lines)', inWordbook: 'In your word book', notInWordbook: 'Not in your word book', dictOff: 'The dictionary is not downloaded yet. Tap a character while online and it downloads and stays cached', noEntry: 'Not found in the dictionary',
     menu: 'Menu', signOut: 'Sign out', signedOutNote: 'Signing out clears the data cached on this device', downloadDict: 'Download the full offline dictionary', dictProgress: 'Dictionary {done} / {total}', dictDone: 'Dictionary downloaded, look-ups work offline', cancel: 'Cancel',
     close: 'Close', loading: 'Loading…', error: 'Something went wrong: {code}', sessionExpired: 'Your sign-in expired, please sign in again', deviceNote: 'The web is read-only: change or delete data from the desktop app',
-    errors: { EMAIL_INVALID: 'That email address does not look right', WRONG_CODE: 'Wrong code', CODE_EXPIRED: 'The code expired, send a new one', TOO_MANY_TRIES: 'Too many wrong codes, send a new one', NO_CODE: 'Send a code first', RATE_LIMITED: 'Too many attempts, try again later', WRONG_PASSWORD: 'Wrong account or password', EMAIL_NOT_CONFIGURED: 'Email delivery is not ready yet', EMAIL_SEND_FAILED: 'Could not send the email, try again later', NETWORK: 'Cannot reach the server, check your connection', other: 'Something went wrong, try again later' },
+    errors: { DAILY_QUOTA: 'The server’s daily quota is used up. It comes back at 08:00 Beijing time (00:00 UTC)', EMAIL_INVALID: 'That email address does not look right', WRONG_CODE: 'Wrong code', CODE_EXPIRED: 'The code expired, send a new one', TOO_MANY_TRIES: 'Too many wrong codes, send a new one', NO_CODE: 'Send a code first', RATE_LIMITED: 'Too many attempts, try again later', WRONG_PASSWORD: 'Wrong account or password', EMAIL_NOT_CONFIGURED: 'Email delivery is not ready yet', EMAIL_SEND_FAILED: 'Could not send the email, try again later', NETWORK: 'Cannot reach the server, check your connection', other: 'Something went wrong, try again later' },
     today: 'today', yesterday: 'yesterday'
   }
 };
