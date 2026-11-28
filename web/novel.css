@@ -181,7 +181,7 @@
 .nv-collection-head > span, .nv-collection-card-title small { color: var(--muted, currentColor); }
 .nv-body.nv-flow-active .nv-collection-head { position: absolute; z-index: 8; inset: 2px 0 auto; pointer-events: none; }
 .nv-body.nv-flow-active .nv-collection-head button { pointer-events: auto; }
-.nv-body.nv-flow-active:has(.nv-collection-head) .nv-flow {
+.nv-body.nv-flow-active > .nv-collection-head + .nv-flow {
   --nv-flow-limit: max(0px, calc(var(--nv-flow-room, 70dvh) - 45px));
   margin-top: 45px;
 }
@@ -1324,6 +1324,7 @@ body.nv-reading-body {
   font-size: max(13px, calc(var(--nr-size) * .86));
   font-weight: 400;
   line-height: 1.65;
+  min-block-size: 1lh;
   text-indent: 0;
   overflow-wrap: anywhere;
 }
@@ -1478,8 +1479,10 @@ body.nv-reading-body {
 .nr-layout-choice { justify-self: stretch; }
 .nr-layout-choice[hidden] { display: none; }
 .nr-layout-choice button { flex: 1; min-height: 30px; border-radius: 8px; font-size: 12px; }
-.nr-translation-choice { display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 12px; background: var(--nr-chip); }
-.nr-translation-choice button { flex: 1 1 auto; min-height: 30px; padding: 4px 8px; border-radius: 8px; font-size: 12px; }
+.nr-translation-settings { display: grid; gap: 8px; }
+.nr-translation-settings > span { font-size: 13px; color: var(--nr-muted-ui); }
+.nr-translation-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: 12px; background: var(--nr-chip); }
+.nr-translation-choice button { min-height: 34px; padding: 4px 8px; border-radius: 8px; font-size: 12px; }
 .nr-translation-choice button:hover, .nr-translation-choice button[aria-pressed="true"] { background: var(--nr-pressed); }
 .nr-presets { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 6px; }
 .nr-reader-ui .nr-presets button {
@@ -1495,7 +1498,6 @@ body.nv-reading-body {
   display: flex; align-items: center; justify-content: center; gap: 8px; justify-self: center; min-height: 34px;
   min-width: 52%; padding: 6px 12px; border-radius: 11px; background: var(--nr-chip);
 }
-.nr-reader-ui .nr-custom-back { align-self: center; margin: 7px 14px 13px; }
 .nr-custom svg { width: 15px; height: 15px; }
 
 .novel-reader { overflow: hidden; }

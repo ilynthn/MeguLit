@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { pageTurns, readerIcon, readerLabels, readerMenu, readerSettings } from './novel-reader-controls.js';
+import { pageTurns, readerIcon, readerLabels, readerMenu, readerSettings, readerCustomSettings, translationModes } from './novel-reader-controls.js';
 import { stopReaderTurn, turnReaderPage } from './novel-reader-turn.js';
 import { baseRanges, baseTextHit, passageBetween, selectionBoxes } from './novel-reader-selection.js';
 
@@ -28,6 +28,8 @@ function loadPrefs() {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
     const prefs = { ...DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+    if (prefs.translationSource === 'local') prefs.translationSource = 'edition';
+    if (prefs.translationSource === 'software') prefs.translationSource = 'api';
     if (prefs.dir === 's' || prefs.turn === 'scroll') { prefs.dir = 's'; prefs.turn = 'scroll'; }
     else if (!pageTurns.includes(prefs.turn)) prefs.turn = DEFAULTS.turn;
     return prefs;
@@ -99,7 +101,8 @@ export async function openReader(host, ctx) {
   let panelVersion = 0;
   const translations = new Map();
   let sentenceSegmenter;
-  let machinePending = false;
+  const machinePending = new Set();
+  let reportedTranslationError;
   let appliedLocal;
 
   host.innerHTML = `
@@ -672,7 +675,7 @@ export async function openReader(host, ctx) {
     entry.promise = api('novel_chapter', { id, index }).then(async data => {
       const markup = await chapterMarkup(data);
       entry.ready = { data, markup, rich: null, aligned: null, local: null };
-      if (hasLocalEdition() && prefs.translationSource !== 'software') loadLocal(entry.ready);
+      if (hasLocalEdition() && localMode()) loadLocal(entry.ready);
       return entry.ready;
     }).catch(error => {
       if (chapterCache.get(index) === entry) chapterCache.delete(index);
@@ -817,9 +820,11 @@ export async function openReader(host, ctx) {
       /^(?:zh|chi|zho|cmn)/i.test(edition.languages) && ['epub', 'txt'].includes(edition.format));
   }
 
-  const localMode = () => prefs.translationSource === 'local' || (prefs.translationSource !== 'software' && hasLocalEdition());
+  const translationMode = () => Object.hasOwn(translationModes, prefs.translationSource) ? prefs.translationSource
+    : hasLocalEdition() ? 'edition' : 'google';
+  const localMode = () => translationMode() === 'edition';
   const machineTarget = () => /^(?:zh|chi|zho|cmn)/i.test(bookLang) || (locale === 'en' && !/^(?:en|eng)/i.test(bookLang)) ? 'en' : 'zh';
-  const machineKey = (source, key) => source.idx + ':' + key + ':' + machineTarget();
+  const machineKey = (mode, source, key) => [mode, source.idx, key, machineTarget()].join(':');
 
   function loadLocal(prepared) {
     prepared.local ??= api('novel_bilingual', { id, index: prepared.data.idx }).then(result => {
@@ -830,19 +835,25 @@ export async function openReader(host, ctx) {
 
   function putTranslations(nodes = body.querySelectorAll('[data-nr-sentence]')) {
     if (!prefs.bilingual || !chapter) return false;
-    const useLocal = localMode();
+    const mode = translationMode();
+    const edition = mode === 'edition';
+    const aligned = currentChapter?.aligned;
+    const pendingEdition = edition && hasLocalEdition() && aligned == null;
+    const lang = edition ? 'zh' : machineTarget();
     let dirty = false;
     for (const pair of nodes) {
-      const out = pair.querySelector('.nr-inline-translation');
+      const out = pair.lastElementChild;
       const key = pair.dataset.nrSentence;
-      const text = (useLocal ? currentChapter?.aligned?.[key] : translations.get(machineKey(chapter, key))) || '';
-      if (out.textContent === text) continue;
-      out.textContent = text;
-      out.lang = useLocal ? 'zh' : machineTarget();
-      out.hidden = !text;
+      const text = (edition ? aligned?.[key] : translations.get(machineKey(mode, chapter, key))) || '';
+      // Empty machine slots already occupy a full translation line before pagination.
+      const hidden = edition && !pendingEdition && !text;
+      if (out.textContent === text && out.hidden === hidden && out.lang === lang) continue;
+      if (out.textContent !== text) out.textContent = text;
+      if (out.hidden !== hidden) out.hidden = hidden;
+      if (out.lang !== lang) out.lang = lang;
       dirty = true;
     }
-    appliedLocal = useLocal ? currentChapter?.aligned : null;
+    appliedLocal = edition ? aligned : null;
     return dirty;
   }
 
@@ -898,11 +909,11 @@ export async function openReader(host, ctx) {
     queueProgress();
   }
 
-  function queueTranslationPaint(source, local, apply) {
+  function queueTranslationPaint(source, mode, apply) {
     clearTimeout(translationPaintTimer);
     function commit() {
-      if (!alive || !prefs.bilingual || chapter !== source || localMode() !== local) return;
-      if (performance.now() - lastTurnAt < 380 || turningChapter || drag || lookupCard || panel) {
+      if (!alive || !prefs.bilingual || chapter !== source || translationMode() !== mode) return;
+      if (performance.now() - lastTurnAt < 380 || turningChapter || drag || lookupCard || (panel && panel !== 'custom')) {
         translationPaintTimer = setTimeout(commit, 180);
         return;
       }
@@ -918,7 +929,7 @@ export async function openReader(host, ctx) {
     if (prepared.aligned && appliedLocal === prepared.aligned) return;
     void loadLocal(prepared).then(() => {
       if (!alive || !prefs.bilingual || !localMode() || currentChapter !== prepared || appliedLocal === prepared.aligned) return;
-      queueTranslationPaint(source, true, () => putTranslations());
+      queueTranslationPaint(source, 'edition', () => putTranslations());
     });
   }
 
@@ -929,29 +940,38 @@ export async function openReader(host, ctx) {
   }
 
   async function translateVisible() {
-    if (!prefs.bilingual || !chapter || !alive || localMode() || machinePending) return;
+    const mode = translationMode();
+    if (!prefs.bilingual || !chapter || !alive || mode === 'edition' || machinePending.has(mode)) return;
     const source = chapter;
     const requestedPage = page;
     const nodes = visibleSentences();
     const missing = nodes.map(pair => {
       const key = pair.dataset.nrSentence;
       const [paragraph, start] = key.split(':').map(Number);
-      return { key: machineKey(source, key), text: source.paragraphs[paragraph].slice(start, Number(pair.dataset.nrEnd)).trim() };
-    }).filter(item => item.text && !translations.has(item.key)).slice(0, 40);
+      return { key: machineKey(mode, source, key), text: source.paragraphs[paragraph].slice(start, Number(pair.dataset.nrEnd)).trim() };
+    }).filter(item => item.text && !translations.has(item.key)).slice(0, 6);
     if (!missing.length) return;
-    machinePending = true;
+    machinePending.add(mode);
+    const stillSelected = () => alive && prefs.bilingual && translationMode() === mode;
+    let received = false;
     try {
-      const result = await api('daily_translate', { texts: missing.map(entry => entry.text), target: machineTarget(), reader: 'novel',
+      const result = await api('daily_translate', { texts: missing.map(entry => entry.text), target: machineTarget(), reader: 'novel', mode,
         source: /^(?:zh|chi|zho|cmn)/i.test(bookLang) ? 'zh-CN' : /^(?:en|eng)/i.test(bookLang) ? 'en' : /^(?:ja|jpn)/i.test(bookLang) ? 'ja' : 'auto' });
       const texts = Array.isArray(result) ? result : result?.texts;
       missing.forEach((entry, i) => translations.set(entry.key, String(texts?.[i] || '')));
-      if (alive && prefs.bilingual && chapter === source && !localMode()) {
-        queueTranslationPaint(source, false, () => putTranslations());
+      received = true;
+      if (stillSelected() && chapter === source) {
+        queueTranslationPaint(source, mode, () => putTranslations());
       }
-    } catch { /* The original sentences remain readable if the configured translators are unavailable. */ }
-    finally {
-      machinePending = false;
-      if (alive && prefs.bilingual && (chapter !== source || page !== requestedPage)) scheduleTranslation();
+    } catch (error) {
+      if (stillSelected() && chapter === source && reportedTranslationError !== mode) {
+        reportedTranslationError = mode;
+        toast(String(error?.message || error).includes('NOVEL_TRANSLATION_API_NOT_CONFIGURED')
+          ? labels.apiNotConfigured : labels.translationUnavailable);
+      }
+    } finally {
+      machinePending.delete(mode);
+      if (stillSelected() && (received || chapter !== source || page !== requestedPage)) scheduleTranslation();
     }
   }
 
@@ -1156,8 +1176,27 @@ export async function openReader(host, ctx) {
         }));
       }).catch(error => toast(String(error?.message || error)));
     } else if (kind === 'custom') {
-      panelEl.innerHTML = `<div class="nr-panel-head"><b>${esc(labels.configure)}</b></div><button class="nr-custom nr-custom-back" type="button">${esc(labels.themes)}</button>`;
+      panelEl.innerHTML = readerCustomSettings(translationMode(), labels, esc);
       panelEl.querySelector('.nr-custom-back').onclick = () => drawer('type');
+      const options = panelEl.querySelectorAll('[data-setting="translationSource"]');
+      for (const option of options) {
+        option.onclick = () => {
+          const mode = option.dataset.value;
+          const changed = translationMode() !== mode;
+          prefs.translationSource = mode;
+          savePrefs(prefs);
+          reportedTranslationError = undefined;
+          for (const choice of options) choice.setAttribute('aria-pressed', String(choice === option));
+          if (!prefs.bilingual) return;
+          if (changed) {
+            clearTimeout(translationPaintTimer);
+            withSentenceAnchor(() => putTranslations());
+          }
+          if (mode === 'edition' && !hasLocalEdition()) toast(labels.noLocalTranslation);
+          requestLocalPaint();
+          scheduleTranslation();
+        };
+      }
     } else {
       panelEl.innerHTML = readerSettings(prefs, PAPERS, labels, w, esc);
       bindTypeset();
@@ -1553,13 +1592,6 @@ export async function openReader(host, ctx) {
         panelEl.querySelector('.nr-layout-choice').hidden = prefs.dir !== 'h';
         applyPrefs();
         if (changesMetrics) relayout(anchor);
-        if (setting === 'translationSource' && prefs.bilingual) {
-          clearTimeout(translationPaintTimer);
-          withSentenceAnchor(() => putTranslations());
-          requestLocalPaint();
-          scheduleTranslation();
-          if (value === 'local' && !hasLocalEdition()) toast(labels.noLocalTranslation);
-        }
       };
     }
   }
@@ -1606,6 +1638,7 @@ export async function openReader(host, ctx) {
       clearTimeout(translationPaintTimer);
       requestLocalPaint();
       scheduleTranslation();
+      if (prefs.bilingual && localMode() && !hasLocalEdition()) toast(labels.noLocalTranslation);
       closeMenu();
     } else drawer(action);
   });

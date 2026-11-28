@@ -65,9 +65,22 @@ class Runtime {
  }
  // Community reviews through the user's translation engine, or a local model.
  async reviewTranslate(text,lang,mode){if(this.stopped)throw Error('RUNTIME_STOPPED');const {createTranslationService,resolveOptions}=require('../core/providers.cjs'),{ENGINES}=require('../core/engines.cjs'),preferences=require('../core/preferences.cjs').cleanPreferences(readJSON(path.join(this.folder,'preferences.json')));
-  const useConfigured=mode!=='local'||ENGINES[preferences.provider]?.group==='local',options={...resolveOptions(useConfigured?preferences:{provider:'sakura'}),learnerLanguage:lang==='en'?'en':'zh',contextEnabled:false},translator=this.reviewTranslator??=createTranslationService();
+  const translator=this.reviewTranslator??=createTranslationService();
+  const learnerLanguage=lang==='en'?'en':'zh';
+  const useConfigured=(mode!=='local'&&mode!=='model')||ENGINES[preferences.provider]?.group==='local';
+  const input={...(useConfigured?preferences:{provider:mode==='model'&&learnerLanguage==='en'?'llamacpp':'sakura'}),learnerLanguage,contextEnabled:false};
+  let options=resolveOptions(input);
+  if(mode==='api'||(options.provider!=='google'&&!ENGINES[options.provider]?.keyless)){
+   const {SecretStore}=require('../core/secrets.cjs');for(const[base,key]of new SecretStore(this.folder,undefined,path.join(this.root,'native','KeyVault.exe')).entries())translator.setKey(base,key);
+  }
+  if(mode==='api'){
+   const chain=require('./translation-chain.cjs');
+   const profiles=readJSON(path.join(this.folder,'translation-profiles.json'));
+   options=chain.candidates(input,{hasKey:base=>translator.hasKey(base,''),apiFirst:true,profiles})
+    .find(item=>chain.isApi(item.provider));
+   if(!options)throw Error('NOVEL_TRANSLATION_API_NOT_CONFIGURED');
+  }
   if(lang==='en'&&options.provider==='sakura')throw Error('UNSUPPORTED_TARGET_LANGUAGE');
-  if(options.provider!=='google'&&!ENGINES[options.provider]?.keyless){const {SecretStore}=require('../core/secrets.cjs');for(const[base,key]of new SecretStore(this.folder,undefined,path.join(this.root,'native','KeyVault.exe')).entries())translator.setKey(base,key);}
   await this.local().ensure(options);return translator.translate(text,options);}
  // Synopses: free machine translation first, then the user's own translation engine (Chinese or English).
  metadata(){const {machine}=require('../core/library.cjs');return this.gameEnrichment??=new(require('./game-enrichment.cjs').GameEnrichment)(this.root,this.emit,fetch,async(text,lang)=>(await machine(text,lang))||(lang!=='ja'?String(await this.reviewTranslate(text,lang,'follow').catch(()=>'')||'').trim():''));}

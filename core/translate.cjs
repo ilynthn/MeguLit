@@ -49,7 +49,7 @@ function translateFree(text,{fetcher=fetch,source='auto',target='zh',preferred='
   if(visible&&state.queue.has(pending)){pending.foreground.push(visible);state.foreground.add(pending);}
   return pending.promise;
  }
- const providers=preferred==='microsoft'?['microsoft','google','google-web']:['google','microsoft','google-web'];
+ const providers=preferred==='google-only'?['google','google-web']:preferred==='microsoft'?['microsoft','google','google-web']:['google','microsoft','google-web'];
  let providerIndex=0,limited=false,lastStatus=0;
  const job={foreground:visible?[visible]:[],async step(){
   while(providerIndex<providers.length){

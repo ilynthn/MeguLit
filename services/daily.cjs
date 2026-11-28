@@ -58,6 +58,24 @@ function trLoad(root){if(trCache)return trCache;trCache=new Map();try{for(const 
 function trSave(root){const f=trFile(root);if(!f)return;try{const all=[...trLoad(root)].slice(-3000);fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify(Object.fromEntries(all)));}catch{}}
 async function translateList(root,runtime,list,goal,options={}){
  const source=['ja','zh-CN','en','auto'].includes(options.source)?options.source:'ja';
+ if(['google','model','api'].includes(options.mode)){
+  const mode=options.mode;
+  const free=options.translateFree||require('../core/translate.cjs').translateFree;
+  const texts=[];
+  let error;
+  for(const text of list){
+   try{
+    texts.push(!text.trim()?'':mode==='google'
+      ? await free(text,{source,target:goal,preferred:'google-only',fetcher:options.fetch||fetch})
+      : await runtime.reviewTranslate(text,goal,mode));
+   }catch(e){
+    if(e?.message==='NOVEL_TRANSLATION_API_NOT_CONFIGURED')throw e;
+    error=String(e?.message||e);
+    texts.push('');
+   }
+  }
+  return {texts,engine:mode,error};
+ }
  const namespace=options.followSoftware?'novel|'+source+'|':source==='ja'?'':source+'|';
  const cache=trLoad(root),key=t=>namespace+goal+'|'+t,val=v=>typeof v==='string'?{t:v,e:''}:v||{t:'',e:''},out=list.map(t=>t.trim()?val(cache.get(key(t))).t:'');
  const cachedEngines=new Set(list.map(t=>val(cache.get(key(t))).e).filter(Boolean));
