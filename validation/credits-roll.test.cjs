@@ -150,6 +150,12 @@ test('main About page: credits are a small rolling window from web/credits.json;
   assert.ok(s.rows.some(r=>r[3]==='sugar787878')&&s.rows.some(r=>r[3]==='AivisSpeech'),'new names are in');
   assert.ok(s.centred,'use and name are centred, use above name');
   assert.deepEqual(s.weights,['400'],'names keep the regular weight of the old list');
+  /* owner 2026-11-29 (把tomoyo移动到中间): tomoyo sat alone at the left of the old two-column list; it is a roll entry
+     like the rest, its use and name on the roll's middle axis */
+  const tomoyo=await cdp.evaluate(`(()=>{const roll=document.querySelector('[data-credits]'),rr=roll.getBoundingClientRect(),row=[...roll.querySelectorAll('.ab-cr')].find(r=>r.lastElementChild.textContent==='tomoyo');if(!row)return null;
+   const n=row.lastElementChild.getBoundingClientRect(),u=row.firstElementChild.getBoundingClientRect(),axis=rr.left+rr.width/2;return {inRoll:roll.contains(row),name:Math.abs((n.left+n.right)/2-axis),use:Math.abs((u.left+u.right)/2-axis),weight:getComputedStyle(row.lastElementChild).fontWeight,outside:[...document.querySelectorAll('.ab-thanks *')].some(e=>!roll.contains(e)&&e!==roll&&/tomoyo/i.test(e.textContent)&&!e.contains(roll))};})()`);
+  assert.ok(tomoyo&&tomoyo.inRoll&&!tomoyo.outside,'tomoyo is in the roll, not on its own beside it');
+  assert.ok(tomoyo.name<1&&tomoyo.use<1,'tomoyo is on the roll axis: '+JSON.stringify(tomoyo));assert.equal(tomoyo.weight,'400');
   assert.ok(s.height>=160&&s.height<=200&&s.max>1000,'a 160-200 px window onto the list: '+s.height);
   assert.match(String(s.mask),/linear-gradient/,'edges fade');
   const t0=s.top;await sleep(1600);s=await cdp.evaluate(MAIN_STATE);assert.ok(s.top>t0+10,'rolls upward by itself: '+t0+' -> '+s.top);
