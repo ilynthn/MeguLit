@@ -1,7 +1,7 @@
 const words={
- zh:{expand:'展开',collapse:'收起',source:'简介来源',moegirl:'萌娘百科',missing:'这个来源暂无作品简介'},
- ja:{expand:'続きを読む',collapse:'閉じる',source:'あらすじの出典',moegirl:'萌娘百科',missing:'この出典のあらすじはありません'},
- en:{expand:'Read more',collapse:'Collapse',source:'Synopsis source',moegirl:'Moegirlpedia',missing:'No synopsis available from this source'},
+ zh:{expand:'展开',collapse:'收起',source:'简介来源',moegirl:'萌娘百科',bangumi:'Bangumi',missing:'这个来源暂无作品简介'},
+ ja:{expand:'続きを読む',collapse:'閉じる',source:'あらすじの出典',moegirl:'萌娘百科',bangumi:'Bangumi',missing:'この出典のあらすじはありません'},
+ en:{expand:'Read more',collapse:'Collapse',source:'Synopsis source',moegirl:'Moegirlpedia',bangumi:'Bangumi',missing:'No synopsis available from this source'},
 };
 export function synopsisContentHTML(synopsis,{locale,esc,placeholder,expanded=false}){
  const w=words[locale];
@@ -9,7 +9,7 @@ export function synopsisContentHTML(synopsis,{locale,esc,placeholder,expanded=fa
 }
 export function synopsisHTML({locale,esc,icon,title,refresh,source,actions=true}){
  const w=words[locale];
- return `<section class="panel synopsis-panel"><div class="section-header"><h2 class="panel-title">${title}</h2>${actions?`<div class="synopsis-actions"><select data-synopsis-source aria-label="${esc(w.source)}"><option value="moegirl"${source==='moegirl'?' selected':''}>${w.moegirl}</option><option value="vndb"${source==='vndb'?' selected':''}>VNDB</option></select><button type="button" class="text-button" data-refresh>${icon('refresh')}${refresh}</button></div>`:''}</div><div class="synopsis-content" aria-live="polite"></div></section>`;
+ return `<section class="panel synopsis-panel"><div class="section-header"><h2 class="panel-title">${title}</h2>${actions?`<div class="synopsis-actions"><select data-synopsis-source aria-label="${esc(w.source)}"><option value="bangumi"${source==='bangumi'?' selected':''}>${w.bangumi}</option><option value="moegirl"${source==='moegirl'?' selected':''}>${w.moegirl}</option><option value="vndb"${source==='vndb'?' selected':''}>VNDB</option></select><button type="button" class="text-button" data-refresh>${icon('refresh')}${refresh}</button></div>`:''}</div><div class="synopsis-content" aria-live="polite"></div></section>`;
 }
 export const missingSynopsis=locale=>words[locale].missing;
 /* E266: the synopsis opens and folds with a height animation, and the toggle only appears when the text is actually

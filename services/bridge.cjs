@@ -598,7 +598,7 @@ async function dispatch(request,runtime=null) {
       case 'seed_catalog_engines':return await require('./seed-catalog.cjs').engineCounts(root);
       case 'seed_catalog_engine':return await require('./seed-catalog.cjs').enginePage(root,request.engine,request.page);
       case 'seed_logo':return await require('./seed-logo.cjs').logo(root,String(request.pid||''));
-      case 'seed_producer':return await require('./seed-producer.cjs').producer(root,String(request.pid||''),{moegirl:require('./info-source.cjs').forRoot(root,String(request.locale||''))});
+      case 'seed_producer':return await require('./seed-producer.cjs').producer(root,String(request.pid||''),{order:require('./info-source.cjs').forRoot(root,String(request.locale||''))});
       case 'seed_producer_open':return require('./seed-producer.cjs').open(root,String(request.pid||''),String(request.kind||''));
       case 'seed_cover':return await require('./seed-catalog.cjs').cover(root,String(request.vndb||''),{nsfw:request.nsfw===true,resolveMissing:request.resolveMissing===true});
       case 'yui_consent':return {enabled:require('./yui.cjs').enabled(root)};
