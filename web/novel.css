@@ -1314,12 +1314,11 @@ body.nv-reading-body {
 .novel-reader .nr-body { font-weight: var(--nr-weight, 400); transition: none; }
 .novel-reader button:focus-visible { outline: 2px solid var(--nr-focus, #a66a43); outline-offset: -2px; }
 .nr-book-search input:focus-visible { outline: none; }
-.nr-inline-translation { display: none; }
-.novel-reader[data-bilingual="true"] .nr-sentence-pair { display: contents; }
-.novel-reader[data-bilingual="true"] .nr-inline-translation:not([hidden]) {
+.nr-paragraph-translation { display: none; }
+.novel-reader[data-bilingual="true"] .nr-paragraph-translation:not([hidden]) {
   display: block;
-  margin: .12em 0 .55em;
-  padding-inline-start: 1em;
+  margin-block-end: .85em;
+  padding-inline-start: 2em;
   color: color-mix(in srgb, var(--nr-ink) 73%, var(--nr-paper));
   font-size: max(13px, calc(var(--nr-size) * .86));
   font-weight: 400;

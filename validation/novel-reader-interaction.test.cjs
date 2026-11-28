@@ -15,6 +15,7 @@ const edgeInstalled = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ].some(file => file && fs.existsSync(file));
 const html = '<!doctype html><meta charset="utf-8"><link data-novel-style rel="stylesheet" href="/novel.css"><style>body{margin:0}#host{height:100vh}</style><div id="host"></div><main id="main"></main><script type="module" src="/test.mjs"></script>';
+const jpParagraphs = ['夕凪図書館に着いた。時計塔へ向かう途中で見えた屋根の向こうには、細い川と石畳の道が続き、遠くの坂の上には朝日に染まった家々が並んでいた。', '橋を渡った。'];
 const js = [
  "import {openReader} from '/novel-reader.js'; import {paintDiscoveryDetail,discoverMessages} from '/novel-discover.js'; import {mountNovel} from '/novel-page.js';",
  "const h=document.getElementById('host');",
@@ -22,7 +23,7 @@ const js = [
  "const paragraphs=Array.from({length:50},(_,i)=>'Paragraph '+i+'. '+'A short sentence of test reading material. '.repeat(10));",
  "const calls=[];window.calls=calls; let illustrated=false; let acceptChapter; let acceptImage; const waitingImages=new Map();",
  "window.releaseChapter=()=>acceptChapter(); window.releaseImage=(name='fixture.png',color='#173458')=>{const canvas=document.createElement('canvas');canvas.width=2400;canvas.height=3200;const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,2400,3200);waitingImages.get(name)({mime:'image/png',data:canvas.toDataURL().split(',')[1]});};",
- "const api=async (action,args)=>{calls.push([action,args]);switch(action){case 'novel_detail':return illustrated==='bilingual'?{book:{languages:'ja',chapterCount:1},editions:[{languages:'zh',format:'epub'}]}:{book:{languages:'en',chapterCount:3}};case 'novel_bookmarks':return [];case 'novel_chapter':if(illustrated===true&&args.index===1)await new Promise(resolve=>acceptChapter=resolve);return {idx:args.index,paragraphs:illustrated==='bilingual'?['夕凪図書館に着いた。時計塔へ向かった。']:(illustrated==='adjacent'?[]:illustrated&&args.index===0?paragraphs.slice(0,1):paragraphs).map(text=>'CH'+args.index+' '+text),images:illustrated==='adjacent'&&args.index===0?[{after:0,file:'first.png'},{after:0,file:'second.png'}]:illustrated===true&&args.index===1?[{after:0,file:'fixture.png'}]:[]};case 'novel_bilingual':return {available:true,sentences:{'0:0':'到了夕凪图书馆。','0:10':'向时钟塔走去。'}};case 'daily_translate':if(args.mode==='google') await new Promise(resolve=>{window.releaseTranslation=resolve;});return {texts:args.texts.map(text=>args.mode+' '+text)};case 'novel_image':return new Promise(resolve=>{acceptImage=resolve;waitingImages.set(args.name,resolve);});default:return {};}};",
+ "const api=async (action,args)=>{calls.push([action,args]);switch(action){case 'novel_detail':return illustrated==='bilingual'?{book:{languages:'ja',chapterCount:1},editions:[{languages:'zh',format:'epub'}]}:{book:{languages:'en',chapterCount:3}};case 'novel_bookmarks':return [];case 'novel_chapter':if(illustrated===true&&args.index===1)await new Promise(resolve=>acceptChapter=resolve);return {idx:args.index,paragraphs:illustrated==='bilingual'?"+JSON.stringify(jpParagraphs)+":(illustrated==='adjacent'?[]:illustrated&&args.index===0?paragraphs.slice(0,1):paragraphs).map(text=>'CH'+args.index+' '+text),images:illustrated==='adjacent'&&args.index===0?[{after:0,file:'first.png'},{after:0,file:'second.png'}]:illustrated===true&&args.index===1?[{after:0,file:'fixture.png'}]:[]};case 'novel_bilingual':return {available:true,sentences:{'0:10':'向时钟塔走去。','0:0':'到了夕凪图书馆。','1:0':'过了桥。'}};case 'daily_translate':if(args.mode==='google') await new Promise(resolve=>{window.releaseTranslation=resolve;});return {texts:args.texts.map(text=>args.mode+' '+text)};case 'novel_image':return new Promise(resolve=>{acceptImage=resolve;waitingImages.set(args.name,resolve);});default:return {};}};",
  "window.mount=async (turn,hasIllustration=false)=>{window.reader?.exit();illustrated=hasIllustration;acceptChapter=acceptImage=null;waitingImages.clear();localStorage.setItem('megulit-novel-reader',JSON.stringify({turn,spread:'single'}));window.reader=await openReader(h,{api,esc,w,id:'fixture',toast:message=>{window.err=message},onExit:()=>h.replaceChildren()});};",
  "window.turnState=()=>{const r=h.querySelector('.novel-reader'),b=r.querySelector('[data-nr-body]');return {x:Number(/-?[0-9.]+/.exec(b.style.transform)?.[0]||0),active:r.getAnimations({subtree:true}).length,first:b.querySelector('p')?.textContent.slice(0,3),paper:getComputedStyle(r).backgroundColor,ink:getComputedStyle(r).color}};",
  "window.wheel=(dy)=>h.querySelector('[data-nr-stage]').dispatchEvent(new WheelEvent('wheel',{deltaY:dy,bubbles:true,cancelable:true}));",
@@ -168,10 +169,23 @@ test('文库点读、选句、Escape 和三种翻页模式', { skip: !edgeInstal
   const settled = await samplePaint();
   assert.deepEqual(settled,[23,52,88],'the final painted page contains the original blue illustration');
   assert(blended[0]>settled[0]+35 && blended[2]<200,'the captured in-between frame blends the outgoing orange illustration with the blue destination');
-  await browser.evaluate('(async()=>{await mount("slide","bilingual");calls.length=0;document.querySelector("[data-reader-action=language]").click();return true})()');
-  const pairs = 'Array.from(document.querySelectorAll(".nr-sentence-pair")).map(pair=>[pair.firstElementChild.textContent,pair.lastElementChild.textContent])';
+  await browser.evaluate('(async()=>{await mount("slide","bilingual");calls.length=0;return true})()');
+  const sourceLayout = `(()=>{
+    const paragraph=document.querySelector('.nr-body p');
+    const box=paragraph.getBoundingClientRect();
+    return {indent:getComputedStyle(paragraph).textIndent,wordBoxes:[...paragraph.querySelectorAll('.nr-word')].map(word=>{
+      const rect=word.getBoundingClientRect();
+      return [rect.x-box.x,rect.y-box.y,rect.width,rect.height];
+    })};
+  })()`;
+  const originalLayout = await browser.evaluate(sourceLayout);
+  assert(new Set(originalLayout.wordBoxes.map(([, y]) => y)).size > 1, 'the source paragraph wraps naturally');
+  await browser.evaluate('document.querySelector("[data-reader-action=language]").click()');
+  const pairs = 'Array.from(document.querySelectorAll(".nr-body p[data-i]")).map(para=>[para.textContent,para.nextElementSibling?.closest("[data-nr-translation]")?.textContent])';
   for(let i=0;i<40&&!(await browser.evaluate(pairs))[0]?.[1];i++) await sleep(20);
-  assert.deepEqual(await browser.evaluate(pairs),[['夕凪図書館に着いた。','到了夕凪图书馆。'],['時計塔へ向かった。','向时钟塔走去。']]);
+  assert.deepEqual(await browser.evaluate(pairs), [[jpParagraphs[0],'到了夕凪图书馆。向时钟塔走去。'],[jpParagraphs[1],'过了桥。']],
+    'each original paragraph keeps all its sentences and is followed by a single combined translation');
+  assert.deepEqual(await browser.evaluate(sourceLayout), originalLayout, 'bilingual mode preserves the original line breaks and indentation');
   assert.equal(await browser.evaluate('Boolean(document.querySelector(".nr-translation"))'),false);
   assert.equal(await browser.evaluate('calls.filter(item=>item[0]==="daily_translate").length'),0,'offline mode did not call the software translator');
   await browser.evaluate('key("a");document.querySelector("[data-setting=custom]").click()');
@@ -179,20 +193,20 @@ test('文库点读、选句、Escape 和三种翻页模式', { skip: !edgeInstal
     ['edition','google','model','api'], 'custom settings show all four translation modes');
   const selectTranslation = mode => browser.evaluate(`document.querySelector('[data-setting=translationSource][data-value="${mode}"]').click()`);
   await selectTranslation('google');
-  assert(await browser.evaluate('Array.from(document.querySelectorAll(".nr-inline-translation")).every(span=>!span.hidden&&!span.textContent&&span.clientHeight>0)'),
-    'waiting translations already occupy one line each');
+  assert(await browser.evaluate('Array.from(document.querySelectorAll(".nr-paragraph-translation")).every(span=>!span.hidden&&!span.textContent&&span.clientHeight>0)'),
+    'waiting translations already occupy one line per source paragraph');
   const callsFor = mode => browser.evaluate(`calls.filter(([action,args])=>action==='daily_translate'&&args.mode==='${mode}').at(-1)?.[1].texts`);
   for(let i=0;i<60&&!await callsFor('google');i++) await sleep(25);
-  assert.deepEqual(await callsFor('google'),['夕凪図書館に着いた。','時計塔へ向かった。']);
+  assert.deepEqual(await callsFor('google'),jpParagraphs);
   for(const mode of ['model','api']){
     await selectTranslation(mode);
     for(let i=0;i<60&&!(await browser.evaluate(pairs))[0]?.[1]?.startsWith(mode+' ');i++) await sleep(25);
-    assert.deepEqual(await callsFor(mode),['夕凪図書館に着いた。','時計塔へ向かった。']);
-    assert.deepEqual((await browser.evaluate(pairs)).map(pair=>pair[1]),[mode+' 夕凪図書館に着いた。',mode+' 時計塔へ向かった。']);
+    assert.deepEqual(await callsFor(mode),jpParagraphs);
+    assert.deepEqual((await browser.evaluate(pairs)).map(pair=>pair[1]),jpParagraphs.map(text=>mode+' '+text));
   }
   await browser.evaluate('releaseTranslation()');
   await sleep(160);
-  assert.equal((await browser.evaluate(pairs))[0][1], 'api 夕凪図書館に着いた。', 'a late result cannot overwrite the selected mode');
+  assert.equal((await browser.evaluate(pairs))[0][1], 'api '+jpParagraphs[0], 'a late result cannot overwrite the selected mode');
   await browser.evaluate('key("Escape")');
   const download = await browser.evaluate(`(async()=>{
     versionFixture();

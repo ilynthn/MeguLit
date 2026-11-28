@@ -96,11 +96,10 @@ export async function openReader(host, ctx) {
   const chapterCache = new Map();
   let translateTimer;
   let translationPaintTimer;
-  const sentencePages = new Map();
+  const paragraphPages = new Map();
   let queryTimer;
   let panelVersion = 0;
   const translations = new Map();
-  let sentenceSegmenter;
   const machinePending = new Set();
   let reportedTranslationError;
   let appliedLocal;
@@ -169,7 +168,7 @@ export async function openReader(host, ctx) {
     const mode = prefs.dir === 's' ? 'scroll' : prefs.dir === 'v' ? 'vscroll' : 'paged';
     root.dataset.mode = mode;
     stopReaderTurn(root);
-    sentencePages.clear();
+    paragraphPages.clear();
     figureObserver?.disconnect();
     figuresByPage = new Map();
     pictureWidth = 0;
@@ -376,7 +375,7 @@ export async function openReader(host, ctx) {
   /* ---------------- 章节 ---------------- */
 
   /* 段落文字 + 注音 span → HTML；span 是码点下标，用 [...text] 切 */
-  function paragraphHtml(text, spans, words, fromChar = 0, fromUnit = 0) {
+  function paragraphHtml(text, spans, words) {
     const characters = [...text];
     const annotations = Array.isArray(spans) ? spans : [];
     if (!words?.length) {
@@ -412,7 +411,7 @@ export async function openReader(host, ctx) {
       const baseStart = units + before.length;
       const baseEnd = baseStart + word.length;
       html += textHtml(cursor, start);
-      html += `<span class="nr-word" data-word-from="${fromChar + start}" data-word-to="${fromChar + end}" data-base-start="${fromUnit + baseStart}" data-base-end="${fromUnit + baseEnd}">${textHtml(start, end)}</span>`;
+      html += `<span class="nr-word" data-word-from="${start}" data-word-to="${end}" data-base-start="${baseStart}" data-base-end="${baseEnd}">${textHtml(start, end)}</span>`;
       units = baseEnd;
       cursor = end;
     }
@@ -585,23 +584,6 @@ export async function openReader(host, ctx) {
     });
   }
 
-  function paragraphSentences(text, spans, words, paragraph) {
-    sentenceSegmenter ??= new Intl.Segmenter(/^zh|^(?:chi|zho)/i.test(bookLang) ? 'zh' :
-      /^(?:en|eng)/i.test(bookLang) ? 'en' : 'ja', { granularity: 'sentence' });
-    const parts = [];
-    let fromChar = 0;
-    for (const { segment, index } of sentenceSegmenter.segment(text)) {
-      const end = fromChar + [...segment].length;
-      const within = list => list?.filter(item => item[0] >= fromChar && item[1] <= end)
-        .map(([start, stop, ...rest]) => [start - fromChar, stop - fromChar, ...rest]);
-      const original = paragraphHtml(segment, within(spans), within(words), fromChar, index);
-      const key = paragraph + ':' + index;
-      parts.push(`<span class="nr-sentence-pair" data-nr-sentence="${key}" data-nr-end="${index + segment.length}"><span class="nr-sentence-text">${original}</span><span class="nr-inline-translation" hidden></span></span>`);
-      fromChar = end;
-    }
-    return parts.join('');
-  }
-
   async function chapterMarkup(data, annotations) {
     const spans = shouldRuby() ? annotations?.paragraphs : null;
     const figures = new Map();
@@ -617,7 +599,9 @@ export async function openReader(host, ctx) {
     for (const [index, text] of data.paragraphs.entries()) {
       if (!alive) break;
       if (text.trim()) {
-        pieces.push(`<p data-off="${offset}" data-i="${index}">${paragraphSentences(text, spans?.[index], annotations?.words?.[index], index)}</p>`);
+        const original = paragraphHtml(text, spans?.[index], annotations?.words?.[index]);
+        pieces.push(`<p data-off="${offset}" data-i="${index}">${original}</p>`,
+          `<div class="nr-paragraph-translation" data-nr-translation="${index}" hidden></div>`);
         offset += text.length;
       }
       const after = figures.get(index + 1);
@@ -635,7 +619,7 @@ export async function openReader(host, ctx) {
     attachedPictures.clear();
     const template = document.createElement('template');
     template.innerHTML = markup;
-    if (prefs.bilingual) putTranslations(template.content.querySelectorAll('[data-nr-sentence]'));
+    if (prefs.bilingual) putTranslations(template.content.querySelectorAll('[data-nr-translation]'));
     body.replaceChildren(template.content);
     body.scrollTop = 0;
     layout();
@@ -828,12 +812,19 @@ export async function openReader(host, ctx) {
 
   function loadLocal(prepared) {
     prepared.local ??= api('novel_bilingual', { id, index: prepared.data.idx }).then(result => {
-      prepared.aligned = result?.sentences || {};
-    }).catch(() => { prepared.aligned = {}; });
+      const groups = new Map();
+      for (const [key, text] of Object.entries(result?.sentences || {})) {
+        const [index, start] = key.split(':').map(Number);
+        if (!groups.has(index)) groups.set(index, []);
+        groups.get(index).push([start, text]);
+      }
+      prepared.aligned = new Map([...groups].map(([index, parts]) =>
+        [index, parts.sort((a, b) => a[0] - b[0]).map(([, text]) => text).join('')]));
+    }).catch(() => { prepared.aligned = new Map(); });
     return prepared.local;
   }
 
-  function putTranslations(nodes = body.querySelectorAll('[data-nr-sentence]')) {
+  function putTranslations(nodes = body.querySelectorAll('[data-nr-translation]')) {
     if (!prefs.bilingual || !chapter) return false;
     const mode = translationMode();
     const edition = mode === 'edition';
@@ -841,10 +832,9 @@ export async function openReader(host, ctx) {
     const pendingEdition = edition && hasLocalEdition() && aligned == null;
     const lang = edition ? 'zh' : machineTarget();
     let dirty = false;
-    for (const pair of nodes) {
-      const out = pair.lastElementChild;
-      const key = pair.dataset.nrSentence;
-      const text = (edition ? aligned?.[key] : translations.get(machineKey(mode, chapter, key))) || '';
+    for (const out of nodes) {
+      const index = Number(out.dataset.nrTranslation);
+      const text = (edition ? aligned?.get(index) : translations.get(machineKey(mode, chapter, index))) || '';
       // Empty machine slots already occupy a full translation line before pagination.
       const hidden = edition && !pendingEdition && !text;
       if (out.textContent === text && out.hidden === hidden && out.lang === lang) continue;
@@ -867,35 +857,41 @@ export async function openReader(host, ctx) {
     return first;
   }
 
-  function visibleSentences() {
-    if (prefs.dir === 'h' && sentencePages.has(page)) return sentencePages.get(page);
+  function visibleInReader() {
     const view = viewport.getBoundingClientRect();
     const frame = stage.getBoundingClientRect();
+    return rect => rect.right > view.left + 2 && rect.left < view.right - 2 &&
+      rect.bottom > frame.top + 2 && rect.top < frame.bottom - 2;
+  }
+
+  function visibleParagraphs() {
+    if (prefs.dir === 'h' && paragraphPages.has(page)) return paragraphPages.get(page);
+    const inView = visibleInReader();
     const candidates = prefs.dir === 'h' ? paras.slice(Math.max(0, pageBoundary(page) - 1), pageBoundary(page + 1)) : paras;
-    const visible = candidates.flatMap(paragraph =>
-      [...paragraph.querySelectorAll('[data-nr-sentence]')].filter(pair =>
-        [...pair.firstElementChild.getClientRects()].some(rect => rect.right > view.left + 2 && rect.left < view.right - 2 &&
-          rect.bottom > frame.top + 2 && rect.top < frame.bottom - 2)));
-    if (prefs.dir === 'h') sentencePages.set(page, visible);
+    const visible = candidates.flatMap(paragraph => {
+      const translation = paragraph.nextElementSibling;
+      const target = [...paragraph.getClientRects()].some(inView) ? paragraph :
+        !translation.hidden && [...translation.getClientRects()].some(inView) ? translation : null;
+      return target ? [{ paragraph, target }] : [];
+    });
+    if (prefs.dir === 'h') paragraphPages.set(page, visible);
     return visible;
   }
 
-  function withSentenceAnchor(update, force = false) {
+  function withParagraphAnchor(update, force = false) {
     if (!chapter) return;
     const previousPage = page;
-    const visible = visibleSentences();
-    const target = visible[0]?.firstElementChild || figuresByPage.get(page)?.[0];
-    const view = viewport.getBoundingClientRect();
+    const visible = visibleParagraphs()[0];
+    const target = visible?.target || figuresByPage.get(page)?.[0];
     const before = target && [...target.getClientRects()];
-    const stageTop = stage.getBoundingClientRect().top;
-    const fragment = before?.findIndex(rect => rect.right > view.left + 2 && rect.left < view.right - 2 &&
-      rect.bottom > stageTop + 2);
-    const screenTop = before?.[Math.max(0, fragment ?? 0)]?.top;
+    const fragment = Math.max(0, before?.findIndex(visibleInReader()) ?? 0);
+    const screenTop = before?.[fragment]?.top;
     const offset = offsetOfPage();
     if (!update() && !force) return;
     layout();
     const rectangles = target?.getClientRects();
-    const frame = rectangles?.[Math.max(0, Math.min((rectangles?.length || 1) - 1, fragment ?? 0))];
+    const frame = rectangles?.length ? rectangles[Math.min(rectangles.length - 1, fragment)]
+      : Array.from(visible?.paragraph.getClientRects() || []).at(-1);
     if (prefs.dir === 'h') {
       const index = frame ? Math.floor((frame.left - body.getBoundingClientRect().left) / stride + .001)
         : paras.length ? pageOfOffset(offset) : previousPage;
@@ -917,7 +913,7 @@ export async function openReader(host, ctx) {
         translationPaintTimer = setTimeout(commit, 180);
         return;
       }
-      withSentenceAnchor(apply);
+      withParagraphAnchor(apply);
     }
     translationPaintTimer = setTimeout(commit, 90);
   }
@@ -944,11 +940,9 @@ export async function openReader(host, ctx) {
     if (!prefs.bilingual || !chapter || !alive || mode === 'edition' || machinePending.has(mode)) return;
     const source = chapter;
     const requestedPage = page;
-    const nodes = visibleSentences();
-    const missing = nodes.map(pair => {
-      const key = pair.dataset.nrSentence;
-      const [paragraph, start] = key.split(':').map(Number);
-      return { key: machineKey(mode, source, key), text: source.paragraphs[paragraph].slice(start, Number(pair.dataset.nrEnd)).trim() };
+    const missing = visibleParagraphs().map(({ paragraph }) => {
+      const index = Number(paragraph.dataset.i);
+      return { key: machineKey(mode, source, index), text: source.paragraphs[index].trim() };
     }).filter(item => item.text && !translations.has(item.key)).slice(0, 6);
     if (!missing.length) return;
     machinePending.add(mode);
@@ -1190,7 +1184,7 @@ export async function openReader(host, ctx) {
           if (!prefs.bilingual) return;
           if (changed) {
             clearTimeout(translationPaintTimer);
-            withSentenceAnchor(() => putTranslations());
+            withParagraphAnchor(() => putTranslations());
           }
           if (mode === 'edition' && !hasLocalEdition()) toast(labels.noLocalTranslation);
           requestLocalPaint();
@@ -1630,7 +1624,7 @@ export async function openReader(host, ctx) {
       closeMenu();
       setFullscreen(!fullscreen);
     } else if (action === 'language') {
-      withSentenceAnchor(() => {
+      withParagraphAnchor(() => {
         prefs.bilingual = !prefs.bilingual;
         applyPrefs();
         putTranslations();
